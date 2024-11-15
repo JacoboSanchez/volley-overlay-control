@@ -138,7 +138,7 @@ class CustomizationPage:
                         ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
                               on_change=lambda e: self.customization.setVPos(f'{e.value}'))
                   if self.configuration.output != None:
-                        ui.link(Messages.OVERLAY_LINK, self.configuration.output)
+                        ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
             with ui.row().classes('w-full'):
                   ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
                   ui.space()
