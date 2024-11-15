@@ -1,5 +1,6 @@
 import requests
 import copy
+import threading
 from state import State
 
 class Backend:
@@ -10,7 +11,10 @@ class Backend:
         to_save = copy.copy(current_model)
         if (simple):
             to_save = State.simplifyModel(to_save, self)
-        self.saveJSONState(to_save)
+        if self.conf.multithread:
+            threading.Thread(target=self.saveJSONState, args=(to_save,)).start()
+        else:
+            self.saveJSONState(to_save)
         
     def reduceGamesToOne(self):
         self.saveJSONState({State.T1SET5_INT:'0', State.T2SET5_INT:'0' })
@@ -57,10 +61,10 @@ class Backend:
             return response.json()['payload']
 
     def reset(self, state):
-        return self.saveModel(state.getResetModel(), False)
+        self.saveModel(state.getResetModel(), False)
     
     def save(self, state, simple):
-        return self.saveModel(state.getCurrentModel(), simple)
+        self.saveModel(state.getCurrentModel(), simple)
 
     def saveCustomization(self, customization):
         return self 
