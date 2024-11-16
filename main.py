@@ -36,6 +36,13 @@ class GUI:
 
 
     def init(self):
+        match conf.darkMode:
+            case 'on':
+                ui.dark_mode(True)
+            case 'off':
+                ui.dark_mode(False)
+            case 'auto':
+                ui.dark_mode()
         #########################################
         ui.add_head_html('''
             <style type="text/tailwindcss">

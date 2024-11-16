@@ -7,5 +7,6 @@ class Conf:
         self.onair = os.environ.get('UNO_OVERLAY_AIR_ID', None)
         self.port = int(os.environ.get('APP_PORT', 8080))
         self.title= os.environ.get('APP_TITLE', 'Scoreboard')
+        self.darkMode = os.environ.get('APP_DARK_MODE', 'auto')
         self.multithread = os.environ.get('ENABLE_MULTITHREAD', 'true').lower() in ("yes", "true", "t", "1")
 

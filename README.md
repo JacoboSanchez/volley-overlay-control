@@ -13,8 +13,9 @@ Pre-requisites:
 Configuration:
 --------------
 You can configure the behavior using some environment variables:
-* _APP_PORT (Optional)_: The TCP porrt where the scoreboard will be listening. Default value is _8080_
+* _APP_PORT (Optional)_: The TCP port where the scoreboard will be listening. Default value is _8080_
 * _APP_TITLE (Optional)_: The title of the web page. Default value is _Scoreboard_
+* _APP_DARK_MODE (Optional)_: To specify the dark mode configuration, can be _on_, _off_ or _auto_. Default value is _auto_
 * _APP_DEFAULT_LOGO (Optional)_: Image used for no predefined teams. Default is _https://cdn-icons-png.flaticon.com/512/7788/7788863.png_
 * _APP_TEAMS (Optional)_: List of predefined teams that can be selected from the configuration. By default only Local and Visitor are defined. The value is a JSON with a map of teams. Key is the name and should contain "icon", "color" and "text_color". Example:
 <pre lang="json">

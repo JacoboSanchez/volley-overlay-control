@@ -105,6 +105,13 @@ class CustomizationPage:
             
 
       def init(self):
+            match self.configuration.darkMode:
+                  case 'on':
+                        ui.dark_mode(True)
+                  case 'off':
+                        ui.dark_mode(False)
+                  case 'auto':
+                        ui.dark_mode()
             teamNames = list(Customization.getPredefinedTeams())
             if self.state.getTeamName(1) not in teamNames:
                   teamNames.append(self.state.getTeamName(1))
