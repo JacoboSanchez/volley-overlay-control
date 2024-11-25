@@ -8,6 +8,8 @@ class Backend:
         self.conf = config
 
     def saveModel(self, current_model, simple):
+        if (self.conf.debug):
+            print('Saving model start')
         to_save = copy.copy(current_model)
         if (simple):
             to_save = State.simplifyModel(to_save, self)
@@ -15,6 +17,8 @@ class Backend:
             threading.Thread(target=self.saveJSONState, args=(to_save,)).start()
         else:
             self.saveJSONState(to_save)
+        if (self.conf.debug):
+            print('Saving model end')
         
     def reduceGamesToOne(self):
         self.saveJSONState({State.T1SET5_INT:'0', State.T2SET5_INT:'0' })
@@ -24,6 +28,8 @@ class Backend:
     
 
     def saveJSONState(self, to_save):
+        if (self.conf.debug):
+            print('Saving JSON state')
         return self.sendCommandWithIdAndContent("SetOverlayContent", to_save)
     
     def saveJSONCustomization(self, to_save):
@@ -44,15 +50,27 @@ class Backend:
         return requests.put(f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}/api', json=jsonin)
 
     def getCurrentStateModel(self):
+        if (self.conf.debug):
+            print('getCurrentState')
         response = self.sendCommandWithIdAndContent("GetOverlayContent")
         if 200 == response.status_code:
+            if (self.conf.debug):
+                print('getCurrentState success')
             return response.json()['payload']
+        if (self.conf.debug):
+            print('getCurrentState error')
         return None
     
     def getCurrentCustomizationStateModel(self):
+        if (self.conf.debug):
+            print('getCurrentCustomization')
         response = self.sendCommandWithIdAndContent("GetCustomization")
         if 200 == response.status_code:
+            if (self.conf.debug):
+                print('getCurrentCustomization success')
             return response.json()['payload']
+        if (self.conf.debug):
+            print('getCurrentCustomization error')
         return None
 
     def isVisible(self):

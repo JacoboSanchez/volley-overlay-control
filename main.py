@@ -22,6 +22,8 @@ class GUI:
    
     def __init__(self):
         global conf
+        if (conf.debug):
+                print('Init')
         self.main_state = State() 
         self.backend = Backend(conf)
         self.current_customize_state = Customization(self.backend.getCurrentCustomizationStateModel())
@@ -33,9 +35,13 @@ class GUI:
         self.slimit = 5
         self.current_set = 1
         self.visible = True
+        if (conf.debug):
+                print('Init end')
 
 
     def init(self):
+        if (conf.debug):
+                print('Initializing GUI')
         match conf.darkMode:
             case 'on':
                 ui.dark_mode(True)
@@ -104,6 +110,8 @@ class GUI:
                     ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
             ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')    
         self.updateUI()
+        if (conf.debug):
+                print('Initialized GUI')
         
 
     def computeCurrentSet(self, current_state):

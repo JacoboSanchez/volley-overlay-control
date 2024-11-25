@@ -105,6 +105,8 @@ class CustomizationPage:
             
 
       def init(self):
+            if (self.conf.debug):
+                print('Initializing customization page')
             match self.configuration.darkMode:
                   case 'on':
                         ui.dark_mode(True)
@@ -150,3 +152,5 @@ class CustomizationPage:
                   ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
                   ui.space()
                   ui.button(icon='close', color='red-400', on_click=lambda: ui.navigate.to('/')).props('round').classes('text-white')    
+            if (self.conf.debug):
+                print('initialized customization page')
