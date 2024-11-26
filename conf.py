@@ -10,4 +10,4 @@ class Conf:
         self.darkMode = os.environ.get('APP_DARK_MODE', 'auto')
         self.multithread = os.environ.get('ENABLE_MULTITHREAD', 'true').lower() in ("yes", "true", "t", "1")
         self.debug = os.environ.get('ENABLE_DEBUG', 'false').lower() in ("yes", "true", "t", "1")
-
+        self.cache = os.environ.get('MINIMIZE_BACKEND_USAGE', 'true').lower() in ("yes", "true", "t", "1")

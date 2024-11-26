@@ -6,10 +6,6 @@ from state import State
 from customization import Customization
 from messages import Messages
 
-@ui.page('/customize')
-def get_customization_page():
-    CustomizationPage().init()
-    
 
 class CustomizationPage:
       configuration = Conf()
@@ -87,7 +83,7 @@ class CustomizationPage:
             sub_model = {clave: state_model[clave] for clave in [State.A_TEAM, State.B_TEAM, State.LOGOS_BOOL] if clave in state_model}
             self.backend.saveJSONState(sub_model)
             self.backend.saveJSONCustomization(self.customization.getModel())
-            ui.navigate.to('/')
+            ui.navigate.to('/refresh')
 
       def createChooseColor(self, name, forSet = False):
             ui.label(name)
@@ -105,7 +101,7 @@ class CustomizationPage:
             
 
       def init(self):
-            if (self.conf.debug):
+            if (self.configuration.debug):
                 print('Initializing customization page')
             match self.configuration.darkMode:
                   case 'on':
@@ -152,5 +148,11 @@ class CustomizationPage:
                   ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
                   ui.space()
                   ui.button(icon='close', color='red-400', on_click=lambda: ui.navigate.to('/')).props('round').classes('text-white')    
-            if (self.conf.debug):
+            if (self.configuration.debug):
                 print('initialized customization page')
+
+customization_page = CustomizationPage()
+
+@ui.page('/customize')
+def get_customization_page():
+    customization_page.init()                

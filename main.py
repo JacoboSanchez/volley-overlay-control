@@ -17,6 +17,10 @@ TBCOLOR_MEDIUM='red-3'
 TBCOLOR_HIGH='red-4'
 
 conf = Conf()
+backend = Backend(conf)
+current_customize_state = Customization(backend.getCurrentCustomizationStateModel())
+main_state = State() 
+visible = backend.isVisible()
 
 class GUI:
    
@@ -24,9 +28,6 @@ class GUI:
         global conf
         if (conf.debug):
                 print('Init')
-        self.main_state = State() 
-        self.backend = Backend(conf)
-        self.current_customize_state = Customization(self.backend.getCurrentCustomizationStateModel())
         self.undo = False
         self.simple = False
         self.holdUpdate = 0
@@ -65,7 +66,6 @@ class GUI:
             </style>
         ''')
         #########################################
-        self.current_customize_state.setModel(self.backend.getCurrentCustomizationStateModel())
         with ui.row().classes('w-full'):
             with ui.card():
                 self.teamAButton = ui.button('00', on_click=lambda: self.addGame(1)).classes('blue-box')
@@ -101,6 +101,7 @@ class GUI:
             #simple_button.set_visibility(False)
             self.undo_button = ui.button(icon='undo', color='orange-500', on_click=lambda: self.switchUndo(self.undo_button)).props('round').classes('text-white')    
             ui.space()
+            ui.button(icon='sync', color='green-500', on_click=lambda: ui.navigate.to('/refresh')).props('round').classes('text-white')    
             ui.button(icon='settings', color='blue-500', on_click=lambda: ui.navigate.to('/customize')).props('round').classes('text-white')    
             self.dialog = ui.dialog()
             with self.dialog, ui.card():
@@ -108,8 +109,8 @@ class GUI:
                 with ui.row():
                     ui.button(color='green-500', icon='done', on_click=lambda: self.dialog.submit(True))
                     ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
-            ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')    
-        self.updateUI()
+            ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
+        self.updateUI(False)
         if (conf.debug):
                 print('Initialized GUI')
         
@@ -129,11 +130,19 @@ class GUI:
             return False
         return True
 
-    def updateUI(self):
-        self.current_customize_state.setModel(self.backend.getCurrentCustomizationStateModel())
-        update_state = State(self.backend.getCurrentStateModel())
+    def updateUI(self, load_from_backend=False):
+        global visible
+        if conf.debug:
+            print("updating UI")
+        if load_from_backend or conf.cache:    
+            print("Loading current data")
+            current_customize_state.setModel(backend.getCurrentCustomizationStateModel())
+            update_state = State(backend.getCurrentStateModel())
+            visible = backend.isVisible()
+        else:
+            update_state = main_state
+            
         current_set = self.computeCurrentSet(update_state)
-        visible = self.backend.isVisible()
         self.updateUIServe(update_state)
         self.updateUISets(update_state)
         self.updateUIGames(update_state)
@@ -149,14 +158,14 @@ class GUI:
             if (i == self.current_set):
                 self.teamAButton.set_text(f'{teamA_game_int:02d}')
                 self.teamBButton.set_text(f'{teamB_game_int:02d}')
-            self.main_state.setGame(i, 1, str(teamA_game_int))
-            self.main_state.setGame(i, 2, str(teamB_game_int))
+            main_state.setGame(i, 1, str(teamA_game_int))
+            main_state.setGame(i, 2, str(teamB_game_int))
         self.updateUIGamesTable(update_state)
         self.release()
 
     def updateUIGamesTable(self, update_state):
-        logo1 = self.current_customize_state.getTeamLogo(1)
-        logo2 = self.current_customize_state.getTeamLogo(2)
+        logo1 = current_customize_state.getTeamLogo(1)
+        logo2 = current_customize_state.getTeamLogo(2)
         self.scores.clear()
         with self.scores:
             if (logo1 != None and logo1 != Customization.DEFAULT_IMAGE):
@@ -179,6 +188,8 @@ class GUI:
                 teamA_game_int = update_state.getGame(1, i)
                 teamB_game_int = update_state.getGame(2, i)
                 if (i > 1 and i > lastWithoutZeroZero):
+                    break
+                if (i == self.current_set & i < self.slimit):
                     break
                 label1 = ui.label(f'{teamA_game_int:02d}')
                 label2 = ui.label(f'{teamB_game_int:02d}')
@@ -208,15 +219,15 @@ class GUI:
         self.hold()
         t1sets = update_state.getSets(1)
         t2sets = update_state.getSets(2)
-        self.main_state.setSets(1, str(t1sets))
-        self.main_state.setSets(2, str(t2sets))
+        main_state.setSets(1, str(t1sets))
+        main_state.setSets(2, str(t2sets))
         self.teamASet.set_text(str(t1sets))
         self.teamBSet.set_text(str(t2sets))
         self.release()
 
     def updateUICurrentSet(self, set):
         self.hold()
-        self.main_state.setCurrentSet(set)
+        main_state.setCurrentSet(set)
         self.set_selector.set_value(set)
         self.release()
 
@@ -241,32 +252,34 @@ class GUI:
 
     def sendState(self):
         if (self.holdUpdate == 0):
-            self.backend.save(self.main_state, self.simple)
+            backend.save(main_state, self.simple)
 
     def reset(self):
-        self.backend.reset(self.main_state)
-        self.updateUI()
+        if conf.debug:
+            print("Reset")
+        backend.reset(main_state)
+        self.updateUI(True)
 
     def changeServe(self, team, force=False):
         match team:
             case 1:
-                self.main_state.setCurrentServe(State.SERVE_1)
+                main_state.setCurrentServe(State.SERVE_1)
                 if self.serveA.props['color']==TACOLOR_HIGH and force != True:
                     self.serveA.props(f'color={TACOLOR_VLIGHT}')
-                    self.main_state.setCurrentServe(State.SERVE_NONE)
+                    main_state.setCurrentServe(State.SERVE_NONE)
                 else:                             
                     self.serveA.props(f'color={TACOLOR_HIGH}')
                 self.serveB.props(f'color={TBCOLOR_VLIGHT}')
             case 2:
-                self.main_state.setCurrentServe(State.SERVE_2)
+                main_state.setCurrentServe(State.SERVE_2)
                 if self.serveB.props['color']==TBCOLOR_HIGH and force != True:
                     self.serveB.props(f'color={TBCOLOR_VLIGHT}')
-                    self.main_state.setCurrentServe(State.SERVE_NONE)
+                    main_state.setCurrentServe(State.SERVE_NONE)
                 else:                             
                     self.serveB.props(f'color={TBCOLOR_HIGH}')
                 self.serveA.props(f'color={TACOLOR_VLIGHT}')
             case 0:
-                self.main_state.setCurrentServe(State.SERVE_NONE)
+                main_state.setCurrentServe(State.SERVE_NONE)
                 self.serveB.props(f'color={TBCOLOR_VLIGHT}')
                 self.serveA.props(f'color={TACOLOR_VLIGHT}')
         self.sendState()
@@ -288,7 +301,7 @@ class GUI:
                     ui.icon(name='radio_button_unchecked', color=color, size='xs')
             else:
                 container.clear()
-        self.main_state.setTimeout(team, len(list(container)))
+        main_state.setTimeout(team, len(list(container)))
         self.sendState()
 
     def changeUITimeout(self, team, value):
@@ -302,7 +315,7 @@ class GUI:
         for i in range(value):
             with container:
                 ui.icon(name='radio_button_unchecked', color=color, size='xs')
-        self.main_state.setTimeout(team, len(list(container))) 
+        main_state.setTimeout(team, len(list(container))) 
 
     def addGame(self, team):
         if self.preventAdditionalPoints():
@@ -317,7 +330,7 @@ class GUI:
             rival_score = int(self.teamAButton.text)
             self.changeServe(2, True)
         current = self.addIntToButton(button)
-        self.main_state.setGame(self.current_set, team, current)
+        main_state.setGame(self.current_set, team, current)
         if (current >=  self.getGameLimit(self.current_set) and (current - rival_score > 1)):
             self.addSet(team)
         self.releaseHoldAndsendState()
@@ -336,14 +349,14 @@ class GUI:
         if team == 2: button = self.teamBSet
         soft_limit = 2 if self.slimit == 3 else 3
         current = self.addIntToButton(button, soft_limit if roll2zero else soft_limit+1, False)
-        self.main_state.setSets(team, current)
+        main_state.setSets(team, current)
         self.changeUITimeout(team, 0)
-        self.switchToSet(self.computeCurrentSet(self.main_state))
+        self.switchToSet(self.computeCurrentSet(main_state))
         self.release()
 
     def preventAdditionalPoints(self):
-        t1sets = self.main_state.getSets(1)
-        t2sets = self.main_state.getSets(2)
+        t1sets = main_state.getSets(1)
+        t2sets = main_state.getSets(2)
         if not self.undo and self.matchFinished(t1sets, t2sets):
             return True
         return False
@@ -352,7 +365,7 @@ class GUI:
         if (self.current_set != set):
             self.current_set = set
             self.updateUICurrentSet(self.current_set)
-            self.updateUIGames(self.main_state)
+            self.updateUIGames(main_state)
 
     def switchVisibility(self):
         if self.visible:
@@ -362,7 +375,7 @@ class GUI:
             self.visible = True
             self.visibility_button.set_icon('visibility')
         self.updateUIVisible(self.visible)
-        self.backend.changeOverlayVisibility(self.visible)
+        backend.changeOverlayVisibility(self.visible)
 
     def switchSimpleMode(self):
         self.hold()
@@ -372,7 +385,7 @@ class GUI:
         else:
             self.simple = True
             self.simple_button.set_icon('window')
-            self.backend.reduceGamesToOne()
+            backend.reduceGamesToOne()
         self.releaseHoldAndsendState()
 
     def switchUndo(self, reset=False):
@@ -407,12 +420,20 @@ class GUI:
         if result:
             self.reset()
 
+gui = GUI()
+ui.page('/customize')
+
+@ui.page("/refresh")
+def refresh():
+    if conf.debug:
+            print("Refreshing")
+    gui.updateUI(True)
+    ui.navigate.to('/')
 
 @ui.page("/")
 def main():
-    gui = GUI()
     gui.init()
-    ui.page('/customize')
+    
     
 
 custom_favicon='<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#5f6368"><g><rect fill="none" height="24" width="24"/></g><g><g><path d="M12,2C6.48,2,2,6.48,2,12c0,5.52,4.48,10,10,10s10-4.48,10-10C22,6.48,17.52,2,12,2z M13,4.07 c3.07,0.38,5.57,2.52,6.54,5.36L13,5.65V4.07z M8,5.08c1.18-0.69,3.33-1.06,3-1.02v7.35l-3,1.73V5.08z M4.63,15.1 C4.23,14.14,4,13.1,4,12c0-2.02,0.76-3.86,2-5.27v7.58L4.63,15.1z M5.64,16.83L12,13.15l3,1.73l-6.98,4.03 C7.09,18.38,6.28,17.68,5.64,16.83z M10.42,19.84 M12,20c-0.54,0-1.07-0.06-1.58-0.16l6.58-3.8l1.36,0.78 C16.9,18.75,14.6,20,12,20z M13,11.42V7.96l7,4.05c0,1.1-0.23,2.14-0.63,3.09L13,11.42z"/></g></g></svg>'
