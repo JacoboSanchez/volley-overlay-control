@@ -134,8 +134,9 @@ class GUI:
         global visible
         if conf.debug:
             print("updating UI")
-        if load_from_backend or conf.cache:    
-            print("Loading current data")
+        if load_from_backend or conf.cache:
+            if conf.debug:    
+                print("Loading current data")
             current_customize_state.setModel(backend.getCurrentCustomizationStateModel())
             update_state = State(backend.getCurrentStateModel())
             visible = backend.isVisible()

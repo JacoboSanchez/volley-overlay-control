@@ -2,11 +2,12 @@ import requests
 import copy
 import threading
 from state import State
+from nicegui import ui
 
 class Backend:
     def __init__(self, config):
         self.conf = config
-
+    
     def saveModel(self, current_model, simple):
         if (self.conf.debug):
             print('Saving model start')
@@ -43,11 +44,12 @@ class Backend:
 
     def sendCommandWithValue(self, command, value=""):
         jsonin = {"command": command, "value":value}
-        return requests.put(f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}/api', json=jsonin)
+        return self.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}/api', json=jsonin))
 
     def sendCommandWithIdAndContent(self, command, content=""):
         jsonin = {"command": command,  "id": self.conf.id, "content":content}
-        return requests.put(f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}/api', json=jsonin)
+        return self.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}/api', json=jsonin))
+
 
     def getCurrentStateModel(self):
         if (self.conf.debug):
@@ -87,4 +89,7 @@ class Backend:
     def saveCustomization(self, customization):
         return self 
 
-        
+    def process_response(self, response):
+        if  response.status_code >= 300 or self.conf.debug:
+            print(f"{response.status_code}: {response.reason}")
+        return response
