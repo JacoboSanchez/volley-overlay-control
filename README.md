@@ -39,13 +39,6 @@ Example:
   c:\git\remote-scoreboard>python main.py
 NiceGUI ready to go on http://localhost:8080, ...
 </pre>
-Main control:
-![imagen](https://github.com/user-attachments/assets/69760288-89fb-40d5-b0f8-c71f9c99e319)
-Configuration Panel:
-![imagen](https://github.com/user-attachments/assets/8715d96d-e782-4fc1-86a7-903201d7c217)
-Overlay:
-![imagen](https://github.com/user-attachments/assets/4a0655c2-ed3c-43d4-b9e0-4748bebc1bf1)
-
 
 Running from docker:
 -------------------- 
@@ -68,6 +61,17 @@ There is a Dockerfile template for building your own image and a github action t
 Internationalization:
 ---------------------
 There is no internationalization support. I used the less text I could and the ones used are in Spanish by default. If you want to translate it for your needs just edit and adapt _messages.py_ file
+
+
+Main control:
+![imagen](https://github.com/user-attachments/assets/69760288-89fb-40d5-b0f8-c71f9c99e319)
+-------------------
+Configuration Panel:
+![imagen](https://github.com/user-attachments/assets/8715d96d-e782-4fc1-86a7-903201d7c217)
+-------------------
+Overlay:
+![imagen](https://github.com/user-attachments/assets/4a0655c2-ed3c-43d4-b9e0-4748bebc1bf1)
+-------------------
 
 Disclaimer:
 -----------
