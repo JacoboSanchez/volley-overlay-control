@@ -42,7 +42,16 @@ NiceGUI ready to go on http://localhost:8080, ...
 
 Running from docker:
 -------------------- 
-You can use the docker-compose file by adapting the environment variables required.
+You can use the docker-compose file by adapting the environment variables required. An example of _.env_ file would be:
+
+<pre>
+EXTERNAL_PORT=80
+APP_TITLE=MyScoreboard
+UNO_OVERLAY_OID=<overlay control token>
+UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/<overlay output token>
+</pre>
+
+
 
 Features:
 ---------
