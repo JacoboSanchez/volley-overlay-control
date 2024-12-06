@@ -15,5 +15,6 @@ services:
         - APP_DARK_MODE=${APP_DARK_MODE:-auto}
         - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
         - ENABLE_DEBUG=${ENABLE_DEBUG:-false}
+        - APP_TEAMS=${APP_TEAMS:-}
     volumes:
         - ./:/app/

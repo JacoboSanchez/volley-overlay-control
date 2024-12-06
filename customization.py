@@ -31,7 +31,7 @@ class Customization:
 
     provided_teams_json = os.environ.get('APP_TEAMS', None)
 
-    if provided_teams_json == None:
+    if provided_teams_json == None or provided_teams_json == '':
         predefined_teams = {
             LOCAL_NAME: {TEAM_VALUES_ICON:DEFAULT_IMAGE, TEAM_VALUES_COLOR:"#060f8a", TEAM_VALUES_TEXT_COLOR:"#ffffff"},
             VISITOR_NAME: {TEAM_VALUES_ICON:DEFAULT_IMAGE, TEAM_VALUES_COLOR:"#ffffff", TEAM_VALUES_TEXT_COLOR:"#000000"},
