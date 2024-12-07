@@ -50,9 +50,12 @@ class GUI:
         self.slimit = 5
         self.current_set = 1
         self.visible = True
+        self.initialized = False
     
 
-    def init(self):
+    def init(self, force=True):
+        if self.initialized == True and force == False:
+            return
         self.logger.info('Initialize gui')
         match conf.darkMode:
             case 'on':
@@ -434,6 +437,7 @@ ui.page('/customize')
 
 @ui.page("/refresh")
 def refresh():
+    gui.init(False)
     gui.updateUI(True)
     ui.navigate.to('/')
 
