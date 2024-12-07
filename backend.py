@@ -1,16 +1,20 @@
 import requests
 import copy
 import threading
+import logging
+import sys
 from state import State
 from nicegui import ui
+
+
 
 class Backend:
     def __init__(self, config):
         self.conf = config
+        self.logger = logging.getLogger("Backend")
     
     def saveModel(self, current_model, simple):
-        if (self.conf.debug):
-            print('Saving model start')
+        self.logger.info('saving model...')
         to_save = copy.copy(current_model)
         if (simple):
             to_save = State.simplifyModel(to_save, self)
@@ -18,8 +22,7 @@ class Backend:
             threading.Thread(target=self.saveJSONState, args=(to_save,)).start()
         else:
             self.saveJSONState(to_save)
-        if (self.conf.debug):
-            print('Saving model end')
+        self.logger.info('saved')
         
     def reduceGamesToOne(self):
         self.saveJSONState({State.T1SET5_INT:'0', State.T2SET5_INT:'0' })
@@ -29,14 +32,15 @@ class Backend:
     
 
     def saveJSONState(self, to_save):
-        if (self.conf.debug):
-            print('Saving JSON state')
+        self.logger.info('saving JSON state...')
         return self.sendCommandWithIdAndContent("SetOverlayContent", to_save)
-    
+        
     def saveJSONCustomization(self, to_save):
+        self.logger.info('saving JSON customization...')
         return self.sendCommandWithValue("SetCustomization", to_save)
     
     def changeOverlayVisibility(self, show):
+        self.logger.info('changing overlay visibility, show: %s', show)
         command = "HideOverlay"
         if show:
             command = "ShowOverlay"
@@ -52,33 +56,25 @@ class Backend:
 
 
     def getCurrentStateModel(self):
-        if (self.conf.debug):
-            print('getCurrentState')
+        self.logger.info('getting state')
         response = self.sendCommandWithIdAndContent("GetOverlayContent")
         if 200 == response.status_code:
-            if (self.conf.debug):
-                print('getCurrentState success')
             return response.json()['payload']
-        if (self.conf.debug):
-            print('getCurrentState error')
         return None
     
     def getCurrentCustomizationStateModel(self):
-        if (self.conf.debug):
-            print('getCurrentCustomization')
+        self.logger.info('getting customization')
         response = self.sendCommandWithIdAndContent("GetCustomization")
         if 200 == response.status_code:
-            if (self.conf.debug):
-                print('getCurrentCustomization success')
             return response.json()['payload']
-        if (self.conf.debug):
-            print('getCurrentCustomization error')
         return None
 
     def isVisible(self):
         response = self.sendCommandWithIdAndContent("GetOverlayVisibility")
         if 200 == response.status_code:
             return response.json()['payload']
+        else:
+            return False;
 
     def reset(self, state):
         self.saveModel(state.getResetModel(), False)
@@ -90,6 +86,9 @@ class Backend:
         return self 
 
     def process_response(self, response):
-        if  response.status_code >= 300 or self.conf.debug:
-            print(f"{response.status_code}: {response.reason}")
+        if  response.status_code >= 300 :
+            self.logger.warning("response %s: '%s'", response.status_code, response.text)
+        else:
+            self.logger.info("response status: %s", response.status_code)
+            self.logger.debug("response message: '%s'", response.text)
         return response

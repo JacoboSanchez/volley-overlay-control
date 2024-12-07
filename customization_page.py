@@ -1,5 +1,7 @@
 from nicegui import ui
 from nicegui.events import ValueChangeEventArguments
+import logging
+import sys
 from conf import Conf
 from backend import Backend
 from state import State
@@ -12,7 +14,7 @@ class CustomizationPage:
       backend = Backend(configuration)
       state  = State(backend.getCurrentStateModel())
       customization = Customization(backend.getCurrentCustomizationStateModel())
-
+      logger = logging.getLogger("Configuration")
 
       def updateTeamSelection(self, team, logo, tname, color, textColor, selector):
             fallback_name = CustomizationPage.getFallBackTeamName(team)
@@ -101,8 +103,7 @@ class CustomizationPage:
             
 
       def init(self):
-            if (self.configuration.debug):
-                print('Initializing customization page')
+            self.logger.info("Initializing")
             match self.configuration.darkMode:
                   case 'on':
                         ui.dark_mode(True)
@@ -148,8 +149,7 @@ class CustomizationPage:
                   ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
                   ui.space()
                   ui.button(icon='close', color='red-400', on_click=lambda: ui.navigate.to('/')).props('round').classes('text-white')    
-            if (self.configuration.debug):
-                print('initialized customization page')
+            self.logger.info("Initialized customization page")
 
 customization_page = CustomizationPage()
 

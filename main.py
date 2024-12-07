@@ -1,4 +1,6 @@
 from nicegui import ui
+import logging
+import sys
 from conf import Conf
 from backend import Backend
 from state import State
@@ -16,18 +18,30 @@ TBCOLOR_LIGHT='red-2'
 TBCOLOR_MEDIUM='red-3'
 TBCOLOR_HIGH='red-4'
 
+CYAN="\033[1;36m%s\033[1;0m"
+
 conf = Conf()
 backend = Backend(conf)
 current_customize_state = Customization(backend.getCurrentCustomizationStateModel())
 main_state = State() 
 visible = backend.isVisible()
 
+logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
+logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
+logging.addLevelName( logging.WARNING, "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
+logging.addLevelName( logging.ERROR, "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
+root = logging.getLogger()
+root.setLevel(conf.logging_level)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter( CYAN % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
+root.addHandler(handler)
+
+
 class GUI:
-   
+    
     def __init__(self):
         global conf
-        if (conf.debug):
-                print('Init')
+        self.logger = logging.getLogger("GUI")
         self.undo = False
         self.simple = False
         self.holdUpdate = 0
@@ -36,13 +50,10 @@ class GUI:
         self.slimit = 5
         self.current_set = 1
         self.visible = True
-        if (conf.debug):
-                print('Init end')
-
+    
 
     def init(self):
-        if (conf.debug):
-                print('Initializing GUI')
+        self.logger.info('Initialize gui')
         match conf.darkMode:
             case 'on':
                 ui.dark_mode(True)
@@ -111,8 +122,7 @@ class GUI:
                     ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
             ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
         self.updateUI(False)
-        if (conf.debug):
-                print('Initialized GUI')
+        self.logger.info('Initialized gui')
         
 
     def computeCurrentSet(self, current_state):
@@ -128,15 +138,14 @@ class GUI:
         soft_limit = 2 if self.slimit == 3 else 3
         if (t1sets + t2sets < limit and t1sets < soft_limit and t2sets < soft_limit):
             return False
+        self.logger.info('Match finished')
         return True
 
     def updateUI(self, load_from_backend=False):
         global visible
-        if conf.debug:
-            print("updating UI")
+        self.logger.info('Updating UI...')
         if load_from_backend or conf.cache:
-            if conf.debug:    
-                print("Loading current data")
+            self.logger.info('loading data from backend')
             current_customize_state.setModel(backend.getCurrentCustomizationStateModel())
             update_state = State(backend.getCurrentStateModel())
             visible = backend.isVisible()
@@ -256,8 +265,7 @@ class GUI:
             backend.save(main_state, self.simple)
 
     def reset(self):
-        if conf.debug:
-            print("Reset")
+        self.logger.info('Reset called')
         backend.reset(main_state)
         self.updateUI(True)
 
@@ -426,8 +434,6 @@ ui.page('/customize')
 
 @ui.page("/refresh")
 def refresh():
-    if conf.debug:
-            print("Refreshing")
     gui.updateUI(True)
     ui.navigate.to('/')
 
