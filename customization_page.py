@@ -143,8 +143,11 @@ class CustomizationPage:
                         ui.space()
                         ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
                               on_change=lambda e: self.customization.setVPos(f'{e.value}'))
-                  if self.configuration.output != None:
-                        ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
+                  with ui.row():
+                        if self.configuration.output != None:
+                              ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
+                        ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
+                  
             with ui.row().classes('w-full'):
                   ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
                   ui.space()

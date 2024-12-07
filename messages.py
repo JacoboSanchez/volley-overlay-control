@@ -8,6 +8,7 @@ class Messages:
     WIDTH = "Ancho"
     HPOS = "Pos. X"
     VPOS = "Pos. Y"
-    OVERLAY_LINK = "Link Marcador"
+    OVERLAY_LINK = "Overlay"
+    CONTROL_LINK = "Control"
     LOCAL = "Local"
     VISITOR = "Visitante"
