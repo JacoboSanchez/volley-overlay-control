@@ -118,35 +118,35 @@ class CustomizationPage:
                   teamNames.append(self.state.getTeamName(2))
             
 
-            with ui.row():
+            with ui.grid(columns=3):
                   self.create_team_card(1, teamNames)
+                  ui.space()
                   self.create_team_card(2, teamNames)
-
-            with ui.card():
-                  with ui.row():
-                        ui.switch(Messages.LOGOS, value=self.state.isShowLogos(), on_change=lambda e: self.state.setShowLogos(e.value))
-                        ui.switch(Messages.FLAT_COLOR, value=not self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(not e.value))
-                  with ui.row():
-                        self.createChooseColor(Messages.SET, True)
-                        self.createChooseColor(Messages.GAME, False)
-
-            with ui.card():
-                  with ui.row().classes('place-content-center align-middle    '):
-                        ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
-                              on_change=lambda e: self.customization.setHeight(f'{e.value}'))
-                        ui.space()
-                        ui.number(label=Messages.WIDTH, value=self.customization.getWidth(), format='%.1f', min=0, max=100,
-                              on_change=lambda e: self.customization.setWidth(f'{e.value}'))
-                        ui.space()
-                        ui.number(label=Messages.HPOS, value=self.customization.getHPos(), format='%.1f', min=-50, max=50,
-                              on_change=lambda e: self.customization.setHPos(f'{e.value}'))
-                        ui.space()
-                        ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
-                              on_change=lambda e: self.customization.setVPos(f'{e.value}'))
-                  with ui.row():
-                        if self.configuration.output != None:
-                              ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
-                        ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
+                  with ui.card():
+                        with ui.row():
+                              ui.switch(Messages.LOGOS, value=self.state.isShowLogos(), on_change=lambda e: self.state.setShowLogos(e.value))
+                              ui.switch(Messages.FLAT_COLOR, value=not self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(not e.value))
+                        with ui.row():
+                              self.createChooseColor(Messages.SET, True)
+                              self.createChooseColor(Messages.GAME, False)
+                  ui.space()
+                  with ui.card():
+                        with ui.row().classes('place-content-center align-middle'):
+                              ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
+                                    on_change=lambda e: self.customization.setHeight(f'{e.value}'))
+                              ui.space()
+                              ui.number(label=Messages.WIDTH, value=self.customization.getWidth(), format='%.1f', min=0, max=100,
+                                    on_change=lambda e: self.customization.setWidth(f'{e.value}'))
+                              ui.space()
+                              ui.number(label=Messages.HPOS, value=self.customization.getHPos(), format='%.1f', min=-50, max=50,
+                                    on_change=lambda e: self.customization.setHPos(f'{e.value}'))
+                              ui.space()
+                              ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
+                                    on_change=lambda e: self.customization.setVPos(f'{e.value}'))
+                        with ui.row():
+                              if self.configuration.output != None:
+                                    ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
+                              ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
                   
             with ui.row().classes('w-full'):
                   ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
