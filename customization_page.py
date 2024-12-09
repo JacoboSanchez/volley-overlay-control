@@ -118,9 +118,8 @@ class CustomizationPage:
                   teamNames.append(self.state.getTeamName(2))
             
 
-            with ui.grid(columns=3):
+            with ui.grid(columns=2):
                   self.create_team_card(1, teamNames)
-                  ui.space()
                   self.create_team_card(2, teamNames)
                   with ui.card():
                         with ui.row():
@@ -129,7 +128,6 @@ class CustomizationPage:
                         with ui.row():
                               self.createChooseColor(Messages.SET, True)
                               self.createChooseColor(Messages.GAME, False)
-                  ui.space()
                   with ui.card():
                         with ui.row().classes('place-content-center align-middle'):
                               ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
