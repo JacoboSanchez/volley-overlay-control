@@ -18,6 +18,8 @@ TBCOLOR_LIGHT='red-2'
 TBCOLOR_MEDIUM='red-3'
 TBCOLOR_HIGH='red-4'
 
+DO_COLOR='indigo-600'
+UNDO_COLOR='indigo-400' 
 
 conf = Conf()
 backend = Backend(conf)
@@ -109,13 +111,13 @@ class GUI:
             
 
         with ui.row().classes("w-full justify-right"):
-            with ui.element('q-fab').props('icon=display_settings color=green-700 direction=right').classes('text-white'):
+            with ui.element('q-fab').props('icon=display_settings color=teal-700 direction=right').classes('text-white'):
                 self.visibility_button = ui.button(icon='visibility', color='green-600', on_click=self.switchVisibility).props('round').classes('text-white')
-                self.simple_button = ui.button(icon='grid_on', color='amber', on_click=self.switchSimpleMode).props('round').classes('text-white')
+                self.simple_button = ui.button(icon='grid_on', color='teal-500', on_click=self.switchSimpleMode).props('round').classes('text-white')
             #simple_button.set_visibility(False)
-                self.undo_button = ui.button(icon='undo', color='orange-500', on_click=lambda: self.switchUndo(self.undo_button)).props('round').classes('text-white')    
+                self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switchUndo(self.undo_button)).props('round').classes('text-white')    
             ui.space()
-            with ui.element('q-fab').props('icon=settings_suggest color=orange-600 direction=left').classes('text-white'):
+            with ui.element('q-fab').props('icon=settings_suggest color=sky-800 direction=left').classes('text-white'):
                 ui.button(icon='settings', color='blue-500', on_click=lambda: ui.navigate.to('/customize')).props('round').classes('text-white')    
                 self.dialog = ui.dialog()
                 with self.dialog, ui.card():
@@ -124,7 +126,7 @@ class GUI:
                         ui.button(color='green-500', icon='done', on_click=lambda: self.dialog.submit(True))
                         ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
                 ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
-                ui.button(icon='sync', color='green-500', on_click=lambda: ui.navigate.to('/refresh')).props('round').classes('text-white')    
+                ui.button(icon='sync', color='emerald-500', on_click=lambda: ui.navigate.to('/refresh')).props('round').classes('text-white')    
         self.updateUI(False)
         self.logger.info('Initialized gui')
         
@@ -405,11 +407,11 @@ class GUI:
         if self.undo:
             self.undo = False
             self.undo_button.set_icon('undo')
-            self.undo_button.props('color=orange-500')
+            self.undo_button.props('color='+UNDO_COLOR)
         elif reset != True:
             self.undo = True
             self.undo_button.set_icon('redo')
-            self.undo_button.props('color=orange-900')
+            self.undo_button.props('color='+DO_COLOR)
 
 
     def addIntToButton(self, button, limit=99, force_digits=True):
