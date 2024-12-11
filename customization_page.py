@@ -10,6 +10,9 @@ from messages import Messages
 
 
 class CustomizationPage:
+      def __init__(self, tabs=None):
+            self.tabs = tabs
+
       configuration = Conf()
       backend = Backend(configuration)
       state  = State(backend.getCurrentStateModel())
@@ -85,7 +88,7 @@ class CustomizationPage:
             sub_model = {clave: state_model[clave] for clave in [State.A_TEAM, State.B_TEAM, State.LOGOS_BOOL] if clave in state_model}
             self.backend.saveJSONState(sub_model)
             self.backend.saveJSONCustomization(self.customization.getModel())
-            ui.navigate.to('/refresh')
+            self.tabs.set_value("Scoreboard")
 
       def createChooseColor(self, name, forSet = False):
             ui.label(name)
@@ -149,11 +152,6 @@ class CustomizationPage:
             with ui.row().classes('w-full'):
                   ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
                   ui.space()
-                  ui.button(icon='close', color='red-400', on_click=lambda: ui.navigate.to('/')).props('round').classes('text-white')    
+                  ui.button(icon='close', color='red-400', on_click=lambda: self.tabs.set_value("Scoreboard")).props('round').classes('text-white')    
             self.logger.info("Initialized customization page")
-
-customization_page = CustomizationPage()
-
-@ui.page('/customize')
-def get_customization_page():
-    customization_page.init()                
+          
