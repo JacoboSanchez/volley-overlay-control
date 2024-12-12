@@ -1,7 +1,6 @@
 from nicegui import ui
 from nicegui.events import ValueChangeEventArguments
 import logging
-import sys
 from conf import Conf
 from backend import Backend
 from state import State
@@ -10,14 +9,21 @@ from messages import Messages
 
 
 class CustomizationPage:
-      def __init__(self, tabs=None):
-            self.tabs = tabs
-
-      configuration = Conf()
-      backend = Backend(configuration)
-      state  = State(backend.getCurrentStateModel())
-      customization = Customization(backend.getCurrentCustomizationStateModel())
       logger = logging.getLogger("Configuration")
+
+      def __init__(self, tabs=None, configuration=None, backend=None, gui=None):
+            self.tabs = tabs
+            if configuration != None:
+                  self.configuration = configuration
+            else:
+                  self.configuration = Conf()
+            if backend != None:
+                  self.backend = backend
+            else:
+                  self.backend = Backend(self.configuration)
+            self.gui = gui
+            self.customization = Customization(self.backend.getCurrentCustomizationStateModel())
+      
 
       def updateTeamSelection(self, team, logo, tname, color, textColor, selector):
             fallback_name = CustomizationPage.getFallBackTeamName(team)
@@ -32,7 +38,7 @@ class CustomizationPage:
             selector.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_COLOR]}]')
             selector.classes(replace=f'!fg-[{teamValues[Customization.TEAM_VALUES_TEXT_COLOR]}]')
             ## update model
-            self.state.setTeamName(team, tname)
+            self.gui.setTeamName(team, tname)
             self.customization.setTeamLogo(team, teamValues[Customization.TEAM_VALUES_ICON])
             self.customization.setTeamColor(team, teamValues[Customization.TEAM_VALUES_COLOR])
             self.customization.setTeamTextColor(team, teamValues[Customization.TEAM_VALUES_TEXT_COLOR])
@@ -69,7 +75,7 @@ class CustomizationPage:
                         self.customization.setTeamLogo(team, self.customization.getTeamLogo(team))
                         selector = ui.select(teamNames, 
                               new_value_mode = 'add-unique', 
-                              value = self.state.getTeamName(team),
+                              value = self.gui.getTeamName(team),
                               key_generator=lambda k: k,
                               on_change=lambda e: self.updateTeamSelection(team, team_logo, e.value, team_color, team_text_color, selector))
                         team_color = ui.button().classes('w-8 h-8 m-auto')
@@ -84,11 +90,11 @@ class CustomizationPage:
                         self.updateTeamModelColor(team, self.customization.getTeamTextColor(team), team_text_color, True)
  
       def save(self):
-            state_model = self.state.getCurrentModel()
+            state_model = self.gui.getCurrentModel()
             sub_model = {clave: state_model[clave] for clave in [State.A_TEAM, State.B_TEAM, State.LOGOS_BOOL] if clave in state_model}
             self.backend.saveJSONState(sub_model)
             self.backend.saveJSONCustomization(self.customization.getModel())
-            self.tabs.set_value("Scoreboard")
+            self.gui.updateUI(False)
 
       def createChooseColor(self, name, forSet = False):
             ui.label(name)
@@ -107,18 +113,11 @@ class CustomizationPage:
 
       def init(self):
             self.logger.info("Initializing")
-            match self.configuration.darkMode:
-                  case 'on':
-                        ui.dark_mode(True)
-                  case 'off':
-                        ui.dark_mode(False)
-                  case 'auto':
-                        ui.dark_mode()
             teamNames = list(Customization.getPredefinedTeams())
-            if self.state.getTeamName(1) not in teamNames:
-                  teamNames.append(self.state.getTeamName(1))
-            if self.state.getTeamName(2) not in teamNames:
-                  teamNames.append(self.state.getTeamName(2))
+            if self.gui.getTeamName(1) not in teamNames:
+                  teamNames.append(self.gui.getTeamName(1))
+            if self.gui.getTeamName(2) not in teamNames:
+                  teamNames.append(self.gui.getTeamName(2))
             
 
             with ui.grid(columns=2):
@@ -126,7 +125,7 @@ class CustomizationPage:
                   self.create_team_card(2, teamNames)
                   with ui.card():
                         with ui.row():
-                              ui.switch(Messages.LOGOS, value=self.state.isShowLogos(), on_change=lambda e: self.state.setShowLogos(e.value))
+                              ui.switch(Messages.LOGOS, value=self.gui.isShowLogos(), on_change=lambda e: self.gui.setShowLogos(e.value))
                               ui.switch(Messages.FLAT_COLOR, value=not self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(not e.value))
                         with ui.row():
                               self.createChooseColor(Messages.SET, True)
@@ -148,10 +147,31 @@ class CustomizationPage:
                               if self.configuration.output != None:
                                     ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
                               ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
-                  
+
+                              
             with ui.row().classes('w-full'):
-                  ui.button(icon='save', color='blue-400', on_click=self.save).props('round').classes('text-white')    
+                  ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')     
                   ui.space()
-                  ui.button(icon='close', color='red-400', on_click=lambda: self.tabs.set_value("Scoreboard")).props('round').classes('text-white')    
+                  self.dialog = ui.dialog()
+                  with self.dialog, ui.card():
+                        ui.label('Reset?')
+                        with ui.row():
+                              ui.button(color='green-500', icon='done', on_click=lambda: self.dialog.submit(True))
+                              ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
+                  ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
+                  ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
+                  ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
             self.logger.info("Initialized customization page")
-          
+
+      def refresh(self):
+            self.gui.refresh()
+            self.swithToScoreboard()
+
+      def swithToScoreboard(self):
+            self.tabs.set_value(Customization.SCOREBOARD_TAB)
+
+      async def askReset(self):
+        result = await self.dialog
+        if result:
+            self.gui.reset()
+            self.init()

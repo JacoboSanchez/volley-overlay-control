@@ -4,6 +4,9 @@ import json
 
 class Customization:
 
+    CONFIG_TAB = "Configuration"
+    SCOREBOARD_TAB = "Scoreboard"
+
     SET_COLOR = "Accent Color"
     SET_TEXT_COLOR = "Accent Text Color"
     GLOSS_EFFECT_BOOL = "Gloss Effect"
