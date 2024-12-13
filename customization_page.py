@@ -95,6 +95,7 @@ class CustomizationPage:
             self.backend.saveJSONState(sub_model)
             self.backend.saveJSONCustomization(self.customization.getModel())
             self.gui.updateUI(False)
+            self.swithToScoreboard()
 
       def createChooseColor(self, name, forSet = False):
             ui.label(name)
@@ -174,4 +175,4 @@ class CustomizationPage:
         result = await self.dialog
         if result:
             self.gui.reset()
-            self.init()
+            self.swithToScoreboard()

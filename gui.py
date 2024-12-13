@@ -17,7 +17,10 @@ TBCOLOR_HIGH='red-4'
 
 DO_COLOR='indigo-700'
 UNDO_COLOR='indigo-400' 
-
+VISIBLE_ON_COLOR='green-600'
+VISIBLE_OFF_COLOR='green-800' 
+FULL_SCOREBOARD_COLOR='orange-500'
+SIMPLE_SCOREBOARD_COLOR='orange-700' 
 
 
 logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
@@ -68,12 +71,12 @@ class GUI:
             <style type="text/tailwindcss">
                 @layer components {
                     .blue-box {
-                        @apply bg-blue-400 p-14 text-center shadow-lg rounded-lg text-white text-6xl font-bold;
+                        @apply bg-blue-400 p-14 text-center shadow-lg rounded-lg text-white text-5xl font-bold;
                     }
                 }
                 @layer components {
                     .red-box {
-                        @apply bg-red-400 p-14 text-center shadow-lg rounded-lg text-white text-6xl font-bold;
+                        @apply bg-red-400 p-14 text-center shadow-lg rounded-lg text-white text-5xl font-bold;
                     }
                 }
             </style>
@@ -82,7 +85,7 @@ class GUI:
         with ui.row().classes('w-full'):
             with ui.card():
                 self.teamAButton = ui.button('00', on_click=lambda: self.addGame(1)).classes('blue-box')
-                with ui.row().classes('text-3xl w-full'):
+                with ui.row().classes('text-4xl w-full'):
                     ui.button(icon='timer', color=TACOLOR_LIGHT, on_click=lambda: self.addTimeout(1)).props('outline round').classes('shadow-lg')
                     self.timeoutsA = ui.row()
                     ui.space()
@@ -90,27 +93,32 @@ class GUI:
                     self.serveA.on('click', lambda: self.changeServe(1))
             self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(1)).classes('text-white text-2xl')
             ui.space()   
-            with ui.card():
-                self.scores = ui.grid(columns=2) 
+            with ui.column().classes('h-full justify-center'):
+                with ui.card().classes('w-full justify-center'):
+                    with ui.row().classes('w-full'):
+                        ui.space()
+                        self.scores = ui.grid(columns=2).classes('justify-center') 
+                        ui.space()
+                    ui.space()
+                    self.set_selector = ui.pagination(1, 5, direction_links=True, on_change=lambda e: self.switchToSet(e.value))
             ui.space()
             self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(2)).classes('text-white text-2xl')
             with ui.card():
                 self.teamBButton = ui.button('00', color='red', on_click=lambda: self.addGame(2)).classes('red-box')
-                with ui.row().classes('text-3xl w-full'):
-                    ui.button(icon='timer', color=TBCOLOR_LIGHT, on_click=lambda: self.addTimeout(2)).props('outline round').classes('shadow-lg').props('checked-icon=sports-volley')
+                with ui.row().classes('text-4xl w-full'):
+                    ui.button(icon='timer', color=TBCOLOR_LIGHT, on_click=lambda: self.addTimeout(2)).props('outline round').classes('shadow-lg ')
                     self.timeoutsB = ui.row() 
                     ui.space()
                     self.serveB = ui.icon(name='sports_volleyball', color=TBCOLOR_VLIGHT)
                     self.serveB.on('click', lambda: self.changeServe(2))
             ui.space()
 
-        with ui.row().classes("w-full justify-center"):
-            self.set_selector = ui.pagination(1, 5, direction_links=True, on_change=lambda e: self.switchToSet(e.value))
+        
             
 
         with ui.row().classes("w-full justify-right"):
-            self.visibility_button = ui.button(icon='visibility', color='green-600', on_click=self.switchVisibility).props('round').classes('text-white')
-            self.simple_button = ui.button(icon='grid_on', color='orange-600', on_click=self.switchSimpleMode).props('round').classes('text-white')
+            self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR, on_click=self.switchVisibility).props('round').classes('text-white')
+            self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR, on_click=self.switchSimpleMode).props('round').classes('text-white')
             self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switchUndo(self.undo_button)).props('round').classes('text-white')    
             ui.space()
             ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(Customization.CONFIG_TAB)).props('round').classes('text-white')    
@@ -173,12 +181,12 @@ class GUI:
         self.scores.clear()
         with self.scores:
             if (logo1 != None and logo1 != Customization.DEFAULT_IMAGE):
-                ui.image(source=logo1).classes('w-5 h-5 m-auto')
+                ui.image(source=logo1).classes('w-6 h-6 m-auto')
             else: 
                 ui.icon(name='sports_volleyball', color='blue', size='xs')
                 
             if (logo2 != None and logo2 != Customization.DEFAULT_IMAGE):
-                ui.image(source=logo2).classes('w-5 h-5 m-auto')
+                ui.image(source=logo2).classes('w-6 h-6 m-auto')
             else: 
                 ui.icon(name='sports_volleyball', color='red', size='xs')
             lastWithoutZeroZero = 1
@@ -193,7 +201,7 @@ class GUI:
                 teamB_game_int = update_state.getGame(2, i)
                 if (i > 1 and i > lastWithoutZeroZero):
                     break
-                if (i == self.current_set & i < self.slimit):
+                if (i == self.current_set and i < self.slimit):
                     break
                 label1 = ui.label(f'{teamA_game_int:02d}')
                 label2 = ui.label(f'{teamB_game_int:02d}')
@@ -238,8 +246,10 @@ class GUI:
     def updateUIVisible(self, enabled):
         if enabled:
             self.visibility_button.set_icon('visibility')
+            self.visibility_button.props('color='+VISIBLE_ON_COLOR)
         else:
             self.visibility_button.set_icon('visibility_off')
+            self.visibility_button.props('color='+VISIBLE_OFF_COLOR)
 
 
     def hold(self):
@@ -301,7 +311,7 @@ class GUI:
         else:        
             if len(list(container)) < 2:
                 with container:
-                    ui.icon(name='radio_button_unchecked', color=color, size='xs')
+                    ui.icon(name='radio_button_unchecked', color=color, size='12px')
             else:
                 container.clear()
         self.main_state.setTimeout(team, len(list(container)))
@@ -317,7 +327,7 @@ class GUI:
         container.clear()
         for i in range(value):
             with container:
-                ui.icon(name='radio_button_unchecked', color=color, size='xs')
+                ui.icon(name='radio_button_unchecked', color=color, size='12px')
         self.main_state.setTimeout(team, len(list(container))) 
 
     def addGame(self, team):
@@ -400,9 +410,11 @@ class GUI:
         if self.simple == True:
             self.simple = False
             self.simple_button.set_icon('grid_on')
+            self.simple_button.props('color='+FULL_SCOREBOARD_COLOR)
         else:
             self.simple = True
             self.simple_button.set_icon('window')
+            self.simple_button.props('color='+SIMPLE_SCOREBOARD_COLOR)
             self.backend.reduceGamesToOne()
         self.releaseHoldAndsendState()
 
