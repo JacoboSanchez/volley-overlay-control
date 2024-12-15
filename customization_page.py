@@ -1,3 +1,4 @@
+import asyncio
 from nicegui import ui
 from nicegui.events import ValueChangeEventArguments
 import logging
@@ -89,14 +90,6 @@ class CustomizationPage:
                         self.updateTeamModelColor(team, self.customization.getTeamColor(team), team_color, False)
                         self.updateTeamModelColor(team, self.customization.getTeamTextColor(team), team_text_color, True)
  
-      def save(self):
-            state_model = self.gui.getCurrentModel()
-            sub_model = {clave: state_model[clave] for clave in [State.A_TEAM, State.B_TEAM, State.LOGOS_BOOL] if clave in state_model}
-            self.backend.saveJSONState(sub_model)
-            self.backend.saveJSONCustomization(self.customization.getModel())
-            self.gui.updateUI(False)
-            self.swithToScoreboard()
-
       def createChooseColor(self, name, forSet = False):
             ui.label(name)
             with ui.row():
@@ -112,67 +105,91 @@ class CustomizationPage:
             self.updateModelColor(forSet, self.customization.getSetTextColor() if forSet else self.customization.getGameTextColor(), main_text_color, True)
             
 
-      def init(self):
+      def init(self, configurationTabPanel=None):
             self.logger.info("Initializing")
-            teamNames = list(Customization.getPredefinedTeams())
-            if self.gui.getTeamName(1) not in teamNames:
-                  teamNames.append(self.gui.getTeamName(1))
-            if self.gui.getTeamName(2) not in teamNames:
-                  teamNames.append(self.gui.getTeamName(2))
-            
+            if configurationTabPanel != None:
+                  self.container = configurationTabPanel
+            if self.container != None:
+                  self.container.clear()
+            else:
+                  logging.warn('Not container for customization...')
+                  return      
+            with self.container:
+                  teamNames = list(Customization.getPredefinedTeams())
+                  if self.gui.getTeamName(1) not in teamNames:
+                        teamNames.append(self.gui.getTeamName(1))
+                  if self.gui.getTeamName(2) not in teamNames:
+                        teamNames.append(self.gui.getTeamName(2))
+                  
+                  with ui.grid(columns=2):
+                        self.create_team_card(1, teamNames)
+                        self.create_team_card(2, teamNames)
+                        with ui.card():
+                              with ui.row():
+                                    ui.switch(Messages.LOGOS, value=self.gui.isShowLogos(), on_change=lambda e: self.gui.setShowLogos(e.value))
+                                    ui.switch(Messages.FLAT_COLOR, value=not self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(not e.value))
+                              with ui.row():
+                                    self.createChooseColor(Messages.SET, True)
+                                    self.createChooseColor(Messages.GAME, False)
+                        with ui.card():
+                              with ui.row().classes('place-content-center align-middle'):
+                                    ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
+                                          on_change=lambda e: self.customization.setHeight(f'{e.value}'))
+                                    ui.space()
+                                    ui.number(label=Messages.WIDTH, value=self.customization.getWidth(), format='%.1f', min=0, max=100,
+                                          on_change=lambda e: self.customization.setWidth(f'{e.value}'))
+                                    ui.space()
+                                    ui.number(label=Messages.HPOS, value=self.customization.getHPos(), format='%.1f', min=-50, max=50,
+                                          on_change=lambda e: self.customization.setHPos(f'{e.value}'))
+                                    ui.space()
+                                    ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
+                                          on_change=lambda e: self.customization.setVPos(f'{e.value}'))
+                              with ui.row():
+                                    if self.configuration.output != None:
+                                          ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
+                                    ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
 
-            with ui.grid(columns=2):
-                  self.create_team_card(1, teamNames)
-                  self.create_team_card(2, teamNames)
-                  with ui.card():
-                        with ui.row():
-                              ui.switch(Messages.LOGOS, value=self.gui.isShowLogos(), on_change=lambda e: self.gui.setShowLogos(e.value))
-                              ui.switch(Messages.FLAT_COLOR, value=not self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(not e.value))
-                        with ui.row():
-                              self.createChooseColor(Messages.SET, True)
-                              self.createChooseColor(Messages.GAME, False)
-                  with ui.card():
-                        with ui.row().classes('place-content-center align-middle'):
-                              ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
-                                    on_change=lambda e: self.customization.setHeight(f'{e.value}'))
-                              ui.space()
-                              ui.number(label=Messages.WIDTH, value=self.customization.getWidth(), format='%.1f', min=0, max=100,
-                                    on_change=lambda e: self.customization.setWidth(f'{e.value}'))
-                              ui.space()
-                              ui.number(label=Messages.HPOS, value=self.customization.getHPos(), format='%.1f', min=-50, max=50,
-                                    on_change=lambda e: self.customization.setHPos(f'{e.value}'))
-                              ui.space()
-                              ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
-                                    on_change=lambda e: self.customization.setVPos(f'{e.value}'))
-                        with ui.row():
-                              if self.configuration.output != None:
-                                    ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
-                              ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
-
-                              
-            with ui.row().classes('w-full'):
-                  ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')     
-                  ui.space()
-                  self.dialog = ui.dialog()
-                  with self.dialog, ui.card():
-                        ui.label('Reset?')
-                        with ui.row():
-                              ui.button(color='green-500', icon='done', on_click=lambda: self.dialog.submit(True))
-                              ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
-                  ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
-                  ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
-                  ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
+                                    
+                  with ui.row().classes('w-full'):
+                        ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')     
+                        ui.space()
+                        self.dialog = ui.dialog()
+                        with self.dialog, ui.card():
+                              ui.label('Reset?')
+                              with ui.row():
+                                    ui.button(color='green-500', icon='done', on_click=lambda: self.dialog.submit(True))
+                                    ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
+                        ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
+                        ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
+                        ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
             self.logger.info("Initialized customization page")
 
-      def refresh(self):
+      async def refresh(self):
+            notification = ui.notification(timeout=None, spinner=True)
+            await asyncio.sleep(0.5)
             self.gui.refresh()
-            self.swithToScoreboard()
+            self.init()
+            await asyncio.sleep(0.5)
+            notification.dismiss()
 
-      def swithToScoreboard(self):
-            self.tabs.set_value(Customization.SCOREBOARD_TAB)
+      async def save(self):
+            notification = ui.notification(timeout=None, spinner=True)
+            await asyncio.sleep(0.5)
+            state_model = self.gui.getCurrentModel()
+            sub_model = {clave: state_model[clave] for clave in [State.A_TEAM, State.B_TEAM, State.LOGOS_BOOL] if clave in state_model}
+            self.backend.saveJSONState(sub_model)
+            self.backend.saveJSONCustomization(self.customization.getModel())
+            self.gui.updateUI(False)
+            await asyncio.sleep(0.5)
+            notification.dismiss()
+            self.swithToScoreboard()
 
       async def askReset(self):
         result = await self.dialog
         if result:
             self.gui.reset()
+            self.init() 
             self.swithToScoreboard()
+
+      def swithToScoreboard(self):
+            self.tabs.set_value(Customization.SCOREBOARD_TAB)

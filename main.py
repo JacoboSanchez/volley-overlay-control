@@ -19,10 +19,12 @@ customization_page = CustomizationPage(tabs, conf, backend, gui)
 @ui.page("/")
 def main():
     with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full"):
-        with ui.tab_panel(scoreboardTab):
+        scoreboardTabPanel = ui.tab_panel(scoreboardTab)
+        with scoreboardTabPanel:
             gui.init()
-        with ui.tab_panel(configurationTab):
-            customization_page.init()
+        configurationTabPanel = ui.tab_panel(configurationTab)
+        with configurationTabPanel:
+            customization_page.init(configurationTabPanel)
     with tabs:
         scoreboardTab
         configurationTab
