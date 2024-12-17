@@ -92,7 +92,6 @@ class GUI:
                     self.serveA = ui.icon(name='sports_volleyball', color=TACOLOR_VLIGHT)
                     self.serveA.on('click', lambda: self.changeServe(1))
             self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(1)).classes('text-white text-2xl')
-            ui.space()   
             with ui.column().classes('h-full justify-center'):
                 with ui.card().classes('w-full justify-center'):
                     with ui.row().classes('w-full'):
@@ -100,8 +99,7 @@ class GUI:
                         self.scores = ui.grid(columns=2).classes('justify-center') 
                         ui.space()
                     ui.space()
-                    self.set_selector = ui.pagination(1, 5, direction_links=True, on_change=lambda e: self.switchToSet(e.value))
-            ui.space()
+                    self.set_selector = ui.pagination(1, 5, direction_links=True, on_change=lambda e: self.switchToSet(e.value)).props('color=grey active-color=teal')
             self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(2)).classes('text-white text-2xl')
             with ui.card():
                 self.teamBButton = ui.button('00', color='red', on_click=lambda: self.addGame(2)).classes('red-box')
@@ -203,8 +201,8 @@ class GUI:
                     break
                 if (i == self.current_set and i < self.slimit):
                     break
-                label1 = ui.label(f'{teamA_game_int:02d}')
-                label2 = ui.label(f'{teamB_game_int:02d}')
+                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0')
+                label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0')
                 if (teamA_game_int > teamB_game_int):
                     label1.classes('text-bold')
                 elif (teamA_game_int < teamB_game_int):

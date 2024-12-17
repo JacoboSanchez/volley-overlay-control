@@ -83,10 +83,10 @@ class CustomizationPage:
                         team_text_color = ui.button().classes('w-5 h-5')
                         with team_color:
                               team_color_picker = ui.color_picker(on_pick=lambda e: self.updateTeamModelColor(team, e.color, team_color, False))
-                        team_color_picker.q_color.props('default-view=palette no-header no-footer')
+                        team_color_picker.q_color.props('default-view=palette no-header')
                         with team_text_color:
                               team_text_color_picker = ui.color_picker(on_pick=lambda e: self.updateTeamModelColor(team, e.color, team_text_color, True))
-                        team_text_color_picker.q_color.props('default-view=palette no-header no-footer')
+                        team_text_color_picker.q_color.props('default-view=palette no-header')
                         self.updateTeamModelColor(team, self.customization.getTeamColor(team), team_color, False)
                         self.updateTeamModelColor(team, self.customization.getTeamTextColor(team), team_text_color, True)
  
@@ -97,10 +97,10 @@ class CustomizationPage:
                   main_text_color = ui.button().classes('w-5 h-5')
             with main_color:
                   main_color_picker = ui.color_picker(on_pick=lambda e: self.updateModelColor(forSet, e.color, main_color, False))
-            main_color_picker.q_color.props('default-view=palette no-header no-footer')
+            main_color_picker.q_color.props('default-view=palette no-header')
             with main_text_color:
                   main_text_color_picker = ui.color_picker(on_pick=lambda e: self.updateModelColor(forSet, e.color, main_text_color, True))
-            main_text_color_picker.q_color.props('default-view=palette no-header no-footer')
+            main_text_color_picker.q_color.props('default-view=palette no-header')
             self.updateModelColor(forSet, self.customization.getSetColor() if forSet else self.customization.getGameColor(), main_color, False)
             self.updateModelColor(forSet, self.customization.getSetTextColor() if forSet else self.customization.getGameTextColor(), main_text_color, True)
             
