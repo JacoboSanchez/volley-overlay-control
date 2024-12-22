@@ -105,7 +105,9 @@ class CustomizationPage:
             self.updateModelColor(forSet, self.customization.getSetTextColor() if forSet else self.customization.getGameTextColor(), main_text_color, True)
             
 
-      def init(self, configurationTabPanel=None):
+      def init(self, configurationTabPanel=None, force_reset=False):
+            if force_reset:
+                  self.customization = Customization(self.backend.getCurrentCustomizationStateModel())
             self.logger.info("Initializing")
             if configurationTabPanel != None:
                   self.container = configurationTabPanel
@@ -168,7 +170,7 @@ class CustomizationPage:
             notification = ui.notification(timeout=None, spinner=True)
             await asyncio.sleep(0.5)
             self.gui.refresh()
-            self.init()
+            self.init(force_reset=True)
             await asyncio.sleep(0.5)
             notification.dismiss()
 
@@ -188,7 +190,7 @@ class CustomizationPage:
         result = await self.dialog
         if result:
             self.gui.reset()
-            self.init() 
+            self.init(force_reset=True) 
             self.swithToScoreboard()
 
       def swithToScoreboard(self):
