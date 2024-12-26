@@ -73,14 +73,15 @@ There is no internationalization support. I used the less text I could and the o
 
 
 Main control:
-![imagen](https://github.com/user-attachments/assets/69760288-89fb-40d5-b0f8-c71f9c99e319)
 -------------------
+![imagen](https://github.com/user-attachments/assets/44479447-63fc-451b-ae0a-b701542398b7)
 Configuration Panel:
-![imagen](https://github.com/user-attachments/assets/8715d96d-e782-4fc1-86a7-903201d7c217)
+-------------------
+![imagen](https://github.com/user-attachments/assets/d934c6ec-0266-419d-8e2f-a0fc779eb273)
 -------------------
 Overlay:
-![imagen](https://github.com/user-attachments/assets/4a0655c2-ed3c-43d4-b9e0-4748bebc1bf1)
 -------------------
+![imagen](https://github.com/user-attachments/assets/4a0655c2-ed3c-43d4-b9e0-4748bebc1bf1)
 
 Disclaimer:
 -----------
