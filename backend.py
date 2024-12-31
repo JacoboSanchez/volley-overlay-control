@@ -17,7 +17,7 @@ class Backend:
         self.logger.info('saving model...')
         to_save = copy.copy(current_model)
         if (simple):
-            to_save = State.simplifyModel(to_save, self)
+            to_save = State.simplifyModel(to_save)
         if self.conf.multithread:
             threading.Thread(target=self.saveJSONState, args=(to_save,)).start()
         else:
@@ -25,10 +25,10 @@ class Backend:
         self.logger.info('saved')
         
     def reduceGamesToOne(self):
-        self.saveJSONState({State.T1SET5_INT:'0', State.T2SET5_INT:'0' })
-        self.saveJSONState({State.T1SET4_INT:'0', State.T2SET4_INT:'0' })
-        self.saveJSONState({State.T1SET3_INT:'0', State.T2SET3_INT:'0' })
-        self.saveJSONState({State.T1SET2_INT:'0', State.T2SET2_INT:'0' })
+        self.saveJSONState({State.T1SET5_INT:'0', State.T2SET5_INT:'0'})
+        self.saveJSONState({State.T1SET4_INT:'0', State.T2SET4_INT:'0'})
+        self.saveJSONState({State.T1SET3_INT:'0', State.T2SET3_INT:'0'})
+        self.saveJSONState({State.T1SET2_INT:'0', State.T2SET2_INT:'0'})
     
 
     def saveJSONState(self, to_save):

@@ -78,7 +78,7 @@ class State:
     def setCurrentSet(self, set):
         self.current_model[State.CURRENT_SET_INT]=set
 
-    def simplifyModel(simplified, backend): 
+    def simplifyModel(simplified): 
         current_set = simplified[State.CURRENT_SET_INT]
         t1_points = simplified[f'T1G{current_set}']
         t2_points = simplified[f'T2G{current_set}']
