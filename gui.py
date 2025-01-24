@@ -41,9 +41,6 @@ class GUI:
         self.undo = False
         self.simple = False
         self.holdUpdate = 0
-        self.glimit = conf.games
-        self.glimit_last = conf.games_last
-        self.slimit = conf.sets
         self.current_set = 1
         self.visible = True
         self.initialized = False
@@ -53,15 +50,27 @@ class GUI:
         self.current_customize_state = Customization(backend.getCurrentCustomizationStateModel())
         self.main_state = State(backend.getCurrentStateModel()) 
         self.visible = backend.isVisible()
-        self.logger.info('Game points: %s', self.glimit)
-        self.logger.info('Game points last set: %s', self.glimit_last)
-        self.logger.info('Sets to win: %s', self.slimit)
 
 
-    def init(self, force=True):
+    def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized == True and force == False:
             return
         self.logger.info('Initialize gui')
+        if custom_points_limit != None:
+            self.points_limit = custom_points_limit
+        else:
+            self.points_limit = self.conf.points
+        if custom_points_limit_last_set != None:
+            self.points_limit_last_set = custom_points_limit_last_set
+        else:
+            self.points_limit_last_set = self.conf.points_last_set
+        if custom_sets_limit != None:
+            self.sets_limit = custom_sets_limit
+        else:
+            self.sets_limit = self.conf.sets
+        self.logger.info('Set points: %s', self.points_limit)
+        self.logger.info('Set points last set: %s', self.points_limit_last_set)
+        self.logger.info('Sets to win: %s', self.sets_limit)
         match self.conf.darkMode:
             case 'on':
                 ui.dark_mode(True)
@@ -102,7 +111,7 @@ class GUI:
                         self.scores = ui.grid(columns=2).classes('justify-center') 
                         ui.space()
                     ui.space()
-                    self.set_selector = ui.pagination(1, self.slimit, direction_links=True, on_change=lambda e: self.switchToSet(e.value)).props('color=grey active-color=teal')
+                    self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switchToSet(e.value)).props('color=grey active-color=teal')
             self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(2)).classes('text-white text-2xl')
             with ui.card():
                 self.teamBButton = ui.button('00', color='red', on_click=lambda: self.addGame(2)).classes('red-box')
@@ -137,8 +146,8 @@ class GUI:
         return current_sets
 
     def matchFinished(self, t1sets, t2sets):
-        limit = self.slimit
-        soft_limit = 2 if self.slimit == 3 else 3
+        limit = self.sets_limit
+        soft_limit = 2 if self.sets_limit == 3 else 3
         if (t1sets + t2sets < limit and t1sets < soft_limit and t2sets < soft_limit):
             return False
         self.logger.info('Match finished')
@@ -165,7 +174,7 @@ class GUI:
 
     def updateUIGames(self, update_state):
         self.hold()
-        for i in range(1, self.slimit+1):
+        for i in range(1, self.sets_limit+1):
             teamA_game_int = update_state.getGame(1, i)
             teamB_game_int = update_state.getGame(2, i)
             if (i == self.current_set):
@@ -192,18 +201,18 @@ class GUI:
                 ui.icon(name='sports_volleyball', color='red', size='xs')
             lastWithoutZeroZero = 1
             match_finished = self.matchFinished(update_state.getSets(1), update_state.getSets(2))
-            for i in range(1, self.slimit+1):
+            for i in range(1, self.sets_limit+1):
                 teamA_game_int = update_state.getGame(1, i)
                 teamB_game_int = update_state.getGame(2, i)
                 if (teamA_game_int + teamB_game_int > 0):
                     lastWithoutZeroZero = i
 
-            for i in range(1, self.slimit+1):
+            for i in range(1, self.sets_limit+1):
                 teamA_game_int = update_state.getGame(1, i)
                 teamB_game_int = update_state.getGame(2, i)
                 if (i > 1 and i > lastWithoutZeroZero):
                     break
-                if (i == self.current_set and i < self.slimit and match_finished != True):
+                if (i == self.current_set and i < self.sets_limit and match_finished != True):
                     break
                 label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0')
                 label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0')
@@ -366,10 +375,10 @@ class GUI:
         self.main_state.setShowLogos(show)
 
     def getGameLimit(self, set):
-        if set == self.slimit:
-            return self.glimit_last
+        if set == self.sets_limit:
+            return self.points_limit_last_set
         else:
-            return self.glimit 
+            return self.points_limit 
 
     def addSet(self, team, roll2zero=True):
         if self.preventAdditionalPoints():
@@ -377,7 +386,7 @@ class GUI:
         self.hold()
         button = self.teamASet
         if team == 2: button = self.teamBSet
-        soft_limit = 2 if self.slimit == 3 else 3
+        soft_limit = 2 if self.sets_limit == 3 else 3
         current = self.addIntToButton(button, soft_limit if roll2zero else soft_limit+1, False)
         self.main_state.setSets(team, current)
         self.changeUITimeout(team, 0)

@@ -60,6 +60,7 @@ Features:
 ---------
 The scoreboard does support the following:
 * Points, sets, timeouts and serve managing
+* 25 points 5 sets by default. Append _/beach_ to the URL to use 21 points 3 sets configuration.
 * Option to show/hide the overlay
 * Option to use simple/full scoreboard (only last game or full list)
 * Option to undo game/point/timeout addition
