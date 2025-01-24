@@ -16,5 +16,8 @@ services:
         - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
         - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
         - APP_TEAMS=${APP_TEAMS:-}
+        - MATCH_GAME_POINTS=${MATCH_GAME_POINTS:-25}
+        - MATCH_GAME_POINTS_LAST_SET=${MATCH_GAME_POINTS_LAST_SET:-15}
+        - MATCH_SETS=${MATCH_SETS:-5}
     volumes:
         - ./:/app/

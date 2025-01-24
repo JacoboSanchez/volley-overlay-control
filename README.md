@@ -17,6 +17,9 @@ You can configure the behavior using some environment variables:
 * _APP_TITLE (Optional)_: The title of the web page. Default value is _Scoreboard_
 * _APP_DARK_MODE (Optional)_: To specify the dark mode configuration, can be _on_, _off_ or _auto_. Default value is _auto_
 * _APP_DEFAULT_LOGO (Optional)_: Image used for no predefined teams. Default is _https://cdn-icons-png.flaticon.com/512/7788/7788863.png_
+* _MATCH_GAME_POINTS (Optional)_: The number of points for each set. Default value is 25.
+* _MATCH_GAME_POINTS_LAST_SET (Optional)_: The number of points for the last set. Default value is 15.
+* _MATCH_GAME_SETS (Optional)_: The number of sets to win the game. Default value is 5.  
 * _ENABLE_MULTITHREAD (Optional)_: If true the uno overlay API will be invoked without waiting for a response so the UI changes inmediatly. Default value is _true_, change to _false_ to wait for API calls to change the UI.
 * _LOGGING_LEVEL (Optional)_: Level of logging (debug, info, warning, error). Default value is _warning_.
 * _APP_TEAMS (Optional)_: List of predefined teams that can be selected from the configuration. By default only Local and Visitor are defined. The value is a JSON with a map of teams. Key is the name and should contain "icon", "color" and "text_color". Example:

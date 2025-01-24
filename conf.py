@@ -15,3 +15,7 @@ class Conf:
         self.multithread = os.environ.get('ENABLE_MULTITHREAD', 'true').lower() in ("yes", "true", "t", "1")
         self.logging_level = os.environ.get('LOGGING_LEVEL', 'warning').upper()
         self.cache = os.environ.get('MINIMIZE_BACKEND_USAGE', 'true').lower() in ("yes", "true", "t", "1")
+        self.games = int(os.environ.get('MATCH_GAME_POINTS', 25))
+        self.games_last = int(os.environ.get('MATCH_GAME_POINTS_LAST_SET', 15))
+        self.sets = int(os.environ.get('MATCH_SETS', 5))
+        

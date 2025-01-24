@@ -41,9 +41,9 @@ class GUI:
         self.undo = False
         self.simple = False
         self.holdUpdate = 0
-        self.glimit = 25
-        self.glimit_last = 15
-        self.slimit = 5
+        self.glimit = conf.games
+        self.glimit_last = conf.games_last
+        self.slimit = conf.sets
         self.current_set = 1
         self.visible = True
         self.initialized = False
@@ -53,7 +53,10 @@ class GUI:
         self.current_customize_state = Customization(backend.getCurrentCustomizationStateModel())
         self.main_state = State(backend.getCurrentStateModel()) 
         self.visible = backend.isVisible()
-    
+        self.logger.info('Game points: %s', self.glimit)
+        self.logger.info('Game points last set: %s', self.glimit_last)
+        self.logger.info('Sets to win: %s', self.slimit)
+
 
     def init(self, force=True):
         if self.initialized == True and force == False:
@@ -99,7 +102,7 @@ class GUI:
                         self.scores = ui.grid(columns=2).classes('justify-center') 
                         ui.space()
                     ui.space()
-                    self.set_selector = ui.pagination(1, 5, direction_links=True, on_change=lambda e: self.switchToSet(e.value)).props('color=grey active-color=teal')
+                    self.set_selector = ui.pagination(1, self.slimit, direction_links=True, on_change=lambda e: self.switchToSet(e.value)).props('color=grey active-color=teal')
             self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(2)).classes('text-white text-2xl')
             with ui.card():
                 self.teamBButton = ui.button('00', color='red', on_click=lambda: self.addGame(2)).classes('red-box')
@@ -188,6 +191,7 @@ class GUI:
             else: 
                 ui.icon(name='sports_volleyball', color='red', size='xs')
             lastWithoutZeroZero = 1
+            match_finished = self.matchFinished(update_state.getSets(1), update_state.getSets(2))
             for i in range(1, self.slimit+1):
                 teamA_game_int = update_state.getGame(1, i)
                 teamB_game_int = update_state.getGame(2, i)
@@ -199,7 +203,7 @@ class GUI:
                 teamB_game_int = update_state.getGame(2, i)
                 if (i > 1 and i > lastWithoutZeroZero):
                     break
-                if (i == self.current_set and i < self.slimit):
+                if (i == self.current_set and i < self.slimit and match_finished != True):
                     break
                 label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0')
                 label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0')
