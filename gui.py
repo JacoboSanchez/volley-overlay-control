@@ -50,6 +50,7 @@ class GUI:
         self.current_customize_state = Customization(backend.getCurrentCustomizationStateModel())
         self.main_state = State(backend.getCurrentStateModel()) 
         self.visible = backend.isVisible()
+        self.set_selector = None
 
 
     def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
