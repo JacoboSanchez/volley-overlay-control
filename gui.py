@@ -104,16 +104,15 @@ class GUI:
                     ui.space()
                     self.serveA = ui.icon(name='sports_volleyball', color=TACOLOR_VLIGHT)
                     self.serveA.on('click', lambda: self.changeServe(1))
-            self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(1)).classes('text-white text-2xl')
-            with ui.column().classes('h-full justify-center'):
-                with ui.card().classes('w-full justify-center'):
-                    with ui.row().classes('w-full'):
-                        ui.space()
+            ui.space()
+            with ui.column().classes('justify-center'):
+                with ui.row().classes('w-full justify-center'):
+                    self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(1)).classes('text-white text-2xl')
+                    with ui.row():
                         self.scores = ui.grid(columns=2).classes('justify-center') 
-                        ui.space()
-                    ui.space()
-                    self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switchToSet(e.value)).props('color=grey active-color=teal')
-            self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(2)).classes('text-white text-2xl')
+                    self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.addSet(2)).classes('text-white text-2xl')
+                self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switchToSet(e.value)).props('color=grey active-color=teal')        
+            ui.space()
             with ui.card():
                 self.teamBButton = ui.button('00', color='red', on_click=lambda: self.addGame(2)).classes('red-box')
                 with ui.row().classes('text-4xl w-full'):
@@ -122,9 +121,6 @@ class GUI:
                     ui.space()
                     self.serveB = ui.icon(name='sports_volleyball', color=TBCOLOR_VLIGHT)
                     self.serveB.on('click', lambda: self.changeServe(2))
-            ui.space()
-
-        
             
 
         with ui.row().classes("w-full justify-right"):
