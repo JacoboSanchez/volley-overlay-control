@@ -153,8 +153,10 @@ class CustomizationPage:
 
                                     
                   with ui.row().classes('w-full'):
-                        ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')     
+                        ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')          
                         ui.space()
+                        fullscreen = ui.fullscreen(on_value_change=self.fullScreenUpdated)
+                        self.fullscreenButton = ui.button(icon='fullscreen', color='yellow-500', on_click=fullscreen.toggle).props('round').classes('text-white')
                         self.dialog = ui.dialog()
                         with self.dialog, ui.card():
                               ui.label('Reset?')
@@ -165,6 +167,14 @@ class CustomizationPage:
                         ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
                         ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
             self.logger.info("Initialized customization page")
+
+      def fullScreenUpdated(self, e):
+            if e.value:
+                 self.fullscreenButton.icon = 'fullscreen_exit'
+                 self.fullscreenButton.props('color=yellow-600')
+            else:
+                  self.fullscreenButton.icon = 'fullscreen'
+                  self.fullscreenButton.props('color=yellow-400')
 
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)
