@@ -66,6 +66,8 @@ The scoreboard does support the following:
 * Option to undo game/point/timeout addition
 * Configuration page (for managing the overlay look&feel)
 * Reset button
+* Refresh button
+* Fullscreen button
 
 Building docker image:
 ----------------------
@@ -90,5 +92,7 @@ Overlay:
 Disclaimer:
 -----------
 This software was made without previous design and without proper knowledge of Python, JavaScript and CSS. It was made by testing sample code and adapting and chaining it until the functionality was implemented. There is no proper logging, error handling, internationalization and performance was not polished.
+
+Please keep in mind that there are no users/authentication so do NOT expose directly to internet 
 
 Use it at your own risk.
