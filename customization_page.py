@@ -11,6 +11,8 @@ from messages import Messages
 
 class CustomizationPage:
       logger = logging.getLogger("Configuration")
+      COLOR_FULLSCREEN_BUTTON = 'gray-400'
+      COLOR_EXIT_FULLSCREEN_BUTTON = 'gray-600'
 
       def __init__(self, tabs=None, configuration=None, backend=None, gui=None):
             self.tabs = tabs
@@ -24,6 +26,10 @@ class CustomizationPage:
                   self.backend = Backend(self.configuration)
             self.gui = gui
             self.customization = Customization(self.backend.getCurrentCustomizationStateModel())
+
+      def switch_darkmode(self, enable: bool):
+            ui.dark_mode(enable)
+            self.slider.reset()
       
 
       def updateTeamSelection(self, team, logo, tname, color, textColor, selector):
@@ -130,9 +136,24 @@ class CustomizationPage:
                               with ui.row():
                                     ui.switch(Messages.LOGOS, value=self.gui.isShowLogos(), on_change=lambda e: self.gui.setShowLogos(e.value))
                                     ui.switch(Messages.FLAT_COLOR, value=not self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(not e.value))
+                                    self.slider = ui.slide_item()
+                                    with self.slider:
+                                          with ui.item():
+                                                with ui.item_section():
+                                                      with ui.row():
+                                                            ui.icon('dark_mode')      
+                                                            ui.icon('multiple_stop')
+                                                            ui.icon('light_mode', color='amber')
+                                          with self.slider.right( color='black', on_slide=lambda: self.switch_darkmode(True)):
+                                                ui.icon('dark_mode')
+                                          with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode(False)):
+                                                ui.icon('light_mode', color='amber')
                               with ui.row():
                                     self.createChooseColor(Messages.SET, True)
                                     self.createChooseColor(Messages.GAME, False)
+                                    fullscreen = ui.fullscreen(on_value_change=self.fullScreenUpdated)
+                                    ui.space()
+                                    self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON, on_click=fullscreen.toggle).props('outline round color='+self.COLOR_FULLSCREEN_BUTTON)
                         with ui.card():
                               with ui.row().classes('place-content-center align-middle'):
                                     ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
@@ -155,8 +176,7 @@ class CustomizationPage:
                   with ui.row().classes('w-full'):
                         ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')          
                         ui.space()
-                        fullscreen = ui.fullscreen(on_value_change=self.fullScreenUpdated)
-                        self.fullscreenButton = ui.button(icon='fullscreen', color='yellow-500', on_click=fullscreen.toggle).props('round').classes('text-white')
+                        
                         self.dialog = ui.dialog()
                         with self.dialog, ui.card():
                               ui.label('Reset?')
@@ -171,10 +191,10 @@ class CustomizationPage:
       def fullScreenUpdated(self, e):
             if e.value:
                  self.fullscreenButton.icon = 'fullscreen_exit'
-                 self.fullscreenButton.props('color=yellow-600')
+                 self.fullscreenButton.props('color='+self.COLOR_EXIT_FULLSCREEN_BUTTON)
             else:
                   self.fullscreenButton.icon = 'fullscreen'
-                  self.fullscreenButton.props('color=yellow-400')
+                  self.fullscreenButton.props('color='+self.COLOR_FULLSCREEN_BUTTON)
 
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)
