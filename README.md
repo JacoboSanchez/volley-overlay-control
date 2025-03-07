@@ -25,8 +25,8 @@ You can configure the behavior using some environment variables:
 * _APP_TEAMS (Optional)_: List of predefined teams that can be selected from the configuration. By default only Local and Visitor are defined. The value is a JSON with a map of teams. Key is the name and should contain "icon", "color" and "text_color". Example:
 <pre lang="json">
         {
-            "Local": {"icon":"https://route-to-icon.png", "color":"#060f8a", "text_color":"#ffffff"},
-            "Visitante": {"icon":"https://route-to-icon.png", "color":"#ffffff", "text_color":"#000000"},
+            "Local": {"icon":"https://cdn-icons-png.flaticon.com/512/8686/8686758.png", "color":"#060f8a", "text_color":"#ffffff"},
+            "Visitor": {"icon":"https://cdn-icons-png.flaticon.com/512/8686/8686758.png", "color":"#ffffff", "text_color":"#000000"},
         }
 </pre>
 
@@ -75,12 +75,13 @@ There is a Dockerfile template for building your own image and a github action t
 
 Internationalization:
 ---------------------
-There is no internationalization support. I used the less text I could and the ones used are in Spanish by default. If you want to translate it for your needs just edit and adapt _messages.py_ file
+There is no internationalization support. I used the less text I could. If you want to translate it for your needs just edit and adapt _messages.py_ file
 
 
 Main control:
 -------------------
 ![imagen](https://github.com/user-attachments/assets/67cc07cf-1312-4a08-93e7-41f5138ca356)
+-------------------
 Configuration Panel:
 -------------------
 ![imagen](https://github.com/user-attachments/assets/f9b72626-582e-4bf0-a837-290be9066277)
