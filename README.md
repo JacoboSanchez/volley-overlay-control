@@ -64,10 +64,10 @@ The scoreboard does support the following:
 * Option to show/hide the overlay
 * Option to use simple/full scoreboard (only last game or full list)
 * Option to undo game/point/timeout addition
-* Configuration page (for managing the overlay look&feel)
+* Configuration page (for managing the overlay look&feel and fullscreen/dark mode)
 * Reset button
 * Refresh button
-* Fullscreen button
+
 
 Building docker image:
 ----------------------
@@ -80,10 +80,10 @@ There is no internationalization support. I used the less text I could and the o
 
 Main control:
 -------------------
-![imagen](https://github.com/user-attachments/assets/44479447-63fc-451b-ae0a-b701542398b7)
+![imagen](https://github.com/user-attachments/assets/67cc07cf-1312-4a08-93e7-41f5138ca356)
 Configuration Panel:
 -------------------
-![imagen](https://github.com/user-attachments/assets/d934c6ec-0266-419d-8e2f-a0fc779eb273)
+![imagen](https://github.com/user-attachments/assets/f9b72626-582e-4bf0-a837-290be9066277)
 -------------------
 Overlay:
 -------------------
