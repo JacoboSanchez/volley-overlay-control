@@ -1,8 +1,8 @@
 name: Publish Docker image
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [ "dev" ]
 
 jobs:
   push_to_registry:
@@ -27,7 +27,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804
         with:
-          images: ${{ secrets.DOCKER_IMAGE }}:${{ github.event.release.tag_name }}
+          images: ${{ secrets.DOCKER_IMAGE }}:dev
 
       - name: Build and push Docker image
         id: push
@@ -36,8 +36,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ secrets.DOCKER_HUB_TAG }}:${{ github.event.release.tag_name }}
-            ${{ secrets.DOCKER_HUB_TAG }}:latest
+          tags: ${{ secrets.DOCKER_HUB_TAG }}:dev
           labels: ${{ steps.meta.outputs.labels }}
-      
