@@ -386,7 +386,9 @@ class GUI:
         soft_limit = 2 if self.sets_limit == 3 else 3
         current = self.addIntToButton(button, soft_limit if roll2zero else soft_limit+1, False)
         self.main_state.setSets(team, current)
-        self.changeUITimeout(team, 0)
+        self.changeUITimeout(1, 0)
+        self.changeUITimeout(2, 0)
+        self.changeServe(0)
         self.switchToSet(self.computeCurrentSet(self.main_state))
         self.release()
 
