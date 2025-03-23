@@ -203,6 +203,7 @@ class CustomizationPage:
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)
             await asyncio.sleep(0.5)
+            ClientStorage.clearAll()
             self.gui.refresh()
             self.init(force_reset=True)
             await asyncio.sleep(0.5)

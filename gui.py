@@ -184,8 +184,10 @@ class GUI:
         self.updateUICurrentSet(current_set)
         self.updateUIVisible(visible)
         clientSimple = ClientStorage.load(ClientStorage.SIMPLE_MODE, None)
-        if clientSimple != None:
-            self.switchSimpleMode(clientSimple)
+        if load_from_backend:
+            self.switchSimpleMode(False)
+        elif clientSimple != None:
+            self.switchSimpleMode(clientSimple) 
 
     def updateUIGames(self, update_state):
         self.hold()
