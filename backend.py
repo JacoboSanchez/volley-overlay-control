@@ -4,8 +4,7 @@ import threading
 import logging
 import sys
 from state import State
-from nicegui import ui
-
+from clientstorage import ClientStorage
 
 
 class Backend:
@@ -15,6 +14,7 @@ class Backend:
     
     def saveModel(self, current_model, simple):
         self.logger.info('saving model...')
+        ClientStorage.save(ClientStorage.CURRENT_MODEL, current_model)
         to_save = copy.copy(current_model)
         if (simple):
             to_save = State.simplifyModel(to_save)
@@ -57,6 +57,11 @@ class Backend:
 
     def getCurrentStateModel(self):
         self.logger.info('getting state')
+        currentModel = ClientStorage.load(ClientStorage.CURRENT_MODEL)
+        if currentModel != None:
+            logging.info('Using stored model')
+            logging.debug(currentModel)
+            return currentModel
         response = self.sendCommandWithIdAndContent("GetOverlayContent")
         if 200 == response.status_code:
             return response.json()['payload']

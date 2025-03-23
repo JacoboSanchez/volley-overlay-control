@@ -1,12 +1,12 @@
 import asyncio
-from nicegui import ui
-from nicegui.events import ValueChangeEventArguments
 import logging
+from nicegui import ui
 from conf import Conf
 from backend import Backend
 from state import State
 from customization import Customization
 from messages import Messages
+from clientstorage import ClientStorage
 
 
 class CustomizationPage:
@@ -29,6 +29,10 @@ class CustomizationPage:
 
       def switch_darkmode(self, enable: bool):
             ui.dark_mode(enable)
+            if enable:
+                  ClientStorage.save(ClientStorage.DARK_MODE, 1)
+            else:
+                  ClientStorage.save(ClientStorage.DARK_MODE, 0)
             self.slider.reset()
       
 

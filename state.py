@@ -45,7 +45,7 @@ class State:
                 }
     
 
-    def getKeysToReset():
+    def keysToResetSimpleMode():
         return {State.T1SET5_INT,
                 State.T2SET5_INT,
                 State.T1SET4_INT,
@@ -82,7 +82,7 @@ class State:
         current_set = simplified[State.CURRENT_SET_INT]
         t1_points = simplified[f'T1G{current_set}']
         t2_points = simplified[f'T2G{current_set}']
-        for key in State.getKeysToReset():
+        for key in State.keysToResetSimpleMode():
             if key in simplified:
                 simplified[key] = '0'
             

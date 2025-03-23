@@ -6,34 +6,37 @@ from customization import Customization
 from customization_page import CustomizationPage
 from conf import Conf
 from backend import Backend
-
+from clientstorage import ClientStorage
 
 conf = Conf()
-backend = Backend(conf)
-tabs = ui.tabs().props('horizontal').classes("w-full")
 scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
 configurationTab = ui.tab(Customization.CONFIG_TAB)
-gui = GUI(tabs, conf, backend)
-customization_page = CustomizationPage(tabs, conf, backend, gui)
 
 @ui.page("/indoor")
-def beach():
-    runPage(custom_points_limit=25, custom_points_limit_last_set=15, custom_sets_limit=5)
+async def beach():
+    await runPage(custom_points_limit=25, custom_points_limit_last_set=15, custom_sets_limit=5)
 
 @ui.page("/beach")
-def beach():
-    runPage(custom_points_limit=21, custom_points_limit_last_set=15, custom_sets_limit=3)
+async def beach():
+    await runPage(custom_points_limit=21, custom_points_limit_last_set=15, custom_sets_limit=3)
 
 
 @ui.page("/")
-def main():
-    runPage(custom_points_limit=conf.points, custom_points_limit_last_set=conf.points_last_set, custom_sets_limit=conf.sets)
+async def main(): 
+    await runPage(custom_points_limit=conf.points, custom_points_limit_last_set=conf.points_last_set, custom_sets_limit=conf.sets)
+
     
-def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
+
+async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
+    await ui.context.client.connected()
+    backend = Backend(conf)
+    tabs = ui.tabs().props('horizontal').classes("w-full")
+    scoreboard_page = GUI(tabs, conf, backend)
+    customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page)
     with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full"):
         scoreboardTabPanel = ui.tab_panel(scoreboardTab)
         with scoreboardTabPanel:
-            gui.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
+            scoreboard_page.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
         configurationTabPanel = ui.tab_panel(configurationTab)
         with configurationTabPanel:
             customization_page.init(configurationTabPanel)

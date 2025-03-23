@@ -1,8 +1,9 @@
 import logging
 import sys
-from nicegui import ui
+from nicegui import ui, app
 from state import State
 from customization import Customization
+from clientstorage import ClientStorage
 
 TACOLOR='blue'
 TBCOLOR='red'
@@ -52,6 +53,11 @@ class GUI:
         self.visible = backend.isVisible()
         self.set_selector = None
 
+    def setMainState(self, state):
+        self.main_state = State(state)
+
+    def getCurrentState(self):
+        return self.main_state
 
     def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized == True and force == False:
@@ -72,13 +78,22 @@ class GUI:
         self.logger.info('Set points: %s', self.points_limit)
         self.logger.info('Set points last set: %s', self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
-        match self.conf.darkMode:
-            case 'on':
-                ui.dark_mode(True)
-            case 'off': 
-                ui.dark_mode(False)
-            case 'auto':
-                ui.dark_mode()
+        darkMode = ClientStorage.load(ClientStorage.DARK_MODE, -1)
+        if darkMode == 0:
+            logging.info('Restoring light mode')
+            ui.dark_mode(False)
+        elif darkMode == 1:
+            logging.info('Restoring dark mode')
+            ui.dark_mode(True)
+        else:
+            logging.info('Loading configured dark mode %s', self.conf.darkMode)
+            match self.conf.darkMode:
+                case 'on':
+                    ui.dark_mode(True)
+                case 'off': 
+                    ui.dark_mode(False)
+                case 'auto':
+                    ui.dark_mode()
         #########################################
         ui.add_head_html('''
             <style type="text/tailwindcss">
@@ -168,6 +183,9 @@ class GUI:
         self.updateUITimeouts(update_state)
         self.updateUICurrentSet(current_set)
         self.updateUIVisible(visible)
+        clientSimple = ClientStorage.load(ClientStorage.SIMPLE_MODE, None)
+        if clientSimple != None:
+            self.switchSimpleMode(clientSimple)
 
     def updateUIGames(self, update_state):
         self.hold()
@@ -415,18 +433,20 @@ class GUI:
         self.updateUIVisible(self.visible)
         self.backend.changeOverlayVisibility(self.visible)
 
-    def switchSimpleMode(self):
+    def switchSimpleMode(self, forceValue=None):
         self.hold()
-        if self.simple == True:
+        if (forceValue == None and self.simple == True) or forceValue == False:
             self.simple = False
             self.simple_button.set_icon('grid_on')
             self.simple_button.props('color='+FULL_SCOREBOARD_COLOR)
-        else:
+        elif (forceValue == None and self.simple == False) or forceValue == True:
             self.simple = True
             self.simple_button.set_icon('window')
             self.simple_button.props('color='+SIMPLE_SCOREBOARD_COLOR)
             self.backend.reduceGamesToOne()
-        self.releaseHoldAndsendState()
+        if forceValue == None:
+            ClientStorage.save(ClientStorage.SIMPLE_MODE, self.simple)
+        self.releaseHoldAndsendState()  
 
     def switchUndo(self, reset=False):
         if self.undo:
