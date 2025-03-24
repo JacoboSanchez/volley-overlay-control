@@ -6,7 +6,7 @@ from backend import Backend
 from state import State
 from customization import Customization
 from messages import Messages
-from clientstorage import ClientStorage
+from app_storage import AppStorage
 
 
 class CustomizationPage:
@@ -30,9 +30,9 @@ class CustomizationPage:
       def switch_darkmode(self, enable: bool):
             ui.dark_mode(enable)
             if enable:
-                  ClientStorage.save(ClientStorage.DARK_MODE, 1)
+                  AppStorage.save(AppStorage.Category.DARK_MODE, 1)
             else:
-                  ClientStorage.save(ClientStorage.DARK_MODE, 0)
+                  AppStorage.save(AppStorage.Category.DARK_MODE, 0)
             self.slider.reset()
       
 
@@ -203,7 +203,7 @@ class CustomizationPage:
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)
             await asyncio.sleep(0.5)
-            ClientStorage.clearAll()
+            AppStorage.refreshState(self.configuration.oid)
             self.gui.refresh()
             self.init(force_reset=True)
             await asyncio.sleep(0.5)

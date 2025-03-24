@@ -3,7 +3,7 @@ import sys
 from nicegui import ui, app
 from state import State
 from customization import Customization
-from clientstorage import ClientStorage
+from app_storage import AppStorage
 
 TACOLOR='blue'
 TBCOLOR='red'
@@ -78,7 +78,7 @@ class GUI:
         self.logger.info('Set points: %s', self.points_limit)
         self.logger.info('Set points last set: %s', self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
-        darkMode = ClientStorage.load(ClientStorage.DARK_MODE, -1)
+        darkMode = AppStorage.load(AppStorage.Category.DARK_MODE, default=-1)
         if darkMode == 0:
             logging.info('Restoring light mode')
             ui.dark_mode(False)
@@ -183,7 +183,7 @@ class GUI:
         self.updateUITimeouts(update_state)
         self.updateUICurrentSet(current_set)
         self.updateUIVisible(visible)
-        clientSimple = ClientStorage.load(ClientStorage.SIMPLE_MODE, None)
+        clientSimple = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
         if load_from_backend:
             self.switchSimpleMode(False)
         elif clientSimple != None:
@@ -447,7 +447,7 @@ class GUI:
             self.simple_button.props('color='+SIMPLE_SCOREBOARD_COLOR)
             self.backend.reduceGamesToOne()
         if forceValue == None:
-            ClientStorage.save(ClientStorage.SIMPLE_MODE, self.simple)
+            AppStorage.save(AppStorage.Category.SIMPLE_MODE, self.simple, oid=self.conf.oid)
         self.releaseHoldAndsendState()  
 
     def switchUndo(self, reset=False):
