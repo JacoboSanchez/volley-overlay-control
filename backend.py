@@ -4,7 +4,7 @@ import threading
 import logging
 import sys
 from state import State
-from clientstorage import ClientStorage
+from app_storage import AppStorage
 
 
 class Backend:
@@ -14,7 +14,7 @@ class Backend:
     
     def saveModel(self, current_model, simple):
         self.logger.info('saving model...')
-        ClientStorage.save(ClientStorage.CURRENT_MODEL, current_model)
+        AppStorage.save(AppStorage.Category.CURRENT_MODEL, current_model, oid=self.conf.oid)
         to_save = copy.copy(current_model)
         if (simple):
             to_save = State.simplifyModel(to_save)
@@ -57,7 +57,7 @@ class Backend:
 
     def getCurrentStateModel(self):
         self.logger.info('getting state')
-        currentModel = ClientStorage.load(ClientStorage.CURRENT_MODEL)
+        currentModel = AppStorage.load(AppStorage.Category.CURRENT_MODEL, oid=self.conf.oid)
         if currentModel != None:
             logging.info('Using stored model')
             logging.debug(currentModel)
