@@ -30,9 +30,9 @@ class CustomizationPage:
       def switch_darkmode(self, enable: bool):
             ui.dark_mode(enable)
             if enable:
-                  AppStorage.save(AppStorage.Category.DARK_MODE, 1)
+                  AppStorage.saveOnTab(AppStorage.Category.DARK_MODE, 1)
             else:
-                  AppStorage.save(AppStorage.Category.DARK_MODE, 0)
+                  AppStorage.saveOnTab(AppStorage.Category.DARK_MODE, 0)
             self.slider.reset()
       
 
@@ -175,7 +175,8 @@ class CustomizationPage:
                                     if self.configuration.output != None:
                                           ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
                                     ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
-
+                                    ui.link(Messages.RESET_LINKS, './?refresh=true')
+                                    
                                     
                   with ui.row().classes('w-full'):
                         ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')          
@@ -199,11 +200,11 @@ class CustomizationPage:
             else:
                   self.fullscreenButton.icon = 'fullscreen'
                   self.fullscreenButton.props('color='+self.COLOR_FULLSCREEN_BUTTON)
+            
 
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)
             await asyncio.sleep(0.5)
-            AppStorage.refreshState(self.configuration.oid)
             self.gui.refresh()
             self.init(force_reset=True)
             await asyncio.sleep(0.5)

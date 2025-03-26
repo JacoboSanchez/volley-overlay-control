@@ -10,5 +10,6 @@ class Messages:
     VPOS = "Pos. Y"
     OVERLAY_LINK = "Overlay"
     CONTROL_LINK = "Control"
+    RESET_LINKS = "Reset"
     LOCAL = "Local"
     VISITOR = "Visitor"

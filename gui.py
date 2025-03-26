@@ -1,6 +1,5 @@
 import logging
-import sys
-from nicegui import ui, app
+from nicegui import ui
 from state import State
 from customization import Customization
 from app_storage import AppStorage
@@ -23,21 +22,9 @@ VISIBLE_OFF_COLOR='green-800'
 FULL_SCOREBOARD_COLOR='orange-500'
 SIMPLE_SCOREBOARD_COLOR='orange-700' 
 
-
-logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
-logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
-logging.addLevelName( logging.WARNING, "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
-logging.addLevelName( logging.ERROR, "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
-root = logging.getLogger()
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter( "\033[1;36m%s\033[1;0m" % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
-root.addHandler(handler)
-
-
 class GUI:
     
     def __init__(self, tabs=None, conf=None, backend=None):
-        root.setLevel(conf.logging_level)
         self.logger = logging.getLogger("GUI")
         self.undo = False
         self.simple = False
