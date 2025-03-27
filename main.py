@@ -1,5 +1,9 @@
 import customization_page
+import logging
 import os
+import sys
+import asyncio
+from oid_dialog import OidDialog
 from gui import GUI
 from nicegui import ui
 from customization import Customization
@@ -8,23 +12,48 @@ from conf import Conf
 from backend import Backend
 from app_storage import AppStorage
 
+logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
+logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
+logging.addLevelName( logging.WARNING, "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
+logging.addLevelName( logging.ERROR, "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
+root = logging.getLogger()
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter( "\033[1;36m%s\033[1;0m" % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
+root.addHandler(handler)
+root.setLevel(os.environ.get('LOGGING_LEVEL', 'debug').upper())
+
+
+logger = logging.getLogger("Main")
+
 scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
 configurationTab = ui.tab(Customization.CONFIG_TAB)
 
+def resetLinksStorage():
+    logger.info("resetting links")
+    AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
+    AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
+
 @ui.page("/indoor")
-async def beach(control=None, output=None):
+async def beach(control=None, output=None, refresh=None):
+    if refresh == "true":
+        resetLinksStorage()
+        ui.navigate.to('./')
     await runPage(custom_points_limit=25, custom_points_limit_last_set=15, custom_sets_limit=5, oid=control, output=output)
 
 @ui.page("/beach")
-async def beach(control=None, output=None):
+async def beach(control=None, output=None, refresh=None):
+    if refresh == "true":
+        resetLinksStorage()
+        ui.navigate.to('./')
     await runPage(custom_points_limit=21, custom_points_limit_last_set=15, custom_sets_limit=3, oid=control, output=output)
 
-
 @ui.page("/")
-async def main(control=None, output=None): 
+async def main(control=None, output=None, refresh=None): 
+    if refresh == "true":
+        resetLinksStorage()
+        ui.navigate.to('./')
     await runPage(oid=control, output=output)
 
-    
 
 async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
     await ui.context.client.connected()
@@ -39,8 +68,29 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
         conf.oid = oid
         conf.output = None
     if output != None:
-        conf.output = 'https://app.overlays.uno/output/'+output
-        
+        conf.output = OidDialog.UNO_OUTPUT_BASE_URL+output
+    
+    if not Backend.validOid(conf.oid):
+        storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
+        storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
+        if Backend.validOid(storageOid):
+            logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
+            conf.oid = storageOid
+            conf.output = storageOutput
+        else:
+            logger.info("Current oid is not valid: %s", conf.oid)
+            dialog = OidDialog()
+            await dialog.open()
+            
+            result = dialog.get_result()
+            if result != None:
+                conf.oid = result[OidDialog.CONTROL_TOKEN_KEY]
+                if result[OidDialog.OUTPUT_URL_KEY] != None:
+                    conf.output = result[OidDialog.OUTPUT_URL_KEY]
+                logger.debug("Received oid %s and output", conf.oid, conf.output)
+                AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
+                AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
+
     backend = Backend(conf)
     tabs = ui.tabs().props('horizontal').classes("w-full")
     scoreboard_page = GUI(tabs, conf, backend)

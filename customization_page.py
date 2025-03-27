@@ -30,9 +30,9 @@ class CustomizationPage:
       def switch_darkmode(self, enable: bool):
             ui.dark_mode(enable)
             if enable:
-                  AppStorage.save(AppStorage.Category.DARK_MODE, 1)
+                  AppStorage.saveOnTab(AppStorage.Category.DARK_MODE, 1)
             else:
-                  AppStorage.save(AppStorage.Category.DARK_MODE, 0)
+                  AppStorage.saveOnTab(AppStorage.Category.DARK_MODE, 0)
             self.slider.reset()
       
 
@@ -49,7 +49,7 @@ class CustomizationPage:
             selector.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_COLOR]}]')
             selector.classes(replace=f'!fg-[{teamValues[Customization.TEAM_VALUES_TEXT_COLOR]}]')
             ## update model
-            self.gui.setTeamName(team, tname)
+            self.customization.setTeamName(team, tname)
             self.customization.setTeamLogo(team, teamValues[Customization.TEAM_VALUES_ICON])
             self.customization.setTeamColor(team, teamValues[Customization.TEAM_VALUES_COLOR])
             self.customization.setTeamTextColor(team, teamValues[Customization.TEAM_VALUES_TEXT_COLOR])
@@ -86,7 +86,7 @@ class CustomizationPage:
                         self.customization.setTeamLogo(team, self.customization.getTeamLogo(team))
                         selector = ui.select(teamNames, 
                               new_value_mode = 'add-unique', 
-                              value = self.gui.getTeamName(team),
+                              value = self.customization.getTeamName(team),
                               key_generator=lambda k: k,
                               on_change=lambda e: self.updateTeamSelection(team, team_logo, e.value, team_color, team_text_color, selector))
                         team_color = ui.button().classes('w-8 h-8 m-auto')
@@ -128,18 +128,18 @@ class CustomizationPage:
                   return      
             with self.container:
                   teamNames = list(Customization.getPredefinedTeams())
-                  if self.gui.getTeamName(1) not in teamNames:
-                        teamNames.append(self.gui.getTeamName(1))
-                  if self.gui.getTeamName(2) not in teamNames:
-                        teamNames.append(self.gui.getTeamName(2))
+                  if self.customization.getTeamName(1) not in teamNames:
+                        teamNames.append(self.customization.getTeamName(1))
+                  if self.customization.getTeamName(2) not in teamNames:
+                        teamNames.append(self.customization.getTeamName(2))
                   
                   with ui.grid(columns=2):
                         self.create_team_card(1, teamNames)
                         self.create_team_card(2, teamNames)
                         with ui.card():
                               with ui.row():
-                                    ui.switch(Messages.LOGOS, value=self.gui.isShowLogos(), on_change=lambda e: self.gui.setShowLogos(e.value))
-                                    ui.switch(Messages.FLAT_COLOR, value=not self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(not e.value))
+                                    ui.switch(Messages.LOGOS, value=self.customization.isShowLogos(), on_change=lambda e: self.customization.setShowLogos(e.value))
+                                    ui.switch(Messages.GRADIENT, value=self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(e.value))
                                     self.slider = ui.slide_item()
                                     with self.slider:
                                           with ui.item():
@@ -175,7 +175,8 @@ class CustomizationPage:
                                     if self.configuration.output != None:
                                           ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
                                     ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
-
+                                    ui.link(Messages.RESET_LINKS, './?refresh=true')
+                                    
                                     
                   with ui.row().classes('w-full'):
                         ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')          
@@ -199,11 +200,11 @@ class CustomizationPage:
             else:
                   self.fullscreenButton.icon = 'fullscreen'
                   self.fullscreenButton.props('color='+self.COLOR_FULLSCREEN_BUTTON)
+            
 
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)
             await asyncio.sleep(0.5)
-            AppStorage.refreshState(self.configuration.oid)
             self.gui.refresh()
             self.init(force_reset=True)
             await asyncio.sleep(0.5)
@@ -212,9 +213,6 @@ class CustomizationPage:
       async def save(self):
             notification = ui.notification(timeout=None, spinner=True)
             await asyncio.sleep(0.5)
-            state_model = self.gui.getCurrentModel()
-            sub_model = {clave: state_model[clave] for clave in [State.A_TEAM, State.B_TEAM, State.LOGOS_BOOL] if clave in state_model}
-            self.backend.saveJSONState(sub_model)
             self.backend.saveJSONCustomization(self.customization.getModel())
             self.gui.updateUI(False)
             await asyncio.sleep(0.5)
