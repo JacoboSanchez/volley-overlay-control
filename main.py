@@ -90,8 +90,7 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
                 logger.debug("Received oid %s and output", conf.oid, conf.output)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
-                
-    notification = ui.notification(timeout=None, spinner=True)
+
     backend = Backend(conf)
     tabs = ui.tabs().props('horizontal').classes("w-full")
     scoreboard_page = GUI(tabs, conf, backend)
@@ -106,7 +105,6 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
     with tabs:
         scoreboardTab
         configurationTab
-    notification.dismiss()
 
 onair = os.environ.get('UNO_OVERLAY_AIR_ID', None)
 if onair == '':

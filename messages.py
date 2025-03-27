@@ -1,6 +1,6 @@
 
 class Messages:
-    FLAT_COLOR = "Flat color"
+    GRADIENT = "Gradient"
     LOGOS = "Logos"
     SET = "Set"
     GAME = "Game"

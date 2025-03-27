@@ -7,15 +7,18 @@ class Customization:
     CONFIG_TAB = "Configuration"
     SCOREBOARD_TAB = "Scoreboard"
 
-    SET_COLOR = "Accent Color"
-    SET_TEXT_COLOR = "Accent Text Color"
-    GLOSS_EFFECT_BOOL = "Gloss Effect"
+    A_TEAM = 'Team 1 Text Name'
+    B_TEAM = 'Team 2 Text Name'
+    LOGOS_BOOL='Logos'
+    SET_COLOR = "Color 1"
+    SET_TEXT_COLOR = "Text Color 1"
+    GLOSS_EFFECT_BOOL = "Gradient"
     HEIGHT_FLOAT = "Height"
-    HPOS_FLOAT = "Horizontal Position"
-    VPOS_FLOAT = "Vertical Position"
+    HPOS_FLOAT = "Left-Right"
+    VPOS_FLOAT = "Up-Down"
     WIDTH_FLOAT = "Width"
-    GAME_COLOR = "Primary Color"
-    GAME_TEXT_COLOR = "Primary Text Color"
+    GAME_COLOR = "Color 2"
+    GAME_TEXT_COLOR = "Text Color 2"
     T1_COLOR = "Team 1 Color"
     T1_TEXT_COLOR = "Team 1 Text Color"
     T1_LOGO = "Team 1 Logo"
@@ -25,8 +28,10 @@ class Customization:
     T2_LOGO_FIT = "Team 2 Logo Fit"
     T2_TEXT_COLOR = "Team 2 Text Color"
     LOGO_FIT_CONTAIN = "contain"
+    
     LOCAL_NAME = Messages.LOCAL
     VISITOR_NAME = Messages.VISITOR
+
     TEAM_VALUES_ICON = "icon"
     TEAM_VALUES_COLOR = "color"
     TEAM_VALUES_TEXT_COLOR = "text_color"
@@ -43,15 +48,14 @@ class Customization:
         predefined_teams = json.loads(provided_teams_json)
     
 
-    reset_state = {SET_COLOR: "#000000",
+    reset_state = {
         SET_TEXT_COLOR: "#ffffff",
-        GAME_COLOR: "#252525",
-        GAME_TEXT_COLOR: "#ffffff",
+        SET_COLOR: "#2a2f35",
         GLOSS_EFFECT_BOOL: "true",
         HEIGHT_FLOAT: 10,
         HPOS_FLOAT: -33,
         GAME_COLOR: "#ffffff",
-        GAME_TEXT_COLOR: "#000000",
+        GAME_TEXT_COLOR: "#2a2f35",
         T1_COLOR: "#060f8a",
         T1_LOGO: DEFAULT_IMAGE,
         T1_LOGO_FIT: "contain",
@@ -139,7 +143,24 @@ class Customization:
     def setSetTextColor(self, color):
         self.customization_model[Customization.SET_TEXT_COLOR] = color
 
+    def getTeamName(self, team):
+        if (team == 1):
+            return self.customization_model[Customization.A_TEAM]
+        return self.customization_model[Customization.B_TEAM]
     
+    def setTeamName(self, team, name):
+        if (team == 1):
+            self.customization_model[Customization.A_TEAM] = name
+        else:
+            self.customization_model[Customization.B_TEAM] = name
+    
+    def isShowLogos(self):
+        return self.customization_model[Customization.LOGOS_BOOL]
+    
+    def setShowLogos(self, value):
+        self.customization_model[Customization.LOGOS_BOOL] = value
+
+
     def setGameTextColor(self, color):
         self.customization_model[Customization.GAME_TEXT_COLOR] = color
 
