@@ -47,27 +47,39 @@ class Backend:
             command = "ShowOverlay"
         return self.sendCommandWithIdAndContent(command)
 
-    def sendCommandWithValue(self, command, value=""):
+    def sendCommandWithValue(self, command, value="", customOid=None):
+        oid = customOid
+        if customOid == None:
+            oid = self.conf.oid
         jsonin = {"command": command, "value":value}
         logging.debug("Sending [%s]", jsonin)
-        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}/api', json=jsonin))
+        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin))
 
-    def sendCommandWithIdAndContent(self, command, content=""):
+    def sendCommandWithIdAndContent(self, command, content="", customOid=None):
+        oid = customOid
+        if customOid == None:
+            oid = self.conf.oid
         jsonin = {"command": command,  "id": self.conf.id, "content":content}
         logging.debug("Sending [%s]", jsonin)
-        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}/api', json=jsonin))
+        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin))
 
 
-    def getCurrentStateModel(self):
-        Backend.logger.info('getting state')
-        currentModel = AppStorage.load(AppStorage.Category.CURRENT_MODEL, oid=self.conf.oid)
+    def getCurrentStateModel(self, customOid=None, saveResult=False):
+        oid = customOid
+        if customOid == None:
+            oid = self.conf.oid
+        Backend.logger.info('getting state for oid %s', oid)
+        currentModel = AppStorage.load(AppStorage.Category.CURRENT_MODEL, oid=oid)
         if currentModel != None:
             logging.info('Using stored model')
             logging.debug(currentModel)
             return currentModel
-        response = self.sendCommandWithIdAndContent("GetOverlayContent")
+        response = self.sendCommandWithIdAndContent("GetOverlayContent", customOid=oid)
         if 200 == response.status_code:
-            return response.json()['payload']
+            result = response.json()['payload']
+            if saveResult == True:
+                AppStorage.save(AppStorage.Category.CURRENT_MODEL, result, oid=oid)
+            return result
         return None
     
     def getCurrentCustomizationStateModel(self):
@@ -98,10 +110,10 @@ class Backend:
             Backend.logger.debug("response message: '%s'", response.text)
         return response
 
-    def validOid(oid: str):
+
+    def validateAndStoreStateForOid(self, oid: str):
         if oid is None or oid.strip() == "":
             return False
-        jsonin = {"command": "GetOverlays"}
-        response = requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin)
-        return response.status_code == 200 and response.json()["status"] == 200
+        result = self.getCurrentStateModel(customOid=oid, saveResult=True)
+        return result != None
     

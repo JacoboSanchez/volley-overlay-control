@@ -20,7 +20,7 @@ root = logging.getLogger()
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter( "\033[1;36m%s\033[1;0m" % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
 root.addHandler(handler)
-root.setLevel(os.environ.get('LOGGING_LEVEL', 'debug').upper())
+root.setLevel(os.environ.get('LOGGING_LEVEL', 'warning').upper())
 
 
 logger = logging.getLogger("Main")
@@ -58,6 +58,7 @@ async def main(control=None, output=None, refresh=None):
 async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
     await ui.context.client.connected()
     conf = Conf()
+    backend = Backend(conf)
     if custom_points_limit == None:
         custom_points_limit = conf.points
     if custom_points_limit_last_set == None:
@@ -70,16 +71,16 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
     if output != None:
         conf.output = OidDialog.UNO_OUTPUT_BASE_URL+output
     
-    if not Backend.validOid(conf.oid):
+    if not backend.validateAndStoreStateForOid(conf.oid):
         storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
         storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-        if Backend.validOid(storageOid):
+        if backend.validateAndStoreStateForOid(storageOid):
             logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
             conf.oid = storageOid
             conf.output = storageOutput
         else:
             logger.info("Current oid is not valid: %s", conf.oid)
-            dialog = OidDialog()
+            dialog = OidDialog(backend=backend)
             await dialog.open()
             
             result = dialog.get_result()
@@ -87,11 +88,10 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
                 conf.oid = result[OidDialog.CONTROL_TOKEN_KEY]
                 if result[OidDialog.OUTPUT_URL_KEY] != None:
                     conf.output = result[OidDialog.OUTPUT_URL_KEY]
-                logger.debug("Received oid %s and output", conf.oid, conf.output)
+                logger.debug("Received oid %s and output %s", conf.oid, conf.output)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
 
-    backend = Backend(conf)
     tabs = ui.tabs().props('horizontal').classes("w-full")
     scoreboard_page = GUI(tabs, conf, backend)
     customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page)

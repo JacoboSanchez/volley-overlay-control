@@ -14,11 +14,12 @@ class OidDialog:
     OUTPUT_URL_KEY = 'output_url'
 
 
-    def __init__(self):
+    def __init__(self, backend: Backend):
         self.dialog = ui.dialog().props('persistent')
         self.control_url_input = None
         self.output_url_input = None
         self.result = None
+        self.backend = backend
 
         with self.dialog, ui.card().classes('w-[400px] !max-w-full'):
             ui.label("Enter Control and Output URLs")
@@ -37,7 +38,7 @@ class OidDialog:
         logger.debug('User submitted control: '+self.control_url_input.value)
         logger.debug('User submitted output: '+self.output_url_input.value)
         token = self.extract_oid(self.control_url_input.value)
-        if Backend.validOid(token):
+        if self.backend.validateAndStoreStateForOid(token):
             self.result = {
                 OidDialog.CONTROL_TOKEN_KEY: token,
                 OidDialog.OUTPUT_URL_KEY: self.compose_output(self.output_url_input.value),
