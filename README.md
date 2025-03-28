@@ -9,13 +9,16 @@ Pre-requisites:
     * Copy the current URL and copy the final part of the URL (after _https://app.overlays.uno/control/_). This will be the _UNO_OVERLAY_OID_ 
     * Click on  _Copy Output URL_, this URL will be the _UNO_OVERLAY_OUTPUT_ 
 * If you don't want to expose the service to internet you can use the [on air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air) feature from nicegui. Obtain your nicegui on air token and use it as _UNO_OVERLAY_AIR_ID_
+* Version 0.2 breaks compatibility with overlays before March 2025
 
 Configuration:
 --------------
 You can configure the behavior using some environment variables:
-* _APP_PORT (Optional)_: The TCP port where the scoreboard will be listening. Default value is _8080_
-* _APP_TITLE (Optional)_: The title of the web page. Default value is _Scoreboard_
-* _APP_DARK_MODE (Optional)_: To specify the dark mode configuration, can be _on_, _off_ or _auto_. Default value is _auto_
+* _UNO_OVERLAY_OID (Optional)_: The control token. If not present a dialog will ask for it.
+* _UNO_OVERLAY_OUTPUT (Optional)_: The output URL. Will be used only to show a link for it in the configuration panel. 
+* _APP_PORT (Optional)_: The TCP port where the scoreboard will be listening. Default value is _8080_.
+* _APP_TITLE (Optional)_: The title of the web page. Default value is _Scoreboard_.
+* _APP_DARK_MODE (Optional)_: To specify the dark mode configuration, can be _on_, _off_ or _auto_. Default value is _auto_.
 * _APP_DEFAULT_LOGO (Optional)_: Image used for no predefined teams. Default is _https://cdn-icons-png.flaticon.com/512/7788/7788863.png_
 * _MATCH_GAME_POINTS (Optional)_: The number of points for each set. Default value is 25.
 * _MATCH_GAME_POINTS_LAST_SET (Optional)_: The number of points for the last set. Default value is 15.
@@ -32,7 +35,7 @@ You can configure the behavior using some environment variables:
 
 Running from shell:
 -------------------
-* Export the environment variables generated before. _UNO_OVERLAY_OID_  is required, the rest are optional
+* Export the environment variables generated before. _UNO_OVERLAY_OID_  is required to start the scoreboard directly. If not present a dialog will ask for the overlay control URL
 * execute "python main.py"
 * nicegui should start a server and open the scoreboard in a browser automatically
 Example:
@@ -60,11 +63,12 @@ Features:
 ---------
 The scoreboard does support the following:
 * Points, sets, timeouts and serve managing
+* Multiple Overlays can be controlled with the same application, use _?control=<token>_ in the URL to update a different overlay. 
 * 25 points 5 sets by default. Append _/beach_ to the URL to use 21 points 3 sets configuration.
 * Option to show/hide the overlay
 * Option to use simple/full scoreboard (only last game or full list)
 * Option to undo game/point/timeout addition
-* Configuration page (for managing the overlay look&feel and fullscreen/dark mode)
+* Configuration panel (for managing the overlay look&feel and fullscreen/dark mode)
 * Reset button
 * Refresh button
 
