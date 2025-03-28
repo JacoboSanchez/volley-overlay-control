@@ -30,9 +30,9 @@ class CustomizationPage:
       def switch_darkmode(self, enable: bool):
             ui.dark_mode(enable)
             if enable:
-                  AppStorage.saveOnTab(AppStorage.Category.DARK_MODE, 1)
+                  AppStorage.save(AppStorage.Category.DARK_MODE, 1)
             else:
-                  AppStorage.saveOnTab(AppStorage.Category.DARK_MODE, 0)
+                  AppStorage.save(AppStorage.Category.DARK_MODE, 0)
             self.slider.reset()
       
 
@@ -157,7 +157,7 @@ class CustomizationPage:
                                     self.createChooseColor(Messages.GAME, False)
                                     fullscreen = ui.fullscreen(on_value_change=self.fullScreenUpdated)
                                     ui.space()
-                                    self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON, on_click=fullscreen.toggle).props('outline round color='+self.COLOR_FULLSCREEN_BUTTON)
+                                    self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON, on_click=fullscreen.toggle).props('outline  color='+self.COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
                         with ui.card():
                               with ui.row().classes('place-content-center align-middle'):
                                     ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
@@ -172,10 +172,11 @@ class CustomizationPage:
                                     ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
                                           on_change=lambda e: self.customization.setVPos(f'{e.value}'))
                               with ui.row():
-                                    if self.configuration.output != None:
+                                    if  self.configuration.output != None and self.configuration.output.strip() != "":
                                           ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
                                     ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
-                                    ui.link(Messages.RESET_LINKS, './?refresh=true')
+                                    if AppStorage.load(AppStorage.Category.CONFIGURED_OID) != None:
+                                          ui.link(Messages.RESET_LINKS, './?refresh=true')
                                     
                                     
                   with ui.row().classes('w-full'):
@@ -193,6 +194,7 @@ class CustomizationPage:
                         ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
             self.logger.info("Initialized customization page")
 
+
       def fullScreenUpdated(self, e):
             if e.value:
                  self.fullscreenButton.icon = 'fullscreen_exit'
@@ -200,7 +202,6 @@ class CustomizationPage:
             else:
                   self.fullscreenButton.icon = 'fullscreen'
                   self.fullscreenButton.props('color='+self.COLOR_FULLSCREEN_BUTTON)
-            
 
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)

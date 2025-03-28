@@ -86,11 +86,11 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
             result = dialog.get_result()
             if result != None:
                 conf.oid = result[OidDialog.CONTROL_TOKEN_KEY]
-                if result[OidDialog.OUTPUT_URL_KEY] != None:
-                    conf.output = result[OidDialog.OUTPUT_URL_KEY]
-                logger.debug("Received oid %s and output %s", conf.oid, conf.output)
+                #if result[OidDialog.OUTPUT_URL_KEY] != None:
+                #    conf.output = result[OidDialog.OUTPUT_URL_KEY]
+                logger.debug("Received oid %s", conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
-                AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
+                #AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
 
     tabs = ui.tabs().props('horizontal').classes("w-full")
     scoreboard_page = GUI(tabs, conf, backend)
