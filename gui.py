@@ -1,8 +1,8 @@
 import logging
-import sys
 from nicegui import ui
 from state import State
 from customization import Customization
+from app_storage import AppStorage
 
 TACOLOR='blue'
 TBCOLOR='red'
@@ -22,21 +22,9 @@ VISIBLE_OFF_COLOR='green-800'
 FULL_SCOREBOARD_COLOR='orange-500'
 SIMPLE_SCOREBOARD_COLOR='orange-700' 
 
-
-logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
-logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
-logging.addLevelName( logging.WARNING, "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
-logging.addLevelName( logging.ERROR, "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
-root = logging.getLogger()
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter( "\033[1;36m%s\033[1;0m" % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
-root.addHandler(handler)
-
-
 class GUI:
     
     def __init__(self, tabs=None, conf=None, backend=None):
-        root.setLevel(conf.logging_level)
         self.logger = logging.getLogger("GUI")
         self.undo = False
         self.simple = False
@@ -52,6 +40,11 @@ class GUI:
         self.visible = backend.isVisible()
         self.set_selector = None
 
+    def setMainState(self, state):
+        self.main_state = State(state)
+
+    def getCurrentState(self):
+        return self.main_state
 
     def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized == True and force == False:
@@ -72,13 +65,22 @@ class GUI:
         self.logger.info('Set points: %s', self.points_limit)
         self.logger.info('Set points last set: %s', self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
-        match self.conf.darkMode:
-            case 'on':
-                ui.dark_mode(True)
-            case 'off': 
-                ui.dark_mode(False)
-            case 'auto':
-                ui.dark_mode()
+        darkMode = AppStorage.load(AppStorage.Category.DARK_MODE, default=-1)
+        if darkMode == 0:
+            logging.info('Restoring light mode')
+            ui.dark_mode(False)
+        elif darkMode == 1:
+            logging.info('Restoring dark mode')
+            ui.dark_mode(True)
+        else:
+            logging.info('Loading configured dark mode %s', self.conf.darkMode)
+            match self.conf.darkMode:
+                case 'on':
+                    ui.dark_mode(True)
+                case 'off': 
+                    ui.dark_mode(False)
+                case 'auto':
+                    ui.dark_mode()
         #########################################
         ui.add_head_html('''
             <style type="text/tailwindcss">
@@ -168,6 +170,11 @@ class GUI:
         self.updateUITimeouts(update_state)
         self.updateUICurrentSet(current_set)
         self.updateUIVisible(visible)
+        clientSimple = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
+        if load_from_backend:
+            self.switchSimpleMode(False)
+        elif clientSimple != None:
+            self.switchSimpleMode(clientSimple) 
 
     def updateUIGames(self, update_state):
         self.hold()
@@ -415,18 +422,20 @@ class GUI:
         self.updateUIVisible(self.visible)
         self.backend.changeOverlayVisibility(self.visible)
 
-    def switchSimpleMode(self):
+    def switchSimpleMode(self, forceValue=None):
         self.hold()
-        if self.simple == True:
+        if (forceValue == None and self.simple == True) or forceValue == False:
             self.simple = False
             self.simple_button.set_icon('grid_on')
             self.simple_button.props('color='+FULL_SCOREBOARD_COLOR)
-        else:
+        elif (forceValue == None and self.simple == False) or forceValue == True:
             self.simple = True
             self.simple_button.set_icon('window')
             self.simple_button.props('color='+SIMPLE_SCOREBOARD_COLOR)
             self.backend.reduceGamesToOne()
-        self.releaseHoldAndsendState()
+        if forceValue == None:
+            AppStorage.save(AppStorage.Category.SIMPLE_MODE, self.simple, oid=self.conf.oid)
+        self.releaseHoldAndsendState()  
 
     def switchUndo(self, reset=False):
         if self.undo:
