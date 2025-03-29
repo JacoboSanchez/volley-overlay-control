@@ -85,15 +85,20 @@ There is no internationalization support. I used the less text I could. If you w
 
 Main control:
 -------------------
-![imagen](https://github.com/user-attachments/assets/67cc07cf-1312-4a08-93e7-41f5138ca356)
+![imagen](https://github.com/user-attachments/assets/d945dbf3-9a1d-40ed-aaf4-cc012bf41d4c)
+
+
 -------------------
 Configuration Panel:
 -------------------
-![imagen](https://github.com/user-attachments/assets/f9b72626-582e-4bf0-a837-290be9066277)
+![imagen](https://github.com/user-attachments/assets/0f100ef0-77fa-4f3e-b326-2d8eac7ae14b)
+
 -------------------
 Overlay:
 -------------------
-![imagen](https://github.com/user-attachments/assets/4a0655c2-ed3c-43d4-b9e0-4748bebc1bf1)
+![imagen](https://github.com/user-attachments/assets/152a586c-1aaa-4c30-b969-c15884097d04)
+
+
 
 Disclaimer:
 -----------
