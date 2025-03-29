@@ -25,7 +25,7 @@ You can configure the behavior using some environment variables:
 * _MATCH_GAME_SETS (Optional)_: The number of sets to win the game. Default value is 5.  
 * _ENABLE_MULTITHREAD (Optional)_: If true the uno overlay API will be invoked without waiting for a response so the UI changes inmediatly. Default value is _true_, change to _false_ to wait for API calls to change the UI.
 * _LOGGING_LEVEL (Optional)_: Level of logging (debug, info, warning, error). Default value is _warning_.
-* _STORAGE_SECRET_ (Optional)_: Secret for http user data encryption at the browser
+* _STORAGE_SECRET (Optional)_: Secret for http user data encryption at the browser
 * _APP_TEAMS (Optional)_: List of predefined teams that can be selected from the configuration. By default only Local and Visitor are defined. The value is a JSON with a map of teams. Key is the name and should contain "icon", "color" and "text_color". Example:
 <pre lang="json">
         {
