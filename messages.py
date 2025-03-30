@@ -13,3 +13,5 @@ class Messages:
     RESET_LINKS = "Reset"
     LOCAL = "Local"
     VISITOR = "Visitor"
+    LOADING = "Loading..."
+    INVALID_OVERLAY_CONTROL_TOKEN = "Invalid overlay control token"

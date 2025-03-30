@@ -1,7 +1,8 @@
-import re
-from nicegui import ui
+import re, asyncio
 import logging
+from nicegui import ui
 from backend import Backend
+from messages import Messages
 
 logger = logging.getLogger("OidDialog")
 
@@ -27,7 +28,7 @@ class OidDialog:
             #self.output_url_input = ui.input(label="Output URL", placeholder=OidDialog.UNO_OUTPUT_BASE_URL+'<Output Token>').classes('w-full')
             with ui.row().classes('w-full'):
                 ui.space()
-                ui.button("OK", on_click=self.submit)
+                self.submit_button = ui.button("OK", on_click=self.submit)
 
     async def open(self):
         return await self.dialog
@@ -35,18 +36,21 @@ class OidDialog:
     def get_result(self):
         return self.result
 
-    def submit(self):
+    async def submit(self):
         logger.debug('User submitted control: '+self.control_url_input.value)
         #logger.debug('User submitted output: '+self.output_url_input.value)
+        self.submit_button.props(add='loading')
+        await asyncio.sleep(0.5)
         token = self.extract_oid(self.control_url_input.value)
         if self.backend.validateAndStoreStateForOid(token):
             self.result = {
                 OidDialog.CONTROL_TOKEN_KEY: token,
                 #OidDialog.OUTPUT_URL_KEY: self.compose_output(self.output_url_input.value),
             }
-            self.dialog.submit(True)
+            self.dialog.submit(self.result)
         else:
-            ui.notify('Invalid overlay control token received [' + token + ']')
+            self.submit_button.props(remove='loading')
+            ui.notify(Messages.INVALID_OVERLAY_CONTROL_TOKEN + ' [' + token + ']')
     
     def extract_oid(self, url: str) -> str:
         pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9]*)\??"

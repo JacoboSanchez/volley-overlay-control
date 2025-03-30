@@ -11,6 +11,7 @@ from customization_page import CustomizationPage
 from conf import Conf
 from backend import Backend
 from app_storage import AppStorage
+from messages import Messages
 
 logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
 logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
@@ -56,6 +57,7 @@ async def main(control=None, output=None, refresh=None):
 
 
 async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
+    notification = ui.notification(Messages.LOADING, timeout=None, spinner=True)
     await ui.context.client.connected()
     conf = Conf()
     backend = Backend(conf)
@@ -79,11 +81,10 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
             conf.oid = storageOid
             conf.output = storageOutput
         else:
+            notification.dismiss()
             logger.info("Current oid is not valid: %s", conf.oid)
             dialog = OidDialog(backend=backend)
-            await dialog.open()
-            
-            result = dialog.get_result()
+            result = await dialog.open()
             if result != None:
                 conf.oid = result[OidDialog.CONTROL_TOKEN_KEY]
                 #if result[OidDialog.OUTPUT_URL_KEY] != None:
@@ -91,7 +92,6 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
                 logger.debug("Received oid %s", conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
                 #AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
-
     tabs = ui.tabs().props('horizontal').classes("w-full")
     scoreboard_page = GUI(tabs, conf, backend)
     customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page)
@@ -105,6 +105,7 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
     with tabs:
         scoreboardTab
         configurationTab
+    notification.dismiss()
 
 onair = os.environ.get('UNO_OVERLAY_AIR_ID', None)
 if onair == '':
