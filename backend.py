@@ -2,7 +2,6 @@ import requests
 import copy
 import threading
 import logging
-import sys
 from state import State
 from app_storage import AppStorage
 

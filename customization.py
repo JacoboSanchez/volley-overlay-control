@@ -30,8 +30,8 @@ class Customization:
     GAME_TEXT_COLOR = "Text Color 2"
     COLOR3 = "Color 3"
     TEXT_COLOR3 = "Text Color 3"
-    LOCAL_NAME = Messages.LOCAL
-    VISITOR_NAME = Messages.VISITOR
+    LOCAL_NAME = Messages.get(Messages.LOCAL)
+    VISITOR_NAME = Messages.get(Messages.VISITOR)
 
     TEAM_VALUES_ICON = "icon"
     TEAM_VALUES_COLOR = "color"

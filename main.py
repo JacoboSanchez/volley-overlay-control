@@ -1,17 +1,19 @@
-import customization_page
 import logging
 import os
 import sys
-import asyncio
 from oid_dialog import OidDialog
 from gui import GUI
-from nicegui import ui
+from fastapi.responses import RedirectResponse
+from authentication import AuthMiddleware, PasswordAuthenticator
+from nicegui import ui, app
 from customization import Customization
 from customization_page import CustomizationPage
 from conf import Conf
 from backend import Backend
 from app_storage import AppStorage
 from messages import Messages
+from typing import Optional
+
 
 logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
 logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
@@ -22,39 +24,56 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter( "\033[1;36m%s\033[1;0m" % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
 root.addHandler(handler)
 root.setLevel(os.environ.get('LOGGING_LEVEL', 'warning').upper())
-
-
 logger = logging.getLogger("Main")
-
 scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
 configurationTab = ui.tab(Customization.CONFIG_TAB)
+
+if (PasswordAuthenticator.doAuthenticateUsers()):
+    logger.info("User authentication enabled")
+    app.add_middleware(AuthMiddleware)
 
 def resetLinksStorage():
     logger.info("resetting links")
     AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
     AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
 
-@ui.page("/indoor")
-async def beach(control=None, output=None, refresh=None):
-    if refresh == "true":
+def resetAll():
+    logger.info("Clearing storage")
+    AppStorage.clearUserStorage()
+
+def processParameters(refresh=None, logout=None):
+    if logout == "true":
+        resetAll()
+        ui.navigate.to('./')
+    elif refresh == "true":
         resetLinksStorage()
         ui.navigate.to('./')
+
+@ui.page("/indoor")
+async def beach(control=None, output=None, refresh=None, logout=None):
+    processParameters(refresh=refresh, logout=logout)
     await runPage(custom_points_limit=25, custom_points_limit_last_set=15, custom_sets_limit=5, oid=control, output=output)
 
 @ui.page("/beach")
-async def beach(control=None, output=None, refresh=None):
-    if refresh == "true":
-        resetLinksStorage()
-        ui.navigate.to('./')
+async def beach(control=None, output=None, refresh=None, logout=None):
+    processParameters(refresh=refresh, logout=logout)
     await runPage(custom_points_limit=21, custom_points_limit_last_set=15, custom_sets_limit=3, oid=control, output=output)
 
 @ui.page("/")
-async def main(control=None, output=None, refresh=None): 
-    if refresh == "true":
-        resetLinksStorage()
-        ui.navigate.to('./')
+async def main(control=None, output=None, refresh=None, logout=None):
+    processParameters(refresh=refresh, logout=logout)
     await runPage(oid=control, output=output)
 
+
+@ui.page('/login')
+async def login(redirect_to: str = '/') -> Optional[RedirectResponse]:
+    if app.storage.user.get('authenticated', False):
+        return RedirectResponse('/')
+    logger.debug("Authenticating")
+    authenticator =  PasswordAuthenticator(redirect_to=redirect_to)
+    await authenticator.open()
+    logger.debug("Authentication finished")
+    return ui.navigate.to(redirect_to)
 
 async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
     notification = ui.notification(Messages.LOADING, timeout=None, spinner=True)
