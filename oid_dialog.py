@@ -50,7 +50,7 @@ class OidDialog:
             self.dialog.submit(self.result)
         else:
             self.submit_button.props(remove='loading')
-            ui.notify(Messages.INVALID_OVERLAY_CONTROL_TOKEN + ' [' + token + ']')
+            ui.notify(Messages.get(Messages.INVALID_OVERLAY_CONTROL_TOKEN) + ' [' + token + ']', color='negative')
     
     def extract_oid(self, url: str) -> str:
         pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9]*)\??"
