@@ -76,7 +76,7 @@ async def login(redirect_to: str = '/') -> Optional[RedirectResponse]:
     return ui.navigate.to(redirect_to)
 
 async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
-    notification = ui.notification(Messages.LOADING, timeout=None, spinner=True)
+    notification = ui.notification(Messages.get(Messages.LOADING), timeout=None, spinner=True)
     await ui.context.client.connected()
     conf = Conf()
     backend = Backend(conf)
@@ -92,14 +92,13 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
     if output != None:
         conf.output = OidDialog.UNO_OUTPUT_BASE_URL+output
     
-    if not backend.validateAndStoreStateForOid(conf.oid):
-        storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
-        storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-        if backend.validateAndStoreStateForOid(storageOid):
-            logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
-            conf.oid = storageOid
-            conf.output = storageOutput
-        else:
+    storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
+    storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
+    if backend.validateAndStoreStateForOid(storageOid):
+        logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
+        conf.oid = storageOid
+        conf.output = storageOutput
+    elif not backend.validateAndStoreStateForOid(conf.oid):
             notification.dismiss()
             logger.info("Current oid is not valid: %s", conf.oid)
             dialog = OidDialog(backend=backend)

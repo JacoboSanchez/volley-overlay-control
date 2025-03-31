@@ -39,9 +39,9 @@ class PasswordAuthenticator:
         userconf = users.get(user, None)
         if userconf != None:
             configuredPassword = userconf.get("password", None)
-            logger.info("User '%s' found, checking password", userconf)
+            logger.info("User '%s' found, checking password", user)
             if password == configuredPassword:
-                logger.info("User '%s' authenticated, searching config", userconf)
+                logger.info("User '%s' authenticated, searching config", user)
                 control = userconf.get("control", None)
                 output = userconf.get("output", None)
                 if control != None:
