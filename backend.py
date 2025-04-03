@@ -4,10 +4,13 @@ import threading
 import logging
 from state import State
 from app_storage import AppStorage
-
+from enum import Enum
 
 class Backend:
     logger = logging.getLogger("Backend")
+
+    ValidationResult = Enum('ValidationResult', [('VALID', 'valid'), ('INVALID', 'invalid'), ('DEPRECATED', 'deprecated')])
+
 
     def __init__(self, config):
         self.conf = config
@@ -114,5 +117,8 @@ class Backend:
         if oid is None or oid.strip() == "":
             return False
         result = self.getCurrentStateModel(customOid=oid, saveResult=True)
-        return result != None
-    
+        if (result.get("game1State", None) != None):
+            return Backend.ValidationResult.DEPRECATED
+        if result != None:
+            return Backend.ValidationResult.VALID
+        return Backend.ValidationResult.INVALID
