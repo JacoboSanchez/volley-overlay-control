@@ -5,6 +5,7 @@ from conf import Conf
 from backend import Backend
 from state import State
 from customization import Customization
+from authentication import PasswordAuthenticator
 from messages import Messages
 from app_storage import AppStorage
 
@@ -172,19 +173,17 @@ class CustomizationPage:
                                     ui.number(label=Messages.get(Messages.VPOS), value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
                                           on_change=lambda e: self.customization.setVPos(f'{e.value}'))
                               with ui.row():
+                                    if AppStorage.load(AppStorage.Category.CONFIGURED_OID) != None:
+                                          ui.link(Messages.get(Messages.RESET_LINKS), './?refresh=true')
+                                    ui.link(Messages.get(Messages.CONTROL_LINK), 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
                                     if  self.configuration.output != None and self.configuration.output.strip() != "":
                                           ui.link(Messages.get(Messages.OVERLAY_LINK), self.configuration.output, new_tab=True)
-                                    ui.link(Messages.get(Messages.CONTROL_LINK), 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
-                                    if AppStorage.load(AppStorage.Category.AUTHENTICATED, False):
-                                          ui.link(Messages.get(Messages.LOGOUT), './?logout=true')
-                                    elif AppStorage.load(AppStorage.Category.CONFIGURED_OID) != None:
-                                          ui.link(Messages.get(Messages.RESET_LINKS), './?refresh=true')
+                                    
                                     
                                     
                   with ui.row().classes('w-full'):
                         ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')          
                         ui.space()
-                        
                         self.dialog = ui.dialog()
                         with self.dialog, ui.card():
                               ui.label('Reset?')
@@ -193,7 +192,8 @@ class CustomizationPage:
                                     ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
                         ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
                         ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
-                        ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
+                        ui.button(icon='recycling', color='orange-500', on_click=self.askReset).props('round').classes('text-white')
+                        ui.button(icon='logout', color='red-700', on_click=PasswordAuthenticator.logout).props('round').classes('text-white')
             self.logger.info("Initialized customization page")
 
 

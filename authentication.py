@@ -12,7 +12,7 @@ from app_storage import AppStorage
 logger = logging.getLogger("Authenticator")
 
 do_authenticate = False
-passwords_json = os.environ.get('USERS', None)
+passwords_json = os.environ.get('SCOREBOARD_USERS', None)
 if passwords_json == None or passwords_json == '':
     users = {}
 else: 
@@ -61,7 +61,9 @@ class PasswordAuthenticator:
         with self.dialog, ui.card().classes('w-[400px] !max-w-full'):
             self.username = ui.input(Messages.get(Messages.USERNAME)).classes('w-full')
             self.password = ui.input(Messages.get(Messages.PASSWORD), password=True, password_toggle_button=True).on('keydown.enter', self.try_login).classes('w-full')
-            ui.button('Log in', on_click=self.try_login)
+            with ui.row().classes('w-full'):
+                ui.space()
+                ui.button(Messages.get(Messages.LOGIN), on_click=self.try_login)
 
     async def open(self):
         logger.debug("open dialog")
@@ -72,7 +74,7 @@ class PasswordAuthenticator:
     def try_login(self) -> None: 
             logger.debug("try login")
             if PasswordAuthenticator.checkUser(self.username.value, self.password.value):
-                app.storage.user.update({'username': self.username.value, AppStorage.Category.AUTHENTICATED: True})
+                app.storage.user.update({AppStorage.Category.USERNAME: self.username.value, AppStorage.Category.AUTHENTICATED: True})
                 self.dialog.submit(True)
             else:
                 ui.notify(Messages.get(Messages.WRONG_USER_NAME), color='negative')
@@ -82,3 +84,8 @@ class PasswordAuthenticator:
         if not output.startswith(prefix):
             return prefix + output
         return output
+
+    def logout():
+        logger.info("logging out")
+        AppStorage.clearUserStorage()
+        ui.navigate.to('./')

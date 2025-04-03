@@ -65,9 +65,9 @@ async def main(control=None, output=None, refresh=None, logout=None):
     await runPage(oid=control, output=output)
 
 
-@ui.page('/login')
+@ui.page('/login', response_timeout = 5)
 async def login(redirect_to: str = '/') -> Optional[RedirectResponse]:
-    if app.storage.user.get('authenticated', False):
+    if app.storage.user.get(AppStorage.Category.AUTHENTICATED, False):
         return RedirectResponse('/')
     logger.debug("Authenticating")
     authenticator =  PasswordAuthenticator(redirect_to=redirect_to)
@@ -87,26 +87,29 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
     if custom_sets_limit == None:
         custom_sets_limit = conf.sets
     if oid != None:
+        AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
         conf.oid = oid
         conf.output = None
     if output != None:
+        AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
         conf.output = OidDialog.UNO_OUTPUT_BASE_URL+output
     
     storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
     storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-    if backend.validateAndStoreStateForOid(storageOid):
+    if OidDialog.processValidation(backend.validateAndStoreStateForOid(storageOid)):
         logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
         conf.oid = storageOid
         conf.output = storageOutput
-    elif not backend.validateAndStoreStateForOid(conf.oid):
+    elif not OidDialog.processValidation(backend.validateAndStoreStateForOid(conf.oid)):
             notification.dismiss()
             logger.info("Current oid is not valid: %s", conf.oid)
             dialog = OidDialog(backend=backend)
             result = await dialog.open()
             if result != None:
                 conf.oid = result[OidDialog.CONTROL_TOKEN_KEY]
-                #if result[OidDialog.OUTPUT_URL_KEY] != None:
-                #    conf.output = result[OidDialog.OUTPUT_URL_KEY]
+                outputCustom = result.get(OidDialog.OUTPUT_URL_KEY, None )
+                if outputCustom != None:
+                    conf.output = outputCustom
                 logger.debug("Received oid %s", conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
                 #AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
