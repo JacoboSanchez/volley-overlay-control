@@ -173,7 +173,7 @@ class CustomizationPage:
                                     ui.number(label=Messages.get(Messages.VPOS), value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
                                           on_change=lambda e: self.customization.setVPos(f'{e.value}'))
                               with ui.row():
-                                    if AppStorage.load(AppStorage.Category.CONFIGURED_OID) != None:
+                                    if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) != None:
                                           ui.link(Messages.get(Messages.RESET_LINKS), './?refresh=true')
                                     ui.link(Messages.get(Messages.CONTROL_LINK), 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
                                     if  self.configuration.output != None and self.configuration.output.strip() != "":
@@ -193,7 +193,8 @@ class CustomizationPage:
                         ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
                         ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
                         ui.button(icon='recycling', color='orange-500', on_click=self.askReset).props('round').classes('text-white')
-                        ui.button(icon='logout', color='red-700', on_click=PasswordAuthenticator.logout).props('round').classes('text-white')
+                        if AppStorage.load(AppStorage.Category.USERNAME, None) != None:
+                              ui.button(icon='logout', color='red-700', on_click=PasswordAuthenticator.logout).props('round').classes('text-white')
             self.logger.info("Initialized customization page")
 
 
