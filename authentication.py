@@ -48,7 +48,7 @@ class PasswordAuthenticator:
                     logger.info("Control data saved for user '%s'", user)
                     AppStorage.save(AppStorage.Category.CONFIGURED_OID, control)
                 if output != None:
-                    logger.info("Saving output '%s' for user '%s'", output, user)
+                    logger.info("Saving output for user '%s'", user)
                     AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, PasswordAuthenticator.compose_output(output))
                 return True
         logger.info("User '%s' not authenticated", user)

@@ -8,7 +8,7 @@ class AppStorage:
     logger = logging.getLogger("Storage")
 
     def save(tag: Category, value, oid=None):
-        AppStorage.logger.debug('Saving [%s] %s to %s', oid, value, tag)  
+        AppStorage.logger.debug('Saving %s [%s]', tag, oid)  
         if oid != None:
             if app.storage.user.get(oid, None) == None:
                 app.storage.user[oid] = {}
@@ -26,7 +26,7 @@ class AppStorage:
                 result = None
         else:
             result = app.storage.user.get(tag, default)
-        AppStorage.logger.debug('Loaded [%s] %s: %s', oid, tag, result)
+        AppStorage.logger.debug('Loaded %s[%s]', oid, tag)
         return result
     
     def refreshState(oid):
