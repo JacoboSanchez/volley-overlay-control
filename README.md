@@ -26,6 +26,7 @@ You can configure the behavior using some environment variables:
 * _ENABLE_MULTITHREAD (Optional)_: If true the uno overlay API will be invoked without waiting for a response so the UI changes inmediatly. Default value is _true_, change to _false_ to wait for API calls to change the UI.
 * _LOGGING_LEVEL (Optional)_: Level of logging (debug, info, warning, error). Default value is _warning_.
 * _STORAGE_SECRET (Optional)_: Secret for http user data encryption at the browser
+* _SCOREBOARD_LANGUAGE (Optional)_: Language code different than english (currently only _es_ implemented.
 * _APP_TEAMS (Optional)_: List of predefined teams that can be selected from the configuration. By default only Local and Visitor are defined. The value is a JSON with a map of teams. Key is the name and should contain "icon", "color" and "text_color". Example:
 <pre lang="json">
         {
@@ -33,6 +34,22 @@ You can configure the behavior using some environment variables:
             "Visitor": {"icon":"https://cdn-icons-png.flaticon.com/512/8686/8686758.png", "color":"#ffffff", "text_color":"#000000"},
         }
 </pre>
+* _SCOREBOARD_USERS (Optional)_: List of users allowed. They may include information about the overlay to open automatically with that user. Example:
+<pre lang="json">
+        {
+            "user1": {"password":"password1"},
+            "user2": {"password":"password2", "control":"CONTROLTOKEN", "output":"OUTPUTTOKEN"},
+        }
+</pre>
+* _PREDEFINED_OVERLAYS (Optional)_: List of predefined overlays configuration available listed by alias. If configured a combo will be displayed to select one. It may contain a whitelist for users that may select each configuration. Example:
+<pre lang="json">
+        {
+            "Overlay only for user 1":{"control":"CONTROLTOKEN", "output":"OUTPUTTOKEN", "allowed_users":["user1"]},
+            "Overlay for all users":{"control":"CONTROLTOKEN", "output":"OUTPUTTOKEN"},
+            "Unselectable overlay":{"control":"CONTROLTOKEN", "output":"OUTPUTTOKEN", "allowed_users":[]}
+        }
+</pre>
+* _HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED (Optional)_: If true the input text field to specify an overlay will not be displayed when predefined overlays are configured. Default is false so both the input control URL and predefined overlays options will be displayed.
 
 Running from shell:
 -------------------
@@ -66,12 +83,11 @@ The scoreboard does support the following:
 * Points, sets, timeouts and serve managing
 * Multiple Overlays can be controlled with the same application, use _?control=<token>_ in the URL to update a different overlay. 
 * 25 points 5 sets by default. Append _/beach_ to the URL to use 21 points 3 sets configuration.
-* Option to show/hide the overlay
+* Option to show/hide the overlay and reset the saved overlay token
 * Option to use simple/full scoreboard (only last game or full list)
 * Option to undo game/point/timeout addition
 * Configuration panel (for managing the overlay look&feel and fullscreen/dark mode)
-* Reset button
-* Refresh button
+* Save, refresh, reset and logout buttons
 
 
 Building docker image:
@@ -80,7 +96,16 @@ There is a Dockerfile template for building your own image and a github action t
 
 Internationalization:
 ---------------------
-There is no internationalization support. I used the less text I could. If you want to translate it for your needs just edit and adapt _messages.py_ file
+Translations may be added by implementing the language in _messages.py_ file and using the language key with the _SCOREBOARD_LANGUAGE_ environment variable
+
+Login dialog:
+-------------------
+![imagen](https://github.com/user-attachments/assets/020f40e0-87b7-452a-bcde-7727c34f34d5)
+
+
+Overlay selector dialog with input text area and predefined overlay selector:
+----------------------------------------------------------------------------------
+![imagen](https://github.com/user-attachments/assets/35b94ca2-57b5-4cb9-92ee-269b0317bc35)
 
 
 Main control:
@@ -91,7 +116,8 @@ Main control:
 -------------------
 Configuration Panel:
 -------------------
-![imagen](https://github.com/user-attachments/assets/0f100ef0-77fa-4f3e-b326-2d8eac7ae14b)
+![imagen](https://github.com/user-attachments/assets/dfafeb90-ec73-42e1-b11e-c4af57a80a9d)
+
 
 -------------------
 Overlay:
@@ -102,8 +128,8 @@ Overlay:
 
 Disclaimer:
 -----------
-This software was made without previous design and without proper knowledge of Python, JavaScript and CSS. It was made by testing sample code and adapting and chaining it until the functionality was implemented. There is no proper logging, error handling, internationalization and performance was not polished.
+This software was made without previous design and without proper knowledge of Python, JavaScript and CSS. It was made by testing sample code and adapting and chaining it until the functionality was implemented. There is no proper logging, error handling, internationalization and performance is far from ideal.
 
-Please keep in mind that there are no users/authentication so do NOT expose directly to internet 
+Please keep in mind that authentication feature is not secure and only intended to distribute overlays so do NOT expose directly to internet 
 
 Use it at your own risk.

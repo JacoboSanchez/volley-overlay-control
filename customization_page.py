@@ -5,6 +5,7 @@ from conf import Conf
 from backend import Backend
 from state import State
 from customization import Customization
+from authentication import PasswordAuthenticator
 from messages import Messages
 from app_storage import AppStorage
 
@@ -138,8 +139,8 @@ class CustomizationPage:
                         self.create_team_card(2, teamNames)
                         with ui.card():
                               with ui.row():
-                                    ui.switch(Messages.LOGOS, value=self.customization.isShowLogos(), on_change=lambda e: self.customization.setShowLogos(e.value))
-                                    ui.switch(Messages.GRADIENT, value=self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(e.value))
+                                    ui.switch(Messages.get(Messages.LOGOS), value=self.customization.isShowLogos(), on_change=lambda e: self.customization.setShowLogos(e.value))
+                                    ui.switch(Messages.get(Messages.GRADIENT), value=self.customization.isGlossy() , on_change=lambda e: self.customization.setGlossy(e.value))
                                     self.slider = ui.slide_item()
                                     with self.slider:
                                           with ui.item():
@@ -153,36 +154,36 @@ class CustomizationPage:
                                           with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode(False)):
                                                 ui.icon('light_mode', color='amber')
                               with ui.row():
-                                    self.createChooseColor(Messages.SET, True)
-                                    self.createChooseColor(Messages.GAME, False)
+                                    self.createChooseColor(Messages.get(Messages.SET), True)
+                                    self.createChooseColor(Messages.get(Messages.GAME), False)
                                     fullscreen = ui.fullscreen(on_value_change=self.fullScreenUpdated)
                                     ui.space()
                                     self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON, on_click=fullscreen.toggle).props('outline  color='+self.COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
                         with ui.card():
                               with ui.row().classes('place-content-center align-middle'):
-                                    ui.number(label=Messages.HEIGHT, value=self.customization.getHeight(), format='%.1f', min=0, max=100,
+                                    ui.number(label=Messages.get(Messages.HEIGHT), value=self.customization.getHeight(), format='%.1f', min=0, max=100,
                                           on_change=lambda e: self.customization.setHeight(f'{e.value}'))
                                     ui.space()
-                                    ui.number(label=Messages.WIDTH, value=self.customization.getWidth(), format='%.1f', min=0, max=100,
+                                    ui.number(label=Messages.get(Messages.WIDTH), value=self.customization.getWidth(), format='%.1f', min=0, max=100,
                                           on_change=lambda e: self.customization.setWidth(f'{e.value}'))
                                     ui.space()
-                                    ui.number(label=Messages.HPOS, value=self.customization.getHPos(), format='%.1f', min=-50, max=50,
+                                    ui.number(label=Messages.get(Messages.HPOS), value=self.customization.getHPos(), format='%.1f', min=-50, max=50,
                                           on_change=lambda e: self.customization.setHPos(f'{e.value}'))
                                     ui.space()
-                                    ui.number(label=Messages.VPOS, value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
+                                    ui.number(label=Messages.get(Messages.VPOS), value=self.customization.getVPos(), format='%.1f', min=-50, max=50,
                                           on_change=lambda e: self.customization.setVPos(f'{e.value}'))
                               with ui.row():
-                                    if  self.configuration.output != None and self.configuration.output.strip() != "":
-                                          ui.link(Messages.OVERLAY_LINK, self.configuration.output, new_tab=True)
-                                    ui.link(Messages.CONTROL_LINK, 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
                                     if AppStorage.load(AppStorage.Category.CONFIGURED_OID) != None:
-                                          ui.link(Messages.RESET_LINKS, './?refresh=true')
+                                          ui.link(Messages.get(Messages.RESET_LINKS), './?refresh=true')
+                                    ui.link(Messages.get(Messages.CONTROL_LINK), 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
+                                    if  self.configuration.output != None and self.configuration.output.strip() != "":
+                                          ui.link(Messages.get(Messages.OVERLAY_LINK), self.configuration.output, new_tab=True)
+                                    
                                     
                                     
                   with ui.row().classes('w-full'):
                         ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.swithToScoreboard).props('round').classes('text-white')          
                         ui.space()
-                        
                         self.dialog = ui.dialog()
                         with self.dialog, ui.card():
                               ui.label('Reset?')
@@ -191,7 +192,8 @@ class CustomizationPage:
                                     ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
                         ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
                         ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
-                        ui.button(icon='recycling', color='red-700', on_click=self.askReset).props('round').classes('text-white')
+                        ui.button(icon='recycling', color='orange-500', on_click=self.askReset).props('round').classes('text-white')
+                        ui.button(icon='logout', color='red-700', on_click=PasswordAuthenticator.logout).props('round').classes('text-white')
             self.logger.info("Initialized customization page")
 
 
