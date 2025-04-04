@@ -45,7 +45,7 @@ class PasswordAuthenticator:
                 control = userconf.get("control", None)
                 output = userconf.get("output", None)
                 if control != None:
-                    logger.info("Saving control '%s' for user '%s'", control, user)
+                    logger.info("Control data saved for user '%s'", user)
                     AppStorage.save(AppStorage.Category.CONFIGURED_OID, control)
                 if output != None:
                     logger.info("Saving output '%s' for user '%s'", output, user)
