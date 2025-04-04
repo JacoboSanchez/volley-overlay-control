@@ -9,9 +9,9 @@ class Messages:
     WIDTH = "Width"
     HPOS = "Pos. X"
     VPOS = "Pos. Y"
-    OVERLAY_LINK = "Overlay"
-    CONTROL_LINK = "Control"
-    RESET_LINKS = "Reset"
+    OVERLAY_LINK = "Overlay output page"
+    CONTROL_LINK = "Control page"
+    RESET_LINKS = "Change overlay"
     LOCAL = "Local"
     VISITOR = "Visitor"
     LOADING = "Loading..."
@@ -35,9 +35,9 @@ class Messages:
             WIDTH:"Ancho",
             HPOS:"Pos. X",
             VPOS:"Pos. Y",
-            OVERLAY_LINK:"Overlay",
-            CONTROL_LINK:"Control",
-            RESET_LINKS:"Reset",
+            OVERLAY_LINK:"Visualizar",
+            CONTROL_LINK:"Página de control",
+            RESET_LINKS:"Cambiar overlay",
             LOCAL:"Local",
             VISITOR:"Visitante",
             LOADING:"Cargando...",
