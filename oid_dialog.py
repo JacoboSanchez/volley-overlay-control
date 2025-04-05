@@ -49,8 +49,6 @@ class OidDialog:
                     result = []
                     for k,v in OidDialog.predefined_overlays.items():
                         allowed_users = v.get('allowed_users', None)
-                        logger.error(allowed_users)
-                        logger.error(v)
                         if allowed_users == None or current_user in allowed_users:
                             result.append(k)
                     if OidDialog.hide_custom_overlay_input == False:
@@ -106,19 +104,18 @@ class OidDialog:
             self.dialog.submit(self.result)
         else:
             self.submit_button.props(remove='loading')
-            if (token == None or token.strip() == "") :
-                ui.notify(Messages.get(Messages.OVERLAY_CONFIGURATION_REQUIRED), color='negative')
                 
 
-    def processValidation(validationResult):
+    def processValidation(validationResult, show_warning=True):
             if validationResult == Backend.ValidationResult.VALID:
                 return True
-            if validationResult == Backend.ValidationResult.DEPRECATED:
-                ui.notify(Messages.get(Messages.OVERLAY_DEPRECATED), color='negative')
-            elif validationResult == Backend.ValidationResult.INVALID:
-                ui.notify(Messages.get(Messages.INVALID_OVERLAY_CONTROL_TOKEN), color='negative')
-            elif validationResult == Backend.ValidationResult.EMPTY:
-                ui.notify(Messages.get(Messages.EMPTY_OVERLAY_CONTROL_TOKEN), color='negative')
+            if show_warning:
+                if validationResult == Backend.ValidationResult.DEPRECATED:
+                    ui.notify(Messages.get(Messages.OVERLAY_DEPRECATED), color='negative')
+                elif validationResult == Backend.ValidationResult.INVALID:
+                    ui.notify(Messages.get(Messages.INVALID_OVERLAY_CONTROL_TOKEN), color='negative')
+                elif validationResult == Backend.ValidationResult.EMPTY:
+                    ui.notify(Messages.get(Messages.OVERLAY_CONFIGURATION_REQUIRED), color='negative')
             return False
     
     def extract_oid(self, url: str) -> str:

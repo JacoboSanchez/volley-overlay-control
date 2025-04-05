@@ -87,22 +87,22 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
     if custom_sets_limit == None:
         custom_sets_limit = conf.sets
     if oid != None:
-        AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
         conf.oid = oid
         conf.output = None
     if output != None:
-        AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
         conf.output = OidDialog.UNO_OUTPUT_BASE_URL+output
     
     storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
     storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-    if OidDialog.processValidation(backend.validateAndStoreStateForOid(storageOid)):
+    if oid == None and backend.validateAndStoreStateForOid(storageOid) == Backend.ValidationResult.VALID:
         logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
         conf.oid = storageOid
         conf.output = storageOutput
-    elif not OidDialog.processValidation(backend.validateAndStoreStateForOid(conf.oid)):
+    else:
+        validationResult = backend.validateAndStoreStateForOid(conf.oid)
+        if validationResult != Backend.ValidationResult.VALID:
             notification.dismiss()
-            logger.info("Current oid is not valid: %s", conf.oid)
+            logger.info("Current oid is not valid [%s]: %s", validationResult, conf.oid)
             dialog = OidDialog(backend=backend)
             result = await dialog.open()
             if result != None:
@@ -110,9 +110,9 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
                 outputCustom = result.get(OidDialog.OUTPUT_URL_KEY, None )
                 if outputCustom != None:
                     conf.output = outputCustom
+                    AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
                 logger.debug("Received oid %s", conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
-                #AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
     tabs = ui.tabs().props('horizontal').classes("w-full")
     scoreboard_page = GUI(tabs, conf, backend)
     customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page)

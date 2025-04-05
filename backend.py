@@ -117,8 +117,8 @@ class Backend:
         if oid is None or oid.strip() == "":
             return Backend.ValidationResult.EMPTY
         result = self.getCurrentStateModel(customOid=oid, saveResult=True)
-        if (result.get("game1State", None) != None):
-            return Backend.ValidationResult.DEPRECATED
         if result != None:
+            if (result.get("game1State", None) != None):
+                return Backend.ValidationResult.DEPRECATED
             return Backend.ValidationResult.VALID
         return Backend.ValidationResult.INVALID
