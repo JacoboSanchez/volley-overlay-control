@@ -9,7 +9,7 @@ from enum import Enum
 class Backend:
     logger = logging.getLogger("Backend")
 
-    ValidationResult = Enum('ValidationResult', [('VALID', 'valid'), ('INVALID', 'invalid'), ('DEPRECATED', 'deprecated')])
+    ValidationResult = Enum('ValidationResult', [('VALID', 'valid'), ('INVALID', 'invalid'), ('DEPRECATED', 'deprecated'), ('EMPTY', 'empty')])
 
 
     def __init__(self, config):
@@ -115,7 +115,7 @@ class Backend:
 
     def validateAndStoreStateForOid(self, oid: str):
         if oid is None or oid.strip() == "":
-            return False
+            return Backend.ValidationResult.EMPTY
         result = self.getCurrentStateModel(customOid=oid, saveResult=True)
         if (result.get("game1State", None) != None):
             return Backend.ValidationResult.DEPRECATED

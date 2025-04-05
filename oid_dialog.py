@@ -44,7 +44,7 @@ class OidDialog:
             current_user = AppStorage.load(AppStorage.Category.USERNAME, None)
             with ui.row().classes('w-full'):
                 if OidDialog.hide_custom_overlay_input == False:
-                    self.control_url_input = ui.input(label="Control URL", placeholder=OidDialog.UNO_CONTROL_BASE_URL+'<Control Token>').classes('w-full')
+                    self.control_url_input = ui.input(label=Messages.get(Messages.CONTROL_URL), placeholder=OidDialog.UNO_CONTROL_BASE_URL+'<Control Token>').classes('w-full')
                 if OidDialog.show_predefined_overlays:
                     result = []
                     for k,v in OidDialog.predefined_overlays.items():
@@ -115,8 +115,10 @@ class OidDialog:
                 return True
             if validationResult == Backend.ValidationResult.DEPRECATED:
                 ui.notify(Messages.get(Messages.OVERLAY_DEPRECATED), color='negative')
-            if validationResult == Backend.ValidationResult.INVALID:
+            elif validationResult == Backend.ValidationResult.INVALID:
                 ui.notify(Messages.get(Messages.INVALID_OVERLAY_CONTROL_TOKEN), color='negative')
+            elif validationResult == Backend.ValidationResult.EMPTY:
+                ui.notify(Messages.get(Messages.EMPTY_OVERLAY_CONTROL_TOKEN), color='negative')
             return False
     
     def extract_oid(self, url: str) -> str:

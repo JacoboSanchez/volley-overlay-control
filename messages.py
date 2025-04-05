@@ -17,6 +17,7 @@ class Messages:
     LOADING = "Loading..."
     INVALID_OVERLAY_CONTROL_TOKEN = "Invalid overlay control token"
     OVERLAY_CONFIGURATION_REQUIRED = "Overlay control URL not provided"
+    EMPTY_OVERLAY_CONTROL_TOKEN = "Empty overlay control token"
     USERNAME = "Username"
     PASSWORD = "Password"
     WRONG_USER_NAME = "Wrong username or password"
@@ -24,6 +25,7 @@ class Messages:
     USE_PREDEFINED_OVERLAYS = "Use predefined overlays",
     OVERLAY_DEPRECATED = "Outdated overlay version, please use a new one"
     LOGIN = "Log in"
+    CONTROL_URL = "Control URL"
 
     messages = {
         "es": {
@@ -43,13 +45,15 @@ class Messages:
             LOADING:"Cargando...",
             INVALID_OVERLAY_CONTROL_TOKEN:"Token de control inválido",
             OVERLAY_CONFIGURATION_REQUIRED:"La URL de control es necesaria",
+            EMPTY_OVERLAY_CONTROL_TOKEN:"Token de control vacío",
             USERNAME:"Usuario",
             PASSWORD:"Contraseña",
             WRONG_USER_NAME:"Usuario o contraseña incorrectos",
             LOGOUT: "Desconectar",
             USE_PREDEFINED_OVERLAYS: "Usar overlays predefinidos",
             OVERLAY_DEPRECATED: "Overlay no soportado, cambiar a uno actual",
-            LOGIN:"Entrar"
+            LOGIN:"Entrar",
+            CONTROL_URL:"Página de control"
           }
         }
 
