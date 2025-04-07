@@ -28,41 +28,41 @@ logger = logging.getLogger("Main")
 scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
 configurationTab = ui.tab(Customization.CONFIG_TAB)
 
-if (PasswordAuthenticator.doAuthenticateUsers()):
+if (PasswordAuthenticator.do_authenticate_users()):
     logger.info("User authentication enabled")
     app.add_middleware(AuthMiddleware)
 
-def resetLinksStorage():
+def reset_links_storage():
     logger.info("resetting links")
     AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
     AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
 
-def resetAll():
+def reset_all():
     logger.info("Clearing storage")
-    AppStorage.clearUserStorage()
+    AppStorage.clear_user_storage()
 
-def processParameters(refresh=None, logout=None):
+def process_parameters(refresh=None, logout=None):
     if logout == "true":
-        resetAll()
+        reset_all()
         ui.navigate.to('./')
     elif refresh == "true":
-        resetLinksStorage()
+        reset_links_storage()
         ui.navigate.to('./')
 
 @ui.page("/indoor")
 async def beach(control=None, output=None, refresh=None, logout=None):
-    processParameters(refresh=refresh, logout=logout)
-    await runPage(custom_points_limit=25, custom_points_limit_last_set=15, custom_sets_limit=5, oid=control, output=output)
+    process_parameters(refresh=refresh, logout=logout)
+    await run_page(custom_points_limit=25, custom_points_limit_last_set=15, custom_sets_limit=5, oid=control, output=output)
 
 @ui.page("/beach")
 async def beach(control=None, output=None, refresh=None, logout=None):
-    processParameters(refresh=refresh, logout=logout)
-    await runPage(custom_points_limit=21, custom_points_limit_last_set=15, custom_sets_limit=3, oid=control, output=output)
+    process_parameters(refresh=refresh, logout=logout)
+    await run_page(custom_points_limit=21, custom_points_limit_last_set=15, custom_sets_limit=3, oid=control, output=output)
 
 @ui.page("/")
 async def main(control=None, output=None, refresh=None, logout=None):
-    processParameters(refresh=refresh, logout=logout)
-    await runPage(oid=control, output=output)
+    process_parameters(refresh=refresh, logout=logout)
+    await run_page(oid=control, output=output)
 
 
 @ui.page('/login', response_timeout = 5)
@@ -75,7 +75,7 @@ async def login(redirect_to: str = '/') -> Optional[RedirectResponse]:
     logger.debug("Authentication finished")
     return ui.navigate.to(redirect_to)
 
-async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
+async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
     notification = ui.notification(Messages.get(Messages.LOADING), timeout=None, spinner=True)
     await ui.context.client.connected()
     conf = Conf()
@@ -94,12 +94,12 @@ async def runPage(custom_points_limit=None, custom_points_limit_last_set=None, c
     
     storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
     storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-    if oid == None and backend.validateAndStoreStateForOid(storageOid) == Backend.ValidationResult.VALID:
+    if oid == None and backend.validate_and_store_model_for_oid(storageOid) == Backend.ValidationResult.VALID:
         logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
         conf.oid = storageOid
         conf.output = storageOutput
     else:
-        validationResult = backend.validateAndStoreStateForOid(conf.oid)
+        validationResult = backend.validate_and_store_model_for_oid(conf.oid)
         if validationResult != Backend.ValidationResult.VALID:
             notification.dismiss()
             logger.info("Current oid is not valid [%s]: %s", validationResult, conf.oid)

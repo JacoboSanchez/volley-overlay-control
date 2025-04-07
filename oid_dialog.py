@@ -38,33 +38,34 @@ class OidDialog:
         #self.output_url_input = None
         self.result = None
         self.backend = backend
-        self.checkBoxEnabled = True
+        self.checkBoxEnabled = False
         with self.dialog, ui.card().classes('w-[400px] !max-w-full'):
-            #ui.label("Enter Control and Output URLs")
+            self.radioButton = None
             current_user = AppStorage.load(AppStorage.Category.USERNAME, None)
             with ui.row().classes('w-full'):
                 if OidDialog.hide_custom_overlay_input == False:
                     self.control_url_input = ui.input(label=Messages.get(Messages.CONTROL_URL), placeholder=OidDialog.UNO_CONTROL_BASE_URL+'<Control Token>').classes('w-full')
                 if OidDialog.show_predefined_overlays:
+                    self.checkBoxEnabled = True
                     result = []
                     for k,v in OidDialog.predefined_overlays.items():
                         allowed_users = v.get('allowed_users', None)
                         if allowed_users == None or current_user in allowed_users:
                             result.append(k)
                     if OidDialog.hide_custom_overlay_input == False:
-                        self.radioButton = ui.checkbox(Messages.get(Messages.USE_PREDEFINED_OVERLAYS)).on_value_change(self.updateSelector)
+                        self.radioButton = ui.checkbox(Messages.get(Messages.USE_PREDEFINED_OVERLAYS)).on_value_change(self.update_selector)
                     else:
                         self.checkBoxEnabled = False
                     self.predefined_overlay_selector = ui.select(result, value=result[0]).classes('w-full w-[300px]')
                     if self.checkBoxEnabled:
-                        self.updateSelector()
+                        self.update_selector()
             with ui.row().classes('w-full'):
                 if current_user != None:
                     ui.button(Messages.get(Messages.LOGOUT), on_click=PasswordAuthenticator.logout)    
                 ui.space()
                 self.submit_button = ui.button("OK", on_click=self.submit)
 
-    def updateSelector(self):
+    def update_selector(self):
         if self.checkBoxEnabled:
             if self.radioButton.value:
                 if self.control_url_input != None:
@@ -90,15 +91,18 @@ class OidDialog:
         self.submit_button.props(add='loading')
         await asyncio.sleep(0.5)
         output = None
-        if  self.checkBoxEnabled == False or self.radioButton.value:
+        if  (OidDialog.show_predefined_overlays and self.checkBoxEnabled == False)  or (self.radioButton != None and self.radioButton.value):
             token = OidDialog.predefined_overlays[self.predefined_overlay_selector.value]['control']
             output = OidDialog.predefined_overlays[self.predefined_overlay_selector.value].get('output', None)
         else:
             token = self.extract_oid(self.control_url_input.value)
-        if OidDialog.processValidation(self.backend.validateAndStoreStateForOid(token)):
+            logger.debug("Extracted %s", token)
+        if OidDialog.process_validation(self.backend.validate_and_store_model_for_oid(token)):
             self.result = {
                 OidDialog.CONTROL_TOKEN_KEY: token
             }
+            logger.debug("Valid")
+
             if output != None:
                 self.result[OidDialog.OUTPUT_URL_KEY] = self.compose_output(output)
             self.dialog.submit(self.result)
@@ -106,7 +110,7 @@ class OidDialog:
             self.submit_button.props(remove='loading')
                 
 
-    def processValidation(validationResult, show_warning=True):
+    def process_validation(validationResult, show_warning=True):
             if validationResult == Backend.ValidationResult.VALID:
                 return True
             if show_warning:
