@@ -88,145 +88,145 @@ class Customization:
     def __init__(self, current_customization_state):
         self.customization_model = current_customization_state
 
-    def getModel(self):
+    def get_model(self):
         return self.customization_model
     
-    def setModel(self, new_model):
+    def set_model(self, new_model):
         self.customization_model = new_model
 
-    def getTeamColor(self, team):
+    def get_team_color(self, team):
         if team == 1:
             return self.customization_model[Customization.T1_COLOR]
         else:
             return self.customization_model[Customization.T2_COLOR]
     
-    def getTeamTextColor(self, team):
+    def get_team_text_color(self, team):
         if team == 1:
             return self.customization_model[Customization.T1_TEXT_COLOR]
         else:
             return self.customization_model[Customization.T2_TEXT_COLOR]
         
-    def getTeamLogo(self, team):
+    def get_team_logo(self, team):
         if team == 1:
-            return Customization.fixIcon(self.customization_model[Customization.T1_LOGO])
+            return Customization.fix_icon(self.customization_model[Customization.T1_LOGO])
         else:
-            return Customization.fixIcon(self.customization_model[Customization.T2_LOGO])
+            return Customization.fix_icon(self.customization_model[Customization.T2_LOGO])
         
-    def getTeamColor(self, team):
+    def get_team_color(self, team):
         if team == 1:
             return self.customization_model[Customization.T1_COLOR]
         else:
             return self.customization_model[Customization.T2_COLOR]
     
-    def setTeamTextColor(self, team, color):
+    def set_team_text_color(self, team, color):
         if team == 1:
             self.customization_model[Customization.T1_TEXT_COLOR] = color
         else:
             self.customization_model[Customization.T2_TEXT_COLOR] = color
 
-    def setTeamColor(self, team, color):
+    def set_team_color(self, team, color):
         if team == 1:
             self.customization_model[Customization.T1_COLOR] = color
         else:
             self.customization_model[Customization.T2_COLOR] = color            
         
-    def setTeamLogo(self, team, logo):
+    def set_team_logo(self, team, logo):
         if team == 1:
             self.customization_model[Customization.T1_LOGO] = logo
         else:
             self.customization_model[Customization.T2_LOGO] = logo
     
-    def getThemeForColor(self):
+    def get_theme_for_color(self):
         for theme_name, theme_data in self.THEMES.items():
-            if theme_data.get(self.SET_COLOR) == self.getSetColor():
+            if theme_data.get(self.SET_COLOR) == self.get_set_color():
                 return theme_name
         return None
 
-    def setTheme(self, theme:str):
+    def set_theme(self, theme:str):
         if theme in self.THEMES:
             for key, value in self.THEMES[theme].items():
                 self.customization_model[key] = value
                 
 
-    def getSetColor(self):
+    def get_set_color(self):
         return self.customization_model[Customization.SET_COLOR]
 
     
-    def getGameColor(self):
+    def get_game_color(self):
         return self.customization_model[Customization.GAME_COLOR]
 
-    def getSetTextColor(self):
+    def get_set_text_color(self):
         return self.customization_model[Customization.SET_TEXT_COLOR]
 
     
-    def getGameTextColor(self):
+    def get_game_text_color(self):
         return self.customization_model[Customization.GAME_TEXT_COLOR]
 
-    def setSetColor(self, color):
+    def set_set_color(self, color):
         self.customization_model[Customization.SET_COLOR] = color
 
     
-    def setGameColor(self, color):
+    def set_game_color(self, color):
         self.customization_model[Customization.GAME_COLOR] = color
 
-    def setSetTextColor(self, color):
+    def set_set_text_color(self, color):
         self.customization_model[Customization.SET_TEXT_COLOR] = color
 
-    def getTeamName(self, team):
+    def get_team_name(self, team):
         if (team == 1):
             return self.customization_model[Customization.A_TEAM]
         return self.customization_model[Customization.B_TEAM]
     
-    def setTeamName(self, team, name):
+    def set_team_name(self, team, name):
         if (team == 1):
             self.customization_model[Customization.A_TEAM] = name
         else:
             self.customization_model[Customization.B_TEAM] = name
     
-    def isShowLogos(self):
+    def is_show_logos(self):
         return self.customization_model[Customization.LOGOS_BOOL]
     
-    def setShowLogos(self, value):
+    def set_show_logos(self, value):
         self.customization_model[Customization.LOGOS_BOOL] = value
 
 
-    def setGameTextColor(self, color):
+    def set_game_text_color(self, color):
         self.customization_model[Customization.GAME_TEXT_COLOR] = color
 
-    def isGlossy(self):
+    def is_glossy(self):
         return self.customization_model[Customization.GLOSS_EFFECT_BOOL]
 
-    def setGlossy(self, value):
+    def set_glossy(self, value):
         self.customization_model[Customization.GLOSS_EFFECT_BOOL] = value                    
 
-    def getWidth(self):
+    def get_width(self):
         return float(self.customization_model[Customization.WIDTH_FLOAT])
 
-    def setWidth(self, width):
+    def set_width(self, width):
         self.customization_model[Customization.WIDTH_FLOAT] = width
 
-    def getHeight(self):
+    def get_height(self):
         return float(self.customization_model[Customization.HEIGHT_FLOAT])
 
-    def setHeight(self, float):
+    def set_height(self, float):
         self.customization_model[Customization.HEIGHT_FLOAT] = float
 
-    def getHPos(self):
+    def get_h_pos(self):
         return float(self.customization_model[Customization.HPOS_FLOAT])
 
-    def setHPos(self, width):
+    def set_h_pos(self, width):
         self.customization_model[Customization.HPOS_FLOAT] = width
 
-    def getVPos(self):
+    def get_v_pos(self):
         return float(self.customization_model[Customization.VPOS_FLOAT])
 
-    def setVPos(self, float):
+    def set_v_pos(self, float):
         self.customization_model[Customization.VPOS_FLOAT] = float
 
-    def getPredefinedTeams():
+    def get_predefined_teams():
         return Customization.predefined_teams
 
-    def fixIcon(url):
+    def fix_icon(url):
         if url.startswith("//"):
             return "https:" + url
         return url        

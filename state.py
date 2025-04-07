@@ -42,7 +42,7 @@ class State:
                 }
     
 
-    def keysToResetSimpleMode():
+    def keys_to_reset_simple_mode():
         return {State.T1SET5_INT,
                 State.T2SET5_INT,
                 State.T1SET4_INT,
@@ -63,20 +63,20 @@ class State:
             self.current_model[State.CURRENT_SET_INT] = '1'
 
     
-    def getResetModel(self):
+    def get_reset_model(self):
         return self.reset_model
     
-    def getCurrentModel(self):
+    def get_current_model(self):
         return self.current_model
     
-    def setCurrentSet(self, set):
+    def set_current_set(self, set):
         self.current_model[State.CURRENT_SET_INT]=set
 
-    def simplifyModel(simplified): 
+    def simplify_model(simplified): 
         current_set = simplified[State.CURRENT_SET_INT]
         t1_points = simplified[f'Team 1 Game {current_set} Score']
         t2_points = simplified[f'Team 2 Game {current_set} Score']
-        for key in State.keysToResetSimpleMode():
+        for key in State.keys_to_reset_simple_mode():
             if key in simplified:
                 simplified[key] = '0'
             
@@ -84,27 +84,27 @@ class State:
         simplified[State.T2SET1_INT] = t2_points
         return simplified
     
-    def getTimeout(self, team):
+    def get_timeout(self, team):
         return int(self.current_model[f'Team {team} Timeouts'])
     
-    def setTimeout(self, team, value):
+    def set_timeout(self, team, value):
         self.current_model[f'Team {team} Timeouts'] = str(value)
 
-    def getSets(self, team):
+    def get_sets(self, team):
         return int(self.current_model[f'Team {team} Sets'])
     
-    def setSets(self, team, value):
+    def set_sets(self, team, value):
         self.current_model[f'Team {team} Sets'] = str(value)
     
-    def getGame(self, team, set):
+    def get_game(self, team, set):
         return int(self.current_model[f'Team {team} Game {set} Score']) 
 
-    def setGame(self, set, team, value):
+    def set_game(self, set, team, value):
         self.current_model[f'Team {team} Game {set} Score'] = str(value)
 
-    def setCurrentServe(self, value):
+    def set_current_serve(self, value):
         self.current_model[State.SERVE] = value
 
-    def getCurrentServe(self):
+    def get_current_serve(self):
         return self.current_model[State.SERVE]
     

@@ -31,10 +31,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 class PasswordAuthenticator:
     UNO_OUTPUT_BASE_URL = 'https://app.overlays.uno/output/'
     
-    def doAuthenticateUsers() -> bool:
+    def do_authenticate_users() -> bool:
         return do_authenticate
 
-    def checkUser(user:str, password:str) -> bool:
+    def check_user(user:str, password:str) -> bool:
         logger.debug("checking user")
         userconf = users.get(user, None)
         if userconf != None:
@@ -73,7 +73,7 @@ class PasswordAuthenticator:
 
     def try_login(self) -> None: 
             logger.debug("try login")
-            if PasswordAuthenticator.checkUser(self.username.value, self.password.value):
+            if PasswordAuthenticator.check_user(self.username.value, self.password.value):
                 app.storage.user.update({AppStorage.Category.USERNAME: self.username.value, AppStorage.Category.AUTHENTICATED: True})
                 self.dialog.submit(True)
             else:
@@ -87,5 +87,5 @@ class PasswordAuthenticator:
 
     def logout():
         logger.info("logging out")
-        AppStorage.clearUserStorage()
+        AppStorage.clear_user_storage()
         ui.navigate.to('./')

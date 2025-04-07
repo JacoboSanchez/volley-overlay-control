@@ -29,9 +29,9 @@ class AppStorage:
         AppStorage.logger.debug('Loaded %s[%s]', oid, tag)
         return result
     
-    def refreshState(oid):
+    def refresh_state(oid):
         logging.error('Refreshing state for %s', oid)
         app.storage.user[oid]=None
 
-    def clearUserStorage():
+    def clear_user_storage():
         app.storage.user.clear()

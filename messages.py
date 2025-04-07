@@ -9,6 +9,8 @@ class Messages:
     WIDTH = "Width"
     HPOS = "Pos. X"
     VPOS = "Pos. Y"
+    ASK_RESET = "Restart scoreboard?"
+    ASK_LOGOUT = "Logout?"
     OVERLAY_LINK = "Overlay output page"
     CONTROL_LINK = "Control page"
     RESET_LINKS = "Change overlay"
@@ -53,7 +55,9 @@ class Messages:
             USE_PREDEFINED_OVERLAYS: "Usar overlays predefinidos",
             OVERLAY_DEPRECATED: "Overlay no soportado, cambiar a uno actual",
             LOGIN:"Entrar",
-            CONTROL_URL:"Página de control"
+            CONTROL_URL:"Página de control",
+            ASK_RESET:"¿Recargar?",
+            ASK_LOGOUT : "¿Desconectar?"
           }
         }
 
