@@ -28,12 +28,9 @@ class CustomizationPage:
             self.gui = gui
             self.customization = Customization(self.backend.get_current_customization())
 
-      def switch_darkmode(self, enable: bool):
-            ui.dark_mode(enable)
-            if enable:
-                  AppStorage.save(AppStorage.Category.DARK_MODE, 1)
-            else:
-                  AppStorage.save(AppStorage.Category.DARK_MODE, 0)
+      def switch_darkmode(self, value: str):
+            CustomizationPage.set_ui_dark_mode(value)
+            AppStorage.save(AppStorage.Category.DARK_MODE, value)
             self.slider.reset()
       
 
@@ -149,16 +146,19 @@ class CustomizationPage:
                                                             ui.icon('dark_mode')      
                                                             ui.icon('multiple_stop')
                                                             ui.icon('light_mode', color='amber')
-                                          with self.slider.right( color='black', on_slide=lambda: self.switch_darkmode(True)):
+                                          with self.slider.right( color='black', on_slide=lambda: self.switch_darkmode('on')):
                                                 ui.icon('dark_mode')
-                                          with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode(False)):
+                                          with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode('off')):
                                                 ui.icon('light_mode', color='amber')
+                                          self.slider.top('auto', color='gray-400', on_slide=lambda: self.switch_darkmode('auto'))
+
                               with ui.row():
                                     self.create_choose_color(Messages.get(Messages.SET), True)
                                     self.create_choose_color(Messages.get(Messages.GAME), False)
-                                    fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
+                                    self.fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
                                     ui.space()
-                                    self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON, on_click=fullscreen.toggle).props('outline  color='+self.COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
+                                    self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON, on_click=self.fullscreen.toggle).props('outline  color='+self.COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
+                                    self.update_full_screen_icon()
                         with ui.card():
                               with ui.row().classes('place-content-center align-middle'):
                                     ui.number(label=Messages.get(Messages.HEIGHT), value=self.customization.get_height(), format='%.1f', min=0, max=100,
@@ -206,7 +206,14 @@ class CustomizationPage:
 
 
       def full_screen_updated(self, e):
-            if e.value:
+            self.update_full_screen_icon(e.value)
+
+      def update_full_screen_icon(self, inputValue=None):
+            value = inputValue
+            if inputValue == None:
+                  value = self.fullscreen.value
+            logging.debug('value %s', value)
+            if value:
                  self.fullscreenButton.icon = 'fullscreen_exit'
                  self.fullscreenButton.props('color='+self.COLOR_EXIT_FULLSCREEN_BUTTON)
             else:
@@ -244,3 +251,12 @@ class CustomizationPage:
 
       def sitch_to_scoreboard(self):
             self.tabs.set_value(Customization.SCOREBOARD_TAB)
+      
+      def set_ui_dark_mode(darkMode: str):
+            match darkMode:
+                  case 'on':
+                        ui.dark_mode(True)
+                  case 'off': 
+                        ui.dark_mode(False)
+                  case 'auto':
+                        ui.dark_mode()

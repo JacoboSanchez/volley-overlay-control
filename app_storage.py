@@ -30,7 +30,7 @@ class AppStorage:
         return result
     
     def refresh_state(oid):
-        logging.error('Refreshing state for %s', oid)
+        logging.debug('Refreshing state for %s', oid)
         app.storage.user[oid]=None
 
     def clear_user_storage():

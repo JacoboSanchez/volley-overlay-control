@@ -3,6 +3,7 @@ from nicegui import ui
 from state import State
 from customization import Customization
 from app_storage import AppStorage
+from customization_page import CustomizationPage
 
 TACOLOR='blue'
 TBCOLOR='red'
@@ -65,22 +66,6 @@ class GUI:
         self.logger.info('Set points: %s', self.points_limit)
         self.logger.info('Set points last set: %s', self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
-        darkMode = AppStorage.load(AppStorage.Category.DARK_MODE, default=-1)
-        if darkMode == 0:
-            logging.info('Restoring light mode')
-            ui.dark_mode(False)
-        elif darkMode == 1:
-            logging.info('Restoring dark mode')
-            ui.dark_mode(True)
-        else:
-            logging.info('Loading configured dark mode %s', self.conf.darkMode)
-            match self.conf.darkMode:
-                case 'on':
-                    ui.dark_mode(True)
-                case 'off': 
-                    ui.dark_mode(False)
-                case 'auto':
-                    ui.dark_mode()
         #########################################
         ui.add_head_html('''
             <style type="text/tailwindcss">
@@ -163,6 +148,12 @@ class GUI:
         else:
             update_state = self.main_state
             
+        darkMode = AppStorage.load(AppStorage.Category.DARK_MODE, default=None)
+        if darkMode == None:
+            darkMode = self.conf.darkMode
+        logging.info('Setting dark mode %s', darkMode)
+        CustomizationPage.set_ui_dark_mode(darkMode)
+
         current_set = self.compute_current_set(update_state)
         self.update_ui_serve(update_state)
         self.update_ui_sets(update_state)
