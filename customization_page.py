@@ -126,6 +126,8 @@ class CustomizationPage:
                   return      
             with self.container:
                   teamNames = list(Customization.get_predefined_teams())
+                  if (self.configuration.orderedTeams):
+                        teamNames.sort()
                   if self.customization.get_team_name(1) not in teamNames:
                         teamNames.append(self.customization.get_team_name(1))
                   if self.customization.get_team_name(2) not in teamNames:

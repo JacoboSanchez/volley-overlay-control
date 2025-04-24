@@ -23,6 +23,7 @@ You can configure the behavior using some environment variables:
 * _MATCH_GAME_POINTS (Optional)_: The number of points for each set. Default value is 25.
 * _MATCH_GAME_POINTS_LAST_SET (Optional)_: The number of points for the last set. Default value is 15.
 * _MATCH_GAME_SETS (Optional)_: The number of sets to win the game. Default value is 5.  
+* _ORDERED_TEAMS=(Optional)_: If true the list of teams is shown ordered in the combo box. Default is _true_.
 * _ENABLE_MULTITHREAD (Optional)_: If true the uno overlay API will be invoked without waiting for a response so the UI changes inmediatly. Default value is _true_, change to _false_ to wait for API calls to change the UI.
 * _LOGGING_LEVEL (Optional)_: Level of logging (debug, info, warning, error). Default value is _warning_.
 * _STORAGE_SECRET (Optional)_: Secret for http user data encryption at the browser
