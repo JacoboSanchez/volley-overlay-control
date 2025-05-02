@@ -15,10 +15,11 @@ from messages import Messages
 from typing import Optional
 
 
-logging.addLevelName( logging.DEBUG, "\033[33m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
+logging.addLevelName( logging.DEBUG, "\033[39m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
 logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
-logging.addLevelName( logging.WARNING, "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
-logging.addLevelName( logging.ERROR, "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
+logging.addLevelName( logging.WARNING, "\033[1;43m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
+logging.addLevelName( logging.ERROR, "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
+logging.addLevelName( logging.FATAL, "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.FATAL))
 root = logging.getLogger()
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter( "\033[1;36m%s\033[1;0m" % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
@@ -76,10 +77,25 @@ async def login(redirect_to: str = '/') -> Optional[RedirectResponse]:
     return ui.navigate.to(redirect_to)
 
 async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
+    ui.add_head_html('''
+        <script>
+        function emitSize() {
+            window.emitEvent('resize', {
+                width: document.body.offsetWidth,
+                height: document.body.offsetHeight,
+            });
+            }
+            window.onload = emitSize;
+            window.onresize = emitSize;
+        </script>
+    ''')
     notification = ui.notification(Messages.get(Messages.LOADING), timeout=None, spinner=True)
-    await ui.context.client.connected()
+    tabs = ui.tabs().props('horizontal').classes("w-full")
     conf = Conf()
     backend = Backend(conf)
+    scoreboard_page = GUI(tabs, conf, backend)
+    ui.on('resize', lambda e: scoreboard_page.set_page_size(e.args['width'], e.args['height']))
+    await ui.context.client.connected()
     if custom_points_limit == None:
         custom_points_limit = conf.points
     if custom_points_limit_last_set == None:
@@ -113,8 +129,7 @@ async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, 
                     AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
                 logger.debug("Received oid %s", conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
-    tabs = ui.tabs().props('horizontal').classes("w-full")
-    scoreboard_page = GUI(tabs, conf, backend)
+
     customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page)
     with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full"):
         scoreboardTabPanel = ui.tab_panel(scoreboardTab)

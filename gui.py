@@ -25,7 +25,12 @@ SIMPLE_SCOREBOARD_COLOR='orange-700'
 
 RED_BUTTON_COLOR='red'
 BLUE_BUTTON_COLOR='blue'
-GAME_BUTTON_CLASSES='p-11 text-center shadow-lg rounded-lg text-white text-5xl font-bold;'
+GAME_BUTTON_PADDING_BIG='p-16'
+GAME_BUTTON_PADDING_NORMAL='p-14'
+GAME_BUTTON_PADDING_SMALL='p-11'
+GAME_BUTTON_TEXT_NORMAL='text-5xl'
+GAME_BUTTON_TEXT_BIG='text-6xl'
+GAME_BUTTON_CLASSES=' text-center shadow-lg rounded-lg text-white font-bold '
 
 class GUI:
     
@@ -44,6 +49,44 @@ class GUI:
         self.main_state = State(backend.get_current_model()) 
         self.visible = backend.is_visible()
         self.set_selector = None
+        self.page_height = None
+        self.page_width = None
+        self.PADDINGS = GAME_BUTTON_PADDING_NORMAL
+        self.TEXTSIZE = GAME_BUTTON_TEXT_NORMAL
+
+    def set_page_size(self, width, height):
+        self.page_height = height
+        self.page_width = width
+        self.logger.debug('Set page size to: %sx%s', self.page_height, self.page_width)
+        if (self.page_width > 850):
+            if self.PADDINGS != GAME_BUTTON_PADDING_BIG:
+                self.switch_padding(GAME_BUTTON_PADDING_BIG)
+                self.switch_textsize(GAME_BUTTON_TEXT_BIG)
+        elif (self.page_width > 745 or self.page_height > self.page_width):
+            if self.PADDINGS != GAME_BUTTON_PADDING_NORMAL:
+                self.switch_padding(GAME_BUTTON_PADDING_NORMAL)
+                self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
+        else:
+            if self.PADDINGS != GAME_BUTTON_PADDING_SMALL:
+                self.switch_padding(GAME_BUTTON_PADDING_SMALL)
+                self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
+                
+
+    def switch_padding(self, padding):
+            self.teamAButton.classes(remove=self.PADDINGS)
+            self.teamBButton.classes(remove=self.PADDINGS)
+            self.PADDINGS = padding
+            self.logger.info("Change paddings to %s", padding)
+            self.teamAButton.classes(add=self.PADDINGS)
+            self.teamBButton.classes(add=self.PADDINGS)
+
+    def switch_textsize(self, textsize):
+            self.teamAButton.classes(remove=self.TEXTSIZE)
+            self.teamBButton.classes(remove=self.TEXTSIZE)
+            self.TEXTSIZE = textsize
+            self.logger.info("Change textsize to %s", textsize)
+            self.teamAButton.classes(add=self.TEXTSIZE)
+            self.teamBButton.classes(add=self.TEXTSIZE)
 
     def set_main_state(self, state):
         self.main_state = State(state)
@@ -72,7 +115,7 @@ class GUI:
         self.logger.info('Sets to win: %s', self.sets_limit)
         with ui.row().classes('w-full'):
             with ui.card():
-                self.teamAButton = ui.button('00', color=BLUE_BUTTON_COLOR, on_click=lambda: self.add_game(1)).classes(GAME_BUTTON_CLASSES)
+                self.teamAButton = ui.button('00', color=BLUE_BUTTON_COLOR, on_click=lambda: self.add_game(1)).classes(self.PADDINGS+GAME_BUTTON_CLASSES+self.TEXTSIZE)
                 with ui.row().classes('text-4xl w-full'):
                     ui.button(icon='timer', color=TACOLOR_LIGHT, on_click=lambda: self.add_timeout(1)).props('outline round').classes('shadow-lg')
                     self.timeoutsA = ui.column()
@@ -89,7 +132,7 @@ class GUI:
                 self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(e.value)).props('color=grey active-color=teal')        
             ui.space()
             with ui.card():
-                self.teamBButton = ui.button('00', color=RED_BUTTON_COLOR, on_click=lambda: self.add_game(2)).classes(GAME_BUTTON_CLASSES)
+                self.teamBButton = ui.button('00', color=RED_BUTTON_COLOR, on_click=lambda: self.add_game(2)).classes(self.PADDINGS+GAME_BUTTON_CLASSES+self.TEXTSIZE)
                 with ui.row().classes('text-4xl w-full'):
                     ui.button(icon='timer', color=TBCOLOR_LIGHT, on_click=lambda: self.add_timeout(2)).props('outline round').classes('shadow-lg ')
                     self.timeoutsB = ui.column() 
