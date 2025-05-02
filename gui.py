@@ -23,6 +23,10 @@ VISIBLE_OFF_COLOR='green-800'
 FULL_SCOREBOARD_COLOR='orange-500'
 SIMPLE_SCOREBOARD_COLOR='orange-700' 
 
+RED_BUTTON_COLOR='red'
+BLUE_BUTTON_COLOR='blue'
+GAME_BUTTON_CLASSES='p-11 text-center shadow-lg rounded-lg text-white text-5xl font-bold;'
+
 class GUI:
     
     def __init__(self, tabs=None, conf=None, backend=None):
@@ -66,28 +70,12 @@ class GUI:
         self.logger.info('Set points: %s', self.points_limit)
         self.logger.info('Set points last set: %s', self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
-        #########################################
-        ui.add_head_html('''
-            <style type="text/tailwindcss">
-                @layer components {
-                    .blue-box {
-                        @apply bg-blue-400 p-14 text-center shadow-lg rounded-lg text-white text-5xl font-bold;
-                    }
-                }
-                @layer components {
-                    .red-box {
-                        @apply bg-red-400 p-14 text-center shadow-lg rounded-lg text-white text-5xl font-bold;
-                    }
-                }
-            </style>
-        ''')
-        #########################################
         with ui.row().classes('w-full'):
             with ui.card():
-                self.teamAButton = ui.button('00', on_click=lambda: self.add_game(1)).classes('blue-box')
+                self.teamAButton = ui.button('00', color=BLUE_BUTTON_COLOR, on_click=lambda: self.add_game(1)).classes(GAME_BUTTON_CLASSES)
                 with ui.row().classes('text-4xl w-full'):
                     ui.button(icon='timer', color=TACOLOR_LIGHT, on_click=lambda: self.add_timeout(1)).props('outline round').classes('shadow-lg')
-                    self.timeoutsA = ui.row()
+                    self.timeoutsA = ui.column()
                     ui.space()
                     self.serveA = ui.icon(name='sports_volleyball', color=TACOLOR_VLIGHT)
                     self.serveA.on('click', lambda: self.change_serve(1))
@@ -101,10 +89,10 @@ class GUI:
                 self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(e.value)).props('color=grey active-color=teal')        
             ui.space()
             with ui.card():
-                self.teamBButton = ui.button('00', color='red', on_click=lambda: self.add_game(2)).classes('red-box')
+                self.teamBButton = ui.button('00', color=RED_BUTTON_COLOR, on_click=lambda: self.add_game(2)).classes(GAME_BUTTON_CLASSES)
                 with ui.row().classes('text-4xl w-full'):
                     ui.button(icon='timer', color=TBCOLOR_LIGHT, on_click=lambda: self.add_timeout(2)).props('outline round').classes('shadow-lg ')
-                    self.timeoutsB = ui.row() 
+                    self.timeoutsB = ui.column() 
                     ui.space()
                     self.serveB = ui.icon(name='sports_volleyball', color=TBCOLOR_VLIGHT)
                     self.serveB.on('click', lambda: self.change_serve(2))
@@ -317,7 +305,7 @@ class GUI:
         else:        
             if len(list(container)) < 2:
                 with container:
-                    ui.icon(name='radio_button_unchecked', color=color, size='12px')
+                    ui.icon(name='radio_button_unchecked', color=color, size='12px').classes('text-center')
             else:
                 container.clear()
         self.main_state.set_timeout(team, len(list(container)))
