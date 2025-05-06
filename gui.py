@@ -53,6 +53,7 @@ class GUI:
         self.page_width = None
         self.PADDINGS = GAME_BUTTON_PADDING_NORMAL
         self.TEXTSIZE = GAME_BUTTON_TEXT_NORMAL
+        self.initialized = False
 
     def set_page_size(self, width, height):
         self.page_height = height
@@ -73,20 +74,24 @@ class GUI:
                 
 
     def switch_padding(self, padding):
-            self.teamAButton.classes(remove=self.PADDINGS)
-            self.teamBButton.classes(remove=self.PADDINGS)
+            if self.initialized:
+                self.teamAButton.classes(remove=self.PADDINGS)
+                self.teamBButton.classes(remove=self.PADDINGS)
             self.PADDINGS = padding
             self.logger.info("Change paddings to %s", padding)
-            self.teamAButton.classes(add=self.PADDINGS)
-            self.teamBButton.classes(add=self.PADDINGS)
+            if self.initialized:
+                self.teamAButton.classes(add=self.PADDINGS)
+                self.teamBButton.classes(add=self.PADDINGS)
 
     def switch_textsize(self, textsize):
-            self.teamAButton.classes(remove=self.TEXTSIZE)
-            self.teamBButton.classes(remove=self.TEXTSIZE)
+            if self.initialized:
+                self.teamAButton.classes(remove=self.TEXTSIZE)
+                self.teamBButton.classes(remove=self.TEXTSIZE)
             self.TEXTSIZE = textsize
             self.logger.info("Change textsize to %s", textsize)
-            self.teamAButton.classes(add=self.TEXTSIZE)
-            self.teamBButton.classes(add=self.TEXTSIZE)
+            if self.initialized:
+                self.teamAButton.classes(add=self.TEXTSIZE)
+                self.teamBButton.classes(add=self.TEXTSIZE)
 
     def set_main_state(self, state):
         self.main_state = State(state)
@@ -149,6 +154,7 @@ class GUI:
             ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(Customization.CONFIG_TAB)).props('round').classes('text-white')    
                 
         self.update_ui(False)
+        self.initialized = True
         self.logger.info('Initialized gui')
         
 
@@ -180,6 +186,7 @@ class GUI:
             update_state = self.main_state
             
         darkMode = AppStorage.load(AppStorage.Category.DARK_MODE, default=None)
+        logging.debug('loaded dark mode %s', darkMode)
         if darkMode == None:
             darkMode = self.conf.darkMode
         logging.info('Setting dark mode %s', darkMode)

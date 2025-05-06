@@ -184,16 +184,22 @@ class CustomizationPage:
                                     
                                     
                   with ui.row().classes('w-full'):
-                        ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.sitch_to_scoreboard).props('round').classes('text-white')          
+                        ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.switch_to_scoreboard).props('round').classes('text-white')          
                         ui.space()
-                        self.dialog = ui.dialog()
-                        with self.dialog, ui.card():
+                        self.dialog_reset = ui.dialog()
+                        with self.dialog_reset, ui.card():
                               ui.label(Messages.get(Messages.ASK_RESET))
                               with ui.row():
-                                    ui.button(color='green-500', icon='done', on_click=lambda: self.dialog.submit(True))
-                                    ui.button(color='red-500', icon='close', on_click=lambda: self.dialog.submit(False))
+                                    ui.button(color='green-500', icon='done', on_click=lambda: self.dialog_reset.submit(True))
+                                    ui.button(color='red-500', icon='close', on_click=lambda: self.dialog_reset.submit(False))
+                        self.dialog_reload = ui.dialog()
+                        with self.dialog_reload, ui.card():
+                              ui.label(Messages.get(Messages.ASK_RELOAD))
+                              with ui.row():
+                                    ui.button(color='green-500', icon='done', on_click=lambda: self.dialog_reload.submit(True))
+                                    ui.button(color='red-500', icon='close', on_click=lambda: self.dialog_reload.submit(False))
                         ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
-                        ui.button(icon='sync', color='emerald-600', on_click=self.refresh).props('round').classes('text-white')
+                        ui.button(icon='sync', color='emerald-600', on_click=self.ask_refresh).props('round').classes('text-white')
                         ui.button(icon='recycling', color='orange-500', on_click=self.ask_reset).props('round').classes('text-white')
                         if AppStorage.load(AppStorage.Category.USERNAME, None) != None:
                               self.logout_dialog = ui.dialog()
@@ -237,24 +243,34 @@ class CustomizationPage:
             self.gui.update_ui(False)
             await asyncio.sleep(0.5)
             notification.dismiss()
-            self.sitch_to_scoreboard()
+            self.switch_to_scoreboard()
 
       async def ask_logout(self):
             result = await self.logout_dialog
             if result:
                   PasswordAuthenticator.logout()
 
-      async def ask_reset(self):
-        result = await self.dialog
+      async def ask_refresh(self):
+        result = await self.dialog_reload
         if result:
+            await self.refresh()
+
+      async def ask_reset(self):
+        result = await self.dialog_reset
+        if result:
+            notification = ui.notification(timeout=None, spinner=True)
+            await asyncio.sleep(0.5)
             self.gui.reset()
             self.init(force_reset=True) 
-            self.sitch_to_scoreboard()
+            await asyncio.sleep(0.5)
+            notification.dismiss()
+            self.switch_to_scoreboard()
 
-      def sitch_to_scoreboard(self):
+      def switch_to_scoreboard(self):
             self.tabs.set_value(Customization.SCOREBOARD_TAB)
       
       def set_ui_dark_mode(darkMode: str):
+            logging.debug('Setting dark mode %s', darkMode)
             match darkMode:
                   case 'on':
                         ui.dark_mode(True)
