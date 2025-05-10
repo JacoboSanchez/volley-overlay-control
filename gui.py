@@ -59,18 +59,32 @@ class GUI:
         self.page_height = height
         self.page_width = width
         self.logger.debug('Set page size to: %sx%s', self.page_height, self.page_width)
-        if (self.page_width > 850):
-            if self.PADDINGS != GAME_BUTTON_PADDING_BIG:
-                self.switch_padding(GAME_BUTTON_PADDING_BIG)
-                self.switch_textsize(GAME_BUTTON_TEXT_BIG)
-        elif (self.page_width > 745 or self.page_height > self.page_width):
-            if self.PADDINGS != GAME_BUTTON_PADDING_NORMAL:
-                self.switch_padding(GAME_BUTTON_PADDING_NORMAL)
-                self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
+        if self.page_width >= self.page_height:
+            if (self.page_width > 850):
+                if self.PADDINGS != GAME_BUTTON_PADDING_BIG:
+                    self.switch_padding(GAME_BUTTON_PADDING_BIG)
+                    self.switch_textsize(GAME_BUTTON_TEXT_BIG)
+            elif (self.page_width > 745):
+                if self.PADDINGS != GAME_BUTTON_PADDING_NORMAL:
+                    self.switch_padding(GAME_BUTTON_PADDING_NORMAL)
+                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
+            else:
+                if self.PADDINGS != GAME_BUTTON_PADDING_SMALL:
+                    self.switch_padding(GAME_BUTTON_PADDING_SMALL)
+                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
         else:
-            if self.PADDINGS != GAME_BUTTON_PADDING_SMALL:
-                self.switch_padding(GAME_BUTTON_PADDING_SMALL)
-                self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
+            if (self.page_height > 850):
+                if self.PADDINGS != GAME_BUTTON_PADDING_BIG:
+                    self.switch_padding(GAME_BUTTON_PADDING_BIG)
+                    self.switch_textsize(GAME_BUTTON_TEXT_BIG)
+            elif (self.page_height > 800):
+                if self.PADDINGS != GAME_BUTTON_PADDING_NORMAL:
+                    self.switch_padding(GAME_BUTTON_PADDING_NORMAL)
+                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
+            else:
+                if self.PADDINGS != GAME_BUTTON_PADDING_SMALL:
+                    self.switch_padding(GAME_BUTTON_PADDING_SMALL)
+                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
                 
 
     def switch_padding(self, padding):
