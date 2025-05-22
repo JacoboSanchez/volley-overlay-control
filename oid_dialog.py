@@ -35,7 +35,6 @@ class OidDialog:
     def __init__(self, backend: Backend):
         self.dialog = ui.dialog().props('persistent')
         self.control_url_input = None
-        #self.output_url_input = None
         self.result = None
         self.backend = backend
         self.checkBoxEnabled = False
@@ -56,7 +55,7 @@ class OidDialog:
                         self.radioButton = ui.checkbox(Messages.get(Messages.USE_PREDEFINED_OVERLAYS)).on_value_change(self.update_selector)
                     else:
                         self.checkBoxEnabled = False
-                    self.predefined_overlay_selector = ui.select(result, value=result[0]).classes('w-full w-[300px]')
+                    self.predefined_overlay_selector = ui.select(result, value=result[0]).classes('w-full w-[300px]').props('outlined')
                     if self.checkBoxEnabled:
                         self.update_selector()
             with ui.row().classes('w-full'):
@@ -87,7 +86,6 @@ class OidDialog:
 
     async def submit(self):
         logger.debug('User accepted config')
-        #logger.debug('User submitted output: '+self.output_url_input.value)
         self.submit_button.props(add='loading')
         await asyncio.sleep(0.5)
         output = None

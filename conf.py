@@ -13,4 +13,9 @@ class Conf:
         self.points = int(os.environ.get('MATCH_GAME_POINTS', 25))
         self.points_last_set = int(os.environ.get('MATCH_GAME_POINTS_LAST_SET', 15))
         self.sets = int(os.environ.get('MATCH_SETS', 5))
+        self.lock_teamA_icons = False
+        self.lock_teamB_icons = False
+        self.lock_teamA_colors = False
+        self.lock_teamB_colors = False
+
         
