@@ -40,17 +40,23 @@ class CustomizationPage:
             teamValues = Customization.get_predefined_teams().get(team_name, None)
             if teamValues == None:
                   teamValues = Customization.get_predefined_teams()[CustomizationPage.get_fallback_team_name(team)]
+            lockedColors = self.configuration.lock_teamA_colors if team == 1 else self.configuration.lock_teamB_colors
+            lockedIcon = self.configuration.lock_teamA_icons if team == 1 else self.configuration.lock_teamB_icons
             ## update gui
-            logo.set_source(teamValues[Customization.TEAM_VALUES_ICON])
-            color.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_COLOR]}]')
-            textColor.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_TEXT_COLOR]}]')
-            selector.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_COLOR]}]')
-            selector.classes(replace=f'!fg-[{teamValues[Customization.TEAM_VALUES_TEXT_COLOR]}]')
+            if lockedIcon == False:
+                  logo.set_source(teamValues[Customization.TEAM_VALUES_ICON])
+            if lockedColors == False:  
+                  color.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_COLOR]}]')
+                  textColor.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_TEXT_COLOR]}]')
+                  selector.classes(replace=f'!bg-[{teamValues[Customization.TEAM_VALUES_COLOR]}] w-[300px]')
+                  selector.classes(replace=f'!fg-[{teamValues[Customization.TEAM_VALUES_TEXT_COLOR]}] w-[300px]')
             ## update model
             self.customization.set_team_name(team, tname)
-            self.customization.set_team_logo(team, teamValues[Customization.TEAM_VALUES_ICON])
-            self.customization.set_team_color(team, teamValues[Customization.TEAM_VALUES_COLOR])
-            self.customization.set_team_text_color(team, teamValues[Customization.TEAM_VALUES_TEXT_COLOR])
+            if lockedIcon == False:
+                  self.customization.set_team_logo(team, teamValues[Customization.TEAM_VALUES_ICON])
+            if lockedColors == False:
+                  self.customization.set_team_color(team, teamValues[Customization.TEAM_VALUES_COLOR])
+                  self.customization.set_team_text_color(team, teamValues[Customization.TEAM_VALUES_TEXT_COLOR])
 
       def update_team_model_color(self, team, color, button, textColor=False):
             button.classes(replace=f'!bg-[{color}]')
@@ -78,15 +84,19 @@ class CustomizationPage:
             return Customization.LOCAL_NAME if team == 1 else Customization.VISITOR_NAME
 
       def create_team_card(self, team, teamNames):
+            self.customization.set_team_logo(team, self.customization.get_team_logo(team))
             with ui.card():
-                  with ui.row():
-                        team_logo = ui.image(self.customization.get_team_logo(team)).classes('w-9 h-9 m-auto')
-                        self.customization.set_team_logo(team, self.customization.get_team_logo(team))
+                  with ui.row().classes('w-full'):
                         selector = ui.select(teamNames, 
                               new_value_mode = 'add-unique', 
                               value = self.customization.get_team_name(team),
                               key_generator=lambda k: k,
-                              on_change=lambda e: self.update_team_selection(team, team_logo, e.value, team_color, team_text_color, selector))
+                              on_change=lambda e: self.update_team_selection(team, team_logo, e.value, team_color, team_text_color, selector)).classes('w-[300px]').props('outlined behavior=dialog label='+CustomizationPage.get_fallback_team_name(team))
+                        
+                  with ui.row():
+                        team_logo = ui.image(self.customization.get_team_logo(team)).classes('w-9 h-9 m-auto')
+                        icons_switch = ui.switch(on_change=lambda e: self.changed_icon_lock(team, icons_switch, e.value)).props('icon=no_encryption')
+                        ui.space()
                         team_color = ui.button().classes('w-8 h-8 m-auto')
                         team_text_color = ui.button().classes('w-5 h-5')
                         with team_color:
@@ -97,6 +107,30 @@ class CustomizationPage:
                         team_text_color_picker.q_color.props('default-view=palette no-header')
                         self.update_team_model_color(team, self.customization.get_team_color(team), team_color, False)
                         self.update_team_model_color(team, self.customization.get_team_text_color(team), team_text_color, True)
+                        colors_switch = ui.switch(on_change=lambda e: self.changed_color_lock(team, colors_switch, e.value)).props('icon=no_encryption')
+      
+      def changed_icon_lock(self, team, switch_lock, value):
+            if team == 1:
+                  self.configuration.lock_teamA_icons = value
+            else:
+                  self.configuration.lock_teamB_icons = value
+            if value:
+                  switch_lock.props('icon=lock')
+            else:
+                  switch_lock.props('icon=no_encryption')
+
+
+      def changed_color_lock(self, team, switch_lock, value):
+            if team == 1:
+                  self.configuration.lock_teamA_colors = value
+            else:
+                  self.configuration.lock_teamB_colors = value
+            if value:
+                  switch_lock.props('icon=lock')
+            else:
+                  switch_lock.props('icon=no_encryption')
+
+
  
       def create_choose_color(self, name, forSet = False):
             ui.label(name)
@@ -122,7 +156,7 @@ class CustomizationPage:
             if self.container != None:
                   self.container.clear()
             else:
-                  logging.warn('Not container for customization...')
+                  logging.warning('Not container for customization...')
                   return      
             with self.container:
                   teamNames = list(Customization.get_predefined_teams())

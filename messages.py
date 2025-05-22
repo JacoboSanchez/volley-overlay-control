@@ -29,6 +29,9 @@ class Messages:
     OVERLAY_DEPRECATED = "Outdated overlay version, please use a new one"
     LOGIN = "Log in"
     CONTROL_URL = "Control URL"
+    COLORS_LOCK = "Colors"
+    ICONS_LOCK = "Icons"
+    LOCK = "Lock:"
 
     messages = {
         "es": {
@@ -59,7 +62,10 @@ class Messages:
             CONTROL_URL:"Página de control",
             ASK_RESET:"¿Reiniciar marcador?",
             ASK_RELOAD:"¿Recargar valores?",
-            ASK_LOGOUT : "¿Desconectar?"
+            ASK_LOGOUT:"¿Desconectar?",
+            COLORS_LOCK:"Color",
+            ICONS_LOCK:"Icono",
+            LOCK:"Bloquear:"
           }
         }
 
