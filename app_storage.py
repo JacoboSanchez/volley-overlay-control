@@ -3,7 +3,7 @@ from nicegui import app
 from enum import Enum
 
 class AppStorage:
-    Category = Enum('Category', [('USERNAME', 'username'), ('AUTHENTICATED', 'authenticated'), ('CONFIGURED_OUTPUT', 'configured_output'), ('CONFIGURED_OID', 'configured_oid'), ('CURRENT_MODEL', 'current_model'), ('SIMPLE_MODE', 'simpleMode'), ('DARK_MODE', 'darkMode')])
+    Category = Enum('Category', [('USERNAME', 'username'), ('AUTHENTICATED', 'authenticated'), ('CONFIGURED_OUTPUT', 'configured_output'), ('CONFIGURED_OID', 'configured_oid'), ('CURRENT_MODEL', 'current_model'), ('SIMPLE_MODE', 'simpleMode'), ('DARK_MODE', 'darkMode'), ('AUTOHIDE_ENABLED', 'autohide_enabled'), ('AUTOHIDE_SECONDS', 'autohide_seconds'), ('SIMPLIFY_OPTION_ENABLED', 'simplify_option_enabled')])
     
     logger = logging.getLogger("Storage")
 

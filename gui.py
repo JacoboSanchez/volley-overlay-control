@@ -3,7 +3,7 @@ from nicegui import ui
 from state import State
 from customization import Customization
 from app_storage import AppStorage
-from customization_page import CustomizationPage
+from options_dialog import OptionsDialog
 
 TACOLOR='blue'
 TBCOLOR='red'
@@ -205,7 +205,7 @@ class GUI:
         if darkMode == None:
             darkMode = self.conf.darkMode
         logging.info('Setting dark mode %s', darkMode)
-        CustomizationPage.set_ui_dark_mode(darkMode)
+        OptionsDialog.set_ui_dark_mode(darkMode)
 
         current_set = self.compute_current_set(update_state)
         self.update_ui_serve(update_state)
@@ -412,8 +412,9 @@ class GUI:
             self.add_set(team)
             if self.conf.auto_simple_mode == True:
                 self.switch_simple_mode(False)
-        elif self.conf.auto_hide == True:
-            self.hide_timer = ui.timer(self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True, active=True)
+        else:
+            if self.conf.auto_hide == True:
+                self.hide_timer = ui.timer(self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True, active=True)
             if self.conf.auto_simple_mode == True:
                 self.switch_simple_mode(True)
 
