@@ -54,16 +54,16 @@ class Backend:
         if customOid == None:
             oid = self.conf.oid
         jsonin = {"command": command, "value":value}
-        logging.debug("Sending [%s]", jsonin)
-        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin))
+        logging.debug("Sending [%s] with User-Agent [%s]", jsonin, self.conf.rest_user_agent)
+        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin, headers={'User-Agent': self.conf.rest_user_agent}))
 
     def send_command_with_id_and_content(self, command, content="", customOid=None):
         oid = customOid
         if customOid == None:
             oid = self.conf.oid
         jsonin = {"command": command,  "id": self.conf.id, "content":content}
-        logging.debug("Sending [%s]", jsonin)
-        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin))
+        logging.debug("Sending [%s] with User-Agent [%s]", jsonin, self.conf.rest_user_agent)
+        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin, headers={'User-Agent': self.conf.rest_user_agent}))
 
 
     def get_current_model(self, customOid=None, saveResult=False):
