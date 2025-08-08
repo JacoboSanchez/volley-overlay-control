@@ -15,7 +15,7 @@ class CustomizationPage:
       logger = logging.getLogger("Configuration")
        
 
-      def __init__(self, tabs=None, configuration=None, backend=None, gui=None):
+      def __init__(self, tabs=None, configuration=None, backend=None, gui=None, options=None):
             self.tabs = tabs
             if configuration != None:
                   self.configuration = configuration
@@ -27,8 +27,7 @@ class CustomizationPage:
                   self.backend = Backend(self.configuration)
             self.gui = gui
             self.customization = Customization(self.backend.get_current_customization())
-
-       
+            self.options_dialog = options
       
 
       def update_team_selection(self, team, logo, tname, color, textColor, selector):
@@ -163,7 +162,6 @@ class CustomizationPage:
                         teamNames.append(self.customization.get_team_name(1))
                   if self.customization.get_team_name(2) not in teamNames:
                         teamNames.append(self.customization.get_team_name(2))
-                  self.hide_options_dialog = OptionsDialog(self.configuration)
                   with ui.grid(columns=2):
                         self.create_team_card(1, teamNames)
                         self.create_team_card(2, teamNames)
@@ -198,7 +196,7 @@ class CustomizationPage:
                                     if self.configuration.output and self.configuration.output.strip():
                                           ui.link(Messages.get(Messages.OVERLAY_LINK), self.configuration.output, new_tab=True)
                                     ui.space()
-                                    ui.button(icon='tune', on_click=self.hide_options_dialog.open).props('flat').classes('text-gray-500 -ml-2 mr-2')
+                                    ui.button(icon='tune', on_click=self.options_dialog.open).props('flat').classes('text-gray-500 -ml-2 mr-2')
 
                                                                         
                                     

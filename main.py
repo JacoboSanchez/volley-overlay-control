@@ -3,6 +3,7 @@ import os
 import sys
 from oid_dialog import OidDialog
 from gui import GUI
+from options_dialog import OptionsDialog
 from fastapi.responses import RedirectResponse
 from authentication import AuthMiddleware, PasswordAuthenticator
 from nicegui import ui, app
@@ -92,6 +93,7 @@ async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, 
     notification = ui.notification(Messages.get(Messages.LOADING), timeout=None, spinner=True)
     tabs = ui.tabs().props('horizontal').classes("w-full")
     conf = Conf()
+    options_dialog = OptionsDialog(conf)
     backend = Backend(conf)
     scoreboard_page = GUI(tabs, conf, backend)
     ui.on('resize', lambda e: scoreboard_page.set_page_size(e.args['width'], e.args['height']))
@@ -130,7 +132,7 @@ async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, 
                 logger.debug("Received oid %s", conf.oid)
                 AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
 
-    customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page)
+    customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
     with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full"):
         scoreboardTabPanel = ui.tab_panel(scoreboardTab)
         with scoreboardTabPanel:

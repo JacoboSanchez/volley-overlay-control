@@ -11,6 +11,13 @@ class OptionsDialog:
     def __init__(self, configuration: Conf):
         self.configuration = configuration
         self.dialog = ui.dialog()
+        self.dark_mode = ui.dark_mode()
+        saved_dark_mode_option = AppStorage.load(AppStorage.Category.DARK_MODE, default=None)
+        logging.debug('loaded dark mode %s', saved_dark_mode_option)
+        if saved_dark_mode_option == None:
+            saved_dark_mode_option = self.configuration.darkMode
+        logging.info('Setting dark mode %s', saved_dark_mode_option)
+        self.set_ui_dark_mode(saved_dark_mode_option)
         with self.dialog, ui.card():
             ui.label(Messages.get(Messages.OPTIONS_TITLE)).classes('text-lg font-semibold')
             with ui.card():
@@ -78,19 +85,19 @@ class OptionsDialog:
             self.fullscreenButton.props('color=' + self.COLOR_FULLSCREEN_BUTTON)
 
     def switch_darkmode(self, value: str):
-        OptionsDialog.set_ui_dark_mode(value)
+        self.set_ui_dark_mode(value)
         AppStorage.save(AppStorage.Category.DARK_MODE, value)
         self.slider.reset()
 
-    def set_ui_dark_mode(darkMode: str):
+    def set_ui_dark_mode(self, darkMode: str):
         logging.debug('Setting dark mode %s', darkMode)
         match darkMode:
             case 'on':
-                ui.dark_mode(True)
+                self.dark_mode.enable()
             case 'off':
-                ui.dark_mode(False)
+                self.dark_mode.disable()
             case 'auto':
-                ui.dark_mode()
+                self.dark_mode.auto()
 
     def on_auto_hide_change(self, e):
         self.configuration.auto_hide = e.value
