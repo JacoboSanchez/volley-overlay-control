@@ -7,13 +7,13 @@ from state import State
 from customization import Customization
 from authentication import PasswordAuthenticator
 from messages import Messages
+from options_dialog import OptionsDialog
 from app_storage import AppStorage
 
 
 class CustomizationPage:
       logger = logging.getLogger("Configuration")
-      COLOR_FULLSCREEN_BUTTON = 'gray-400'
-      COLOR_EXIT_FULLSCREEN_BUTTON = 'gray-600'
+       
 
       def __init__(self, tabs=None, configuration=None, backend=None, gui=None):
             self.tabs = tabs
@@ -28,10 +28,7 @@ class CustomizationPage:
             self.gui = gui
             self.customization = Customization(self.backend.get_current_customization())
 
-      def switch_darkmode(self, value: str):
-            CustomizationPage.set_ui_dark_mode(value)
-            AppStorage.save(AppStorage.Category.DARK_MODE, value)
-            self.slider.reset()
+       
       
 
       def update_team_selection(self, team, logo, tname, color, textColor, selector):
@@ -166,7 +163,7 @@ class CustomizationPage:
                         teamNames.append(self.customization.get_team_name(1))
                   if self.customization.get_team_name(2) not in teamNames:
                         teamNames.append(self.customization.get_team_name(2))
-                  
+                  self.hide_options_dialog = OptionsDialog(self.configuration)
                   with ui.grid(columns=2):
                         self.create_team_card(1, teamNames)
                         self.create_team_card(2, teamNames)
@@ -174,27 +171,13 @@ class CustomizationPage:
                               with ui.row():
                                     ui.switch(Messages.get(Messages.LOGOS), value=self.customization.is_show_logos(), on_change=lambda e: self.customization.set_show_logos(e.value))
                                     ui.switch(Messages.get(Messages.GRADIENT), value=self.customization.is_glossy() , on_change=lambda e: self.customization.set_glossy(e.value))
-                                    self.slider = ui.slide_item()
-                                    with self.slider:
-                                          with ui.item():
-                                                with ui.item_section():
-                                                      with ui.row():
-                                                            ui.icon('dark_mode')      
-                                                            ui.icon('multiple_stop')
-                                                            ui.icon('light_mode', color='amber')
-                                          with self.slider.right( color='black', on_slide=lambda: self.switch_darkmode('on')):
-                                                ui.icon('dark_mode')
-                                          with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode('off')):
-                                                ui.icon('light_mode', color='amber')
-                                          self.slider.top('auto', color='gray-400', on_slide=lambda: self.switch_darkmode('auto'))
+                                     
 
                               with ui.row():
                                     self.create_choose_color(Messages.get(Messages.SET), True)
                                     self.create_choose_color(Messages.get(Messages.GAME), False)
-                                    self.fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
-                                    ui.space()
-                                    self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON, on_click=self.fullscreen.toggle).props('outline  color='+self.COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
-                                    self.update_full_screen_icon()
+                                     
+
                         with ui.card():
                               with ui.row().classes('place-content-center align-middle'):
                                     ui.number(label=Messages.get(Messages.HEIGHT), value=self.customization.get_height(), format='%.1f', min=0, max=100,
@@ -208,14 +191,16 @@ class CustomizationPage:
                                     ui.space()
                                     ui.number(label=Messages.get(Messages.VPOS), value=self.customization.get_v_pos(), format='%.1f', min=-50, max=50,
                                           on_change=lambda e: self.customization.set_v_pos(f'{e.value}'))
-                              with ui.row():
+                              with ui.row().classes('items-center w-full'):
                                     if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) != None:
                                           ui.link(Messages.get(Messages.RESET_LINKS), './?refresh=true')
                                     ui.link(Messages.get(Messages.CONTROL_LINK), 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
-                                    if  self.configuration.output != None and self.configuration.output.strip() != "":
+                                    if self.configuration.output and self.configuration.output.strip():
                                           ui.link(Messages.get(Messages.OVERLAY_LINK), self.configuration.output, new_tab=True)
-                                    
-                                    
+                                    ui.space()
+                                    ui.button(icon='tune', on_click=self.hide_options_dialog.open).props('flat').classes('text-gray-500 -ml-2 mr-2')
+
+                                                                        
                                     
                   with ui.row().classes('w-full'):
                         ui.button(icon='keyboard_arrow_left', color='stone-500', on_click=self.switch_to_scoreboard).props('round').classes('text-white')          
@@ -247,20 +232,7 @@ class CustomizationPage:
             self.logger.info("Initialized customization page")
 
 
-      def full_screen_updated(self, e):
-            self.update_full_screen_icon(e.value)
-
-      def update_full_screen_icon(self, inputValue=None):
-            value = inputValue
-            if inputValue == None:
-                  value = self.fullscreen.value
-            logging.debug('value %s', value)
-            if value:
-                 self.fullscreenButton.icon = 'fullscreen_exit'
-                 self.fullscreenButton.props('color='+self.COLOR_EXIT_FULLSCREEN_BUTTON)
-            else:
-                  self.fullscreenButton.icon = 'fullscreen'
-                  self.fullscreenButton.props('color='+self.COLOR_FULLSCREEN_BUTTON)
+       
 
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)
@@ -303,12 +275,4 @@ class CustomizationPage:
       def switch_to_scoreboard(self):
             self.tabs.set_value(Customization.SCOREBOARD_TAB)
       
-      def set_ui_dark_mode(darkMode: str):
-            logging.debug('Setting dark mode %s', darkMode)
-            match darkMode:
-                  case 'on':
-                        ui.dark_mode(True)
-                  case 'off': 
-                        ui.dark_mode(False)
-                  case 'auto':
-                        ui.dark_mode()
+       

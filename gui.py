@@ -3,7 +3,7 @@ from nicegui import ui
 from state import State
 from customization import Customization
 from app_storage import AppStorage
-from customization_page import CustomizationPage
+from options_dialog import OptionsDialog
 
 TACOLOR='blue'
 TBCOLOR='red'
@@ -54,6 +54,7 @@ class GUI:
         self.PADDINGS = GAME_BUTTON_PADDING_NORMAL
         self.TEXTSIZE = GAME_BUTTON_TEXT_NORMAL
         self.initialized = False
+        self.hide_timer = None
 
     def set_page_size(self, width, height):
         self.page_height = height
@@ -204,7 +205,7 @@ class GUI:
         if darkMode == None:
             darkMode = self.conf.darkMode
         logging.info('Setting dark mode %s', darkMode)
-        CustomizationPage.set_ui_dark_mode(darkMode)
+        OptionsDialog.set_ui_dark_mode(darkMode)
 
         current_set = self.compute_current_set(update_state)
         self.update_ui_serve(update_state)
@@ -402,8 +403,21 @@ class GUI:
             self.change_serve(2, True)
         current = self.add_int_to_button(button)
         self.main_state.set_game(self.current_set, team, current)
+        if (self.conf.auto_hide == True):
+            if self.hide_timer != None:
+                self.hide_timer.cancel()
+                self.hide_timer = None
+            self.switch_visibility(True)
         if (current >=  self.get_game_limit(self.current_set) and (current - rival_score > 1)):
             self.add_set(team)
+            if self.conf.auto_simple_mode == True:
+                self.switch_simple_mode(False)
+        else:
+            if self.conf.auto_hide == True:
+                self.hide_timer = ui.timer(self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True, active=True)
+            if self.conf.auto_simple_mode == True:
+                self.switch_simple_mode(True)
+
         self.release_hold_and_send_state()
 
     def set_team_name(self, team, name):
@@ -455,23 +469,27 @@ class GUI:
             self.update_ui_current_set(self.current_set)
             self.update_ui_games(self.main_state)
 
-    def switch_visibility(self):
-        if self.visible:
+    def switch_visibility(self, force_value=None):
+        update = False
+        if self.visible == True and force_value != True:
             self.visible = False
             self.visibility_button.set_icon('visibility_off')
-        else:
+            update = True
+        elif self.visible == False and force_value != False:
             self.visible = True
             self.visibility_button.set_icon('visibility')
-        self.update_ui_visible(self.visible)
-        self.backend.change_overlay_visibility(self.visible)
+            update = True
+        if update:
+            self.update_ui_visible(self.visible)
+            self.backend.change_overlay_visibility(self.visible)
 
     def switch_simple_mode(self, force_value=None):
         self.hold()
-        if (force_value == None and self.simple == True) or force_value == False:
+        if self.simple == True and force_value != True:
             self.simple = False
             self.simple_button.set_icon('grid_on')
             self.simple_button.props('color='+FULL_SCOREBOARD_COLOR)
-        elif (force_value == None and self.simple == False) or force_value == True:
+        elif self.simple == False and force_value != False:
             self.simple = True
             self.simple_button.set_icon('window')
             self.simple_button.props('color='+SIMPLE_SCOREBOARD_COLOR)

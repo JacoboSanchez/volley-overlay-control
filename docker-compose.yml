@@ -1,6 +1,8 @@
 services:
   app:
-    image: zauberzeug/nicegui:latest
+    build:
+      context: ./
+      dockerfile: Dockerfile
     restart: always
     ports:
         - ${EXTERNAL_PORT:-80}:8080
@@ -24,5 +26,6 @@ services:
         - HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=${HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED:-}
         - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
         - SCOREBOARD_LANGUAGE=${SCOREBOARD_LANGUAGE:-}
+        - REST_USER_AGENT=${REST_USER_AGENT:-}
     volumes:
         - ./:/app/

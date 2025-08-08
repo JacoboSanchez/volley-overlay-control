@@ -32,6 +32,13 @@ class Messages:
     COLORS_LOCK = "Colors"
     ICONS_LOCK = "Icons"
     LOCK = "Lock:"
+    OPTIONS_TITLE = "Configuration"
+    AUTO_HIDE = "Auto-hide scoreboard"
+    HIDE_TIMEOUT = "Hide after (seconds)"
+    AUTO_SIMPLE_MODE = "Show only current set while playing"
+    VISUALIZATION_OPTIONS = "Webpage options"
+    HIDE_OPTIONS = "Hide options"
+    CLOSE = "Close"
 
     messages = {
         "es": {
@@ -65,11 +72,17 @@ class Messages:
             ASK_LOGOUT:"¿Desconectar?",
             COLORS_LOCK:"Color",
             ICONS_LOCK:"Icono",
-            LOCK:"Bloquear:"
+            LOCK:"Bloquear:",
+            OPTIONS_TITLE: "Configuración",
+            AUTO_HIDE: "Auto-ocultar marcador",
+            HIDE_TIMEOUT: "Ocultar tras (segundos)",
+            AUTO_SIMPLE_MODE: "Mostrar solo set actual mientras se juega",
+            VISUALIZATION_OPTIONS: "Opciones de página web",
+            HIDE_OPTIONS: "Opciones de ocultación",
+            CLOSE: "Cerrar"
           }
         }
 
     def get(message:str) -> str:
         local_messages = Messages.messages.get(os.environ.get('SCOREBOARD_LANGUAGE', ''), {})
         return local_messages.get(message, message)
-
