@@ -28,6 +28,7 @@ You can configure the behavior using some environment variables:
 * _LOGGING_LEVEL (Optional)_: Level of logging (debug, info, warning, error). Default value is _warning_.
 * _STORAGE_SECRET (Optional)_: Secret for http user data encryption at the browser
 * _SCOREBOARD_LANGUAGE (Optional)_: Language code different than english (currently only _es_ implemented.
+* _REST_USER_AGENT (Optional)_: User agent header sent to UNO API to avoid Cloudflare bot detection. Default value is _curl/8.15.0_.
 * _APP_TEAMS (Optional)_: List of predefined teams that can be selected from the configuration. By default only Local and Visitor are defined. The value is a JSON with a map of teams. Key is the name and should contain "icon", "color" and "text_color". Example:
 <pre lang="json">
         {
@@ -89,6 +90,9 @@ The scoreboard does support the following:
 * Option to undo game/point/timeout addition
 * Configuration panel (for managing the overlay look&feel and fullscreen/dark mode)
 * Save, refresh, reset and logout buttons
+* Lock team name/logo when selecting a pre-defined team
+* Auto-hide option. When selected the scoreboard will hide during the current point. On adding a new point it will show for some seconds.
+* Auto-simple mode. When selected the scoreboard will switch to simple mode during the set and will show the full scoreboard from set finish to start of the next one.
 
 
 Building docker image:
@@ -114,13 +118,15 @@ Main control:
 ![imagen](https://github.com/user-attachments/assets/d945dbf3-9a1d-40ed-aaf4-cc012bf41d4c)
 
 
+Setup Panel:
 -------------------
-Configuration Panel:
--------------------
-![imagen](https://github.com/user-attachments/assets/dfafeb90-ec73-42e1-b11e-c4af57a80a9d)
+<img width="577" height="292" alt="imagen" src="https://github.com/user-attachments/assets/355a4d89-aece-4fe8-816c-8258968b78f2" />
+
+Configuration dialog:
+---------------
+<img width="268" height="435" alt="imagen" src="https://github.com/user-attachments/assets/577db9a9-4f3b-4d70-ac52-dc5da7a11db2" />
 
 
--------------------
 Overlay:
 -------------------
 ![imagen](https://github.com/user-attachments/assets/152a586c-1aaa-4c30-b969-c15884097d04)
