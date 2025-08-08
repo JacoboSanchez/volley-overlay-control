@@ -200,13 +200,6 @@ class GUI:
         else:
             update_state = self.main_state
             
-        darkMode = AppStorage.load(AppStorage.Category.DARK_MODE, default=None)
-        logging.debug('loaded dark mode %s', darkMode)
-        if darkMode == None:
-            darkMode = self.conf.darkMode
-        logging.info('Setting dark mode %s', darkMode)
-        OptionsDialog.set_ui_dark_mode(darkMode)
-
         current_set = self.compute_current_set(update_state)
         self.update_ui_serve(update_state)
         self.update_ui_sets(update_state)
