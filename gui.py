@@ -115,62 +115,70 @@ class GUI:
         return self.main_state
 
     def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
-        if self.initialized == True and force == False:
+        if self.initialized and not force:
             return
-        self.logger.info('Initialize gui')
-        if custom_points_limit != None:
-            self.points_limit = custom_points_limit
-        else:
-            self.points_limit = self.conf.points
-        if custom_points_limit_last_set != None:
-            self.points_limit_last_set = custom_points_limit_last_set
-        else:
-            self.points_limit_last_set = self.conf.points_last_set
-        if custom_sets_limit != None:
-            self.sets_limit = custom_sets_limit
-        else:
-            self.sets_limit = self.conf.sets
-        self.logger.info('Set points: %s', self.points_limit)
-        self.logger.info('Set points last set: %s', self.points_limit_last_set)
-        self.logger.info('Sets to win: %s', self.sets_limit)
-        with ui.row().classes('w-full'):
-            with ui.card():
-                self.teamAButton = ui.button('00', color=BLUE_BUTTON_COLOR, on_click=lambda: self.add_game(1)).classes(self.PADDINGS+GAME_BUTTON_CLASSES+self.TEXTSIZE)
-                with ui.row().classes('text-4xl w-full'):
-                    ui.button(icon='timer', color=TACOLOR_LIGHT, on_click=lambda: self.add_timeout(1)).props('outline round').classes('shadow-lg')
-                    self.timeoutsA = ui.column()
-                    ui.space()
-                    self.serveA = ui.icon(name='sports_volleyball', color=TACOLOR_VLIGHT)
-                    self.serveA.on('click', lambda: self.change_serve(1))
-            ui.space()
-            with ui.column().classes('justify-center'):
-                with ui.row().classes('w-full justify-center'):
-                    self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(1)).classes('text-white text-2xl')
-                    with ui.row():
-                        self.scores = ui.grid(columns=2).classes('justify-center') 
-                    self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(2)).classes('text-white text-2xl')
-                self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(e.value)).props('color=grey active-color=teal')        
-            ui.space()
-            with ui.card():
-                self.teamBButton = ui.button('00', color=RED_BUTTON_COLOR, on_click=lambda: self.add_game(2)).classes(self.PADDINGS+GAME_BUTTON_CLASSES+self.TEXTSIZE)
-                with ui.row().classes('text-4xl w-full'):
-                    ui.button(icon='timer', color=TBCOLOR_LIGHT, on_click=lambda: self.add_timeout(2)).props('outline round').classes('shadow-lg ')
-                    self.timeoutsB = ui.column() 
-                    ui.space()
-                    self.serveB = ui.icon(name='sports_volleyball', color=TBCOLOR_VLIGHT)
-                    self.serveB.on('click', lambda: self.change_serve(2))
-            
+        self.logger.info('Initializing GUI')
 
+        self._setup_limits(custom_points_limit, custom_points_limit_last_set, custom_sets_limit)
+
+        with ui.row().classes('w-full'):
+            self._create_team_section(1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
+            ui.space()
+            self._create_center_section()
+            ui.space()
+            self._create_team_section(2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT)
+
+        self._create_control_buttons()
+
+        self.update_ui(False)
+        self.initialized = True
+        self.logger.info('GUI initialized')
+
+    def _setup_limits(self, custom_points_limit, custom_points_limit_last_set, custom_sets_limit):
+        self.points_limit = custom_points_limit if custom_points_limit is not None else self.conf.points
+        self.points_limit_last_set = custom_points_limit_last_set if custom_points_limit_last_set is not None else self.conf.points_last_set
+        self.sets_limit = custom_sets_limit if custom_sets_limit is not None else self.conf.sets
+        self.logger.info(f'Points limit: {self.points_limit}, Last set points limit: {self.points_limit_last_set}, Sets limit: {self.sets_limit}')
+
+    def _create_team_section(self, team_id, button_color, timeout_color, serve_color):
+        with ui.card():
+            button = ui.button('00', color=button_color, on_click=lambda: self.add_game(team_id))
+            button.classes(self.PADDINGS + GAME_BUTTON_CLASSES + self.TEXTSIZE)
+            if team_id == 1:
+                self.teamAButton = button
+            else:
+                self.teamBButton = button
+
+            with ui.row().classes('text-4xl w-full'):
+                ui.button(icon='timer', color=timeout_color, on_click=lambda: self.add_timeout(team_id)).props('outline round').classes('shadow-lg')
+                timeout_container = ui.column()
+                if team_id == 1:
+                    self.timeoutsA = timeout_container
+                else:
+                    self.timeoutsB = timeout_container
+                ui.space()
+                serve_icon = ui.icon(name='sports_volleyball', color=serve_color)
+                serve_icon.on('click', lambda: self.change_serve(team_id))
+                if team_id == 1:
+                    self.serveA = serve_icon
+                else:
+                    self.serveB = serve_icon
+
+    def _create_center_section(self):
+        with ui.column().classes('justify-center'):
+            with ui.row().classes('w-full justify-center'):
+                self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(1)).classes('text-white text-2xl')
+                self.scores = ui.grid(columns=2).classes('justify-center')
+                self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(2)).classes('text-white text-2xl')
+            self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(e.value)).props('color=grey active-color=teal')
+
+    def _create_control_buttons(self):
         with ui.row().classes("w-full justify-right"):
             self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR, on_click=self.switch_visibility).props('round').classes('text-white')
             self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR, on_click=self.switch_simple_mode).props('round').classes('text-white')
-            self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(self.undo_button)).props('round').classes('text-white')    
+            self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(self.undo_button)).props('round').classes('text-white')
             ui.space()
-            ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(Customization.CONFIG_TAB)).props('round').classes('text-white')    
-                
-        self.update_ui(False)
-        self.initialized = True
-        self.logger.info('Initialized gui')
+            ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(Customization.CONFIG_TAB)).props('round').classes('text-white')
         
 
     def compute_current_set(self, current_state):
@@ -227,40 +235,41 @@ class GUI:
         self.release()
 
     def update_ui_games_table(self, update_state):
-        logo1 = self.current_customize_state.get_team_logo(1)
-        logo2 = self.current_customize_state.get_team_logo(2)
         self.scores.clear()
         with self.scores:
-            if (logo1 != None and logo1 != Customization.DEFAULT_IMAGE):
-                ui.image(source=logo1).classes('w-6 h-6 m-auto')
-            else: 
-                ui.icon(name='sports_volleyball', color='blue', size='xs')
-                
-            if (logo2 != None and logo2 != Customization.DEFAULT_IMAGE):
-                ui.image(source=logo2).classes('w-6 h-6 m-auto')
-            else: 
-                ui.icon(name='sports_volleyball', color='red', size='xs')
-            lastWithoutZeroZero = 1
-            match_finished = self.match_finished(update_state.get_sets(1), update_state.get_sets(2))
-            for i in range(1, self.sets_limit+1):
-                teamA_game_int = update_state.get_game(1, i)
-                teamB_game_int = update_state.get_game(2, i)
-                if (teamA_game_int + teamB_game_int > 0):
-                    lastWithoutZeroZero = i
+            self._create_team_logo(self.current_customize_state.get_team_logo(1), 'blue')
+            self._create_team_logo(self.current_customize_state.get_team_logo(2), 'red')
 
-            for i in range(1, self.sets_limit+1):
+            match_finished = self.match_finished(update_state.get_sets(1), update_state.get_sets(2))
+            last_set_to_show = self._get_last_set_to_show(update_state, match_finished)
+
+            for i in range(1, last_set_to_show + 1):
                 teamA_game_int = update_state.get_game(1, i)
                 teamB_game_int = update_state.get_game(2, i)
-                if (i > 1 and i > lastWithoutZeroZero):
-                    break
-                if (i == self.current_set and i < self.sets_limit and match_finished != True):
-                    break
-                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0')
-                label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0')
-                if (teamA_game_int > teamB_game_int):
-                    label1.classes('text-bold')
-                elif (teamA_game_int < teamB_game_int):
-                    label2.classes('text-bold')
+                self._create_score_label(teamA_game_int, teamB_game_int)
+                self._create_score_label(teamB_game_int, teamA_game_int)
+
+    def _create_team_logo(self, logo_url, default_color):
+        if logo_url and logo_url != Customization.DEFAULT_IMAGE:
+            ui.image(source=logo_url).classes('w-6 h-6 m-auto')
+        else:
+            ui.icon(name='sports_volleyball', color=default_color, size='xs')
+
+    def _get_last_set_to_show(self, update_state, match_finished):
+        if match_finished:
+            return self.sets_limit
+
+        last_set_with_points = 0
+        for i in range(1, self.sets_limit + 1):
+            if update_state.get_game(1, i) > 0 or update_state.get_game(2, i) > 0:
+                last_set_with_points = i
+        
+        return min(self.current_set, last_set_with_points + 1)
+
+    def _create_score_label(self, score, opponent_score):
+        label = ui.label(f'{score:02d}').classes('p-0')
+        if score > opponent_score:
+            label.classes('text-bold')
 
     def update_ui_timeouts(self, update_state):
         self.hold()
@@ -325,28 +334,14 @@ class GUI:
         self.backend.reset(self.main_state)
         self.update_ui(True)
 
-    def change_serve(self, team, force=False):
-        match team:
-            case 1:
-                self.main_state.set_current_serve(State.SERVE_1)
-                if self.serveA.props['color']==TACOLOR_HIGH and force != True:
-                    self.serveA.props(f'color={TACOLOR_VLIGHT}')
-                    self.main_state.set_current_serve(State.SERVE_NONE)
-                else:                             
-                    self.serveA.props(f'color={TACOLOR_HIGH}')
-                self.serveB.props(f'color={TBCOLOR_VLIGHT}')
-            case 2:
-                self.main_state.set_current_serve(State.SERVE_2)
-                if self.serveB.props['color']==TBCOLOR_HIGH and force != True:
-                    self.serveB.props(f'color={TBCOLOR_VLIGHT}')
-                    self.main_state.set_current_serve(State.SERVE_NONE)
-                else:                             
-                    self.serveB.props(f'color={TBCOLOR_HIGH}')
-                self.serveA.props(f'color={TACOLOR_VLIGHT}')
-            case 0:
-                self.main_state.set_current_serve(State.SERVE_NONE)
-                self.serveB.props(f'color={TBCOLOR_VLIGHT}')
-                self.serveA.props(f'color={TACOLOR_VLIGHT}')
+    def change_serve(self, team, toggle_serve=False):
+        if toggle_serve and self.main_state.get_current_serve() == team:
+            self.main_state.set_current_serve(State.SERVE_NONE)
+        else:
+            self.main_state.set_current_serve(team)
+
+        self.serveA.props(f'color={TACOLOR_HIGH if self.main_state.get_current_serve() == 1 else TACOLOR_VLIGHT}')
+        self.serveB.props(f'color={TBCOLOR_HIGH if self.main_state.get_current_serve() == 2 else TBCOLOR_VLIGHT}')
         self.send_state()
 
     def add_timeout(self, team):
@@ -385,33 +380,37 @@ class GUI:
     def add_game(self, team):
         if self.block_additional_points():
             return
+
         self.hold()
-        if team == 1:
-            button = self.teamAButton
-            rival_score = int(self.teamBButton.text)
-            self.change_serve(1, True)
-        else:
-            button = self.teamBButton
-            rival_score = int(self.teamAButton.text)
-            self.change_serve(2, True)
-        current = self.add_int_to_button(button)
-        self.main_state.set_game(self.current_set, team, current)
-        if (self.conf.auto_hide == True):
-            if self.hide_timer != None:
-                self.hide_timer.cancel()
-                self.hide_timer = None
-            self.switch_visibility(True)
-        if (current >=  self.get_game_limit(self.current_set) and (current - rival_score > 1)):
+        self.change_serve(team, True)
+
+        button = self.teamAButton if team == 1 else self.teamBButton
+        rival_button = self.teamBButton if team == 1 else self.teamAButton
+        current_score = self.add_int_to_button(button)
+        rival_score = int(rival_button.text)
+
+        self.main_state.set_game(self.current_set, team, current_score)
+
+        if self._check_set_win(current_score, rival_score):
             self.add_set(team)
-            if self.conf.auto_simple_mode == True:
+            if self.conf.auto_simple_mode:
                 self.switch_simple_mode(False)
         else:
-            if self.conf.auto_hide == True:
-                self.hide_timer = ui.timer(self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True, active=True)
-            if self.conf.auto_simple_mode == True:
+            if self.conf.auto_hide:
+                self._start_hide_timer()
+            if self.conf.auto_simple_mode:
                 self.switch_simple_mode(True)
 
         self.release_hold_and_send_state()
+
+    def _check_set_win(self, score, rival_score):
+        return score >= self.get_game_limit(self.current_set) and (score - rival_score > 1)
+
+    def _start_hide_timer(self):
+        if self.hide_timer:
+            self.hide_timer.cancel()
+        self.switch_visibility(True)
+        self.hide_timer = ui.timer(self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True, active=True)
 
     def set_team_name(self, team, name):
         self.main_state.set_team_name(team, name)
