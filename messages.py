@@ -39,6 +39,11 @@ class Messages:
     VISUALIZATION_OPTIONS = "Webpage options"
     HIDE_OPTIONS = "Hide options"
     CLOSE = "Close"
+    THEME = "Theme"
+    THEME_TITLE = "Select a Theme"
+    NO_THEMES = "No themes available."
+    LOAD = "Load"
+    LOAD_THEME = "Load Theme"
 
     messages = {
         "es": {
@@ -79,7 +84,12 @@ class Messages:
             AUTO_SIMPLE_MODE: "Mostrar solo set actual mientras se juega",
             VISUALIZATION_OPTIONS: "Opciones de página web",
             HIDE_OPTIONS: "Opciones de ocultación",
-            CLOSE: "Cerrar"
+            CLOSE: "Cerrar",
+            THEME: "Tema",
+            THEME_TITLE: "Selecciona un Tema",
+            NO_THEMES: "No hay temas disponibles.",
+            LOAD: "Cargar",
+            LOAD_THEME: "Cargar Tema"
           }
         }
 

@@ -27,5 +27,6 @@ services:
         - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
         - SCOREBOARD_LANGUAGE=${SCOREBOARD_LANGUAGE:-}
         - REST_USER_AGENT=${REST_USER_AGENT:-}
+        - APP_THEMES=${APP_THEMES:-}
     volumes:
         - ./:/app/
