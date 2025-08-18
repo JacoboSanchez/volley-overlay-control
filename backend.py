@@ -55,14 +55,16 @@ class Backend:
         if customOid == None:
             oid = self.conf.oid
         jsonin = {"command": command, "value":value}
-        logging.debug("Sending [%s] with User-Agent [%s] and session_id [%s]", jsonin, self.conf.rest_user_agent, self.session_id)
-        return self.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin, headers={'User-Agent': self.conf.rest_user_agent, 'Content-Type': 'application/json', 'Accept': 'application/json, text/plain, */*'}, cookies={'session_id': self.session_id}))
+        return self.do_send_request(oid, jsonin)
 
     def send_command_with_id_and_content(self, command, content="", customOid=None):
         oid = customOid
         if customOid == None:
             oid = self.conf.oid
         jsonin = {"command": command,  "id": self.conf.id, "content":content}
+        return self.do_send_request(oid, jsonin)
+
+    def do_send_request(self, oid, jsonin):
         logging.debug("Sending [%s] with User-Agent [%s] and session_id [%s]", jsonin, self.conf.rest_user_agent, self.session_id)
         return self.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin, headers={'User-Agent': self.conf.rest_user_agent, 'Content-Type': 'application/json', 'Accept': 'application/json, text/plain, */*'}, cookies={'session_id': self.session_id}))
 
