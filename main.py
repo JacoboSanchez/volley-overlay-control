@@ -34,36 +34,29 @@ if (PasswordAuthenticator.do_authenticate_users()):
     logger.info("User authentication enabled")
     app.add_middleware(AuthMiddleware)
 
-def reset_links_storage():
-    logger.info("resetting links")
-    AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
-    AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
 
 def reset_all():
     logger.info("Clearing storage")
     AppStorage.clear_user_storage()
 
-def process_parameters(refresh=None, logout=None):
+def process_parameters(logout=None):
     if logout == "true":
         reset_all()
         ui.navigate.to('./')
-    elif refresh == "true":
-        reset_links_storage()
-        ui.navigate.to('./')
 
 @ui.page("/indoor")
-async def beach(control=None, output=None, refresh=None, logout=None):
-    process_parameters(refresh=refresh, logout=logout)
+async def beach(control=None, output=None, logout=None):
+    process_parameters(logout=logout)
     await run_page(custom_points_limit=25, custom_points_limit_last_set=15, custom_sets_limit=5, oid=control, output=output)
 
 @ui.page("/beach")
-async def beach(control=None, output=None, refresh=None, logout=None):
-    process_parameters(refresh=refresh, logout=logout)
+async def beach(control=None, output=None, logout=None):
+    process_parameters(logout=logout)
     await run_page(custom_points_limit=21, custom_points_limit_last_set=15, custom_sets_limit=3, oid=control, output=output)
 
 @ui.page("/")
-async def main(control=None, output=None, refresh=None, logout=None):
-    process_parameters(refresh=refresh, logout=logout)
+async def main(control=None, output=None, logout=None):
+    process_parameters(logout=logout)
     await run_page(oid=control, output=output)
 
 

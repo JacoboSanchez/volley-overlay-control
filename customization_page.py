@@ -191,7 +191,9 @@ class CustomizationPage:
                                           on_change=lambda e: self.customization.set_v_pos(f'{e.value}'))
                               with ui.row().classes('items-center w-full'):
                                     if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) != None:
-                                          ui.link(Messages.get(Messages.RESET_LINKS), './?refresh=true')
+                                          AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
+                                          AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
+                                          ui.link(Messages.get(Messages.RESET_LINKS), './')
                                     ui.link(Messages.get(Messages.CONTROL_LINK), 'https://app.overlays.uno/control/'+self.configuration.oid, new_tab=True)
                                     if self.configuration.output and self.configuration.output.strip():
                                           ui.link(Messages.get(Messages.OVERLAY_LINK), self.configuration.output, new_tab=True)
@@ -218,7 +220,7 @@ class CustomizationPage:
                         ui.button(icon='save', color='blue-500', on_click=self.save).props('round').classes('text-white')
                         ui.button(icon='sync', color='emerald-600', on_click=self.ask_refresh).props('round').classes('text-white')
                         ui.button(icon='recycling', color='orange-500', on_click=self.ask_reset).props('round').classes('text-white')
-                        if AppStorage.load(AppStorage.Category.USERNAME, None) != None:
+                        if AppStorage.load(AppStorage.Category.USERNAME, None) != None: 
                               self.logout_dialog = ui.dialog()
                               with self.logout_dialog, ui.card():
                                     ui.label(Messages.get(Messages.ASK_LOGOUT))

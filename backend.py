@@ -14,6 +14,7 @@ class Backend:
 
     def __init__(self, config):
         self.conf = config
+        self.session_id = ''
     
     def save_model(self, current_model, simple):
         Backend.logger.info('saving model...')
@@ -54,16 +55,18 @@ class Backend:
         if customOid == None:
             oid = self.conf.oid
         jsonin = {"command": command, "value":value}
-        logging.debug("Sending [%s] with User-Agent [%s]", jsonin, self.conf.rest_user_agent)
-        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin, headers={'User-Agent': self.conf.rest_user_agent}))
+        return self.do_send_request(oid, jsonin)
 
     def send_command_with_id_and_content(self, command, content="", customOid=None):
         oid = customOid
         if customOid == None:
             oid = self.conf.oid
         jsonin = {"command": command,  "id": self.conf.id, "content":content}
-        logging.debug("Sending [%s] with User-Agent [%s]", jsonin, self.conf.rest_user_agent)
-        return Backend.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin, headers={'User-Agent': self.conf.rest_user_agent}))
+        return self.do_send_request(oid, jsonin)
+
+    def do_send_request(self, oid, jsonin):
+        logging.debug("Sending [%s] with User-Agent [%s] and session_id [%s]", jsonin, self.conf.rest_user_agent, self.session_id)
+        return self.process_response(requests.put(f'https://app.overlays.uno/apiv2/controlapps/{oid}/api', json=jsonin, headers={'User-Agent': self.conf.rest_user_agent, 'Content-Type': 'application/json', 'Accept': 'application/json, text/plain, */*'}, cookies={'session_id': self.session_id}))
 
 
     def get_current_model(self, customOid=None, saveResult=False):
@@ -104,12 +107,14 @@ class Backend:
     def save(self, state, simple):
         self.save_model(state.get_current_model(), simple)
 
-    def process_response(response):
+    def process_response(self, response):
         if  response.status_code >= 300 :
-            Backend.logger.warning("response %s: '%s'", response.status_code, response.text)
+            logging.warning("response %s: '%s'", response.status_code, response.text)
+            self.session_id = response.cookies.get('session_id')
+
         else:
-            Backend.logger.info("response status: %s", response.status_code)
-            Backend.logger.debug("response message: '%s'", response.text)
+            logging.info("response status: %s", response.status_code)
+            logging.debug("response message: '%s'", response.text)
         return response
 
 
