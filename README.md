@@ -52,6 +52,14 @@ You can configure the behavior using some environment variables:
         }
 </pre>
 * _HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED (Optional)_: If true the input text field to specify an overlay will not be displayed when predefined overlays are configured. Default is false so both the input control URL and predefined overlays options will be displayed.
+* _APP_THEMES (Optional)_: List of themes. The content is a json with a map with theme name as key and customization json as value (the same way the UNO overlay API expects). If configured a palette button will be displayed to select one. Example:
+<pre lang="json">
+        {
+            "Change position and show logos theme":{"Height": 10,"Left-Right": -33.5,"Logos": true},
+            "Change only game status colors":{"Game Status Color": "#252525","Game Status Text Color": "#ffffff"}
+        }
+</pre>
+
 
 Running from shell:
 -------------------
@@ -82,15 +90,16 @@ UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/<overlay output token>
 Features:
 ---------
 The scoreboard does support the following:
-* Points, sets, timeouts and serve managing
+* Points, sets, timeouts and serve managing.
 * Multiple Overlays can be controlled with the same application, use _?control=<token>_ in the URL to update a different overlay. 
 * 25 points 5 sets by default. Append _/beach_ to the URL to use 21 points 3 sets configuration.
-* Option to show/hide the overlay and reset the saved overlay token
-* Option to use simple/full scoreboard (only last game or full list)
-* Option to undo game/point/timeout addition
-* Configuration panel (for managing the overlay look&feel and fullscreen/dark mode)
-* Save, refresh, reset and logout buttons
-* Lock team name/logo when selecting a pre-defined team
+* Option to show/hide the overlay and reset the saved overlay token.
+* Option to use simple/full scoreboard (only last game or full list).
+* Option to undo game/point/timeout addition.
+* Configuration panel (for managing the overlay look&feel and fullscreen/dark mode).
+* Save, refresh, reset and logout buttons.
+* Lock team colors/logo when selecting a pre-defined team.
+* Load pre-configured themes.
 * Auto-hide option. When selected the scoreboard will hide during the current point. On adding a new point it will show for some seconds.
 * Auto-simple mode. When selected the scoreboard will switch to simple mode during the set and will show the full scoreboard from set finish to start of the next one.
 
