@@ -1,5 +1,5 @@
-# remote-scoreboard
-`remote-scoreboard` is a self-hostable web application for controlling volleyball scoreboards from _overlays.uno_. It provides a user-friendly interface to manage all aspects of a volleyball match, including scores, sets, timeouts, and serving teams. The application is highly customizable, allowing you to personalize the look and feel of your scoreboard with team logos, colors, and pre-defined themes. It also supports multiple users and overlays, making it a versatile solution for managing scoreboards for different events.
+# volley-overlay-control
+`volley-overlay-control` is a self-hostable web application for controlling volleyball scoreboards from _overlays.uno_. It provides a user-friendly interface to manage all aspects of a volleyball match, including scores, sets, timeouts, and serving teams. The application is highly customizable, allowing you to personalize the look and feel of your scoreboard with team logos, colors, and pre-defined themes. It also supports multiple users and overlays, making it a versatile solution for managing scoreboards for different events.
 
 Pre-requisites:
 ---------------
@@ -75,9 +75,9 @@ Running from shell:
 * nicegui should start a server and open the scoreboard in a browser automatically
 Example:
 <pre>
-  c:\git\remote-scoreboard>SET UNO_OVERLAY_OID=XXXXXXXX
-  c:\git\remote-scoreboard>SET UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/YYYYYYY
-  c:\git\remote-scoreboard>python main.py
+  c:\git\volley-overlay-control>SET UNO_OVERLAY_OID=XXXXXXXX
+  c:\git\volley-overlay-control>SET UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/YYYYYYY
+  c:\git\volley-overlay-control>python main.py
 NiceGUI ready to go on http://localhost:8080, ...
 </pre>
 
