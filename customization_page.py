@@ -79,6 +79,28 @@ class CustomizationPage:
       def get_fallback_team_name(team):
             return Customization.LOCAL_NAME if team == 1 else Customization.VISITOR_NAME
 
+      async def apply_and_refresh(self, theme_name, dialog):
+            if theme_name:
+                  self.customization.set_theme(theme_name)
+                  dialog.close()
+                  await self.reload_customization()
+
+      async def show_theme_dialog(self):
+            with ui.dialog() as dialog, ui.card():
+                  ui.label(Messages.get(Messages.THEME_TITLE))
+                  theme_list = self.customization.get_theme_names()
+                  if not theme_list:
+                        ui.label(Messages.get(Messages.NO_THEMES))
+                        with ui.row():
+                              ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close)
+                  else:
+                        selection = ui.select(list(theme_list), label=Messages.get(Messages.THEME)).classes('w-[300px]').props('outlined')
+                        with ui.row().classes('w-full'):
+                              ui.space()
+                              ui.button(Messages.get(Messages.LOAD), on_click=lambda: self.apply_and_refresh(selection.value, dialog))
+                              ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close)
+            await dialog
+
       def create_team_card(self, team, teamNames):
             self.customization.set_team_logo(team, self.customization.get_team_logo(team))
             with ui.card():
@@ -169,7 +191,8 @@ class CustomizationPage:
                               with ui.row():
                                     ui.switch(Messages.get(Messages.LOGOS), value=self.customization.is_show_logos(), on_change=lambda e: self.customization.set_show_logos(e.value))
                                     ui.switch(Messages.get(Messages.GRADIENT), value=self.customization.is_glossy() , on_change=lambda e: self.customization.set_glossy(e.value))
-                                     
+                                    if len(list(self.customization.get_theme_names())) > 0:
+                                          ui.button(icon='palette', on_click=self.show_theme_dialog).props('flat')
 
                               with ui.row():
                                     self.create_choose_color(Messages.get(Messages.SET), True)
@@ -232,7 +255,13 @@ class CustomizationPage:
             self.logger.info("Initialized customization page")
 
 
-       
+      async def reload_customization(self):
+            notification = ui.notification(timeout=None, spinner=True)
+            await asyncio.sleep(0.5)
+            self.init(force_reset=False)
+            await asyncio.sleep(0.5)
+            notification.dismiss()
+    
 
       async def refresh(self):
             notification = ui.notification(timeout=None, spinner=True)

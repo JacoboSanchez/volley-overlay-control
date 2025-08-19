@@ -38,18 +38,15 @@ class Customization:
     TEAM_VALUES_TEXT_COLOR = "text_color"
     DEFAULT_IMAGE= os.environ.get('APP_DEFAULT_LOGO', 'https://cdn-icons-png.flaticon.com/512/7788/7788863.png')
 
-    MAIN_THEME_NAME = "Prestige"
 
-    THEMES = {
-        MAIN_THEME_NAME:{ 
-            SET_COLOR: "#2a2f35",
-            GAME_COLOR: "#ffffff",
-            COLOR3: "0055ff",
-            SET_TEXT_COLOR: "#ffffff",
-            GAME_TEXT_COLOR: "#2a2f35",
-            TEXT_COLOR3: "FFFFFF"
-        }   
-    }
+    RESET_COLORS = { 
+        SET_COLOR: "#2a2f35",
+        GAME_COLOR: "#ffffff",
+        COLOR3: "0055ff",
+        SET_TEXT_COLOR: "#ffffff",
+        GAME_TEXT_COLOR: "#2a2f35",
+        TEXT_COLOR3: "FFFFFF"
+    }   
 
     provided_teams_json = os.environ.get('APP_TEAMS', None)
 
@@ -62,15 +59,23 @@ class Customization:
         predefined_teams = json.loads(provided_teams_json)
     
     
+    provided_themes_json = os.environ.get('APP_THEMES', None)
+    THEMES = {}
+    if provided_themes_json:
+        try:
+            THEMES = json.loads(provided_themes_json)
+        except json.JSONDecodeError:
+            print(f"Error decoding THEMES from environment variable: {provided_themes_json}")
+
 
     reset_state = {
-        SET_TEXT_COLOR: THEMES[MAIN_THEME_NAME][SET_TEXT_COLOR],
-        SET_COLOR: THEMES[MAIN_THEME_NAME][SET_COLOR],
+        SET_TEXT_COLOR: RESET_COLORS[SET_TEXT_COLOR],
+        SET_COLOR: RESET_COLORS[SET_COLOR],
         GLOSS_EFFECT_BOOL: "true",
         HEIGHT_FLOAT: 10,
         HPOS_FLOAT: -33,
-        GAME_COLOR: THEMES[MAIN_THEME_NAME][GAME_COLOR],
-        GAME_TEXT_COLOR: THEMES[MAIN_THEME_NAME][GAME_TEXT_COLOR],
+        GAME_COLOR: RESET_COLORS[GAME_COLOR],
+        GAME_TEXT_COLOR: RESET_COLORS[GAME_TEXT_COLOR],
         T1_COLOR: "#060f8a",
         T1_LOGO: DEFAULT_IMAGE,
         T1_LOGO_FIT: "contain",
@@ -79,8 +84,8 @@ class Customization:
         T2_LOGO: DEFAULT_IMAGE,
         T2_LOGO_FIT: "contain",
         T2_TEXT_COLOR : "#000000",
-        COLOR3:THEMES[MAIN_THEME_NAME][COLOR3],
-        TEXT_COLOR3:THEMES[MAIN_THEME_NAME][TEXT_COLOR3],
+        COLOR3:RESET_COLORS[COLOR3],
+        TEXT_COLOR3:RESET_COLORS[TEXT_COLOR3],
         VPOS_FLOAT: -41.1,
         WIDTH_FLOAT: 30}
 
@@ -135,18 +140,16 @@ class Customization:
             self.customization_model[Customization.T1_LOGO] = logo
         else:
             self.customization_model[Customization.T2_LOGO] = logo
-    
-    def get_theme_for_color(self):
-        for theme_name, theme_data in self.THEMES.items():
-            if theme_data.get(self.SET_COLOR) == self.get_set_color():
-                return theme_name
-        return None
+
 
     def set_theme(self, theme:str):
-        if theme in self.THEMES:
-            for key, value in self.THEMES[theme].items():
+        if theme in Customization.THEMES:
+            for key, value in Customization.THEMES[theme].items():
                 self.customization_model[key] = value
-                
+
+    def get_theme_names(self):
+        return Customization.THEMES.keys()
+
 
     def get_set_color(self):
         return self.customization_model[Customization.SET_COLOR]

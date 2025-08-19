@@ -1,9 +1,14 @@
-# remote-scoreboard
-Self hosted web application developed using nice-gui to remote control some volleyball scoreboards from https://overlays.uno
+# volley-overlay-control
+`volley-overlay-control` is a self-hostable web application for controlling volleyball scoreboards from _overlays.uno_. It provides a user-friendly interface to manage all aspects of a volleyball match, including scores, sets, timeouts, and serving teams. The application is highly customizable, allowing you to personalize the look and feel of your scoreboard with team logos, colors, and pre-defined themes. It also supports multiple users and overlays, making it a versatile solution for managing scoreboards for different events.
 
 Pre-requisites:
 ---------------
-* Create an account at https://overlays.uno
+*   Python 3.x
+*   An account on _overlays.uno_
+*   A volleyball scoreboard overlay added to your account from the _overlays.uno_ library.
+
+**Instructions to create an overlay:**
+* Login to your _overlays.uno_ account
 * Go to the [this](https://overlays.uno/library/437-Volleyball-Scorebug---Standard) overlay and click on _Add to My Overlays_
 * Open your overlay:
     * Copy the current URL and copy the final part of the URL (after _https://app.overlays.uno/control/_). This will be the _UNO_OVERLAY_OID_ 
@@ -11,8 +16,10 @@ Pre-requisites:
 * If you don't want to expose the service to internet you can use the [on air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air) feature from nicegui. Obtain your nicegui on air token and use it as _UNO_OVERLAY_AIR_ID_
 * Version 0.2 breaks compatibility with overlays before March 2025
 
-Configuration:
---------------
+
+
+Environment variables:
+----------------------
 You can configure the behavior using some environment variables:
 * _UNO_OVERLAY_OID (Optional)_: The control token. If not present a dialog will ask for it.
 * _UNO_OVERLAY_OUTPUT (Optional)_: The output URL. Will be used only to show a link for it in the configuration panel. 
@@ -52,6 +59,14 @@ You can configure the behavior using some environment variables:
         }
 </pre>
 * _HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED (Optional)_: If true the input text field to specify an overlay will not be displayed when predefined overlays are configured. Default is false so both the input control URL and predefined overlays options will be displayed.
+* _APP_THEMES (Optional)_: List of themes. The content is a json with a map with theme name as key and customization json as value (the same way the UNO overlay API expects). If configured a palette button will be displayed to select one. Example:
+<pre lang="json">
+        {
+            "Change position and show logos theme":{"Height": 10,"Left-Right": -33.5,"Logos": true},
+            "Change only game status colors":{"Game Status Color": "#252525","Game Status Text Color": "#ffffff"}
+        }
+</pre>
+
 
 Running from shell:
 -------------------
@@ -60,14 +75,14 @@ Running from shell:
 * nicegui should start a server and open the scoreboard in a browser automatically
 Example:
 <pre>
-  c:\git\remote-scoreboard>SET UNO_OVERLAY_OID=XXXXXXXX
-  c:\git\remote-scoreboard>SET UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/YYYYYYY
-  c:\git\remote-scoreboard>python main.py
+  c:\git\volley-overlay-control>SET UNO_OVERLAY_OID=XXXXXXXX
+  c:\git\volley-overlay-control>SET UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/YYYYYYY
+  c:\git\volley-overlay-control>python main.py
 NiceGUI ready to go on http://localhost:8080, ...
 </pre>
 
 Running from docker:
--------------------- 
+--------------------
 You can use the docker-compose file by adapting the environment variables required. An example of _.env_ file would be:
 
 <pre>
@@ -81,18 +96,31 @@ UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/<overlay output token>
 
 Features:
 ---------
-The scoreboard does support the following:
-* Points, sets, timeouts and serve managing
-* Multiple Overlays can be controlled with the same application, use _?control=<token>_ in the URL to update a different overlay. 
-* 25 points 5 sets by default. Append _/beach_ to the URL to use 21 points 3 sets configuration.
-* Option to show/hide the overlay and reset the saved overlay token
-* Option to use simple/full scoreboard (only last game or full list)
-* Option to undo game/point/timeout addition
-* Configuration panel (for managing the overlay look&feel and fullscreen/dark mode)
-* Save, refresh, reset and logout buttons
-* Lock team name/logo when selecting a pre-defined team
-* Auto-hide option. When selected the scoreboard will hide during the current point. On adding a new point it will show for some seconds.
-* Auto-simple mode. When selected the scoreboard will switch to simple mode during the set and will show the full scoreboard from set finish to start of the next one.
+*   **Complete Match Control:**
+    *   Manage points, sets, and timeouts for both teams.
+    *   Indicate the serving team.
+    *   Undo functionality for points and timeouts.
+    *   Support for both indoor (25 points, 5 sets) and beach volleyball (21 points, 3 sets) modes.
+*   **Advanced Customization:**
+    *   Customize team names, logos, and colors.
+    *   Adjust the scoreboard's dimensions (height, width) and position (horizontal, vertical).
+    *   Apply a glossy/gradient effect to the scoreboard.
+    *   Show or hide team logos.
+    *   Lock team colors and icons to prevent accidental changes.
+    *   Create and load custom themes to quickly switch between different styles.
+*   **User and Overlay Management:**
+    *   Support for multiple users with password protection.
+    *   Control multiple overlays from a single instance of the application.
+    *   Select from a list of predefined overlays.
+*   **User-Friendly Interface:**
+    *   Dark mode support (auto, on, off).
+    *   Auto-hide the scoreboard during gameplay.
+    *   Automatically switch to a simplified view showing only the current set.
+    *   Internationalization support (English and Spanish).
+*   **Flexible Deployment:**
+    *   Run locally as a Python application.
+    *   Deploy as a Docker container.
+    *   Expose the application to the internet using ngrok-like services.
 
 
 Building docker image:
