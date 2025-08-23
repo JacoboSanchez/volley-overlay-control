@@ -3,37 +3,46 @@ from nicegui import ui
 from state import State
 from customization import Customization
 from app_storage import AppStorage
-from options_dialog import OptionsDialog
 
-TACOLOR='blue'
-TBCOLOR='red'
-TACOLOR_VLIGHT='blue-1'
-TACOLOR_LIGHT='blue-2'
-TACOLOR_MEDIUM='blue-3'
-TACOLOR_HIGH='blue-4'
-TBCOLOR_VLIGHT='red-1'
-TBCOLOR_LIGHT='red-2'
-TBCOLOR_MEDIUM='red-3'
-TBCOLOR_HIGH='red-4'
+# Constants for colors and styles
+# Team A Colors
+TACOLOR = 'blue'
+TACOLOR_VLIGHT = 'blue-1'
+TACOLOR_LIGHT = 'blue-2'
+TACOLOR_MEDIUM = 'blue-3'
+TACOLOR_HIGH = 'blue-4'
 
-DO_COLOR='indigo-700'
-UNDO_COLOR='indigo-400' 
-VISIBLE_ON_COLOR='green-600'
-VISIBLE_OFF_COLOR='green-800' 
-FULL_SCOREBOARD_COLOR='orange-500'
-SIMPLE_SCOREBOARD_COLOR='orange-700' 
+# Team B Colors
+TBCOLOR = 'red'
+TBCOLOR_VLIGHT = 'red-1'
+TBCOLOR_LIGHT = 'red-2'
+TBCOLOR_MEDIUM = 'red-3'
+TBCOLOR_HIGH = 'red-4'
 
-RED_BUTTON_COLOR='red'
-BLUE_BUTTON_COLOR='blue'
-GAME_BUTTON_PADDING_BIG='p-16'
-GAME_BUTTON_PADDING_NORMAL='p-14'
-GAME_BUTTON_PADDING_SMALL='p-11'
-GAME_BUTTON_TEXT_NORMAL='text-5xl'
-GAME_BUTTON_TEXT_BIG='text-6xl'
-GAME_BUTTON_CLASSES=' text-center shadow-lg rounded-lg text-white font-bold '
+# Other UI Colors
+DO_COLOR = 'indigo-700'
+UNDO_COLOR = 'indigo-400'
+VISIBLE_ON_COLOR = 'green-600'
+VISIBLE_OFF_COLOR = 'green-800'
+FULL_SCOREBOARD_COLOR = 'orange-500'
+SIMPLE_SCOREBOARD_COLOR = 'orange-700'
+RED_BUTTON_COLOR = 'red'
+BLUE_BUTTON_COLOR = 'blue'
+
+# Button Styles
+GAME_BUTTON_PADDING_BIG = 'p-16'
+GAME_BUTTON_PADDING_NORMAL = 'p-14'
+GAME_BUTTON_PADDING_SMALL = 'p-11'
+GAME_BUTTON_TEXT_NORMAL = 'text-5xl'
+GAME_BUTTON_TEXT_BIG = 'text-6xl'
+GAME_BUTTON_CLASSES = ' text-center shadow-lg rounded-lg text-white font-bold '
+
 
 class GUI:
-    
+    """
+    Manages the Graphical User Interface for the scoreboard.
+    """
+
     def __init__(self, tabs=None, conf=None, backend=None):
         self.logger = logging.getLogger("GUI")
         self.undo = False
@@ -45,68 +54,63 @@ class GUI:
         self.tabs = tabs
         self.conf = conf
         self.backend = backend
-        self.current_customize_state = Customization(backend.get_current_customization())
-        self.main_state = State(backend.get_current_model()) 
+        self.current_customize_state = Customization(
+            backend.get_current_customization())
+        self.main_state = State(backend.get_current_model())
         self.visible = backend.is_visible()
         self.set_selector = None
         self.page_height = None
         self.page_width = None
         self.PADDINGS = GAME_BUTTON_PADDING_NORMAL
         self.TEXTSIZE = GAME_BUTTON_TEXT_NORMAL
-        self.initialized = False
         self.hide_timer = None
 
     def set_page_size(self, width, height):
+        """Adjusts UI element sizes based on page dimensions."""
         self.page_height = height
         self.page_width = width
-        self.logger.debug('Set page size to: %sx%s', self.page_height, self.page_width)
-        if self.page_width >= self.page_height:
-            if (self.page_width > 850):
-                if self.PADDINGS != GAME_BUTTON_PADDING_BIG:
-                    self.switch_padding(GAME_BUTTON_PADDING_BIG)
-                    self.switch_textsize(GAME_BUTTON_TEXT_BIG)
-            elif (self.page_width > 745):
-                if self.PADDINGS != GAME_BUTTON_PADDING_NORMAL:
-                    self.switch_padding(GAME_BUTTON_PADDING_NORMAL)
-                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
-            else:
-                if self.PADDINGS != GAME_BUTTON_PADDING_SMALL:
-                    self.switch_padding(GAME_BUTTON_PADDING_SMALL)
-                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
+        self.logger.debug('Set page size to: %sx%s',
+                         self.page_height, self.page_width)
+
+        is_landscape = self.page_width >= self.page_height
+        dimension = self.page_width if is_landscape else self.page_height
+
+        if dimension > 850:
+            self.switch_padding_and_textsize(
+                GAME_BUTTON_PADDING_BIG, GAME_BUTTON_TEXT_BIG)
+        elif dimension > 745 or (not is_landscape and dimension > 800):
+            self.switch_padding_and_textsize(
+                GAME_BUTTON_PADDING_NORMAL, GAME_BUTTON_TEXT_NORMAL)
         else:
-            if (self.page_height > 850):
-                if self.PADDINGS != GAME_BUTTON_PADDING_BIG:
-                    self.switch_padding(GAME_BUTTON_PADDING_BIG)
-                    self.switch_textsize(GAME_BUTTON_TEXT_BIG)
-            elif (self.page_height > 800):
-                if self.PADDINGS != GAME_BUTTON_PADDING_NORMAL:
-                    self.switch_padding(GAME_BUTTON_PADDING_NORMAL)
-                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
-            else:
-                if self.PADDINGS != GAME_BUTTON_PADDING_SMALL:
-                    self.switch_padding(GAME_BUTTON_PADDING_SMALL)
-                    self.switch_textsize(GAME_BUTTON_TEXT_NORMAL)
-                
+            self.switch_padding_and_textsize(
+                GAME_BUTTON_PADDING_SMALL, GAME_BUTTON_TEXT_NORMAL)
+
+    def switch_padding_and_textsize(self, padding, textsize):
+        """Helper to switch padding and text size at once."""
+        self.switch_padding(padding)
+        self.switch_textsize(textsize)
 
     def switch_padding(self, padding):
-            if self.initialized:
-                self.teamAButton.classes(remove=self.PADDINGS)
-                self.teamBButton.classes(remove=self.PADDINGS)
-            self.PADDINGS = padding
-            self.logger.info("Change paddings to %s", padding)
-            if self.initialized:
-                self.teamAButton.classes(add=self.PADDINGS)
-                self.teamBButton.classes(add=self.PADDINGS)
+        """Switches the padding for the team buttons."""
+        if self.initialized:
+            self.teamAButton.classes(remove=self.PADDINGS)
+            self.teamBButton.classes(remove=self.PADDINGS)
+        self.PADDINGS = padding
+        self.logger.info("Change paddings to %s", padding)
+        if self.initialized:
+            self.teamAButton.classes(add=self.PADDINGS)
+            self.teamBButton.classes(add=self.PADDINGS)
 
     def switch_textsize(self, textsize):
-            if self.initialized:
-                self.teamAButton.classes(remove=self.TEXTSIZE)
-                self.teamBButton.classes(remove=self.TEXTSIZE)
-            self.TEXTSIZE = textsize
-            self.logger.info("Change textsize to %s", textsize)
-            if self.initialized:
-                self.teamAButton.classes(add=self.TEXTSIZE)
-                self.teamBButton.classes(add=self.TEXTSIZE)
+        """Switches the text size for the team buttons."""
+        if self.initialized:
+            self.teamAButton.classes(remove=self.TEXTSIZE)
+            self.teamBButton.classes(remove=self.TEXTSIZE)
+        self.TEXTSIZE = textsize
+        self.logger.info("Change textsize to %s", textsize)
+        if self.initialized:
+            self.teamAButton.classes(add=self.TEXTSIZE)
+            self.teamBButton.classes(add=self.TEXTSIZE)
 
     def set_main_state(self, state):
         self.main_state = State(state)
@@ -114,70 +118,83 @@ class GUI:
     def get_current_state(self):
         return self.main_state
 
-    def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
-        if self.initialized == True and force == False:
-            return
-        self.logger.info('Initialize gui')
-        if custom_points_limit != None:
-            self.points_limit = custom_points_limit
-        else:
-            self.points_limit = self.conf.points
-        if custom_points_limit_last_set != None:
-            self.points_limit_last_set = custom_points_limit_last_set
-        else:
-            self.points_limit_last_set = self.conf.points_last_set
-        if custom_sets_limit != None:
-            self.sets_limit = custom_sets_limit
-        else:
-            self.sets_limit = self.conf.sets
-        self.logger.info('Set points: %s', self.points_limit)
-        self.logger.info('Set points last set: %s', self.points_limit_last_set)
-        self.logger.info('Sets to win: %s', self.sets_limit)
-        with ui.row().classes('w-full'):
-            with ui.card():
-                self.teamAButton = ui.button('00', color=BLUE_BUTTON_COLOR, on_click=lambda: self.add_game(1)).classes(self.PADDINGS+GAME_BUTTON_CLASSES+self.TEXTSIZE)
-                with ui.row().classes('text-4xl w-full'):
-                    ui.button(icon='timer', color=TACOLOR_LIGHT, on_click=lambda: self.add_timeout(1)).props('outline round').classes('shadow-lg')
-                    self.timeoutsA = ui.column()
-                    ui.space()
-                    self.serveA = ui.icon(name='sports_volleyball', color=TACOLOR_VLIGHT)
-                    self.serveA.on('click', lambda: self.change_serve(1))
-            ui.space()
-            with ui.column().classes('justify-center'):
-                with ui.row().classes('w-full justify-center'):
-                    self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(1)).classes('text-white text-2xl')
-                    with ui.row():
-                        self.scores = ui.grid(columns=2).classes('justify-center') 
-                    self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(2)).classes('text-white text-2xl')
-                self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(e.value)).props('color=grey active-color=teal')        
-            ui.space()
-            with ui.card():
-                self.teamBButton = ui.button('00', color=RED_BUTTON_COLOR, on_click=lambda: self.add_game(2)).classes(self.PADDINGS+GAME_BUTTON_CLASSES+self.TEXTSIZE)
-                with ui.row().classes('text-4xl w-full'):
-                    ui.button(icon='timer', color=TBCOLOR_LIGHT, on_click=lambda: self.add_timeout(2)).props('outline round').classes('shadow-lg ')
-                    self.timeoutsB = ui.column() 
-                    ui.space()
-                    self.serveB = ui.icon(name='sports_volleyball', color=TBCOLOR_VLIGHT)
-                    self.serveB.on('click', lambda: self.change_serve(2))
-            
+    def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
+        """Creates the UI panel for a single team."""
+        with ui.card():
+            button = ui.button('00', color=button_color, on_click=lambda: self.add_game(team_id)).classes(
+                self.PADDINGS + GAME_BUTTON_CLASSES + self.TEXTSIZE)
+            with ui.row().classes('text-4xl w-full'):
+                ui.button(icon='timer', color=timeout_light_color,
+                          on_click=lambda: self.add_timeout(team_id)).props('outline round').classes('shadow-lg')
+                timeouts = ui.column()
+                ui.space()
+                serve_icon = ui.icon(
+                    name='sports_volleyball', color=serve_vlight_color)
+                serve_icon.on('click', lambda: self.change_serve(team_id))
+        return button, timeouts, serve_icon
 
+    def _create_center_panel(self):
+        """Creates the central control panel with set scores and pagination."""
+        with ui.column().classes('justify-center'):
+            with ui.row().classes('w-full justify-center'):
+                self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(1)).classes(
+                    'text-white text-2xl')
+                with ui.row():
+                    self.scores = ui.grid(columns=2).classes('justify-center')
+                self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(2)).classes(
+                    'text-white text-2xl')
+            self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
+                e.value)).props('color=grey active-color=teal')
+
+    def _create_control_buttons(self):
+        """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
         with ui.row().classes("w-full justify-right"):
-            self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR, on_click=self.switch_visibility).props('round').classes('text-white')
-            self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR, on_click=self.switch_simple_mode).props('round').classes('text-white')
-            self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(self.undo_button)).props('round').classes('text-white')    
+            self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR,
+                                               on_click=self.switch_visibility).props('round').classes('text-white')
+            self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR,
+                                           on_click=self.switch_simple_mode).props('round').classes('text-white')
+            self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(
+                self.undo_button)).props('round').classes('text-white')
             ui.space()
-            ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(Customization.CONFIG_TAB)).props('round').classes('text-white')    
-                
+            ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(
+                Customization.CONFIG_TAB)).props('round').classes('text-white')
+
+    def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
+        if self.initialized and not force:
+            return
+
+        self.logger.info('Initialize gui')
+
+        # Set game parameters
+        self.points_limit = custom_points_limit if custom_points_limit is not None else self.conf.points
+        self.points_limit_last_set = custom_points_limit_last_set if custom_points_limit_last_set is not None else self.conf.points_last_set
+        self.sets_limit = custom_sets_limit if custom_sets_limit is not None else self.conf.sets
+
+        self.logger.info('Set points: %s', self.points_limit)
+        self.logger.info('Set points last set: %s',
+                         self.points_limit_last_set)
+        self.logger.info('Sets to win: %s', self.sets_limit)
+
+        with ui.row().classes('w-full'):
+            self.teamAButton, self.timeoutsA, self.serveA = self._create_team_panel(
+                1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
+            ui.space()
+            self._create_center_panel()
+            ui.space()
+            self.teamBButton, self.timeoutsB, self.serveB = self._create_team_panel(
+                2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT)
+
+        self._create_control_buttons()
+
         self.update_ui(False)
         self.initialized = True
         self.logger.info('Initialized gui')
-        
 
     def compute_current_set(self, current_state):
         t1sets = current_state.get_sets(1)
         t2sets = current_state.get_sets(2)
-        current_sets =  t1sets + t2sets
-        if self.match_finished(t1sets, t2sets) != True:
+        current_sets = t1sets + t2sets
+        if not self.match_finished(t1sets, t2sets):
             current_sets += 1
         return current_sets
 
@@ -194,12 +211,13 @@ class GUI:
         self.logger.info('Updating UI...')
         if load_from_backend or self.conf.cache:
             self.logger.info('loading data from backend')
-            self.current_customize_state.set_model(self.backend.get_current_customization())
+            self.current_customize_state.set_model(
+                self.backend.get_current_customization())
             update_state = State(self.backend.get_current_model())
             visible = self.backend.is_visible()
         else:
             update_state = self.main_state
-            
+
         current_set = self.compute_current_set(update_state)
         self.update_ui_serve(update_state)
         self.update_ui_sets(update_state)
@@ -207,15 +225,16 @@ class GUI:
         self.update_ui_timeouts(update_state)
         self.update_ui_current_set(current_set)
         self.update_ui_visible(visible)
-        clientSimple = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
+        clientSimple = AppStorage.load(
+            AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
         if load_from_backend:
             self.switch_simple_mode(False)
-        elif clientSimple != None:
-            self.switch_simple_mode(clientSimple) 
+        elif clientSimple is not None:
+            self.switch_simple_mode(clientSimple)
 
     def update_ui_games(self, update_state):
         self.hold()
-        for i in range(1, self.sets_limit+1):
+        for i in range(1, self.sets_limit + 1):
             teamA_game_int = update_state.get_game(1, i)
             teamB_game_int = update_state.get_game(2, i)
             if (i == self.current_set):
@@ -231,29 +250,30 @@ class GUI:
         logo2 = self.current_customize_state.get_team_logo(2)
         self.scores.clear()
         with self.scores:
-            if (logo1 != None and logo1 != Customization.DEFAULT_IMAGE):
+            if (logo1 is not None and logo1 != Customization.DEFAULT_IMAGE):
                 ui.image(source=logo1).classes('w-6 h-6 m-auto')
-            else: 
+            else:
                 ui.icon(name='sports_volleyball', color='blue', size='xs')
-                
-            if (logo2 != None and logo2 != Customization.DEFAULT_IMAGE):
+
+            if (logo2 is not None and logo2 != Customization.DEFAULT_IMAGE):
                 ui.image(source=logo2).classes('w-6 h-6 m-auto')
-            else: 
+            else:
                 ui.icon(name='sports_volleyball', color='red', size='xs')
             lastWithoutZeroZero = 1
-            match_finished = self.match_finished(update_state.get_sets(1), update_state.get_sets(2))
-            for i in range(1, self.sets_limit+1):
+            match_finished = self.match_finished(
+                update_state.get_sets(1), update_state.get_sets(2))
+            for i in range(1, self.sets_limit + 1):
                 teamA_game_int = update_state.get_game(1, i)
                 teamB_game_int = update_state.get_game(2, i)
                 if (teamA_game_int + teamB_game_int > 0):
                     lastWithoutZeroZero = i
 
-            for i in range(1, self.sets_limit+1):
+            for i in range(1, self.sets_limit + 1):
                 teamA_game_int = update_state.get_game(1, i)
                 teamB_game_int = update_state.get_game(2, i)
                 if (i > 1 and i > lastWithoutZeroZero):
                     break
-                if (i == self.current_set and i < self.sets_limit and match_finished != True):
+                if (i == self.current_set and i < self.sets_limit and not match_finished):
                     break
                 label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0')
                 label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0')
@@ -268,15 +288,16 @@ class GUI:
         self.change_ui_timeout(2, update_state.get_timeout(2))
         self.release()
 
-    def update_ui_serve(self, update_state):    
+    def update_ui_serve(self, update_state):
+        """
+        Actualiza los iconos de servicio basándose en el estado actual.
+        """
         self.hold()
-        match update_state.get_current_serve():
-            case State.SERVE_NONE:
-                self.change_serve(0)
-            case State.SERVE_1:
-                self.change_serve(1)
-            case State.SERVE_2:
-                self.change_serve(2)
+        current_serve = update_state.get_current_serve()
+        
+        # Icon color directly reflects the state
+        self.serveA.props(f'color={TACOLOR_HIGH if current_serve == State.SERVE_1 else TACOLOR_VLIGHT}')
+        self.serveB.props(f'color={TBCOLOR_HIGH if current_serve == State.SERVE_2 else TBCOLOR_VLIGHT}')
         self.release()
 
     def update_ui_sets(self, update_state):
@@ -289,27 +310,24 @@ class GUI:
         self.teamBSet.set_text(str(t2sets))
         self.release()
 
-    def update_ui_current_set(self, set):
+    def update_ui_current_set(self, set_number):
         self.hold()
-        self.main_state.set_current_set(set)
-        self.set_selector.set_value(set)
+        self.main_state.set_current_set(set_number)
+        self.set_selector.set_value(set_number)
         self.release()
 
     def update_ui_visible(self, enabled):
-        if enabled:
-            self.visibility_button.set_icon('visibility')
-            self.visibility_button.props('color='+VISIBLE_ON_COLOR)
-        else:
-            self.visibility_button.set_icon('visibility_off')
-            self.visibility_button.props('color='+VISIBLE_OFF_COLOR)
-
+        icon = 'visibility' if enabled else 'visibility_off'
+        color = VISIBLE_ON_COLOR if enabled else VISIBLE_OFF_COLOR
+        self.visibility_button.set_icon(icon)
+        self.visibility_button.props(f'color={color}')
 
     def hold(self):
         self.holdUpdate += 1
 
     def release(self):
         if self.holdUpdate > 0:
-            self.holdUpdate -= 1 
+            self.holdUpdate -= 1
 
     def release_hold_and_send_state(self):
         self.release()
@@ -326,89 +344,75 @@ class GUI:
         self.update_ui(True)
 
     def change_serve(self, team, force=False):
-        match team:
-            case 1:
-                self.main_state.set_current_serve(State.SERVE_1)
-                if self.serveA.props['color']==TACOLOR_HIGH and force != True:
-                    self.serveA.props(f'color={TACOLOR_VLIGHT}')
-                    self.main_state.set_current_serve(State.SERVE_NONE)
-                else:                             
-                    self.serveA.props(f'color={TACOLOR_HIGH}')
-                self.serveB.props(f'color={TBCOLOR_VLIGHT}')
-            case 2:
-                self.main_state.set_current_serve(State.SERVE_2)
-                if self.serveB.props['color']==TBCOLOR_HIGH and force != True:
-                    self.serveB.props(f'color={TBCOLOR_VLIGHT}')
-                    self.main_state.set_current_serve(State.SERVE_NONE)
-                else:                             
-                    self.serveB.props(f'color={TBCOLOR_HIGH}')
-                self.serveA.props(f'color={TACOLOR_VLIGHT}')
-            case 0:
-                self.main_state.set_current_serve(State.SERVE_NONE)
-                self.serveB.props(f'color={TBCOLOR_VLIGHT}')
-                self.serveA.props(f'color={TACOLOR_VLIGHT}')
+        current_serve = self.main_state.get_current_serve()
+        new_serve = State.SERVE_NONE
+        if team == 1:
+            if force or current_serve != State.SERVE_1:
+                new_serve = State.SERVE_1
+        elif team == 2:
+            if force or current_serve != State.SERVE_2:
+                new_serve = State.SERVE_2
+        self.main_state.set_current_serve(new_serve)
+        self.update_ui_serve(self.main_state)
         self.send_state()
 
     def add_timeout(self, team):
-        if team == 1:
-            color = TACOLOR_MEDIUM
-            container = self.timeoutsA
-        else:
-            color = TBCOLOR_MEDIUM
-            container = self.timeoutsB
+        color = TACOLOR_MEDIUM if team == 1 else TBCOLOR_MEDIUM
+        container = self.timeoutsA if team == 1 else self.timeoutsB
+
         if self.undo:
-            if len(list(container)) > 0:
-                container.remove(0) if list(container) else None
+            if container.default_slot.children:
+                container.remove(0)
             self.switch_undo(True)
-        else:        
-            if len(list(container)) < 2:
+        else:
+            if len(container.default_slot.children) < 2:
                 with container:
-                    ui.icon(name='radio_button_unchecked', color=color, size='12px').classes('text-center')
+                    ui.icon(name='radio_button_unchecked',
+                              color=color, size='12px').classes('text-center')
             else:
                 container.clear()
-        self.main_state.set_timeout(team, len(list(container)))
+        self.main_state.set_timeout(
+            team, len(container.default_slot.children))
         self.send_state()
 
     def change_ui_timeout(self, team, value):
-        if team == 1:
-            color = TACOLOR_MEDIUM
-            container = self.timeoutsA
-        else:
-            color = TBCOLOR_MEDIUM
-            container = self.timeoutsB
+        color = TACOLOR_MEDIUM if team == 1 else TBCOLOR_MEDIUM
+        container = self.timeoutsA if team == 1 else self.timeoutsB
         container.clear()
-        for i in range(value):
-            with container:
-                ui.icon(name='radio_button_unchecked', color=color, size='12px')
-        self.main_state.set_timeout(team, len(list(container))) 
+        with container:
+            for _ in range(value):
+                ui.icon(name='radio_button_unchecked',
+                          color=color, size='12px')
+        self.main_state.set_timeout(team, value)
 
     def add_game(self, team):
         if self.block_additional_points():
             return
+
         self.hold()
-        if team == 1:
-            button = self.teamAButton
-            rival_score = int(self.teamBButton.text)
-            self.change_serve(1, True)
-        else:
-            button = self.teamBButton
-            rival_score = int(self.teamAButton.text)
-            self.change_serve(2, True)
+
+        button = self.teamAButton if team == 1 else self.teamBButton
+        rival_button = self.teamBButton if team == 1 else self.teamAButton
+        rival_score = int(rival_button.text)
+        self.change_serve(team, True)
+
         current = self.add_int_to_button(button)
         self.main_state.set_game(self.current_set, team, current)
-        if (self.conf.auto_hide == True):
-            if self.hide_timer != None:
+
+        if self.conf.auto_hide:
+            if self.hide_timer:
                 self.hide_timer.cancel()
-                self.hide_timer = None
             self.switch_visibility(True)
-        if (current >=  self.get_game_limit(self.current_set) and (current - rival_score > 1)):
+
+        if (current >= self.get_game_limit(self.current_set) and (current - rival_score > 1)):
             self.add_set(team)
-            if self.conf.auto_simple_mode == True:
+            if self.conf.auto_simple_mode:
                 self.switch_simple_mode(False)
         else:
-            if self.conf.auto_hide == True:
-                self.hide_timer = ui.timer(self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True, active=True)
-            if self.conf.auto_simple_mode == True:
+            if self.conf.auto_hide:
+                self.hide_timer = ui.timer(
+                    self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True)
+            if self.conf.auto_simple_mode:
                 self.switch_simple_mode(True)
 
         self.release_hold_and_send_state()
@@ -421,27 +425,26 @@ class GUI:
 
     def get_current_model(self):
         return self.main_state.get_current_model()
-    
+
     def is_show_logos(self):
         return self.main_state.is_show_logos()
-    
+
     def set_show_logos(self, show):
         self.main_state.set_show_logos(show)
 
-    def get_game_limit(self, set):
-        if set == self.sets_limit:
-            return self.points_limit_last_set
-        else:
-            return self.points_limit 
+    def get_game_limit(self, set_number):
+        return self.points_limit_last_set if set_number == self.sets_limit else self.points_limit
 
     def add_set(self, team, roll2zero=True):
         if self.block_additional_points():
             return
+
         self.hold()
-        button = self.teamASet
-        if team == 2: button = self.teamBSet
+        button = self.teamASet if team == 1 else self.teamBSet
         soft_limit = 2 if self.sets_limit == 3 else 3
-        current = self.add_int_to_button(button, soft_limit if roll2zero else soft_limit+1, False)
+        limit = soft_limit if roll2zero else soft_limit + 1
+        current = self.add_int_to_button(button, limit, False)
+
         self.main_state.set_sets(team, current)
         self.change_ui_timeout(1, 0)
         self.change_ui_timeout(2, 0)
@@ -452,55 +455,53 @@ class GUI:
     def block_additional_points(self):
         t1sets = self.main_state.get_sets(1)
         t2sets = self.main_state.get_sets(2)
-        if not self.undo and self.match_finished(t1sets, t2sets):
-            return True
-        return False
+        return not self.undo and self.match_finished(t1sets, t2sets)
 
-    def switch_to_set(self, set):
-        if (self.current_set != set):
-            self.current_set = set
+    def switch_to_set(self, set_number):
+        if (self.current_set != set_number):
+            self.current_set = set_number
             self.update_ui_current_set(self.current_set)
             self.update_ui_games(self.main_state)
 
     def switch_visibility(self, force_value=None):
         update = False
-        if self.visible == True and force_value != True:
+        if self.visible and force_value is not True:
             self.visible = False
-            self.visibility_button.set_icon('visibility_off')
             update = True
-        elif self.visible == False and force_value != False:
+        elif not self.visible and force_value is not False:
             self.visible = True
-            self.visibility_button.set_icon('visibility')
             update = True
+
         if update:
             self.update_ui_visible(self.visible)
             self.backend.change_overlay_visibility(self.visible)
 
     def switch_simple_mode(self, force_value=None):
         self.hold()
-        if self.simple == True and force_value != True:
+        if self.simple and force_value is not True:
             self.simple = False
             self.simple_button.set_icon('grid_on')
-            self.simple_button.props('color='+FULL_SCOREBOARD_COLOR)
-        elif self.simple == False and force_value != False:
+            self.simple_button.props(f'color={FULL_SCOREBOARD_COLOR}')
+        elif not self.simple and force_value is not False:
             self.simple = True
             self.simple_button.set_icon('window')
-            self.simple_button.props('color='+SIMPLE_SCOREBOARD_COLOR)
+            self.simple_button.props(f'color={SIMPLE_SCOREBOARD_COLOR}')
             self.backend.reduce_games_to_one()
-        if force_value == None:
-            AppStorage.save(AppStorage.Category.SIMPLE_MODE, self.simple, oid=self.conf.oid)
-        self.release_hold_and_send_state()  
+
+        if force_value is None:
+            AppStorage.save(AppStorage.Category.SIMPLE_MODE,
+                              self.simple, oid=self.conf.oid)
+        self.release_hold_and_send_state()
 
     def switch_undo(self, reset=False):
         if self.undo:
             self.undo = False
             self.undo_button.set_icon('undo')
-            self.undo_button.props('color='+UNDO_COLOR)
-        elif reset != True:
+            self.undo_button.props(f'color={UNDO_COLOR}')
+        elif not reset:
             self.undo = True
             self.undo_button.set_icon('redo')
-            self.undo_button.props('color='+DO_COLOR)
-
+            self.undo_button.props(f'color={DO_COLOR}')
 
     def add_int_to_button(self, button, limit=99, force_digits=True):
         current = int(button.text)
@@ -512,11 +513,10 @@ class GUI:
             current += 1
         if current > limit:
             current = 0
-        if force_digits:
-            button.set_text(f'{current:02d}')
-        else:
-            button.set_text(f'{current:01d}')
+
+        text_format = '{:02d}' if force_digits else '{:01d}'
+        button.set_text(text_format.format(current))
         return current
-    
+
     def refresh(self):
         self.update_ui(True)
