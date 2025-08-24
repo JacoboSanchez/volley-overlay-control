@@ -1,12 +1,12 @@
+# jacobosanchez/volley-overlay-control/volley-overlay-control-dev/options_dialog.py
 from nicegui import ui
 from conf import Conf
 from messages import Messages
 from app_storage import AppStorage
 import logging
+from theme import COLOR_FULLSCREEN_BUTTON, COLOR_EXIT_FULLSCREEN_BUTTON
 
 class OptionsDialog:
-    COLOR_FULLSCREEN_BUTTON = 'gray-400'
-    COLOR_EXIT_FULLSCREEN_BUTTON = 'gray-600'
 
     def __init__(self, configuration: Conf):
         self.configuration = configuration
@@ -45,9 +45,9 @@ class OptionsDialog:
                 ui.label(Messages.get(Messages.VISUALIZATION_OPTIONS)).classes('text-lg font-semibold')
                 with ui.row().classes('justify-center'):
                     self.fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
-                    self.fullscreenButton = ui.button(icon='fullscreen', color=self.COLOR_FULLSCREEN_BUTTON,
+                    self.fullscreenButton = ui.button(icon='fullscreen', color=COLOR_FULLSCREEN_BUTTON,
                                                     on_click=self.fullscreen.toggle).props(
-                        'outline color=' + self.COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
+                        'outline color=' + COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
                     self.update_full_screen_icon()
                     ui.space()
                     self.slider = ui.slide_item()
@@ -64,9 +64,6 @@ class OptionsDialog:
                             ui.icon('light_mode', color='amber')
                         self.slider.top('auto', color='gray-400', on_slide=lambda: self.switch_darkmode('auto'))
             
-
-
-
             ui.button(Messages.get(Messages.CLOSE), on_click=self.dialog.close).props('flat').classes('w-full mt-4')
 
     def full_screen_updated(self, e):
@@ -79,10 +76,10 @@ class OptionsDialog:
         logging.debug('value %s', value)
         if value:
             self.fullscreenButton.icon = 'fullscreen_exit'
-            self.fullscreenButton.props('color=' + self.COLOR_EXIT_FULLSCREEN_BUTTON)
+            self.fullscreenButton.props('color=' + COLOR_EXIT_FULLSCREEN_BUTTON)
         else:
             self.fullscreenButton.icon = 'fullscreen'
-            self.fullscreenButton.props('color=' + self.COLOR_FULLSCREEN_BUTTON)
+            self.fullscreenButton.props('color=' + COLOR_FULLSCREEN_BUTTON)
 
     def switch_darkmode(self, value: str):
         self.set_ui_dark_mode(value)

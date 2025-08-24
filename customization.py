@@ -1,3 +1,4 @@
+# jacobosanchez/volley-overlay-control/volley-overlay-control-dev/customization.py
 from messages import Messages
 import os
 import json
@@ -117,12 +118,6 @@ class Customization:
         else:
             return Customization.fix_icon(self.customization_model[Customization.T2_LOGO])
         
-    def get_team_color(self, team):
-        if team == 1:
-            return self.customization_model[Customization.T1_COLOR]
-        else:
-            return self.customization_model[Customization.T2_COLOR]
-    
     def set_team_text_color(self, team, color):
         if team == 1:
             self.customization_model[Customization.T1_TEXT_COLOR] = color
@@ -232,4 +227,4 @@ class Customization:
     def fix_icon(url):
         if url.startswith("//"):
             return "https:" + url
-        return url        
+        return url
