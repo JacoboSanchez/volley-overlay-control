@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from oid_dialog import OidDialog
 from gui import GUI
 from options_dialog import OptionsDialog
@@ -14,18 +13,11 @@ from backend import Backend
 from app_storage import AppStorage
 from messages import Messages
 from typing import Optional
+from logging_config import setup_logging  # <-- 1. Importar la nueva función
 
+# 2. Llamar a la función de configuración
+setup_logging()
 
-logging.addLevelName( logging.DEBUG, "\033[39m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
-logging.addLevelName( logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))
-logging.addLevelName( logging.WARNING, "\033[1;43m%s\033[1;0m" % logging.getLevelName(logging.WARNING))
-logging.addLevelName( logging.ERROR, "\033[1;31m%s\033[1;0m" % logging.getLevelName(logging.ERROR))
-logging.addLevelName( logging.FATAL, "\033[1;41m%s\033[1;0m" % logging.getLevelName(logging.FATAL))
-root = logging.getLogger()
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter( "\033[1;36m%s\033[1;0m" % '%(asctime)s'+' %(levelname)s '+"\033[32m%s\033[1;0m" % '[%(name)s]'+':  %(message)s'))
-root.addHandler(handler)
-root.setLevel(os.environ.get('LOGGING_LEVEL', 'warning').upper())
 logger = logging.getLogger("Main")
 scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
 configurationTab = ui.tab(Customization.CONFIG_TAB)
@@ -33,7 +25,6 @@ configurationTab = ui.tab(Customization.CONFIG_TAB)
 if (PasswordAuthenticator.do_authenticate_users()):
     logger.info("User authentication enabled")
     app.add_middleware(AuthMiddleware)
-
 
 def reset_all():
     logger.info("Clearing storage")
@@ -58,7 +49,6 @@ async def beach(control=None, output=None, logout=None):
 async def main(control=None, output=None, logout=None):
     process_parameters(logout=logout)
     await run_page(oid=control, output=output)
-
 
 @ui.page('/login', response_timeout = 5)
 async def login(redirect_to: str = '/') -> Optional[RedirectResponse]:
@@ -102,7 +92,7 @@ async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, 
         conf.output = None
     if output != None:
         conf.output = OidDialog.UNO_OUTPUT_BASE_URL+output
-    
+
     storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
     storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
     if oid == None and backend.validate_and_store_model_for_oid(storageOid) == Backend.ValidationResult.VALID:
