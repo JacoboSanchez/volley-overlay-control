@@ -44,6 +44,9 @@ class Messages:
     NO_THEMES = "No themes available."
     LOAD = "Load"
     LOAD_THEME = "Load Theme"
+    SET_CUSTOM_GAME_VALUE = "Set custom game value"
+    SET_CUSTOM_SET_VALUE = "Set custom set value"
+    VALUE = "Value"
 
     messages = {
         "es": {
@@ -89,7 +92,10 @@ class Messages:
             THEME_TITLE: "Selecciona un Tema",
             NO_THEMES: "No hay temas disponibles.",
             LOAD: "Cargar",
-            LOAD_THEME: "Cargar Tema"
+            LOAD_THEME: "Cargar Tema",
+            SET_CUSTOM_GAME_VALUE: "Establecer valor del juego",
+            SET_CUSTOM_SET_VALUE: "Establecer valor del set",
+            VALUE: "Valor"
           }
         }
 

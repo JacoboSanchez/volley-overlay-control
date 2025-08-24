@@ -3,6 +3,7 @@ from nicegui import ui
 from state import State
 from customization import Customization
 from app_storage import AppStorage
+from messages import Messages
 
 # Constants for colors and styles
 # Team A Colors
@@ -64,6 +65,7 @@ class GUI:
         self.PADDINGS = GAME_BUTTON_PADDING_NORMAL
         self.TEXTSIZE = GAME_BUTTON_TEXT_NORMAL
         self.hide_timer = None
+        self.long_press_timer = None
 
     def set_page_size(self, width, height):
         """Adjusts UI element sizes based on page dimensions."""
@@ -118,11 +120,77 @@ class GUI:
     def get_current_state(self):
         return self.main_state
 
+    async def show_custom_value_dialog(self, team: int, is_set_button: bool, initial_value: int, max_value: int):
+        """Opens a dialog to set a custom value for points or sets."""
+        title = Messages.get(Messages.SET_CUSTOM_SET_VALUE) if is_set_button else Messages.get(Messages.SET_CUSTOM_GAME_VALUE)
+        with ui.dialog() as dialog, ui.card():
+            ui.label(title)
+            value_input = ui.number(
+                label=Messages.get(Messages.VALUE),
+                value=initial_value, 
+                min=0, 
+                max=max_value, 
+                step=1, 
+                format='%.0f'
+            ).classes('w-full')
+            with ui.row():
+                ui.button('OK', on_click=lambda: dialog.submit(value_input.value))
+                ui.button('Cancel', on_click=dialog.close)
+        
+        result = await dialog
+        if result is not None:
+            value = int(result)
+            if is_set_button:
+                self.set_sets_value(team, value)
+            else:
+                self.set_game_value(team, value)
+
+    def handle_button_press(self, team: int, is_set_button: bool):
+        """Starts a timer on mousedown/touchstart to detect a long press."""
+        # Determine the button and its limits to pass to the dialog
+        if is_set_button:
+            button = self.teamASet if team == 1 else self.teamBSet
+            initial_value = int(button.text)
+            max_value = self.sets_limit
+        else:
+            button = self.teamAButton if team == 1 else self.teamBButton
+            initial_value = int(button.text)
+            max_value = self.get_game_limit(self.current_set)
+
+        async def long_press_callback():
+            self.long_press_timer = None
+            await self.show_custom_value_dialog(team, is_set_button, initial_value, max_value)
+
+        self.long_press_timer = ui.timer(0.5, long_press_callback, once=True)
+
+    def handle_button_release(self, team: int, is_set_button: bool):
+        """Cancels the timer on mouseup/touchend and handles the click action."""
+        if self.long_press_timer is not None:
+            self.long_press_timer.cancel()
+            self.long_press_timer = None
+            if is_set_button:
+                self.add_set(team)
+            else:
+                self.add_game(team)
+
+    def handle_press_cancel(self):
+        """Cancels the long press timer if the touch moves."""
+        if self.long_press_timer is not None:
+            self.long_press_timer.cancel()
+            self.long_press_timer = None
+
     def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
         """Creates the UI panel for a single team."""
         with ui.card():
-            button = ui.button('00', color=button_color, on_click=lambda: self.add_game(team_id)).classes(
-                self.PADDINGS + GAME_BUTTON_CLASSES + self.TEXTSIZE)
+            button = ui.button('00', color=button_color)
+            # Add handlers for both mouse and touch events
+            button.on('mousedown', lambda: self.handle_button_press(team_id, is_set_button=False))
+            button.on('touchstart', lambda: self.handle_button_press(team_id, is_set_button=False), [])
+            button.on('mouseup', lambda: self.handle_button_release(team_id, is_set_button=False))
+            button.on('touchend', lambda: self.handle_button_release(team_id, is_set_button=False))
+            button.on('touchmove', self.handle_press_cancel)
+            button.classes(self.PADDINGS + GAME_BUTTON_CLASSES + self.TEXTSIZE)
+            
             with ui.row().classes('text-4xl w-full'):
                 ui.button(icon='timer', color=timeout_light_color,
                           on_click=lambda: self.add_timeout(team_id)).props('outline round').classes('shadow-lg')
@@ -137,12 +205,27 @@ class GUI:
         """Creates the central control panel with set scores and pagination."""
         with ui.column().classes('justify-center'):
             with ui.row().classes('w-full justify-center'):
-                self.teamASet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(1)).classes(
-                    'text-white text-2xl')
+                self.teamASet = ui.button('0', color='gray-700')
+                # Add handlers for both mouse and touch events
+                self.teamASet.on('mousedown', lambda: self.handle_button_press(1, is_set_button=True))
+                self.teamASet.on('touchstart', lambda: self.handle_button_press(1, is_set_button=True), [])
+                self.teamASet.on('mouseup', lambda: self.handle_button_release(1, is_set_button=True))
+                self.teamASet.on('touchend', lambda: self.handle_button_release(1, is_set_button=True))
+                self.teamASet.on('touchmove', self.handle_press_cancel)
+                self.teamASet.classes('text-white text-2xl')
+
                 with ui.row():
                     self.scores = ui.grid(columns=2).classes('justify-center')
-                self.teamBSet = ui.button('0', color='gray-700', on_click=lambda: self.add_set(2)).classes(
-                    'text-white text-2xl')
+                
+                self.teamBSet = ui.button('0', color='gray-700')
+                # Add handlers for both mouse and touch events
+                self.teamBSet.on('mousedown', lambda: self.handle_button_press(2, is_set_button=True))
+                self.teamBSet.on('touchstart', lambda: self.handle_button_press(2, is_set_button=True), [])
+                self.teamBSet.on('mouseup', lambda: self.handle_button_release(2, is_set_button=True))
+                self.teamBSet.on('touchend', lambda: self.handle_button_release(2, is_set_button=True))
+                self.teamBSet.on('touchmove', self.handle_press_cancel)
+                self.teamBSet.classes('text-white text-2xl')
+
             self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
                 e.value)).props('color=grey active-color=teal')
 
@@ -153,8 +236,7 @@ class GUI:
                                                on_click=self.switch_visibility).props('round').classes('text-white')
             self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR,
                                            on_click=self.switch_simple_mode).props('round').classes('text-white')
-            self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(
-                self.undo_button)).props('round').classes('text-white')
+            self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(False)).props('round').classes('text-white')
             ui.space()
             ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(
                 Customization.CONFIG_TAB)).props('round').classes('text-white')
@@ -385,6 +467,21 @@ class GUI:
                           color=color, size='12px')
         self.main_state.set_timeout(team, value)
 
+    def set_game_value(self, team: int, value: int):
+        """Directly sets the game score for a team."""
+        self.hold()
+        self.main_state.set_game(self.current_set, team, value)
+        self.update_ui_games(self.main_state)
+        self.release_hold_and_send_state()
+
+    def set_sets_value(self, team: int, value: int):
+        """Directly sets the sets won for a team."""
+        self.hold()
+        self.main_state.set_sets(team, value)
+        self.update_ui_sets(self.main_state)
+        self.switch_to_set(self.compute_current_set(self.main_state))
+        self.release_hold_and_send_state()
+
     def add_game(self, team):
         if self.block_additional_points():
             return
@@ -495,10 +592,12 @@ class GUI:
 
     def switch_undo(self, reset=False):
         if self.undo:
+            self.logger.info('Undo switched off')
             self.undo = False
             self.undo_button.set_icon('undo')
             self.undo_button.props(f'color={UNDO_COLOR}')
         elif not reset:
+            self.logger.info('Undo enabled')
             self.undo = True
             self.undo_button.set_icon('redo')
             self.undo_button.props(f'color={DO_COLOR}')
