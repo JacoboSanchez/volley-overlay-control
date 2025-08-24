@@ -257,24 +257,22 @@ class GUI:
         return True
 
     def update_ui(self, load_from_backend=False):
-        global visible
         self.logger.info('Updating UI...')
         if load_from_backend or self.conf.cache:
             self.logger.info('loading data from backend')
             self.current_customize_state.set_model(
                 self.backend.get_current_customization())
             update_state = State(self.backend.get_current_model())
-            visible = self.backend.is_visible()
+            self.visible = self.backend.is_visible()
         else:
             update_state = self.main_state
-
         current_set = self.compute_current_set(update_state)
         self.update_ui_serve(update_state)
         self.update_ui_sets(update_state)
         self.update_ui_games(update_state)
         self.update_ui_timeouts(update_state)
         self.update_ui_current_set(current_set)
-        self.update_ui_visible(visible)
+        self.update_ui_visible(self.visible)
         clientSimple = AppStorage.load(
             AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
         if load_from_backend:
