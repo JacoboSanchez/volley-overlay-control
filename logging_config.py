@@ -4,7 +4,7 @@ import os
 
 def setup_logging():
     """
-    Configura el formato y el nivel del logging para la aplicación.
+    Configures the format and level of logging for the application.
     """
     logging.addLevelName(logging.DEBUG, "\033[39m%s\033[1;0m" % logging.getLevelName(logging.DEBUG))
     logging.addLevelName(logging.INFO, "\033[1;33m%s\033[1;0m" % logging.getLevelName(logging.INFO))

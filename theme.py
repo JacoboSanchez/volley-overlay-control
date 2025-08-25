@@ -1,4 +1,3 @@
-# jacobosanchez/volley-overlay-control/volley-overlay-control-dev/theme.py
 """
 Centralized theme and style constants for the application's UI.
 """

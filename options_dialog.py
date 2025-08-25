@@ -1,4 +1,3 @@
-# jacobosanchez/volley-overlay-control/volley-overlay-control-dev/options_dialog.py
 from nicegui import ui
 from conf import Conf
 from messages import Messages

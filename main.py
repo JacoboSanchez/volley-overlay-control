@@ -13,9 +13,10 @@ from backend import Backend
 from app_storage import AppStorage
 from messages import Messages
 from typing import Optional
-from logging_config import setup_logging  # <-- 1. Importar la nueva función
+from logging_config import setup_logging 
+from game_manager import GameManager
 
-# 2. Llamar a la función de configuración
+# 2. Call the configuration function
 setup_logging()
 
 logger = logging.getLogger("Main")
