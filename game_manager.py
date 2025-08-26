@@ -1,4 +1,3 @@
-# jacobosanchez/volley-overlay-control/volley-overlay-control-dev_mvc/game_manager.py
 import logging
 from state import State
 from backend import Backend

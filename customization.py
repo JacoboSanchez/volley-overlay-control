@@ -1,4 +1,3 @@
-# jacobosanchez/volley-overlay-control/volley-overlay-control-dev/customization.py
 from messages import Messages
 import os
 import json

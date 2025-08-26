@@ -38,6 +38,8 @@ class GUI:
         self.teamA_logo = None
         self.teamB_logo = None
         self.score_labels = []
+        # Flag to control event processing gate
+        self.click_gate_open = True
 
     def set_customization_model(self, model):
         """Directly sets the customization model from an external source."""
@@ -118,8 +120,16 @@ class GUI:
             else:
                 self.set_game_value(team, value)
 
+    def open_click_gate(self):
+        """Opens the gate to allow new click events."""
+        self.click_gate_open = True
+        
     def handle_button_press(self, team: int, is_set_button: bool):
         """Starts a timer on mousedown/touchstart to detect a long press."""
+        if not self.click_gate_open:
+            return
+        self.click_gate_open = False  # Close the gate immediately
+
         if is_set_button:
             button = self.teamASet if team == 1 else self.teamBSet
             initial_value = int(button.text)
@@ -144,12 +154,16 @@ class GUI:
                 self.add_set(team)
             else:
                 self.add_game(team)
+        
+        # Re-open the gate after a short delay to ignore ghost clicks
+        ui.timer(0.2, self.open_click_gate, once=True)
 
     def handle_press_cancel(self):
         """Cancels the long press timer if the touch moves."""
         if self.long_press_timer is not None:
             self.long_press_timer.cancel()
             self.long_press_timer = None
+        self.open_click_gate() # Re-open gate immediately if press is cancelled
 
     def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
         """Creates the UI panel for a single team."""
