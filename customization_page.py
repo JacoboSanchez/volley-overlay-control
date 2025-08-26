@@ -30,6 +30,31 @@ class CustomizationPage:
         self.options_dialog = options
         self.container = None  # Initialize container attribute
 
+        with ui.dialog() as self.dialog_reset, ui.card():
+            ui.label(Messages.get(Messages.ASK_RESET))
+            with ui.row():
+                ui.button(color='green-500', icon='done',
+                          on_click=lambda: self.dialog_reset.submit(True))
+                ui.button(color='red-500', icon='close',
+                          on_click=lambda: self.dialog_reset.submit(False))
+
+        with ui.dialog() as self.dialog_reload, ui.card():
+            ui.label(Messages.get(Messages.ASK_RELOAD))
+            with ui.row():
+                ui.button(color='green-500', icon='done',
+                          on_click=lambda: self.dialog_reload.submit(True))
+                ui.button(color='red-500', icon='close',
+                          on_click=lambda: self.dialog_reload.submit(False))
+
+        with ui.dialog() as self.logout_dialog, ui.card():
+            ui.label(Messages.get(Messages.ASK_LOGOUT))
+            with ui.row():
+                ui.button(color='green-500', icon='done',
+                            on_click=lambda: self.logout_dialog.submit(True))
+                ui.button(color='red-500', icon='close',
+                            on_click=lambda: self.logout_dialog.submit(False))
+
+
     def update_team_selection(self, team, logo, tname, color, textColor, selector):
         fallback_name = CustomizationPage.get_fallback_team_name(team)
         team_name = tname if tname is not None else fallback_name
@@ -195,33 +220,6 @@ class CustomizationPage:
                 ui.button(icon='logout', color='red-700',
                           on_click=self.ask_logout).props('round').classes('text-white')
 
-    def _create_dialogs(self):
-        """Creates all the confirmation dialogs."""
-        with ui.dialog() as self.dialog_reset, ui.card():
-            ui.label(Messages.get(Messages.ASK_RESET))
-            with ui.row():
-                ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reset.submit(True))
-                ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reset.submit(False))
-
-        with ui.dialog() as self.dialog_reload, ui.card():
-            ui.label(Messages.get(Messages.ASK_RELOAD))
-            with ui.row():
-                ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reload.submit(True))
-                ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reload.submit(False))
-
-        if AppStorage.load(AppStorage.Category.USERNAME, None) is not None:
-            with ui.dialog() as self.logout_dialog, ui.card():
-                ui.label(Messages.get(Messages.ASK_LOGOUT))
-                with ui.row():
-                    ui.button(color='green-500', icon='done',
-                              on_click=lambda: self.logout_dialog.submit(True))
-                    ui.button(color='red-500', icon='close',
-                              on_click=lambda: self.logout_dialog.submit(False))
-
     def init(self, configuration_container=None, force_reset=False):
         """Initializes and builds the customization page."""
         if force_reset:
@@ -241,7 +239,6 @@ class CustomizationPage:
                 self._create_scoreboard_geometry_card()
             self._create_action_buttons()
 
-        self._create_dialogs()
         self.logger.info("Initialized customization page")
 
     def create_team_card(self, team, teamNames):
