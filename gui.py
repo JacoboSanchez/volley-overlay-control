@@ -1,4 +1,3 @@
-# jacobosanchez/volley-overlay-control/volley-overlay-control-dev_mvc/gui.py
 import logging
 from nicegui import ui
 from state import State
@@ -374,21 +373,17 @@ class GUI:
         self.game_manager.save(self.simple)
 
     async def reset(self):
-        """Resets the game state and saves it."""
+        """Resets the game state, saves it, and updates the UI."""
         self.logger.info('Reset called')
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self.game_manager.reset)
-        await loop.run_in_executor(None, lambda: self.game_manager.save(False))
+        self.game_manager.reset()
+        self.update_ui(load_from_backend=True)
 
 
     async def refresh(self):
-        """Reloads the game state from the backend asynchronously."""
+        """Reloads the game state from the backend and updates the UI."""
         self.logger.info('Refresh called, reloading state from backend.')
-        loop = asyncio.get_running_loop()
-        # Run the blocking GameManager creation in a separate thread
-        self.game_manager = await loop.run_in_executor(
-            None, lambda: GameManager(self.conf, self.backend)
-        )
+        self.update_ui(load_from_backend=True)
+        
 
     def change_serve(self, team, force=False):
         self.game_manager.change_serve(team, force)

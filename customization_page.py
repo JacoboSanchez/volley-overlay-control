@@ -350,8 +350,10 @@ class CustomizationPage:
         result = await self.dialog_reload
         if result:
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
-            self.init(self.container, force_reset=True)
+            self.clear_local_cached_data_for_oid()
             await self.gui.refresh()
+            await asyncio.sleep(0.5)
+            self.init(self.container, force_reset=True)
             notification.dismiss()
 
 
@@ -360,11 +362,16 @@ class CustomizationPage:
         result = await self.dialog_reset
         if result:
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
-            self.init(self.container, force_reset=True)
+            self.clear_local_cached_data_for_oid()
             await self.gui.reset()
+            await asyncio.sleep(0.5)
+            self.init(self.container, force_reset=True)
             notification.dismiss()
             self.switch_to_scoreboard()
 
     def switch_to_scoreboard(self):
         """Switches to the scoreboard tab."""
         self.tabs.set_value(Customization.SCOREBOARD_TAB)
+
+    def clear_local_cached_data_for_oid(self):
+        AppStorage.refresh_state(oid=self.configuration.oid)
