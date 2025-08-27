@@ -15,6 +15,10 @@ from messages import Messages
 from typing import Optional
 from logging_config import setup_logging 
 from game_manager import GameManager
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # 2. Call the configuration function
 setup_logging()
