@@ -76,22 +76,33 @@ class GameManager:
         self.change_serve(team, True)
 
         current_score = self.main_state.get_game(team, current_set)
+        rival_team = 2 if team == 1 else 1
+        rival_score = self.main_state.get_game(rival_team, current_set)
+        game_limit = points_limit_last_set if current_set == sets_limit else points_limit
 
         if undo:
             if current_score > 0:
+                # Check if the score before undoing was a winning score
+                was_a_win = current_score >= game_limit and (current_score - rival_score > 1)
+                
                 self.main_state.set_game(current_set, team, current_score - 1)
+                new_score = current_score - 1
+                
+                # Check if the new score is no longer a winning score
+                is_still_a_win = new_score >= game_limit and (new_score - rival_score > 1)
+
+                if was_a_win and not is_still_a_win:
+                    self.logger.debug(f"Team {team} 'un-won' set {current_set} due to undo.")
+                    self.add_set(team, undo=True)
+                    return True # Signal that the set state changed
         else:
             self.main_state.set_game(current_set, team, current_score + 1)
             current_score += 1
 
-        rival_team = 2 if team == 1 else 1
-        rival_score = self.main_state.get_game(rival_team, current_set)
-
-        game_limit = points_limit_last_set if current_set == sets_limit else points_limit
-        if not undo and current_score >= game_limit and (current_score - rival_score > 1):
-            self.logger.debug(f"Team {team} won set {current_set}")
-            self.add_set(team, undo)
-            return True
+            if current_score >= game_limit and (current_score - rival_score > 1):
+                self.logger.debug(f"Team {team} won set {current_set}")
+                self.add_set(team, undo)
+                return True
         return False
 
     def add_set(self, team: int, undo: bool):
