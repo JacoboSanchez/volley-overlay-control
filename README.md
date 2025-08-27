@@ -9,6 +9,7 @@
   * Indicate the serving team.
   * Undo functionality for points and timeouts.
   * Support for both indoor (25 points, 5 sets) and beach volleyball (21 points, 3 sets) modes.
+  * Long press to change set/points counter to a custom value.
 * **Advanced Customization:**
   * Customize team names, logos, and colors.
   * Adjust the scoreboard's dimensions (height, width) and position (horizontal, vertical).
