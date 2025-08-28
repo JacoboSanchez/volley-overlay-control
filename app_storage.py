@@ -19,13 +19,19 @@ class AppStorage:
         global _cached_storage
         if _cached_storage is not None:
             return _cached_storage
-
+        
         try:
-            # This will raise a RuntimeError if not in a NiceGUI page context
-            _cached_storage = app.storage.user
+            if app.storage is not None:
+                # This will raise a RuntimeError if not in a NiceGUI page context
+                _cached_storage = app.storage.user
+                logging.info('Using NiceGUI storage')
         except RuntimeError:
             # We are in a test or non-UI environment, use the in-memory fallback
+            logging.info('Not using NiceGUI storage')
+        if _cached_storage is None:
+            logging.info('Using in-memory storage')
             _cached_storage = _memory_storage
+            
         
         return _cached_storage
     
@@ -37,7 +43,7 @@ class AppStorage:
 
     def save(tag: Category, value, oid=None):
         storage = AppStorage._get_storage()
-        AppStorage.logger.debug('Saving %s [%s] to %s', tag, oid, type(storage).__name__)
+        AppStorage.logger.debug('Saving %s [%s] to %s', tag, oid, value)
         if oid is not None:
             if storage.get(oid) is None:
                 storage[oid] = {}
@@ -53,6 +59,7 @@ class AppStorage:
             result = oid_storage.get(tag.value, default)
         else:
             result = storage.get(tag.value, default)
+        AppStorage.logger.debug('Loaded %s [%s] from %s: %s', oid, tag, type(storage).__name__, result)
         return result
     
     def refresh_state(oid):

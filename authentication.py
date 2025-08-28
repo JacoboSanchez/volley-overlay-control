@@ -11,37 +11,46 @@ from app_storage import AppStorage
 
 logger = logging.getLogger("Authenticator")
 
-do_authenticate = False
-passwords_json = os.environ.get('SCOREBOARD_USERS', None)
-if passwords_json == None or passwords_json == '':
-    users = {}
-else: 
-    do_authenticate = True
-    users = json.loads(passwords_json)
-
 unrestricted_page_routes = {'/login'}
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if not AppStorage.load(AppStorage.Category.AUTHENTICATED, False):
-            if not request.url.path.startswith('/_nicegui') and request.url.path not in unrestricted_page_routes:
-                return RedirectResponse(f'/login?redirect_to={request.url.path}')
+        # Allow all NiceGUI specific routes to pass through without authentication
+        if request.url.path.startswith('/_nicegui'):
+            return await call_next(request)
+        
+        # If the user is not authenticated and the requested page is not the login page
+        if not AppStorage.load(AppStorage.Category.AUTHENTICATED, False) and request.url.path not in unrestricted_page_routes:
+            # Store the path the user wanted to access
+            app.storage.user['redirect_path'] = request.url.path
+            # Redirect to the login page
+            return RedirectResponse('/login')
+
+        # If the user is authenticated, proceed to the requested page
         return await call_next(request)
 
 class PasswordAuthenticator:
     UNO_OUTPUT_BASE_URL = 'https://app.overlays.uno/output/'
     
     def do_authenticate_users() -> bool:
-        return do_authenticate
+        passwords_json = os.environ.get('SCOREBOARD_USERS', None)
+        return passwords_json is not None and passwords_json.strip() != ''
 
     def check_user(user:str, password:str) -> bool:
         logger.debug("checking user")
+        passwords_json = os.environ.get('SCOREBOARD_USERS', None)
+        if not passwords_json or not passwords_json.strip():
+            return False
+
+        users = json.loads(passwords_json)
         userconf = users.get(user, None)
         if userconf != None:
             configuredPassword = userconf.get("password", None)
             logger.info("User '%s' found, checking password", user)
             if password == configuredPassword:
                 logger.info("User '%s' authenticated, searching config", user)
+                AppStorage.save(AppStorage.Category.USERNAME, user)
+                AppStorage.save(AppStorage.Category.AUTHENTICATED, True)
                 control = userconf.get("control", None)
                 output = userconf.get("output", None)
                 if control != None:
@@ -74,7 +83,8 @@ class PasswordAuthenticator:
     def try_login(self) -> None: 
             logger.debug("try login")
             if PasswordAuthenticator.check_user(self.username.value, self.password.value):
-                app.storage.user.update({AppStorage.Category.USERNAME: self.username.value, AppStorage.Category.AUTHENTICATED: True})
+                AppStorage.save(AppStorage.Category.AUTHENTICATED, True)
+                AppStorage.save(AppStorage.Category.USERNAME, self.username.value)
                 self.dialog.submit(True)
             else:
                 ui.notify(Messages.get(Messages.WRONG_USER_NAME), color='negative')

@@ -12,7 +12,7 @@ from app_storage import AppStorage
 
 
 class CustomizationPage:
-    logger = logging.getLogger("Configuration")
+    logger = logging.getLogger("Customization Page")
 
     def __init__(self, tabs=None, configuration=None, backend=None, gui=None, options=None):
         self.tabs = tabs
@@ -113,7 +113,8 @@ class CustomizationPage:
         if theme_name:
             self.customization.set_theme(theme_name)
             dialog.close()
-            await self.reload_customization()
+            # Re-initialize the UI with the new theme data without fetching from the backend again
+            self.init(self.container, force_reset=False)
 
     async def show_theme_dialog(self):
         with ui.dialog() as dialog, ui.card():
@@ -188,18 +189,25 @@ class CustomizationPage:
                 ui.number(label=Messages.get(Messages.VPOS), value=self.customization.get_v_pos(),
                           format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_v_pos(f'{e.value}'))
 
+            def reset_and_reload():
+                """Clears stored OID and reloads the page."""
+                AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
+                AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, None)
+                ui.navigate.to('/')
+
             with ui.row().classes('items-center w-full'):
-                if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) is not None:
-                    AppStorage.save(AppStorage.Category.CONFIGURED_OID, None)
-                    AppStorage.save(
-                        AppStorage.Category.CONFIGURED_OUTPUT, None)
-                    ui.link(Messages.get(Messages.RESET_LINKS), './')
                 ui.link(Messages.get(Messages.CONTROL_LINK),
                           f'https://app.overlays.uno/control/{self.configuration.oid}', new_tab=True)
                 if self.configuration.output and self.configuration.output.strip():
                     ui.link(Messages.get(Messages.OVERLAY_LINK),
                               self.configuration.output, new_tab=True)
+
                 ui.space()
+                # Only show the reset button if an OID is stored
+                if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) is not None:
+                    ui.button(icon='link_off', on_click=reset_and_reload) \
+                        .props('flat round dense color=primary') \
+                        .tooltip(Messages.get(Messages.RESET_LINKS))
                 ui.button(icon='tune', on_click=self.options_dialog.open).props(
                     'flat').classes('text-gray-500 -ml-2 mr-2')
 

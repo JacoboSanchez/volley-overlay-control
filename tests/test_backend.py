@@ -12,10 +12,18 @@ from state import State
 from app_storage import AppStorage
 
 @pytest.fixture(autouse=True)
-def reset_app_storage_cache():
-    """Fixture to automatically reset the AppStorage cache before each test."""
-    # This is important because AppStorage is now a singleton-like module
+def reset_app_storage_cache(monkeypatch):
+    """
+    Fixture to automatically reset the AppStorage cache and ensure
+    backend tests use the in-memory storage, not the live NiceGUI storage from UI tests.
+    """
+    # Prevent AppStorage from ever accessing the live app's storage context during backend tests
+    monkeypatch.setattr('nicegui.app.storage', None)
+    
+    # Force AppStorage to re-evaluate its backend, choosing the in-memory one
     AppStorage._reset_cache()
+    
+    # Clear any data from previous test runs
     AppStorage.clear_user_storage()
     yield
 

@@ -25,8 +25,6 @@ class GUI:
         self.conf = conf
         self.backend = backend
         self.game_manager = GameManager(self.conf, self.backend)
-        self.current_customize_state = Customization(
-            backend.get_current_customization())
         self.visible = backend.is_visible()
         self.set_selector = None
         self.page_height = None
@@ -246,6 +244,12 @@ class GUI:
         if self.initialized and not force:
             return
 
+        # FIX: Re-initialize the GameManager to ensure it loads the latest model
+        # that was fetched during the startup/validation sequence.
+        self.game_manager = GameManager(self.conf, self.backend)
+
+        self.current_customize_state = Customization(
+            self.backend.get_current_customization())
         self.logger.info('Initialize gui')
 
         self.points_limit = custom_points_limit if custom_points_limit is not None else self.conf.points
@@ -298,12 +302,14 @@ class GUI:
             self.update_ui_logos()
 
         update_state = self.game_manager.get_current_state()
-        current_set = self.compute_current_set(update_state)
+ 
+        self.current_set = self.compute_current_set(update_state)
+
         self.update_ui_serve(update_state)
         self.update_ui_sets(update_state)
         self.update_ui_games(update_state)
         self.update_ui_timeouts(update_state)
-        self.update_ui_current_set(current_set)
+        self.update_ui_current_set(self.current_set)
         self.update_ui_visible(self.visible)
         clientSimple = AppStorage.load(
             AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
