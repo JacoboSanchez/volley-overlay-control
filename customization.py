@@ -170,9 +170,8 @@ class Customization:
         self.customization_model[Customization.SET_TEXT_COLOR] = color
 
     def get_team_name(self, team):
-        if (team == 1):
-            return self.customization_model[Customization.A_TEAM]
-        return self.customization_model[Customization.B_TEAM]
+        key = Customization.A_TEAM if team == 1 else Customization.B_TEAM
+        return self.customization_model.get(key)
     
     def set_team_name(self, team, name):
         if (team == 1):
