@@ -390,7 +390,7 @@ class GUI:
 
     def send_state(self):
         """Sends the current state to the backend."""
-        self.game_manager.save(self.simple)
+        self.game_manager.save(self.simple, self.current_set)
 
     async def reset(self):
         """Resets the game state, saves it, and updates the UI."""

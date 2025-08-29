@@ -27,9 +27,10 @@ class GameManager:
         self.main_state = State(self.backend.get_current_model())
 
 
-    def save(self, simple: bool):
+    def save(self, simple: bool, current_set: int):
         """Saves the current game state."""
-        self.logger.debug(f"Saving state, simple mode: {simple}")
+        self.logger.debug(f"Saving state, simple mode: {simple}, current set: {current_set}")
+        self.main_state.set_current_set(current_set)
         self.backend.save(self.main_state, simple)
 
     def change_serve(self, team: int, force: bool = False):
