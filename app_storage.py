@@ -43,7 +43,7 @@ class AppStorage:
 
     def save(tag: Category, value, oid=None):
         storage = AppStorage._get_storage()
-        AppStorage.logger.debug('Saving %s [%s] to %s', tag, oid, value)
+        AppStorage.logger.debug('Saving key %s [%s]', tag, oid)
         if oid is not None:
             if storage.get(oid) is None:
                 storage[oid] = {}
