@@ -1,4 +1,6 @@
 name: Run Python Tests
+permissions:
+  contents: read
 
 # This workflow runs on pushes to the main and dev branches,
 # and on pull requests targeting these branches.
