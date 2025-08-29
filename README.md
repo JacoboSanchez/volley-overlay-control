@@ -120,6 +120,8 @@ You can configure the application's behavior using the following environment var
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. |  |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
 | `APP_THEMES` | JSON with a list of customization themes. |  |
+| `APP_RELOAD` | If `true`, the app will automatically reload when code changes are detected. | `false` |
+| `APP_SHOW` | If `true`, automatically opens the app in a new browser tab on startup. | `false` |
 
 <br>
 
