@@ -54,11 +54,20 @@
 
 ### Running Locally
 
-1. Export the required environment variables (see the configuration section below). `UNO_OVERLAY_OID` is required to start the scoreboard directly.
-2. Execute `python main.py`.
-3. NiceGUI will start a server and open the scoreboard in a browser automatically.
+1.  Clone the repository and install the dependencies from `requirements.txt`.
+2.  Configure your environment variables. You can either export them directly in your terminal or create a `.env` file in the root of the project. `UNO_OVERLAY_OID` is required to start the scoreboard directly.
+3.  Execute `python main.py`.
+4.  NiceGUI will start a server and open the scoreboard in a browser automatically.
 
-**Example:**
+**Example using a `.env` file:**
+
+    # Create a file named .env in the project's root directory
+    UNO_OVERLAY_OID=XXXXXXXX
+    UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/YYYYYYY
+    SCOREBOARD_USERS={"user1": {"password": "password1"}}
+
+**Example exporting variables:**
+
 ```sh
 # On Windows Command Prompt
 set UNO_OVERLAY_OID=XXXXXXXX
