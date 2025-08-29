@@ -240,11 +240,14 @@ class CustomizationPage:
 
         with self.container:
             team_names = self._prepare_team_names()
-            with ui.grid(columns=2):
-                self.create_team_card(1, team_names)
-                self.create_team_card(2, team_names)
-                self._create_scoreboard_options_card()
-                self._create_scoreboard_geometry_card()
+            with ui.row().classes('items-center w-full'):
+                with ui.grid(columns=1):
+                    self.create_team_card(1, team_names)
+                    self._create_scoreboard_options_card()
+                ui.space()
+                with ui.grid(columns=1):
+                    self.create_team_card(2, team_names)
+                    self._create_scoreboard_geometry_card()
             self._create_action_buttons()
 
         self.logger.info("Initialized customization page")
