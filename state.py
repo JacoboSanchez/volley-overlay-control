@@ -64,7 +64,7 @@ class State:
 
     
     def get_reset_model(self):
-        return self.reset_model
+        return self.reset_model.copy()
     
     def get_current_model(self):
         return self.current_model

@@ -9,6 +9,7 @@
   * Indicate the serving team.
   * Undo functionality for points and timeouts.
   * Support for both indoor (25 points, 5 sets) and beach volleyball (21 points, 3 sets) modes.
+  * Long press to change set/points counter to a custom value.
 * **Advanced Customization:**
   * Customize team names, logos, and colors.
   * Adjust the scoreboard's dimensions (height, width) and position (horizontal, vertical).
@@ -53,11 +54,20 @@
 
 ### Running Locally
 
-1. Export the required environment variables (see the configuration section below). `UNO_OVERLAY_OID` is required to start the scoreboard directly.
-2. Execute `python main.py`.
-3. NiceGUI will start a server and open the scoreboard in a browser automatically.
+1.  Clone the repository and install the dependencies from `requirements.txt`.
+2.  Configure your environment variables. You can either export them directly in your terminal or create a `.env` file in the root of the project. `UNO_OVERLAY_OID` is required to start the scoreboard directly.
+3.  Execute `python main.py`.
+4.  NiceGUI will start a server and open the scoreboard in a browser automatically.
 
-**Example:**
+**Example using a `.env` file:**
+
+    # Create a file named .env in the project's root directory
+    UNO_OVERLAY_OID=XXXXXXXX
+    UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/YYYYYYY
+    SCOREBOARD_USERS={"user1": {"password": "password1"}}
+
+**Example exporting variables:**
+
 ```sh
 # On Windows Command Prompt
 set UNO_OVERLAY_OID=XXXXXXXX
@@ -110,6 +120,8 @@ You can configure the application's behavior using the following environment var
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. |  |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
 | `APP_THEMES` | JSON with a list of customization themes. |  |
+| `APP_RELOAD` | If `true`, the app will automatically reload when code changes are detected. | `false` |
+| `APP_SHOW` | If `true`, automatically opens the app in a new browser tab on startup. | `false` |
 
 <br>
 
