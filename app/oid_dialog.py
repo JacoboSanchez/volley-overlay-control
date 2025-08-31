@@ -4,10 +4,10 @@ import logging
 import json
 import os
 from nicegui import ui
-from app_storage import AppStorage
-from authentication import PasswordAuthenticator
-from backend import Backend
-from messages import Messages
+from app.app_storage import AppStorage
+from app.authentication import PasswordAuthenticator
+from app.backend import Backend
+from app.messages import Messages
 
 logger = logging.getLogger("OidDialog")
 

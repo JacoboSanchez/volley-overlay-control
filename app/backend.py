@@ -2,8 +2,8 @@ import requests
 import copy
 import threading
 import logging
-from state import State
-from app_storage import AppStorage
+from app.state import State
+from app.app_storage import AppStorage
 from enum import Enum
 
 class Backend:

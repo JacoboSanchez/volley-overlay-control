@@ -1,3 +1,4 @@
+# app_storage.py
 import logging
 from nicegui import app
 from enum import Enum
