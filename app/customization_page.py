@@ -1,14 +1,14 @@
 import asyncio
 import logging
 from nicegui import ui, app
-from conf import Conf
-from backend import Backend
-from state import State
-from customization import Customization
-from authentication import PasswordAuthenticator
-from messages import Messages
-from options_dialog import OptionsDialog
-from app_storage import AppStorage
+from app.conf import Conf
+from app.backend import Backend
+from app.state import State
+from app.customization import Customization
+from app.authentication import PasswordAuthenticator
+from app.messages import Messages
+from app.options_dialog import OptionsDialog
+from app.app_storage import AppStorage
 
 
 class CustomizationPage:
@@ -178,16 +178,16 @@ class CustomizationPage:
         with ui.card():
             with ui.row().classes('place-content-center align-middle'):
                 ui.number(label=Messages.get(Messages.HEIGHT), value=self.customization.get_height(), format='%.1f',
-                          min=0, max=100, on_change=lambda e: self.customization.set_height(f'{e.value}'))
+                          min=0, max=100, on_change=lambda e: self.customization.set_height(f'{e.value}')).mark('height-input')
                 ui.space()
                 ui.number(label=Messages.get(Messages.WIDTH), value=self.customization.get_width(), format='%.1f',
-                          min=0, max=100, on_change=lambda e: self.customization.set_width(f'{e.value}'))
+                          min=0, max=100, on_change=lambda e: self.customization.set_width(f'{e.value}')).mark('width-input')
                 ui.space()
                 ui.number(label=Messages.get(Messages.HPOS), value=self.customization.get_h_pos(),
-                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_h_pos(f'{e.value}'))
+                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_h_pos(f'{e.value}')).mark('hpos-input')
                 ui.space()
                 ui.number(label=Messages.get(Messages.VPOS), value=self.customization.get_v_pos(),
-                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_v_pos(f'{e.value}'))
+                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_v_pos(f'{e.value}')).mark('vpos-input')
 
             def reset_and_reload():
                 """Clears stored OID and reloads the page."""
@@ -215,18 +215,18 @@ class CustomizationPage:
         """Creates the bottom row of action buttons."""
         with ui.row().classes('w-full'):
             ui.button(icon='keyboard_arrow_left', color='stone-500',
-                      on_click=self.switch_to_scoreboard).props('round').classes('text-white')
+                      on_click=self.switch_to_scoreboard).props('round').mark('scoreboard-tab-button').classes('text-white')
             ui.space()
             ui.button(icon='save', color='blue-500',
-                      on_click=self.save).props('round').classes('text-white')
+                      on_click=self.save).props('round').mark('save-button').classes('text-white')
             ui.button(icon='sync', color='emerald-600',
-                      on_click=self.ask_refresh).props('round').classes('text-white')
+                      on_click=self.ask_refresh).props('round').mark('refresh-button').classes('text-white')
             ui.button(icon='recycling', color='orange-500',
-                      on_click=self.ask_reset).props('round').classes('text-white')
+                      on_click=self.ask_reset).props('round').mark('reset-button').classes('text-white')
 
             if AppStorage.load(AppStorage.Category.USERNAME, None) is not None:
                 ui.button(icon='logout', color='red-700',
-                          on_click=self.ask_logout).props('round').classes('text-white')
+                          on_click=self.ask_logout).props('round').mark('logout-button').classes('text-white')
 
     def init(self, configuration_container=None, force_reset=False):
         """Initializes and builds the customization page."""
@@ -262,7 +262,8 @@ class CustomizationPage:
                                      value=self.customization.get_team_name(
                                          team),
                                      key_generator=lambda k: k,
-                                     on_change=lambda e: self.update_team_selection(team, team_logo, e.value, team_color, team_text_color, selector)).classes('w-[300px]').props('outlined behavior=dialog label='+CustomizationPage.get_fallback_team_name(team))
+                                     on_change=lambda e: self.update_team_selection(team, team_logo, e.value, team_color, team_text_color, selector)
+                                     ).classes('w-[300px]').props(f'outlined behavior=dialog label={CustomizationPage.get_fallback_team_name(team)}').mark(f'team-{team}-name-selector')
             with ui.row():
                 team_logo = ui.image(self.customization.get_team_logo(team)).classes(
                     'w-9 h-9 m-auto')

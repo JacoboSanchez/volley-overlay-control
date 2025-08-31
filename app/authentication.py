@@ -6,8 +6,8 @@ from nicegui import app, ui
 from fastapi import Request
 from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from messages import Messages
-from app_storage import AppStorage
+from app.messages import Messages
+from app.app_storage import AppStorage
 
 logger = logging.getLogger("Authenticator")
 

@@ -1,7 +1,7 @@
 import logging
-from state import State
-from backend import Backend
-from conf import Conf
+from app.state import State
+from app.backend import Backend
+from app.conf import Conf
 
 class GameManager:
     """

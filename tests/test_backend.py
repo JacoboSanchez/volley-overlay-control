@@ -1,3 +1,4 @@
+# tests/test_backend.py
 import pytest
 import sys
 import os
@@ -6,10 +7,10 @@ from unittest.mock import patch, MagicMock
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from backend import Backend
-from conf import Conf
-from state import State
-from app_storage import AppStorage
+from app.backend import Backend
+from app.conf import Conf
+from app.state import State
+from app.app_storage import AppStorage
 
 @pytest.fixture(autouse=True)
 def reset_app_storage_cache(monkeypatch):
@@ -30,7 +31,7 @@ def reset_app_storage_cache(monkeypatch):
 @pytest.fixture
 def mock_requests_session():
     """Fixture to mock the requests.Session object."""
-    with patch('backend.requests.Session') as mock_session_class:
+    with patch('app.backend.requests.Session') as mock_session_class:
         mock_session_instance = mock_session_class.return_value
         # Default successful response
         mock_response = MagicMock()
@@ -52,7 +53,7 @@ def backend(conf, mock_requests_session):
 
 def test_initialization(conf):
     """Tests that the Backend initializes correctly and sets up session headers."""
-    with patch('backend.requests.Session') as mock_session_class:
+    with patch('app.backend.requests.Session') as mock_session_class:
         mock_session_instance = mock_session_class.return_value
         be = Backend(conf)
         
@@ -100,7 +101,7 @@ def test_get_current_model_success(backend, mock_requests_session):
 
     assert retrieved_model == expected_model
 
-@patch('backend.AppStorage.load')
+@patch('app.backend.AppStorage.load')
 def test_get_current_model_from_storage(mock_appstorage_load, backend, mock_requests_session):
     """Tests that the model is loaded from AppStorage if available, skipping the API call."""
     stored_model = {'Team 1 Sets': '2'}
@@ -119,7 +120,7 @@ def test_get_current_model_failure(backend, mock_requests_session):
     
     assert retrieved_model is None
 
-@patch('backend.AppStorage.save')
+@patch('app.backend.AppStorage.save')
 def test_validate_and_store_model_for_oid_valid(mock_appstorage_save, backend, mock_requests_session):
     """Tests the validation logic for a valid OID."""
     mock_requests_session.put.return_value.json.return_value = {'payload': {'Team 1 Sets': '0'}}
@@ -152,7 +153,7 @@ def test_validate_and_store_model_for_oid_empty(backend):
 
 # --- New Test Cases ---
 
-@patch('backend.threading.Thread')
+@patch('app.backend.threading.Thread')
 def test_save_model_multithreaded(mock_thread, backend, conf):
     """Tests that save_model starts a new thread when multithreading is enabled."""
     conf.multithread = True
@@ -160,7 +161,7 @@ def test_save_model_multithreaded(mock_thread, backend, conf):
     mock_thread.assert_called_once()
     mock_thread.return_value.start.assert_called_once()
 
-@patch('backend.threading.Thread')
+@patch('app.backend.threading.Thread')
 def test_save_model_single_threaded(mock_thread, backend, conf):
     """Tests that save_model does NOT start a new thread when multithreading is disabled."""
     conf.multithread = False
@@ -225,7 +226,7 @@ def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     mock_requests_session.put.assert_called_once()
     assert mock_requests_session.put.call_args[0][0] == expected_url
 
-@patch('backend.AppStorage.save')
+@patch('app.backend.AppStorage.save')
 def test_get_current_model_saves_result(mock_appstorage_save, backend, mock_requests_session):
     """Tests that get_current_model saves the result when saveResult is True."""
     expected_model = {'Team 1 Sets': '1'}

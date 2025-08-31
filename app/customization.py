@@ -1,4 +1,4 @@
-from messages import Messages
+from app.messages import Messages
 import os
 import json
 

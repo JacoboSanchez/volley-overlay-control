@@ -5,10 +5,10 @@ import os
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from game_manager import GameManager
-from conf import Conf
-from backend import Backend
-from state import State
+from app.game_manager import GameManager
+from app.conf import Conf
+from app.backend import Backend
+from app.state import State
 from unittest.mock import MagicMock
 
 # Mock the Backend class to avoid actual API calls during tests
