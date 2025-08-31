@@ -1,11 +1,11 @@
 import logging
 from nicegui import ui
-from state import State
-from customization import Customization
-from app_storage import AppStorage
-from messages import Messages
-from theme import *
-from game_manager import GameManager
+from app.state import State
+from app.customization import Customization
+from app.app_storage import AppStorage
+from app.messages import Messages
+from app.theme import *
+from app.game_manager import GameManager
 import asyncio
 
 class GUI:
@@ -166,7 +166,7 @@ class GUI:
     def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
         """Creates the UI panel for a single team."""
         with ui.card():
-            button = ui.button('00', color=button_color)
+            button = ui.button('00', color=button_color).mark(f'team-{team_id}-score')
             button.on('mousedown', lambda: self.handle_button_press(
                 team_id, is_set_button=False))
             button.on('touchstart', lambda: self.handle_button_press(
@@ -180,11 +180,11 @@ class GUI:
 
             with ui.row().classes('text-4xl w-full'):
                 ui.button(icon='timer', color=timeout_light_color,
-                          on_click=lambda: self.add_timeout(team_id)).props('outline round').classes('shadow-lg')
-                timeouts = ui.column()
+                          on_click=lambda: self.add_timeout(team_id)).props('outline round').mark(f'team-{team_id}-timeout').classes('shadow-lg')
+                timeouts = ui.column().mark(f'team-{team_id}-timeouts-display')
                 ui.space()
                 serve_icon = ui.icon(
-                    name='sports_volleyball', color=serve_vlight_color)
+                    name='sports_volleyball', color=serve_vlight_color).mark(f'team-{team_id}-serve')
                 serve_icon.on('click', lambda: self.change_serve(team_id))
         return button, timeouts, serve_icon
 
@@ -192,7 +192,7 @@ class GUI:
         """Creates the central control panel with set scores and pagination."""
         with ui.column().classes('justify-center'):
             with ui.row().classes('w-full justify-center'):
-                self.teamASet = ui.button('0', color='gray-700')
+                self.teamASet = ui.button('0', color='gray-700').mark('team-1-sets')
                 self.teamASet.on('mousedown', lambda: self.handle_button_press(
                     1, is_set_button=True))
                 self.teamASet.on('touchstart', lambda: self.handle_button_press(
@@ -212,7 +212,7 @@ class GUI:
                         self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto')
                         self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto')
 
-                self.teamBSet = ui.button('0', color='gray-700')
+                self.teamBSet = ui.button('0', color='gray-700').mark('team-2-sets')
                 self.teamBSet.on('mousedown', lambda: self.handle_button_press(
                     2, is_set_button=True))
                 self.teamBSet.on('touchstart', lambda: self.handle_button_press(
@@ -225,20 +225,20 @@ class GUI:
                 self.teamBSet.classes('text-white text-2xl')
 
             self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
-                e.value)).props('color=grey active-color=teal')
+                e.value)).props('color=grey active-color=teal').mark('set-selector')
 
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
         with ui.row().classes("w-full justify-right"):
             self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR,
-                                               on_click=self.switch_visibility).props('round').classes('text-white')
+                                               on_click=self.switch_visibility).props('round').mark('visibility-button').classes('text-white')
             self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR,
-                                           on_click=self.switch_simple_mode).props('round').classes('text-white')
+                                           on_click=self.switch_simple_mode).props('round').mark('simple-mode-button').classes('text-white')
             self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(
-                False)).props('round').classes('text-white')
+                False)).props('round').mark('undo-button').classes('text-white')
             ui.space()
             ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(
-                Customization.CONFIG_TAB)).props('round').classes('text-white')
+                Customization.CONFIG_TAB)).props('round').mark('config-tab-button').classes('text-white')
 
     def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized and not force:

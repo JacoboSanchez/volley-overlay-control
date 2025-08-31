@@ -6,7 +6,7 @@ import json
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from customization import Customization
+from app.customization import Customization
 
 @pytest.fixture
 def customization():
@@ -155,7 +155,7 @@ def test_predefined_teams_loading(monkeypatch):
     # The teams are loaded at class level, so we need to reload the module
     # to see the change. This is an advanced technique.
     import importlib
-    import customization as cust_module
+    import app.customization as cust_module
     importlib.reload(cust_module)
     
     predefined_teams = cust_module.Customization.get_predefined_teams()
@@ -171,7 +171,7 @@ def test_predefined_themes_loading(monkeypatch):
     monkeypatch.setenv("APP_THEMES", themes_json)
 
     import importlib
-    import customization as cust_module
+    import app.customization as cust_module
     importlib.reload(cust_module)
 
     assert "Dark Mode" in cust_module.Customization.THEMES
