@@ -422,9 +422,9 @@ class GUI:
         container = self.timeoutsA if team == 1 else self.timeoutsB
         container.clear()
         with container:
-            for _ in range(value):
+            for n in range(value):
                 ui.icon(name='radio_button_unchecked',
-                          color=color, size='12px')
+                          color=color, size='12px').mark(f'timeout-{team}-number-{n}')
 
     def set_game_value(self, team: int, value: int):
         """Directly sets the game score for a team."""
