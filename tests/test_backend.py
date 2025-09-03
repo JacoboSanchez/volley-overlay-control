@@ -207,15 +207,22 @@ def test_is_visible(backend, mock_requests_session):
 
 def test_reset(backend, mock_requests_session, conf):
     """Tests that the reset method saves the correct reset model."""
+    # Temporarily disable multithreading for this test
+    conf.multithread = False
+
     state = State()
     backend.reset(state)
-    
+
     expected_payload = {
         "command": "SetOverlayContent",
         "id": conf.id,
         "content": state.get_reset_model()
     }
-    mock_requests_session.put.assert_called_once_with(mock_requests_session.put.call_args[0][0], json=expected_payload)
+
+    # Now the assertion will correctly find that .put() has been called
+    mock_requests_session.put.assert_called_once_with(
+        mock_requests_session.put.call_args[0][0], json=expected_payload
+    )
 
 def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     """Tests that a custom OID overrides the default one in API calls."""

@@ -1,6 +1,7 @@
 import pytest
 import json
 import os
+import asyncio
 from unittest.mock import patch
 from nicegui.testing import User
 from app.startup import startup
@@ -185,3 +186,84 @@ async def test_navigation_to_config_tab(user: User, mock_backend):
     # After clicking, we should see an element from the config page
     await user.should_see(marker='height-input')
     await user.should_see(marker='width-input')
+
+async def test_end_game_and_undo(user: User, mock_backend):
+    """
+    Tests reaching the end of a game from a fixture, that buttons are disabled,
+    and that undo reverts the end-game state. Also tests refresh confirmation and cancellation.
+    """
+    # Load the endgame fixture
+    end_game_model = load_fixture('endgame_model')
+    mock_backend.get_current_model.return_value = end_game_model
+
+    await user.open('/')
+
+    # Initial state from fixture
+    await user.should_see('23', marker='team-1-score')
+    await user.should_see('22', marker='team-2-score')
+    await user.should_see('2', marker='team-1-sets')
+
+    # Team 1 scores two points to win the set and match
+    user.find(marker='team-1-score').click()
+    await user.should_see('24', marker='team-1-score')
+    user.find(marker='team-1-score').click()
+    await user.should_see('25', marker='team-1-score')
+    await user.should_see('3', marker='team-1-sets')  # Match finished
+
+    # Test that adding more points is blocked
+    user.find(marker='team-1-score').click()
+    await user.should_see('25', marker='team-1-score')  # Score should not change
+
+    # Test that undo works and reverts the end-game state
+    user.find(marker='undo-button').click()
+    user.find(marker='team-1-score').click()  # Undo the winning point
+
+    # After undoing, score is 24, and set count for T1 should be 2.
+    await user.should_see('24', marker='team-1-score')
+    await user.should_see('2', marker='team-1-sets')
+
+
+async def test_refresh(user: User, mock_backend):
+    """
+    Tests reaching the end of a game from a fixture, that buttons are disabled,
+    and that undo reverts the end-game state. Also tests refresh confirmation and cancellation.
+    """
+    end_game_model = load_fixture('endgame_model')
+    mock_backend.get_current_model.return_value = end_game_model
+
+    await user.open('/')
+
+    # Initial state from fixture
+    await user.should_see('2', marker='team-1-sets')
+    mock_backend.get_current_model.return_value[f'Team 1 Game 4 Score'] = 10
+    mock_backend.get_current_model.return_value[f'Team 2 Game 4 Score'] = 9
+    await user.should_see('23', marker='team-1-score')
+    await user.should_see('22', marker='team-2-score')
+    # Go to config tab to test refresh
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='refresh-button')
+    
+    # Test refresh cancellation
+    user.find(marker='refresh-button').click()
+    await user.should_see(marker='cancel-refresh-button')
+    user.find(marker='cancel-refresh-button').click()
+    await user.should_see(marker='scoreboard-tab-button')
+
+    # Go back to scoreboard and check that nothing changed
+    user.find(marker='scoreboard-tab-button').click()
+    await user.should_see('23', marker='team-1-score') # Score should still be 23
+
+    # Go back to config and test refresh confirmation
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='refresh-button')
+    user.find(marker='refresh-button').click()
+    await user.should_see(marker='confirm-refresh-button')
+    user.find(marker='confirm-refresh-button').click()
+    # Give the dialog a moment to close and the async events to be processed
+    # Go back to scoreboard
+    user.find(marker='scoreboard-tab-button').click()
+
+    # The state should have been reloaded from the mock_backend (original endgame_model)
+    await user.should_see('10', marker='team-1-score')
+    await user.should_see('09', marker='team-2-score')
+    await user.should_see('2', marker='team-1-sets')

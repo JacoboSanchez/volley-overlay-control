@@ -30,23 +30,23 @@ class CustomizationPage:
         self.options_dialog = options
         self.container = None  # Initialize container attribute
 
-        with ui.dialog() as self.dialog_reset, ui.card():
+        with ui.dialog().props('persistent') as self.dialog_reset, ui.card():
             ui.label(Messages.get(Messages.ASK_RESET))
             with ui.row():
                 ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reset.submit(True))
+                          on_click=lambda: self.dialog_reset.submit(True)).mark('confirm-reset-button')
                 ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reset.submit(False))
+                          on_click=lambda: self.dialog_reset.submit(False)).mark('cancel-reset-button')
 
-        with ui.dialog() as self.dialog_reload, ui.card():
+        with ui.dialog().props('persistent') as self.dialog_reload, ui.card():
             ui.label(Messages.get(Messages.ASK_RELOAD))
             with ui.row():
                 ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reload.submit(True))
+                          on_click=lambda: self.dialog_reload.submit(True)).mark('confirm-refresh-button')
                 ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reload.submit(False))
+                          on_click=lambda: self.dialog_reload.submit(False)).mark('cancel-refresh-button')
 
-        with ui.dialog() as self.logout_dialog, ui.card():
+        with ui.dialog().props('persistent') as self.logout_dialog, ui.card():
             ui.label(Messages.get(Messages.ASK_LOGOUT))
             with ui.row():
                 ui.button(color='green-500', icon='done',
@@ -330,7 +330,7 @@ class CustomizationPage:
     async def reload_customization(self):
         notification = ui.notification(timeout=None, spinner=True)
         self.init(self.container, force_reset=True)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
         notification.dismiss()
 
     async def save(self):
@@ -348,7 +348,7 @@ class CustomizationPage:
         # Tell the GUI to update its logo elements with the new data
         self.gui.update_ui_logos()
         
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
         notification.dismiss()
         self.switch_to_scoreboard()
 
@@ -359,14 +359,18 @@ class CustomizationPage:
 
     async def ask_refresh(self):
         """Asks for confirmation and refreshes the data."""
+        logging.debug('ask refresh called')
         result = await self.dialog_reload
         if result:
+            logging.debug('refresh called')
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
             self.clear_local_cached_data_for_oid()
             await self.gui.refresh()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
             self.init(self.container, force_reset=True)
             notification.dismiss()
+        else:
+            logging.debug('refresh cancelled')
 
 
     async def ask_reset(self):
@@ -376,7 +380,7 @@ class CustomizationPage:
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
             self.clear_local_cached_data_for_oid()
             await self.gui.reset()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
             self.init(self.container, force_reset=True)
             notification.dismiss()
             self.switch_to_scoreboard()
