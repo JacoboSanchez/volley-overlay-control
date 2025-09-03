@@ -209,8 +209,8 @@ class GUI:
                     with self.scores:
                         logo1_src = self.current_customize_state.get_team_logo(1)
                         logo2_src = self.current_customize_state.get_team_logo(2)
-                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto')
-                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto')
+                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto').mark('team-1-logo')
+                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto').mark('team-2-logo')
 
                 self.teamBSet = ui.button('0', color='gray-700').mark('team-2-sets')
                 self.teamBSet.on('mousedown', lambda: self.handle_button_press(
@@ -292,7 +292,7 @@ class GUI:
         self.teamB_logo.set_source(logo2_src)
 
     def update_ui(self, load_from_backend=False):
-        self.logger.info('Updating UI...')
+        self.logger.debug('Updating UI...')
         if load_from_backend:
             self.logger.info('loading data from backend')
             self.game_manager = GameManager(self.conf, self.backend)
@@ -322,6 +322,7 @@ class GUI:
             teamA_game_int = update_state.get_game(1, i)
             teamB_game_int = update_state.get_game(2, i)
             if i == self.current_set:
+                self.logger.debug(f'setting games {teamA_game_int:02d} {teamB_game_int:02d} on current set {self.current_set:01d}')
                 self.teamAButton.set_text(f'{teamA_game_int:02d}')
                 self.teamBButton.set_text(f'{teamB_game_int:02d}')
         self.update_ui_games_table(update_state)
@@ -394,14 +395,14 @@ class GUI:
 
     async def reset(self):
         """Resets the game state, saves it, and updates the UI."""
-        self.logger.info('Reset called')
+        self.logger.debug('Reset called')
         self.game_manager.reset()
         self.update_ui(load_from_backend=True)
 
 
     async def refresh(self):
         """Reloads the game state from the backend and updates the UI."""
-        self.logger.info('Refresh called, reloading state from backend.')
+        self.logger.debug('Refresh called, reloading state from backend.')
         self.update_ui(load_from_backend=True)
         
 

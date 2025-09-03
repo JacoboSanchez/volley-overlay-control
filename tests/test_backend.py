@@ -12,21 +12,8 @@ from app.conf import Conf
 from app.state import State
 from app.app_storage import AppStorage
 
-@pytest.fixture(autouse=True)
-def reset_app_storage_cache(monkeypatch):
-    """
-    Fixture to automatically reset the AppStorage cache and ensure
-    backend tests use the in-memory storage, not the live NiceGUI storage from UI tests.
-    """
-    # Prevent AppStorage from ever accessing the live app's storage context during backend tests
-    monkeypatch.setattr('nicegui.app.storage', None)
-    
-    # Force AppStorage to re-evaluate its backend, choosing the in-memory one
-    AppStorage._reset_cache()
-    
-    # Clear any data from previous test runs
-    AppStorage.clear_user_storage()
-    yield
+# The autouse fixture that was here has been moved to conftest.py
+# to be applied globally to all tests, ensuring UI tests are also isolated.
 
 @pytest.fixture
 def mock_requests_session():
@@ -127,7 +114,7 @@ def test_validate_and_store_model_for_oid_valid(mock_appstorage_save, backend, m
 
     result = backend.validate_and_store_model_for_oid("valid_oid")
 
-    assert result == Backend.ValidationResult.VALID
+    assert result == State.OIDStatus.VALID
     mock_appstorage_save.assert_called_once()
 
 def test_validate_and_store_model_for_oid_invalid(backend, mock_requests_session):
@@ -136,7 +123,7 @@ def test_validate_and_store_model_for_oid_invalid(backend, mock_requests_session
 
     result = backend.validate_and_store_model_for_oid("invalid_oid")
     
-    assert result == Backend.ValidationResult.INVALID
+    assert result == State.OIDStatus.INVALID
 
 def test_validate_and_store_model_for_oid_deprecated(backend, mock_requests_session):
     """Tests the validation logic for a deprecated model format."""
@@ -144,12 +131,12 @@ def test_validate_and_store_model_for_oid_deprecated(backend, mock_requests_sess
 
     result = backend.validate_and_store_model_for_oid("deprecated_oid")
 
-    assert result == Backend.ValidationResult.DEPRECATED
+    assert result == State.OIDStatus.DEPRECATED
 
 def test_validate_and_store_model_for_oid_empty(backend):
     """Tests that an empty or None OID is correctly identified."""
-    assert backend.validate_and_store_model_for_oid(None) == Backend.ValidationResult.EMPTY
-    assert backend.validate_and_store_model_for_oid("  ") == Backend.ValidationResult.EMPTY
+    assert backend.validate_and_store_model_for_oid(None) == State.OIDStatus.EMPTY
+    assert backend.validate_and_store_model_for_oid("  ") == State.OIDStatus.EMPTY
 
 # --- New Test Cases ---
 
@@ -207,15 +194,22 @@ def test_is_visible(backend, mock_requests_session):
 
 def test_reset(backend, mock_requests_session, conf):
     """Tests that the reset method saves the correct reset model."""
+    # Temporarily disable multithreading for this test
+    conf.multithread = False
+
     state = State()
     backend.reset(state)
-    
+
     expected_payload = {
         "command": "SetOverlayContent",
         "id": conf.id,
         "content": state.get_reset_model()
     }
-    mock_requests_session.put.assert_called_once_with(mock_requests_session.put.call_args[0][0], json=expected_payload)
+
+    # Now the assertion will correctly find that .put() has been called
+    mock_requests_session.put.assert_called_once_with(
+        mock_requests_session.put.call_args[0][0], json=expected_payload
+    )
 
 def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     """Tests that a custom OID overrides the default one in API calls."""

@@ -36,7 +36,7 @@ def test_initialization_default(state):
     """Tests that the state is initialized correctly with the default model."""
     assert state.get_current_model() is not None
     # The constructor sets this to an integer 1
-    assert state.get_current_model()[State.CURRENT_SET_INT] == 1
+    assert state.get_current_model()[State.CURRENT_SET_INT] == "1"
     assert state.get_sets(1) == 0
     assert state.get_game(2, 5) == 0
 

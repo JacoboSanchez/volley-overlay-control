@@ -1,23 +1,27 @@
 import pytest
 import json
 import os
-from unittest.mock import patch
+import asyncio
+from unittest.mock import patch, MagicMock
 from nicegui.testing import User
 from app.startup import startup
 from app.theme import *
-
+from app.customization import Customization
+from app.messages import Messages
 import main
 from app.backend import Backend
+from app.state import State
+
 
 # pylint: disable=missing-function-docstring
 
-# Marca todos los tests en este fichero como asíncronos
+# Mark all tests in this file as asynchronous
 pytestmark = pytest.mark.asyncio
 
-# --- Funciones y Fixtures ---
+# --- Functions and Fixtures ---
 
 def load_fixture(name):
-    """Función auxiliar para cargar un fichero JSON desde la carpeta fixtures."""
+    """Auxiliary function to load a JSON file from the fixtures folder."""
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
     with open(path) as f:
         return json.load(f)
@@ -25,21 +29,36 @@ def load_fixture(name):
 @pytest.fixture
 def mock_backend():
     """
-    Fixture principal que mockea el Backend. Ahora también carga los datos
-    de personalización desde un fichero JSON.
+    Main fixture that simulates the Backend.
+    Each test is responsible for overriding the mock's behavior as needed.
     """
     with patch('app.startup.Backend') as mock_backend_class:
         mock_instance = mock_backend_class.return_value
-        
-        # --- Comportamiento por defecto del mock ---
+
+        # --- Default simulated behavior ---
         mock_instance.is_visible.return_value = True
-        # Carga el estado inicial del marcador
-        mock_instance.get_current_model.return_value = load_fixture('base_model')
-        # Carga el estado inicial de la personalización
         mock_instance.get_current_customization.return_value = load_fixture('base_customization')
-        # Asegura que la validación del OID sea exitosa
-        mock_instance.validate_and_store_model_for_oid.return_value = mock_backend_class.ValidationResult.VALID
+        # Default model for simple tests. More complex tests will override this.
+        mock_instance.get_current_model.return_value = load_fixture('base_model')
+
+        # Simulates OID validation: only 'test_oid_valid' is valid.
+        def validate_side_effect(oid):
+            if oid is None:
+                return State.OIDStatus.EMPTY
+            if oid.endswith('_valid'):
+                # We need to mock the get_current_model call inside validation
+                if oid == 'predefined_1_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('predefined_overlay_1')
+                elif oid == 'predefined_2_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('predefined_overlay_2')
+                elif oid == 'manual_oid_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('manual_overlay')
+                return State.OIDStatus.VALID
+            return State.OIDStatus.INVALID
         
+        # We need a MagicMock to allow replacing the side_effect in tests
+        mock_instance.validate_and_store_model_for_oid = MagicMock(side_effect=validate_side_effect)
+
         yield mock_instance
 
 async def test_game_buttons_increment(user: User, mock_backend):
@@ -54,6 +73,7 @@ async def test_game_buttons_increment(user: User, mock_backend):
         user.find(marker=f'team-{i}-score').click()
         result = user.find(marker=f'team-{i}-score').elements.pop().text
         assert result == '02'
+    await asyncio.sleep(0.1)
     mock_backend.save.assert_called()
 
 async def test_set_buttons_increment(user: User, mock_backend):
@@ -62,6 +82,7 @@ async def test_set_buttons_increment(user: User, mock_backend):
         await user.should_see('0', marker=f'team-{i}-sets')
         user.find(marker=f'team-{i}-sets').click()
         await user.should_see('1', marker=f'team-{i}-sets')
+    await asyncio.sleep(0.1)
     mock_backend.save.assert_called()
 
 async def test_timeout_buttons(user: User, mock_backend):
@@ -80,25 +101,38 @@ async def test_timeout_buttons(user: User, mock_backend):
         user.find(marker=f'team-{i}-timeout').click()
         await user.should_see(marker=f'timeout-{i}-number-0')
         await user.should_see(marker=f'timeout-{i}-number-1')
-    
+    await asyncio.sleep(0.1)
     mock_backend.save.assert_called()
 
-async def test_set_pagination(user: User, mock_backend):
+async def test_set_pagination(user: User, mock_backend, monkeypatch):
     """Tests that the set pagination works correctly."""
+    monkeypatch.delenv("UNO_OVERLAY_OID", raising=False)
+
     await user.open('/')
-    await user.should_see('0', marker='team-1-score')
-    user.find(marker='team-1-score').click()
-    await user.should_see('1', marker='team-1-score')
+    await user.should_see(marker='control-url-input')
+    user.find(marker='control-url-input').type('manual_oid_valid')
+    user.find(marker='submit-overlay-button').click()
+    await asyncio.sleep(0)
+
+    await user.should_see(content='05', marker='team-1-score')
+    user.find(marker=f'team-1-score').click()
+    await user.should_see(content='06', marker='team-1-score')
 
     # Click the next set button in the pagination
-    user.find('2', marker='set-selector').click()
+    user.find(marker='set-selector').elements.pop().set_value(2)
     # The score for the new set should be 00
-    await user.should_see('0', marker='team-1-score')
+    await user.should_see(content='03', marker='team-1-score')
+
+    # Click the next set button in the pagination
+    user.find(marker='set-selector').elements.pop().set_value(1)
+    # The score for the new set should be 00
+    await user.should_see(content='15', marker='team-1-score')
 
     # Go back to the previous set
-    user.find('1', marker='set-selector').click()
+    user.find(marker='set-selector').elements.pop().set_value(3)
     # The score should be the one we set before
-    await user.should_see('1', marker='team-1-score')
+    await user.should_see(content='06', marker='team-1-score')
+    await asyncio.sleep(0.1)
 
 async def test_serve_icon_asignation(user: User, mock_backend):
     """Tests that the serve icon is assigned to the scoring team."""
@@ -133,6 +167,7 @@ async def test_serve_icon_asignation(user: User, mock_backend):
     assert TBCOLOR_VLIGHT == team2_serve_icon.elements.pop().props['color']
     team1_serve_icon = user.find(marker='team-1-serve')
     assert TACOLOR_HIGH == team1_serve_icon.elements.pop().props['color']
+    await asyncio.sleep(0.1)
 
 
 
@@ -148,6 +183,7 @@ async def test_undo_button(user: User, mock_backend):
         user.find(marker='undo-button').click()
         user.find(marker=f'team-{i}-score').click() # This now should be an undo action
         await user.should_see('00', marker=f'team-{i}-score')
+    await asyncio.sleep(0.1)
 
 async def test_simple_mode_button(user: User, mock_backend):
     """Tests the simple/full mode toggle."""
@@ -160,6 +196,7 @@ async def test_simple_mode_button(user: User, mock_backend):
     mock_backend.reduce_games_to_one.assert_called_once()
     simple_button.click()
     await user.should_see('grid_on', marker='simple-mode-button')
+    await asyncio.sleep(0.1)
     
     
 async def test_visibility_button(user: User, mock_backend):
@@ -176,6 +213,7 @@ async def test_visibility_button(user: User, mock_backend):
     await user.should_see('visibility', marker='visibility-button')
     await user.should_not_see('visibility_off', marker='visibility-button')
     mock_backend.change_overlay_visibility.assert_called_with(True)
+    await asyncio.sleep(0.1)
 
 async def test_navigation_to_config_tab(user: User, mock_backend):
     """Tests navigating to the configuration tab."""
@@ -185,3 +223,570 @@ async def test_navigation_to_config_tab(user: User, mock_backend):
     # After clicking, we should see an element from the config page
     await user.should_see(marker='height-input')
     await user.should_see(marker='width-input')
+    await asyncio.sleep(0.1)
+
+async def test_end_game_and_undo(user: User, mock_backend):
+    """
+    Tests reaching the end of a game from a fixture, that buttons are disabled,
+    and that undo reverts the end-game state. Also tests refresh confirmation and cancellation.
+    """
+    # Load the endgame fixture and temporarily override the mock for this test
+    end_game_model = load_fixture('endgame_model')
+    mock_backend.get_current_model.return_value = end_game_model
+    mock_backend.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
+
+
+    await user.open('/')
+
+    # Initial state from fixture should be loaded correctly now
+    await user.should_see(content='23', marker='team-1-score')
+    await user.should_see(content='22', marker='team-2-score')
+    await user.should_see(content='2', marker='team-1-sets')
+
+    # Team 1 scores two points to win the set and match
+    user.find(marker='team-1-score').click()
+    await user.should_see(content='24', marker='team-1-score')
+    user.find(marker='team-1-score').click()
+    await user.should_see(content='25', marker='team-1-score')
+    await user.should_see(content='3', marker='team-1-sets')  # Match finished
+
+    # Test that adding more points is blocked
+    user.find(marker='team-1-score').click()
+    await user.should_see(content='25', marker='team-1-score')  # Score should not change
+
+    # Test that undo works and reverts the end-game state
+    user.find(marker='undo-button').click()
+    user.find(marker='team-1-score').click()  # Undo the winning point
+
+    # After undoing, score is 24, and set count for T1 should be 2.
+    await user.should_see(content='24', marker='team-1-score')
+    await user.should_see(content='2', marker='team-1-sets')
+    await asyncio.sleep(0.1)
+
+
+async def test_refresh(user: User, mock_backend):
+    """
+    Tests the refresh functionality, ensuring it reloads the state from the backend.
+    """
+    # Setup a modifiable dictionary that the mock will return
+    backend_data = load_fixture('endgame_model')
+    # Use side_effect to return the current state of backend_data on each call
+    mock_backend.get_current_model.side_effect = lambda customOid=None, saveResult=False: backend_data.copy()
+    mock_backend.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
+
+    await user.open('/')
+
+    # Initial state from fixture
+    await user.should_see(content='23', marker='team-1-score')
+    await user.should_see(content='22', marker='team-2-score')
+    await user.should_see(content='2', marker='team-1-sets')
+
+    # Team 1 scores two points to win the set and match
+    user.find(marker='team-1-score').click()
+    await user.should_see(content='24', marker='team-1-score')
+    user.find(marker='team-1-score').click()
+    await user.should_see(content='25', marker='team-1-score')
+
+    # Go to config tab to test refresh
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='refresh-button')
+    
+    # Test refresh cancellation
+    user.find(marker='refresh-button').click()
+    await user.should_see(marker='cancel-refresh-button')
+    user.find(marker='cancel-refresh-button').click()
+    await user.should_see(marker='scoreboard-tab-button')
+
+    # Go back to scoreboard and check that nothing changed
+    user.find(marker='scoreboard-tab-button').click()
+    await user.should_see(content='25', marker='team-1-score') # Score should still be 25
+    await user.should_see(content='3', marker='team-1-sets')
+
+    # Go back to config and test refresh confirmation
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='refresh-button')
+    user.find(marker='refresh-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='confirm-refresh-button')
+    user.find(marker='confirm-refresh-button').click()
+    await asyncio.sleep(0.2) # Give time for async operations
+    
+    # Go back to scoreboard
+    user.find(marker='scoreboard-tab-button').click()
+
+    # The state should have been reloaded from the modified backend data
+    await user.should_see(content='23', marker='team-1-score')
+    await user.should_see(content='2', marker='team-1-sets')
+    await asyncio.sleep(0.1)
+
+
+async def test_team_customization(user: User, mock_backend, monkeypatch):
+    """Tests changing a team's name and checks if the backend is called correctly."""
+    # Define new predefined teams for this test
+    new_teams = {
+        "Eagles": {"icon": "path/to/eagle.png", "color": "#FF0000", "text_color": "#FFFFFF"},
+        Customization.VISITOR_NAME: Customization.predefined_teams[Customization.VISITOR_NAME]
+    }
+    monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
+
+    await user.open('/')
+    # Go to config tab
+    await user.should_see(marker='config-tab-button')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='team-1-name-selector')
+
+    # Change team 1's name to "Eagles"
+    user.find(marker='team-1-name-selector').click()
+    await user.should_see("Eagles")
+    user.find("Eagles").click()
+    
+    # Save the changes
+    user.find(marker='save-button').click()
+    await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
+    await asyncio.sleep(0)
+
+    # Verify that save_json_customization was called with the correct data
+    mock_backend.save_json_customization.assert_called()
+    # Get the arguments from the last call
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+    
+    assert call_args[Customization.A_TEAM] == "Eagles"
+    assert call_args[Customization.T1_LOGO] == "path/to/eagle.png"
+    assert call_args[Customization.T1_COLOR] == "#FF0000"
+    await asyncio.sleep(0.1)
+
+
+async def test_team_selection_from_env_var(user: User, mock_backend, monkeypatch):
+    """Tests that teams from the APP_TEAMS environment variable are selectable."""
+    # Define new teams as a JSON string, simulating the environment variable
+    teams_json = json.dumps({
+        "Warriors": {"icon": "warriors.png", "color": "#ffc600", "text_color": "#000000"},
+        "Gladiators": {"icon": "gladiators.png", "color": "#c0c0c0", "text_color": "#ffffff"},
+    })
+    monkeypatch.setenv("APP_TEAMS", teams_json)
+    
+    # We need to reload the customization module for the change to take effect
+    import importlib
+    import app.customization
+    importlib.reload(app.customization)
+    
+    await user.open('/')
+    # Go to config tab
+    await user.should_see(marker='config-tab-button')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='team-1-name-selector')
+
+    # Check if the new teams are in the selector
+    user.find(marker='team-1-name-selector').click()
+    await user.should_see("Warriors")
+    await user.should_see("Gladiators")
+    await asyncio.sleep(0.1)
+
+
+async def test_lock_buttons_prevent_changes(user: User, mock_backend, monkeypatch):
+    """Tests that the lock buttons prevent color and icon changes when a new team is selected."""
+    # Define new teams for this test
+    new_teams = {
+        "Team A": {"icon": "A.png", "color": "#AAAAAA", "text_color": "#111111"},
+        "Team B": {"icon": "B.png", "color": "#BBBBBB", "text_color": "#222222"},
+    }
+    monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
+
+    await user.open('/')
+    # Go to config tab
+    await user.should_see(marker='config-tab-button')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='team-1-name-selector')
+
+    # Get the initial color and icon of team 1
+    initial_customization = load_fixture('base_customization')
+    initial_t1_color = initial_customization[Customization.T1_COLOR]
+    initial_t1_logo = initial_customization[Customization.T1_LOGO]
+
+    # Lock team 1's icons and colors
+    await user.should_see(marker='team-1-icon-lock')
+    user.find(marker='team-1-icon-lock').click()
+    await user.should_see(marker='team-1-color-lock')
+    user.find(marker='team-1-color-lock').click()
+    
+
+    # Change team 1 to "Team A"
+    await user.should_see(marker='team-1-name-selector')
+    user.find(marker='team-1-name-selector').click()
+    await user.should_see("Team A")
+    user.find("Team A").click()
+    await user.should_see(marker='save-button ')
+    # Save the changes
+    user.find(marker='save-button').click()
+    await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
+    await asyncio.sleep(0)
+
+    # Verify that save_json_customization was called
+    mock_backend.save_json_customization.assert_called()
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+    
+    # Assert that team 1's color and logo have NOT changed
+    assert call_args[Customization.T1_COLOR] == initial_t1_color
+    assert call_args[Customization.T1_LOGO] == initial_t1_logo
+    # The name should still change
+    assert call_args[Customization.A_TEAM] == "Team A"
+    await asyncio.sleep(0.1)
+
+
+async def test_reset_from_config(user: User, mock_backend):
+    """Tests the reset button on the customization page."""
+
+    # This dictionary simulates our backend's database
+    backend_data = load_fixture('endgame_model')
+
+    # get_current_model will return the current state of our backend_data
+    mock_backend.get_current_model.side_effect = lambda customOid=None, saveResult=False: backend_data
+
+    # The reset function in the backend calls save_json_model
+    # with the initial state. We simulate this behavior here.
+    def reset_side_effect(state):
+        nonlocal backend_data
+        reset_model = state.get_reset_model()
+        backend_data = reset_model
+        mock_backend.save_json_model(reset_model)
+
+    mock_backend.reset.side_effect = reset_side_effect
+    await user.open('/')
+
+    # Score a point
+    await user.should_see(content='23', marker='team-1-score')
+    user.find(marker='team-1-score').click()
+    await user.should_see(content='24', marker='team-1-score')
+
+    # Go to config tab
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='reset-button')
+
+    # Click reset and cancel
+    user.find(marker='reset-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='cancel-reset-button')
+    user.find(marker='cancel-reset-button').click()
+    # Should be back on the scoreboard, and score should NOT be reset
+    await user.should_see(content='24', marker='team-1-score')
+
+    # Go to config tab again
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='reset-button')
+
+    # Click reset and confirm
+    user.find(marker='reset-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='confirm-reset-button')
+    user.find(marker='confirm-reset-button').click()
+    await asyncio.sleep(0.2)
+    # Verify that the backend's reset method was called
+    mock_backend.reset.assert_called()
+    await user.should_see(content='00', marker='team-1-score')
+    
+    # Verify that save_json_model was called with the reset model
+    mock_backend.save_json_model.assert_called_with(State.reset_model)
+
+    await asyncio.sleep(0.2)
+
+    
+async def test_theme_application(user: User, mock_backend, monkeypatch):
+    """Tests applying a predefined theme."""
+    themes = {
+        "Test Theme": {
+            "Team 1 Color": "#112233",
+            "Width": 50.0,
+            "Logos": "false",
+            "Gradient": "false",
+            "Height": 15.0
+        }
+    }
+    monkeypatch.setattr('app.customization.Customization.THEMES', themes)
+
+    await user.open('/')
+    await user.should_see(marker='config-tab-button')
+
+    # Go to the configuration tab
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='theme-button')
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
+
+    # Find and click the themes button (palette icon)
+    user.find(marker='theme-button').click()
+    # The dialog is now open. Find the selector, click it, and check the theme name.
+    await user.should_see(marker='theme-selector')
+    user.find(marker='theme-selector').click()
+
+    await user.should_see("Test Theme")
+    user.find("Test Theme").click() # Select the theme
+
+    await user.should_see(marker='close-theme-button')
+    user.find(marker='close-theme-button').click()
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
+    # Find and click the themes button (palette icon)
+    await user.should_see(marker='theme-button')
+
+    user.find(marker='theme-button').click()
+    # The dialog is now open. Find the selector, click it, and check the theme name.
+    await user.should_see(marker='theme-selector')
+    user.find(marker='theme-selector').click()
+
+    await user.should_see("Test Theme")
+    user.find("Test Theme").click() # Select the theme
+
+
+    # Click the load button
+    await user.should_see(marker='load-theme-button')
+    user.find(marker='load-theme-button').click()
+
+    # Save the changes
+    await user.should_see(marker='save-button')
+    await asyncio.sleep(0)
+    user.find(marker='save-button').click()
+    await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
+    await asyncio.sleep(0)
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '50.0'
+    # Verify that save_json_customization was called with the theme data
+    mock_backend.save_json_customization.assert_called()
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+
+    assert call_args[Customization.T1_COLOR] == "#112233"
+    assert call_args[Customization.WIDTH_FLOAT] == 50.0
+    assert call_args[Customization.LOGOS_BOOL] == "false"
+    assert call_args[Customization.GLOSS_EFFECT_BOOL] == "false"
+    assert call_args[Customization.HEIGHT_FLOAT] == 15.0
+    await asyncio.sleep(0.1)
+
+
+async def test_manual_customization(user: User, mock_backend):
+    """Tests manually changing customization values."""
+    await user.open('/')
+    await user.should_see(marker='config-tab-button')
+
+    # Go to config tab
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='height-input')
+
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
+    assert user.find(marker='height-input').elements.pop().props['model-value'] == '20.0'
+    assert user.find(marker='hpos-input').elements.pop().props['model-value'] == '-19.5'
+    assert user.find(marker='vpos-input').elements.pop().props['model-value'] == '34.0'
+
+    # Change some values
+    user.find(marker='width-input').elements.pop().set_value('54')
+    user.find(marker='height-input').elements.pop().set_value('19')
+    user.find(marker='hpos-input').elements.pop().set_value('-20')
+    user.find(marker='vpos-input').elements.pop().set_value('32')
+
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '54.0'
+    assert user.find(marker='height-input').elements.pop().props['model-value'] == '19.0'
+    assert user.find(marker='hpos-input').elements.pop().props['model-value'] == '-20.0'
+    assert user.find(marker='vpos-input').elements.pop().props['model-value'] == '32.0'
+
+    user.find(marker='logo-switch').click() # Disable logos
+    user.find(marker='gradient-switch').click() # Disable gradient
+
+    # Save the changes
+    user.find(marker='save-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='team-1-score')
+
+    # Verify that save_json_customization was called with the correct data
+    mock_backend.save_json_customization.assert_called()
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+    
+    assert call_args[Customization.WIDTH_FLOAT] == '54'
+    assert call_args[Customization.HEIGHT_FLOAT] == '19'
+    assert not call_args[Customization.LOGOS_BOOL]
+    assert not call_args[Customization.GLOSS_EFFECT_BOOL]
+    await asyncio.sleep(0.1)
+
+async def test_oid_dialog_flow(user: User, mock_backend, monkeypatch):
+    """
+    Tests that the dialog to enter the OID appears when it is not provided
+    and that the scoreboard loads correctly after entering a valid OID.
+    """
+    # We make sure that the environment variable is not defined for this test.
+    monkeypatch.delenv("UNO_OVERLAY_OID", raising=False)
+    
+    await user.open('/')
+    await asyncio.sleep(0)
+    # The dialog should be visible, so we look for its input field.
+    await user.should_see(marker='control-url-input')
+    
+    # We enter an OID that our mock will consider valid.
+    user.find(marker='control-url-input').type('test_oid_valid')
+    
+    # We click on the submit button.
+    user.find(marker='submit-overlay-button').click()
+    await asyncio.sleep(0)
+    # We wait for the dialog to close and the main scoreboard to be visible.
+    await user.should_see(marker='team-1-score')
+    await user.should_see(content='00', marker='team-1-score')
+    await asyncio.sleep(0.1)
+
+# --- NEW TESTS FOR PREDEFINED OVERLAYS ---
+@pytest.fixture
+def predefined_overlays_env(monkeypatch):
+    """Fixture to set up environment variables for predefined overlays."""
+    overlays = {
+        "Overlay 1": {"control": "predefined_1_valid", "output": "output_token"},
+        "Overlay 2": {"control": "predefined_2_valid"},
+    }
+    monkeypatch.setenv('PREDEFINED_OVERLAYS', json.dumps(overlays))
+    monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
+    # Reload the oid_dialog module to ensure it picks up the changed environment variables
+    import importlib
+    import app.oid_dialog
+    importlib.reload(app.oid_dialog)
+
+async def test_predefined_overlay_dialog_with_hide_flag(user: User, mock_backend, predefined_overlays_env, monkeypatch):
+    """
+    Tests that with HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=true, the manual input is hidden.
+    """
+    monkeypatch.setenv('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'true')
+    import importlib
+    import app.oid_dialog
+    importlib.reload(app.oid_dialog)
+
+    await user.open('/')
+    
+    await user.should_see(marker='predefined-overlay-selector')
+    await user.should_not_see(marker='control-url-input')
+    await user.should_not_see(marker='predefined-overlay-checkbox')
+
+    user.find(marker='predefined-overlay-selector').click()
+    await user.should_see("Overlay 1")
+    user.find("Overlay 1").click()
+    user.find(marker='submit-overlay-button').click()
+
+    await user.should_see(marker='team-1-score')
+    await user.should_see(content='10', marker='team-1-score')
+    await user.should_see(content='05', marker='team-2-score')
+    await user.should_see(Messages.get(Messages.OVERLAY_LINK))
+    assert 'https://app.overlays.uno/output/output_token' == user.find(Messages.get(Messages.OVERLAY_LINK)).elements.pop().props['href']
+    await asyncio.sleep(0.1)
+
+
+async def test_predefined_overlay_cycle(user: User, mock_backend, predefined_overlays_env, monkeypatch):
+    """
+    Tests the full cycle: using predefined overlays, resetting, and then using manual input.
+    """
+    monkeypatch.setenv('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'false')
+    import importlib
+    import app.oid_dialog
+    importlib.reload(app.oid_dialog)
+    
+    await user.open('/')
+    
+    # --- Part 1: Use Predefined Overlay ---
+    
+    # Dialog should be visible with all elements
+    await user.should_see(marker='control-url-input')
+    await user.should_see(marker='predefined-overlay-checkbox')
+    await user.should_see(marker='predefined-overlay-selector')
+
+    # Click checkbox if required to select overlay
+    if user.find(marker='control-url-input').elements.pop().enabled:
+        user.find(marker='predefined-overlay-checkbox').click()
+        await user.should_see(marker='control-url-input')
+    
+    assert not user.find(marker='control-url-input').elements.pop().enabled
+    assert user.find(marker='predefined-overlay-selector').elements.pop().enabled
+
+    user.find(marker='predefined-overlay-selector').click()
+    await asyncio.sleep(0)
+    # Select "Overlay 2" and submit
+    await user.should_see("Overlay 2")
+    user.find("Overlay 2").click()
+    user.find(marker='submit-overlay-button').click()
+
+    # Verify scoreboard loaded with data from Overlay 2
+    await user.should_see(marker='team-1-score')
+    await user.should_see(content='12', marker='team-1-score')
+    await user.should_see(content='11', marker='team-2-score')
+    await user.should_see(content='1', marker='team-1-sets')
+    await user.should_see(content='0', marker='team-2-sets')
+    await user.should_not_see(Messages.get(Messages.OVERLAY_LINK))
+
+    
+    # --- Part 2: Reset and Use Manual OID ---
+
+    # Go to config page and click reset link
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='change-overlay-button')
+    user.find(marker='change-overlay-button').click()
+    await asyncio.sleep(0.2)
+
+    
+    # Dialog should reappear in its default state or
+    if not user.find(marker='control-url-input').elements.pop().enabled:
+        user.find(marker='predefined-overlay-checkbox').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='control-url-input')
+    assert user.find(marker='control-url-input').elements.pop().enabled
+    assert not user.find(marker='predefined-overlay-selector').elements.pop().enabled
+
+    
+    # Enter a manual OID and submit
+    user.find(marker='control-url-input').type('manual_oid_valid')
+    await asyncio.sleep(0)
+    user.find(marker='submit-overlay-button').click()
+    await asyncio.sleep(0)
+
+
+    # Verify scoreboard loaded with manual OID data
+    await user.should_see(marker='team-1-score')
+    await user.should_see(content='05', marker='team-1-score')
+    await user.should_see(content='06', marker='team-2-score')
+    await user.should_see(content='1', marker='team-1-sets')
+    await user.should_see(content='1', marker='team-2-sets')
+    await asyncio.sleep(0.1)
+
+async def test_url_params_override_oid(user: User, mock_backend, monkeypatch):
+    """Tests that the 'control' URL parameter correctly sets a mid-game OID."""
+    # Ensure no OID is set initially from environment or storage
+    monkeypatch.delenv("UNO_OVERLAY_OID", raising=False)
+    
+    # Open the page with a control URL parameter for a mid-game overlay.
+    # The 'predefined_2_valid' fixture simulates a mid-game state.
+    await user.open('/?control=predefined_1_valid')
+    
+    # The scoreboard should load directly with the scores from the mid-game fixture.
+    # In predefined_overlay_2.json, the score for the current set (3) is 10-12.
+    await user.should_see(content='10', marker='team-1-score')
+    await user.should_see(content='05', marker='team-2-score')
+    await user.should_see(content='0', marker='team-1-sets')
+    await user.should_see(content='0', marker='team-2-sets')
+
+    # Go to the configuration tab
+    user.find(marker='config-tab-button').click()
+    
+    # Verify the control link uses the OID from the URL parameter
+    control_link = user.find(Messages.get(Messages.CONTROL_LINK))
+    expected_href = 'https://app.overlays.uno/control/predefined_1_valid'
+    assert control_link.elements.pop().props['href'] == expected_href
+    await asyncio.sleep(0.1)
+
+
+async def test_url_params_set_output(user: User, mock_backend, monkeypatch):
+    """Tests that the 'output' URL parameter works with a mid-game OID."""
+    # Ensure no OID is set initially
+    monkeypatch.delenv("UNO_OVERLAY_OID", raising=False)
+    
+    # Open the page with both control and output URL parameters for a mid-game overlay
+    await user.open('/?control=predefined_2_valid&output=custom_output_token')
+    
+    # The scoreboard should load with the correct mid-game scores
+    await user.should_see(content='12', marker='team-1-score')
+    await user.should_see(content='11', marker='team-2-score')
+    await user.should_see(content='1', marker='team-1-sets')
+    await user.should_see(content='0', marker='team-2-sets')
+    # Go to the configuration tab
+    user.find(marker='config-tab-button').click()
+    
+    # Verify the output link is present and correct
+    output_link = user.find(Messages.get(Messages.OVERLAY_LINK))
+    expected_href = 'https://app.overlays.uno/output/custom_output_token'
+    assert output_link.elements.pop().props['href'] == expected_href
+    await asyncio.sleep(0.1)

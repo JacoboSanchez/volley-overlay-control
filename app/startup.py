@@ -15,6 +15,7 @@ from app.messages import Messages
 from fastapi import Request
 from typing import Optional
 from app.game_manager import GameManager
+from app.state import State
 
 logger = logging.getLogger("Webapp")
 
@@ -63,15 +64,15 @@ def startup() -> None:
 
         # The login form UI.
         with ui.card().classes('w-[400px] !max-w-full m-auto'):
-            username = ui.input(Messages.get(Messages.USERNAME)).classes('w-full')
+            username = ui.input(Messages.get(Messages.USERNAME)).classes('w-full').mark('username-input')
             password = ui.input(
                 Messages.get(Messages.PASSWORD),
                 password=True,
                 password_toggle_button=True
-            ).on('keydown.enter', do_login).classes('w-full')
+            ).on('keydown.enter', do_login).classes('w-full').mark('password-input')
             with ui.row().classes('w-full'):
                 ui.space()
-                ui.button(Messages.get(Messages.LOGIN), on_click=do_login)
+                ui.button(Messages.get(Messages.LOGIN), on_click=do_login).mark('login-button')
         return None
 
     async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
@@ -99,8 +100,6 @@ def startup() -> None:
         conf = Conf()
         options_dialog = OptionsDialog(conf)
         backend = Backend(conf)
-        scoreboard_page = GUI(tabs, conf, backend)
-        ui.on('resize', lambda e: scoreboard_page.set_page_size(e.args['width'], e.args['height']))
         await ui.context.client.connected()
         if custom_points_limit == None:
             custom_points_limit = conf.points
@@ -116,13 +115,13 @@ def startup() -> None:
 
         storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
         storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-        if oid == None and backend.validate_and_store_model_for_oid(storageOid) == Backend.ValidationResult.VALID:
+        if oid == None and backend.validate_and_store_model_for_oid(storageOid) == State.OIDStatus.VALID:
             logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
             conf.oid = storageOid
             conf.output = storageOutput
         else:
             validationResult = backend.validate_and_store_model_for_oid(conf.oid)
-            if validationResult != Backend.ValidationResult.VALID:
+            if validationResult != State.OIDStatus.VALID:
                 notification.dismiss()
                 logger.info("Current oid is not valid [%s]: %s", validationResult, conf.oid)
                 dialog = OidDialog(backend=backend)
@@ -135,6 +134,8 @@ def startup() -> None:
                         AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
                     logger.debug("Received oid %s", conf.oid)
                     AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
+        scoreboard_page = GUI(tabs, conf, backend)
+        ui.on('resize', lambda e: scoreboard_page.set_page_size(e.args['width'], e.args['height']))
 
         customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
         with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full"):
