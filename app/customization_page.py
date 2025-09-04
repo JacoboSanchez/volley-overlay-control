@@ -117,7 +117,7 @@ class CustomizationPage:
             self.init(self.container, force_reset=False)
 
     async def show_theme_dialog(self):
-        with ui.dialog() as dialog, ui.card():
+        with ui.dialog().props('persistent') as dialog, ui.card():
             ui.label(Messages.get(Messages.THEME_TITLE))
             theme_list = self.customization.get_theme_names()
             if not theme_list:
@@ -126,13 +126,13 @@ class CustomizationPage:
                     ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close)
             else:
                 selection = ui.select(list(theme_list), label=Messages.get(
-                    Messages.THEME)).classes('w-[300px]').props('outlined')
+                    Messages.THEME)).classes('w-[300px]').props('outlined').mark('theme-selector')
                 with ui.row().classes('w-full'):
                     ui.space()
                     ui.button(Messages.get(Messages.LOAD),
-                              on_click=lambda: self.apply_and_refresh(selection.value, dialog))
+                              on_click=lambda: self.apply_and_refresh(selection.value, dialog)).mark('load-theme-button')
                     ui.button(Messages.get(Messages.CLOSE),
-                              on_click=dialog.close)
+                              on_click=dialog.close).mark('close-theme-button')
         await dialog
 
     def _setup_container(self, configuration_container=None):
@@ -163,12 +163,14 @@ class CustomizationPage:
         with ui.card():
             with ui.row():
                 ui.switch(Messages.get(Messages.LOGOS), value=self.customization.is_show_logos(),
-                          on_change=lambda e: self.customization.set_show_logos(e.value))
+                          on_change=lambda e: self.customization.set_show_logos(e.value)).mark('logo-switch')
                 ui.switch(Messages.get(Messages.GRADIENT), value=self.customization.is_glossy(),
-                          on_change=lambda e: self.customization.set_glossy(e.value))
+                          on_change=lambda e: self.customization.set_glossy(e.value)).mark('gradient-switch')
+
                 if len(list(self.customization.get_theme_names())) > 0:
                     ui.button(icon='palette',
-                              on_click=self.show_theme_dialog).props('flat')
+                              on_click=self.show_theme_dialog).props('flat').mark('theme-button')
+
             with ui.row():
                 self.create_choose_color(Messages.get(Messages.SET), True)
                 self.create_choose_color(Messages.get(Messages.GAME), False)
@@ -203,11 +205,11 @@ class CustomizationPage:
                               self.configuration.output, new_tab=True)
 
                 ui.space()
-                # Only show the reset button if an OID is stored
+                 # Only show the reset button if an OID is stored
                 if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) is not None:
                     ui.button(icon='link_off', on_click=reset_and_reload) \
                         .props('flat round dense color=primary') \
-                        .tooltip(Messages.get(Messages.RESET_LINKS))
+                        .tooltip(Messages.get(Messages.RESET_LINKS)).mark('change-overlay-button')
                 ui.button(icon='tune', on_click=self.options_dialog.open).props(
                     'flat').classes('text-gray-500 -ml-2 mr-2')
 
@@ -335,22 +337,14 @@ class CustomizationPage:
 
     async def save(self):
         logging.info('save called')
-        notification = ui.notification(timeout=None, spinner=True)
-        
-        # Get the current model with changes
         new_model = self.customization.get_model()
         logging.debug('saving json configuration')
-        # Save to the backend
         self.backend.save_json_customization(new_model)
         logging.debug('setting customization model to gui')
-        # Directly update the GUI's state to avoid race conditions
         self.gui.set_customization_model(new_model)
+        await asyncio.sleep(0)
         logging.debug('updating ui logos')
-        # Tell the GUI to update its logo elements with the new data
         self.gui.update_ui_logos()
-        
-        await asyncio.sleep(0.1)
-        notification.dismiss()
         self.switch_to_scoreboard()
 
     async def ask_logout(self):

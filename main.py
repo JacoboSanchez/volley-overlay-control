@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from app.startup import startup
 from nicegui import ui, app
 
-# Cargar variables de entorno solo si no se están ejecutando tests
+# Load environment variables only if tests are not running
 if "PYTEST_CURRENT_TEST" not in os.environ:
     load_dotenv()
 

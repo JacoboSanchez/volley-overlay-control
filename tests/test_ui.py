@@ -291,8 +291,8 @@ async def test_team_customization(user: User, mock_backend, monkeypatch):
     
     # Save the changes
     user.find(marker='save-button').click()
-    await asyncio.sleep(0)
     await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
+    await asyncio.sleep(0)
 
     # Verify that save_json_customization was called with the correct data
     mock_backend.save_json_customization.assert_called()
@@ -411,3 +411,113 @@ async def test_reset_from_config(user: User, mock_backend):
     await asyncio.sleep(0)
     # Verify that the backend's reset method was called
     mock_backend.reset.assert_called()
+
+    
+async def test_theme_application(user: User, mock_backend, monkeypatch):
+    """Tests applying a predefined theme."""
+    themes = {
+        "Test Theme": {
+            "Team 1 Color": "#112233",
+            "Width": 50.0,
+            "Logos": "false",
+            "Gradient": "false",
+            "Height": 15.0
+        }
+    }
+    monkeypatch.setattr('app.customization.Customization.THEMES', themes)
+
+    await user.open('/')
+    await user.should_see(marker='config-tab-button')
+
+    # Ir a la pestaña de configuración
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='theme-button')
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
+
+    # Encontrar y hacer clic en el botón de temas (icono de paleta)
+    user.find(marker='theme-button').click()
+    # El diálogo está ahora abierto. Encontrar el selector, hacer clic en él, y comprobar el nombre del tema.
+    await user.should_see(marker='theme-selector')
+    user.find(marker='theme-selector').click()
+
+    await user.should_see("Test Theme")
+    user.find("Test Theme").click() # Seleccionar el tema
+
+    await user.should_see(marker='close-theme-button')
+    user.find(marker='close-theme-button').click()
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
+    # Encontrar y hacer clic en el botón de temas (icono de paleta)
+    await user.should_see(marker='theme-button')
+
+    user.find(marker='theme-button').click()
+    # El diálogo está ahora abierto. Encontrar el selector, hacer clic en él, y comprobar el nombre del tema.
+    await user.should_see(marker='theme-selector')
+    user.find(marker='theme-selector').click()
+
+    await user.should_see("Test Theme")
+    user.find("Test Theme").click() # Seleccionar el tema
+
+
+    # Hacer clic en el botón de carga
+    await user.should_see(marker='load-theme-button')
+    user.find(marker='load-theme-button').click()
+
+    # Guardar los cambios
+    await user.should_see(marker='save-button')
+    await asyncio.sleep(0)
+    user.find(marker='save-button').click()
+    await user.should_see(marker='team-1-score') # Esperar a la navegación de vuelta al marcador
+    await asyncio.sleep(0)
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '50.0'
+    # Verificar que save_json_customization fue llamado con los datos del tema
+    mock_backend.save_json_customization.assert_called()
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+
+    assert call_args[Customization.T1_COLOR] == "#112233"
+    assert call_args[Customization.WIDTH_FLOAT] == 50.0
+    assert call_args[Customization.LOGOS_BOOL] == "false"
+    assert call_args[Customization.GLOSS_EFFECT_BOOL] == "false"
+    assert call_args[Customization.HEIGHT_FLOAT] == 15.0
+
+
+async def test_manual_customization(user: User, mock_backend):
+    """Tests manually changing customization values."""
+    await user.open('/')
+    await user.should_see(marker='config-tab-button')
+
+    # Go to config tab
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='height-input')
+
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
+    assert user.find(marker='height-input').elements.pop().props['model-value'] == '20.0'
+    assert user.find(marker='hpos-input').elements.pop().props['model-value'] == '-19.5'
+    assert user.find(marker='vpos-input').elements.pop().props['model-value'] == '34.0'
+
+    # Change some values
+    user.find(marker='width-input').elements.pop().set_value('54')
+    user.find(marker='height-input').elements.pop().set_value('19')
+    user.find(marker='hpos-input').elements.pop().set_value('-20')
+    user.find(marker='vpos-input').elements.pop().set_value('32')
+
+    assert user.find(marker='width-input').elements.pop().props['model-value'] == '54.0'
+    assert user.find(marker='height-input').elements.pop().props['model-value'] == '19.0'
+    assert user.find(marker='hpos-input').elements.pop().props['model-value'] == '-20.0'
+    assert user.find(marker='vpos-input').elements.pop().props['model-value'] == '32.0'
+
+    user.find(marker='logo-switch').click() # Disable logos
+    user.find(marker='gradient-switch').click() # Disable gradient
+
+    # Save the changes
+    user.find(marker='save-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='team-1-score')
+
+    # Verify that save_json_customization was called with the correct data
+    mock_backend.save_json_customization.assert_called()
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+    
+    assert call_args[Customization.WIDTH_FLOAT] == '54'
+    assert call_args[Customization.HEIGHT_FLOAT] == '19'
+    assert not call_args[Customization.LOGOS_BOOL]
+    assert not call_args[Customization.GLOSS_EFFECT_BOOL]

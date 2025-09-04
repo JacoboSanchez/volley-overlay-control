@@ -63,15 +63,15 @@ def startup() -> None:
 
         # The login form UI.
         with ui.card().classes('w-[400px] !max-w-full m-auto'):
-            username = ui.input(Messages.get(Messages.USERNAME)).classes('w-full')
+            username = ui.input(Messages.get(Messages.USERNAME)).classes('w-full').mark('username-input')
             password = ui.input(
                 Messages.get(Messages.PASSWORD),
                 password=True,
                 password_toggle_button=True
-            ).on('keydown.enter', do_login).classes('w-full')
+            ).on('keydown.enter', do_login).classes('w-full').mark('password-input')
             with ui.row().classes('w-full'):
                 ui.space()
-                ui.button(Messages.get(Messages.LOGIN), on_click=do_login)
+                ui.button(Messages.get(Messages.LOGIN), on_click=do_login).mark('login-button')
         return None
 
     async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):

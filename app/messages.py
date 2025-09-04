@@ -47,6 +47,8 @@ class Messages:
     SET_CUSTOM_GAME_VALUE = "Set custom game value"
     SET_CUSTOM_SET_VALUE = "Set custom set value"
     VALUE = "Value"
+    SAVING = "Saving..."
+
 
     messages = {
         "es": {
@@ -95,7 +97,10 @@ class Messages:
             LOAD_THEME: "Cargar Tema",
             SET_CUSTOM_GAME_VALUE: "Establecer valor del juego",
             SET_CUSTOM_SET_VALUE: "Establecer valor del set",
-            VALUE: "Valor"
+            VALUE: "Valor",
+            SAVING: "Guardando..."
+        },
+        "en": {
           }
         }
 

@@ -43,7 +43,7 @@ class OidDialog:
             current_user = AppStorage.load(AppStorage.Category.USERNAME, None)
             with ui.row().classes('w-full'):
                 if OidDialog.hide_custom_overlay_input == False:
-                    self.control_url_input = ui.input(label=Messages.get(Messages.CONTROL_URL), placeholder=OidDialog.UNO_CONTROL_BASE_URL+'<Control Token>').classes('w-full')
+                    self.control_url_input = ui.input(label=Messages.get(Messages.CONTROL_URL), placeholder=OidDialog.UNO_CONTROL_BASE_URL+'<Control Token>').classes('w-full').mark('control-url-input')
                 if OidDialog.show_predefined_overlays:
                     self.checkBoxEnabled = True
                     result = []
@@ -52,17 +52,17 @@ class OidDialog:
                         if allowed_users == None or current_user in allowed_users:
                             result.append(k)
                     if OidDialog.hide_custom_overlay_input == False:
-                        self.radioButton = ui.checkbox(Messages.get(Messages.USE_PREDEFINED_OVERLAYS)).on_value_change(self.update_selector)
+                        self.radioButton = ui.checkbox(Messages.get(Messages.USE_PREDEFINED_OVERLAYS)).on_value_change(self.update_selector).mark('predefined-overlay-checkbox')
                     else:
                         self.checkBoxEnabled = False
-                    self.predefined_overlay_selector = ui.select(result, value=result[0]).classes('w-full w-[300px]').props('outlined')
+                    self.predefined_overlay_selector = ui.select(result, value=result[0]).classes('w-full w-[300px]').props('outlined').mark('predefined-overlay-selector')
                     if self.checkBoxEnabled:
                         self.update_selector()
             with ui.row().classes('w-full'):
                 if current_user != None:
-                    ui.button(Messages.get(Messages.LOGOUT), on_click=PasswordAuthenticator.logout)    
+                    ui.button(Messages.get(Messages.LOGOUT), on_click=PasswordAuthenticator.logout).mark('logout-button-oid')
                 ui.space()
-                self.submit_button = ui.button("OK", on_click=self.submit)
+                self.submit_button = ui.button("OK", on_click=self.submit).mark('submit-overlay-button')
 
     def update_selector(self):
         if self.checkBoxEnabled:
