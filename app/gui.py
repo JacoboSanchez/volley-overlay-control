@@ -209,8 +209,8 @@ class GUI:
                     with self.scores:
                         logo1_src = self.current_customize_state.get_team_logo(1)
                         logo2_src = self.current_customize_state.get_team_logo(2)
-                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto')
-                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto')
+                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto').mark('team-1-logo')
+                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto').mark('team-2-logo')
 
                 self.teamBSet = ui.button('0', color='gray-700').mark('team-2-sets')
                 self.teamBSet.on('mousedown', lambda: self.handle_button_press(

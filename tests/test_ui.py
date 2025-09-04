@@ -6,19 +6,20 @@ from unittest.mock import patch
 from nicegui.testing import User
 from app.startup import startup
 from app.theme import *
+from app.customization import Customization
 
 import main
 from app.backend import Backend
 
 # pylint: disable=missing-function-docstring
 
-# Marca todos los tests en este fichero como asíncronos
+# Mark all tests in this file as asynchronous
 pytestmark = pytest.mark.asyncio
 
-# --- Funciones y Fixtures ---
+# --- Functions and Fixtures ---
 
 def load_fixture(name):
-    """Función auxiliar para cargar un fichero JSON desde la carpeta fixtures."""
+    """Auxiliary function to load a JSON file from the fixtures folder."""
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
     with open(path) as f:
         return json.load(f)
@@ -26,19 +27,19 @@ def load_fixture(name):
 @pytest.fixture
 def mock_backend():
     """
-    Fixture principal que mockea el Backend. Ahora también carga los datos
-    de personalización desde un fichero JSON.
+    Main fixture that mocks the Backend. Now also loads
+    customization data from a JSON file.
     """
     with patch('app.startup.Backend') as mock_backend_class:
         mock_instance = mock_backend_class.return_value
         
-        # --- Comportamiento por defecto del mock ---
+        # --- Default mock behavior ---
         mock_instance.is_visible.return_value = True
-        # Carga el estado inicial del marcador
+        # Load initial scoreboard state
         mock_instance.get_current_model.return_value = load_fixture('base_model')
-        # Carga el estado inicial de la personalización
+        # Load initial customization state
         mock_instance.get_current_customization.return_value = load_fixture('base_customization')
-        # Asegura que la validación del OID sea exitosa
+        # Ensure OID validation is successful
         mock_instance.validate_and_store_model_for_oid.return_value = mock_backend_class.ValidationResult.VALID
         
         yield mock_instance
@@ -267,3 +268,146 @@ async def test_refresh(user: User, mock_backend):
     await user.should_see('10', marker='team-1-score')
     await user.should_see('09', marker='team-2-score')
     await user.should_see('2', marker='team-1-sets')
+
+async def test_team_customization(user: User, mock_backend, monkeypatch):
+    """Tests changing a team's name and checks if the backend is called correctly."""
+    # Define new predefined teams for this test
+    new_teams = {
+        "Eagles": {"icon": "path/to/eagle.png", "color": "#FF0000", "text_color": "#FFFFFF"},
+        Customization.VISITOR_NAME: Customization.predefined_teams[Customization.VISITOR_NAME]
+    }
+    monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
+
+    await user.open('/')
+    # Go to config tab
+    await user.should_see(marker='config-tab-button')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='team-1-name-selector')
+
+    # Change team 1's name to "Eagles"
+    user.find(marker='team-1-name-selector').click()
+    await user.should_see("Eagles")
+    user.find("Eagles").click()
+    
+    # Save the changes
+    user.find(marker='save-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
+
+    # Verify that save_json_customization was called with the correct data
+    mock_backend.save_json_customization.assert_called()
+    # Get the arguments from the last call
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+    
+    assert call_args[Customization.A_TEAM] == "Eagles"
+    assert call_args[Customization.T1_LOGO] == "path/to/eagle.png"
+    assert call_args[Customization.T1_COLOR] == "#FF0000"
+
+
+async def test_team_selection_from_env_var(user: User, mock_backend, monkeypatch):
+    """Tests that teams from the APP_TEAMS environment variable are selectable."""
+    # Define new teams as a JSON string, simulating the environment variable
+    teams_json = json.dumps({
+        "Warriors": {"icon": "warriors.png", "color": "#ffc600", "text_color": "#000000"},
+        "Gladiators": {"icon": "gladiators.png", "color": "#c0c0c0", "text_color": "#ffffff"},
+    })
+    monkeypatch.setenv("APP_TEAMS", teams_json)
+    
+    # We need to reload the customization module for the change to take effect
+    import importlib
+    import app.customization
+    importlib.reload(app.customization)
+    
+    await user.open('/')
+    # Go to config tab
+    await user.should_see(marker='config-tab-button')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='team-1-name-selector')
+
+    # Check if the new teams are in the selector
+    user.find(marker='team-1-name-selector').click()
+    await user.should_see("Warriors")
+    await user.should_see("Gladiators")
+
+
+async def test_lock_buttons_prevent_changes(user: User, mock_backend, monkeypatch):
+    """Tests that the lock buttons prevent color and icon changes when a new team is selected."""
+    # Define new teams for this test
+    new_teams = {
+        "Team A": {"icon": "A.png", "color": "#AAAAAA", "text_color": "#111111"},
+        "Team B": {"icon": "B.png", "color": "#BBBBBB", "text_color": "#222222"},
+    }
+    monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
+
+    await user.open('/')
+    # Go to config tab
+    await user.should_see(marker='config-tab-button')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='team-1-name-selector')
+
+    # Get the initial color and icon of team 1
+    initial_customization = load_fixture('base_customization')
+    initial_t1_color = initial_customization[Customization.T1_COLOR]
+    initial_t1_logo = initial_customization[Customization.T1_LOGO]
+
+    # Lock team 1's icons and colors
+    await user.should_see(marker='team-1-icon-lock')
+    user.find(marker='team-1-icon-lock').click()
+    await user.should_see(marker='team-1-color-lock')
+    user.find(marker='team-1-color-lock').click()
+    
+
+    # Change team 1 to "Team A"
+    await user.should_see(marker='team-1-name-selector')
+    user.find(marker='team-1-name-selector').click()
+    await user.should_see("Team A")
+    user.find("Team A").click()
+    await user.should_see(marker='save-button ')
+    # Save the changes
+    user.find(marker='save-button').click()
+    await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
+    await asyncio.sleep(0)
+
+    # Verify that save_json_customization was called
+    mock_backend.save_json_customization.assert_called()
+    call_args = mock_backend.save_json_customization.call_args[0][0]
+    
+    # Assert that team 1's color and logo have NOT changed
+    assert call_args[Customization.T1_COLOR] == initial_t1_color
+    assert call_args[Customization.T1_LOGO] == initial_t1_logo
+    # The name should still change
+    assert call_args[Customization.A_TEAM] == "Team A"
+
+
+async def test_reset_from_config(user: User, mock_backend):
+    """Tests the reset button on the customization page."""
+    await user.open('/')
+
+    # Score a point
+    await user.should_see(marker='team-1-score')
+    user.find(marker='team-1-score').click()
+    await user.should_see('01', marker='team-1-score')
+
+    # Go to config tab
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='reset-button')
+
+    # Click reset and cancel
+    user.find(marker='reset-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='cancel-reset-button')
+    user.find(marker='cancel-reset-button').click()
+    # Should be back on the scoreboard, and score should be reset
+    await user.should_see('01', marker='team-1-score')
+
+    # Click reset and confirm
+    user.find(marker='reset-button').click()
+    await asyncio.sleep(0)
+    await user.should_see(marker='confirm-reset-button')
+    user.find(marker='confirm-reset-button').click()
+    
+    # Should be back on the scoreboard, and score should be reset
+    await user.should_see('00', marker='team-1-score')
+    await asyncio.sleep(0)
+    # Verify that the backend's reset method was called
+    mock_backend.reset.assert_called()

@@ -268,7 +268,7 @@ class CustomizationPage:
                 team_logo = ui.image(self.customization.get_team_logo(team)).classes(
                     'w-9 h-9 m-auto')
                 icons_switch = ui.switch(on_change=lambda e: self.changed_icon_lock(
-                    team, icons_switch, e.value)).props('icon=no_encryption')
+                    team, icons_switch, e.value)).props('icon=no_encryption').mark(f'team-{team}-icon-lock')
                 ui.space()
                 team_color = ui.button().classes('w-8 h-8 m-auto')
                 team_text_color = ui.button().classes('w-5 h-5')
@@ -287,7 +287,7 @@ class CustomizationPage:
                 self.update_team_model_color(
                     team, self.customization.get_team_text_color(team), team_text_color, True)
                 colors_switch = ui.switch(on_change=lambda e: self.changed_color_lock(
-                    team, colors_switch, e.value)).props('icon=no_encryption')
+                    team, colors_switch, e.value)).props('icon=no_encryption').mark(f'team-{team}-color-lock')
 
     def changed_icon_lock(self, team, switch_lock, value):
         if team == 1:
@@ -334,17 +334,18 @@ class CustomizationPage:
         notification.dismiss()
 
     async def save(self):
+        logging.info('save called')
         notification = ui.notification(timeout=None, spinner=True)
         
         # Get the current model with changes
         new_model = self.customization.get_model()
-        
+        logging.debug('saving json configuration')
         # Save to the backend
         self.backend.save_json_customization(new_model)
-        
+        logging.debug('setting customization model to gui')
         # Directly update the GUI's state to avoid race conditions
         self.gui.set_customization_model(new_model)
-        
+        logging.debug('updating ui logos')
         # Tell the GUI to update its logo elements with the new data
         self.gui.update_ui_logos()
         
@@ -375,15 +376,19 @@ class CustomizationPage:
 
     async def ask_reset(self):
         """Asks for confirmation and resets the scoreboard."""
+        logging.info('Ask reset called')
         result = await self.dialog_reset
         if result:
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
+            logging.debug('reset confirmed')
             self.clear_local_cached_data_for_oid()
             await self.gui.reset()
             await asyncio.sleep(0.1)
             self.init(self.container, force_reset=True)
             notification.dismiss()
             self.switch_to_scoreboard()
+        else:
+            logging.debug('reset cancelled')
 
     def switch_to_scoreboard(self):
         """Switches to the scoreboard tab."""
