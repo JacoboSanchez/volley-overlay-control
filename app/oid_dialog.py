@@ -13,19 +13,6 @@ logger = logging.getLogger("OidDialog")
 
 
 class OidDialog:
-
-    hide_custom_overlay_input = False
-
-    show_predefined_overlays = False
-    overlays_json = os.environ.get('PREDEFINED_OVERLAYS', None)
-    if overlays_json == None or overlays_json == '':
-        predefined_overlays = None
-    else: 
-        show_predefined_overlays = True
-        hide_custom_overlay_input = os.environ.get('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'false') == 'true' 
-        predefined_overlays = json.loads(overlays_json)
-    
-
     UNO_CONTROL_BASE_URL = 'https://app.overlays.uno/control/'
     UNO_OUTPUT_BASE_URL = 'https://app.overlays.uno/output/'
     CONTROL_TOKEN_KEY = 'control_token'
@@ -33,6 +20,18 @@ class OidDialog:
 
 
     def __init__(self, backend: Backend):
+        
+        logger.info("Initializing OidDialog")
+        self.hide_custom_overlay_input = False
+
+        self.show_predefined_overlays = False
+        overlays_json = os.environ.get('PREDEFINED_OVERLAYS', None)
+        if overlays_json == None or overlays_json == '':
+            self.predefined_overlays = None
+            logger.info("No predefined overlays")
+            self.show_predefined_overlays = True
+            self.hide_custom_overlay_input = os.environ.get('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'false') == 'true' 
+            self.predefined_overlays = json.loads(overlays_json)
         self.dialog = ui.dialog().props('persistent')
         self.control_url_input = None
         self.result = None
@@ -42,19 +41,21 @@ class OidDialog:
             self.radioButton = None
             current_user = AppStorage.load(AppStorage.Category.USERNAME, None)
             with ui.row().classes('w-full'):
-                if OidDialog.hide_custom_overlay_input == False:
+                if self.hide_custom_overlay_input == False:
+                    logger.debug("Initializing control url input")
                     self.control_url_input = ui.input(label=Messages.get(Messages.CONTROL_URL), placeholder=OidDialog.UNO_CONTROL_BASE_URL+'<Control Token>').classes('w-full').mark('control-url-input')
-                if OidDialog.show_predefined_overlays:
+                if self.show_predefined_overlays:
                     self.checkBoxEnabled = True
                     result = []
-                    for k,v in OidDialog.predefined_overlays.items():
+                    for k,v in self.predefined_overlays.items():
                         allowed_users = v.get('allowed_users', None)
                         if allowed_users == None or current_user in allowed_users:
                             result.append(k)
-                    if OidDialog.hide_custom_overlay_input == False:
+                    if self.hide_custom_overlay_input == False:
                         self.radioButton = ui.checkbox(Messages.get(Messages.USE_PREDEFINED_OVERLAYS)).on_value_change(self.update_selector).mark('predefined-overlay-checkbox')
                     else:
                         self.checkBoxEnabled = False
+                    logger.debug("Initializing predefined selector")
                     self.predefined_overlay_selector = ui.select(result, value=result[0]).classes('w-full w-[300px]').props('outlined').mark('predefined-overlay-selector')
                     if self.checkBoxEnabled:
                         self.update_selector()
@@ -87,17 +88,17 @@ class OidDialog:
     async def submit(self):
         logger.debug('User accepted config')
         self.submit_button.props(add='loading')
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0)
         output = None
-        if  (OidDialog.show_predefined_overlays and self.checkBoxEnabled == False)  or (self.radioButton != None and self.radioButton.value):
-            token = OidDialog.predefined_overlays[self.predefined_overlay_selector.value]['control']
-            output = OidDialog.predefined_overlays[self.predefined_overlay_selector.value].get('output', None)
+        if  (self.show_predefined_overlays and self.checkBoxEnabled == False)  or (self.radioButton != None and self.radioButton.value):
+            token = self.predefined_overlays[self.predefined_overlay_selector.value]['control']
+            output = self.predefined_overlays[self.predefined_overlay_selector.value].get('output', None)
         else:
             token = self.extract_oid(self.control_url_input.value)
             logger.debug("Extracted %s", token)
-        if OidDialog.process_validation(self.backend.validate_and_store_model_for_oid(token)):
+        if self.process_validation(self.backend.validate_and_store_model_for_oid(token)):
             self.result = {
-                OidDialog.CONTROL_TOKEN_KEY: token
+                self.CONTROL_TOKEN_KEY: token
             }
             logger.debug("Valid")
 
@@ -105,6 +106,7 @@ class OidDialog:
                 self.result[OidDialog.OUTPUT_URL_KEY] = self.compose_output(output)
             self.dialog.submit(self.result)
         else:
+            logger.info("Not valid")
             self.submit_button.props(remove='loading')
                 
 
