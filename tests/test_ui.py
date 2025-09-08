@@ -869,7 +869,7 @@ async def test_env_vars_for_points_limit(user: User, mock_backend, monkeypatch):
 
     # Score the winning point
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.1)
     await user.should_see(content='00', marker='team-1-score')
     await user.should_see(content='1', marker='team-1-sets')
     await asyncio.sleep(0.1)
@@ -899,6 +899,6 @@ async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
 
     # The match should be over. Trying to score another point should fail.
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.01)
-    await user.should_see(content='05', marker='team-2-score') # Score should not change
     await asyncio.sleep(0.1)
+    await user.should_see(content='05', marker='team-2-score') # Score should not change
+    await asyncio.sleep(0.2)
