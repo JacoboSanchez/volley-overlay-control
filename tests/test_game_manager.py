@@ -64,6 +64,27 @@ def test_match_finished(game_manager):
     
     assert game_manager.match_finished() is True
 
+def test_beach_mode_match_finished(game_manager):
+    """Tests the logic for finishing a match in beach mode (best of 3)."""
+    # Configure for beach mode
+    game_manager.conf.sets = 2
+    
+    # Team 1 wins 2 sets
+    for i in range(1, 3):
+        for _ in range(21): # Beach volleyball sets are to 21
+            game_manager.add_game(1, i, 21, 15, 3, False)
+    
+    assert game_manager.match_finished() is True
+
+def test_indoor_mode_match_not_finished(game_manager):
+    """Tests that a match is not finished after 2 sets in indoor mode (best of 5)."""
+    # Team 1 wins 2 sets
+    for i in range(1, 3):
+        for _ in range(25):
+            game_manager.add_game(1, i, 25, 15, 5, False)
+    
+    assert game_manager.match_finished() is False
+
 def test_add_point_again(game_manager):
     """Tests adding a point to a team, verifying state isolation."""
     game_manager.add_game(2, 1, 25, 15, 5, False)

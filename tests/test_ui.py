@@ -2,6 +2,7 @@ import pytest
 import json
 import os
 import asyncio
+import importlib
 from unittest.mock import patch, MagicMock
 from nicegui.testing import User
 from app.startup import startup
@@ -53,6 +54,8 @@ def mock_backend():
                     mock_instance.get_current_model.return_value = load_fixture('predefined_overlay_2')
                 elif oid == 'manual_oid_valid':
                     mock_instance.get_current_model.return_value = load_fixture('manual_overlay')
+                elif oid == 'endgame_oid_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('endgame_model')
                 return State.OIDStatus.VALID
             return State.OIDStatus.INVALID
         
@@ -789,4 +792,113 @@ async def test_url_params_set_output(user: User, mock_backend, monkeypatch):
     output_link = user.find(Messages.get(Messages.OVERLAY_LINK))
     expected_href = 'https://app.overlays.uno/output/custom_output_token'
     assert output_link.elements.pop().props['href'] == expected_href
+    await asyncio.sleep(0.1)
+
+async def test_beach_mode_limits(user: User, mock_backend):
+    """Tests that the /beach URL correctly applies beach volleyball rules (21 points, 3 sets)."""
+    # Open the specific URL for beach mode
+    await user.open('/beach?control=test_oid_valid')
+    await user.should_see(marker='team-1-score')
+
+    # Score points up to 20 for Team 1
+    for _ in range(20):
+        user.find(marker='team-1-score').click()
+        await asyncio.sleep(0.01) # Small delay to allow UI to update
+    await user.should_see(content='20', marker='team-1-score')
+    await user.should_see(content='0', marker='team-1-sets') # Set should not be won yet
+
+    # Score the winning point for Team 1
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see(content='00', marker='team-1-score')
+    await user.should_see(content='1', marker='team-1-sets') # Team 1 wins the set
+
+    # Win the second set for Team 1 to win the match (best of 3)
+    for _ in range(21):
+        user.find(marker='team-1-score').click()
+        await asyncio.sleep(0.01)
+    
+    await user.should_see(content='2', marker='team-1-sets')
+    
+    # Try to score another point, which should be blocked as the match is over
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see(content='21', marker='team-1-score') # Score should not change
+    await asyncio.sleep(0.3)
+
+
+async def test_indoor_mode_limits(user: User, mock_backend):
+    """Tests that the /indoor URL correctly applies indoor volleyball rules (25 points, 5 sets)."""
+    await user.open('/indoor?control=endgame_oid_valid')
+    await user.should_see(marker='team-1-score')
+
+    # Score points up to 24 for Team 1
+    user.find(marker='team-1-score').click()
+    await user.should_see(content='24', marker='team-1-score')
+    await user.should_see(content='2', marker='team-1-sets') # Set not won yet
+
+    # Score the winning point
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see(content='25', marker='team-1-score')
+    await user.should_see(content='3', marker='team-1-sets') # Team 1 wins the set
+    await asyncio.sleep(0.3)
+
+
+async def test_env_vars_for_points_limit(user: User, mock_backend, monkeypatch):
+    """Tests custom game point limits set by environment variables."""
+    # Set a custom point limit via environment variable
+    monkeypatch.setenv("MATCH_GAME_POINTS", "10")
+    monkeypatch.setenv("MATCH_GAME_POINTS_LAST_SET", "5")
+    monkeypatch.setenv("MATCH_SETS", "3")
+
+    
+    # Reload modules to apply the new environment variables
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/?control=test_oid_valid')
+    await user.should_see(marker='team-1-score')
+
+    # Score up to 9 points for Team 1
+    for _ in range(9):
+        user.find(marker='team-1-score').click()
+        await asyncio.sleep(0.01)
+    await user.should_see(content='09', marker='team-1-score')
+    await user.should_see(content='0', marker='team-1-sets')
+
+    # Score the winning point
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see(content='00', marker='team-1-score')
+    await user.should_see(content='1', marker='team-1-sets')
+    await asyncio.sleep(0.1)
+
+
+async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
+    """Tests custom set limits set by an environment variable."""
+    # Set a best-of-1 match (win with 1 set) and a low point limit
+    monkeypatch.setenv("MATCH_SETS", "1")
+    monkeypatch.setenv("MATCH_GAME_POINTS", "15")
+    monkeypatch.setenv("MATCH_GAME_POINTS_LAST_SET", "5")
+
+    
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/?control=test_oid_valid')
+    await asyncio.sleep(0)
+    await user.should_see(marker='team-2-score')
+
+    # Win the first set
+    for _ in range(5):
+        user.find(marker='team-2-score').click()
+        await asyncio.sleep(0.01)
+    
+    await user.should_see(content='1', marker='team-2-sets')
+
+    # The match should be over. Trying to score another point should fail.
+    user.find(marker='team-2-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see(content='05', marker='team-2-score') # Score should not change
     await asyncio.sleep(0.1)

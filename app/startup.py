@@ -98,6 +98,13 @@ def startup() -> None:
 
         tabs = ui.tabs().props('horizontal').classes("w-full")
         conf = Conf()
+        conf = Conf()
+        if custom_points_limit is not None:
+            conf.points = custom_points_limit
+        if custom_points_limit_last_set is not None:
+            conf.points_last_set = custom_points_limit_last_set
+        if custom_sets_limit is not None:
+            conf.sets = custom_sets_limit
         options_dialog = OptionsDialog(conf)
         backend = Backend(conf)
         await ui.context.client.connected()
