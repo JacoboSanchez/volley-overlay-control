@@ -332,21 +332,27 @@ class CustomizationPage:
 
     async def reload_customization(self):
         notification = ui.notification(timeout=None, spinner=True)
-        self.init(self.container, force_reset=True)
         await asyncio.sleep(0.1)
-        notification.dismiss()
+        try:
+            self.init(self.container, force_reset=True)
+        finally:
+            notification.dismiss()
 
     async def save(self):
         logging.info('save called')
-        new_model = self.customization.get_model()
-        logging.debug('saving json configuration')
-        self.backend.save_json_customization(new_model)
-        logging.debug('setting customization model to gui')
-        self.gui.set_customization_model(new_model)
-        await asyncio.sleep(0)
-        logging.debug('updating ui logos')
-        self.gui.update_ui_logos()
-        self.switch_to_scoreboard()
+        notification = ui.notification(Messages.get(Messages.SAVING), spinner=True, timeout=None)
+        await asyncio.sleep(0.1)
+        try:
+            new_model = self.customization.get_model()
+            logging.debug('saving json configuration')
+            self.backend.save_json_customization(new_model)
+            logging.debug('setting customization model to gui')
+            self.gui.set_customization_model(new_model)
+            logging.debug('updating ui logos')
+            self.gui.update_ui_logos()
+            self.switch_to_scoreboard()
+        finally:
+            notification.dismiss()
 
     async def ask_logout(self):
         result = await self.logout_dialog
@@ -360,11 +366,13 @@ class CustomizationPage:
         if result:
             logging.debug('refresh called')
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
-            self.clear_local_cached_data_for_oid()
-            await self.gui.refresh()
             await asyncio.sleep(0.1)
-            self.init(self.container, force_reset=True)
-            notification.dismiss()
+            try:
+                self.clear_local_cached_data_for_oid()
+                await self.gui.refresh()
+                self.init(self.container, force_reset=True)
+            finally:
+                notification.dismiss()
         else:
             logging.debug('refresh cancelled')
 

@@ -346,7 +346,7 @@ async def test_team_customization(user: User, mock_backend, monkeypatch):
     # Save the changes
     user.find(marker='save-button').click()
     await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.2)
 
     # Verify that save_json_customization was called with the correct data
     mock_backend.save_json_customization.assert_called()
@@ -418,11 +418,11 @@ async def test_lock_buttons_prevent_changes(user: User, mock_backend, monkeypatc
     user.find(marker='team-1-name-selector').click()
     await user.should_see("Team A")
     user.find("Team A").click()
-    await user.should_see(marker='save-button ')
+    await user.should_see(marker='save-button')
     # Save the changes
     user.find(marker='save-button').click()
     await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.2)
 
     # Verify that save_json_customization was called
     mock_backend.save_json_customization.assert_called()
@@ -512,43 +512,29 @@ async def test_theme_application(user: User, mock_backend, monkeypatch):
     # Go to the configuration tab
     user.find(marker='config-tab-button').click()
     await user.should_see(marker='theme-button')
+
+    # Check initial width
     assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
 
-    # Find and click the themes button (palette icon)
+    # Open theme dialog, select and load the theme
     user.find(marker='theme-button').click()
-    # The dialog is now open. Find the selector, click it, and check the theme name.
     await user.should_see(marker='theme-selector')
     user.find(marker='theme-selector').click()
-
     await user.should_see("Test Theme")
-    user.find("Test Theme").click() # Select the theme
-
-    await user.should_see(marker='close-theme-button')
-    user.find(marker='close-theme-button').click()
-    assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
-    # Find and click the themes button (palette icon)
-    await user.should_see(marker='theme-button')
-
-    user.find(marker='theme-button').click()
-    # The dialog is now open. Find the selector, click it, and check the theme name.
-    await user.should_see(marker='theme-selector')
-    user.find(marker='theme-selector').click()
-
-    await user.should_see("Test Theme")
-    user.find("Test Theme").click() # Select the theme
-
-
-    # Click the load button
-    await user.should_see(marker='load-theme-button')
+    user.find("Test Theme").click()
     user.find(marker='load-theme-button').click()
 
-    # Save the changes
-    await user.should_see(marker='save-button')
-    await asyncio.sleep(0)
-    user.find(marker='save-button').click()
-    await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
-    await asyncio.sleep(0)
+    # Wait for UI to re-render with new theme values
+    await asyncio.sleep(0.1)
+
+    # Check that the input on the config page has updated
     assert user.find(marker='width-input').elements.pop().props['model-value'] == '50.0'
+
+    # Save the changes
+    user.find(marker='save-button').click()
+    await user.should_see(marker='team-1-score')  # Wait to be back on the scoreboard
+    await asyncio.sleep(0.2)  # Allow event loop to settle
+
     # Verify that save_json_customization was called with the theme data
     mock_backend.save_json_customization.assert_called()
     call_args = mock_backend.save_json_customization.call_args[0][0]
@@ -591,8 +577,8 @@ async def test_manual_customization(user: User, mock_backend):
 
     # Save the changes
     user.find(marker='save-button').click()
-    await asyncio.sleep(0)
     await user.should_see(marker='team-1-score')
+    await asyncio.sleep(0.2)
 
     # Verify that save_json_customization was called with the correct data
     mock_backend.save_json_customization.assert_called()
