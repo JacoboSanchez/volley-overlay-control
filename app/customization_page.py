@@ -50,9 +50,10 @@ class CustomizationPage:
             ui.label(Messages.get(Messages.ASK_LOGOUT))
             with ui.row():
                 ui.button(color='green-500', icon='done',
-                            on_click=lambda: self.logout_dialog.submit(True))
+                            on_click=lambda: self.logout_dialog.submit(True)).mark('confirm-logout-button')
                 ui.button(color='red-500', icon='close',
-                            on_click=lambda: self.logout_dialog.submit(False))
+                            on_click=lambda: self.logout_dialog.submit(False)).mark('cancel-logout-button')
+
 
 
     def update_team_selection(self, team, logo, tname, color, textColor, selector):

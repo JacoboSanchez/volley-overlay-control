@@ -1,7 +1,7 @@
 import logging
 import os
 from app.logging_config import setup_logging
-from app.authentication import PasswordAuthenticator
+from app.authentication import PasswordAuthenticator, AuthMiddleware
 from dotenv import load_dotenv
 from app.startup import startup
 from nicegui import ui, app
@@ -10,7 +10,7 @@ from nicegui import ui, app
 if "PYTEST_CURRENT_TEST" not in os.environ:
     load_dotenv()
 
-# 2. Call the configuration function
+# Call the configuration function
 setup_logging()
 logger = logging.getLogger("Main")
 
@@ -18,7 +18,11 @@ if (PasswordAuthenticator.do_authenticate_users()):
     logger.info("User authentication enabled")
     app.add_middleware(AuthMiddleware)
 
-app.on_startup(startup)
+# Use a custom attribute on the app object to ensure the startup handler
+# is only registered once, even if the module is reloaded during tests.
+if not getattr(app, 'startup_handler_registered', False):
+    app.on_startup(startup)
+    app.startup_handler_registered = True
 
 if __name__ in {"__main__", "__mp_main__"}:
     onair = os.environ.get('UNO_OVERLAY_AIR_ID', None)

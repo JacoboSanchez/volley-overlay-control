@@ -53,12 +53,14 @@ def startup() -> None:
 
         async def do_login():
             if PasswordAuthenticator.check_user(username.value, password.value):
-                # On successful login, set the authenticated flag and redirect client-side.
-                app.storage.user.update({
-                    AppStorage.Category.USERNAME: username.value,
-                    AppStorage.Category.AUTHENTICATED: True
-                })
-                ui.navigate.to('/')
+                # On successful login, set the authenticated flag and username
+                AppStorage.save(AppStorage.Category.USERNAME, username.value)
+                AppStorage.save(AppStorage.Category.AUTHENTICATED, True)
+
+                # Check for a redirect path, navigate there, then clear it.
+                redirect_path = AppStorage.load(AppStorage.Category.REDIRECT_PATH, '/')
+                AppStorage.save(AppStorage.Category.REDIRECT_PATH, None)
+                ui.navigate.to(redirect_path)
             else:
                 ui.notify(Messages.get(Messages.WRONG_USER_NAME), color='negative')
 
@@ -156,4 +158,3 @@ def startup() -> None:
             scoreboardTab
             configurationTab
         notification.dismiss()
-

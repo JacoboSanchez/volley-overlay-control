@@ -852,7 +852,6 @@ async def test_env_vars_for_points_limit(user: User, mock_backend, monkeypatch):
     monkeypatch.setenv("MATCH_GAME_POINTS_LAST_SET", "5")
     monkeypatch.setenv("MATCH_SETS", "3")
 
-    
     # Reload modules to apply the new environment variables
     import app.conf
     importlib.reload(app.conf)
@@ -872,7 +871,7 @@ async def test_env_vars_for_points_limit(user: User, mock_backend, monkeypatch):
     await asyncio.sleep(0.1)
     await user.should_see(content='00', marker='team-1-score')
     await user.should_see(content='1', marker='team-1-sets')
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.2)
 
 
 async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
@@ -902,3 +901,150 @@ async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
     await asyncio.sleep(0.1)
     await user.should_see(content='05', marker='team-2-score') # Score should not change
     await asyncio.sleep(0.2)
+    
+# --- Authentication Tests ---
+
+@pytest.fixture
+def auth_users_env(monkeypatch):
+    """Fixture to set up SCOREBOARD_USERS environment variable."""
+    users = {
+        "user1": {"password": "password1", "control": "predefined_1_valid", "output": "output_1"},
+        "user2": {"password": "password2"}
+    }
+    monkeypatch.setenv('SCOREBOARD_USERS', json.dumps(users))
+    monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
+    # Reload modules to apply the new environment variables
+    import app.authentication
+    importlib.reload(app.authentication)
+    import main
+    importlib.reload(main)
+
+async def test_login_and_auto_load_oid(user: User, mock_backend, auth_users_env):
+    """Tests that a user can log in and their predefined OID is loaded automatically."""
+    await user.open('/')
+    
+    # We should be on the login page
+    await user.should_see(marker='username-input')
+    user.find(marker='username-input').type('user1')
+    user.find(marker='password-input').type('password1')
+    user.find(marker='login-button').click()
+    
+    # After login, we should see the scoreboard with data from "predefined_1_valid"
+    await user.should_see(marker='team-1-score')
+    await user.should_see(content='10', marker='team-1-score')
+    await user.should_see(content='05', marker='team-2-score')
+    
+    # Go to the configuration tab and check links
+    user.find(marker='config-tab-button').click()
+    await user.should_see(Messages.get(Messages.OVERLAY_LINK))
+    assert 'https://app.overlays.uno/output/output_1' in user.find(Messages.get(Messages.OVERLAY_LINK)).elements.pop().props['href']
+    assert 'https://app.overlays.uno/control/predefined_1_valid' in user.find(Messages.get(Messages.CONTROL_LINK)).elements.pop().props['href']
+    await asyncio.sleep(0.3)
+
+async def test_logout_flow(user: User, mock_backend, auth_users_env):
+    """Tests the complete logout and login flow."""
+    await user.open('/')
+    
+    # Login as user2
+    await user.should_see(marker='username-input')
+    user.find(marker='username-input').type('user2')
+    user.find(marker='password-input').type('password2')
+    user.find(marker='login-button').click()
+    
+    # User2 has no predefined OID, so the OID dialog should appear
+    await user.should_see(marker='control-url-input')
+    
+    # Logout from the OID dialog
+    user.find(marker='logout-button-oid').click()
+    
+    # We should be back on the login page
+    await user.should_see(marker='username-input')
+    
+    # Login again as user1
+    user.find(marker='username-input').type('user1')
+    user.find(marker='password-input').type('password1')
+    user.find(marker='login-button').click()
+    
+    # We should see the scoreboard for user1
+    await user.should_see(marker='team-1-score')
+    await user.should_see(content='10', marker='team-1-score')
+    
+    # Go to config tab and logout
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='logout-button')
+    user.find(marker='logout-button').click()
+    await asyncio.sleep(0)
+    
+    # Confirm logout
+    await user.should_see(Messages.get(Messages.ASK_LOGOUT))
+    user.find(marker='confirm-logout-button').click()
+    await asyncio.sleep(0.3)
+
+    # We should be back on the login page
+    await user.should_see(marker='username-input')
+    await user.should_not_see(marker='config-tab-button')
+
+    # Login again as user1, but cancel logout
+    user.find(marker='username-input').type('user1')
+    user.find(marker='password-input').type('password1')
+    user.find(marker='login-button').click()
+    await user.should_see(marker='team-1-score')
+    user.find(marker='config-tab-button').click()
+    user.find(marker='logout-button').click()
+    await user.should_see(Messages.get(Messages.ASK_LOGOUT))
+    user.find(marker='cancel-logout-button').click()
+    await user.should_see(marker='config-tab-button')
+    await asyncio.sleep(0.3)
+
+async def test_predefined_overlay_with_user_filter(user: User, mock_backend, auth_users_env, monkeypatch):
+    """Tests that users only see the predefined overlays they are allowed to see."""
+    overlays = {
+        "User 1 Overlay": {"control": "predefined_1_valid", "allowed_users": ["user1"]},
+        "All Users Overlay": {"control": "predefined_2_valid"}
+    }
+    monkeypatch.setenv('PREDEFINED_OVERLAYS', json.dumps(overlays))
+    
+    import app.oid_dialog
+    importlib.reload(app.oid_dialog)
+    
+    await user.open('/')
+    
+    # Login as user2
+    await user.should_see(marker='username-input')
+    user.find(marker='username-input').type('user2')
+    user.find(marker='password-input').type('password2')
+    user.find(marker='login-button').click()
+    
+    # User2 should see the OID dialog. Let's check the available overlays.
+    await user.should_see(marker='predefined-overlay-selector')
+    user.find(marker='predefined-overlay-selector').click()
+    
+    # User2 should only see "All Users Overlay"
+    await user.should_see("All Users Overlay")
+    await user.should_not_see("User 1 Overlay")
+    
+    # Close the selector and logout
+    user.find("All Users Overlay").click()
+    user.find(marker='logout-button-oid').click()
+    
+    # Login as user1
+    await user.should_see(marker='username-input')
+    user.find(marker='username-input').type('user1')
+    user.find(marker='password-input').type('password1')
+    user.find(marker='login-button').click()
+    
+    # User1 has a predefined OID, so the scoreboard loads directly.
+    # We need to go to the config, reset the OID to see the dialog again.
+    await user.should_see(marker='team-1-score')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='change-overlay-button')
+    user.find(marker='change-overlay-button').click()
+    
+    # Now user1 sees the OID dialog. Let's check the overlays.
+    await user.should_see(marker='predefined-overlay-selector')
+    user.find(marker='predefined-overlay-selector').click()
+    
+    # User1 should see both overlays
+    await user.should_see("User 1 Overlay")
+    await user.should_see("All Users Overlay")
+    await asyncio.sleep(0.3)
