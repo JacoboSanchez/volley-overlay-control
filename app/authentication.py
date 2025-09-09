@@ -6,8 +6,8 @@ from nicegui import app, ui
 from fastapi import Request
 from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from messages import Messages
-from app_storage import AppStorage
+from app.messages import Messages
+from app.app_storage import AppStorage
 
 logger = logging.getLogger("Authenticator")
 
@@ -21,8 +21,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         
         # If the user is not authenticated and the requested page is not the login page
         if not AppStorage.load(AppStorage.Category.AUTHENTICATED, False) and request.url.path not in unrestricted_page_routes:
-            # Store the path the user wanted to access
-            app.storage.user['redirect_path'] = request.url.path
+            # Store the path the user wanted to access using the AppStorage abstraction
+            AppStorage.save(AppStorage.Category.REDIRECT_PATH, request.url.path)
             # Redirect to the login page
             return RedirectResponse('/login')
 

@@ -1,14 +1,14 @@
 import asyncio
 import logging
 from nicegui import ui, app
-from conf import Conf
-from backend import Backend
-from state import State
-from customization import Customization
-from authentication import PasswordAuthenticator
-from messages import Messages
-from options_dialog import OptionsDialog
-from app_storage import AppStorage
+from app.conf import Conf
+from app.backend import Backend
+from app.state import State
+from app.customization import Customization
+from app.authentication import PasswordAuthenticator
+from app.messages import Messages
+from app.options_dialog import OptionsDialog
+from app.app_storage import AppStorage
 
 
 class CustomizationPage:
@@ -30,29 +30,30 @@ class CustomizationPage:
         self.options_dialog = options
         self.container = None  # Initialize container attribute
 
-        with ui.dialog() as self.dialog_reset, ui.card():
+        with ui.dialog().props('persistent') as self.dialog_reset, ui.card():
             ui.label(Messages.get(Messages.ASK_RESET))
             with ui.row():
                 ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reset.submit(True))
+                          on_click=lambda: self.dialog_reset.submit(True)).mark('confirm-reset-button')
                 ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reset.submit(False))
+                          on_click=lambda: self.dialog_reset.submit(False)).mark('cancel-reset-button')
 
-        with ui.dialog() as self.dialog_reload, ui.card():
+        with ui.dialog().props('persistent') as self.dialog_reload, ui.card():
             ui.label(Messages.get(Messages.ASK_RELOAD))
             with ui.row():
                 ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reload.submit(True))
+                          on_click=lambda: self.dialog_reload.submit(True)).mark('confirm-refresh-button')
                 ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reload.submit(False))
+                          on_click=lambda: self.dialog_reload.submit(False)).mark('cancel-refresh-button')
 
-        with ui.dialog() as self.logout_dialog, ui.card():
+        with ui.dialog().props('persistent') as self.logout_dialog, ui.card():
             ui.label(Messages.get(Messages.ASK_LOGOUT))
             with ui.row():
                 ui.button(color='green-500', icon='done',
-                            on_click=lambda: self.logout_dialog.submit(True))
+                            on_click=lambda: self.logout_dialog.submit(True)).mark('confirm-logout-button')
                 ui.button(color='red-500', icon='close',
-                            on_click=lambda: self.logout_dialog.submit(False))
+                            on_click=lambda: self.logout_dialog.submit(False)).mark('cancel-logout-button')
+
 
 
     def update_team_selection(self, team, logo, tname, color, textColor, selector):
@@ -117,7 +118,7 @@ class CustomizationPage:
             self.init(self.container, force_reset=False)
 
     async def show_theme_dialog(self):
-        with ui.dialog() as dialog, ui.card():
+        with ui.dialog().props('persistent') as dialog, ui.card():
             ui.label(Messages.get(Messages.THEME_TITLE))
             theme_list = self.customization.get_theme_names()
             if not theme_list:
@@ -126,13 +127,13 @@ class CustomizationPage:
                     ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close)
             else:
                 selection = ui.select(list(theme_list), label=Messages.get(
-                    Messages.THEME)).classes('w-[300px]').props('outlined')
+                    Messages.THEME)).classes('w-[300px]').props('outlined').mark('theme-selector')
                 with ui.row().classes('w-full'):
                     ui.space()
                     ui.button(Messages.get(Messages.LOAD),
-                              on_click=lambda: self.apply_and_refresh(selection.value, dialog))
+                              on_click=lambda: self.apply_and_refresh(selection.value, dialog)).mark('load-theme-button')
                     ui.button(Messages.get(Messages.CLOSE),
-                              on_click=dialog.close)
+                              on_click=dialog.close).mark('close-theme-button')
         await dialog
 
     def _setup_container(self, configuration_container=None):
@@ -163,12 +164,14 @@ class CustomizationPage:
         with ui.card():
             with ui.row():
                 ui.switch(Messages.get(Messages.LOGOS), value=self.customization.is_show_logos(),
-                          on_change=lambda e: self.customization.set_show_logos(e.value))
+                          on_change=lambda e: self.customization.set_show_logos(e.value)).mark('logo-switch')
                 ui.switch(Messages.get(Messages.GRADIENT), value=self.customization.is_glossy(),
-                          on_change=lambda e: self.customization.set_glossy(e.value))
+                          on_change=lambda e: self.customization.set_glossy(e.value)).mark('gradient-switch')
+
                 if len(list(self.customization.get_theme_names())) > 0:
                     ui.button(icon='palette',
-                              on_click=self.show_theme_dialog).props('flat')
+                              on_click=self.show_theme_dialog).props('flat').mark('theme-button')
+
             with ui.row():
                 self.create_choose_color(Messages.get(Messages.SET), True)
                 self.create_choose_color(Messages.get(Messages.GAME), False)
@@ -178,16 +181,16 @@ class CustomizationPage:
         with ui.card():
             with ui.row().classes('place-content-center align-middle'):
                 ui.number(label=Messages.get(Messages.HEIGHT), value=self.customization.get_height(), format='%.1f',
-                          min=0, max=100, on_change=lambda e: self.customization.set_height(f'{e.value}'))
+                          min=0, max=100, on_change=lambda e: self.customization.set_height(f'{e.value}')).mark('height-input')
                 ui.space()
                 ui.number(label=Messages.get(Messages.WIDTH), value=self.customization.get_width(), format='%.1f',
-                          min=0, max=100, on_change=lambda e: self.customization.set_width(f'{e.value}'))
+                          min=0, max=100, on_change=lambda e: self.customization.set_width(f'{e.value}')).mark('width-input')
                 ui.space()
                 ui.number(label=Messages.get(Messages.HPOS), value=self.customization.get_h_pos(),
-                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_h_pos(f'{e.value}'))
+                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_h_pos(f'{e.value}')).mark('hpos-input')
                 ui.space()
                 ui.number(label=Messages.get(Messages.VPOS), value=self.customization.get_v_pos(),
-                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_v_pos(f'{e.value}'))
+                          format='%.1f', min=-50, max=50, on_change=lambda e: self.customization.set_v_pos(f'{e.value}')).mark('vpos-input')
 
             def reset_and_reload():
                 """Clears stored OID and reloads the page."""
@@ -203,11 +206,11 @@ class CustomizationPage:
                               self.configuration.output, new_tab=True)
 
                 ui.space()
-                # Only show the reset button if an OID is stored
+                 # Only show the reset button if an OID is stored
                 if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) is not None:
                     ui.button(icon='link_off', on_click=reset_and_reload) \
                         .props('flat round dense color=primary') \
-                        .tooltip(Messages.get(Messages.RESET_LINKS))
+                        .tooltip(Messages.get(Messages.RESET_LINKS)).mark('change-overlay-button')
                 ui.button(icon='tune', on_click=self.options_dialog.open).props(
                     'flat').classes('text-gray-500 -ml-2 mr-2')
 
@@ -215,18 +218,18 @@ class CustomizationPage:
         """Creates the bottom row of action buttons."""
         with ui.row().classes('w-full'):
             ui.button(icon='keyboard_arrow_left', color='stone-500',
-                      on_click=self.switch_to_scoreboard).props('round').classes('text-white')
+                      on_click=self.switch_to_scoreboard).props('round').mark('scoreboard-tab-button').classes('text-white')
             ui.space()
             ui.button(icon='save', color='blue-500',
-                      on_click=self.save).props('round').classes('text-white')
+                      on_click=self.save).props('round').mark('save-button').classes('text-white')
             ui.button(icon='sync', color='emerald-600',
-                      on_click=self.ask_refresh).props('round').classes('text-white')
+                      on_click=self.ask_refresh).props('round').mark('refresh-button').classes('text-white')
             ui.button(icon='recycling', color='orange-500',
-                      on_click=self.ask_reset).props('round').classes('text-white')
+                      on_click=self.ask_reset).props('round').mark('reset-button').classes('text-white')
 
             if AppStorage.load(AppStorage.Category.USERNAME, None) is not None:
                 ui.button(icon='logout', color='red-700',
-                          on_click=self.ask_logout).props('round').classes('text-white')
+                          on_click=self.ask_logout).props('round').mark('logout-button').classes('text-white')
 
     def init(self, configuration_container=None, force_reset=False):
         """Initializes and builds the customization page."""
@@ -262,12 +265,13 @@ class CustomizationPage:
                                      value=self.customization.get_team_name(
                                          team),
                                      key_generator=lambda k: k,
-                                     on_change=lambda e: self.update_team_selection(team, team_logo, e.value, team_color, team_text_color, selector)).classes('w-[300px]').props('outlined behavior=dialog label='+CustomizationPage.get_fallback_team_name(team))
+                                     on_change=lambda e: self.update_team_selection(team, team_logo, e.value, team_color, team_text_color, selector)
+                                     ).classes('w-[300px]').props(f'outlined behavior=dialog label={CustomizationPage.get_fallback_team_name(team)}').mark(f'team-{team}-name-selector')
             with ui.row():
                 team_logo = ui.image(self.customization.get_team_logo(team)).classes(
                     'w-9 h-9 m-auto')
                 icons_switch = ui.switch(on_change=lambda e: self.changed_icon_lock(
-                    team, icons_switch, e.value)).props('icon=no_encryption')
+                    team, icons_switch, e.value)).props('icon=no_encryption').mark(f'team-{team}-icon-lock')
                 ui.space()
                 team_color = ui.button().classes('w-8 h-8 m-auto')
                 team_text_color = ui.button().classes('w-5 h-5')
@@ -286,7 +290,7 @@ class CustomizationPage:
                 self.update_team_model_color(
                     team, self.customization.get_team_text_color(team), team_text_color, True)
                 colors_switch = ui.switch(on_change=lambda e: self.changed_color_lock(
-                    team, colors_switch, e.value)).props('icon=no_encryption')
+                    team, colors_switch, e.value)).props('icon=no_encryption').mark(f'team-{team}-color-lock')
 
     def changed_icon_lock(self, team, switch_lock, value):
         if team == 1:
@@ -328,28 +332,27 @@ class CustomizationPage:
 
     async def reload_customization(self):
         notification = ui.notification(timeout=None, spinner=True)
-        self.init(self.container, force_reset=True)
-        await asyncio.sleep(0.5)
-        notification.dismiss()
+        await asyncio.sleep(0.1)
+        try:
+            self.init(self.container, force_reset=True)
+        finally:
+            notification.dismiss()
 
     async def save(self):
-        notification = ui.notification(timeout=None, spinner=True)
-        
-        # Get the current model with changes
-        new_model = self.customization.get_model()
-        
-        # Save to the backend
-        self.backend.save_json_customization(new_model)
-        
-        # Directly update the GUI's state to avoid race conditions
-        self.gui.set_customization_model(new_model)
-        
-        # Tell the GUI to update its logo elements with the new data
-        self.gui.update_ui_logos()
-        
-        await asyncio.sleep(0.5)
-        notification.dismiss()
-        self.switch_to_scoreboard()
+        logging.info('save called')
+        notification = ui.notification(Messages.get(Messages.SAVING), spinner=True, timeout=None)
+        await asyncio.sleep(0.1)
+        try:
+            new_model = self.customization.get_model()
+            logging.debug('saving json configuration')
+            self.backend.save_json_customization(new_model)
+            logging.debug('setting customization model to gui')
+            self.gui.set_customization_model(new_model)
+            logging.debug('updating ui logos')
+            self.gui.update_ui_logos()
+            self.switch_to_scoreboard()
+        finally:
+            notification.dismiss()
 
     async def ask_logout(self):
         result = await self.logout_dialog
@@ -358,27 +361,37 @@ class CustomizationPage:
 
     async def ask_refresh(self):
         """Asks for confirmation and refreshes the data."""
+        logging.debug('ask refresh called')
         result = await self.dialog_reload
         if result:
+            logging.debug('refresh called')
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
-            self.clear_local_cached_data_for_oid()
-            await self.gui.refresh()
-            await asyncio.sleep(0.5)
-            self.init(self.container, force_reset=True)
-            notification.dismiss()
+            await asyncio.sleep(0.1)
+            try:
+                self.clear_local_cached_data_for_oid()
+                await self.gui.refresh()
+                self.init(self.container, force_reset=True)
+            finally:
+                notification.dismiss()
+        else:
+            logging.debug('refresh cancelled')
 
 
     async def ask_reset(self):
         """Asks for confirmation and resets the scoreboard."""
+        logging.info('Ask reset called')
         result = await self.dialog_reset
         if result:
             notification = ui.notification(Messages.get(Messages.LOADING), spinner=True, timeout=None)
+            logging.debug('reset confirmed')
             self.clear_local_cached_data_for_oid()
             await self.gui.reset()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
             self.init(self.container, force_reset=True)
             notification.dismiss()
             self.switch_to_scoreboard()
+        else:
+            logging.debug('reset cancelled')
 
     def switch_to_scoreboard(self):
         """Switches to the scoreboard tab."""

@@ -1,9 +1,9 @@
 from nicegui import ui
-from conf import Conf
-from messages import Messages
-from app_storage import AppStorage
+from app.conf import Conf
+from app.messages import Messages
+from app.app_storage import AppStorage
 import logging
-from theme import COLOR_FULLSCREEN_BUTTON, COLOR_EXIT_FULLSCREEN_BUTTON
+from app.theme import COLOR_FULLSCREEN_BUTTON, COLOR_EXIT_FULLSCREEN_BUTTON
 
 class OptionsDialog:
 

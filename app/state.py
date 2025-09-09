@@ -1,6 +1,9 @@
 import copy
+from enum import Enum
 
 class State:
+
+    OIDStatus = Enum('ValidationResult', [('VALID', 'valid'), ('INVALID', 'invalid'), ('DEPRECATED', 'deprecated'), ('EMPTY', 'empty')])
 
     SERVE='Serve'
     SERVE_1='A'
@@ -38,7 +41,7 @@ class State:
                 T2SET5_INT: '0',
                 T1TIMEOUTS_INT: '0',
                 T2TIMEOUTS_INT: '0',
-                CURRENT_SET_INT: 1
+                CURRENT_SET_INT: "1"
                 }
     
 

@@ -1,11 +1,11 @@
 import logging
 from nicegui import ui
-from state import State
-from customization import Customization
-from app_storage import AppStorage
-from messages import Messages
-from theme import *
-from game_manager import GameManager
+from app.state import State
+from app.customization import Customization
+from app.app_storage import AppStorage
+from app.messages import Messages
+from app.theme import *
+from app.game_manager import GameManager
 import asyncio
 
 class GUI:
@@ -166,7 +166,7 @@ class GUI:
     def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
         """Creates the UI panel for a single team."""
         with ui.card():
-            button = ui.button('00', color=button_color)
+            button = ui.button('00', color=button_color).mark(f'team-{team_id}-score')
             button.on('mousedown', lambda: self.handle_button_press(
                 team_id, is_set_button=False))
             button.on('touchstart', lambda: self.handle_button_press(
@@ -180,11 +180,11 @@ class GUI:
 
             with ui.row().classes('text-4xl w-full'):
                 ui.button(icon='timer', color=timeout_light_color,
-                          on_click=lambda: self.add_timeout(team_id)).props('outline round').classes('shadow-lg')
-                timeouts = ui.column()
+                          on_click=lambda: self.add_timeout(team_id)).props('outline round').mark(f'team-{team_id}-timeout').classes('shadow-lg')
+                timeouts = ui.column().mark(f'team-{team_id}-timeouts-display')
                 ui.space()
                 serve_icon = ui.icon(
-                    name='sports_volleyball', color=serve_vlight_color)
+                    name='sports_volleyball', color=serve_vlight_color).mark(f'team-{team_id}-serve')
                 serve_icon.on('click', lambda: self.change_serve(team_id))
         return button, timeouts, serve_icon
 
@@ -192,7 +192,7 @@ class GUI:
         """Creates the central control panel with set scores and pagination."""
         with ui.column().classes('justify-center'):
             with ui.row().classes('w-full justify-center'):
-                self.teamASet = ui.button('0', color='gray-700')
+                self.teamASet = ui.button('0', color='gray-700').mark('team-1-sets')
                 self.teamASet.on('mousedown', lambda: self.handle_button_press(
                     1, is_set_button=True))
                 self.teamASet.on('touchstart', lambda: self.handle_button_press(
@@ -209,10 +209,10 @@ class GUI:
                     with self.scores:
                         logo1_src = self.current_customize_state.get_team_logo(1)
                         logo2_src = self.current_customize_state.get_team_logo(2)
-                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto')
-                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto')
+                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto').mark('team-1-logo')
+                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto').mark('team-2-logo')
 
-                self.teamBSet = ui.button('0', color='gray-700')
+                self.teamBSet = ui.button('0', color='gray-700').mark('team-2-sets')
                 self.teamBSet.on('mousedown', lambda: self.handle_button_press(
                     2, is_set_button=True))
                 self.teamBSet.on('touchstart', lambda: self.handle_button_press(
@@ -225,20 +225,20 @@ class GUI:
                 self.teamBSet.classes('text-white text-2xl')
 
             self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
-                e.value)).props('color=grey active-color=teal')
+                e.value)).props('color=grey active-color=teal').classes('w-full justify-center').mark('set-selector')
 
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
         with ui.row().classes("w-full justify-right"):
             self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR,
-                                               on_click=self.switch_visibility).props('round').classes('text-white')
+                                               on_click=self.switch_visibility).props('round').mark('visibility-button').classes('text-white')
             self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR,
-                                           on_click=self.switch_simple_mode).props('round').classes('text-white')
+                                           on_click=self.switch_simple_mode).props('round').mark('simple-mode-button').classes('text-white')
             self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(
-                False)).props('round').classes('text-white')
+                False)).props('round').mark('undo-button').classes('text-white')
             ui.space()
             ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(
-                Customization.CONFIG_TAB)).props('round').classes('text-white')
+                Customization.CONFIG_TAB)).props('round').mark('config-tab-button').classes('text-white')
 
     def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized and not force:
@@ -292,7 +292,7 @@ class GUI:
         self.teamB_logo.set_source(logo2_src)
 
     def update_ui(self, load_from_backend=False):
-        self.logger.info('Updating UI...')
+        self.logger.debug('Updating UI...')
         if load_from_backend:
             self.logger.info('loading data from backend')
             self.game_manager = GameManager(self.conf, self.backend)
@@ -322,6 +322,7 @@ class GUI:
             teamA_game_int = update_state.get_game(1, i)
             teamB_game_int = update_state.get_game(2, i)
             if i == self.current_set:
+                self.logger.debug(f'setting games {teamA_game_int:02d} {teamB_game_int:02d} on current set {self.current_set:01d}')
                 self.teamAButton.set_text(f'{teamA_game_int:02d}')
                 self.teamBButton.set_text(f'{teamB_game_int:02d}')
         self.update_ui_games_table(update_state)
@@ -394,14 +395,14 @@ class GUI:
 
     async def reset(self):
         """Resets the game state, saves it, and updates the UI."""
-        self.logger.info('Reset called')
+        self.logger.debug('Reset called')
         self.game_manager.reset()
         self.update_ui(load_from_backend=True)
 
 
     async def refresh(self):
         """Reloads the game state from the backend and updates the UI."""
-        self.logger.info('Refresh called, reloading state from backend.')
+        self.logger.debug('Refresh called, reloading state from backend.')
         self.update_ui(load_from_backend=True)
         
 
@@ -422,9 +423,9 @@ class GUI:
         container = self.timeoutsA if team == 1 else self.timeoutsB
         container.clear()
         with container:
-            for _ in range(value):
+            for n in range(value):
                 ui.icon(name='radio_button_unchecked',
-                          color=color, size='12px')
+                          color=color, size='12px').mark(f'timeout-{team}-number-{n}')
 
     def set_game_value(self, team: int, value: int):
         """Directly sets the game score for a team."""

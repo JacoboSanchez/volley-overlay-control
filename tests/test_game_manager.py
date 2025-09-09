@@ -5,10 +5,10 @@ import os
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from game_manager import GameManager
-from conf import Conf
-from backend import Backend
-from state import State
+from app.game_manager import GameManager
+from app.conf import Conf
+from app.backend import Backend
+from app.state import State
 from unittest.mock import MagicMock
 
 # Mock the Backend class to avoid actual API calls during tests
@@ -190,3 +190,96 @@ def test_undo_timeout_at_zero(game_manager):
     game_manager.add_timeout(1, True)
     state = game_manager.get_current_state()
     assert state.get_timeout(1) == 0
+def test_deuce_not_a_win_at_25_24(game_manager):
+    """Tests that a set is not won at 25-24."""
+    for _ in range(24):
+        game_manager.add_game(1, 1, 25, 15, 5, False)
+    for _ in range(24):
+        game_manager.add_game(2, 1, 25, 15, 5, False)
+
+    game_manager.add_game(1, 1, 25, 15, 5, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 0
+    assert state.get_sets(2) == 0
+
+def test_deuce_is_a_win_at_26_24(game_manager):
+    """Tests that a set is won at 26-24."""
+    for _ in range(24):
+        game_manager.add_game(1, 1, 25, 15, 5, False)
+    for _ in range(24):
+        game_manager.add_game(2, 1, 25, 15, 5, False)
+
+    game_manager.add_game(1, 1, 25, 15, 5, False)
+    game_manager.add_game(1, 1, 25, 15, 5, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 1
+    assert state.get_sets(2) == 0
+
+def test_match_finished_by_two_sets(game_manager):
+    """Tests that a match is finished when a team is ahead by two sets."""
+    game_manager.add_set(2, False)
+    game_manager.add_set(1, False)
+    game_manager.add_set(2, False)
+    game_manager.add_set(2, False)
+    assert game_manager.match_finished() is True
+
+def test_match_not_finished_if_not_ahead_by_two_sets(game_manager):
+    """Tests that a match is not finished if a team is leading by only one set."""
+    game_manager.add_set(2, False)
+    assert game_manager.match_finished() is False
+
+def test_beach_volley_set_winning_conditions(game_manager):
+    game_manager.conf.points_last_set = 15
+    game_manager.conf.sets = 3
+    game_manager.conf.points_limit = 21
+    """Tests the winning conditions for a beach volleyball set."""
+    for _ in range(20):
+        game_manager.add_game(2, 1, 21, 15, 3, False)
+
+    game_manager.add_game(2, 1, 21, 15, 3, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(2) == 1
+
+def test_beach_volley_third_set_winning_conditions(game_manager):
+    game_manager.conf.points_last_set = 15
+    game_manager.conf.sets = 3
+    game_manager.conf.points_limit = 21
+    """Tests the winning conditions for the third set in a beach volleyball match."""
+    game_manager.add_set(1, False)
+    game_manager.add_set(2, False)
+    for _ in range(14):
+        game_manager.add_game(2, 3, 21, 15, 3, False)
+
+    game_manager.add_game(2, 3, 21, 15, 3, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(2) == 2
+    assert game_manager.match_finished() is True
+
+def test_beach_volley_match_finished(game_manager):
+    """Tests if the match is correctly marked as finished after two sets are won by the same team."""
+    game_manager.conf.points_last_set = 15
+    game_manager.conf.sets = 3
+    game_manager.conf.points_limit = 21
+    game_manager.add_set(1, False)
+    game_manager.add_set(2, False)
+    game_manager.add_set(1, False)
+    assert game_manager.match_finished() is True
+
+def test_beach_volley_deuce(game_manager):
+    game_manager.conf.points_last_set = 15
+    game_manager.conf.sets = 3
+    game_manager.conf.points_limit = 21
+    """Tests the deuce rule in beach volleyball."""
+    for _ in range(20):
+        game_manager.add_game(1, 1, 21, 15, 3, False)
+    for _ in range(20):
+        game_manager.add_game(2, 1, 21, 15, 3, False)
+    
+    game_manager.add_game(1, 1, 21, 15, 3, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 0
+    assert state.get_sets(2) == 0
+
+    game_manager.add_game(1, 1, 21, 15, 3, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 1

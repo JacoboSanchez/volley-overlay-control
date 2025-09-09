@@ -1,7 +1,7 @@
 import logging
-from state import State
-from backend import Backend
-from conf import Conf
+from app.state import State
+from app.backend import Backend
+from app.conf import Conf
 
 class GameManager:
     """
@@ -131,9 +131,9 @@ class GameManager:
         t1_sets = self.main_state.get_sets(1)
         t2_sets = self.main_state.get_sets(2)
         limit = self.conf.sets
-        soft_limit = 2 if limit == 3 else 3
+        soft_limit = int(limit / 2) + 1
         if t1_sets >= soft_limit or t2_sets >= soft_limit:
-            self.logger.debug(f"Match finished. Score: {t1_sets}-{t2_sets}")
+            self.logger.debug(f"Match finished. Score: {t1_sets}-{t2_sets}, required: {soft_limit}")
             return True
-        self.logger.debug(f"Match not finished. Score: {t1_sets}-{t2_sets}")
+        self.logger.debug(f"Match not finished. Score: {t1_sets}-{t2_sets}, required: {soft_limit}")
         return False

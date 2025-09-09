@@ -1,3 +1,4 @@
+# tests/test_backend.py
 import pytest
 import sys
 import os
@@ -6,31 +7,18 @@ from unittest.mock import patch, MagicMock
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from backend import Backend
-from conf import Conf
-from state import State
-from app_storage import AppStorage
+from app.backend import Backend
+from app.conf import Conf
+from app.state import State
+from app.app_storage import AppStorage
 
-@pytest.fixture(autouse=True)
-def reset_app_storage_cache(monkeypatch):
-    """
-    Fixture to automatically reset the AppStorage cache and ensure
-    backend tests use the in-memory storage, not the live NiceGUI storage from UI tests.
-    """
-    # Prevent AppStorage from ever accessing the live app's storage context during backend tests
-    monkeypatch.setattr('nicegui.app.storage', None)
-    
-    # Force AppStorage to re-evaluate its backend, choosing the in-memory one
-    AppStorage._reset_cache()
-    
-    # Clear any data from previous test runs
-    AppStorage.clear_user_storage()
-    yield
+# The autouse fixture that was here has been moved to conftest.py
+# to be applied globally to all tests, ensuring UI tests are also isolated.
 
 @pytest.fixture
 def mock_requests_session():
     """Fixture to mock the requests.Session object."""
-    with patch('backend.requests.Session') as mock_session_class:
+    with patch('app.backend.requests.Session') as mock_session_class:
         mock_session_instance = mock_session_class.return_value
         # Default successful response
         mock_response = MagicMock()
@@ -52,7 +40,7 @@ def backend(conf, mock_requests_session):
 
 def test_initialization(conf):
     """Tests that the Backend initializes correctly and sets up session headers."""
-    with patch('backend.requests.Session') as mock_session_class:
+    with patch('app.backend.requests.Session') as mock_session_class:
         mock_session_instance = mock_session_class.return_value
         be = Backend(conf)
         
@@ -100,7 +88,7 @@ def test_get_current_model_success(backend, mock_requests_session):
 
     assert retrieved_model == expected_model
 
-@patch('backend.AppStorage.load')
+@patch('app.backend.AppStorage.load')
 def test_get_current_model_from_storage(mock_appstorage_load, backend, mock_requests_session):
     """Tests that the model is loaded from AppStorage if available, skipping the API call."""
     stored_model = {'Team 1 Sets': '2'}
@@ -119,14 +107,14 @@ def test_get_current_model_failure(backend, mock_requests_session):
     
     assert retrieved_model is None
 
-@patch('backend.AppStorage.save')
+@patch('app.backend.AppStorage.save')
 def test_validate_and_store_model_for_oid_valid(mock_appstorage_save, backend, mock_requests_session):
     """Tests the validation logic for a valid OID."""
     mock_requests_session.put.return_value.json.return_value = {'payload': {'Team 1 Sets': '0'}}
 
     result = backend.validate_and_store_model_for_oid("valid_oid")
 
-    assert result == Backend.ValidationResult.VALID
+    assert result == State.OIDStatus.VALID
     mock_appstorage_save.assert_called_once()
 
 def test_validate_and_store_model_for_oid_invalid(backend, mock_requests_session):
@@ -135,7 +123,7 @@ def test_validate_and_store_model_for_oid_invalid(backend, mock_requests_session
 
     result = backend.validate_and_store_model_for_oid("invalid_oid")
     
-    assert result == Backend.ValidationResult.INVALID
+    assert result == State.OIDStatus.INVALID
 
 def test_validate_and_store_model_for_oid_deprecated(backend, mock_requests_session):
     """Tests the validation logic for a deprecated model format."""
@@ -143,16 +131,16 @@ def test_validate_and_store_model_for_oid_deprecated(backend, mock_requests_sess
 
     result = backend.validate_and_store_model_for_oid("deprecated_oid")
 
-    assert result == Backend.ValidationResult.DEPRECATED
+    assert result == State.OIDStatus.DEPRECATED
 
 def test_validate_and_store_model_for_oid_empty(backend):
     """Tests that an empty or None OID is correctly identified."""
-    assert backend.validate_and_store_model_for_oid(None) == Backend.ValidationResult.EMPTY
-    assert backend.validate_and_store_model_for_oid("  ") == Backend.ValidationResult.EMPTY
+    assert backend.validate_and_store_model_for_oid(None) == State.OIDStatus.EMPTY
+    assert backend.validate_and_store_model_for_oid("  ") == State.OIDStatus.EMPTY
 
 # --- New Test Cases ---
 
-@patch('backend.threading.Thread')
+@patch('app.backend.threading.Thread')
 def test_save_model_multithreaded(mock_thread, backend, conf):
     """Tests that save_model starts a new thread when multithreading is enabled."""
     conf.multithread = True
@@ -160,7 +148,7 @@ def test_save_model_multithreaded(mock_thread, backend, conf):
     mock_thread.assert_called_once()
     mock_thread.return_value.start.assert_called_once()
 
-@patch('backend.threading.Thread')
+@patch('app.backend.threading.Thread')
 def test_save_model_single_threaded(mock_thread, backend, conf):
     """Tests that save_model does NOT start a new thread when multithreading is disabled."""
     conf.multithread = False
@@ -206,15 +194,22 @@ def test_is_visible(backend, mock_requests_session):
 
 def test_reset(backend, mock_requests_session, conf):
     """Tests that the reset method saves the correct reset model."""
+    # Temporarily disable multithreading for this test
+    conf.multithread = False
+
     state = State()
     backend.reset(state)
-    
+
     expected_payload = {
         "command": "SetOverlayContent",
         "id": conf.id,
         "content": state.get_reset_model()
     }
-    mock_requests_session.put.assert_called_once_with(mock_requests_session.put.call_args[0][0], json=expected_payload)
+
+    # Now the assertion will correctly find that .put() has been called
+    mock_requests_session.put.assert_called_once_with(
+        mock_requests_session.put.call_args[0][0], json=expected_payload
+    )
 
 def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     """Tests that a custom OID overrides the default one in API calls."""
@@ -225,7 +220,7 @@ def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     mock_requests_session.put.assert_called_once()
     assert mock_requests_session.put.call_args[0][0] == expected_url
 
-@patch('backend.AppStorage.save')
+@patch('app.backend.AppStorage.save')
 def test_get_current_model_saves_result(mock_appstorage_save, backend, mock_requests_session):
     """Tests that get_current_model saves the result when saveResult is True."""
     expected_model = {'Team 1 Sets': '1'}
