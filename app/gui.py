@@ -104,11 +104,11 @@ class GUI:
                 max=max_value,
                 step=1,
                 format='%.0f'
-            ).classes('w-full')
+            ).classes('w-full').mark('value-input')
             with ui.row():
                 ui.button('OK', on_click=lambda: dialog.submit(
-                    value_input.value))
-                ui.button('Cancel', on_click=dialog.close)
+                    value_input.value)).mark('value-input-ok-button')
+                ui.button('Cancel', on_click=dialog.close).mark('value-input-cancel-button')
 
         result = await dialog
         if result is not None:
