@@ -1034,3 +1034,141 @@ async def test_predefined_overlay_with_user_filter(user: User, mock_backend, aut
     await user.should_see("User 1 Overlay")
     await user.should_see("All Users Overlay")
     await asyncio.sleep(0.3)
+
+async def test_autohide_feature(user: User, mock_backend, monkeypatch):
+    """Tests the auto-hide functionality with corrected initial state."""
+    monkeypatch.setenv('DEFAULT_HIDE_TIMEOUT', '1')
+
+    # Set initial visibility to False to ensure the first call is to show
+    mock_backend.is_visible.return_value = False
+
+    await user.open('/?control=test_oid_valid')
+    await user.should_see(marker='config-tab-button')
+
+    # Go to config tab, open options, and enable auto-hide
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='save-button')
+    user.find(marker='options-button').click()
+    await user.should_see(Messages.get(Messages.AUTO_HIDE))
+    user.find(Messages.get(Messages.AUTO_HIDE)).click()
+    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='scoreboard-tab-button').click()
+    await user.should_see(marker='team-1-score')
+
+    # --- Test 1: Scoring a regular point should trigger hide ---
+    mock_backend.change_overlay_visibility.reset_mock()
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.1)
+
+    # Should immediately become visible
+    mock_backend.change_overlay_visibility.assert_called_once_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for the timeout
+    await asyncio.sleep(1.1)
+    # Should now be hidden
+    mock_backend.change_overlay_visibility.assert_called_with(False)
+    await user.should_see('visibility_off', marker='visibility-button')
+
+    # --- Test 2: Scoring multiple points should reset the timer ---
+    mock_backend.change_overlay_visibility.reset_mock()
+    mock_backend.is_visible.return_value = False
+
+    # Score 5 points with a 0.3s delay
+    for _ in range(5):
+        user.find(marker='team-2-score').click()
+        await asyncio.sleep(0.3)
+
+    # It should have been made visible on the first click
+    mock_backend.change_overlay_visibility.assert_called_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for a period longer than the original timeout, but shorter
+    # than the timeout after the last click.
+    await asyncio.sleep(0.7) # Total time since first click: 1.6s
+
+    # It should NOT be hidden, as the timer should have been reset.
+    # The last call should still be the one that made it visible.
+    mock_backend.change_overlay_visibility.assert_called_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for the full timeout after the LAST click
+    await asyncio.sleep(0.5) # Total time since last click: 1.1s
+
+    # NOW it should be hidden
+    mock_backend.change_overlay_visibility.assert_called_with(False)
+    await user.should_see('visibility_off', marker='visibility-button')
+
+    # --- Test 3: Scoring a set-winning point should NOT trigger hide ---
+    # Set visibility to False again for a clean test
+    mock_backend.change_overlay_visibility.reset_mock()
+    mock_backend.is_visible.return_value = False
+    # Score 24 points to set up the win
+    for _ in range(24):
+        user.find(marker='team-1-score').click()
+        await asyncio.sleep(0.01)
+
+    await user.should_see('25', marker='team-1-score') # Score is now 25 vs 0
+    await user.should_see('1', marker='team-1-sets')   # Set is won
+
+    # The overlay should have been made visible, and only called once
+    mock_backend.change_overlay_visibility.assert_called_once_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for the timeout period again
+    await asyncio.sleep(1.1)
+
+    # Assert that no new calls were made. The last (and only) call was to set visibility to True.
+    mock_backend.change_overlay_visibility.assert_called_once_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+   
+
+
+async def test_auto_simple_mode_feature(user: User, mock_backend):
+    """Tests the auto-simple-mode functionality with precise assertions."""
+    await user.open('/?control=test_oid_valid')
+    await user.should_see(marker='config-tab-button')
+
+    # Go to config tab, open options, and enable auto-simple-mode
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='save-button')
+    user.find(marker='options-button').click()
+    await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE))
+    user.find(Messages.get(Messages.AUTO_SIMPLE_MODE)).click()
+    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='scoreboard-tab-button').click()
+    await user.should_see(marker='team-1-score')
+
+    # --- Test 1: Assert function is NOT called before the action ---
+    mock_backend.reduce_games_to_one.assert_not_called()
+    await user.should_see('grid_on', marker='simple-mode-button')
+
+
+    # --- Test 2: Scoring a point should switch to simple mode ---
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.1)
+
+    mock_backend.reduce_games_to_one.assert_called_once()
+    await user.should_see('window', marker='simple-mode-button')
+
+
+    # --- Test 3: Winning a set should switch back to full mode ---
+
+    for _ in range(23):
+        user.find(marker='team-1-score').click()
+        await asyncio.sleep(0.01)
+        await user.should_see('window', marker='simple-mode-button')
+
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see('1', marker='team-1-sets')
+    await asyncio.sleep(0.1)
+
+    # The function should NOT be called again when switching back to full mode.
+    await user.should_see('grid_on', marker='simple-mode-button')
+
+    # Starting the set again returns to simple mode
+    user.find(marker='team-2-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see('window', marker='simple-mode-button')

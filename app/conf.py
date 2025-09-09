@@ -21,7 +21,7 @@ class Conf:
         self.lock_teamA_colors = False
         self.lock_teamB_colors = False
         self.auto_hide = False
-        self.hide_timeout = 5
+        self.hide_timeout = int(os.environ.get('DEFAULT_HIDE_TIMEOUT', 5))
         self.auto_simple_mode = False
 
         
