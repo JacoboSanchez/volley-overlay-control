@@ -225,7 +225,7 @@ class GUI:
                 self.teamBSet.classes('text-white text-2xl')
 
             self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
-                e.value)).props('color=grey active-color=teal').mark('set-selector')
+                e.value)).props('color=grey active-color=teal').classes('w-full justify-center').mark('set-selector')
 
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
