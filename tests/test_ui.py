@@ -3,7 +3,6 @@ import json
 import os
 import asyncio
 import importlib
-from selenium.webdriver.common.action_chains import ActionChains
 from unittest.mock import patch, MagicMock
 from nicegui.testing import User
 from app.startup import startup
