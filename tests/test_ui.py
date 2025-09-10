@@ -27,6 +27,39 @@ def load_fixture(name):
     with open(path) as f:
         return json.load(f)
 
+async def _test_long_press(user: User, marker: str, value: str, confirm: bool):
+    """Utility method to test the long press functionality."""
+    # Determine the expected message based on the marker
+    if 'score' in marker:
+        message = Messages.get(Messages.SET_CUSTOM_GAME_VALUE)
+    elif 'sets' in marker:
+        message = Messages.get(Messages.SET_CUSTOM_SET_VALUE)
+    else:
+        pytest.fail(f"Unknown marker type for long press: {marker}")
+
+    await user.should_not_see(message)
+
+    # Perform a long press on the specified element
+    user.find(marker=marker).trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker=marker).trigger('mouseup')
+    await asyncio.sleep(0)
+    
+    # The dialog to set a custom value should appear
+    await user.should_see(message)
+    
+    # Set the value in the input
+    user.find(marker='value-input').elements.pop().set_value(value)
+    
+    # Click OK or Cancel
+    if confirm:
+        user.find(marker='value-input-ok-button').click()
+    else:
+        user.find(marker='value-input-cancel-button').click()
+    
+    await asyncio.sleep(0.5)
+
+
 @pytest.fixture
 def mock_backend():
     """
@@ -1177,26 +1210,8 @@ async def test_long_press_game_score(user: User, mock_backend):
     """Tests the long press feature to set a custom game score."""
     await user.open('/')
     await user.should_see('00', marker='team-1-score')
-    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
-
-    # Perform a long press on the team 1 score button
-    user.find(marker='team-1-score').trigger('mousedown')
-    await asyncio.sleep(1)
-    user.find(marker='team-1-score').trigger('mouseup')
-    await asyncio.sleep(0)
-    
-    # The dialog to set a custom value should appear
-    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
-    
-    # Set the value to 15 and submit
-    # Note: Accessing the input element requires a different approach with .find()
-    user.find(marker='value-input').elements.pop().set_value('15')
-    user.find(marker='value-input-ok-button').click()
-    await asyncio.sleep(0.5)
-    # The score should now be 15
+    await _test_long_press(user, 'team-1-score', '15', True)
     await user.should_see('15', marker='team-1-score')
-
-    # A regular click should now increment the score to 16
     user.find(marker='team-1-score').click()
     await asyncio.sleep(0.1)
     await user.should_see('16', marker='team-1-score')
@@ -1208,26 +1223,8 @@ async def test_long_press_game_score_and_cancel(user: User, mock_backend):
     """Tests the long press feature to set a custom game score."""
     await user.open('/')
     await user.should_see('00', marker='team-2-score')
-    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
-
-    # Perform a long press on the team 2 score button
-    user.find(marker='team-2-score').trigger('mousedown')
-    await asyncio.sleep(1)
-    user.find(marker='team-2-score').trigger('mouseup')
-    await asyncio.sleep(0)
-    
-    # The dialog to set a custom value should appear
-    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
-    
-    # Set the value to 15 and submit
-    # Note: Accessing the input element requires a different approach with .find()
-    user.find(marker='value-input').elements.pop().set_value('12')
-    user.find(marker='value-input-cancel-button').click()
-    await asyncio.sleep(0.5)
-    # The score should now be 0
+    await _test_long_press(user, 'team-2-score', '12', False)
     await user.should_see('0', marker='team-1-score')
-
-    # A regular click should now increment the score to 1
     user.find(marker='team-2-score').click()
     await asyncio.sleep(0.1)
     await user.should_see('01', marker='team-2-score')
@@ -1237,25 +1234,8 @@ async def test_long_press_set_score(user: User, mock_backend):
     """Tests the long press feature to set a custom set score."""
     await user.open('/')
     await user.should_see('0', marker='team-2-sets')
-    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
-
-    # Perform a long press on the team 2 set button
-    user.find(marker='team-2-sets').trigger('mousedown')
-    await asyncio.sleep(1)
-    user.find(marker='team-2-sets').trigger('mouseup')
-    await asyncio.sleep(0)
-
-    # The dialog to set a custom value should appear
-    await user.should_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
-    
-    # Set the value to 2 and submit
-    user.find(marker='value-input').elements.pop().set_value('2')
-    user.find(marker='value-input-ok-button').click()
-    await asyncio.sleep(0.5)
-    # The set score should now be 2
+    await _test_long_press(user, 'team-2-sets', '2', True)
     await user.should_see('2', marker='team-2-sets')
-
-    # A regular click should now increment the set score to 3
     user.find(marker='team-2-sets').click()
     await user.should_see('3', marker='team-2-sets')
     await asyncio.sleep(0.2)
@@ -1265,25 +1245,8 @@ async def test_long_press_set_score_cancel(user: User, mock_backend):
     """Tests the long press feature to set a custom set score."""
     await user.open('/')
     await user.should_see('0', marker='team-1-sets')
-    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
-
-    # Perform a long press on the team 2 set button
-    user.find(marker='team-1-sets').trigger('mousedown')
-    await asyncio.sleep(1)
-    user.find(marker='team-1-sets').trigger('mouseup')
-    await asyncio.sleep(0)
-
-    # The dialog to set a custom value should appear
-    await user.should_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
-    
-    # Set the value to 2 and submit
-    user.find(marker='value-input').elements.pop().set_value('2')
-    user.find(marker='value-input-cancel-button').click()
-    await asyncio.sleep(0.5)
-    # The set score should now be 2
+    await _test_long_press(user, 'team-1-sets', '2', False)
     await user.should_see('0', marker='team-2-sets')
-
-    # A regular click should now increment the set score to 3
     user.find(marker='team-2-sets').click()
     await user.should_see('1', marker='team-2-sets')
     await asyncio.sleep(0.2)
@@ -1293,19 +1256,7 @@ async def test_long_press_wins_set(user: User, mock_backend):
     await user.open('/')
     await user.should_see('00', marker='team-2-score')
     await user.should_see('0', marker='team-12-sets')
-
-    # Long press to set the score to the winning value
-    user.find(marker='team-2-score').trigger('mousedown')
-    await asyncio.sleep(1)
-    user.find(marker='team-2-score').trigger('mouseup')
-    await asyncio.sleep(0)
-    
-    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
-    user.find(marker='value-input').elements.pop().set_value('25')
-    user.find(marker='value-input-ok-button').click()
-    await asyncio.sleep(0.5)
-
-    # The set should be awarded to team 1, and the score should reset
+    await _test_long_press(user, 'team-2-score', '25', True)
     await user.should_see('1', marker='team-2-sets')
     await user.should_see('00', marker='team-2-score')
 
@@ -1321,18 +1272,7 @@ async def test_long_press_wins_match(user: User, mock_backend, monkeypatch):
     
     await user.open('/?control=endgame_oid_valid')
     await user.should_see(marker='team-1-score')
-    # Long press to set the score to the winning value for the last set
-    user.find(marker='team-1-score').trigger('mousedown')
-    await asyncio.sleep(1)
-    user.find(marker='team-1-score').trigger('mouseup')
-    await asyncio.sleep(0)
-    
-    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
-    user.find(marker='value-input').elements.pop().set_value('15')
-    user.find(marker='value-input-ok-button').click()
-    await asyncio.sleep(0.5)
-
-    # Team 1 should now have 3 sets, and the match should be over
+    await _test_long_press(user, 'team-1-score', '15', True)
     await user.should_see('3', marker='team-1-sets')
     
     # Try to score another point, which should be blocked
@@ -1349,19 +1289,7 @@ async def test_long_press_on_sets_wins_match(user: User, mock_backend, monkeypat
 
     await user.open('/?control=midgame_oid_valid')
     await user.should_see('1', marker='team-1-sets')
-
-    # Long press the sets button to award the final set
-    user.find(marker='team-1-sets').trigger('mousedown')
-    await asyncio.sleep(1)
-    user.find(marker='team-1-sets').trigger('mouseup')
-    await asyncio.sleep(0)
-    
-    await user.should_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
-    user.find(marker='value-input').elements.pop().set_value('2')
-    user.find(marker='value-input-ok-button').click()
-    await asyncio.sleep(0.5)
-
-    # Team 1 should now have 2 sets, and the match should be over
+    await _test_long_press(user, 'team-1-sets', '2', True)
     await user.should_see('2', marker='team-1-sets')
 
     # Try to score a point, which should be blocked
