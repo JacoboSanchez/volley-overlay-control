@@ -63,6 +63,54 @@ async def _do_long_press(user: User, marker: str, value: str, confirm: bool, fir
     
     await asyncio.sleep(0.5)
 
+async def _handle_dialog(user: User, trigger_marker: str, confirm: bool):
+    """
+    Utility method to test dialog interactions (confirm/cancel).
+    """
+    # Click the button that opens the dialog
+    user.find(marker=trigger_marker).click()
+    await asyncio.sleep(0) # Allow UI to update
+
+    if confirm:
+        confirm_marker = 'confirm-reset-button'
+        if 'logout' in trigger_marker:
+            confirm_marker = 'confirm-logout-button'
+        elif 'refresh' in trigger_marker:
+            confirm_marker = 'confirm-refresh-button'
+        
+        await user.should_see(marker=confirm_marker)
+        user.find(marker=confirm_marker).click()
+    else:
+        cancel_marker = 'cancel-reset-button'
+        if 'logout' in trigger_marker:
+            cancel_marker = 'cancel-logout-button'
+        elif 'refresh' in trigger_marker:
+            cancel_marker = 'cancel-refresh-button'
+
+        await user.should_see(marker=cancel_marker)
+        user.find(marker=cancel_marker).click()
+    
+    await asyncio.sleep(0.2) # Wait for the action to complete
+
+async def _login(user: User, username: str, password: str):
+    """
+    Handles the login process. Assumes the user is on the login page.
+    """
+    await user.should_see(marker='username-input')
+    user.find(marker='username-input').type(username)
+    user.find(marker='password-input').type(password)
+    user.find(marker='login-button').click()
+
+async def _navigate_to_config(user: User, open_root_page: str='/'):
+    """
+    Opens the page and navigates to the configuration tab, waiting for it to load.
+    """
+    if open_root_page is not None:
+        await user.open(open_root_page)
+    await user.should_see(marker='config-tab-button')
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='height-input') # Wait for a representative element
+
 
 @pytest.fixture
 def mock_backend():
@@ -257,9 +305,7 @@ async def test_visibility_button(user: User, mock_backend):
 
 async def test_navigation_to_config_tab(user: User, mock_backend):
     """Tests navigating to the configuration tab."""
-    await user.open('/')
-    await user.should_see(marker='config-tab-button')
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user)
     # After clicking, we should see an element from the config page
     await user.should_see(marker='height-input')
     await user.should_see(marker='width-input')
@@ -329,13 +375,11 @@ async def test_refresh(user: User, mock_backend):
     await user.should_see(content='25', marker='team-1-score')
 
     # Go to config tab to test refresh
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     await user.should_see(marker='refresh-button')
     
-    # Test refresh cancellation
-    user.find(marker='refresh-button').click()
-    await user.should_see(marker='cancel-refresh-button')
-    user.find(marker='cancel-refresh-button').click()
+    # Test refresh cancellation using the new helper
+    await _handle_dialog(user, 'refresh-button', confirm=False)
     await user.should_see(marker='scoreboard-tab-button')
 
     # Go back to scoreboard and check that nothing changed
@@ -343,14 +387,9 @@ async def test_refresh(user: User, mock_backend):
     await user.should_see(content='25', marker='team-1-score') # Score should still be 25
     await user.should_see(content='3', marker='team-1-sets')
 
-    # Go back to config and test refresh confirmation
-    user.find(marker='config-tab-button').click()
-    await user.should_see(marker='refresh-button')
-    user.find(marker='refresh-button').click()
-    await asyncio.sleep(0)
-    await user.should_see(marker='confirm-refresh-button')
-    user.find(marker='confirm-refresh-button').click()
-    await asyncio.sleep(0.2) # Give time for async operations
+    # Go back to config and test refresh confirmation using the new helper
+    await _navigate_to_config(user, open_root_page=None)
+    await _handle_dialog(user, 'refresh-button', confirm=True)
     
     # Go back to scoreboard
     user.find(marker='scoreboard-tab-button').click()
@@ -370,10 +409,7 @@ async def test_team_customization(user: User, mock_backend, monkeypatch):
     }
     monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
 
-    await user.open('/')
-    # Go to config tab
-    await user.should_see(marker='config-tab-button')
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user)
     await user.should_see(marker='team-1-name-selector')
 
     # Change team 1's name to "Eagles"
@@ -411,10 +447,7 @@ async def test_team_selection_from_env_var(user: User, mock_backend, monkeypatch
     import app.customization
     importlib.reload(app.customization)
     
-    await user.open('/')
-    # Go to config tab
-    await user.should_see(marker='config-tab-button')
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user)
     await user.should_see(marker='team-1-name-selector')
 
     # Check if the new teams are in the selector
@@ -433,10 +466,7 @@ async def test_lock_buttons_prevent_changes(user: User, mock_backend, monkeypatc
     }
     monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
 
-    await user.open('/')
-    # Go to config tab
-    await user.should_see(marker='config-tab-button')
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user)
     await user.should_see(marker='team-1-name-selector')
 
     # Get the initial color and icon of team 1
@@ -500,27 +530,20 @@ async def test_reset_from_config(user: User, mock_backend):
     await user.should_see(content='24', marker='team-1-score')
 
     # Go to config tab
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     await user.should_see(marker='reset-button')
 
-    # Click reset and cancel
-    user.find(marker='reset-button').click()
-    await asyncio.sleep(0)
-    await user.should_see(marker='cancel-reset-button')
-    user.find(marker='cancel-reset-button').click()
+    # Click reset and cancel using the new helper
+    await _handle_dialog(user, 'reset-button', confirm=False)
     # Should be back on the scoreboard, and score should NOT be reset
     await user.should_see(content='24', marker='team-1-score')
 
     # Go to config tab again
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     await user.should_see(marker='reset-button')
 
-    # Click reset and confirm
-    user.find(marker='reset-button').click()
-    await asyncio.sleep(0)
-    await user.should_see(marker='confirm-reset-button')
-    user.find(marker='confirm-reset-button').click()
-    await asyncio.sleep(0.2)
+    # Click reset and confirm using the new helper
+    await _handle_dialog(user, 'reset-button', confirm=True)
     # Verify that the backend's reset method was called
     mock_backend.reset.assert_called()
     await user.should_see(content='00', marker='team-1-score')
@@ -544,11 +567,7 @@ async def test_theme_application(user: User, mock_backend, monkeypatch):
     }
     monkeypatch.setattr('app.customization.Customization.THEMES', themes)
 
-    await user.open('/')
-    await user.should_see(marker='config-tab-button')
-
-    # Go to the configuration tab
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user)
     await user.should_see(marker='theme-button')
 
     # Check initial width
@@ -587,11 +606,7 @@ async def test_theme_application(user: User, mock_backend, monkeypatch):
 
 async def test_manual_customization(user: User, mock_backend):
     """Tests manually changing customization values."""
-    await user.open('/')
-    await user.should_see(marker='config-tab-button')
-
-    # Go to config tab
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user)
     await user.should_see(marker='height-input')
 
     assert user.find(marker='width-input').elements.pop().props['model-value'] == '55.0'
@@ -740,7 +755,7 @@ async def test_predefined_overlay_cycle(user: User, mock_backend, predefined_ove
     # --- Part 2: Reset and Use Manual OID ---
 
     # Go to config page and click reset link
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     await user.should_see(marker='change-overlay-button')
     user.find(marker='change-overlay-button').click()
     await asyncio.sleep(0.2)
@@ -787,7 +802,7 @@ async def test_url_params_override_oid(user: User, mock_backend, monkeypatch):
     await user.should_see(content='0', marker='team-2-sets')
 
     # Go to the configuration tab
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     
     # Verify the control link uses the OID from the URL parameter
     control_link = user.find(Messages.get(Messages.CONTROL_LINK))
@@ -810,7 +825,7 @@ async def test_url_params_set_output(user: User, mock_backend, monkeypatch):
     await user.should_see(content='1', marker='team-1-sets')
     await user.should_see(content='0', marker='team-2-sets')
     # Go to the configuration tab
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     
     # Verify the output link is present and correct
     output_link = user.find(Messages.get(Messages.OVERLAY_LINK))
@@ -939,12 +954,7 @@ def auth_users_env(monkeypatch):
 async def test_login_and_auto_load_oid(user: User, mock_backend, auth_users_env):
     """Tests that a user can log in and their predefined OID is loaded automatically."""
     await user.open('/')
-    
-    # We should be on the login page
-    await user.should_see(marker='username-input')
-    user.find(marker='username-input').type('user1')
-    user.find(marker='password-input').type('password1')
-    user.find(marker='login-button').click()
+    await _login(user, 'user1', 'password1')
     
     # After login, we should see the scoreboard with data from "predefined_1_valid"
     await user.should_see(marker='team-1-score')
@@ -952,7 +962,7 @@ async def test_login_and_auto_load_oid(user: User, mock_backend, auth_users_env)
     await user.should_see(content='05', marker='team-2-score')
     
     # Go to the configuration tab and check links
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     await user.should_see(Messages.get(Messages.OVERLAY_LINK))
     assert 'https://app.overlays.uno/output/output_1' in user.find(Messages.get(Messages.OVERLAY_LINK)).elements.pop().props['href']
     assert 'https://app.overlays.uno/control/predefined_1_valid' in user.find(Messages.get(Messages.CONTROL_LINK)).elements.pop().props['href']
@@ -963,10 +973,7 @@ async def test_logout_flow(user: User, mock_backend, auth_users_env):
     await user.open('/')
     
     # Login as user2
-    await user.should_see(marker='username-input')
-    user.find(marker='username-input').type('user2')
-    user.find(marker='password-input').type('password2')
-    user.find(marker='login-button').click()
+    await _login(user, 'user2', 'password2')
     
     # User2 has no predefined OID, so the OID dialog should appear
     await user.should_see(marker='control-url-input')
@@ -978,38 +985,25 @@ async def test_logout_flow(user: User, mock_backend, auth_users_env):
     await user.should_see(marker='username-input')
     
     # Login again as user1
-    user.find(marker='username-input').type('user1')
-    user.find(marker='password-input').type('password1')
-    user.find(marker='login-button').click()
+    await _login(user, 'user1', 'password1')
     
     # We should see the scoreboard for user1
     await user.should_see(marker='team-1-score')
     await user.should_see(content='10', marker='team-1-score')
     
-    # Go to config tab and logout
-    user.find(marker='config-tab-button').click()
-    await user.should_see(marker='logout-button')
-    user.find(marker='logout-button').click()
-    await asyncio.sleep(0)
+    # Go to config tab and logout (confirm)
+    await _navigate_to_config(user, open_root_page=None)
+    await _handle_dialog(user, 'logout-button', confirm=True)
     
-    # Confirm logout
-    await user.should_see(Messages.get(Messages.ASK_LOGOUT))
-    user.find(marker='confirm-logout-button').click()
-    await asyncio.sleep(0.3)
-
     # We should be back on the login page
     await user.should_see(marker='username-input')
     await user.should_not_see(marker='config-tab-button')
 
     # Login again as user1, but cancel logout
-    user.find(marker='username-input').type('user1')
-    user.find(marker='password-input').type('password1')
-    user.find(marker='login-button').click()
+    await _login(user, 'user1', 'password1')
     await user.should_see(marker='team-1-score')
-    user.find(marker='config-tab-button').click()
-    user.find(marker='logout-button').click()
-    await user.should_see(Messages.get(Messages.ASK_LOGOUT))
-    user.find(marker='cancel-logout-button').click()
+    await _navigate_to_config(user, open_root_page=None)
+    await _handle_dialog(user, 'logout-button', confirm=False)
     await user.should_see(marker='config-tab-button')
     await asyncio.sleep(0.3)
 
@@ -1027,10 +1021,7 @@ async def test_predefined_overlay_with_user_filter(user: User, mock_backend, aut
     await user.open('/')
     
     # Login as user2
-    await user.should_see(marker='username-input')
-    user.find(marker='username-input').type('user2')
-    user.find(marker='password-input').type('password2')
-    user.find(marker='login-button').click()
+    await _login(user, 'user2', 'password2')
     
     # User2 should see the OID dialog. Let's check the available overlays.
     await user.should_see(marker='predefined-overlay-selector')
@@ -1045,15 +1036,11 @@ async def test_predefined_overlay_with_user_filter(user: User, mock_backend, aut
     user.find(marker='logout-button-oid').click()
     
     # Login as user1
-    await user.should_see(marker='username-input')
-    user.find(marker='username-input').type('user1')
-    user.find(marker='password-input').type('password1')
-    user.find(marker='login-button').click()
+    await _login(user, 'user1', 'password1')
     
     # User1 has a predefined OID, so the scoreboard loads directly.
     # We need to go to the config, reset the OID to see the dialog again.
-    await user.should_see(marker='team-1-score')
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page=None)
     await user.should_see(marker='change-overlay-button')
     user.find(marker='change-overlay-button').click()
     
@@ -1072,12 +1059,9 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
 
     # Set initial visibility to False to ensure the first call is to show
     mock_backend.is_visible.return_value = False
-
-    await user.open('/?control=test_oid_valid')
-    await user.should_see(marker='config-tab-button')
-
+    
     # Go to config tab, open options, and enable auto-hide
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page='/?control=test_oid_valid')
     await user.should_see(marker='save-button')
     user.find(marker='options-button').click()
     await user.should_see(Messages.get(Messages.AUTO_HIDE))
@@ -1158,11 +1142,8 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
 
 async def test_auto_simple_mode_feature(user: User, mock_backend):
     """Tests the auto-simple-mode functionality with precise assertions."""
-    await user.open('/?control=test_oid_valid')
-    await user.should_see(marker='config-tab-button')
-
     # Go to config tab, open options, and enable auto-simple-mode
-    user.find(marker='config-tab-button').click()
+    await _navigate_to_config(user, open_root_page='/?control=test_oid_valid')
     await user.should_see(marker='save-button')
     user.find(marker='options-button').click()
     await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE))
