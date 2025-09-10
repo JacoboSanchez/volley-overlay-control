@@ -117,6 +117,8 @@ class GUI:
                 self.set_sets_value(team, value)
             else:
                 self.set_game_value(team, value)
+        
+        self.open_click_gate()
 
     def open_click_gate(self):
         """Opens the gate to allow new click events."""
