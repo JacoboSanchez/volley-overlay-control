@@ -137,3 +137,17 @@ class GameManager:
             return True
         self.logger.debug(f"Match not finished. Score: {t1_sets}-{t2_sets}, required: {soft_limit}")
         return False
+    
+    def check_set_won(self, team: int, current_set: int, points_limit: int, points_limit_last_set: int, sets_limit: int) -> bool:
+        """Checks if a team has won the current set after a direct score update."""
+        self.logger.debug(f"Checking if team {team} won set {current_set}")
+        current_score = self.main_state.get_game(team, current_set)
+        rival_team = 2 if team == 1 else 1
+        rival_score = self.main_state.get_game(rival_team, current_set)
+        game_limit = points_limit_last_set if current_set == sets_limit else points_limit
+
+        if current_score >= game_limit and (current_score - rival_score > 1):
+            self.logger.debug(f"Team {team} won set {current_set}")
+            self.add_set(team, False)
+            return True
+        return False

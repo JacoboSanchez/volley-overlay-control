@@ -432,7 +432,20 @@ class GUI:
     def set_game_value(self, team: int, value: int):
         """Directly sets the game score for a team."""
         self.game_manager.set_game_value(team, value, self.current_set)
-        self.update_ui_games(self.game_manager.get_current_state())
+        
+        # Check if this score results in a set win
+        set_won = self.game_manager.check_set_won(
+            team, self.current_set, self.points_limit, self.points_limit_last_set, self.sets_limit
+        )
+
+        if set_won:
+            current_state = self.game_manager.get_current_state()
+            self.update_ui_sets(current_state)
+            self.update_ui_timeouts(current_state)
+            self.switch_to_set(self.compute_current_set(current_state))
+        else:
+            self.update_ui_games(self.game_manager.get_current_state())
+
         self.send_state()
 
     def set_sets_value(self, team: int, value: int):
