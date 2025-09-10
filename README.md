@@ -169,6 +169,15 @@ List of themes. The key is the theme name and the value is a JSON with the custo
 }
 ```
 
+### Overlay Loading Priority
+
+The application determines which overlay to load based on the following priority order:
+
+1.  **URL Parameter**: An overlay specified in the URL (e.g., `?control=<your_oid>`) will always take precedence. This is useful for sharing direct links to a specific scoreboard.
+2.  **Saved Session**: If no overlay is specified in the URL, the application will automatically load the last valid overlay you used.
+3.  **Environment Variable**: If you are running the application for the first time without a saved session, it will use the `UNO_OVERLAY_OID` from your environment variables or `.env` file.
+4.  **Interactive Dialog**: If none of the above methods provide a valid overlay, you will be prompted to enter one through a dialog.
+
 ## Screenshots
 
 **Main Control Panel:**

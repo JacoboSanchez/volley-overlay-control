@@ -100,7 +100,6 @@ def startup() -> None:
 
             tabs = ui.tabs().props('horizontal').classes("w-full")
             conf = Conf()
-            conf = Conf()
             if custom_points_limit is not None:
                 conf.points = custom_points_limit
             if custom_points_limit_last_set is not None:
@@ -116,33 +115,60 @@ def startup() -> None:
                 custom_points_limit_last_set = conf.points_last_set
             if custom_sets_limit == None:
                 custom_sets_limit = conf.sets
-            if oid != None:
-                conf.oid = oid
-                conf.output = None
-            if output != None:
-                conf.output = OidDialog.UNO_OUTPUT_BASE_URL+output
+            oid_to_use = None
+            output_to_use = None
+            source = "none"
 
-            storageOid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
-            storageOutput = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-            if oid == None and backend.validate_and_store_model_for_oid(storageOid) == State.OIDStatus.VALID:
-                logger.info("Loading session oid: %s and output %s", storageOid, storageOutput)
-                conf.oid = storageOid
-                conf.output = storageOutput
+            # 1. Check for OID in URL parameters (highest priority)
+            if oid is not None:
+                if backend.validate_and_store_model_for_oid(oid) == State.OIDStatus.VALID:
+                    oid_to_use = oid
+                    source = "URL"
+                    if output:
+                        output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + output
+                else:
+                    logger.warning("Invalid OID provided in URL: %s", oid)
+
+            # 2. If no valid OID from URL, check AppStorage (second priority)
+            if oid_to_use is None:
+                storage_oid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
+                if storage_oid and backend.validate_and_store_model_for_oid(storage_oid) == State.OIDStatus.VALID:
+                    oid_to_use = storage_oid
+                    output_to_use = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
+                    source = "storage"
+
+            # 3. If still no OID, check environment variables (third priority)
+            if oid_to_use is None and oid is None:
+                env_oid = conf.oid
+                if env_oid and backend.validate_and_store_model_for_oid(env_oid) == State.OIDStatus.VALID:
+                    oid_to_use = env_oid
+                    output_to_use = conf.output
+                    source = "environment"
+
+            # 4. If no valid OID was found from any source, open the dialog
+            if oid_to_use is None:
+                notification.dismiss()
+                logger.info("No valid OID from URL, storage, or environment. Opening dialog.")
+                dialog = OidDialog(backend=backend)
+                result = await dialog.open()
+                if result:
+                    oid_to_use = result.get(OidDialog.CONTROL_TOKEN_KEY)
+                    output_to_use = result.get(OidDialog.OUTPUT_URL_KEY)
+                    source = "dialog"
+                    AppStorage.save(AppStorage.Category.CONFIGURED_OID, oid_to_use)
+                    AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, output_to_use)
+
+            # --- End of New Logic ---
+
+            if oid_to_use:
+                logger.info("Using OID from %s: %s", source, oid_to_use)
+                conf.oid = oid_to_use
+                conf.output = output_to_use
             else:
-                validationResult = backend.validate_and_store_model_for_oid(conf.oid)
-                if validationResult != State.OIDStatus.VALID:
-                    notification.dismiss()
-                    logger.info("Current oid is not valid [%s]: %s", validationResult, conf.oid)
-                    dialog = OidDialog(backend=backend)
-                    result = await dialog.open()
-                    if result != None:
-                        conf.oid = result[OidDialog.CONTROL_TOKEN_KEY]
-                        outputCustom = result.get(OidDialog.OUTPUT_URL_KEY, None )
-                        if outputCustom != None:
-                            conf.output = outputCustom
-                            AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, conf.output)
-                        logger.debug("Received oid %s", conf.oid)
-                        AppStorage.save(AppStorage.Category.CONFIGURED_OID, conf.oid)
+                notification.dismiss()
+                ui.label("Scoreboard could not be loaded. A valid overlay is required.").classes('m-auto text-negative')
+                return
+
             scoreboard_page = GUI(tabs, conf, backend)
             ui.on('resize', lambda e: scoreboard_page.set_page_size(e.args['width'], e.args['height']))
 
