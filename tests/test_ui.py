@@ -27,6 +27,13 @@ def load_fixture(name):
     with open(path) as f:
         return json.load(f)
 
+async def _assert_scores_and_sets(user: User, score1: str, sets1: str, score2: str, sets2: str):
+    """Utility method to validate scores and sets for both teams."""
+    await user.should_see(content=score1, marker='team-1-score')
+    await user.should_see(content=sets1, marker='team-1-sets')
+    await user.should_see(content=score2, marker='team-2-score')
+    await user.should_see(content=sets2, marker='team-2-sets')
+
 async def _do_long_press(user: User, marker: str, value: str, confirm: bool, first_call: bool=True):
     """Utility method to test the long press functionality."""
     # Determine the expected message based on the marker
@@ -151,25 +158,22 @@ def mock_backend():
 
 async def test_game_buttons_increment(user: User, mock_backend):
     await user.open('/')
-    for i in range(1, 2):
-        await user.should_see('00', marker=f'team-{i}-score')
-        result = user.find(marker=f'team-{i}-score').elements.pop().text
-        assert result == '00'
-        user.find(marker=f'team-{i}-score').click()
-        result = user.find(marker=f'team-{i}-score').elements.pop().text
-        assert result == '01'
-        user.find(marker=f'team-{i}-score').click()
-        result = user.find(marker=f'team-{i}-score').elements.pop().text
-        assert result == '02'
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
+    user.find(marker='team-1-score').click()
+    await _assert_scores_and_sets(user, '01', '0', '00', '0')
+    user.find(marker='team-1-score').click()
+    await _assert_scores_and_sets(user, '02', '0', '00', '0')
     await asyncio.sleep(0.1)
     mock_backend.save.assert_called()
 
+
 async def test_set_buttons_increment(user: User, mock_backend):
     await user.open('/')
-    for i in range(1, 2):
-        await user.should_see('0', marker=f'team-{i}-sets')
-        user.find(marker=f'team-{i}-sets').click()
-        await user.should_see('1', marker=f'team-{i}-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
+    user.find(marker='team-1-sets').click()
+    await _assert_scores_and_sets(user, '00', '1', '00', '0')
+    user.find(marker='team-2-sets').click()
+    await _assert_scores_and_sets(user, '00', '1', '00', '1')
     await asyncio.sleep(0.1)
     mock_backend.save.assert_called()
 
@@ -202,25 +206,23 @@ async def test_set_pagination(user: User, mock_backend, monkeypatch):
     user.find(marker='submit-overlay-button').click()
     await asyncio.sleep(0)
 
-    await user.should_see(content='05', marker='team-1-score')
+    await _assert_scores_and_sets(user, '05', '1', '06', '1')
     user.find(marker=f'team-1-score').click()
-    await user.should_see(content='06', marker='team-1-score')
+    await _assert_scores_and_sets(user, '06', '1', '06', '1')
 
     # Click the next set button in the pagination
     user.find(marker='set-selector').elements.pop().set_value(2)
-    # The score for the new set should be 00
-    await user.should_see(content='03', marker='team-1-score')
+    await _assert_scores_and_sets(user, '03', '1', '04', '1')
 
     # Click the next set button in the pagination
     user.find(marker='set-selector').elements.pop().set_value(1)
-    # The score for the new set should be 00
-    await user.should_see(content='15', marker='team-1-score')
+    await _assert_scores_and_sets(user, '15', '1', '15', '1')
 
     # Go back to the previous set
     user.find(marker='set-selector').elements.pop().set_value(3)
-    # The score should be the one we set before
-    await user.should_see(content='06', marker='team-1-score')
+    await _assert_scores_and_sets(user, '06', '1', '06', '1')
     await asyncio.sleep(0.1)
+
 
 async def test_serve_icon_asignation(user: User, mock_backend):
     """Tests that the serve icon is assigned to the scoring team."""
@@ -325,29 +327,25 @@ async def test_end_game_and_undo(user: User, mock_backend):
     await user.open('/')
 
     # Initial state from fixture should be loaded correctly now
-    await user.should_see(content='23', marker='team-1-score')
-    await user.should_see(content='22', marker='team-2-score')
-    await user.should_see(content='2', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '23', '2', '22', '1')
 
     # Team 1 scores two points to win the set and match
     user.find(marker='team-1-score').click()
-    await user.should_see(content='24', marker='team-1-score')
+    await _assert_scores_and_sets(user, '24', '2', '22', '1')
     user.find(marker='team-1-score').click()
-    await user.should_see(content='25', marker='team-1-score')
-    await user.should_see(content='3', marker='team-1-sets')  # Match finished
+    await _assert_scores_and_sets(user, '25', '3', '22', '1') # Match finished
 
     # Test that adding more points is blocked
     user.find(marker='team-1-score').click()
     await user.should_see(Messages.get(Messages.MATCH_FINISHED))
-    await user.should_see(content='25', marker='team-1-score')  # Score should not change
+    await _assert_scores_and_sets(user, '25', '3', '22', '1')  # Score should not change
 
     # Test that undo works and reverts the end-game state
     user.find(marker='undo-button').click()
     user.find(marker='team-1-score').click()  # Undo the winning point
 
     # After undoing, score is 24, and set count for T1 should be 2.
-    await user.should_see(content='24', marker='team-1-score')
-    await user.should_see(content='2', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '24', '2', '22', '1')
     await asyncio.sleep(0.1)
 
 
@@ -364,15 +362,13 @@ async def test_refresh(user: User, mock_backend):
     await user.open('/')
 
     # Initial state from fixture
-    await user.should_see(content='23', marker='team-1-score')
-    await user.should_see(content='22', marker='team-2-score')
-    await user.should_see(content='2', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '23', '2', '22', '1')
 
     # Team 1 scores two points to win the set and match
     user.find(marker='team-1-score').click()
-    await user.should_see(content='24', marker='team-1-score')
+    await _assert_scores_and_sets(user, '24', '2', '22', '1')
     user.find(marker='team-1-score').click()
-    await user.should_see(content='25', marker='team-1-score')
+    await _assert_scores_and_sets(user, '25', '3', '22', '1')
 
     # Go to config tab to test refresh
     await _navigate_to_config(user, open_root_page=None)
@@ -384,8 +380,7 @@ async def test_refresh(user: User, mock_backend):
 
     # Go back to scoreboard and check that nothing changed
     user.find(marker='scoreboard-tab-button').click()
-    await user.should_see(content='25', marker='team-1-score') # Score should still be 25
-    await user.should_see(content='3', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '25', '3', '22', '1') # Score should still be 25
 
     # Go back to config and test refresh confirmation using the new helper
     await _navigate_to_config(user, open_root_page=None)
@@ -395,9 +390,8 @@ async def test_refresh(user: User, mock_backend):
     user.find(marker='scoreboard-tab-button').click()
 
     # The state should have been reloaded from the modified backend data
-    await user.should_see(content='23', marker='team-1-score')
-    await user.should_see(content='2', marker='team-1-sets')
-    await asyncio.sleep(0.1)
+    await _assert_scores_and_sets(user, '23', '2', '22', '1')
+    await asyncio.sleep(0.3)
 
 
 async def test_team_customization(user: User, mock_backend, monkeypatch):
@@ -525,9 +519,9 @@ async def test_reset_from_config(user: User, mock_backend):
     await user.open('/')
 
     # Score a point
-    await user.should_see(content='23', marker='team-1-score')
+    await _assert_scores_and_sets(user, '23', '2', '22', '1')
     user.find(marker='team-1-score').click()
-    await user.should_see(content='24', marker='team-1-score')
+    await _assert_scores_and_sets(user, '24', '2', '22', '1')
 
     # Go to config tab
     await _navigate_to_config(user, open_root_page=None)
@@ -536,7 +530,7 @@ async def test_reset_from_config(user: User, mock_backend):
     # Click reset and cancel using the new helper
     await _handle_dialog(user, 'reset-button', confirm=False)
     # Should be back on the scoreboard, and score should NOT be reset
-    await user.should_see(content='24', marker='team-1-score')
+    await _assert_scores_and_sets(user, '24', '2', '22', '1')
 
     # Go to config tab again
     await _navigate_to_config(user, open_root_page=None)
@@ -546,7 +540,7 @@ async def test_reset_from_config(user: User, mock_backend):
     await _handle_dialog(user, 'reset-button', confirm=True)
     # Verify that the backend's reset method was called
     mock_backend.reset.assert_called()
-    await user.should_see(content='00', marker='team-1-score')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     
     # Verify that save_json_model was called with the reset model
     mock_backend.save_json_model.assert_called_with(State.reset_model)
@@ -664,7 +658,7 @@ async def test_oid_dialog_flow(user: User, mock_backend, monkeypatch):
     await asyncio.sleep(0)
     # We wait for the dialog to close and the main scoreboard to be visible.
     await user.should_see(marker='team-1-score')
-    await user.should_see(content='00', marker='team-1-score')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     await asyncio.sleep(0.1)
 
 # --- NEW TESTS FOR PREDEFINED OVERLAYS ---
@@ -703,8 +697,7 @@ async def test_predefined_overlay_dialog_with_hide_flag(user: User, mock_backend
     user.find(marker='submit-overlay-button').click()
 
     await user.should_see(marker='team-1-score')
-    await user.should_see(content='10', marker='team-1-score')
-    await user.should_see(content='05', marker='team-2-score')
+    await _assert_scores_and_sets(user, '10', '0', '05', '0')
     await user.should_see(Messages.get(Messages.OVERLAY_LINK))
     assert 'https://app.overlays.uno/output/output_token' == user.find(Messages.get(Messages.OVERLAY_LINK)).elements.pop().props['href']
     await asyncio.sleep(0.1)
@@ -745,10 +738,7 @@ async def test_predefined_overlay_cycle(user: User, mock_backend, predefined_ove
 
     # Verify scoreboard loaded with data from Overlay 2
     await user.should_see(marker='team-1-score')
-    await user.should_see(content='12', marker='team-1-score')
-    await user.should_see(content='11', marker='team-2-score')
-    await user.should_see(content='1', marker='team-1-sets')
-    await user.should_see(content='0', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '12', '1', '11', '0')
     await user.should_not_see(Messages.get(Messages.OVERLAY_LINK))
 
     
@@ -779,10 +769,7 @@ async def test_predefined_overlay_cycle(user: User, mock_backend, predefined_ove
 
     # Verify scoreboard loaded with manual OID data
     await user.should_see(marker='team-1-score')
-    await user.should_see(content='05', marker='team-1-score')
-    await user.should_see(content='06', marker='team-2-score')
-    await user.should_see(content='1', marker='team-1-sets')
-    await user.should_see(content='1', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '05', '1', '06', '1')
     await asyncio.sleep(0.1)
 
 async def test_url_params_override_oid(user: User, mock_backend, monkeypatch):
@@ -795,11 +782,8 @@ async def test_url_params_override_oid(user: User, mock_backend, monkeypatch):
     await user.open('/?control=predefined_1_valid')
     
     # The scoreboard should load directly with the scores from the mid-game fixture.
-    # In predefined_overlay_2.json, the score for the current set (3) is 10-12.
-    await user.should_see(content='10', marker='team-1-score')
-    await user.should_see(content='05', marker='team-2-score')
-    await user.should_see(content='0', marker='team-1-sets')
-    await user.should_see(content='0', marker='team-2-sets')
+    # In predefined_overlay_1.json, the score is 10-5.
+    await _assert_scores_and_sets(user, '10', '0', '05', '0')
 
     # Go to the configuration tab
     await _navigate_to_config(user, open_root_page=None)
@@ -820,10 +804,7 @@ async def test_url_params_set_output(user: User, mock_backend, monkeypatch):
     await user.open('/?control=predefined_2_valid&output=custom_output_token')
     
     # The scoreboard should load with the correct mid-game scores
-    await user.should_see(content='12', marker='team-1-score')
-    await user.should_see(content='11', marker='team-2-score')
-    await user.should_see(content='1', marker='team-1-sets')
-    await user.should_see(content='0', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '12', '1', '11', '0')
     # Go to the configuration tab
     await _navigate_to_config(user, open_root_page=None)
     
@@ -840,22 +821,20 @@ async def test_beach_mode_limits(user: User, mock_backend):
     await user.should_see(marker='team-1-score')
 
     await _do_long_press(user, 'team-1-score', '20', True)
-    await user.should_see(content='20', marker='team-1-score')
-    await user.should_see(content='0', marker='team-1-sets') # Set should not be won yet
+    await _assert_scores_and_sets(user, '20', '0', '00', '0') # Set should not be won yet
 
     # Score the winning point for Team 1
     user.find(marker='team-1-score').click()
     await asyncio.sleep(0.01)
-    await user.should_see(content='00', marker='team-1-score')
-    await user.should_see(content='1', marker='team-1-sets') # Team 1 wins the set
+    await _assert_scores_and_sets(user, '00', '1', '00', '0') # Team 1 wins the set
 
     await _do_long_press(user, 'team-1-score', '21', True, first_call=False)
-    await user.should_see(content='2', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '21', '2', '00', '0')
     
     # Try to score another point, which should be blocked as the match is over
     user.find(marker='team-1-score').click()
     await asyncio.sleep(0.01)
-    await user.should_see(content='21', marker='team-1-score') # Score should not change
+    await _assert_scores_and_sets(user, '21', '2', '00', '0') # Score should not change
     await asyncio.sleep(0.3)
 
 
@@ -866,14 +845,12 @@ async def test_indoor_mode_limits(user: User, mock_backend):
 
     # Score points up to 24 for Team 1
     user.find(marker='team-1-score').click()
-    await user.should_see(content='24', marker='team-1-score')
-    await user.should_see(content='2', marker='team-1-sets') # Set not won yet
+    await _assert_scores_and_sets(user, '24', '2', '22', '1') # Set not won yet
 
     # Score the winning point
     user.find(marker='team-1-score').click()
     await asyncio.sleep(0.01)
-    await user.should_see(content='25', marker='team-1-score')
-    await user.should_see(content='3', marker='team-1-sets') # Team 1 wins the set
+    await _assert_scores_and_sets(user, '25', '3', '22', '1') # Team 1 wins the set
     await asyncio.sleep(0.3)
 
 
@@ -892,17 +869,15 @@ async def test_env_vars_for_points_limit(user: User, mock_backend, monkeypatch):
     await user.should_see(marker='team-1-score')
 
     # Score up to 9 points for Team 1
-    for _ in range(9):
+    for i in range(1, 10):
         user.find(marker='team-1-score').click()
         await asyncio.sleep(0.01)
-    await user.should_see(content='09', marker='team-1-score')
-    await user.should_see(content='0', marker='team-1-sets')
+        await _assert_scores_and_sets(user, f'{i:02d}', '0', '00', '0')
 
     # Score the winning point
     user.find(marker='team-1-score').click()
     await asyncio.sleep(0.1)
-    await user.should_see(content='00', marker='team-1-score')
-    await user.should_see(content='1', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '00', '1', '00', '0')
     await asyncio.sleep(0.2)
 
 
@@ -912,7 +887,6 @@ async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
     monkeypatch.setenv("MATCH_SETS", "1")
     monkeypatch.setenv("MATCH_GAME_POINTS", "15")
     monkeypatch.setenv("MATCH_GAME_POINTS_LAST_SET", "5")
-
     
     import app.conf
     importlib.reload(app.conf)
@@ -922,16 +896,18 @@ async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
     await user.should_see(marker='team-2-score')
 
     # Win the first set
-    for _ in range(5):
+    for i in range(1, 6):
         user.find(marker='team-2-score').click()
         await asyncio.sleep(0.01)
-    
-    await user.should_see(content='1', marker='team-2-sets')
+        if i < 5:
+            await _assert_scores_and_sets(user, '00', '0', f'{i:02d}', '0')
+
+    await _assert_scores_and_sets(user, '00', '0', '05', '1')
 
     # The match should be over. Trying to score another point should fail.
     user.find(marker='team-2-score').click()
     await asyncio.sleep(0.1)
-    await user.should_see(content='05', marker='team-2-score') # Score should not change
+    await _assert_scores_and_sets(user, '00', '0', '05', '1') # Score should not change
     await asyncio.sleep(0.2)
     
 # --- Authentication Tests ---
@@ -958,8 +934,7 @@ async def test_login_and_auto_load_oid(user: User, mock_backend, auth_users_env)
     
     # After login, we should see the scoreboard with data from "predefined_1_valid"
     await user.should_see(marker='team-1-score')
-    await user.should_see(content='10', marker='team-1-score')
-    await user.should_see(content='05', marker='team-2-score')
+    await _assert_scores_and_sets(user, '10', '0', '05', '0')
     
     # Go to the configuration tab and check links
     await _navigate_to_config(user, open_root_page=None)
@@ -989,7 +964,7 @@ async def test_logout_flow(user: User, mock_backend, auth_users_env):
     
     # We should see the scoreboard for user1
     await user.should_see(marker='team-1-score')
-    await user.should_see(content='10', marker='team-1-score')
+    await _assert_scores_and_sets(user, '10', '0', '05', '0')
     
     # Go to config tab and logout (confirm)
     await _navigate_to_config(user, open_root_page=None)
@@ -1055,6 +1030,7 @@ async def test_predefined_overlay_with_user_filter(user: User, mock_backend, aut
 
 async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     """Tests the auto-hide functionality with corrected initial state."""
+    mock_backend.get_current_model.return_value = load_fixture('base_model')
     monkeypatch.setenv('DEFAULT_HIDE_TIMEOUT', '1')
 
     # Set initial visibility to False to ensure the first call is to show
@@ -1120,11 +1096,10 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     mock_backend.is_visible.return_value = False
     
     await _do_long_press(user, 'team-1-score', '24', True)
-    await user.should_see('24', marker='team-1-score')
+    await _assert_scores_and_sets(user, '24', '0', '05', '0')
     user.find(marker='team-1-score').click()
-
-    await user.should_see('25', marker='team-1-score') # Score is now 25 vs 0
-    await user.should_see('1', marker='team-1-sets')   # Set is won
+    await asyncio.sleep(0.1)
+    await _assert_scores_and_sets(user, '00', '1', '00', '0') # Set is won
 
     # The overlay should have been made visible, and only called once
     mock_backend.change_overlay_visibility.assert_called_once_with(True)
@@ -1188,12 +1163,12 @@ async def test_auto_simple_mode_feature(user: User, mock_backend):
 async def test_long_press_game_score(user: User, mock_backend):
     """Tests the long press feature to set a custom game score."""
     await user.open('/')
-    await user.should_see('00', marker='team-1-score')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     await _do_long_press(user, 'team-1-score', '15', True)
-    await user.should_see('15', marker='team-1-score')
+    await _assert_scores_and_sets(user, '15', '0', '00', '0')
     user.find(marker='team-1-score').click()
     await asyncio.sleep(0.1)
-    await user.should_see('16', marker='team-1-score')
+    await _assert_scores_and_sets(user, '16', '0', '00', '0')
     await asyncio.sleep(0.2)
     mock_backend.save.assert_called()
 
@@ -1201,62 +1176,59 @@ async def test_long_press_game_score(user: User, mock_backend):
 async def test_long_press_game_score_and_cancel(user: User, mock_backend):
     """Tests the long press feature to set a custom game score."""
     await user.open('/')
-    await user.should_see('00', marker='team-2-score')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     await _do_long_press(user, 'team-2-score', '12', False)
-    await user.should_see('0', marker='team-1-score')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     user.find(marker='team-2-score').click()
     await asyncio.sleep(0.1)
-    await user.should_see('01', marker='team-2-score')
+    await _assert_scores_and_sets(user, '00', '0', '01', '0')
     await asyncio.sleep(0.2)
 
 async def test_long_press_set_score(user: User, mock_backend):
     """Tests the long press feature to set a custom set score."""
     await user.open('/')
-    await user.should_see('0', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     await _do_long_press(user, 'team-2-sets', '2', True)
-    await user.should_see('2', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '2')
     user.find(marker='team-2-sets').click()
-    await user.should_see('3', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '3')
     await asyncio.sleep(0.2)
     mock_backend.save.assert_called()
 
 async def test_long_press_set_score_cancel(user: User, mock_backend):
     """Tests the long press feature to set a custom set score."""
     await user.open('/')
-    await user.should_see('0', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     await _do_long_press(user, 'team-1-sets', '2', False)
-    await user.should_see('0', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     user.find(marker='team-2-sets').click()
-    await user.should_see('1', marker='team-2-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '1')
     await asyncio.sleep(0.2)
 
 async def test_long_press_wins_set(user: User, mock_backend):
     """Tests that a long press to the winning score awards the set."""
     await user.open('/')
-    await user.should_see('00', marker='team-2-score')
-    await user.should_see('0', marker='team-12-sets')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
     await _do_long_press(user, 'team-2-score', '25', True)
-    await user.should_see('1', marker='team-2-sets')
-    await user.should_see('00', marker='team-2-score')
+    await _assert_scores_and_sets(user, '00', '0', '00', '1')
 
 async def test_long_press_wins_match(user: User, mock_backend, monkeypatch):
     """Tests that a long press can win the final set and the match."""
     # Set up a match where team 1 has 2 sets and team 2 has 2 sets
     monkeypatch.setenv("MATCH_SETS", "5")
-    end_game_model = load_fixture('endgame_model')
-    end_game_model["Team 1 Sets"] = 2
-    end_game_model["Team 2 Sets"] = 2
-    mock_backend.get_current_model.return_value = end_game_model
     mock_backend.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
-    
     await user.open('/?control=endgame_oid_valid')
     await user.should_see(marker='team-1-score')
-    await _do_long_press(user, 'team-1-score', '15', True)
-    await user.should_see('3', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '23', '2', '22', '1')
+    await _do_long_press(user, 'team-2-score', '25', True)
+    await _assert_scores_and_sets(user, '00', '2', '00', '2')
+    await asyncio.sleep(0.2)
+    await _do_long_press(user, 'team-1-score', '15', True, first_call=False)
+    await _assert_scores_and_sets(user, '15', '3', '00', '2')
     
     # Try to score another point, which should be blocked
     user.find(marker='team-2-score').click()
-    await user.should_see('00', marker='team-2-score') # Score should not change
+    await _assert_scores_and_sets(user, '15', '3', '00', '2') # Score should not change
 
 async def test_long_press_on_sets_wins_match(user: User, mock_backend, monkeypatch):
     """Tests that a long press on the sets button can win the match."""
@@ -1267,10 +1239,10 @@ async def test_long_press_on_sets_wins_match(user: User, mock_backend, monkeypat
     mock_backend.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
 
     await user.open('/?control=midgame_oid_valid')
-    await user.should_see('1', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '11', '1', '09', '1')
     await _do_long_press(user, 'team-1-sets', '2', True)
-    await user.should_see('2', marker='team-1-sets')
+    await _assert_scores_and_sets(user, '11', '2', '09', '1')
 
     # Try to score a point, which should be blocked
     user.find(marker='team-2-score').click()
-    await user.should_see('09', marker='team-2-score')
+    await _assert_scores_and_sets(user, '11', '2', '09', '1')
