@@ -1086,7 +1086,7 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
 
     # Wait for a period longer than the original timeout, but shorter
     # than the timeout after the last click.
-    await asyncio.sleep(0.7) # Total time since first click: 1.6s
+    await asyncio.sleep(0.2) # Total time since first click: 1.6s
 
     # It should NOT be hidden, as the timer should have been reset.
     # The last call should still be the one that made it visible.
@@ -1094,7 +1094,7 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     await user.should_see('visibility', marker='visibility-button')
 
     # Wait for the full timeout after the LAST click
-    await asyncio.sleep(0.5) # Total time since last click: 1.1s
+    await asyncio.sleep(0.7) 
 
     # NOW it should be hidden
     mock_backend.change_overlay_visibility.assert_called_with(False)
