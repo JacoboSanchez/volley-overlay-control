@@ -104,11 +104,11 @@ class GUI:
                 max=max_value,
                 step=1,
                 format='%.0f'
-            ).classes('w-full')
+            ).classes('w-full').mark('value-input')
             with ui.row():
                 ui.button('OK', on_click=lambda: dialog.submit(
-                    value_input.value))
-                ui.button('Cancel', on_click=dialog.close)
+                    value_input.value)).mark('value-input-ok-button')
+                ui.button('Cancel', on_click=dialog.close).mark('value-input-cancel-button')
 
         result = await dialog
         if result is not None:
@@ -117,6 +117,8 @@ class GUI:
                 self.set_sets_value(team, value)
             else:
                 self.set_game_value(team, value)
+        
+        self.open_click_gate()
 
     def open_click_gate(self):
         """Opens the gate to allow new click events."""
@@ -457,6 +459,7 @@ class GUI:
         if self.conf.auto_hide:
             if self.hide_timer:
                 self.hide_timer.cancel()
+            self.logger.debug('Auto hide enabled, sitching visibility on')
             self.switch_visibility(True)
 
         if set_won:
@@ -466,12 +469,15 @@ class GUI:
             self.switch_to_set(
                 self.compute_current_set(current_state))
             if self.conf.auto_simple_mode:
+                self.logger.debug('Switch simple mode off due to auto_simple_mode being enabled')
                 self.switch_simple_mode(False)
         else:
             if self.conf.auto_hide:
+                self.logger.debug(f'Auto hide enabled, enabling timer to hide after %s seconds', self.conf.hide_timeout)
                 self.hide_timer = ui.timer(
                     self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True)
             if self.conf.auto_simple_mode:
+                self.logger.debug('Switch simple mode on due to auto_simple_mode being enabled')
                 self.switch_simple_mode(True)
         self.update_ui_games(self.game_manager.get_current_state())
         self.send_state()
@@ -504,13 +510,14 @@ class GUI:
 
     def switch_visibility(self, force_value=None):
         update = False
+        visible_backup = self.visible
         if self.visible and force_value is not True:
             self.visible = False
             update = True
         elif not self.visible and force_value is not False:
             self.visible = True
             update = True
-
+        self.logger.debug('Switch visibility to %s. Current %s. Update: %s', self.visible, visible_backup, update)
         if update:
             self.update_ui_visible(self.visible)
             self.backend.change_overlay_visibility(self.visible)

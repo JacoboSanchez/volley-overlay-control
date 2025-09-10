@@ -3,6 +3,7 @@ import json
 import os
 import asyncio
 import importlib
+from selenium.webdriver.common.action_chains import ActionChains
 from unittest.mock import patch, MagicMock
 from nicegui.testing import User
 from app.startup import startup
@@ -1034,3 +1035,256 @@ async def test_predefined_overlay_with_user_filter(user: User, mock_backend, aut
     await user.should_see("User 1 Overlay")
     await user.should_see("All Users Overlay")
     await asyncio.sleep(0.3)
+
+async def test_autohide_feature(user: User, mock_backend, monkeypatch):
+    """Tests the auto-hide functionality with corrected initial state."""
+    monkeypatch.setenv('DEFAULT_HIDE_TIMEOUT', '1')
+
+    # Set initial visibility to False to ensure the first call is to show
+    mock_backend.is_visible.return_value = False
+
+    await user.open('/?control=test_oid_valid')
+    await user.should_see(marker='config-tab-button')
+
+    # Go to config tab, open options, and enable auto-hide
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='save-button')
+    user.find(marker='options-button').click()
+    await user.should_see(Messages.get(Messages.AUTO_HIDE))
+    user.find(Messages.get(Messages.AUTO_HIDE)).click()
+    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='scoreboard-tab-button').click()
+    await user.should_see(marker='team-1-score')
+
+    # --- Test 1: Scoring a regular point should trigger hide ---
+    mock_backend.change_overlay_visibility.reset_mock()
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.1)
+
+    # Should immediately become visible
+    mock_backend.change_overlay_visibility.assert_called_once_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for the timeout
+    await asyncio.sleep(1.1)
+    # Should now be hidden
+    mock_backend.change_overlay_visibility.assert_called_with(False)
+    await user.should_see('visibility_off', marker='visibility-button')
+
+    # --- Test 2: Scoring multiple points should reset the timer ---
+    mock_backend.change_overlay_visibility.reset_mock()
+    mock_backend.is_visible.return_value = False
+
+    # Score 5 points with a 0.3s delay
+    for _ in range(5):
+        user.find(marker='team-2-score').click()
+        await asyncio.sleep(0.3)
+
+    # It should have been made visible on the first click
+    mock_backend.change_overlay_visibility.assert_called_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for a period longer than the original timeout, but shorter
+    # than the timeout after the last click.
+    await asyncio.sleep(0.2) # Total time since first click: 1.6s
+
+    # It should NOT be hidden, as the timer should have been reset.
+    # The last call should still be the one that made it visible.
+    mock_backend.change_overlay_visibility.assert_called_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for the full timeout after the LAST click
+    await asyncio.sleep(0.7) 
+
+    # NOW it should be hidden
+    mock_backend.change_overlay_visibility.assert_called_with(False)
+    await user.should_see('visibility_off', marker='visibility-button')
+
+    # --- Test 3: Scoring a set-winning point should NOT trigger hide ---
+    # Set visibility to False again for a clean test
+    mock_backend.change_overlay_visibility.reset_mock()
+    mock_backend.is_visible.return_value = False
+    # Score 24 points to set up the win
+    for _ in range(24):
+        user.find(marker='team-1-score').click()
+        await asyncio.sleep(0.01)
+
+    await user.should_see('25', marker='team-1-score') # Score is now 25 vs 0
+    await user.should_see('1', marker='team-1-sets')   # Set is won
+
+    # The overlay should have been made visible, and only called once
+    mock_backend.change_overlay_visibility.assert_called_once_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+    # Wait for the timeout period again
+    await asyncio.sleep(1.1)
+
+    # Assert that no new calls were made. The last (and only) call was to set visibility to True.
+    mock_backend.change_overlay_visibility.assert_called_once_with(True)
+    await user.should_see('visibility', marker='visibility-button')
+
+   
+
+
+async def test_auto_simple_mode_feature(user: User, mock_backend):
+    """Tests the auto-simple-mode functionality with precise assertions."""
+    await user.open('/?control=test_oid_valid')
+    await user.should_see(marker='config-tab-button')
+
+    # Go to config tab, open options, and enable auto-simple-mode
+    user.find(marker='config-tab-button').click()
+    await user.should_see(marker='save-button')
+    user.find(marker='options-button').click()
+    await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE))
+    user.find(Messages.get(Messages.AUTO_SIMPLE_MODE)).click()
+    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='scoreboard-tab-button').click()
+    await user.should_see(marker='team-1-score')
+
+    # --- Test 1: Assert function is NOT called before the action ---
+    mock_backend.reduce_games_to_one.assert_not_called()
+    await user.should_see('grid_on', marker='simple-mode-button')
+
+
+    # --- Test 2: Scoring a point should switch to simple mode ---
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.1)
+
+    mock_backend.reduce_games_to_one.assert_called_once()
+    await user.should_see('window', marker='simple-mode-button')
+
+
+    # --- Test 3: Winning a set should switch back to full mode ---
+
+    for _ in range(23):
+        user.find(marker='team-1-score').click()
+        await asyncio.sleep(0.01)
+        await user.should_see('window', marker='simple-mode-button')
+
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see('1', marker='team-1-sets')
+    await asyncio.sleep(0.1)
+
+    # The function should NOT be called again when switching back to full mode.
+    await user.should_see('grid_on', marker='simple-mode-button')
+
+    # Starting the set again returns to simple mode
+    user.find(marker='team-2-score').click()
+    await asyncio.sleep(0.01)
+    await user.should_see('window', marker='simple-mode-button')
+
+async def test_long_press_game_score(user: User, mock_backend):
+    """Tests the long press feature to set a custom game score."""
+    await user.open('/')
+    await user.should_see('00', marker='team-1-score')
+    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
+
+    # Perform a long press on the team 1 score button
+    user.find(marker='team-1-score').trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker='team-1-score').trigger('mouseup')
+    await asyncio.sleep(0)
+    
+    # The dialog to set a custom value should appear
+    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
+    
+    # Set the value to 15 and submit
+    # Note: Accessing the input element requires a different approach with .find()
+    user.find(marker='value-input').elements.pop().set_value('15')
+    user.find(marker='value-input-ok-button').click()
+    await asyncio.sleep(0.5)
+    # The score should now be 15
+    await user.should_see('15', marker='team-1-score')
+
+    # A regular click should now increment the score to 16
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.1)
+    await user.should_see('16', marker='team-1-score')
+    await asyncio.sleep(0.2)
+    mock_backend.save.assert_called()
+
+
+async def test_long_press_game_score_and_cancel(user: User, mock_backend):
+    """Tests the long press feature to set a custom game score."""
+    await user.open('/')
+    await user.should_see('00', marker='team-2-score')
+    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
+
+    # Perform a long press on the team 2 score button
+    user.find(marker='team-2-score').trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker='team-2-score').trigger('mouseup')
+    await asyncio.sleep(0)
+    
+    # The dialog to set a custom value should appear
+    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
+    
+    # Set the value to 15 and submit
+    # Note: Accessing the input element requires a different approach with .find()
+    user.find(marker='value-input').elements.pop().set_value('12')
+    user.find(marker='value-input-cancel-button').click()
+    await asyncio.sleep(0.5)
+    # The score should now be 0
+    await user.should_see('0', marker='team-1-score')
+
+    # A regular click should now increment the score to 1
+    user.find(marker='team-2-score').click()
+    await asyncio.sleep(0.1)
+    await user.should_see('01', marker='team-2-score')
+    await asyncio.sleep(0.2)
+
+async def test_long_press_set_score(user: User, mock_backend):
+    """Tests the long press feature to set a custom set score."""
+    await user.open('/')
+    await user.should_see('0', marker='team-2-sets')
+    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
+
+    # Perform a long press on the team 2 set button
+    user.find(marker='team-2-sets').trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker='team-2-sets').trigger('mouseup')
+    await asyncio.sleep(0)
+
+    # The dialog to set a custom value should appear
+    await user.should_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
+    
+    # Set the value to 2 and submit
+    user.find(marker='value-input').elements.pop().set_value('12')
+    user.find(marker='value-input-ok-button').click()
+    await asyncio.sleep(0.5)
+    # The set score should now be 2
+    await user.should_see('2', marker='team-2-sets')
+
+    # A regular click should now increment the set score to 3
+    user.find(marker='team-2-sets').click()
+    await user.should_see('3', marker='team-2-sets')
+    await asyncio.sleep(0.2)
+    mock_backend.save.assert_called()
+
+async def test_long_press_set_score_cancel(user: User, mock_backend):
+    """Tests the long press feature to set a custom set score."""
+    await user.open('/')
+    await user.should_see('0', marker='team-1-sets')
+    await user.should_not_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
+
+    # Perform a long press on the team 2 set button
+    user.find(marker='team-1-sets').trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker='team-1-sets').trigger('mouseup')
+    await asyncio.sleep(0)
+
+    # The dialog to set a custom value should appear
+    await user.should_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
+    
+    # Set the value to 2 and submit
+    user.find(marker='value-input').elements.pop().set_value('2')
+    user.find(marker='value-input-cancel-button').click()
+    await asyncio.sleep(0.5)
+    # The set score should now be 2
+    await user.should_see('0', marker='team-2-sets')
+
+    # A regular click should now increment the set score to 3
+    user.find(marker='team-2-sets').click()
+    await user.should_see('1', marker='team-2-sets')
+    await asyncio.sleep(0.2)

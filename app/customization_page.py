@@ -212,7 +212,7 @@ class CustomizationPage:
                         .props('flat round dense color=primary') \
                         .tooltip(Messages.get(Messages.RESET_LINKS)).mark('change-overlay-button')
                 ui.button(icon='tune', on_click=self.options_dialog.open).props(
-                    'flat').classes('text-gray-500 -ml-2 mr-2')
+                    'flat').classes('text-gray-500 -ml-2 mr-2').mark('options-button')
 
     def _create_action_buttons(self):
         """Creates the bottom row of action buttons."""
