@@ -1249,7 +1249,7 @@ async def test_long_press_set_score(user: User, mock_backend):
     await user.should_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
     
     # Set the value to 2 and submit
-    user.find(marker='value-input').elements.pop().set_value('12')
+    user.find(marker='value-input').elements.pop().set_value('2')
     user.find(marker='value-input-ok-button').click()
     await asyncio.sleep(0.5)
     # The set score should now be 2
@@ -1287,3 +1287,83 @@ async def test_long_press_set_score_cancel(user: User, mock_backend):
     user.find(marker='team-2-sets').click()
     await user.should_see('1', marker='team-2-sets')
     await asyncio.sleep(0.2)
+
+async def test_long_press_wins_set(user: User, mock_backend):
+    """Tests that a long press to the winning score awards the set."""
+    await user.open('/')
+    await user.should_see('00', marker='team-2-score')
+    await user.should_see('0', marker='team-12-sets')
+
+    # Long press to set the score to the winning value
+    user.find(marker='team-2-score').trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker='team-2-score').trigger('mouseup')
+    await asyncio.sleep(0)
+    
+    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
+    user.find(marker='value-input').elements.pop().set_value('25')
+    user.find(marker='value-input-ok-button').click()
+    await asyncio.sleep(0.5)
+
+    # The set should be awarded to team 1, and the score should reset
+    await user.should_see('1', marker='team-2-sets')
+    await user.should_see('00', marker='team-2-score')
+
+async def test_long_press_wins_match(user: User, mock_backend, monkeypatch):
+    """Tests that a long press can win the final set and the match."""
+    # Set up a match where team 1 has 2 sets and team 2 has 2 sets
+    monkeypatch.setenv("MATCH_SETS", "5")
+    end_game_model = load_fixture('endgame_model')
+    end_game_model["Team 1 Sets"] = 2
+    end_game_model["Team 2 Sets"] = 2
+    mock_backend.get_current_model.return_value = end_game_model
+    mock_backend.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
+    
+    await user.open('/?control=endgame_oid_valid')
+    await user.should_see(marker='team-1-score')
+    # Long press to set the score to the winning value for the last set
+    user.find(marker='team-1-score').trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker='team-1-score').trigger('mouseup')
+    await asyncio.sleep(0)
+    
+    await user.should_see(Messages.get(Messages.SET_CUSTOM_GAME_VALUE))
+    user.find(marker='value-input').elements.pop().set_value('15')
+    user.find(marker='value-input-ok-button').click()
+    await asyncio.sleep(0.5)
+
+    # Team 1 should now have 3 sets, and the match should be over
+    await user.should_see('3', marker='team-1-sets')
+    
+    # Try to score another point, which should be blocked
+    user.find(marker='team-2-score').click()
+    await user.should_see('00', marker='team-2-score') # Score should not change
+
+async def test_long_press_on_sets_wins_match(user: User, mock_backend, monkeypatch):
+    """Tests that a long press on the sets button can win the match."""
+    monkeypatch.setenv("MATCH_SETS", "3")
+    mid_game_model = load_fixture('midgame_model')
+    mid_game_model["Team 1 Sets"] = 1
+    mock_backend.get_current_model.return_value = mid_game_model
+    mock_backend.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
+
+    await user.open('/?control=midgame_oid_valid')
+    await user.should_see('1', marker='team-1-sets')
+
+    # Long press the sets button to award the final set
+    user.find(marker='team-1-sets').trigger('mousedown')
+    await asyncio.sleep(1)
+    user.find(marker='team-1-sets').trigger('mouseup')
+    await asyncio.sleep(0)
+    
+    await user.should_see(Messages.get(Messages.SET_CUSTOM_SET_VALUE))
+    user.find(marker='value-input').elements.pop().set_value('2')
+    user.find(marker='value-input-ok-button').click()
+    await asyncio.sleep(0.5)
+
+    # Team 1 should now have 2 sets, and the match should be over
+    await user.should_see('2', marker='team-1-sets')
+
+    # Try to score a point, which should be blocked
+    user.find(marker='team-2-score').click()
+    await user.should_see('09', marker='team-2-score')
