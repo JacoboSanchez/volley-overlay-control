@@ -27,7 +27,7 @@ def load_fixture(name):
     with open(path) as f:
         return json.load(f)
 
-async def _test_long_press(user: User, marker: str, value: str, confirm: bool):
+async def _do_long_press(user: User, marker: str, value: str, confirm: bool, first_call: bool=True):
     """Utility method to test the long press functionality."""
     # Determine the expected message based on the marker
     if 'score' in marker:
@@ -37,7 +37,11 @@ async def _test_long_press(user: User, marker: str, value: str, confirm: bool):
     else:
         pytest.fail(f"Unknown marker type for long press: {marker}")
 
-    await user.should_not_see(message)
+    if first_call:
+        await user.should_not_see(message)
+    else:
+        # The dialog should have been already rendered
+        await user.should_see(message)
 
     # Perform a long press on the specified element
     user.find(marker=marker).trigger('mousedown')
@@ -288,6 +292,7 @@ async def test_end_game_and_undo(user: User, mock_backend):
 
     # Test that adding more points is blocked
     user.find(marker='team-1-score').click()
+    await user.should_see(Messages.get(Messages.MATCH_FINISHED))
     await user.should_see(content='25', marker='team-1-score')  # Score should not change
 
     # Test that undo works and reverts the end-game state
@@ -819,10 +824,7 @@ async def test_beach_mode_limits(user: User, mock_backend):
     await user.open('/beach?control=test_oid_valid')
     await user.should_see(marker='team-1-score')
 
-    # Score points up to 20 for Team 1
-    for _ in range(20):
-        user.find(marker='team-1-score').click()
-        await asyncio.sleep(0.01) # Small delay to allow UI to update
+    await _do_long_press(user, 'team-1-score', '20', True)
     await user.should_see(content='20', marker='team-1-score')
     await user.should_see(content='0', marker='team-1-sets') # Set should not be won yet
 
@@ -832,11 +834,7 @@ async def test_beach_mode_limits(user: User, mock_backend):
     await user.should_see(content='00', marker='team-1-score')
     await user.should_see(content='1', marker='team-1-sets') # Team 1 wins the set
 
-    # Win the second set for Team 1 to win the match (best of 3)
-    for _ in range(21):
-        user.find(marker='team-1-score').click()
-        await asyncio.sleep(0.01)
-    
+    await _do_long_press(user, 'team-1-score', '21', True, first_call=False)
     await user.should_see(content='2', marker='team-1-sets')
     
     # Try to score another point, which should be blocked as the match is over
@@ -1136,10 +1134,10 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     # Set visibility to False again for a clean test
     mock_backend.change_overlay_visibility.reset_mock()
     mock_backend.is_visible.return_value = False
-    # Score 24 points to set up the win
-    for _ in range(24):
-        user.find(marker='team-1-score').click()
-        await asyncio.sleep(0.01)
+    
+    await _do_long_press(user, 'team-1-score', '24', True)
+    await user.should_see('24', marker='team-1-score')
+    user.find(marker='team-1-score').click()
 
     await user.should_see('25', marker='team-1-score') # Score is now 25 vs 0
     await user.should_see('1', marker='team-1-sets')   # Set is won
@@ -1210,7 +1208,7 @@ async def test_long_press_game_score(user: User, mock_backend):
     """Tests the long press feature to set a custom game score."""
     await user.open('/')
     await user.should_see('00', marker='team-1-score')
-    await _test_long_press(user, 'team-1-score', '15', True)
+    await _do_long_press(user, 'team-1-score', '15', True)
     await user.should_see('15', marker='team-1-score')
     user.find(marker='team-1-score').click()
     await asyncio.sleep(0.1)
@@ -1223,7 +1221,7 @@ async def test_long_press_game_score_and_cancel(user: User, mock_backend):
     """Tests the long press feature to set a custom game score."""
     await user.open('/')
     await user.should_see('00', marker='team-2-score')
-    await _test_long_press(user, 'team-2-score', '12', False)
+    await _do_long_press(user, 'team-2-score', '12', False)
     await user.should_see('0', marker='team-1-score')
     user.find(marker='team-2-score').click()
     await asyncio.sleep(0.1)
@@ -1234,7 +1232,7 @@ async def test_long_press_set_score(user: User, mock_backend):
     """Tests the long press feature to set a custom set score."""
     await user.open('/')
     await user.should_see('0', marker='team-2-sets')
-    await _test_long_press(user, 'team-2-sets', '2', True)
+    await _do_long_press(user, 'team-2-sets', '2', True)
     await user.should_see('2', marker='team-2-sets')
     user.find(marker='team-2-sets').click()
     await user.should_see('3', marker='team-2-sets')
@@ -1245,7 +1243,7 @@ async def test_long_press_set_score_cancel(user: User, mock_backend):
     """Tests the long press feature to set a custom set score."""
     await user.open('/')
     await user.should_see('0', marker='team-1-sets')
-    await _test_long_press(user, 'team-1-sets', '2', False)
+    await _do_long_press(user, 'team-1-sets', '2', False)
     await user.should_see('0', marker='team-2-sets')
     user.find(marker='team-2-sets').click()
     await user.should_see('1', marker='team-2-sets')
@@ -1256,7 +1254,7 @@ async def test_long_press_wins_set(user: User, mock_backend):
     await user.open('/')
     await user.should_see('00', marker='team-2-score')
     await user.should_see('0', marker='team-12-sets')
-    await _test_long_press(user, 'team-2-score', '25', True)
+    await _do_long_press(user, 'team-2-score', '25', True)
     await user.should_see('1', marker='team-2-sets')
     await user.should_see('00', marker='team-2-score')
 
@@ -1272,7 +1270,7 @@ async def test_long_press_wins_match(user: User, mock_backend, monkeypatch):
     
     await user.open('/?control=endgame_oid_valid')
     await user.should_see(marker='team-1-score')
-    await _test_long_press(user, 'team-1-score', '15', True)
+    await _do_long_press(user, 'team-1-score', '15', True)
     await user.should_see('3', marker='team-1-sets')
     
     # Try to score another point, which should be blocked
@@ -1289,7 +1287,7 @@ async def test_long_press_on_sets_wins_match(user: User, mock_backend, monkeypat
 
     await user.open('/?control=midgame_oid_valid')
     await user.should_see('1', marker='team-1-sets')
-    await _test_long_press(user, 'team-1-sets', '2', True)
+    await _do_long_press(user, 'team-1-sets', '2', True)
     await user.should_see('2', marker='team-1-sets')
 
     # Try to score a point, which should be blocked

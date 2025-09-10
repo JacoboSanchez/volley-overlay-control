@@ -48,6 +48,7 @@ class Messages:
     SET_CUSTOM_SET_VALUE = "Set custom set value"
     VALUE = "Value"
     SAVING = "Saving..."
+    MATCH_FINISHED = "Match finished"
 
 
     messages = {
@@ -98,7 +99,8 @@ class Messages:
             SET_CUSTOM_GAME_VALUE: "Establecer valor del juego",
             SET_CUSTOM_SET_VALUE: "Establecer valor del set",
             VALUE: "Valor",
-            SAVING: "Guardando..."
+            SAVING: "Guardando...",
+            MATCH_FINISHED: "El partido ha terminado"
         },
         "en": {
           }

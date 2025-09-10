@@ -38,6 +38,20 @@ class GUI:
         self.score_labels = []
         # Flag to control event processing gate
         self.click_gate_open = True
+        
+        # --- Reusable Dialog for Custom Values ---
+        self.dialog_team = None
+        self.dialog_is_set = None
+        with ui.dialog() as self.custom_value_dialog, ui.card():
+            self.dialog_label = ui.label()
+            self.dialog_input = ui.number(
+                step=1,
+                format='%.0f'
+            ).classes('w-full').mark('value-input')
+            with ui.row():
+                ui.button('OK', on_click=self._handle_custom_value_submit).mark('value-input-ok-button')
+                ui.button('Cancel', on_click=self.custom_value_dialog.close).mark('value-input-cancel-button')
+
 
     def set_customization_model(self, model):
         """Directly sets the customization model from an external source."""
@@ -91,32 +105,34 @@ class GUI:
             self.teamAButton.classes(add=self.TEXTSIZE)
             self.teamBButton.classes(add=self.TEXTSIZE)
 
-    async def show_custom_value_dialog(self, team: int, is_set_button: bool, initial_value: int, max_value: int):
-        """Opens a dialog to set a custom value for points or sets."""
-        title = Messages.get(Messages.SET_CUSTOM_SET_VALUE) if is_set_button else Messages.get(
-            Messages.SET_CUSTOM_GAME_VALUE)
-        with ui.dialog() as dialog, ui.card():
-            ui.label(title)
-            value_input = ui.number(
-                label=Messages.get(Messages.VALUE),
-                value=initial_value,
-                min=0,
-                max=max_value,
-                step=1,
-                format='%.0f'
-            ).classes('w-full').mark('value-input')
-            with ui.row():
-                ui.button('OK', on_click=lambda: dialog.submit(
-                    value_input.value)).mark('value-input-ok-button')
-                ui.button('Cancel', on_click=dialog.close).mark('value-input-cancel-button')
+    def _handle_custom_value_submit(self):
+        """Submits the value from the reusable dialog."""
+        self.custom_value_dialog.submit(self.dialog_input.value)
 
-        result = await dialog
+    async def show_custom_value_dialog(self, team: int, is_set_button: bool, initial_value: int, max_value: int):
+        """Opens a reusable dialog to set a custom value for points or sets."""
+        title = Messages.get(Messages.SET_CUSTOM_SET_VALUE) if is_set_button else Messages.get(Messages.SET_CUSTOM_GAME_VALUE)
+        
+        # Store context for the submit handler
+        self.dialog_team = team
+        self.dialog_is_set = is_set_button
+
+        # Update dialog elements with current context
+        self.dialog_label.set_text(title)
+        self.dialog_input.label = Messages.get(Messages.VALUE)
+        self.dialog_input.value = initial_value
+        self.dialog_input.min = 0
+        self.dialog_input.max = max_value
+        
+        result = await self.custom_value_dialog
+        
         if result is not None:
             value = int(result)
-            if is_set_button:
-                self.set_sets_value(team, value)
+            # Use the stored context to apply the value
+            if self.dialog_is_set:
+                self.set_sets_value(self.dialog_team, value)
             else:
-                self.set_game_value(team, value)
+                self.set_game_value(self.dialog_team, value)
         
         self.open_click_gate()
 
@@ -433,20 +449,26 @@ class GUI:
         """Directly sets the game score for a team."""
         self.game_manager.set_game_value(team, value, self.current_set)
         
-        # Check if this score results in a set win
         set_won = self.game_manager.check_set_won(
             team, self.current_set, self.points_limit, self.points_limit_last_set, self.sets_limit
         )
 
+        # Always update the main score button right after setting the value.
+        # This ensures the winning score is displayed.
+        current_state = self.game_manager.get_current_state()
+        self.teamAButton.set_text(f'{current_state.get_game(1, self.current_set):02d}')
+        self.teamBButton.set_text(f'{current_state.get_game(2, self.current_set):02d}')
+
         if set_won:
-            current_state = self.game_manager.get_current_state()
             self.update_ui_sets(current_state)
             self.update_ui_timeouts(current_state)
-            self.switch_to_set(self.compute_current_set(current_state))
-        else:
-            self.update_ui_games(self.game_manager.get_current_state())
-
+            if not self.game_manager.match_finished():
+                self.switch_to_set(self.compute_current_set(current_state))
+        
+        # Update the detailed score table regardless.
+        self.update_ui_games_table(current_state)
         self.send_state()
+
 
     def set_sets_value(self, team: int, value: int):
         """Directly sets the sets won for a team."""
@@ -458,13 +480,18 @@ class GUI:
 
     def add_game(self, team):
         if self.block_additional_points():
+            ui.notify(Messages.get(Messages.MATCH_FINISHED))
             return
 
         set_won = self.game_manager.add_game(
             team, self.current_set, self.points_limit, self.points_limit_last_set, self.sets_limit, self.undo)
 
-        # Always update the serve indicator after a point
-        self.update_ui_serve(self.game_manager.get_current_state())
+        # Explicitly update the main score buttons with the score of the set that was just played.
+        current_state = self.game_manager.get_current_state()
+        self.teamAButton.set_text(f'{current_state.get_game(1, self.current_set):02d}')
+        self.teamBButton.set_text(f'{current_state.get_game(2, self.current_set):02d}')
+
+        self.update_ui_serve(current_state)
 
         if self.undo:
             self.switch_undo(True)
@@ -476,11 +503,10 @@ class GUI:
             self.switch_visibility(True)
 
         if set_won:
-            current_state = self.game_manager.get_current_state()
             self.update_ui_sets(current_state)
             self.update_ui_timeouts(current_state)
-            self.switch_to_set(
-                self.compute_current_set(current_state))
+            if not self.game_manager.match_finished():
+                self.switch_to_set(self.compute_current_set(current_state))
             if self.conf.auto_simple_mode:
                 self.logger.debug('Switch simple mode off due to auto_simple_mode being enabled')
                 self.switch_simple_mode(False)
@@ -492,7 +518,8 @@ class GUI:
             if self.conf.auto_simple_mode:
                 self.logger.debug('Switch simple mode on due to auto_simple_mode being enabled')
                 self.switch_simple_mode(True)
-        self.update_ui_games(self.game_manager.get_current_state())
+        
+        self.update_ui_games_table(self.game_manager.get_current_state())
         self.send_state()
 
     def get_game_limit(self, set_number):
@@ -500,6 +527,7 @@ class GUI:
 
     def add_set(self, team):
         if self.block_additional_points():
+            ui.notify(Messages.get(Messages.MATCH_FINISHED))
             return
 
         self.game_manager.add_set(team, self.undo)
