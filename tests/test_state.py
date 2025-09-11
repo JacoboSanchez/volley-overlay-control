@@ -166,3 +166,25 @@ def test_simplify_model_preserves_other_state(state):
     assert simplified[State.SERVE] == State.SERVE_2
     assert simplified[State.T1TIMEOUTS_INT] == '1'
     assert simplified[State.T1SETS_INT] == '1'
+
+def test_simplify_model_with_invalid_current_set(state):
+    """Tests simplify_model with an invalid current_set value."""
+    model = state.get_current_model()
+    model[State.CURRENT_SET_INT] = 99 # Invalid set number
+    with pytest.raises(KeyError):
+        State.simplify_model(model)
+
+def test_getters_with_invalid_keys(state):
+    """Tests that getters raise KeyError for invalid team or set numbers."""
+    with pytest.raises(KeyError):
+        state.get_timeout(3)
+    with pytest.raises(KeyError):
+        state.get_sets(0)
+    with pytest.raises(KeyError):
+        state.get_game(1, 6)
+
+def test_setters_with_invalid_values(state):
+    """Tests that setters handle non-integer values gracefully, and getters might fail."""
+    state.set_timeout(1, "invalid")
+    with pytest.raises(ValueError):
+        state.get_timeout(1)

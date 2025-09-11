@@ -283,3 +283,62 @@ def test_beach_volley_deuce(game_manager):
     game_manager.add_game(1, 1, 21, 15, 3, False)
     state = game_manager.get_current_state()
     assert state.get_sets(1) == 1
+
+def test_reset(game_manager, mock_backend):
+    """Tests that the reset method calls backend.reset and updates the state."""
+    game_manager.add_game(1, 1, 25, 15, 5, False)
+    game_manager.reset()
+    mock_backend.reset.assert_called_once()
+    state = game_manager.get_current_state()
+    assert state.get_game(1, 1) == 0
+
+def test_save(game_manager, mock_backend):
+    """Tests that the save method calls backend.save with the correct arguments."""
+    game_manager.save(simple=True, current_set=2)
+    mock_backend.save.assert_called_once()
+    state = game_manager.get_current_state()
+    assert state.get_current_model()[State.CURRENT_SET_INT] == 2
+
+def test_change_serve_force(game_manager):
+    """Tests that the serve is changed even if the team is already serving."""
+    game_manager.change_serve(1)
+    state = game_manager.get_current_state()
+    assert state.get_current_serve() == State.SERVE_1
+    game_manager.change_serve(1, force=True)
+    state = game_manager.get_current_state()
+    assert state.get_current_serve() == State.SERVE_1
+
+def test_add_set_resets_timeouts_and_serve(game_manager):
+    """Tests that after a set is won, timeouts and serve are reset."""
+    game_manager.add_timeout(1, False)
+    game_manager.add_timeout(2, False)
+    game_manager.change_serve(1)
+    game_manager.add_set(1, False)
+    state = game_manager.get_current_state()
+    assert state.get_timeout(1) == 0
+    assert state.get_timeout(2) == 0
+    assert state.get_current_serve() == State.SERVE_NONE
+
+def test_check_set_won(game_manager):
+    """Tests the check_set_won method."""
+    game_manager.set_game_value(1, 25, 1)
+    game_manager.set_game_value(2, 23, 1)
+    assert game_manager.check_set_won(1, 1, 25, 15, 5) is True
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 1
+
+def test_add_game_in_different_sets(game_manager):
+    """Tests adding points to different sets."""
+    game_manager.add_game(1, 1, 25, 15, 5, False)
+    game_manager.add_game(2, 2, 25, 15, 5, False)
+    state = game_manager.get_current_state()
+    assert state.get_game(1, 1) == 1
+    assert state.get_game(2, 2) == 1
+
+def test_add_set_after_match_finished(game_manager):
+    """Tests that a set is not added if the match is already finished."""
+    for i in range(1, 4):
+        game_manager.add_set(1, False)
+    game_manager.add_set(1, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 3

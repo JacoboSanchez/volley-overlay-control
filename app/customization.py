@@ -56,7 +56,11 @@ class Customization:
             VISITOR_NAME: {TEAM_VALUES_ICON:DEFAULT_IMAGE, TEAM_VALUES_COLOR:"#ffffff", TEAM_VALUES_TEXT_COLOR:"#000000"},
         }
     else: 
-        predefined_teams = json.loads(provided_teams_json)
+        try:
+            predefined_teams = json.loads(provided_teams_json)
+        except json.JSONDecodeError:
+            print(f"Error decoding TEAMS from environment variable: {provided_teams_json}")
+            predefined_teams = {}
     
     
     provided_themes_json = os.environ.get('APP_THEMES', None)
