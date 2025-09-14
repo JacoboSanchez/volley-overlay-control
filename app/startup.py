@@ -16,6 +16,7 @@ from fastapi import Request
 from typing import Optional
 from app.game_manager import GameManager
 from app.state import State
+from app.settings_page import SettingsPage
 
 logger = logging.getLogger("Webapp")
 
@@ -29,6 +30,12 @@ def startup() -> None:
         if logout == "true":
             reset_all()
             ui.navigate.to('./')
+
+    @ui.page('/settings')
+    def settings():
+        """The settings page of the application."""
+        settings_page = SettingsPage()
+        settings_page.init_ui()
 
     @ui.page("/indoor")
     async def beach(control=None, output=None, logout=None):
