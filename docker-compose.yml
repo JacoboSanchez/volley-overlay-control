@@ -16,6 +16,7 @@ services:
         - UNO_OVERLAY_AIR_ID=${UNO_OVERLAY_AIR_ID:-}  #Optional
         - APP_DARK_MODE=${APP_DARK_MODE:-auto}
         - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
+        - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
         - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
         - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
         - APP_TEAMS=${APP_TEAMS:-}

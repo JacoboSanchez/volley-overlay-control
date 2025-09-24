@@ -23,5 +23,6 @@ class Conf:
         self.auto_hide = False
         self.hide_timeout = int(os.environ.get('DEFAULT_HIDE_TIMEOUT', 5))
         self.auto_simple_mode = False
-
+        self.single_overlay = os.environ.get('SINGLE_OVERLAY_MODE', 'true').lower() in ("yes", "true", "t", "1")
+        
         

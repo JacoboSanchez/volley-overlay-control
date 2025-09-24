@@ -120,7 +120,7 @@ def startup() -> None:
             source = "none"
 
             # 1. Check for OID in URL parameters (highest priority)
-            if oid is not None:
+            if oid is not None and conf.single_overlay:
                 if backend.validate_and_store_model_for_oid(oid) == State.OIDStatus.VALID:
                     oid_to_use = oid
                     source = "URL"
