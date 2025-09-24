@@ -9,6 +9,7 @@ from app.authentication import PasswordAuthenticator
 from app.backend import Backend
 from app.state import State
 from app.messages import Messages
+from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger("OidDialog")
 
@@ -25,12 +26,12 @@ class OidDialog:
         logger.info("Initializing OidDialog")
         
         # --- CORRECTED LOGIC ---
-        overlays_json = os.environ.get('PREDEFINED_OVERLAYS', None)
+        overlays_json = EnvVarsManager.get_env_var('PREDEFINED_OVERLAYS', None)
         if overlays_json and overlays_json.strip():
             self.predefined_overlays = json.loads(overlays_json)
             self.show_predefined_overlays = True
             logger.info("Loaded predefined overlays")
-            self.hide_custom_overlay_input = os.environ.get('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'false') == 'true'
+            self.hide_custom_overlay_input = EnvVarsManager.get_env_var('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'false') == 'true'
         else:
             self.predefined_overlays = None
             self.show_predefined_overlays = False

@@ -1,6 +1,7 @@
 from app.messages import Messages
 import os
 import json
+from app.env_vars_manager import EnvVarsManager
 
 class Customization:
 
@@ -36,7 +37,7 @@ class Customization:
     TEAM_VALUES_ICON = "icon"
     TEAM_VALUES_COLOR = "color"
     TEAM_VALUES_TEXT_COLOR = "text_color"
-    DEFAULT_IMAGE= os.environ.get('APP_DEFAULT_LOGO', 'https://cdn-icons-png.flaticon.com/512/7788/7788863.png')
+    DEFAULT_IMAGE= EnvVarsManager.get_env_var('APP_DEFAULT_LOGO', 'https://cdn-icons-png.flaticon.com/512/7788/7788863.png')
 
 
     RESET_COLORS = { 
@@ -47,29 +48,6 @@ class Customization:
         GAME_TEXT_COLOR: "#2a2f35",
         TEXT_COLOR3: "FFFFFF"
     }   
-
-    provided_teams_json = os.environ.get('APP_TEAMS', None)
-
-    if provided_teams_json == None or provided_teams_json == '':
-        predefined_teams = {
-            LOCAL_NAME: {TEAM_VALUES_ICON:DEFAULT_IMAGE, TEAM_VALUES_COLOR:"#060f8a", TEAM_VALUES_TEXT_COLOR:"#ffffff"},
-            VISITOR_NAME: {TEAM_VALUES_ICON:DEFAULT_IMAGE, TEAM_VALUES_COLOR:"#ffffff", TEAM_VALUES_TEXT_COLOR:"#000000"},
-        }
-    else: 
-        try:
-            predefined_teams = json.loads(provided_teams_json)
-        except json.JSONDecodeError:
-            print(f"Error decoding TEAMS from environment variable: {provided_teams_json}")
-            predefined_teams = {}
-    
-    
-    provided_themes_json = os.environ.get('APP_THEMES', None)
-    THEMES = {}
-    if provided_themes_json:
-        try:
-            THEMES = json.loads(provided_themes_json)
-        except json.JSONDecodeError:
-            print(f"Error decoding THEMES from environment variable: {provided_themes_json}")
 
 
     reset_state = {
@@ -93,8 +71,34 @@ class Customization:
         VPOS_FLOAT: -41.1,
         WIDTH_FLOAT: 30}
 
+    def refresh():
+        provided_teams_json = EnvVarsManager.get_env_var('APP_TEAMS', None)
+
+        if provided_teams_json == None or provided_teams_json == '':
+            Customization.predefined_teams = {
+                Customization.LOCAL_NAME: {Customization.TEAM_VALUES_ICON:Customization.DEFAULT_IMAGE, Customization.TEAM_VALUES_COLOR:"#060f8a", Customization.TEAM_VALUES_TEXT_COLOR:"#ffffff"},
+                Customization.VISITOR_NAME: {Customization.TEAM_VALUES_ICON:Customization.DEFAULT_IMAGE, Customization.TEAM_VALUES_COLOR:"#ffffff", Customization.TEAM_VALUES_TEXT_COLOR:"#000000"},
+            }
+        else: 
+            try:
+                Customization.predefined_teams = json.loads(provided_teams_json)
+            except json.JSONDecodeError:
+                print(f"Error decoding TEAMS from environment variable: {provided_teams_json}")
+                Customization.predefined_teams = {}
+        
+        
+        provided_themes_json = EnvVarsManager.get_env_var('APP_THEMES', None)
+        Customization.THEMES = {}
+        if provided_themes_json:
+            try:
+                Customization.THEMES = json.loads(provided_themes_json)
+            except json.JSONDecodeError:
+                print(f"Error decoding THEMES from environment variable: {provided_themes_json}")
+
+
 
     def __init__(self, current_customization_state):
+        Customization.refresh()
         self.customization_model = current_customization_state
 
     def get_model(self):
@@ -224,6 +228,7 @@ class Customization:
         self.customization_model[Customization.VPOS_FLOAT] = float
 
     def get_predefined_teams():
+        Customization.refresh()
         return Customization.predefined_teams
 
     def fix_icon(url):
