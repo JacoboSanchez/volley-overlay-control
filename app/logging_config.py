@@ -1,6 +1,7 @@
 import logging
 import sys
 import os
+from app.env_vars_manager import EnvVarsManager
 
 def setup_logging():
     """
@@ -23,5 +24,5 @@ def setup_logging():
         
     root.addHandler(handler)
     
-    log_level = os.environ.get('LOGGING_LEVEL', 'warning').upper()
+    log_level = EnvVarsManager.get_env_var('LOGGING_LEVEL', 'warning').upper()
     root.setLevel(log_level)

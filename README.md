@@ -122,6 +122,7 @@ You can configure the application's behavior using the following environment var
 | `APP_THEMES` | JSON with a list of customization themes. |  |
 | `APP_RELOAD` | If `true`, the app will automatically reload when code changes are detected. | `false` |
 | `APP_SHOW` | If `true`, automatically opens the app in a new browser tab on startup. | `false` |
+| `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
 
 <br>
 
@@ -168,6 +169,12 @@ List of themes. The key is the theme name and the value is a JSON with the custo
     "Change only game status colors": {"Game Status Color": "#252525", "Game Status Text Color": "#ffffff"}
 }
 ```
+
+#### Remote Configuration
+
+You can import the configuration from an external resource via the environment variable `REMOTE_CONFIG_URL`. This variable should point to a URL that provides a JSON configuration file. The application will fetch this file on startup and apply the configuration. This is useful for managing configurations for multiple instances of the application from a single source.
+
+An example of a project that provides a JSON configuration is the [volleyball-scoreboard-configurator](https://github.com/JacoboSanchez/volleyball-scoreboard-configurator/). You can use the JSON provided by this project as a remote configuration source.
 
 ### Overlay Loading Priority
 

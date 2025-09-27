@@ -138,7 +138,7 @@ def startup() -> None:
                     source = "storage"
 
             # 3. If still no OID, check environment variables (third priority)
-            if oid_to_use is None and oid is None:
+            if oid_to_use is None and oid is None and conf.single_overlay:
                 env_oid = conf.oid
                 if env_oid and backend.validate_and_store_model_for_oid(env_oid) == State.OIDStatus.VALID:
                     oid_to_use = env_oid

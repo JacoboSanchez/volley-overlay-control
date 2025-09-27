@@ -1,4 +1,5 @@
 import os
+from app.env_vars_manager import EnvVarsManager
 
 class Messages:
     GRADIENT = "Gradient"
@@ -108,6 +109,6 @@ class Messages:
 
     def get(message:str) -> str:
         # Get the configured language, default to English if not set
-        local_messages = Messages.messages.get(os.environ.get('SCOREBOARD_LANGUAGE', ''), {})
+        local_messages = Messages.messages.get(EnvVarsManager.get_env_var('SCOREBOARD_LANGUAGE', ''), {})
         # Return the translated message, or the key if no translation is found
         return local_messages.get(message, message)

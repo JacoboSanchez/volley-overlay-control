@@ -369,8 +369,8 @@ class GUI:
                     break
 
                 # Create and store references to the labels
-                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0')
-                label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0')
+                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0').mark(f'team-1-set-{i}-score')
+                label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0').mark(f'team-2-set-{i}-score')
                 self.score_labels.extend([label1, label2])
 
                 if teamA_game_int > teamB_game_int:

@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.messages import Messages
 from app.app_storage import AppStorage
+from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger("Authenticator")
 
@@ -33,12 +34,12 @@ class PasswordAuthenticator:
     UNO_OUTPUT_BASE_URL = 'https://app.overlays.uno/output/'
     
     def do_authenticate_users() -> bool:
-        passwords_json = os.environ.get('SCOREBOARD_USERS', None)
+        passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
         return passwords_json is not None and passwords_json.strip() != ''
 
     def check_user(user:str, password:str) -> bool:
         logger.debug("checking user")
-        passwords_json = os.environ.get('SCOREBOARD_USERS', None)
+        passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
         if not passwords_json or not passwords_json.strip():
             return False
 
