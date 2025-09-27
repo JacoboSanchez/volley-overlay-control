@@ -1,5 +1,4 @@
 from app.messages import Messages
-import os
 import json
 from app.env_vars_manager import EnvVarsManager
 
@@ -70,6 +69,9 @@ class Customization:
         TEXT_COLOR3:RESET_COLORS[TEXT_COLOR3],
         VPOS_FLOAT: -41.1,
         WIDTH_FLOAT: 30}
+
+    predefined_teams = {}
+    THEMES = {}
 
     def refresh():
         provided_teams_json = EnvVarsManager.get_env_var('APP_TEAMS', None)

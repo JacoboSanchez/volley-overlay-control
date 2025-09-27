@@ -157,7 +157,7 @@ def test_predefined_teams_loading(monkeypatch):
     import importlib
     import app.customization as cust_module
     importlib.reload(cust_module)
-    
+    cust_module.Customization.refresh()
     predefined_teams = cust_module.Customization.get_predefined_teams()
     assert "Eagles" in predefined_teams
     assert predefined_teams["Sharks"]["icon"] == "shark.png"
@@ -173,6 +173,6 @@ def test_predefined_themes_loading(monkeypatch):
     import importlib
     import app.customization as cust_module
     importlib.reload(cust_module)
-
+    cust_module.Customization.refresh()
     assert "Dark Mode" in cust_module.Customization.THEMES
     assert cust_module.Customization.THEMES["High Vis"]["Team 1 Color"] == "#FFFF00"

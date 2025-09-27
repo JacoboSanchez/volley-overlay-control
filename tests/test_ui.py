@@ -411,10 +411,11 @@ async def test_refresh(user: User, mock_backend):
 async def test_team_customization(user: User, mock_backend, monkeypatch):
     """Tests changing a team's name and checks if the backend is called correctly."""
     # Define new predefined teams for this test
-    new_teams = {
+    new_teams = json.dumps({
         "Eagles": {"icon": "path/to/eagle.png", "color": "#FF0000", "text_color": "#FFFFFF"},
-    }
-    monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
+    })
+    monkeypatch.setenv("APP_TEAMS", new_teams)
+    
 
     await _navigate_to_config(user)
     await user.should_see(marker='team-1-name-selector')
@@ -564,7 +565,7 @@ async def test_reset_from_config(user: User, mock_backend):
     
 async def test_theme_application(user: User, mock_backend, monkeypatch):
     """Tests applying a predefined theme."""
-    themes = {
+    themes = json.dumps({
         "Test Theme": {
             "Team 1 Color": "#112233",
             "Width": 50.0,
@@ -572,8 +573,9 @@ async def test_theme_application(user: User, mock_backend, monkeypatch):
             "Gradient": "false",
             "Height": 15.0
         }
-    }
-    monkeypatch.setattr('app.customization.Customization.THEMES', themes)
+    })
+
+    monkeypatch.setenv("APP_THEMES", themes)
 
     await _navigate_to_config(user)
     await user.should_see(marker='theme-button')
