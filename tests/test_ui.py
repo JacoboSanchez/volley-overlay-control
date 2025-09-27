@@ -1351,3 +1351,97 @@ async def test_state_persistence_on_refresh(user: User, mock_backend):
     await _assert_scores_and_sets(user, '02', '1', '01', '0')
     await _assert_all_set_scores(user, [('02', '00')])
     await asyncio.sleep(0.2)
+
+async def test_single_overlay_mode_false_with_env_var(user: User, mock_backend, monkeypatch):
+    """
+    Tests that with SINGLE_OVERLAY_MODE=false, the OID dialog is shown even if UNO_OVERLAY_OID is set.
+    """
+    monkeypatch.setenv('SINGLE_OVERLAY_MODE', 'false')
+    monkeypatch.setenv('UNO_OVERLAY_OID', 'test_oid_valid')
+    # Reload conf to apply env var
+    import app.conf
+    importlib.reload(app.conf)
+
+
+    await user.open('/')
+    await user.should_see(marker='control-url-input')
+    await user.should_not_see(marker='team-1-score')
+
+
+async def test_single_overlay_mode_true_with_env_var(user: User, mock_backend, monkeypatch):
+    """
+    Tests that with SINGLE_OVERLAY_MODE=true, the scoreboard loads directly using UNO_OVERLAY_OID.
+    """
+    monkeypatch.setenv('SINGLE_OVERLAY_MODE', 'true')
+    monkeypatch.setenv('UNO_OVERLAY_OID', 'test_oid_valid')
+    # Reload conf to apply env var
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/')
+    await user.should_not_see(marker='control-url-input')
+    await user.should_see(marker='team-1-score')
+    await _assert_scores_and_sets(user, '00', '0', '00', '0')
+
+
+async def test_single_overlay_mode_false_with_url_param(user: User, mock_backend, monkeypatch):
+    """
+    Tests that with SINGLE_OVERLAY_MODE=false, an OID from a URL parameter is still used.
+    """
+    monkeypatch.setenv('SINGLE_OVERLAY_MODE', 'false')
+    monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
+    # Reload conf to apply env var
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/?control=predefined_1_valid')
+    await user.should_not_see(marker='control-url-input')
+    await user.should_see(marker='team-1-score')
+    await _assert_scores_and_sets(user, '10', '0', '05', '0')
+
+
+async def test_single_overlay_mode_true_with_url_param_override(user: User, mock_backend, monkeypatch):
+    """
+    Tests that an OID from a URL parameter overrides UNO_OVERLAY_OID when SINGLE_OVERLAY_MODE=true.
+    """
+    monkeypatch.setenv('SINGLE_OVERLAY_MODE', 'true')
+    monkeypatch.setenv('UNO_OVERLAY_OID', 'test_oid_valid')
+    # Reload conf to apply env var
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/?control=predefined_1_valid')
+    await user.should_not_see(marker='control-url-input')
+    await user.should_see(marker='team-1-score')
+    # predefined_1_valid has scores 10-5
+    await _assert_scores_and_sets(user, '10', '0', '05', '0')
+
+
+async def test_single_overlay_mode_false_no_oid(user: User, mock_backend, monkeypatch):
+    """
+    Tests that with SINGLE_OVERLAY_MODE=false and no OID, the OID dialog is shown.
+    """
+    monkeypatch.setenv('SINGLE_OVERLAY_MODE', 'false')
+    monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
+    # Reload conf to apply env var
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/')
+    await user.should_see(marker='control-url-input')
+    await user.should_not_see(marker='team-1-score')
+
+
+async def test_single_overlay_mode_true_no_oid(user: User, mock_backend, monkeypatch):
+    """
+    Tests that with SINGLE_OVERLAY_MODE=true and no OID, the OID dialog is shown.
+    """
+    monkeypatch.setenv('SINGLE_OVERLAY_MODE', 'true')
+    monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
+    # Reload conf to apply env var
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/')
+    await user.should_see(marker='control-url-input')
+    await user.should_not_see(marker='team-1-score')
