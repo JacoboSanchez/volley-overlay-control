@@ -176,7 +176,7 @@ def startup() -> None:
             with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full"):
                 scoreboardTabPanel = ui.tab_panel(scoreboardTab)
                 with scoreboardTabPanel:
-                    scoreboard_page.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
+                    await scoreboard_page.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
                 configurationTabPanel = ui.tab_panel(configurationTab)
                 with configurationTabPanel:
                     customization_page.init(configurationTabPanel)

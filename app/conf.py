@@ -25,3 +25,4 @@ class Conf:
         self.hide_timeout = int(EnvVarsManager.get_env_var('DEFAULT_HIDE_TIMEOUT', 5))
         self.auto_simple_mode = False
         self.single_overlay = str(EnvVarsManager.get_env_var('SINGLE_OVERLAY_MODE', 'true')).lower() in ("yes", "true", "t", "1")
+        self.show_preview = str(EnvVarsManager.get_env_var('SHOW_PREVIEW', 'true')).lower() in ("yes", "true", "t", "1")
