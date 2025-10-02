@@ -196,15 +196,15 @@ The application determines which overlay to load based on the following priority
 
 **Main Control Panel:**
 
-![Main Control Panel](https://github.com/user-attachments/assets/d945dbf3-9a1d-40ed-aaf4-cc012bf41d4c)
+<img width="1343" height="740" alt="imagen" src="https://github.com/user-attachments/assets/c222fa98-740b-437e-bf48-8237c539b46b" />
 
 **Setup Panel:**
 
-<img width="577" alt="Setup Panel" src="https://github.com/user-attachments/assets/355a4d89-aece-4fe8-816c-8258968b78f2">
+<img width="1335" height="659" alt="imagen" src="https://github.com/user-attachments/assets/cbe0d7ef-80c4-4317-94c9-4e99e27d8a1f" /> 
 
 **Configuration Dialog:**
 
-<img width="268" alt="Configuration Dialog" src="https://github.com/user-attachments/assets/577db9a9-4f3b-4d70-ac52-dc5da7a11db2">
+<img width="488" height="670" alt="imagen" src="https://github.com/user-attachments/assets/0f1e5e2d-30ad-4109-bf3b-db1517da0439" />
 
 **Example Overlay:**
 
