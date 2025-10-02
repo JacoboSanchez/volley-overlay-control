@@ -21,23 +21,25 @@ class OptionsDialog:
             ui.label(Messages.get(Messages.OPTIONS_TITLE)).classes('text-lg font-semibold')
             with ui.card():
                 ui.label(Messages.get(Messages.HIDE_OPTIONS)).classes('text-lg font-semibold')
-                auto_hide_switch = ui.switch(
+                self.auto_hide_switch = ui.switch(
                     Messages.get(Messages.AUTO_HIDE),
-                    value=self.configuration.auto_hide,
                     on_change=self.on_auto_hide_change
                 )
 
                 with ui.column().classes('w-full gap-0 pt-2'):
-                    ui.label().bind_text_from(self.configuration, 'hide_timeout',
-                                            lambda v: f"{Messages.get(Messages.HIDE_TIMEOUT)}: {v}s")
-                    ui.slider(min=1, max=15, step=1, on_change=self.on_hide_timeout_change) \
-                        .bind_value(self.configuration, 'hide_timeout').bind_enabled_from(auto_hide_switch, 'value')
+                    self.hide_timeout_label = ui.label()
+                    self.hide_timeout_slider = ui.slider(min=1, max=15, step=1, on_change=self.on_hide_timeout_change) \
+                        .bind_enabled_from(self.auto_hide_switch, 'value')
 
-                ui.switch(
+                self.auto_simple_mode_switch = ui.switch(
                     Messages.get(Messages.AUTO_SIMPLE_MODE),
-                    value=self.configuration.auto_simple_mode,
                     on_change=self.on_auto_simple_mode_change
                 )
+                with ui.row().classes('w-full'):
+                    self.auto_simple_mode_timeout_switch = ui.switch(
+                        Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT),
+                        on_change=self.on_auto_simple_mode_timeout_change
+                    ).bind_enabled_from(self.auto_simple_mode_switch, 'value')
 
             ui.separator()
             with ui.card().classes('w-full'):
@@ -96,15 +98,40 @@ class OptionsDialog:
                 self.dark_mode.auto()
 
     def on_auto_hide_change(self, e):
-        self.configuration.auto_hide = e.value
-        AppStorage.save(AppStorage.Category.AUTOHIDE_ENABLED, e.value)
+        AppStorage.save(AppStorage.Category.AUTOHIDE_ENABLED, e.value, oid=self.configuration.oid)
 
     def on_hide_timeout_change(self, e):
-        AppStorage.save(AppStorage.Category.AUTOHIDE_SECONDS, int(e.value))
+        self.hide_timeout_label.set_text(f"{Messages.get(Messages.HIDE_TIMEOUT)}: {int(e.value)}s")
+        AppStorage.save(AppStorage.Category.AUTOHIDE_SECONDS, int(e.value), oid=self.configuration.oid)
 
     def on_auto_simple_mode_change(self, e):
-        self.configuration.auto_simple_mode = e.value
-        AppStorage.save(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, e.value)
+        AppStorage.save(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, e.value, oid=self.configuration.oid)
+        if not e.value:
+            self.auto_simple_mode_timeout_switch.value = False
+            AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, False, oid=self.configuration.oid)
+
+    def on_auto_simple_mode_timeout_change(self, e):
+        AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, e.value, oid=self.configuration.oid)
 
     def open(self):
+        auto_hide = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED, oid=self.configuration.oid)
+        if auto_hide is None:
+            auto_hide = self.configuration.auto_hide
+        self.auto_hide_switch.value = auto_hide
+
+        hide_timeout = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS, oid=self.configuration.oid)
+        if hide_timeout is None:
+            hide_timeout = self.configuration.hide_timeout
+        self.hide_timeout_slider.value = hide_timeout
+        self.hide_timeout_label.set_text(f"{Messages.get(Messages.HIDE_TIMEOUT)}: {hide_timeout}s")
+
+        auto_simple_mode = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, oid=self.configuration.oid)
+        if auto_simple_mode is None:
+            auto_simple_mode = self.configuration.auto_simple_mode
+        self.auto_simple_mode_switch.value = auto_simple_mode
+
+        auto_simple_mode_timeout = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, oid=self.configuration.oid)
+        if auto_simple_mode_timeout is None:
+            auto_simple_mode_timeout = self.configuration.auto_simple_mode_timeout
+        self.auto_simple_mode_timeout_switch.value = auto_simple_mode_timeout
         self.dialog.open()

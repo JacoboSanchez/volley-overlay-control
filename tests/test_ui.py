@@ -1445,3 +1445,73 @@ async def test_single_overlay_mode_true_no_oid(user: User, mock_backend, monkeyp
     await user.open('/')
     await user.should_see(marker='control-url-input')
     await user.should_not_see(marker='team-1-score')
+
+async def test_auto_simple_mode_timeout_feature(user: User, mock_backend):
+    """Tests the auto-simple-mode-timeout functionality."""
+    # Go to config tab, open options, and enable auto-simple-mode and timeout option
+    await _navigate_to_config(user, open_root_page='/?control=test_oid_valid')
+    await user.should_see(marker='save-button')
+    user.find(marker='options-button').click()
+    await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE))
+    user.find(Messages.get(Messages.AUTO_SIMPLE_MODE)).click()
+    await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT))
+    user.find(Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT)).click()
+    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='scoreboard-tab-button').click()
+    await user.should_see(marker='team-1-score')
+
+    # Scoring a point should switch to simple mode
+    user.find(marker='team-1-score').click()
+    await asyncio.sleep(0.1)
+    mock_backend.reduce_games_to_one.assert_called_once()
+    await user.should_see('window', marker='simple-mode-button')
+
+    # Adding a timeout should switch back to full mode
+    user.find(marker='team-1-timeout').click()
+    await asyncio.sleep(0.1)
+    await user.should_see('grid_on', marker='simple-mode-button')
+
+
+async def test_show_preview_toggle(user: User, mock_backend, monkeypatch):
+    """Tests the show/hide preview functionality and its persistence."""
+    monkeypatch.setenv('SHOW_PREVIEW', 'true')
+    
+    import app.conf
+    importlib.reload(app.conf)
+
+    await user.open('/?control=test_oid_valid&output=custom_output_token')
+    await asyncio.sleep(0)
+    await user.should_see(marker='preview-button')
+
+    # Iframe should be visible initially
+    await user.should_see(marker='preview-iframe')
+
+    # Click to hide
+    user.find(marker='preview-button').click()
+    await asyncio.sleep(0.1)
+    await user.should_not_see(marker='preview-iframe')
+
+    # Click to show again
+    user.find(marker='preview-button').click()
+    await asyncio.sleep(0.1)
+    await user.should_see(marker='preview-iframe')
+
+    # Reload the page and check if it's still visible
+    await user.open('/?control=test_oid_valid&output=custom_output_token')
+    await user.should_see(marker='preview-button')
+    await user.should_see(marker='preview-iframe')
+
+    # Click to hide, then reload
+    user.find(marker='preview-button').click()
+    await asyncio.sleep(0.1)
+    await user.should_not_see(marker='preview-iframe')
+
+    await user.open('/?control=test_oid_valid&output=custom_output_token')
+    await user.should_see(marker='preview-button')
+    await user.should_not_see(marker='preview-iframe')
+
+    # without output there is no button or overlay
+    await user.open('/?control=test_oid_valid')
+    await asyncio.sleep(0)
+    await user.should_not_see(marker='preview-button')
+    await user.should_not_see(marker='preview-iframe')

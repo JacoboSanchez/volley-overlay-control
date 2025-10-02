@@ -189,6 +189,7 @@ class GUI:
 
     async def toggle_preview(self):
         self.preview_visible = not self.preview_visible
+        AppStorage.save(AppStorage.Category.SHOW_PREVIEW, self.preview_visible, oid=self.conf.oid)
         if self.preview_button is not None:
             icon = GUI.PREVIEW_ENABLED_ICON if self.preview_visible else GUI.PREVIEW_DISABLED_ICON
             self.preview_button.set_icon(icon)
@@ -242,7 +243,7 @@ class GUI:
                 self.teamASet.classes('text-white text-2xl')
 
                 with ui.row():
-                    self.scores = ui.grid(columns=2).classes('justify-center')
+                    self.scores = ui.grid(columns=2, rows=max(self.current_set, self.conf.sets)+1).classes('justify-center')
                     with self.scores:
                         logo1_src = self.current_customize_state.get_team_logo(1)
                         logo2_src = self.current_customize_state.get_team_logo(2)
@@ -280,7 +281,7 @@ class GUI:
 
             self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(
                 False)).props('round').mark('undo-button').classes('text-white')
-            if self.conf.show_preview and self.conf.output is not None:
+            if not self.conf.disable_overview and self.conf.output is not None:
                 icon = GUI.PREVIEW_ENABLED_ICON if self.preview_visible else GUI.PREVIEW_DISABLED_ICON
                 self.preview_button = ui.button(icon=icon, on_click=self.toggle_preview).props(
                         'round').mark('preview-button').classes('text-gray')
@@ -462,6 +463,9 @@ class GUI:
         self.game_manager.add_timeout(team, self.undo)
         if self.undo:
             self.switch_undo(True)
+        if self.is_auto_simple_mode_timeout_enabled():
+            self.logger.debug('Switch simple mode off due to auto_simple_mode_timeout being enabled')
+            self.switch_simple_mode(False)
         self.update_ui_timeouts(self.game_manager.get_current_state())
         self.send_state()
 
@@ -525,7 +529,7 @@ class GUI:
         if self.undo:
             self.switch_undo(True)
 
-        if self.conf.auto_hide:
+        if self.is_auto_hide_enabled():
             if self.hide_timer:
                 self.hide_timer.cancel()
             self.logger.debug('Auto hide enabled, sitching visibility on')
@@ -536,15 +540,16 @@ class GUI:
             self.update_ui_timeouts(current_state)
             if not self.game_manager.match_finished():
                 self.switch_to_set(self.compute_current_set(current_state))
-            if self.conf.auto_simple_mode:
+            if self.is_auto_simple_mode_enabled():
                 self.logger.debug('Switch simple mode off due to auto_simple_mode being enabled')
                 self.switch_simple_mode(False)
         else:
-            if self.conf.auto_hide:
-                self.logger.debug(f'Auto hide enabled, enabling timer to hide after %s seconds', self.conf.hide_timeout)
+            if self.is_auto_hide_enabled():
+                hide_timeout = self.get_hide_timeout()
+                self.logger.debug(f'Auto hide enabled, enabling timer to hide after %s seconds', hide_timeout)
                 self.hide_timer = ui.timer(
-                    self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True)
-            if self.conf.auto_simple_mode:
+                    hide_timeout, lambda: self.switch_visibility(False), once=True)
+            if self.is_auto_simple_mode_enabled():
                 self.logger.debug('Switch simple mode on due to auto_simple_mode being enabled')
                 self.switch_simple_mode(True)
         
@@ -571,6 +576,30 @@ class GUI:
 
     def block_additional_points(self):
         return not self.undo and self.game_manager.match_finished()
+
+    def is_auto_hide_enabled(self):
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED, oid=self.conf.oid)
+        if stored is not None:
+            return stored
+        return self.conf.auto_hide
+
+    def get_hide_timeout(self):
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS, oid=self.conf.oid)
+        if stored is not None:
+            return int(stored)
+        return self.conf.hide_timeout
+
+    def is_auto_simple_mode_enabled(self):
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, oid=self.conf.oid)
+        if stored is not None:
+            return stored
+        return self.conf.auto_simple_mode
+
+    def is_auto_simple_mode_timeout_enabled(self):
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, oid=self.conf.oid)
+        if stored is not None:
+            return stored
+        return self.conf.auto_simple_mode_timeout
 
     def switch_to_set(self, set_number):
         if self.current_set != set_number:

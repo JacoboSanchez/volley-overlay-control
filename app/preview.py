@@ -26,12 +26,12 @@ async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height:
 
     # Calculate the scale factor
     scale = min(card_width / width, card_height / height) if width > 0 and height > 0 else 1
-    #with ui.card().tight():
-    
+    ui.space()
+    ui.separator()
     ui.html(f'''
-<div style="width: {card_width}px; height: {height*scale}px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-    <div style="width: {width}px; height: {height}px; overflow: hidden; position: relative; transform: scale({scale}); transform-origin: center center;">
-        <iframe src="{url}" width="{iframe_width}px" height="{iframe_height}px" style="border: 0; position: absolute; top: {top}px; left: {left}px;"></iframe>
+    <div style="width: {card_width}px; height: {height*scale}px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+        <div style="width: {width}px; height: {height}px; overflow: hidden; position: relative; transform: scale({scale}); transform-origin: center center;">
+            <iframe src="{url}" width="{iframe_width}px" height="{iframe_height}px" style="border: 0; position: absolute; top: {top}px; left: {left}px;"></iframe>
+        </div>
     </div>
-</div>
-''')
+    ''').mark('preview-iframe')

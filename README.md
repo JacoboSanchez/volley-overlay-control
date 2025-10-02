@@ -23,8 +23,10 @@
   * Select from a list of predefined overlays.
 * **User-Friendly Interface:**
   * Dark mode support (auto, on, off).
-  * Auto-hide the scoreboard during gameplay.
-  * Automatically switch to a simplified view showing only the current set.
+  * Auto-hide the scoreboard after a configurable timeout.
+  * Automatically switch to a simplified view showing only the current set. 
+  * Option to switch back to full mode when a timeout is called.
+  * Show or hide a real-time preview of the overlay.
   * Internationalization support (English and Spanish).
 * **Flexible Deployment:**
   * Run locally as a Python application.
@@ -123,6 +125,11 @@ You can configure the application's behavior using the following environment var
 | `APP_RELOAD` | If `true`, the app will automatically reload when code changes are detected. | `false` |
 | `APP_SHOW` | If `true`, automatically opens the app in a new browser tab on startup. | `false` |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
+| `AUTO_HIDE_ENABLED` | If `true`, the scoreboard will automatically hide after a few seconds of inactivity. | `false` |
+| `DEFAULT_HIDE_TIMEOUT` | Number of seconds to wait before hiding the scoreboard. | `5` |
+| `AUTO_SIMPLE_MODE` | If `true`, automatically switches to a simplified view showing only the current set during gameplay. | `false` |
+| `AUTO_SIMPLE_MODE_TIMEOUT` | If `true`, switches back to the full scoreboard view when a timeout is called. | `false` |
+| `SHOW_PREVIEW` | If `true`, shows a preview of the overlay on the control page. | `true` |
 
 <br>
 
