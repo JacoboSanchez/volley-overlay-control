@@ -6,6 +6,7 @@ from app.app_storage import AppStorage
 from app.messages import Messages
 from app.theme import *
 from app.game_manager import GameManager
+from app.preview import create_iframe_card
 import asyncio
 
 class GUI:
@@ -13,6 +14,8 @@ class GUI:
     Manages the Graphical User Interface for the scoreboard.
     It acts as the presentation layer.
     """
+    PREVIEW_ENABLED_ICON = 'image_not_supported'
+    PREVIEW_DISABLED_ICON = 'preview'
 
     def __init__(self, tabs=None, conf=None, backend=None):
         self.logger = logging.getLogger("GUI")
@@ -35,9 +38,13 @@ class GUI:
         self.long_press_timer = None
         self.teamA_logo = None
         self.teamB_logo = None
-        self.score_labels = []
+        self.teamA_scores_container = None
+        self.teamB_scores_container = None
         # Flag to control event processing gate
         self.click_gate_open = True
+        self.preview_container = None
+        self.preview_button = None
+        self.preview_visible = self.conf.show_preview
         
         # --- Reusable Dialog for Custom Values ---
         self.dialog_team = None
@@ -181,6 +188,20 @@ class GUI:
             self.long_press_timer = None
         self.open_click_gate() # Re-open gate immediately if press is cancelled
 
+    async def toggle_preview(self):
+        self.preview_visible = not self.preview_visible
+        AppStorage.save(AppStorage.Category.SHOW_PREVIEW, self.preview_visible, oid=self.conf.oid)
+        if self.preview_button is not None:
+            icon = GUI.PREVIEW_ENABLED_ICON if self.preview_visible else GUI.PREVIEW_DISABLED_ICON
+            self.preview_button.set_icon(icon)
+
+        if self.preview_visible:
+            if self.preview_container is not None:
+                with self.preview_container:
+                    await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height())
+        elif self.preview_container is not None:
+            self.preview_container.clear()
+
     def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
         """Creates the UI panel for a single team."""
         with ui.card():
@@ -206,9 +227,9 @@ class GUI:
                 serve_icon.on('click', lambda: self.change_serve(team_id))
         return button, timeouts, serve_icon
 
-    def _create_center_panel(self):
+    async def _create_center_panel(self):
         """Creates the central control panel with set scores and pagination."""
-        with ui.column().classes('justify-center'):
+        with ui.column().classes('h-full'):
             with ui.row().classes('w-full justify-center'):
                 self.teamASet = ui.button('0', color='gray-700').mark('team-1-sets')
                 self.teamASet.on('mousedown', lambda: self.handle_button_press(
@@ -222,13 +243,16 @@ class GUI:
                 self.teamASet.on('touchmove', self.handle_press_cancel)
                 self.teamASet.classes('text-white text-2xl')
 
-                with ui.row():
-                    self.scores = ui.grid(columns=2).classes('justify-center')
-                    with self.scores:
+                with ui.row().classes('justify-center items-start gap-x-2'):
+                    with ui.column().classes('items-center gap-y-0'):
                         logo1_src = self.current_customize_state.get_team_logo(1)
+                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6').mark('team-1-logo')
+                        self.teamA_scores_container = ui.column().classes('items-center gap-y-0 min-h-24')
+
+                    with ui.column().classes('items-center gap-y-0'):
                         logo2_src = self.current_customize_state.get_team_logo(2)
-                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto').mark('team-1-logo')
-                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto').mark('team-2-logo')
+                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6').mark('team-2-logo')
+                        self.teamB_scores_container = ui.column().classes('items-center gap-y-0 min-h-24')
 
                 self.teamBSet = ui.button('0', color='gray-700').mark('team-2-sets')
                 self.teamBSet.on('mousedown', lambda: self.handle_button_press(
@@ -244,26 +268,36 @@ class GUI:
 
             self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
                 e.value)).props('color=grey active-color=teal').classes('w-full justify-center').mark('set-selector')
+            
+            if self.conf.show_preview and self.conf.output is not None:
+                self.preview_container = ui.column()
+                if self.preview_visible:
+                    with self.preview_container:
+                        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height())
 
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
-        with ui.row().classes("w-full justify-right"):
+        with ui.row().classes("w-full justify-around"):
             self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR,
                                                on_click=self.switch_visibility).props('round').mark('visibility-button').classes('text-white')
             self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR,
                                            on_click=self.switch_simple_mode).props('round').mark('simple-mode-button').classes('text-white')
+
             self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(
                 False)).props('round').mark('undo-button').classes('text-white')
+            if not self.conf.disable_overview and self.conf.output is not None:
+                icon = GUI.PREVIEW_ENABLED_ICON if self.preview_visible else GUI.PREVIEW_DISABLED_ICON
+                self.preview_button = ui.button(icon=icon, on_click=self.toggle_preview).props(
+                        'round').mark('preview-button').classes('text-gray')
             ui.space()
+            
             ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(
                 Customization.CONFIG_TAB)).props('round').mark('config-tab-button').classes('text-white')
 
-    def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
+    async def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized and not force:
             return
 
-        # FIX: Re-initialize the GameManager to ensure it loads the latest model
-        # that was fetched during the startup/validation sequence.
         self.game_manager = GameManager(self.conf, self.backend)
 
         self.current_customize_state = Customization(
@@ -283,7 +317,7 @@ class GUI:
             self.teamAButton, self.timeoutsA, self.serveA = self._create_team_panel(
                 1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
             ui.space()
-            self._create_center_panel()
+            await self._create_center_panel()
             ui.space()
             self.teamBButton, self.timeoutsB, self.serveB = self._create_team_panel(
                 2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT)
@@ -346,37 +380,42 @@ class GUI:
         self.update_ui_games_table(update_state)
 
     def update_ui_games_table(self, update_state):
-        # Clear only the score labels, not the logos
-        for label in self.score_labels:
-            label.delete()
-        self.score_labels.clear()
+        if self.teamA_scores_container is None or self.teamB_scores_container is None:
+            return
+            
+        self.teamA_scores_container.clear()
+        self.teamB_scores_container.clear()
 
-        with self.scores:
-            lastWithoutZeroZero = 1
-            match_finished = self.game_manager.match_finished()
-            for i in range(1, self.sets_limit + 1):
-                teamA_game_int = update_state.get_game(1, i)
-                teamB_game_int = update_state.get_game(2, i)
-                if teamA_game_int + teamB_game_int > 0:
-                    lastWithoutZeroZero = i
+        lastWithoutZeroZero = 1
+        match_finished = self.game_manager.match_finished()
+        for i in range(1, self.sets_limit + 1):
+            teamA_game_int = update_state.get_game(1, i)
+            teamB_game_int = update_state.get_game(2, i)
+            if teamA_game_int + teamB_game_int > 0:
+                lastWithoutZeroZero = i
 
-            for i in range(1, self.sets_limit + 1):
-                teamA_game_int = update_state.get_game(1, i)
-                teamB_game_int = update_state.get_game(2, i)
-                if i > 1 and i > lastWithoutZeroZero:
-                    break
-                if i == self.current_set and i < self.sets_limit and not match_finished:
-                    break
+        for i in range(1, self.sets_limit + 1):
+            teamA_game_int = update_state.get_game(1, i)
+            teamB_game_int = update_state.get_game(2, i)
+            do_break = False
+            empty_label = False
+            if i > 1 and i > lastWithoutZeroZero:
+                do_break = True
+            if i == self.current_set and i < self.sets_limit and not match_finished:
+                do_break = True
+            if do_break: 
+                break
 
-                # Create and store references to the labels
-                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0').mark(f'team-1-set-{i}-score')
-                label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0').mark(f'team-2-set-{i}-score')
-                self.score_labels.extend([label1, label2])
 
-                if teamA_game_int > teamB_game_int:
-                    label1.classes('text-bold')
-                elif teamA_game_int < teamB_game_int:
-                    label2.classes('text-bold')
+            with self.teamA_scores_container:
+                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0 m-0').mark(f'team-1-set-{i}-score')
+            with self.teamB_scores_container:
+                label2 = ui.space() if empty_label else ui.label(f'{teamB_game_int:02d}').classes('p-0 m-0').mark(f'team-2-set-{i}-score')
+
+            if teamA_game_int > teamB_game_int:
+                label1.classes('text-bold')
+            elif teamA_game_int < teamB_game_int:
+                label2.classes('text-bold')
 
     def update_ui_timeouts(self, update_state):
         self.change_ui_timeout(1, update_state.get_timeout(1))
@@ -433,6 +472,9 @@ class GUI:
         self.game_manager.add_timeout(team, self.undo)
         if self.undo:
             self.switch_undo(True)
+        if self.is_auto_simple_mode_timeout_enabled():
+            self.logger.debug('Switch simple mode off due to auto_simple_mode_timeout being enabled')
+            self.switch_simple_mode(False)
         self.update_ui_timeouts(self.game_manager.get_current_state())
         self.send_state()
 
@@ -496,7 +538,7 @@ class GUI:
         if self.undo:
             self.switch_undo(True)
 
-        if self.conf.auto_hide:
+        if self.is_auto_hide_enabled():
             if self.hide_timer:
                 self.hide_timer.cancel()
             self.logger.debug('Auto hide enabled, sitching visibility on')
@@ -507,15 +549,16 @@ class GUI:
             self.update_ui_timeouts(current_state)
             if not self.game_manager.match_finished():
                 self.switch_to_set(self.compute_current_set(current_state))
-            if self.conf.auto_simple_mode:
+            if self.is_auto_simple_mode_enabled():
                 self.logger.debug('Switch simple mode off due to auto_simple_mode being enabled')
                 self.switch_simple_mode(False)
         else:
-            if self.conf.auto_hide:
-                self.logger.debug(f'Auto hide enabled, enabling timer to hide after %s seconds', self.conf.hide_timeout)
+            if self.is_auto_hide_enabled():
+                hide_timeout = self.get_hide_timeout()
+                self.logger.debug(f'Auto hide enabled, enabling timer to hide after %s seconds', hide_timeout)
                 self.hide_timer = ui.timer(
-                    self.conf.hide_timeout, lambda: self.switch_visibility(False), once=True)
-            if self.conf.auto_simple_mode:
+                    hide_timeout, lambda: self.switch_visibility(False), once=True)
+            if self.is_auto_simple_mode_enabled():
                 self.logger.debug('Switch simple mode on due to auto_simple_mode being enabled')
                 self.switch_simple_mode(True)
         
@@ -542,6 +585,30 @@ class GUI:
 
     def block_additional_points(self):
         return not self.undo and self.game_manager.match_finished()
+
+    def is_auto_hide_enabled(self):
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED, oid=self.conf.oid)
+        if stored is not None:
+            return stored
+        return self.conf.auto_hide
+
+    def get_hide_timeout(self):
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS, oid=self.conf.oid)
+        if stored is not None:
+            return int(stored)
+        return self.conf.hide_timeout
+
+    def is_auto_simple_mode_enabled(self):
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, oid=self.conf.oid)
+        if stored is not None:
+            return stored
+        return self.conf.auto_simple_mode
+
+    def is_auto_simple_mode_timeout_enabled(self):
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, oid=self.conf.oid)
+        if stored is not None:
+            return stored
+        return self.conf.auto_simple_mode_timeout
 
     def switch_to_set(self, set_number):
         if self.current_set != set_number:

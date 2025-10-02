@@ -1,4 +1,5 @@
 from app.env_vars_manager import EnvVarsManager
+from app.app_storage import AppStorage
 
 class Conf:
     def __init__(self):
@@ -21,7 +22,40 @@ class Conf:
         self.lock_teamB_icons = False
         self.lock_teamA_colors = False
         self.lock_teamB_colors = False
-        self.auto_hide = False
-        self.hide_timeout = int(EnvVarsManager.get_env_var('DEFAULT_HIDE_TIMEOUT', 5))
-        self.auto_simple_mode = False
         self.single_overlay = str(EnvVarsManager.get_env_var('SINGLE_OVERLAY_MODE', 'true')).lower() in ("yes", "true", "t", "1")
+        self.disable_overview = str(EnvVarsManager.get_env_var('DISABLE_OVERVIEW', 'false')).lower() in ("yes", "true", "t", "1")
+
+    @property
+    def show_preview(self):
+        stored = AppStorage.load(AppStorage.Category.SHOW_PREVIEW, oid=self.oid)
+        if stored is not None:
+            return stored
+        return 'true'
+
+    @property
+    def auto_hide(self):
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED, oid=self.oid)
+        if stored is not None:
+            return stored
+        return str(EnvVarsManager.get_env_var('AUTO_HIDE_ENABLED', 'false')).lower() in ("yes", "true", "t", "1")
+
+    @property
+    def hide_timeout(self):
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS, oid=self.oid)
+        if stored is not None:
+            return int(stored)
+        return int(EnvVarsManager.get_env_var('DEFAULT_HIDE_TIMEOUT', 5))
+
+    @property
+    def auto_simple_mode(self):
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, oid=self.oid)
+        if stored is not None:
+            return stored
+        return str(EnvVarsManager.get_env_var('AUTO_SIMPLE_MODE', 'false')).lower() in ("yes", "true", "t", "1")
+
+    @property
+    def auto_simple_mode_timeout(self):
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, oid=self.oid)
+        if stored is not None:
+            return stored
+        return str(EnvVarsManager.get_env_var('AUTO_SIMPLE_MODE_TIMEOUT', 'false')).lower() in ("yes", "true", "t", "1")

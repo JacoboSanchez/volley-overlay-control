@@ -37,6 +37,7 @@ class Messages:
     AUTO_HIDE = "Auto-hide scoreboard"
     HIDE_TIMEOUT = "Hide after (seconds)"
     AUTO_SIMPLE_MODE = "Show only current set while playing"
+    AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT = "Switch to full mode on timeout"
     VISUALIZATION_OPTIONS = "Webpage options"
     HIDE_OPTIONS = "Hide options"
     CLOSE = "Close"
@@ -89,6 +90,7 @@ class Messages:
             AUTO_HIDE: "Auto-ocultar marcador",
             HIDE_TIMEOUT: "Ocultar tras (segundos)",
             AUTO_SIMPLE_MODE: "Mostrar solo set actual mientras se juega",
+            AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT: "Cambiar a modo completo en tiempo muerto",
             VISUALIZATION_OPTIONS: "Opciones de página web",
             HIDE_OPTIONS: "Opciones de ocultación",
             CLOSE: "Cerrar",

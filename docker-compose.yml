@@ -31,5 +31,10 @@ services:
         - APP_THEMES=${APP_THEMES:-}
         - APP_RELOAD=${APP_RELOAD:-false}
         - APP_SHOW=${APP_SHOW:-false}
+        - AUTO_HIDE_ENABLED=${AUTO_HIDE_ENABLED:-false}
+        - DEFAULT_HIDE_TIMEOUT=${DEFAULT_HIDE_TIMEOUT:-5}
+        - AUTO_SIMPLE_MODE=${AUTO_SIMPLE_MODE:-false}
+        - AUTO_SIMPLE_MODE_TIMEOUT=${AUTO_SIMPLE_MODE_TIMEOUT:-false}
+        - DISABLE_OVERVIEW=${SHOW_PREVIEW:-false}
     volumes:
         - ./:/app/

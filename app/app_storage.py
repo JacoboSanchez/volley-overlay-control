@@ -19,6 +19,8 @@ class AppStorage:
         ('AUTOHIDE_ENABLED', 'autohide_enabled'),
         ('AUTOHIDE_SECONDS', 'autohide_seconds'),
         ('SIMPLIFY_OPTION_ENABLED', 'simplify_option_enabled'),
+        ('SIMPLIFY_ON_TIMEOUT_ENABLED', 'simplify_on_timeout_enabled'),
+        ('SHOW_PREVIEW', 'show_preview'),
         ('REDIRECT_PATH', 'redirect_path')  # Add this line
     ])
     
