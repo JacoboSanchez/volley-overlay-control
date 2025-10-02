@@ -38,7 +38,8 @@ class GUI:
         self.long_press_timer = None
         self.teamA_logo = None
         self.teamB_logo = None
-        self.score_labels = []
+        self.teamA_scores_container = None
+        self.teamB_scores_container = None
         # Flag to control event processing gate
         self.click_gate_open = True
         self.preview_container = None
@@ -228,7 +229,7 @@ class GUI:
 
     async def _create_center_panel(self):
         """Creates the central control panel with set scores and pagination."""
-        with ui.column().classes('h-full justify-end'):
+        with ui.column().classes('h-full'):
             with ui.row().classes('w-full justify-center'):
                 self.teamASet = ui.button('0', color='gray-700').mark('team-1-sets')
                 self.teamASet.on('mousedown', lambda: self.handle_button_press(
@@ -242,13 +243,16 @@ class GUI:
                 self.teamASet.on('touchmove', self.handle_press_cancel)
                 self.teamASet.classes('text-white text-2xl')
 
-                with ui.row():
-                    self.scores = ui.grid(columns=2, rows=max(self.current_set, self.conf.sets)+1).classes('justify-center')
-                    with self.scores:
+                with ui.row().classes('justify-center items-start gap-x-2'):
+                    with ui.column().classes('items-center gap-y-0'):
                         logo1_src = self.current_customize_state.get_team_logo(1)
+                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6').mark('team-1-logo')
+                        self.teamA_scores_container = ui.column().classes('items-center gap-y-0 min-h-24')
+
+                    with ui.column().classes('items-center gap-y-0'):
                         logo2_src = self.current_customize_state.get_team_logo(2)
-                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6 m-auto').mark('team-1-logo')
-                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6 m-auto').mark('team-2-logo')
+                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6').mark('team-2-logo')
+                        self.teamB_scores_container = ui.column().classes('items-center gap-y-0 min-h-24')
 
                 self.teamBSet = ui.button('0', color='gray-700').mark('team-2-sets')
                 self.teamBSet.on('mousedown', lambda: self.handle_button_press(
@@ -264,7 +268,7 @@ class GUI:
 
             self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
                 e.value)).props('color=grey active-color=teal').classes('w-full justify-center').mark('set-selector')
-            ui.space()
+            
             if self.conf.show_preview and self.conf.output is not None:
                 self.preview_container = ui.column()
                 if self.preview_visible:
@@ -376,37 +380,42 @@ class GUI:
         self.update_ui_games_table(update_state)
 
     def update_ui_games_table(self, update_state):
-        # Clear only the score labels, not the logos
-        for label in self.score_labels:
-            label.delete()
-        self.score_labels.clear()
+        if self.teamA_scores_container is None or self.teamB_scores_container is None:
+            return
+            
+        self.teamA_scores_container.clear()
+        self.teamB_scores_container.clear()
 
-        with self.scores:
-            lastWithoutZeroZero = 1
-            match_finished = self.game_manager.match_finished()
-            for i in range(1, self.sets_limit + 1):
-                teamA_game_int = update_state.get_game(1, i)
-                teamB_game_int = update_state.get_game(2, i)
-                if teamA_game_int + teamB_game_int > 0:
-                    lastWithoutZeroZero = i
+        lastWithoutZeroZero = 1
+        match_finished = self.game_manager.match_finished()
+        for i in range(1, self.sets_limit + 1):
+            teamA_game_int = update_state.get_game(1, i)
+            teamB_game_int = update_state.get_game(2, i)
+            if teamA_game_int + teamB_game_int > 0:
+                lastWithoutZeroZero = i
 
-            for i in range(1, self.sets_limit + 1):
-                teamA_game_int = update_state.get_game(1, i)
-                teamB_game_int = update_state.get_game(2, i)
-                if i > 1 and i > lastWithoutZeroZero:
-                    break
-                if i == self.current_set and i < self.sets_limit and not match_finished:
-                    break
+        for i in range(1, self.sets_limit + 1):
+            teamA_game_int = update_state.get_game(1, i)
+            teamB_game_int = update_state.get_game(2, i)
+            do_break = False
+            empty_label = False
+            if i > 1 and i > lastWithoutZeroZero:
+                do_break = True
+            if i == self.current_set and i < self.sets_limit and not match_finished:
+                do_break = True
+            if do_break: 
+                break
 
-                # Create and store references to the labels
-                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0').mark(f'team-1-set-{i}-score')
-                label2 = ui.label(f'{teamB_game_int:02d}').classes('p-0').mark(f'team-2-set-{i}-score')
-                self.score_labels.extend([label1, label2])
 
-                if teamA_game_int > teamB_game_int:
-                    label1.classes('text-bold')
-                elif teamA_game_int < teamB_game_int:
-                    label2.classes('text-bold')
+            with self.teamA_scores_container:
+                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0 m-0').mark(f'team-1-set-{i}-score')
+            with self.teamB_scores_container:
+                label2 = ui.space() if empty_label else ui.label(f'{teamB_game_int:02d}').classes('p-0 m-0').mark(f'team-2-set-{i}-score')
+
+            if teamA_game_int > teamB_game_int:
+                label1.classes('text-bold')
+            elif teamA_game_int < teamB_game_int:
+                label2.classes('text-bold')
 
     def update_ui_timeouts(self, update_state):
         self.change_ui_timeout(1, update_state.get_timeout(1))
