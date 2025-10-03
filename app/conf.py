@@ -18,19 +18,31 @@ class Conf:
         self.points = int(EnvVarsManager.get_env_var('MATCH_GAME_POINTS', 25))
         self.points_last_set = int(EnvVarsManager.get_env_var('MATCH_GAME_POINTS_LAST_SET', 15))
         self.sets = int(EnvVarsManager.get_env_var('MATCH_SETS', 5))
-        self.lock_teamA_icons = False
-        self.lock_teamB_icons = False
-        self.lock_teamA_colors = False
-        self.lock_teamB_colors = False
         self.single_overlay = str(EnvVarsManager.get_env_var('SINGLE_OVERLAY_MODE', 'true')).lower() in ("yes", "true", "t", "1")
         self.disable_overview = str(EnvVarsManager.get_env_var('DISABLE_OVERVIEW', 'false')).lower() in ("yes", "true", "t", "1")
+
+    @property
+    def lock_teamA_icons(self):
+        return AppStorage.load(AppStorage.Category.LOCK_TEAM_A_ICONS, oid=self.oid, default=False)
+
+    @property
+    def lock_teamB_icons(self):
+        return AppStorage.load(AppStorage.Category.LOCK_TEAM_B_ICONS, oid=self.oid, default=False)
+
+    @property
+    def lock_teamA_colors(self):
+        return AppStorage.load(AppStorage.Category.LOCK_TEAM_A_COLORS, oid=self.oid, default=False)
+
+    @property
+    def lock_teamB_colors(self):
+        return AppStorage.load(AppStorage.Category.LOCK_TEAM_B_COLORS, oid=self.oid, default=False)
 
     @property
     def show_preview(self):
         stored = AppStorage.load(AppStorage.Category.SHOW_PREVIEW, oid=self.oid)
         if stored is not None:
             return stored
-        return 'true'
+        return EnvVarsManager.get_env_var('SHOW_PREVIEW', 'false')
 
     @property
     def auto_hide(self):

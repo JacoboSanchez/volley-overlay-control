@@ -21,7 +21,11 @@ class AppStorage:
         ('SIMPLIFY_OPTION_ENABLED', 'simplify_option_enabled'),
         ('SIMPLIFY_ON_TIMEOUT_ENABLED', 'simplify_on_timeout_enabled'),
         ('SHOW_PREVIEW', 'show_preview'),
-        ('REDIRECT_PATH', 'redirect_path')  # Add this line
+        ('REDIRECT_PATH', 'redirect_path'),
+        ('LOCK_TEAM_A_ICONS', 'lock_team_a_icons'),
+        ('LOCK_TEAM_B_ICONS', 'lock_team_b_icons'),
+        ('LOCK_TEAM_A_COLORS', 'lock_team_a_colors'),
+        ('LOCK_TEAM_B_COLORS', 'lock_team_b_colors')
     ])
     
     logger = logging.getLogger("Storage")
