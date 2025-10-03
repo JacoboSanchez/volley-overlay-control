@@ -49,4 +49,4 @@ async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height:
             <iframe src="{url}" width="{iframe_width}px" height="{iframe_height}px" style="border: 0; position: absolute; top: {-top_px}px; left: {-left_px}px;"></iframe>
         </div>
     </div>
-    ''').mark('preview-iframe')
+    ''', sanitize=False).mark('preview-iframe')
