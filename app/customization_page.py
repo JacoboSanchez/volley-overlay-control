@@ -270,8 +270,9 @@ class CustomizationPage:
             with ui.row():
                 team_logo = ui.image(self.customization.get_team_logo(team)).classes(
                     'w-9 h-9 m-auto')
+                icon_lock_value = self.configuration.lock_teamA_icons if team == 1 else self.configuration.lock_teamB_icons
                 icons_switch = ui.switch(on_change=lambda e: self.changed_icon_lock(
-                    team, icons_switch, e.value)).props('icon=no_encryption').mark(f'team-{team}-icon-lock')
+                    team, icons_switch, e.value), value=icon_lock_value).props('icon=no_encryption' if not icon_lock_value else 'icon=lock').mark(f'team-{team}-icon-lock')
                 ui.space()
                 team_color = ui.button().classes('w-8 h-8 m-auto')
                 team_text_color = ui.button().classes('w-5 h-5')
@@ -289,14 +290,15 @@ class CustomizationPage:
                     team, self.customization.get_team_color(team), team_color, False)
                 self.update_team_model_color(
                     team, self.customization.get_team_text_color(team), team_text_color, True)
+                color_lock_value = self.configuration.lock_teamA_colors if team == 1 else self.configuration.lock_teamB_colors
                 colors_switch = ui.switch(on_change=lambda e: self.changed_color_lock(
-                    team, colors_switch, e.value)).props('icon=no_encryption').mark(f'team-{team}-color-lock')
+                    team, colors_switch, e.value), value=color_lock_value).props('icon=no_encryption' if not color_lock_value else 'icon=lock').mark(f'team-{team}-color-lock')
 
     def changed_icon_lock(self, team, switch_lock, value):
         if team == 1:
-            self.configuration.lock_teamA_icons = value
+            AppStorage.save(AppStorage.Category.LOCK_TEAM_A_ICONS, value, oid=self.configuration.oid)
         else:
-            self.configuration.lock_teamB_icons = value
+            AppStorage.save(AppStorage.Category.LOCK_TEAM_B_ICONS, value, oid=self.configuration.oid)
         if value:
             switch_lock.props('icon=lock')
         else:
@@ -304,9 +306,9 @@ class CustomizationPage:
 
     def changed_color_lock(self, team, switch_lock, value):
         if team == 1:
-            self.configuration.lock_teamA_colors = value
+            AppStorage.save(AppStorage.Category.LOCK_TEAM_A_COLORS, value, oid=self.configuration.oid)
         else:
-            self.configuration.lock_teamB_colors = value
+            AppStorage.save(AppStorage.Category.LOCK_TEAM_B_COLORS, value, oid=self.configuration.oid)
         if value:
             switch_lock.props('icon=lock')
         else:
