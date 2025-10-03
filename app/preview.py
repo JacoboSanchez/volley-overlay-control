@@ -2,7 +2,7 @@ from nicegui import ui
 import os
 
 
-async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height: int):
+async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height: int, card_width: int=250):
     """Creates a NiceGUI card with a specific region of an iframe, scaled to a fixed size."""
     
     dark_enabled = False
@@ -10,8 +10,7 @@ async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height:
         dark_enabled = await ui.run_javascript('Quasar.Dark.isActive')
     background = '?bgcolor=rgb(29, 29, 29)' if dark_enabled else '?bgcolor=white'
     url = url + background
-    card_width = 250
-    card_height = card_width * 9 / 16
+    card_height = card_width * height / width
     iframe_width = 600
     iframe_height = iframe_width * 9 / 16  # As in original code
 
@@ -42,9 +41,9 @@ async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height:
     # --- HTML/CSS for display ---
     # The outer div is the fixed-size card.
     # The inner div contains the selected iframe region and is scaled to fit inside the card.
-    
+    ui.separator()
     ui.html(f'''
-    <div style="width: {card_width}px; height: {card_height}px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+    <div style="width: {card_width}px; height: {card_height/2}px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
         <div style="width: {region_width_px}px; height: {region_height_px*8/10}px; overflow: hidden; position: relative; transform: scale({scale}); transform-origin: center center;">
             <iframe src="{url}" width="{iframe_width}px" height="{iframe_height}px" style="border: 0; position: absolute; top: {-top_px}px; left: {-left_px}px;"></iframe>
         </div>
