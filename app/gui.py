@@ -32,6 +32,7 @@ class GUI:
         self.set_selector = None
         self.page_height = None
         self.page_width = None
+        self.preview_card_width = 250
         self.PADDINGS = GAME_BUTTON_PADDING_NORMAL
         self.TEXTSIZE = GAME_BUTTON_TEXT_NORMAL
         self.hide_timer = None
@@ -74,7 +75,7 @@ class GUI:
 
         is_landscape = self.page_width >= self.page_height
         dimension = self.page_width if is_landscape else self.page_height
-
+        self.preview_card_width = self.page_width/4 if is_landscape else self.page_height/1.5
         if dimension > 850:
             self.switch_padding_and_textsize(
                 GAME_BUTTON_PADDING_BIG, GAME_BUTTON_TEXT_BIG)
@@ -84,6 +85,7 @@ class GUI:
         else:
             self.switch_padding_and_textsize(
                 GAME_BUTTON_PADDING_SMALL, GAME_BUTTON_TEXT_NORMAL)
+
 
     def switch_padding_and_textsize(self, padding, textsize):
         """Helper to switch padding and text size at once."""
@@ -198,7 +200,7 @@ class GUI:
         if self.preview_visible:
             if self.preview_container is not None:
                 with self.preview_container:
-                    await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height())
+                    await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)
         elif self.preview_container is not None:
             self.preview_container.clear()
 
@@ -273,7 +275,7 @@ class GUI:
                 self.preview_container = ui.column()
                 if self.preview_visible:
                     with self.preview_container:
-                        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height())
+                        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)
 
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
