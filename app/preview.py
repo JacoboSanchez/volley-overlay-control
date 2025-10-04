@@ -4,7 +4,6 @@ import os
 
 async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height: int, card_width: int=250):
     """Creates a NiceGUI card with a specific region of an iframe, scaled to a fixed size."""
-    
     dark_enabled = False
     if "PYTEST_CURRENT_TEST" not in os.environ:
         dark_enabled = await ui.run_javascript('Quasar.Dark.isActive')
@@ -41,7 +40,6 @@ async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height:
     # --- HTML/CSS for display ---
     # The outer div is the fixed-size card.
     # The inner div contains the selected iframe region and is scaled to fit inside the card.
-    ui.separator()
     ui.html(f'''
     <div style="width: {card_width}px; height: {card_height/2}px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
         <div style="width: {region_width_px}px; height: {region_height_px*8/10}px; overflow: hidden; position: relative; transform: scale({scale}); transform-origin: center center;">
