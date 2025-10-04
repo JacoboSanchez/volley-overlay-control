@@ -168,10 +168,6 @@ class CustomizationPage:
                 ui.switch(Messages.get(Messages.GRADIENT), value=self.customization.is_glossy(),
                           on_change=lambda e: self.customization.set_glossy(e.value)).mark('gradient-switch')
 
-                if len(list(self.customization.get_theme_names())) > 0:
-                    ui.button(icon='palette',
-                              on_click=self.show_theme_dialog).props('flat').mark('theme-button')
-
             with ui.row():
                 self.create_choose_color(Messages.get(Messages.SET), True)
                 self.create_choose_color(Messages.get(Messages.GAME), False)
@@ -199,7 +195,9 @@ class CustomizationPage:
                 ui.navigate.to('/')
 
             with ui.row().classes('items-center w-full'):
-                
+                if len(list(self.customization.get_theme_names())) > 0:
+                    ui.button(icon='palette',
+                              on_click=self.show_theme_dialog).props('flat').mark('theme-button')
                 ui.button(icon='link', on_click=self.show_links_dialog).props('flat round dense color=primary') \
                     .tooltip(Messages.get(Messages.LINKS)).mark('links-button')
                 ui.button(icon='tune', on_click=self.options_dialog.open).props(
@@ -237,7 +235,7 @@ class CustomizationPage:
                 width = self.customization.get_width()
                 height = self.customization.get_height()
 
-                preview_link = f'./preview?token={token}&width={width}&height={height}&posx={posx}&posy={posy}'
+                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}'
                 with ui.row().classes('items-center w-full'):
                     ui.link(Messages.get(Messages.PREVIEW_LINK),
                               preview_link, new_tab=True)
