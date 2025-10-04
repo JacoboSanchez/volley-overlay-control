@@ -16,6 +16,8 @@ class Messages:
     OVERLAY_LINK = "Overlay output page"
     CONTROL_LINK = "Control page"
     RESET_LINKS = "Change overlay"
+    LINKS = "Links"
+    COPY_TO_CLIPBOARD = "Copy to clipboard"
     LOCAL = "Local"
     VISITOR = "Visitor"
     LOADING = "Loading..."
@@ -66,6 +68,8 @@ class Messages:
             OVERLAY_LINK:"Visualizar",
             CONTROL_LINK:"Página de control",
             RESET_LINKS:"Cambiar overlay",
+            LINKS: "Enlaces",
+            COPY_TO_CLIPBOARD: "Copiar al portapapeles",
             LOCAL:"Local",
             VISITOR:"Visitante",
             LOADING:"Cargando...",

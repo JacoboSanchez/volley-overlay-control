@@ -714,6 +714,7 @@ async def test_predefined_overlay_dialog_with_hide_flag(user: User, mock_backend
 
     await user.should_see(marker='team-1-score')
     await _assert_scores_and_sets(user, '10', '0', '05', '0')
+    user.find(marker='links-button').click()
     await user.should_see(Messages.get(Messages.OVERLAY_LINK))
     assert 'https://app.overlays.uno/output/output_token' == user.find(Messages.get(Messages.OVERLAY_LINK)).elements.pop().props['href']
     await asyncio.sleep(0.1)
@@ -755,6 +756,7 @@ async def test_predefined_overlay_cycle(user: User, mock_backend, predefined_ove
     # Verify scoreboard loaded with data from Overlay 2
     await user.should_see(marker='team-1-score')
     await _assert_scores_and_sets(user, '12', '1', '11', '0')
+    user.find(marker='links-button').click()
     await user.should_not_see(Messages.get(Messages.OVERLAY_LINK))
 
     
@@ -805,6 +807,8 @@ async def test_url_params_override_oid(user: User, mock_backend, monkeypatch):
     await _navigate_to_config(user, open_root_page=None)
     
     # Verify the control link uses the OID from the URL parameter
+    user.find(marker='links-button').click()
+    await user.should_see(Messages.get(Messages.CONTROL_LINK))
     control_link = user.find(Messages.get(Messages.CONTROL_LINK))
     expected_href = 'https://app.overlays.uno/control/predefined_1_valid'
     assert control_link.elements.pop().props['href'] == expected_href
@@ -825,6 +829,8 @@ async def test_url_params_set_output(user: User, mock_backend, monkeypatch):
     await _navigate_to_config(user, open_root_page=None)
     
     # Verify the output link is present and correct
+    user.find(marker='links-button').click()
+    await user.should_see(Messages.get(Messages.OVERLAY_LINK))
     output_link = user.find(Messages.get(Messages.OVERLAY_LINK))
     expected_href = 'https://app.overlays.uno/output/custom_output_token'
     assert output_link.elements.pop().props['href'] == expected_href
@@ -957,6 +963,7 @@ async def test_login_and_auto_load_oid(user: User, mock_backend, auth_users_env)
     
     # Go to the configuration tab and check links
     await _navigate_to_config(user, open_root_page=None)
+    user.find(marker='links-button').click()
     await user.should_see(Messages.get(Messages.OVERLAY_LINK))
     assert 'https://app.overlays.uno/output/output_1' in user.find(Messages.get(Messages.OVERLAY_LINK)).elements.pop().props['href']
     assert 'https://app.overlays.uno/control/predefined_1_valid' in user.find(Messages.get(Messages.CONTROL_LINK)).elements.pop().props['href']
