@@ -834,6 +834,14 @@ async def test_url_params_set_output(user: User, mock_backend, monkeypatch):
     output_link = user.find(Messages.get(Messages.OVERLAY_LINK))
     expected_href = 'https://app.overlays.uno/output/custom_output_token'
     assert output_link.elements.pop().props['href'] == expected_href
+
+    # Verify the preview link is present and correct
+    user.find(marker='links-button').click()
+    await user.should_see(Messages.get(Messages.PREVIEW_LINK))
+    output_link = user.find(Messages.get(Messages.PREVIEW_LINK))
+    expected_href = './preview?token=custom_output_token&width=55.0&height=20.0&posx=-19.5&posy=34.0'
+    assert output_link.elements.pop().props['href'] == expected_href
+
     await asyncio.sleep(0.1)
 
 async def test_beach_mode_limits(user: User, mock_backend):

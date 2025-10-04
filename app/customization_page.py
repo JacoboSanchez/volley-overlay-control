@@ -224,11 +224,26 @@ class CustomizationPage:
                     f'navigator.clipboard.writeText("{control_link}")')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
             if self.configuration.output and self.configuration.output.strip():
                 overlay_link = self.configuration.output
-                with ui.row().classes('items-center'):
+                with ui.row().classes('items-center w-full'):
                     ui.link(Messages.get(Messages.OVERLAY_LINK),
                               overlay_link, new_tab=True)
+                    ui.space()
                     ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
                         f'navigator.clipboard.writeText("{overlay_link}")')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+                
+                token = overlay_link.split('/')[-1]
+                posx = self.customization.get_h_pos()
+                posy = self.customization.get_v_pos()
+                width = self.customization.get_width()
+                height = self.customization.get_height()
+
+                preview_link = f'./preview?token={token}&width={width}&height={height}&posx={posx}&posy={posy}'
+                with ui.row().classes('items-center w-full'):
+                    ui.link(Messages.get(Messages.PREVIEW_LINK),
+                              preview_link, new_tab=True)
+                    ui.space()
+                    ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
+                        f'navigator.clipboard.writeText(new URL("{preview_link}", window.location.href).href)')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
             with ui.row().classes('w-full'):
                 ui.space()
                 ui.button(Messages.get(Messages.CLOSE),
