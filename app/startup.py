@@ -88,6 +88,7 @@ def startup() -> None:
 
         preview_page = PreviewPage(output=url, xpos=x, ypos=y, width=width, height=height)
         ui.on('resize', lambda e: preview_page.set_page_size(e.args['width'], e.args['height']))
+        await preview_page.initialize()
         addHeader()
         await preview_page.create_page()
 
