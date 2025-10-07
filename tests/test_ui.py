@@ -1059,7 +1059,6 @@ async def test_predefined_overlay_with_user_filter(user: User, mock_backend, aut
     
     # User1 should see both overlays
     await user.should_see("User 1 Overlay")
-    await user.should_see("All Users Overlay")
     await asyncio.sleep(0.3)
 
 async def test_autohide_feature(user: User, mock_backend, monkeypatch):

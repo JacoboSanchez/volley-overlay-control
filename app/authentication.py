@@ -17,7 +17,7 @@ unrestricted_page_routes = {'/login'}
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Allow all NiceGUI specific routes to pass through without authentication
-        if request.url.path.startswith('/_nicegui'):
+        if request.url.path.startswith('/_nicegui') or request.url.path.startswith('/preview'):
             return await call_next(request)
         
         # If the user is not authenticated and the requested page is not the login page

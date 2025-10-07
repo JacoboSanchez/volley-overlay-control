@@ -85,6 +85,8 @@ class PreviewPage:
         self.fullscreen.toggle()
 
     async def _update_iframe(self):
+        if self.frame_container is None:
+            return
         if self._is_rendering:
             return
         self._is_rendering = True
