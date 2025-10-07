@@ -1,4 +1,4 @@
-# Volley Overlay Control
+<img width="818" height="451" alt="image" src="https://github.com/user-attachments/assets/7eee256b-cbce-4117-a0ea-5273ef0e0f7b" /># Volley Overlay Control
 
 `volley-overlay-control` is a self-hostable web application for controlling volleyball scoreboards from *overlays.uno*. It provides a user-friendly interface to manage all aspects of a volleyball match, including scores, sets, timeouts, and serving teams. The application is highly customizable, allowing you to personalize the look and feel of your scoreboard with team logos, colors, and pre-defined themes. It also supports multiple users and overlays, making it a versatile solution for managing scoreboards for different events.
 
@@ -200,11 +200,19 @@ The application determines which overlay to load based on the following priority
 
 **Setup Panel:**
 
-<img width="1335" height="659" alt="imagen" src="https://github.com/user-attachments/assets/cbe0d7ef-80c4-4317-94c9-4e99e27d8a1f" /> 
+<img width="820" height="401" alt="image" src="https://github.com/user-attachments/assets/44d46012-d9ff-4deb-851d-8bf237922d47" />
 
 **Configuration Dialog:**
 
-<img width="488" height="670" alt="imagen" src="https://github.com/user-attachments/assets/0f1e5e2d-30ad-4109-bf3b-db1517da0439" />
+<img width="318" height="586" alt="image" src="https://github.com/user-attachments/assets/fa46f2a4-7549-4414-8a83-87b00a1df67f" />
+
+**Links dialog:**
+
+<img width="243" height="251" alt="image" src="https://github.com/user-attachments/assets/2ca28187-ee74-436f-acfa-ca09605b82ed" />
+
+**Preview page:**
+
+<img width="818" height="451" alt="image" src="https://github.com/user-attachments/assets/a1abbfa8-4e01-4f3f-a128-07bf71f8b5e4" />
 
 **Example Overlay:**
 
