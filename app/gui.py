@@ -200,7 +200,7 @@ class GUI:
         if self.preview_visible:
             if self.preview_container is not None:
                 with self.preview_container:
-                    await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)
+                    await self.create_iframe()
         elif self.preview_container is not None:
             self.preview_container.clear()
 
@@ -275,7 +275,7 @@ class GUI:
                 self.preview_container = ui.column()
                 if self.preview_visible:
                     with self.preview_container:
-                        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)
+                        await self.create_iframe()
 
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
@@ -659,3 +659,7 @@ class GUI:
             self.undo = True
             self.undo_button.set_icon('redo')
             self.undo_button.props(f'color={DO_COLOR}')
+
+    async def create_iframe(self):
+        ui.separator()
+        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)

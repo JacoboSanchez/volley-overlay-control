@@ -14,8 +14,11 @@ class Messages:
     ASK_RELOAD = "Reload data?"
     ASK_LOGOUT = "Logout?"
     OVERLAY_LINK = "Overlay output page"
+    PREVIEW_LINK = "Scoreboard preview page"
     CONTROL_LINK = "Control page"
     RESET_LINKS = "Change overlay"
+    LINKS = "Links"
+    COPY_TO_CLIPBOARD = "Copy to clipboard"
     LOCAL = "Local"
     VISITOR = "Visitor"
     LOADING = "Loading..."
@@ -64,8 +67,11 @@ class Messages:
             HPOS:"Pos. X",
             VPOS:"Pos. Y",
             OVERLAY_LINK:"Visualizar",
+            PREVIEW_LINK: "Previsualización del marcador",
             CONTROL_LINK:"Página de control",
             RESET_LINKS:"Cambiar overlay",
+            LINKS: "Enlaces",
+            COPY_TO_CLIPBOARD: "Copiar al portapapeles",
             LOCAL:"Local",
             VISITOR:"Visitante",
             LOADING:"Cargando...",

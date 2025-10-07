@@ -16,6 +16,8 @@ from fastapi import Request
 from typing import Optional
 from app.game_manager import GameManager
 from app.state import State
+from app.preview_page import PreviewPage
+
 
 logger = logging.getLogger("Webapp")
 
@@ -77,22 +79,22 @@ def startup() -> None:
                 ui.button(Messages.get(Messages.LOGIN), on_click=do_login).mark('login-button')
         return None
 
+    @ui.page('/preview')
+    async def preview_page(x: float = 0, y: float = 0, width: float = 100, height: float = 100, output: str = None):
+        if not output:
+            ui.label("Output token is missing.")
+            return
+        url = OidDialog.UNO_OUTPUT_BASE_URL + output
+
+        preview_page = PreviewPage(output=url, xpos=x, ypos=y, width=width, height=height)
+        ui.on('resize', lambda e: preview_page.set_page_size(e.args['width'], e.args['height']))
+        await preview_page.initialize()
+        addHeader()
+        await preview_page.create_page()
+
     async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
         logger.debug("run page")
-        # REMOVED: Authentication check was removed from here. It's now handled entirely by the middleware.
-        
-        ui.add_head_html('''
-            <script>
-            function emitSize() {
-                window.emitEvent('resize', {
-                    width: document.body.offsetWidth,
-                    height: document.body.offsetHeight,
-                });
-                }
-                window.onload = emitSize;
-                window.onresize = emitSize;
-            </script>
-        ''')
+        addHeader()
         notification = ui.notification(Messages.get(Messages.LOADING), timeout=None, spinner=True)
         try:
             scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
@@ -185,3 +187,17 @@ def startup() -> None:
                 configurationTab
         finally:
             notification.dismiss()
+
+def addHeader():
+    ui.add_head_html('''
+    <script>
+    function emitSize() {
+        window.emitEvent('resize', {
+            width: document.body.offsetWidth,
+            height: document.body.offsetHeight,
+        });
+        }
+        window.onload = emitSize;
+        window.onresize = emitSize;
+    </script>
+''')

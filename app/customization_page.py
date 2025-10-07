@@ -168,10 +168,6 @@ class CustomizationPage:
                 ui.switch(Messages.get(Messages.GRADIENT), value=self.customization.is_glossy(),
                           on_change=lambda e: self.customization.set_glossy(e.value)).mark('gradient-switch')
 
-                if len(list(self.customization.get_theme_names())) > 0:
-                    ui.button(icon='palette',
-                              on_click=self.show_theme_dialog).props('flat').mark('theme-button')
-
             with ui.row():
                 self.create_choose_color(Messages.get(Messages.SET), True)
                 self.create_choose_color(Messages.get(Messages.GAME), False)
@@ -199,20 +195,58 @@ class CustomizationPage:
                 ui.navigate.to('/')
 
             with ui.row().classes('items-center w-full'):
-                ui.link(Messages.get(Messages.CONTROL_LINK),
-                          f'https://app.overlays.uno/control/{self.configuration.oid}', new_tab=True)
-                if self.configuration.output and self.configuration.output.strip():
-                    ui.link(Messages.get(Messages.OVERLAY_LINK),
-                              self.configuration.output, new_tab=True)
-
-                ui.space()
-                 # Only show the reset button if an OID is stored
-                if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) is not None:
-                    ui.button(icon='link_off', on_click=reset_and_reload) \
-                        .props('flat round dense color=primary') \
-                        .tooltip(Messages.get(Messages.RESET_LINKS)).mark('change-overlay-button')
+                if len(list(self.customization.get_theme_names())) > 0:
+                    ui.button(icon='palette',
+                              on_click=self.show_theme_dialog).props('flat').mark('theme-button')
+                ui.button(icon='link', on_click=self.show_links_dialog).props('flat round dense color=primary') \
+                    .tooltip(Messages.get(Messages.LINKS)).mark('links-button')
                 ui.button(icon='tune', on_click=self.options_dialog.open).props(
                     'flat').classes('text-gray-500 -ml-2 mr-2').mark('options-button')
+                # Only show the reset button if an OID is stored
+                ui.space()
+                if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) is not None:
+                    ui.button(icon='logout', on_click=reset_and_reload) \
+                        .props('flat round dense color=primary') \
+                        .tooltip(Messages.get(Messages.RESET_LINKS)).mark('change-overlay-button')
+                
+
+    async def show_links_dialog(self):
+        with ui.dialog() as dialog, ui.card():
+            ui.label(Messages.get(Messages.LINKS)).classes('text-h6')
+            control_link = f'https://app.overlays.uno/control/{self.configuration.oid}'
+            with ui.row().classes('items-center w-full'):
+                ui.link(Messages.get(Messages.CONTROL_LINK),
+                          control_link, new_tab=True)
+                ui.space()
+                ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
+                    f'navigator.clipboard.writeText("{control_link}")')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+            if self.configuration.output and self.configuration.output.strip():
+                overlay_link = self.configuration.output
+                with ui.row().classes('items-center w-full'):
+                    ui.link(Messages.get(Messages.OVERLAY_LINK),
+                              overlay_link, new_tab=True)
+                    ui.space()
+                    ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
+                        f'navigator.clipboard.writeText("{overlay_link}")')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+                
+                token = overlay_link.split('/')[-1]
+                posx = self.customization.get_h_pos()
+                posy = self.customization.get_v_pos()
+                width = self.customization.get_width()
+                height = self.customization.get_height()
+
+                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}'
+                with ui.row().classes('items-center w-full'):
+                    ui.link(Messages.get(Messages.PREVIEW_LINK),
+                              preview_link, new_tab=True)
+                    ui.space()
+                    ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
+                        f'navigator.clipboard.writeText(new URL("{preview_link}", window.location.href).href)')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+            with ui.row().classes('w-full'):
+                ui.space()
+                ui.button(Messages.get(Messages.CLOSE),
+                          on_click=dialog.close).props('flat')
+        await dialog
 
     def _create_action_buttons(self):
         """Creates the bottom row of action buttons."""
