@@ -1,4 +1,4 @@
-<img width="818" height="451" alt="image" src="https://github.com/user-attachments/assets/7eee256b-cbce-4117-a0ea-5273ef0e0f7b" /># Volley Overlay Control
+# Volley Overlay Control
 
 `volley-overlay-control` is a self-hostable web application for controlling volleyball scoreboards from *overlays.uno*. It provides a user-friendly interface to manage all aspects of a volleyball match, including scores, sets, timeouts, and serving teams. The application is highly customizable, allowing you to personalize the look and feel of your scoreboard with team logos, colors, and pre-defined themes. It also supports multiple users and overlays, making it a versatile solution for managing scoreboards for different events.
 
