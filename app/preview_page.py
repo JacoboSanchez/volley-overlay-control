@@ -19,9 +19,12 @@ class PreviewPage:
         self.dark_enabled = False
       
     async def initialize(self):  
+        current_size = await ui.run_javascript(
+            'return {width: window.innerWidth, height: window.innerHeight};')    
+        self.page_width = current_size['width']
+        self.page_height = current_size['height']
         if "PYTEST_CURRENT_TEST" not in os.environ:
             self.dark_enabled = await ui.run_javascript('Quasar.Dark.isActive')
-
         with ui.column().classes('w-full items-center'):
             self.frame_container = ui.row()
         with ui.footer(value=True).classes('bg-transparent'):
@@ -69,12 +72,6 @@ class PreviewPage:
         await self._update_iframe()
 
     def customize_buttons(self):
-#        color = "#AAAAAA" if self.dark_enabled else "#333333"
-#        self.size_down.classes(f'!text-[{color}]')
-#        self.size_up.classes(f'!text-[{color}]')
-#        self.dark_button.classes(f'!text-[{color}]')
-#        self.fullscreen_button.classes(f'!text-[{color}]')
-
         if self.dark_enabled:
             self.dark_button.set_icon('light_mode')
         else:
