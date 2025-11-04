@@ -3,14 +3,11 @@ import json
 import os
 import asyncio
 import importlib
-from unittest.mock import patch, MagicMock
 from nicegui.testing import User
-from app.startup import startup
+from tests.conftest import load_fixture
 from app.theme import *
 from app.customization import Customization
 from app.messages import Messages
-import main
-from app.backend import Backend
 from app.state import State
 
 
@@ -18,14 +15,6 @@ from app.state import State
 
 # Mark all tests in this file as asynchronous
 pytestmark = pytest.mark.asyncio
-
-# --- Functions and Fixtures ---
-
-def load_fixture(name):
-    """Auxiliary function to load a JSON file from the fixtures folder."""
-    path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
-    with open(path) as f:
-        return json.load(f)
 
 async def _assert_scores_and_sets(user: User, score1: str, sets1: str, score2: str, sets2: str):
     """Utility method to validate scores and sets for both teams."""
@@ -127,43 +116,6 @@ async def _navigate_to_config(user: User, open_root_page: str='/'):
     user.find(marker='config-tab-button').click()
     await user.should_see(marker='height-input') # Wait for a representative element
 
-
-@pytest.fixture
-def mock_backend():
-    """
-    Main fixture that simulates the Backend.
-    Each test is responsible for overriding the mock's behavior as needed.
-    """
-    with patch('app.startup.Backend') as mock_backend_class:
-        mock_instance = mock_backend_class.return_value
-
-        # --- Default simulated behavior ---
-        mock_instance.is_visible.return_value = True
-        mock_instance.get_current_customization.return_value = load_fixture('base_customization')
-        # Default model for simple tests. More complex tests will override this.
-        mock_instance.get_current_model.return_value = load_fixture('base_model')
-
-        # Simulates OID validation: only 'test_oid_valid' is valid.
-        def validate_side_effect(oid):
-            if oid is None:
-                return State.OIDStatus.EMPTY
-            if oid.endswith('_valid'):
-                # We need to mock the get_current_model call inside validation
-                if oid == 'predefined_1_valid':
-                    mock_instance.get_current_model.return_value = load_fixture('predefined_overlay_1')
-                elif oid == 'predefined_2_valid':
-                    mock_instance.get_current_model.return_value = load_fixture('predefined_overlay_2')
-                elif oid == 'manual_oid_valid':
-                    mock_instance.get_current_model.return_value = load_fixture('manual_overlay')
-                elif oid == 'endgame_oid_valid':
-                    mock_instance.get_current_model.return_value = load_fixture('endgame_model')
-                return State.OIDStatus.VALID
-            return State.OIDStatus.INVALID
-        
-        # We need a MagicMock to allow replacing the side_effect in tests
-        mock_instance.validate_and_store_model_for_oid = MagicMock(side_effect=validate_side_effect)
-
-        yield mock_instance
 
 async def test_game_buttons_increment(user: User, mock_backend):
     await user.open('/')
