@@ -1,15 +1,56 @@
 import pytest
 import os
-from nicegui.testing import User
-from typing import Generator
-from app.startup import startup
-from dotenv import load_dotenv
+import json
 import importlib
+from nicegui import app
+from nicegui.testing import User
+from dotenv import load_dotenv
+from typing import Generator
+from unittest.mock import patch, MagicMock
 from app.app_storage import AppStorage
+from app.state import State
 
 os.environ['PYTEST_CURRENT_TEST'] = 'true'
 
 pytest_plugins = ['nicegui.testing.plugin']
+
+
+@pytest.fixture(autouse=True)
+def mock_backend():
+    """
+    Main fixture that simulates the Backend.
+    Each test is responsible for overriding the mock's behavior as needed.
+    """
+    with patch('app.startup.Backend') as mock_backend_class:
+        mock_instance = mock_backend_class.return_value
+
+        # --- Default simulated behavior ---
+        mock_instance.is_visible.return_value = True
+        mock_instance.get_current_customization.return_value = load_fixture('base_customization')
+        # Default model for simple tests. More complex tests will override this.
+        mock_instance.get_current_model.return_value = load_fixture('base_model')
+
+        # Simulates OID validation: only 'test_oid_valid' is valid.
+        def validate_side_effect(oid):
+            if oid is None:
+                return State.OIDStatus.EMPTY
+            if oid.endswith('_valid'):
+                # We need to mock the get_current_model call inside validation
+                if oid == 'predefined_1_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('predefined_overlay_1')
+                elif oid == 'predefined_2_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('predefined_overlay_2')
+                elif oid == 'manual_oid_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('manual_overlay')
+                elif oid == 'endgame_oid_valid':
+                    mock_instance.get_current_model.return_value = load_fixture('endgame_model')
+                return State.OIDStatus.VALID
+            return State.OIDStatus.INVALID
+        
+        # We need a MagicMock to allow replacing the side_effect in tests
+        mock_instance.validate_and_store_model_for_oid = MagicMock(side_effect=validate_side_effect)
+        yield mock_instance
+    app.startup_handler_registered = False  # Reset for other tests
 
 @pytest.fixture(autouse=True)
 def load_test_env(monkeypatch):
@@ -36,8 +77,8 @@ def load_test_env(monkeypatch):
     import app.oid_dialog
     importlib.reload(app.oid_dialog)
 
-
-@pytest.fixture
-def user(user: User) -> Generator[User, None, None]:
-    startup()
-    yield user
+def load_fixture(name):
+    """Auxiliary function to load a JSON file from the fixtures folder."""
+    path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
+    with open(path) as f:
+        return json.load(f)
