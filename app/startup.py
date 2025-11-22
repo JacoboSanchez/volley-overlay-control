@@ -188,8 +188,9 @@ def startup() -> None:
                 scoreboard_page.set_page_size(width, height)
                 
                 natural_width = 850 
-                if width < natural_width:
+                if width > height and width < natural_width:
                     scale = width / natural_width
+                    logger.fatal("scale size: %s", scale)
                     panels.style(f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;')
                 else:
                     panels.style('transform: none;')

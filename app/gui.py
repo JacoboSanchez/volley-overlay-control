@@ -77,21 +77,24 @@ class GUI:
 
         if self.page_width and self.page_height:
             self.is_portrait = self.page_height > 1.5 * self.page_width
-            portrait_classes = 'column'
-            landscape_classes = 'row justify-around'
             if self.main_container is not None:
                 if self.is_portrait:
-                    self.main_container.classes(remove=landscape_classes, add=portrait_classes)
+                    self.main_container.classes(remove=self.landscape_classes, add=self.portrait_classes)
                 else:
-                    self.main_container.classes(remove=portrait_classes, add=landscape_classes)
+                    self.main_container.classes(remove=self.portrait_classes, add=self.landscape_classes)
 
         is_landscape = not self.is_portrait
+        big_limit = 850
+        medium_limit = 745
+        if (not is_landscape):
+            big_limit = 950
+            medium_limit = 800
         dimension = self.page_width if is_landscape else self.page_height
         self.preview_card_width = self.page_width/4 if is_landscape else self.page_height/1.5
-        if dimension > 850:
+        if dimension > big_limit:
             self.switch_padding_and_textsize(
                 GAME_BUTTON_PADDING_BIG, GAME_BUTTON_TEXT_BIG)
-        elif dimension > 745 or (not is_landscape and dimension > 800):
+        elif dimension > medium_limit:
             self.switch_padding_and_textsize(
                 GAME_BUTTON_PADDING_NORMAL, GAME_BUTTON_TEXT_NORMAL)
         else:
@@ -326,9 +329,10 @@ class GUI:
         self.logger.info('Set points last set: %s',
                          self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
-
-        initial_layout = 'column items-center' if self.is_portrait else 'row items-center justify-around'
-        with ui.element('div').classes(f'w-full {initial_layout}') as self.main_container:
+        self.portrait_classes = 'h-full column items-center'
+        self.landscape_classes = 'w-full row items-center justify-around'
+        initial_layout = self.portrait_classes if self.is_portrait else self.landscape_classes
+        with ui.element('div').classes(f' {initial_layout}') as self.main_container:
             self.teamAButton, self.timeoutsA, self.serveA = self._create_team_panel(
                 1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
             ui.space()
