@@ -172,16 +172,29 @@ def startup() -> None:
                 return
 
             scoreboard_page = GUI(tabs, conf, backend)
-            ui.on('resize', lambda e: scoreboard_page.set_page_size(e.args['width'], e.args['height']))
-
             customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
-            with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full"):
+
+            with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full") as panels:
                 scoreboardTabPanel = ui.tab_panel(scoreboardTab)
                 with scoreboardTabPanel:
                     await scoreboard_page.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
                 configurationTabPanel = ui.tab_panel(configurationTab)
                 with configurationTabPanel:
                     customization_page.init(configurationTabPanel)
+
+            def handle_resize(e):
+                width = e.args['width']
+                height = e.args['height']
+                scoreboard_page.set_page_size(width, height)
+                
+                natural_width = 850 
+                if width < natural_width:
+                    scale = width / natural_width
+                    panels.style(f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;')
+                else:
+                    panels.style('transform: none;')
+            
+            ui.on('resize', handle_resize)
             with tabs:
                 scoreboardTab
                 configurationTab

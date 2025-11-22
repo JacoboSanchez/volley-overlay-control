@@ -46,6 +46,8 @@ class GUI:
         self.preview_container = None
         self.preview_button = None
         self.preview_visible = self.conf.show_preview
+        self.main_container = None
+        self.is_portrait = False
         
         # --- Reusable Dialog for Custom Values ---
         self.dialog_team = None
@@ -73,7 +75,17 @@ class GUI:
         self.logger.debug('Set page size to: %sx%s',
                          self.page_height, self.page_width)
 
-        is_landscape = self.page_width >= self.page_height
+        if self.page_width and self.page_height:
+            self.is_portrait = self.page_height > 1.5 * self.page_width
+            portrait_classes = 'column'
+            landscape_classes = 'row justify-around'
+            if self.main_container is not None:
+                if self.is_portrait:
+                    self.main_container.classes(remove=landscape_classes, add=portrait_classes)
+                else:
+                    self.main_container.classes(remove=portrait_classes, add=landscape_classes)
+
+        is_landscape = not self.is_portrait
         dimension = self.page_width if is_landscape else self.page_height
         self.preview_card_width = self.page_width/4 if is_landscape else self.page_height/1.5
         if dimension > 850:
@@ -315,7 +327,8 @@ class GUI:
                          self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
 
-        with ui.row().classes('w-full'):
+        initial_layout = 'column items-center' if self.is_portrait else 'row items-center justify-around'
+        with ui.element('div').classes(f'w-full {initial_layout}') as self.main_container:
             self.teamAButton, self.timeoutsA, self.serveA = self._create_team_panel(
                 1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
             ui.space()
