@@ -21,7 +21,6 @@ from app.preview_page import PreviewPage
 
 logger = logging.getLogger("Webapp")
 
-
 def startup() -> None:
     def reset_all():
         logger.info("Clearing storage")
@@ -174,7 +173,7 @@ def startup() -> None:
             scoreboard_page = GUI(tabs, conf, backend)
             customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
 
-            with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full") as panels:
+            with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full h-full") as panels:
                 scoreboardTabPanel = ui.tab_panel(scoreboardTab)
                 with scoreboardTabPanel:
                     await scoreboard_page.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
@@ -182,25 +181,41 @@ def startup() -> None:
                 with configurationTabPanel:
                     customization_page.init(configurationTabPanel)
 
-            def handle_resize(e):
+            async def handle_resize(e):
                 width = e.args['width']
                 height = e.args['height']
-                scoreboard_page.set_page_size(width, height)
-                
-                natural_width = 850 
-                if width > height and width < natural_width:
+                await scoreboard_page.set_page_size(width, height)
+                logger.debug("New size: %s x %s", width, height)
+                natural_width = 650 
+                if not GUI.is_portrait(width, height) and width < natural_width:
                     scale = width / natural_width
-                    logger.fatal("scale size: %s", scale)
-                    panels.style(f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;')
+                    logger.debug("scale size: %s", scale)
+                    scoreboard_page.current_panel_style = f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;'
+                    panels.style(scoreboard_page.current_panel_style)
                 else:
-                    panels.style('transform: none;')
+                    logger.debug(f'current_style: {scoreboard_page.current_panel_style}')
+                    panels.style(remove=scoreboard_page.current_panel_style, add='transform: none;')
+                    
             
             ui.on('resize', handle_resize)
+            
+            await scoreboard_page.set_page_size(await get_client_width(), await get_client_height())
+
             with tabs:
                 scoreboardTab
                 configurationTab
         finally:
             notification.dismiss()
+
+async def get_client_height():
+    h = await ui.run_javascript('window.innerHeight')
+    logger.debug("get_client_height: %s", h)
+    return h
+
+async def get_client_width():
+    w = await ui.run_javascript('window.innerWidth')
+    logger.debug("get_client_width: %s", w)
+    return w
 
 def addHeader():
     ui.add_head_html('''
