@@ -10,6 +10,10 @@ from app.preview import create_iframe_card
 import asyncio
 
 class GUI:
+
+    def is_portrait(width, height):
+        return height > 1.2 * width and not width > 800
+
     """
     Manages the Graphical User Interface for the scoreboard.
     It acts as the presentation layer.
@@ -46,7 +50,12 @@ class GUI:
         self.preview_container = None
         self.preview_button = None
         self.preview_visible = self.conf.show_preview
-        
+        self.main_container = None
+        self.is_portrait = False
+        self.current_panel_style = None
+        self.main_conainer_layout = None
+        self.current_dimension = None
+
         # --- Reusable Dialog for Custom Values ---
         self.dialog_team = None
         self.dialog_is_set = None
@@ -66,25 +75,53 @@ class GUI:
         self.logger.debug("Setting customization model directly.")
         self.current_customize_state.set_model(model)
 
-    def set_page_size(self, width, height):
+    async def set_page_size(self, width, height):
         """Adjusts UI element sizes based on page dimensions."""
         self.page_height = height
         self.page_width = width
+        current_portrait = self.is_portrait
+        self.is_portrait = GUI.is_portrait(self.page_width, self.page_height)
         self.logger.debug('Set page size to: %sx%s',
                          self.page_height, self.page_width)
+        self.switch_padding_and_textsize(
+            GAME_BUTTON_PADDING_NORMAL, GAME_BUTTON_TEXT_NORMAL)
+            
+        
+        if not self.is_portrait:
+            vbig_limit = 1000
+            big_limit = 850
+            medium_limit = 745
+            tiny_limit = 640
+            dimension = self.page_width
+            self.preview_card_width = self.page_width/4
+        else: 
+            vbig_limit = 1100
+            big_limit = 1000
+            medium_limit = 900
+            tiny_limit = 800
+            dimension = self.page_height
+        self.logger.debug('Dimension: %s', dimension)
+        if self.main_container is not None and (self.current_dimension is None or self.current_dimension != dimension or current_portrait != self.is_portrait):
+            self.logger.debug('Reinitializing main container due to orientation change.')
+            self.main_container.clear()
+            await self._initialize_main_container()
+        self.current_dimension = dimension
 
-        is_landscape = self.page_width >= self.page_height
-        dimension = self.page_width if is_landscape else self.page_height
-        self.preview_card_width = self.page_width/4 if is_landscape else self.page_height/1.5
-        if dimension > 850:
+        if dimension > vbig_limit:
+            self.switch_padding_and_textsize(
+                GAME_BUTTON_PADDING_VBIG, GAME_BUTTON_TEXT_VBIG)
+        elif dimension > big_limit:
             self.switch_padding_and_textsize(
                 GAME_BUTTON_PADDING_BIG, GAME_BUTTON_TEXT_BIG)
-        elif dimension > 745 or (not is_landscape and dimension > 800):
+        elif dimension > medium_limit:
             self.switch_padding_and_textsize(
                 GAME_BUTTON_PADDING_NORMAL, GAME_BUTTON_TEXT_NORMAL)
-        else:
+        elif dimension > tiny_limit:
             self.switch_padding_and_textsize(
                 GAME_BUTTON_PADDING_SMALL, GAME_BUTTON_TEXT_NORMAL)
+        else:
+            self.switch_padding_and_textsize(
+                GAME_BUTTON_PADDING_TINY, GAME_BUTTON_TEXT_NORMAL)
 
 
     def switch_padding_and_textsize(self, padding, textsize):
@@ -206,27 +243,38 @@ class GUI:
 
     def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
         """Creates the UI panel for a single team."""
-        with ui.card():
-            button = ui.button('00', color=button_color).mark(f'team-{team_id}-score')
-            button.on('mousedown', lambda: self.handle_button_press(
-                team_id, is_set_button=False))
-            button.on('touchstart', lambda: self.handle_button_press(
-                team_id, is_set_button=False), [])
-            button.on('mouseup', lambda: self.handle_button_release(
-                team_id, is_set_button=False))
-            button.on('touchend', lambda: self.handle_button_release(
-                team_id, is_set_button=False))
-            button.on('touchmove', self.handle_press_cancel)
-            button.classes(self.PADDINGS + GAME_BUTTON_CLASSES + self.TEXTSIZE)
+        with ui.card(align_items='begin'):
+            with ui.row() if self.is_portrait else ui.column():
+                button = ui.button('00', color=button_color).mark(f'team-{team_id}-score')
+                button.on('mousedown', lambda: self.handle_button_press(
+                    team_id, is_set_button=False))
+                button.on('touchstart', lambda: self.handle_button_press(
+                    team_id, is_set_button=False), [])
+                button.on('mouseup', lambda: self.handle_button_release(
+                    team_id, is_set_button=False))
+                button.on('touchend', lambda: self.handle_button_release(
+                    team_id, is_set_button=False))
+                button.on('touchmove', self.handle_press_cancel)
+                button.classes(self.PADDINGS + GAME_BUTTON_CLASSES + self.TEXTSIZE)
 
-            with ui.row().classes('text-4xl w-full'):
-                ui.button(icon='timer', color=timeout_light_color,
-                          on_click=lambda: self.add_timeout(team_id)).props('outline round').mark(f'team-{team_id}-timeout').classes('shadow-lg')
-                timeouts = ui.column().mark(f'team-{team_id}-timeouts-display')
-                ui.space()
-                serve_icon = ui.icon(
-                    name='sports_volleyball', color=serve_vlight_color).mark(f'team-{team_id}-serve')
-                serve_icon.on('click', lambda: self.change_serve(team_id))
+                if self.is_portrait:
+                    with ui.column().classes('text-4xl h-full'):
+                        serve_icon = ui.icon(
+                            name='sports_volleyball', color=serve_vlight_color).mark(f'team-{team_id}-serve')
+                        ui.space()
+                        ui.button(icon='timer', color=timeout_light_color,
+                                on_click=lambda: self.add_timeout(team_id)).props('outline round').mark(f'team-{team_id}-timeout').classes('shadow-lg')
+                        timeouts = ui.row().mark(f'team-{team_id}-timeouts-display')
+                        serve_icon.on('click', lambda: self.change_serve(team_id))  
+                else: 
+                    with ui.row().classes('text-4xl w-full'):
+                        ui.button(icon='timer', color=timeout_light_color,
+                                on_click=lambda: self.add_timeout(team_id)).props('outline round').mark(f'team-{team_id}-timeout').classes('shadow-lg')
+                        timeouts = ui.column().mark(f'team-{team_id}-timeouts-display')
+                        ui.space()
+                        serve_icon = ui.icon(
+                            name='sports_volleyball', color=serve_vlight_color).mark(f'team-{team_id}-serve')
+                        serve_icon.on('click', lambda: self.change_serve(team_id))
         return button, timeouts, serve_icon
 
     async def _create_center_panel(self):
@@ -314,21 +362,30 @@ class GUI:
         self.logger.info('Set points last set: %s',
                          self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
-
-        with ui.row().classes('w-full'):
-            self.teamAButton, self.timeoutsA, self.serveA = self._create_team_panel(
-                1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
-            ui.space()
-            await self._create_center_panel()
-            ui.space()
-            self.teamBButton, self.timeoutsB, self.serveB = self._create_team_panel(
-                2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT)
-
+        self.main_container = ui.element('div').classes('w-full h-full')
+        await self._initialize_main_container()
         self._create_control_buttons()
 
         self.update_ui(False)
         self.initialized = True
         self.logger.info('Initialized gui')
+
+    async def _initialize_main_container(self):
+        if self.main_conainer_layout is not None:
+            self.main_conainer_layout.clear()
+        with self.main_container:
+            with ui.column(align_items='center').classes('w-full') if self.is_portrait else ui.row().classes('w-full') as self.main_conainer_layout:
+                self.teamAButton, self.timeoutsA, self.serveA = self._create_team_panel(
+                    1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
+                ui.space()
+                await self._create_center_panel()
+                ui.space()
+                self.teamBButton, self.timeoutsB, self.serveB = self._create_team_panel(
+                    2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT)
+                current_state = self.game_manager.get_current_state()
+                self.update_ui_timeouts(current_state)
+                self.update_ui_games_table(current_state)
+
 
     def compute_current_set(self, current_state):
         t1sets = current_state.get_sets(1)
@@ -663,3 +720,4 @@ class GUI:
     async def create_iframe(self):
         ui.separator()
         await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)
+ 
