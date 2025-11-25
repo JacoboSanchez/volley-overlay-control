@@ -90,9 +90,9 @@ class Backend:
             return result
         return None
 
-    def get_current_customization(self):
+    def get_current_customization(self, customOid=None):
         Backend.logger.info('getting customization')
-        response = self.send_command_with_id_and_content("GetCustomization")
+        response = self.send_command_with_id_and_content("GetCustomization", customOid=customOid)
         if response.status_code == 200:
             return response.json()['payload']
         return None
