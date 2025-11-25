@@ -2,6 +2,7 @@ import requests
 import copy
 import threading
 import logging
+import re
 from app.state import State
 from app.app_storage import AppStorage
 
@@ -128,3 +129,26 @@ class Backend:
             return State.OIDStatus.VALID
         return State.OIDStatus.INVALID
     
+    def fetch_output_token(self, oid):
+        """
+        Fetches the output token associated with the given OID by querying the overlays.uno API.
+        """
+        try:
+            Backend.logger.info(f"Fetching output token for OID: {oid}")
+            url = f'https://app.overlays.uno/apiv2/controlapps/{oid}'
+            response = self.session.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                output_url = data.get('outputUrl')
+                if output_url:
+                    # Expecting format: .../output/<token>/...
+                    match = re.search(r'/output/([^/?]+)', output_url)
+                    if match:
+                        token = match.group(1)
+                        Backend.logger.info(f"Output token found: {token}")
+                        return token
+            else:
+                Backend.logger.warning(f"Failed to fetch output token for OID {oid}: {response.status_code}")
+        except Exception as e:
+            Backend.logger.error(f"Error fetching output token: {e}")
+        return None

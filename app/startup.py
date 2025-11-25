@@ -162,6 +162,12 @@ def startup() -> None:
             # --- End of New Logic ---
 
             if oid_to_use:
+                # If we have an OID but missing the output token, try to fetch it automatically
+                if not output_to_use:
+                    token = backend.fetch_output_token(oid_to_use)
+                    if token:
+                        output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + token
+
                 logger.info("Using OID from %s: %s", source, oid_to_use)
                 conf.oid = oid_to_use
                 conf.output = output_to_use
