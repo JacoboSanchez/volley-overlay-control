@@ -1,112 +1,136 @@
-# Volley Overlay Control
+# 🏐 Volley Overlay Control
 
-`volley-overlay-control` is a self-hostable web application for controlling volleyball scoreboards from *overlays.uno*. It provides a user-friendly interface to manage all aspects of a volleyball match, including scores, sets, timeouts, and serving teams. The application is highly customizable, allowing you to personalize the look and feel of your scoreboard with team logos, colors, and pre-defined themes. It also supports multiple users and overlays, making it a versatile solution for managing scoreboards for different events.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.x-blue.svg)
+![NiceGUI](https://img.shields.io/badge/built%20with-NiceGUI-5898d4.svg)
 
-## Features
+**Volley Overlay Control** is a powerful, self-hostable web application designed to seamlessly control volleyball scoreboards from *overlays.uno*. 
 
-* **Complete Match Control:**
-  * Manage points, sets, and timeouts for both teams.
-  * Indicate the serving team.
-  * Undo functionality for points and timeouts.
-  * Support for both indoor (25 points, 5 sets) and beach volleyball (21 points, 3 sets) modes.
-  * Long press to change set/points counter to a custom value.
-* **Advanced Customization:**
-  * Customize team names, logos, and colors.
-  * Adjust the scoreboard's dimensions (height, width) and position (horizontal, vertical).
-  * Apply a glossy/gradient effect to the scoreboard.
-  * Show or hide team logos.
-  * Lock team colors and icons to prevent accidental changes.
-  * Create and load custom themes to quickly switch between different styles.
-* **User and Overlay Management:**
-  * Support for multiple users with password protection.
-  * Control multiple overlays from a single instance of the application.
-  * Select from a list of predefined overlays.
-* **User-Friendly Interface:**
-  * Dark mode support (auto, on, off).
-  * Auto-hide the scoreboard after a configurable timeout.
-  * Automatically switch to a simplified view showing only the current set. 
-  * Option to switch back to full mode when a timeout is called.
-  * Show or hide a real-time preview of the overlay.
-  * Internationalization support (English and Spanish).
-* **Flexible Deployment:**
-  * Run locally as a Python application.
-  * Deploy as a Docker container.
-  * Expose the application to the internet using ngrok-like services.
+It offers a user-friendly interface to manage every aspect of a volleyball match—scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes, making it the perfect solution for managing scoreboards across various events.
 
-## Getting Started
+---
+
+## ✨ Features
+
+### 🎮 Complete Match Control
+*   **Score Management**: Easily manage points, sets, and timeouts for both teams.
+*   **Service Indicator**: Clearly indicate the serving team.
+*   **Undo Capability**: Mistake-proof your scoring with undo functionality for points and timeouts.
+*   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets).
+*   **Quick Edits**: Long press to manually adjust set or point counters.
+
+### 🎨 Advanced Customization
+*   **Team Identity**: Customize team names, logos, and colors to match the teams playing.
+*   **Scoreboard Layout**: Adjust dimensions (height, width) and position (horizontal, vertical).
+*   **Visual Effects**: Apply glossy/gradient effects for a premium look.
+*   **Logo Control**: Toggle team logos on or off.
+*   **Lock Settings**: Lock team colors and icons to prevent accidental changes during a match.
+*   **Themes**: Create, save, and load custom themes to switch styles instantly.
+
+### 👥 User and Overlay Management
+*   **Multi-User Support**: Secure access with password protection for multiple users.
+*   **Multi-Overlay Control**: Manage multiple overlays from a single application instance.
+*   **Overlay Library**: Select from a list of predefined overlays for quick setup.
+
+### 🖥️ User-Friendly Interface
+*   **Dark Mode**: Native support for dark mode (Auto, On, Off).
+*   **Auto-Hide**: Automatically hide the scoreboard after a configurable timeout.
+*   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay.
+*   **Smart Timeout**: Option to switch back to full mode when a timeout is called.
+*   **Live Preview**: Toggle a real-time preview of the overlay directly in the control panel.
+*   **Internationalization**: Available in **English** and **Spanish**.
+
+### 🚀 Flexible Deployment
+*   **Local Execution**: Run locally as a standard Python application.
+*   **Docker Support**: Deploy easily using Docker containers.
+*   **Remote Access**: Expose to the internet using tunneling services (like ngrok).
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-* Python 3.x
-* An account on *overlays.uno*
-* A volleyball scoreboard overlay added to your account from the *overlays.uno* library.
+*   **Python 3.x**
+*   An account on **[overlays.uno](https://overlays.uno)**
+*   A volleyball scoreboard overlay added to your account from the *overlays.uno* library.
 
-### Instructions to create an overlay:
+### 🛠️ Creating an Overlay
 
-1. Login to your *overlays.uno* account.
-2. Go to [this overlay](https://overlays.uno/library/437-Volleyball-Scorebug---Standard) and click on *Add to My Overlays*.
-3. Open your overlay:
-   * Copy the control URL. The last part of the URL (after `https://app.overlays.uno/control/`) is your **`UNO_OVERLAY_OID`**.
-   * Click on *Copy Output URL*. This will be your **`UNO_OVERLAY_OUTPUT`**.
-4. (Optional) If you don't want to expose the service to the internet, you can use the [on air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air) feature from nicegui. Obtain your token and use it as `UNO_OVERLAY_AIR_ID`.
+1.  **Login** to your *overlays.uno* account.
+2.  Navigate to [this overlay](https://overlays.uno/library/437-Volleyball-Scorebug---Standard) and click **Add to My Overlays**.
+3.  **Open your overlay** to get the necessary tokens:
+    *   **Control URL**: Copy the URL. The part after `https://app.overlays.uno/control/` is your **`UNO_OVERLAY_OID`**.
+4.  *(Optional)* For local-only setups, use the [NiceGUI On Air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air) feature. Get your token and use it as `UNO_OVERLAY_AIR_ID`.
 
-> **Note:** Version 0.2 breaks compatibility with overlays created before March 2025.
+> [!IMPORTANT]
+> **Compatibility Note:** Version 0.2 breaks compatibility with overlays created before March 2025.
 
-## Usage
+---
+
+## 📖 Usage
 
 ### Running Locally
 
-1.  Clone the repository and install the dependencies from `requirements.txt`.
-2.  Configure your environment variables. You can either export them directly in your terminal or create a `.env` file in the root of the project. `UNO_OVERLAY_OID` is required to start the scoreboard directly.
-3.  Execute `python main.py`.
-4.  NiceGUI will start a server and open the scoreboard in a browser automatically.
+1.  **Clone the repository** and install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+2.  **Configure Environment Variables**:
+    Create a `.env` file in the root directory or export variables in your terminal. `UNO_OVERLAY_OID` is required.
 
-**Example using a `.env` file:**
-
-    # Create a file named .env in the project's root directory
+    **Option A: Using a `.env` file**
+    ```env
+    # .env file
     UNO_OVERLAY_OID=XXXXXXXX
-    UNO_OVERLAY_OUTPUT=https://app.overlays.uno/output/YYYYYYY
     SCOREBOARD_USERS={"user1": {"password": "password1"}}
+    ```
 
-**Example exporting variables:**
+    **Option B: Exporting Variables**
+    *Windows (CMD):*
+    ```cmd
+    set UNO_OVERLAY_OID=XXXXXXXX
+    python main.py
+    ```
+    *Linux/macOS:*
+    ```bash
+    export UNO_OVERLAY_OID=XXXXXXXX
+    python main.py
+    ```
 
-```sh
-# On Windows Command Prompt
-set UNO_OVERLAY_OID=XXXXXXXX
-set UNO_OVERLAY_OUTPUT=[https://app.overlays.uno/output/YYYYYYY](https://app.overlays.uno/output/YYYYYYY)
-python main.py
+3.  **Start the Application**:
+    ```bash
+    python main.py
+    ```
+    NiceGUI will automatically open the scoreboard in your browser.
 
-# On Linux/macOS
-export UNO_OVERLAY_OID=XXXXXXXX
-export UNO_OVERLAY_OUTPUT=[https://app.overlays.uno/output/YYYYYYY](https://app.overlays.uno/output/YYYYYYY)
-python main.py
-```
+### Running with Docker 🐳
 
-### Running with Docker
+Use the provided `docker-compose.yml`.
 
-You can use the `docker-compose.yml` file provided. Create a `.env` file in the same directory to configure your environment variables.
+1.  Create a `.env` file:
+    ```env
+    EXTERNAL_PORT=80
+    APP_TITLE=MyScoreboard
+    UNO_OVERLAY_OID=<overlay_control_token>
+    ```
+2.  Run Docker Compose:
+    ```bash
+    docker-compose up -d
+    ```
 
-**Example `.env` file:**
-```
-EXTERNAL_PORT=80
-APP_TITLE=MyScoreboard
-UNO_OVERLAY_OID=<overlay_control_token>
-UNO_OVERLAY_OUTPUT=<overlay_output_url>
-```
+---
 
-Then, run `docker-compose up -d`.
+## ⚙️ Configuration
 
-## Configuration
-
-You can configure the application's behavior using the following environment variables:
+Configure the application using the following environment variables:
 
 | Variable | Description | Default Value |
 | :--- | :--- | :--- |
-| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. **(Required)** |  |
-| `UNO_OVERLAY_OUTPUT` | The output URL of the overlay, used to display a link. |  |
+| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. A dialog will ask for it if not configured | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
 | `APP_TITLE` | The title of the web page. | `Scoreboard` |
-| `APP_DARK_MODE` | Dark mode setting. Can be `on`, `off`, or `auto`. | `auto` |
+| `APP_DARK_MODE` | Dark mode setting. Options: `on`, `off`, `auto`. | `auto` |
 | `APP_DEFAULT_LOGO` | URL of an image for teams without a predefined logo. | `https://...` |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
@@ -114,114 +138,127 @@ You can configure the application's behavior using the following environment var
 | `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
 | `ENABLE_MULTITHREAD` | If `true`, API calls will not block the UI. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
-| `STORAGE_SECRET` | Secret key to encrypt user data in the browser. |  |
+| `STORAGE_SECRET` | Secret key to encrypt user data in the browser. | |
 | `SCOREBOARD_LANGUAGE` | Language code (e.g., `es` for Spanish). | `en` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
-| `APP_TEAMS` | JSON with the list of predefined teams. |  |
-| `SCOREBOARD_USERS` | JSON with the list of users and passwords. |  |
-| `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. |  |
+| `APP_TEAMS` | JSON with the list of predefined teams. | |
+| `SCOREBOARD_USERS` | JSON with the list of users and passwords. | |
+| `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
-| `APP_THEMES` | JSON with a list of customization themes. |  |
-| `APP_RELOAD` | If `true`, the app will automatically reload when code changes are detected. | `false` |
-| `APP_SHOW` | If `true`, automatically opens the app in a new browser tab on startup. | `false` |
+| `APP_THEMES` | JSON with a list of customization themes. | |
+| `APP_RELOAD` | If `true`, automatically reload on code changes. | `false` |
+| `APP_SHOW` | If `true`, automatically opens the app in a new tab on startup. | `false` |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
-| `AUTO_HIDE_ENABLED` | If `true`, the scoreboard will automatically hide after a few seconds of inactivity. | `false` |
-| `DEFAULT_HIDE_TIMEOUT` | Number of seconds to wait before hiding the scoreboard. | `5` |
-| `AUTO_SIMPLE_MODE` | If `true`, automatically switches to a simplified view showing only the current set during gameplay. | `false` |
-| `AUTO_SIMPLE_MODE_TIMEOUT` | If `true`, switches back to the full scoreboard view when a timeout is called. | `false` |
+| `AUTO_HIDE_ENABLED` | If `true`, scoreboard hides after inactivity. | `false` |
+| `DEFAULT_HIDE_TIMEOUT` | Seconds to wait before hiding the scoreboard. | `5` |
+| `AUTO_SIMPLE_MODE` | If `true`, auto-switch to simplified view during gameplay. | `false` |
+| `AUTO_SIMPLE_MODE_TIMEOUT` | If `true`, switch back to full view on timeout. | `false` |
 | `SHOW_PREVIEW` | If `true`, shows a preview of the overlay on the control page. | `true` |
 
 <br>
 
+### JSON Configuration Examples
+
 #### `APP_TEAMS`
-
-List of predefined teams. The key is the name and the value must contain "icon", "color", and "text_color".
-
+List of predefined teams.
 ```json
 {
-    "Local": {"icon":"[https://cdn-icons-png.flaticon.com/512/8686/8686758.png](https://cdn-icons-png.flaticon.com/512/8686/8686758.png)", "color":"#060f8a", "text_color":"#ffffff"},
-    "Visitor": {"icon":"[https://cdn-icons-png.flaticon.com/512/8686/8686758.png](https://cdn-icons-png.flaticon.com/512/8686/8686758.png)", "color":"#ffffff", "text_color":"#000000"}
+    "Local": {
+        "icon": "https://cdn-icons-png.flaticon.com/512/8686/8686758.png",
+        "color": "#060f8a",
+        "text_color": "#ffffff"
+    },
+    "Visitor": {
+        "icon": "https://cdn-icons-png.flaticon.com/512/8686/8686758.png",
+        "color": "#ffffff",
+        "text_color": "#000000"
+    }
 }
 ```
 
 #### `SCOREBOARD_USERS`
-
-List of allowed users. Optionally, it can include overlay information for that user.
-
+List of allowed users.
 ```json
 {
-    "user1": {"password":"password1"},
-    "user2": {"password":"password2", "control":"CONTROLTOKEN", "output":"OUTPUTTOKEN"}
+    "user1": {"password": "password1"},
+    "user2": {
+        "password": "password2",
+        "control": "CONTROLTOKEN"
+    }
 }
 ```
 
 #### `PREDEFINED_OVERLAYS`
-
-List of predefined overlay configurations. It can include a user whitelist (`allowed_users`).
-
+List of predefined overlay configurations.
 ```json
 {
-    "Overlay for user 1": {"control":"CONTROLTOKEN", "output":"OUTPUTTOKEN", "allowed_users":["user1"]},
-    "Overlay for all users": {"control":"CONTROLTOKEN", "output":"OUTPUTTOKEN"}
+    "Overlay for user 1": {
+        "control": "CONTROLTOKEN",
+        "allowed_users": ["user1"]
+    },
+    "Overlay for all users": {
+        "control": "CONTROLTOKEN"
+    }
 }
 ```
 
 #### `APP_THEMES`
-
-List of themes. The key is the theme name and the value is a JSON with the customization parameters from the UNO API.
-
+List of themes.
 ```json
 {
-    "Change position and show logos theme": {"Height": 10, "Left-Right": -33.5, "Logos": true},
-    "Change only game status colors": {"Game Status Color": "#252525", "Game Status Text Color": "#ffffff"}
+    "Change position and show logos theme": {
+        "Height": 10,
+        "Left-Right": -33.5,
+        "Logos": true
+    },
+    "Change only game status colors": {
+        "Game Status Color": "#252525",
+        "Game Status Text Color": "#ffffff"
+    }
 }
 ```
 
-#### Remote Configuration
-
-You can import the configuration from an external resource via the environment variable `REMOTE_CONFIG_URL`. This variable should point to a URL that provides a JSON configuration file. The application will fetch this file on startup and apply the configuration. This is useful for managing configurations for multiple instances of the application from a single source.
-
-An example of a project that provides a JSON configuration is the [volleyball-scoreboard-configurator](https://github.com/JacoboSanchez/volleyball-scoreboard-configurator/). You can use the JSON provided by this project as a remote configuration source.
+### Remote Configuration
+Import configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup. Useful for centralized management.
+*   **Example Source**: [volleyball-scoreboard-configurator](https://github.com/JacoboSanchez/volleyball-scoreboard-configurator/)
 
 ### Overlay Loading Priority
+1.  **URL Parameter**: `?control=<your_oid>` (Highest priority)
+2.  **Saved Session**: Last valid overlay used.
+3.  **Environment Variable**: `UNO_OVERLAY_OID`
+4.  **Interactive Dialog**: Prompt user if no other source is found.
 
-The application determines which overlay to load based on the following priority order:
+---
 
-1.  **URL Parameter**: An overlay specified in the URL (e.g., `?control=<your_oid>`) will always take precedence. This is useful for sharing direct links to a specific scoreboard.
-2.  **Saved Session**: If no overlay is specified in the URL, the application will automatically load the last valid overlay you used.
-3.  **Environment Variable**: If you are running the application for the first time without a saved session, it will use the `UNO_OVERLAY_OID` from your environment variables or `.env` file.
-4.  **Interactive Dialog**: If none of the above methods provide a valid overlay, you will be prompted to enter one through a dialog.
+## 📸 Screenshots
 
-## Screenshots
+### Main Control Panel
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c222fa98-740b-437e-bf48-8237c539b46b" width="100%" />
+</p>
 
-**Main Control Panel:**
+### Setup & Preview
+| Setup Panel | Preview Page |
+| :---: | :---: |
+| <img src="https://github.com/user-attachments/assets/44d46012-d9ff-4deb-851d-8bf237922d47" width="100%" /> | <img src="https://github.com/user-attachments/assets/a1abbfa8-4e01-4f3f-a128-07bf71f8b5e4" width="100%" /> |
 
-<img width="1343" height="740" alt="imagen" src="https://github.com/user-attachments/assets/c222fa98-740b-437e-bf48-8237c539b46b" />
+### Dialogs
+| Configuration Dialog | Links Dialog |
+| :---: | :---: |
+| <img src="https://github.com/user-attachments/assets/fa46f2a4-7549-4414-8a83-87b00a1df67f" width="100%" /> | <img src="https://github.com/user-attachments/assets/2ca28187-ee74-436f-acfa-ca09605b82ed" width="100%" /> |
 
-**Setup Panel:**
+### Example Overlay
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/152a586c-1aaa-4c30-b969-c15884097d04" width="100%" />
+</p>
 
-<img width="820" height="401" alt="image" src="https://github.com/user-attachments/assets/44d46012-d9ff-4deb-851d-8bf237922d47" />
+---
 
-**Configuration Dialog:**
+## ⚠️ Disclaimer
 
-<img width="318" height="586" alt="image" src="https://github.com/user-attachments/assets/fa46f2a4-7549-4414-8a83-87b00a1df67f" />
+This software was developed as a personal project and is provided **as-is**. It was built iteratively and may lack comprehensive error handling.
 
-**Links dialog:**
+> [!CAUTION]
+> **Security Warning:** The authentication feature is intended only for distributing overlays among trusted users and is **not secure**. **Do not expose this application directly to the internet without additional security measures.**
 
-<img width="243" height="251" alt="image" src="https://github.com/user-attachments/assets/2ca28187-ee74-436f-acfa-ca09605b82ed" />
-
-**Preview page:**
-
-<img width="818" height="451" alt="image" src="https://github.com/user-attachments/assets/a1abbfa8-4e01-4f3f-a128-07bf71f8b5e4" />
-
-**Example Overlay:**
-
-![Example Overlay](https://github.com/user-attachments/assets/152a586c-1aaa-4c30-b969-c15884097d04)
-
-## Disclaimer
-
-This software was developed as a personal project and is provided as-is. It was built iteratively by adapting sample code, so it may lack comprehensive error handling and logging.
-
-**Security Warning:** The authentication feature is intended only for distributing overlays among trusted users and is not secure. **Do not expose this application directly to the internet without additional security measures.**
-
-Use at your own risk.
+**Use at your own risk.**

@@ -109,6 +109,11 @@ class OidDialog:
             }
             logger.debug("Valid")
 
+            if output is None:
+                fetched_token = self.backend.fetch_output_token(token)
+                if fetched_token:
+                    output = fetched_token
+
             if output != None:
                 self.result[OidDialog.OUTPUT_URL_KEY] = self.compose_output(output)
             self.dialog.submit(self.result)

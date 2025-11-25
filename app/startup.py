@@ -79,10 +79,34 @@ def startup() -> None:
         return None
 
     @ui.page('/preview')
-    async def preview_page(x: float = 0, y: float = 0, width: float = 100, height: float = 100, output: str = None):
+    async def preview_page(x: float = None, y: float = None, width: float = None, height: float = None, output: str = None, control: str = None):
+        if control:
+            conf = Conf()
+            backend = Backend(conf)
+            
+            if not output:
+                output = backend.fetch_output_token(control)
+
+            # If any geometry parameter is missing, try to fetch from backend customization
+            if x is None or y is None or width is None or height is None:
+                customization_data = backend.get_current_customization(customOid=control)
+                if customization_data:
+                    cust = Customization(customization_data)
+                    if x is None: x = cust.get_h_pos()
+                    if y is None: y = cust.get_v_pos()
+                    if width is None: width = cust.get_width()
+                    if height is None: height = cust.get_height()
+
+        # Apply defaults if still missing
+        x = x if x is not None else 0
+        y = y if y is not None else 0
+        width = width if width is not None else 100
+        height = height if height is not None else 100
+
         if not output:
             ui.label("Output token is missing.")
             return
+        
         url = OidDialog.UNO_OUTPUT_BASE_URL + output
 
         preview_page = PreviewPage(output=url, xpos=x, ypos=y, width=width, height=height)
@@ -159,9 +183,13 @@ def startup() -> None:
                     AppStorage.save(AppStorage.Category.CONFIGURED_OID, oid_to_use)
                     AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, output_to_use)
 
-            # --- End of New Logic ---
-
             if oid_to_use:
+                # If we have an OID but missing the output token, try to fetch it automatically
+                if not output_to_use:
+                    token = backend.fetch_output_token(oid_to_use)
+                    if token:
+                        output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + token
+
                 logger.info("Using OID from %s: %s", source, oid_to_use)
                 conf.oid = oid_to_use
                 conf.output = output_to_use

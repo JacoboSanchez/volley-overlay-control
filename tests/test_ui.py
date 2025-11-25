@@ -1476,8 +1476,7 @@ async def test_show_preview_toggle(user: User, mock_backend, monkeypatch):
     await user.should_see(marker='preview-button')
     await user.should_not_see(marker='preview-iframe')
 
-    # without output there is no button or overlay
+    # without output there is still overlay button
     await user.open('/?control=test_oid_valid')
     await asyncio.sleep(0)
-    await user.should_not_see(marker='preview-button')
-    await user.should_not_see(marker='preview-iframe')
+    await user.should_see(marker='preview-button')
