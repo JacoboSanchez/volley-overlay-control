@@ -49,7 +49,7 @@ class OptionsDialog:
                 self.follow_team_colors_switch = ui.switch(
                     Messages.get(Messages.FOLLOW_TEAM_COLORS),
                     on_change=self.on_follow_team_colors_change
-                )
+                ).mark('follow-team-colors-switch')
 
                 follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False, oid=self.configuration.oid)
                 initial_classes = 'max-h-0 opacity-0' if follow_team else 'max-h-[200px] opacity-100'
@@ -59,16 +59,16 @@ class OptionsDialog:
                      with ui.row().classes('w-full items-center justify-between'):
                         ui.label(Messages.get(Messages.LOCAL))
                         with ui.row():
-                            self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR))
+                            self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR), marker='color-picker-team-1-btn')
                             with ui.element('div').classes('w-2'): pass
-                            self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR))
+                            self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR), marker='color-picker-team-1-text')
 
                      with ui.row().classes('w-full items-center justify-between'):
                         ui.label(Messages.get(Messages.VISITOR))
                         with ui.row():
-                            self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR))
+                            self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR), marker='color-picker-team-2-btn')
                             with ui.element('div').classes('w-2'): pass
-                            self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR))
+                            self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR), marker='color-picker-team-2-text')
 
             ui.separator()
             with ui.card().classes('w-full'):
@@ -142,8 +142,10 @@ class OptionsDialog:
     def on_auto_simple_mode_timeout_change(self, e):
         AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, e.value, oid=self.configuration.oid)
 
-    def create_color_picker(self, storage_key, default_value, tooltip=None):
+    def create_color_picker(self, storage_key, default_value, tooltip=None, marker=None):
         color_btn = ui.button().classes('w-6 h-6 border')
+        if marker:
+            color_btn.mark(marker)
         initial_color = AppStorage.load(storage_key, default_value, oid=self.configuration.oid)
         color_btn.style(f'background-color: {initial_color} !important')
         
