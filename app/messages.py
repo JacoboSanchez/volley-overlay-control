@@ -54,6 +54,10 @@ class Messages:
     VALUE = "Value"
     SAVING = "Saving..."
     MATCH_FINISHED = "Match finished"
+    BUTTON_COLORS_SECTION = "Buttons Colors"
+    FOLLOW_TEAM_COLORS = "Follow team colors"
+    BUTTON_COLOR = "Button Color"
+    BUTTON_TEXT_COLOR = "Text Color"
 
 
     messages = {
@@ -109,7 +113,11 @@ class Messages:
             SET_CUSTOM_SET_VALUE: "Establecer valor del set",
             VALUE: "Valor",
             SAVING: "Guardando...",
-            MATCH_FINISHED: "El partido ha terminado"
+            MATCH_FINISHED: "El partido ha terminado",
+            BUTTON_COLORS_SECTION: "Colores de botones",
+            FOLLOW_TEAM_COLORS: "Usar colores de equipo",
+            BUTTON_COLOR: "Color de botón",
+            BUTTON_TEXT_COLOR: "Color de texto"
         },
         "en": {
           }

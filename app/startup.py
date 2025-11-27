@@ -201,6 +201,8 @@ def startup() -> None:
             scoreboard_page = GUI(tabs, conf, backend)
             customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
 
+            options_dialog.set_callback(scoreboard_page.update_button_style)
+
             with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full h-full") as panels:
                 scoreboardTabPanel = ui.tab_panel(scoreboardTab)
                 with scoreboardTabPanel:

@@ -386,6 +386,7 @@ class CustomizationPage:
             self.gui.set_customization_model(new_model)
             logging.debug('updating ui logos')
             self.gui.update_ui_logos()
+            self.gui.update_button_style()
             self.switch_to_scoreboard()
         finally:
             notification.dismiss()

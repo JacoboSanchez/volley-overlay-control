@@ -382,6 +382,10 @@ class GUI:
                 ui.space()
                 self.teamBButton, self.timeoutsB, self.serveB = self._create_team_panel(
                     2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT)
+                
+                # Apply configured styles after creation
+                self.update_button_style()
+                
                 current_state = self.game_manager.get_current_state()
                 self.update_ui_timeouts(current_state)
                 self.update_ui_games_table(current_state)
@@ -402,6 +406,30 @@ class GUI:
         self.teamA_logo.set_source(logo1_src)
         self.teamB_logo.set_source(logo2_src)
 
+    def update_button_style(self):
+        """Updates the style of the score buttons based on configuration."""
+        follow_team_colors = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False, oid=self.conf.oid)
+        
+        if follow_team_colors:
+            color1 = self.current_customize_state.get_team_color(1)
+            text1 = self.current_customize_state.get_team_text_color(1)
+            color2 = self.current_customize_state.get_team_color(2)
+            text2 = self.current_customize_state.get_team_text_color(2)
+        else:
+            color1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR, oid=self.conf.oid)
+            text1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, oid=self.conf.oid)
+            color2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, oid=self.conf.oid)
+            text2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, oid=self.conf.oid)
+
+        # Apply styles, removing the default text-white class to allow custom text colors
+        if self.teamAButton:
+            self.teamAButton.classes(remove='text-white')
+            self.teamAButton.style(replace=f'background-color: {color1} !important; color: {text1} !important')
+            
+        if self.teamBButton:
+            self.teamBButton.classes(remove='text-white')
+            self.teamBButton.style(replace=f'background-color: {color2} !important; color: {text2} !important')
+
     def update_ui(self, load_from_backend=False):
         self.logger.debug('Updating UI...')
         if load_from_backend:
@@ -411,6 +439,7 @@ class GUI:
                 self.backend.get_current_customization())
             self.visible = self.backend.is_visible()
             self.update_ui_logos()
+        self.update_button_style()
 
         update_state = self.game_manager.get_current_state()
  
@@ -720,4 +749,3 @@ class GUI:
     async def create_iframe(self):
         ui.separator()
         await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)
- 
