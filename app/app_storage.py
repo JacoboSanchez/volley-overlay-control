@@ -25,7 +25,12 @@ class AppStorage:
         ('LOCK_TEAM_A_ICONS', 'lock_team_a_icons'),
         ('LOCK_TEAM_B_ICONS', 'lock_team_b_icons'),
         ('LOCK_TEAM_A_COLORS', 'lock_team_a_colors'),
-        ('LOCK_TEAM_B_COLORS', 'lock_team_b_colors')
+        ('LOCK_TEAM_B_COLORS', 'lock_team_b_colors'),
+        ('BUTTONS_FOLLOW_TEAM_COLORS', 'buttons_follow_team_colors'),
+        ('TEAM_1_BUTTON_COLOR', 'team_1_button_color'),
+        ('TEAM_1_BUTTON_TEXT_COLOR', 'team_1_button_text_color'),
+        ('TEAM_2_BUTTON_COLOR', 'team_2_button_color'),
+        ('TEAM_2_BUTTON_TEXT_COLOR', 'team_2_button_text_color')
     ])
     
     logger = logging.getLogger("Storage")
