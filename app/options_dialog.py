@@ -12,6 +12,8 @@ class OptionsDialog:
         self.dialog = ui.dialog()
         self.dark_mode = ui.dark_mode()
         self.on_change_callback = None
+        self.color_buttons = {} # Store references to color buttons to update them on reset
+
         saved_dark_mode_option = AppStorage.load(AppStorage.Category.DARK_MODE, default=None)
         logging.debug('loaded dark mode %s', saved_dark_mode_option)
         if saved_dark_mode_option == None:
@@ -69,6 +71,9 @@ class OptionsDialog:
                             self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR), marker='color-picker-team-2-btn')
                             with ui.element('div').classes('w-2'): pass
                             self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR), marker='color-picker-team-2-text')
+                    
+                     ui.button(Messages.get(Messages.RESET_COLORS), icon='replay', on_click=self.reset_all_button_colors) \
+                        .props('flat dense size=sm').classes('w-full text-gray-500 hover:text-gray-800').mark('reset-colors-button')
 
             ui.separator()
             with ui.card().classes('w-full'):
@@ -146,6 +151,9 @@ class OptionsDialog:
         color_btn = ui.button().classes('w-6 h-6 border')
         if marker:
             color_btn.mark(marker)
+        
+        self.color_buttons[storage_key] = color_btn
+        
         initial_color = AppStorage.load(storage_key, default_value, oid=self.configuration.oid)
         color_btn.style(f'background-color: {initial_color} !important')
         
@@ -157,6 +165,22 @@ class OptionsDialog:
     def update_color(self, e, button, storage_key):
         button.style(f'background-color: {e.color} !important')
         AppStorage.save(storage_key, e.color, oid=self.configuration.oid)
+        if self.on_change_callback:
+            self.on_change_callback()
+
+    def reset_all_button_colors(self):
+        defaults = {
+            AppStorage.Category.TEAM_1_BUTTON_COLOR: DEFAULT_BUTTON_A_COLOR,
+            AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR: DEFAULT_BUTTON_TEXT_COLOR,
+            AppStorage.Category.TEAM_2_BUTTON_COLOR: DEFAULT_BUTTON_B_COLOR,
+            AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR: DEFAULT_BUTTON_TEXT_COLOR
+        }
+        
+        for key, default in defaults.items():
+            AppStorage.save(key, default, oid=self.configuration.oid)
+            if key in self.color_buttons:
+                self.color_buttons[key].style(f'background-color: {default} !important')
+        
         if self.on_change_callback:
             self.on_change_callback()
 

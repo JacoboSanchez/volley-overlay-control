@@ -9,6 +9,7 @@ from app.theme import *
 from app.customization import Customization
 from app.messages import Messages
 from app.state import State
+from app.app_storage import AppStorage
 
 
 # pylint: disable=missing-function-docstring
@@ -1564,3 +1565,39 @@ async def test_button_style_update(user: User, mock_backend):
     # style = btn.element.get_attribute('style')
     # assert 'rgb(255, 0, 0)' in style or '#FF0000' in style
     pass # Placeholder for verification logic if driver access is available
+
+async def test_button_color_reset(user: User, mock_backend):
+    """
+    Tests the reset button functionality for custom button colors.
+    """
+    await _navigate_to_config(user, open_root_page='/?control=test_oid_valid')
+    await user.should_see(marker='options-button')
+    user.find(marker='options-button').click()
+    
+    # Ensure Follow Team Colors is OFF (default in tests due to cleared storage)
+    await user.should_see(marker='follow-team-colors-switch')
+    
+    await asyncio.sleep(0.5)
+    
+    # Simulate picking a non-default color by writing to storage (simulating prior interaction)
+    AppStorage.save(AppStorage.Category.TEAM_1_BUTTON_COLOR, '#123456', oid='test_oid_valid')
+    
+    # Re-open the dialog to reflect the changed state (or refresh if the UI updates reactively)
+    # The simplest way in this test setup is to close and reopen, or just rely on the fact that
+    # we are about to click reset. 
+    # But wait, if we wrote to storage *after* the dialog opened, the UI won't reflect it unless we reload.
+    # So let's close and reopen.
+    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='options-button').click()
+    
+    await asyncio.sleep(0.5)
+
+    # Verify reset button is present
+    await user.should_see(marker='reset-colors-button')
+    
+    # Simulate a click on the reset button
+    user.find(marker='reset-colors-button').click()
+    
+    # Check that storage has the default value
+    assert AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, oid='test_oid_valid') == DEFAULT_BUTTON_A_COLOR
+    assert AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, oid='test_oid_valid') == DEFAULT_BUTTON_TEXT_COLOR
