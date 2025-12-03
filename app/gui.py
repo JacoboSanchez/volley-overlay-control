@@ -388,7 +388,7 @@ class GUI:
                 
                 current_state = self.game_manager.get_current_state()
                 self.update_ui_timeouts(current_state)
-                self.update_ui_games_table(current_state)
+                self.update_ui_games(current_state)
 
 
     def compute_current_set(self, current_state):
