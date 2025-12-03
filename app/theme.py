@@ -32,9 +32,9 @@ GAME_BUTTON_PADDING_BIG = 'p-16'
 GAME_BUTTON_PADDING_NORMAL = 'p-14'
 GAME_BUTTON_PADDING_SMALL = 'p-11'
 GAME_BUTTON_PADDING_TINY = 'p-9'
-GAME_BUTTON_TEXT_NORMAL = 'text-5xl'
-GAME_BUTTON_TEXT_BIG = 'text-6xl'
-GAME_BUTTON_TEXT_VBIG = 'text-7xl'
+GAME_BUTTON_TEXT_NORMAL = 'text-6xl'
+GAME_BUTTON_TEXT_BIG = 'text-7xl'
+GAME_BUTTON_TEXT_VBIG = 'text-8xl'
 GAME_BUTTON_CLASSES = ' text-center shadow-lg rounded-lg text-white font-bold '
 
 # Options Dialog Colors
