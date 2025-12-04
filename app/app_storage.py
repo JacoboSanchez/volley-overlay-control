@@ -86,14 +86,28 @@ class AppStorage:
         AppStorage.logger.debug('Loaded %s [%s] from %s: %s', oid, tag, type(storage).__name__, result)
         return result
     
-    def refresh_state(oid):
+    def refresh_state(oid, preserve_keys=None):
         storage = AppStorage._get_storage()
         logging.debug('Refreshing state for %s in %s', oid, type(storage).__name__)
         if oid in storage:
-            if isinstance(storage, dict):
-                del storage[oid]
-            else: # NiceGUI storage
-                storage[oid] = None
+            if preserve_keys:
+                # Keep only the keys that are in preserve_keys
+                preserved_data = {}
+                current_data = storage[oid]
+                if isinstance(current_data, dict):
+                     for key in preserve_keys:
+                        if key.value in current_data:
+                            preserved_data[key.value] = current_data[key.value]
+                
+                if isinstance(storage, dict):
+                    storage[oid] = preserved_data
+                else: # NiceGUI storage
+                    storage[oid] = preserved_data
+            else:
+                if isinstance(storage, dict):
+                    del storage[oid]
+                else: # NiceGUI storage
+                    storage[oid] = None
 
     def clear_user_storage():
         storage = AppStorage._get_storage()
