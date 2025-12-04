@@ -420,15 +420,28 @@ class GUI:
             text1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, oid=self.conf.oid)
             color2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, oid=self.conf.oid)
             text2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, oid=self.conf.oid)
+        
+        # Determine font style
+        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.conf.oid)
+        font_style = ""
+        if selected_font and selected_font != 'Default':
+             font_style = f"font-family: '{selected_font}' !important;"
 
         # Apply styles, removing the default text-white class to allow custom text colors
         if self.teamAButton:
             self.teamAButton.classes(remove='text-white')
-            self.teamAButton.style(replace=f'background-color: {color1} !important; color: {text1} !important')
+            self.teamAButton.style(replace=f'background-color: {color1} !important; color: {text1} !important; {font_style}')
             
         if self.teamBButton:
             self.teamBButton.classes(remove='text-white')
-            self.teamBButton.style(replace=f'background-color: {color2} !important; color: {text2} !important')
+            self.teamBButton.style(replace=f'background-color: {color2} !important; color: {text2} !important; {font_style}')
+            
+        # Apply font style to set buttons as well
+        if self.teamASet:
+            self.teamASet.style(replace=f'{font_style}')
+
+        if self.teamBSet:
+             self.teamBSet.style(replace=f'{font_style}')
 
     def update_ui(self, load_from_backend=False):
         self.logger.debug('Updating UI...')

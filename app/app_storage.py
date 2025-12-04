@@ -30,7 +30,8 @@ class AppStorage:
         ('TEAM_1_BUTTON_COLOR', 'team_1_button_color'),
         ('TEAM_1_BUTTON_TEXT_COLOR', 'team_1_button_text_color'),
         ('TEAM_2_BUTTON_COLOR', 'team_2_button_color'),
-        ('TEAM_2_BUTTON_TEXT_COLOR', 'team_2_button_text_color')
+        ('TEAM_2_BUTTON_TEXT_COLOR', 'team_2_button_text_color'),
+        ('SELECTED_FONT', 'selected_font')
     ])
     
     logger = logging.getLogger("Storage")
