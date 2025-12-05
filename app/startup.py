@@ -21,6 +21,9 @@ from app.preview_page import PreviewPage
 
 logger = logging.getLogger("Webapp")
 
+# Serve fonts directory
+app.add_static_files('/fonts', 'font')
+
 def startup() -> None:
     def reset_all():
         logger.info("Clearing storage")
@@ -248,14 +251,32 @@ async def get_client_width():
     return w
 
 def addHeader():
-    ui.add_head_html('''
+    # Iterate through fonts in the directory
+    font_css = ""
+    font_dir = 'font'
+    if os.path.exists(font_dir):
+        for file in os.listdir(font_dir):
+            if file.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
+                family_name = os.path.splitext(file)[0]
+                font_css += f"""
+                @font-face {{
+                    font-family: '{family_name}';
+                    src: url('/fonts/{file}');
+                }}
+                """
+    
+    # We must escape the brackets for the Javascript function because we are inside an f-string
+    ui.add_head_html(f'''
+    <style>
+        {font_css}
+    </style>
     <script>
-    function emitSize() {
-        window.emitEvent('resize', {
+    function emitSize() {{
+        window.emitEvent('resize', {{
             width: document.body.offsetWidth,
             height: document.body.offsetHeight,
-        });
-        }
+        }});
+        }}
         window.onload = emitSize;
         window.onresize = emitSize;
     </script>

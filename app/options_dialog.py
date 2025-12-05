@@ -4,6 +4,7 @@ from app.messages import Messages
 from app.app_storage import AppStorage
 from app.theme import *
 import logging
+import os
 
 class OptionsDialog:
 
@@ -46,6 +47,48 @@ class OptionsDialog:
 
             ui.separator()
             with ui.card().classes('w-full'):
+                ui.label(Messages.get(Messages.VISUALIZATION_OPTIONS)).classes('text-lg font-semibold')
+                
+                # Font Selector
+                font_options = ['Default']
+                font_dir = 'font'
+                if os.path.exists(font_dir):
+                    for file in os.listdir(font_dir):
+                         if file.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
+                             family = os.path.splitext(file)[0]
+                             font_options.append(family)
+
+                with ui.row().classes('w-full items-center justify-between'):
+                    ui.label(Messages.get(Messages.FONT))
+                    self.font_select = ui.select(
+                        font_options, 
+                        value=AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.configuration.oid),
+                        on_change=self.on_font_change
+                    ).classes('w-40')
+
+                with ui.row().classes('justify-center'):
+                    self.fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
+                    self.fullscreenButton = ui.button(icon='fullscreen', color=COLOR_FULLSCREEN_BUTTON,
+                                                    on_click=self.fullscreen.toggle).props(
+                        'outline color=' + COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
+                    self.update_full_screen_icon()
+                    ui.space()
+                    self.slider = ui.slide_item()
+                    with self.slider:
+                        with ui.item():
+                            with ui.item_section():
+                                with ui.row():
+                                    ui.icon('dark_mode')
+                                    ui.icon('multiple_stop')
+                                    ui.icon('light_mode', color='amber')
+                        with self.slider.right(color='black', on_slide=lambda: self.switch_darkmode('on')):
+                            ui.icon('dark_mode')
+                        with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode('off')):
+                            ui.icon('light_mode', color='amber')
+                        self.slider.top('auto', color='gray-400', on_slide=lambda: self.switch_darkmode('auto'))
+
+            ui.separator()
+            with ui.card().classes('w-full'):
                 ui.label(Messages.get(Messages.BUTTON_COLORS_SECTION)).classes('text-lg font-semibold')
                 
                 self.follow_team_colors_switch = ui.switch(
@@ -75,29 +118,6 @@ class OptionsDialog:
                      ui.button(Messages.get(Messages.RESET_COLORS), icon='replay', on_click=self.reset_all_button_colors) \
                         .props('flat dense size=sm').classes('w-full text-gray-500 hover:text-gray-800').mark('reset-colors-button')
 
-            ui.separator()
-            with ui.card().classes('w-full'):
-                ui.label(Messages.get(Messages.VISUALIZATION_OPTIONS)).classes('text-lg font-semibold')
-                with ui.row().classes('justify-center'):
-                    self.fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
-                    self.fullscreenButton = ui.button(icon='fullscreen', color=COLOR_FULLSCREEN_BUTTON,
-                                                    on_click=self.fullscreen.toggle).props(
-                        'outline color=' + COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
-                    self.update_full_screen_icon()
-                    ui.space()
-                    self.slider = ui.slide_item()
-                    with self.slider:
-                        with ui.item():
-                            with ui.item_section():
-                                with ui.row():
-                                    ui.icon('dark_mode')
-                                    ui.icon('multiple_stop')
-                                    ui.icon('light_mode', color='amber')
-                        with self.slider.right(color='black', on_slide=lambda: self.switch_darkmode('on')):
-                            ui.icon('dark_mode')
-                        with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode('off')):
-                            ui.icon('light_mode', color='amber')
-                        self.slider.top('auto', color='gray-400', on_slide=lambda: self.switch_darkmode('auto'))
             
             ui.button(Messages.get(Messages.CLOSE), on_click=self.dialog.close).props('flat').classes('w-full mt-4')
 
@@ -146,6 +166,11 @@ class OptionsDialog:
 
     def on_auto_simple_mode_timeout_change(self, e):
         AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, e.value, oid=self.configuration.oid)
+
+    def on_font_change(self, e):
+        AppStorage.save(AppStorage.Category.SELECTED_FONT, e.value, oid=self.configuration.oid)
+        if self.on_change_callback:
+            self.on_change_callback()
 
     def create_color_picker(self, storage_key, default_value, tooltip=None, marker=None):
         color_btn = ui.button().classes('w-6 h-6 border')
@@ -218,6 +243,9 @@ class OptionsDialog:
         if auto_simple_mode_timeout is None:
             auto_simple_mode_timeout = self.configuration.auto_simple_mode_timeout
         self.auto_simple_mode_timeout_switch.value = auto_simple_mode_timeout
+        
+        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.configuration.oid)
+        self.font_select.value = selected_font
 
         follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False, oid=self.configuration.oid)
         self.follow_team_colors_switch.value = follow_team
