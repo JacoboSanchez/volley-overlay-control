@@ -55,6 +55,8 @@ class GUI:
         self.current_panel_style = None
         self.main_conainer_layout = None
         self.current_dimension = None
+        self.button_size = None
+        self.button_text_size = None
 
         # --- Reusable Dialog for Custom Values ---
         self.dialog_team = None
@@ -83,73 +85,25 @@ class GUI:
         self.is_portrait = GUI.is_portrait(self.page_width, self.page_height)
         self.logger.debug('Set page size to: %sx%s',
                          self.page_height, self.page_width)
-        self.switch_padding_and_textsize(
-            GAME_BUTTON_PADDING_NORMAL, GAME_BUTTON_TEXT_NORMAL)
-            
         
         if not self.is_portrait:
-            vbig_limit = 1000
-            big_limit = 850
-            medium_limit = 745
-            tiny_limit = 640
             dimension = self.page_width
             self.preview_card_width = self.page_width/4
+            self.button_size = self.page_width / 4.5
         else: 
-            vbig_limit = 1100
-            big_limit = 1000
-            medium_limit = 900
-            tiny_limit = 800
             dimension = self.page_height
-        self.logger.debug('Dimension: %s', dimension)
+            self.button_size = self.page_height / 4.5
+
+        self.button_text_size = self.button_size / 2
+        
+        self.logger.debug('Dimension: %s, Button Size: %s', dimension, self.button_size)
         if self.main_container is not None and (self.current_dimension is None or self.current_dimension != dimension or current_portrait != self.is_portrait):
             self.logger.debug('Reinitializing main container due to orientation change.')
             self.main_container.clear()
             await self._initialize_main_container()
         self.current_dimension = dimension
-
-        if dimension > vbig_limit:
-            self.switch_padding_and_textsize(
-                GAME_BUTTON_PADDING_VBIG, GAME_BUTTON_TEXT_VBIG)
-        elif dimension > big_limit:
-            self.switch_padding_and_textsize(
-                GAME_BUTTON_PADDING_BIG, GAME_BUTTON_TEXT_BIG)
-        elif dimension > medium_limit:
-            self.switch_padding_and_textsize(
-                GAME_BUTTON_PADDING_NORMAL, GAME_BUTTON_TEXT_NORMAL)
-        elif dimension > tiny_limit:
-            self.switch_padding_and_textsize(
-                GAME_BUTTON_PADDING_SMALL, GAME_BUTTON_TEXT_NORMAL)
-        else:
-            self.switch_padding_and_textsize(
-                GAME_BUTTON_PADDING_TINY, GAME_BUTTON_TEXT_NORMAL)
-
-
-    def switch_padding_and_textsize(self, padding, textsize):
-        """Helper to switch padding and text size at once."""
-        self.switch_padding(padding)
-        self.switch_textsize(textsize)
-
-    def switch_padding(self, padding):
-        """Switches the padding for the team buttons."""
-        if self.initialized:
-            self.teamAButton.classes(remove=self.PADDINGS)
-            self.teamBButton.classes(remove=self.PADDINGS)
-        self.PADDINGS = padding
-        self.logger.info("Change paddings to %s", padding)
-        if self.initialized:
-            self.teamAButton.classes(add=self.PADDINGS)
-            self.teamBButton.classes(add=self.PADDINGS)
-
-    def switch_textsize(self, textsize):
-        """Switches the text size for the team buttons."""
-        if self.initialized:
-            self.teamAButton.classes(remove=self.TEXTSIZE)
-            self.teamBButton.classes(remove=self.TEXTSIZE)
-        self.TEXTSIZE = textsize
-        self.logger.info("Change textsize to %s", textsize)
-        if self.initialized:
-            self.teamAButton.classes(add=self.TEXTSIZE)
-            self.teamBButton.classes(add=self.TEXTSIZE)
+        
+        self.update_button_style()
 
     def _handle_custom_value_submit(self):
         """Submits the value from the reusable dialog."""
@@ -255,7 +209,7 @@ class GUI:
                 button.on('touchend', lambda: self.handle_button_release(
                     team_id, is_set_button=False))
                 button.on('touchmove', self.handle_press_cancel)
-                button.classes(self.PADDINGS + GAME_BUTTON_CLASSES + self.TEXTSIZE)
+                button.classes(GAME_BUTTON_CLASSES)
 
                 if self.is_portrait:
                     with ui.column().classes('text-4xl h-full'):
@@ -427,14 +381,23 @@ class GUI:
         if selected_font and selected_font != 'Default':
              font_style = f"font-family: '{selected_font}' !important;"
 
+        # Size styles
+        size_style = ""
+        if self.button_size:
+            size_style = f"width: {self.button_size}px !important; height: {self.button_size}px !important;"
+        
+        text_size_style = ""
+        if self.button_text_size:
+            text_size_style = f"font-size: {self.button_text_size}px !important;"
+
         # Apply styles, removing the default text-white class to allow custom text colors
         if self.teamAButton:
             self.teamAButton.classes(remove='text-white')
-            self.teamAButton.style(replace=f'background-color: {color1} !important; color: {text1} !important; {font_style}')
+            self.teamAButton.style(replace=f'background-color: {color1} !important; color: {text1} !important; {font_style} {size_style} {text_size_style}')
             
         if self.teamBButton:
             self.teamBButton.classes(remove='text-white')
-            self.teamBButton.style(replace=f'background-color: {color2} !important; color: {text2} !important; {font_style}')
+            self.teamBButton.style(replace=f'background-color: {color2} !important; color: {text2} !important; {font_style} {size_style} {text_size_style}')
             
         # Apply font style to set buttons as well
         if self.teamASet:

@@ -27,15 +27,9 @@ RED_BUTTON_COLOR = 'red'
 BLUE_BUTTON_COLOR = 'blue'
 
 # Button Styles
-GAME_BUTTON_PADDING_VBIG = 'p-20'
-GAME_BUTTON_PADDING_BIG = 'p-16'
-GAME_BUTTON_PADDING_NORMAL = 'p-14'
-GAME_BUTTON_PADDING_SMALL = 'p-11'
-GAME_BUTTON_PADDING_TINY = 'p-9'
+GAME_BUTTON_PADDING_NORMAL = 'p-0'
 GAME_BUTTON_TEXT_NORMAL = 'text-6xl'
-GAME_BUTTON_TEXT_BIG = 'text-7xl'
-GAME_BUTTON_TEXT_VBIG = 'text-8xl'
-GAME_BUTTON_CLASSES = ' text-center shadow-lg rounded-lg text-white font-bold '
+GAME_BUTTON_CLASSES = ' text-center shadow-lg rounded-lg text-white h-auto min-h-0 leading-none '
 
 # Options Dialog Colors
 COLOR_FULLSCREEN_BUTTON = 'gray-400'
