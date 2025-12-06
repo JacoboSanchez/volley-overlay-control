@@ -59,10 +59,10 @@ class OptionsDialog:
                              font_options.append(family)
 
                 # Validate selected font
-                selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.configuration.oid)
+                selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
                 if selected_font not in font_options:
                     selected_font = 'Default'
-                    AppStorage.save(AppStorage.Category.SELECTED_FONT, selected_font, oid=self.configuration.oid)
+                    AppStorage.save(AppStorage.Category.SELECTED_FONT, selected_font)
 
                 with ui.row().classes('w-full items-center justify-between'):
                     ui.label(Messages.get(Messages.FONT))
@@ -118,7 +118,7 @@ class OptionsDialog:
                     on_change=self.on_follow_team_colors_change
                 ).mark('follow-team-colors-switch')
 
-                follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False, oid=self.configuration.oid)
+                follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
                 initial_classes = 'max-h-0 opacity-0' if follow_team else 'max-h-[200px] opacity-100'
                 
                 self.custom_colors_container = ui.column().classes(f'w-full gap-2 transition-all duration-300 ease-in-out overflow-hidden {initial_classes}')
@@ -174,23 +174,23 @@ class OptionsDialog:
                 self.dark_mode.auto()
 
     def on_auto_hide_change(self, e):
-        AppStorage.save(AppStorage.Category.AUTOHIDE_ENABLED, e.value, oid=self.configuration.oid)
+        AppStorage.save(AppStorage.Category.AUTOHIDE_ENABLED, e.value)
 
     def on_hide_timeout_change(self, e):
         self.hide_timeout_label.set_text(f"{Messages.get(Messages.HIDE_TIMEOUT)}: {int(e.value)}s")
-        AppStorage.save(AppStorage.Category.AUTOHIDE_SECONDS, int(e.value), oid=self.configuration.oid)
+        AppStorage.save(AppStorage.Category.AUTOHIDE_SECONDS, int(e.value))
 
     def on_auto_simple_mode_change(self, e):
-        AppStorage.save(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, e.value, oid=self.configuration.oid)
+        AppStorage.save(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, e.value)
         if not e.value:
             self.auto_simple_mode_timeout_switch.value = False
-            AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, False, oid=self.configuration.oid)
+            AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, False)
 
     def on_auto_simple_mode_timeout_change(self, e):
-        AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, e.value, oid=self.configuration.oid)
+        AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, e.value)
 
     def on_font_change(self, e):
-        AppStorage.save(AppStorage.Category.SELECTED_FONT, e.value, oid=self.configuration.oid)
+        AppStorage.save(AppStorage.Category.SELECTED_FONT, e.value)
         if self.on_change_callback:
             self.on_change_callback()
 
@@ -201,7 +201,7 @@ class OptionsDialog:
         
         self.color_buttons[storage_key] = color_btn
         
-        initial_color = AppStorage.load(storage_key, default_value, oid=self.configuration.oid)
+        initial_color = AppStorage.load(storage_key, default_value)
         color_btn.style(f'background-color: {initial_color} !important')
         
         with color_btn:
@@ -211,7 +211,7 @@ class OptionsDialog:
         
     def update_color(self, e, button, storage_key):
         button.style(f'background-color: {e.color} !important')
-        AppStorage.save(storage_key, e.color, oid=self.configuration.oid)
+        AppStorage.save(storage_key, e.color)
         if self.on_change_callback:
             self.on_change_callback()
 
@@ -224,7 +224,7 @@ class OptionsDialog:
         }
         
         for key, default in defaults.items():
-            AppStorage.save(key, default, oid=self.configuration.oid)
+            AppStorage.save(key, default)
             if key in self.color_buttons:
                 self.color_buttons[key].style(f'background-color: {default} !important')
         
@@ -232,7 +232,7 @@ class OptionsDialog:
             self.on_change_callback()
 
     def on_follow_team_colors_change(self, e):
-        AppStorage.save(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, e.value, oid=self.configuration.oid)
+        AppStorage.save(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, e.value)
         if e.value:
             self.custom_colors_container.classes(remove='max-h-[200px] opacity-100', add='max-h-0 opacity-0')
         else:
@@ -245,31 +245,31 @@ class OptionsDialog:
         self.on_change_callback = callback
 
     def open(self):
-        auto_hide = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED, oid=self.configuration.oid)
+        auto_hide = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED)
         if auto_hide is None:
             auto_hide = self.configuration.auto_hide
         self.auto_hide_switch.value = auto_hide
 
-        hide_timeout = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS, oid=self.configuration.oid)
+        hide_timeout = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS)
         if hide_timeout is None:
             hide_timeout = self.configuration.hide_timeout
         self.hide_timeout_slider.value = hide_timeout
         self.hide_timeout_label.set_text(f"{Messages.get(Messages.HIDE_TIMEOUT)}: {hide_timeout}s")
 
-        auto_simple_mode = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, oid=self.configuration.oid)
+        auto_simple_mode = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED)
         if auto_simple_mode is None:
             auto_simple_mode = self.configuration.auto_simple_mode
         self.auto_simple_mode_switch.value = auto_simple_mode
 
-        auto_simple_mode_timeout = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, oid=self.configuration.oid)
+        auto_simple_mode_timeout = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED)
         if auto_simple_mode_timeout is None:
             auto_simple_mode_timeout = self.configuration.auto_simple_mode_timeout
         self.auto_simple_mode_timeout_switch.value = auto_simple_mode_timeout
         
-        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.configuration.oid)
+        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
         self.font_select.value = selected_font
 
-        follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False, oid=self.configuration.oid)
+        follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
         self.follow_team_colors_switch.value = follow_team
         
         if follow_team:

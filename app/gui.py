@@ -362,7 +362,7 @@ class GUI:
 
     def update_button_style(self):
         """Updates the style of the score buttons based on configuration."""
-        follow_team_colors = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False, oid=self.conf.oid)
+        follow_team_colors = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
         
         if follow_team_colors:
             color1 = self.current_customize_state.get_team_color(1)
@@ -370,13 +370,13 @@ class GUI:
             color2 = self.current_customize_state.get_team_color(2)
             text2 = self.current_customize_state.get_team_text_color(2)
         else:
-            color1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR, oid=self.conf.oid)
-            text1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, oid=self.conf.oid)
-            color2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, oid=self.conf.oid)
-            text2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, oid=self.conf.oid)
+            color1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR)
+            text1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
+            color2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR)
+            text2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
         
         # Determine font style
-        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.conf.oid)
+        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
         font_style = ""
         if selected_font and selected_font != 'Default':
              font_style = f"font-family: '{selected_font}' !important;"
@@ -651,25 +651,25 @@ class GUI:
         return not self.undo and self.game_manager.match_finished()
 
     def is_auto_hide_enabled(self):
-        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED, oid=self.conf.oid)
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED)
         if stored is not None:
             return stored
         return self.conf.auto_hide
 
     def get_hide_timeout(self):
-        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS, oid=self.conf.oid)
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS)
         if stored is not None:
             return int(stored)
         return self.conf.hide_timeout
 
     def is_auto_simple_mode_enabled(self):
-        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, oid=self.conf.oid)
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED)
         if stored is not None:
             return stored
         return self.conf.auto_simple_mode
 
     def is_auto_simple_mode_timeout_enabled(self):
-        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, oid=self.conf.oid)
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED)
         if stored is not None:
             return stored
         return self.conf.auto_simple_mode_timeout

@@ -1580,7 +1580,7 @@ async def test_button_color_reset(user: User, mock_backend):
     await asyncio.sleep(0.5)
     
     # Simulate picking a non-default color by writing to storage (simulating prior interaction)
-    AppStorage.save(AppStorage.Category.TEAM_1_BUTTON_COLOR, '#123456', oid='test_oid_valid')
+    AppStorage.save(AppStorage.Category.TEAM_1_BUTTON_COLOR, '#123456')
     
     # Re-open the dialog to reflect the changed state (or refresh if the UI updates reactively)
     # The simplest way in this test setup is to close and reopen, or just rely on the fact that
@@ -1599,5 +1599,5 @@ async def test_button_color_reset(user: User, mock_backend):
     user.find(marker='reset-colors-button').click()
     
     # Check that storage has the default value
-    assert AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, oid='test_oid_valid') == DEFAULT_BUTTON_A_COLOR
-    assert AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, oid='test_oid_valid') == DEFAULT_BUTTON_TEXT_COLOR
+    assert AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR) == DEFAULT_BUTTON_A_COLOR
+    assert AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR) == DEFAULT_BUTTON_TEXT_COLOR
