@@ -119,21 +119,20 @@ class CustomizationPage:
 
     async def show_theme_dialog(self):
         with ui.dialog().props('persistent') as dialog, ui.card():
-            ui.label(Messages.get(Messages.THEME_TITLE))
+            ui.label(Messages.get(Messages.THEME_TITLE)).classes('text-lg font-semibold')
             theme_list = self.customization.get_theme_names()
             if not theme_list:
                 ui.label(Messages.get(Messages.NO_THEMES))
-                with ui.row():
-                    ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close)
+                ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close).props('flat').classes('w-full mt-4')
             else:
                 selection = ui.select(list(theme_list), label=Messages.get(
                     Messages.THEME)).classes('w-[300px]').props('outlined').mark('theme-selector')
                 with ui.row().classes('w-full'):
-                    ui.space()
                     ui.button(Messages.get(Messages.LOAD),
-                              on_click=lambda: self.apply_and_refresh(selection.value, dialog)).mark('load-theme-button')
+                            on_click=lambda: self.apply_and_refresh(selection.value, dialog)).props('flat').mark('load-theme-button')
+                    ui.space()
                     ui.button(Messages.get(Messages.CLOSE),
-                              on_click=dialog.close).mark('close-theme-button')
+                            on_click=dialog.close).props('flat').mark('close-theme-button')
         await dialog
 
     def _setup_container(self, configuration_container=None):
