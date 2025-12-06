@@ -60,6 +60,7 @@ class Messages:
     BUTTON_TEXT_COLOR = "Text Color"
     RESET_COLORS = "Reset colors"
     FONT = "Font"
+    DEFAULT = "Default"
 
 
     messages = {
@@ -121,7 +122,8 @@ class Messages:
             BUTTON_COLOR: "Color de botón",
             BUTTON_TEXT_COLOR: "Color de texto",
             RESET_COLORS: "Restablecer colores",
-            FONT: "Fuente"
+            FONT: "Fuente",
+            DEFAULT: "Predeterminado"
         },
         "en": {
           }

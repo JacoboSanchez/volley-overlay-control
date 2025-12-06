@@ -50,41 +50,44 @@ class OptionsDialog:
                 ui.label(Messages.get(Messages.VISUALIZATION_OPTIONS)).classes('text-lg font-semibold')
                 
                 # Font Selector
-                font_options = ['Default']
+                font_options = [{'label': Messages.get(Messages.DEFAULT), 'value': 'Default'}]
                 font_dir = 'font'
                 if os.path.exists(font_dir):
                     for file in os.listdir(font_dir):
                          if file.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
                              family = os.path.splitext(file)[0]
-                             font_options.append(family)
+                             font_options.append({'label': family, 'value': family})
 
                 # Validate selected font
-                selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
-                if selected_font not in font_options:
-                    selected_font = 'Default'
-                    AppStorage.save(AppStorage.Category.SELECTED_FONT, selected_font)
+                selected_font_str = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
+                # Find the option object that matches the stored string value
+                selected_font_option = next((f for f in font_options if f['value'] == selected_font_str), font_options[0])
+                
+                # If default fallback occurred, save it
+                if selected_font_option['value'] != selected_font_str:
+                     AppStorage.save(AppStorage.Category.SELECTED_FONT, selected_font_option['value'])
 
                 with ui.row().classes('w-full items-center justify-between'):
                     ui.label(Messages.get(Messages.FONT))
                     with ui.select(
                         font_options, 
-                        value=selected_font,
+                        value=selected_font_option,
                         on_change=self.on_font_change
-                    ).classes('w-40') as self.font_select:
+                    ).classes('w-40').props('option-label="label.label"') as self.font_select:
                         self.font_select.add_slot('option', '''
                             <q-item v-bind="props.itemProps">
                                 <q-item-section>
-                                    <q-item-label>{{ props.opt.label || props.opt }}</q-item-label>
+                                    <q-item-label>{{ props.opt.label.label }}</q-item-label>
                                 </q-item-section>
-                                <q-item-section side>
-                                     <q-item-label :style="{ fontFamily: '\\'' + (props.opt.label || props.opt) + '\\'' }" class="text-xl">25</q-item-label>
+                                <q-item-section side v-if="props.opt.label.value !== 'Default'">
+                                     <q-item-label :style="{ fontFamily: '\\'' + props.opt.label.value + '\\'' }" class="text-xl">25</q-item-label>
                                 </q-item-section>
                             </q-item>
                         ''')
                         self.font_select.add_slot('selected-item', '''
                             <div class="flex items-center w-full justify-between">
-                                <span>{{ props.opt.label || props.opt }}</span>
-                                <span :style="{ fontFamily: '\\'' + (props.opt.label || props.opt) + '\\'' }" class="text-xl">25</span>
+                                <span>{{ props.opt.label.label }}</span>
+                                <span v-if="props.opt.label.value !== 'Default'" :style="{ fontFamily: '\\'' + props.opt.label.value + '\\'' }" class="text-xl">25</span>
                             </div>
                         ''')
 
@@ -190,7 +193,8 @@ class OptionsDialog:
         AppStorage.save(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, e.value)
 
     def on_font_change(self, e):
-        AppStorage.save(AppStorage.Category.SELECTED_FONT, e.value)
+        val = e.value['value'] if isinstance(e.value, dict) else e.value
+        AppStorage.save(AppStorage.Category.SELECTED_FONT, val)
         if self.on_change_callback:
             self.on_change_callback()
 
@@ -266,8 +270,14 @@ class OptionsDialog:
             auto_simple_mode_timeout = self.configuration.auto_simple_mode_timeout
         self.auto_simple_mode_timeout_switch.value = auto_simple_mode_timeout
         
-        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
-        self.font_select.value = selected_font
+        selected_font_str = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
+        # We need to reconstruct the options to find the matching object
+        # Since options might be dynamic (files), ideally we reuse self.font_select.options if available, 
+        # or we just rely on the stored value if it still matches a file.
+        # But self.font_select.options is available.
+        options = self.font_select.options
+        selected_option = next((opt for opt in options if isinstance(opt, dict) and opt['value'] == selected_font_str), options[0])
+        self.font_select.value = selected_option
 
         follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
         self.follow_team_colors_switch.value = follow_team
