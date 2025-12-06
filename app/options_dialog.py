@@ -58,13 +58,35 @@ class OptionsDialog:
                              family = os.path.splitext(file)[0]
                              font_options.append(family)
 
+                # Validate selected font
+                selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.configuration.oid)
+                if selected_font not in font_options:
+                    selected_font = 'Default'
+                    AppStorage.save(AppStorage.Category.SELECTED_FONT, selected_font, oid=self.configuration.oid)
+
                 with ui.row().classes('w-full items-center justify-between'):
                     ui.label(Messages.get(Messages.FONT))
-                    self.font_select = ui.select(
+                    with ui.select(
                         font_options, 
-                        value=AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default', oid=self.configuration.oid),
+                        value=selected_font,
                         on_change=self.on_font_change
-                    ).classes('w-40')
+                    ).classes('w-40') as self.font_select:
+                        self.font_select.add_slot('option', '''
+                            <q-item v-bind="props.itemProps">
+                                <q-item-section>
+                                    <q-item-label>{{ props.opt.label || props.opt }}</q-item-label>
+                                </q-item-section>
+                                <q-item-section side>
+                                     <q-item-label :style="{ fontFamily: '\\'' + (props.opt.label || props.opt) + '\\'' }" class="text-xl">25</q-item-label>
+                                </q-item-section>
+                            </q-item>
+                        ''')
+                        self.font_select.add_slot('selected-item', '''
+                            <div class="flex items-center w-full justify-between">
+                                <span>{{ props.opt.label || props.opt }}</span>
+                                <span :style="{ fontFamily: '\\'' + (props.opt.label || props.opt) + '\\'' }" class="text-xl">25</span>
+                            </div>
+                        ''')
 
                 with ui.row().classes('justify-center'):
                     self.fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
