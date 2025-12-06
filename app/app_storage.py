@@ -38,20 +38,18 @@ class AppStorage:
 
     def _get_storage():
         """
-        Determines the appropriate storage backend and caches the result for future calls.
+        Determines the appropriate storage backend.
         """
         global _cached_storage
-        if _cached_storage is not None:
-            return _cached_storage
         
         try:
             if app.storage is not None:
                 # This will raise a RuntimeError if not in a NiceGUI page context
-                _cached_storage = app.storage.user
-                logging.info('Using NiceGUI storage')
+                return app.storage.user
         except RuntimeError:
             # We are in a test or non-UI environment, use the in-memory fallback
-            logging.info('Not using NiceGUI storage')
+            pass
+            
         if _cached_storage is None:
             logging.info('Using in-memory storage')
             _cached_storage = _memory_storage

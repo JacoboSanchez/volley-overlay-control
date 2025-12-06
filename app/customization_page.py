@@ -435,17 +435,4 @@ class CustomizationPage:
         self.tabs.set_value(Customization.SCOREBOARD_TAB)
 
     def clear_local_cached_data_for_oid(self):
-        preserve_keys = [
-            AppStorage.Category.DARK_MODE,
-            AppStorage.Category.AUTOHIDE_ENABLED,
-            AppStorage.Category.AUTOHIDE_SECONDS,
-            AppStorage.Category.SIMPLIFY_OPTION_ENABLED,
-            AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED,
-            AppStorage.Category.SELECTED_FONT,
-            AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS,
-            AppStorage.Category.TEAM_1_BUTTON_COLOR,
-            AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR,
-            AppStorage.Category.TEAM_2_BUTTON_COLOR,
-            AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR
-        ]
-        AppStorage.refresh_state(oid=self.configuration.oid, preserve_keys=preserve_keys)
+        AppStorage.refresh_state(oid=self.configuration.oid)

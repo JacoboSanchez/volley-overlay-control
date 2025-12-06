@@ -46,28 +46,28 @@ class Conf:
 
     @property
     def auto_hide(self):
-        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED, oid=self.oid)
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_ENABLED)
         if stored is not None:
             return stored
         return str(EnvVarsManager.get_env_var('AUTO_HIDE_ENABLED', 'false')).lower() in ("yes", "true", "t", "1")
 
     @property
     def hide_timeout(self):
-        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS, oid=self.oid)
+        stored = AppStorage.load(AppStorage.Category.AUTOHIDE_SECONDS)
         if stored is not None:
             return int(stored)
         return int(EnvVarsManager.get_env_var('DEFAULT_HIDE_TIMEOUT', 5))
 
     @property
     def auto_simple_mode(self):
-        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED, oid=self.oid)
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_OPTION_ENABLED)
         if stored is not None:
             return stored
         return str(EnvVarsManager.get_env_var('AUTO_SIMPLE_MODE', 'false')).lower() in ("yes", "true", "t", "1")
 
     @property
     def auto_simple_mode_timeout(self):
-        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED, oid=self.oid)
+        stored = AppStorage.load(AppStorage.Category.SIMPLIFY_ON_TIMEOUT_ENABLED)
         if stored is not None:
             return stored
         return str(EnvVarsManager.get_env_var('AUTO_SIMPLE_MODE_TIMEOUT', 'false')).lower() in ("yes", "true", "t", "1")
