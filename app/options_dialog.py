@@ -24,7 +24,7 @@ class OptionsDialog:
         with self.dialog, ui.card():
             ui.label(Messages.get(Messages.OPTIONS_TITLE)).classes('text-lg font-semibold')
             with ui.column().classes('w-full'):
-                with ui.expansion(Messages.get(Messages.HIDE_OPTIONS), icon='visibility_off').classes('w-full border rounded-lg mb-2').props('header-class="text-lg font-semibold"'):
+                with ui.expansion(Messages.get(Messages.HIDE_OPTIONS), icon='hide_image').mark('visibility-section').classes('w-full border rounded-lg mb-2').props('header-class="text-lg font-semibold"'):
                     with ui.column().classes('w-full p-2'):
                         self.auto_hide_switch = ui.switch(
                             Messages.get(Messages.AUTO_HIDE),
