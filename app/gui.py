@@ -92,7 +92,7 @@ class GUI:
             self.button_size = self.page_width / 4.5
         else: 
             dimension = self.page_height
-            self.button_size = self.page_height / 4.5
+            self.button_size = self.page_height / 5
 
         self.button_text_size = self.button_size / 2
         
