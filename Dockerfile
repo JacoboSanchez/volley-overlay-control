@@ -1,4 +1,4 @@
 FROM zauberzeug/nicegui:latest
 WORKDIR /app
 COPY . /app
-RUN pip install -r requirements.txt
+RUN python3 -m pip install -r requirements.txt
