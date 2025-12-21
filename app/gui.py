@@ -92,7 +92,7 @@ class GUI:
             self.button_size = self.page_width / 4.5
         else: 
             dimension = self.page_height
-            self.button_size = self.page_height / 4.5
+            self.button_size = self.page_height / 5
 
         self.button_text_size = self.button_size / 2
         
@@ -343,6 +343,11 @@ class GUI:
                 current_state = self.game_manager.get_current_state()
                 self.update_ui_timeouts(current_state)
                 self.update_ui_games(current_state)
+
+                self.update_ui_sets(current_state)
+                self.current_set = self.compute_current_set(current_state)
+                self.update_ui_current_set(self.current_set)
+                self.update_ui_serve(current_state)
 
 
     def compute_current_set(self, current_state):
