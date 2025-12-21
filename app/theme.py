@@ -29,7 +29,7 @@ BLUE_BUTTON_COLOR = 'blue'
 # Button Styles
 GAME_BUTTON_PADDING_NORMAL = 'p-0'
 GAME_BUTTON_TEXT_NORMAL = 'text-6xl'
-GAME_BUTTON_CLASSES = ' text-center align-middle shadow-lg rounded-lg text-white h-auto min-h-0 leading-none '
+GAME_BUTTON_CLASSES = ' text-center align-middle shadow-lg rounded-lg text-white h-auto min-h-0 '
 
 # Options Dialog Colors
 COLOR_FULLSCREEN_BUTTON = 'gray-400'
