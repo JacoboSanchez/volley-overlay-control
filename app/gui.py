@@ -344,6 +344,11 @@ class GUI:
                 self.update_ui_timeouts(current_state)
                 self.update_ui_games(current_state)
 
+                self.update_ui_sets(current_state)
+                self.current_set = self.compute_current_set(current_state)
+                self.update_ui_current_set(self.current_set)
+                self.update_ui_serve(current_state)
+
 
     def compute_current_set(self, current_state):
         t1sets = current_state.get_sets(1)
