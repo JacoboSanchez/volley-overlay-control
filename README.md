@@ -1,6 +1,6 @@
 # 🏐 Volley Overlay Control
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![License](https://img.shields.io/badge/license-Apache%202-blue)
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
 ![NiceGUI](https://img.shields.io/badge/built%20with-NiceGUI-5898d4.svg)
 
