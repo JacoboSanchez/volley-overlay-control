@@ -1,4 +1,4 @@
-nicegui==3.5.0
+nicegui==3.6.1
 requests
 python-dotenv
 pytest
