@@ -50,6 +50,7 @@ def startup() -> None:
         process_parameters(logout=logout)
         await run_page(oid=control, output=output)
 
+
     @ui.page('/login')
     async def login(request: Request) -> Optional[RedirectResponse]:
         # If the user is already authenticated, the middleware will handle redirection.
@@ -120,125 +121,123 @@ def startup() -> None:
 
     async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
         logger.debug("run page")
-        addHeader()
         notification = ui.notification(Messages.get(Messages.LOADING), timeout=None, spinner=True)
-        try:
-            scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
-            configurationTab = ui.tab(Customization.CONFIG_TAB)
+        addHeader()
 
-            tabs = ui.tabs().props('horizontal').classes("w-full")
-            conf = Conf()
-            if custom_points_limit is not None:
-                conf.points = custom_points_limit
-            if custom_points_limit_last_set is not None:
-                conf.points_last_set = custom_points_limit_last_set
-            if custom_sets_limit is not None:
-                conf.sets = custom_sets_limit
-            options_dialog = OptionsDialog(conf)
-            backend = Backend(conf)
-            await ui.context.client.connected()
-            if custom_points_limit == None:
-                custom_points_limit = conf.points
-            if custom_points_limit_last_set == None:
-                custom_points_limit_last_set = conf.points_last_set
-            if custom_sets_limit == None:
-                custom_sets_limit = conf.sets
-            oid_to_use = None
-            output_to_use = None
-            source = "none"
+        scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
+        configurationTab = ui.tab(Customization.CONFIG_TAB)
+        notification.dismiss()
+        
+        await ui.context.client.connected()
+        tabs = ui.tabs().props('horizontal').classes("w-full")
+        conf = Conf()
+        if custom_points_limit is not None:
+            conf.points = custom_points_limit
+        if custom_points_limit_last_set is not None:
+            conf.points_last_set = custom_points_limit_last_set
+        if custom_sets_limit is not None:
+            conf.sets = custom_sets_limit
+        options_dialog = OptionsDialog(conf)
+        backend = Backend(conf)
+        if custom_points_limit == None:
+            custom_points_limit = conf.points
+        if custom_points_limit_last_set == None:
+            custom_points_limit_last_set = conf.points_last_set
+        if custom_sets_limit == None:
+            custom_sets_limit = conf.sets
+        oid_to_use = None
+        output_to_use = None
+        source = "none"
+    
 
-            # 1. Check for OID in URL parameters (highest priority)
-            if oid is not None:
-                if backend.validate_and_store_model_for_oid(oid) == State.OIDStatus.VALID:
-                    oid_to_use = oid
-                    source = "URL"
-                    if output:
-                        output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + output
-                else:
-                    logger.warning("Invalid OID provided in URL: %s", oid)
-
-            # 2. If no valid OID from URL, check AppStorage (second priority)
-            if oid_to_use is None:
-                storage_oid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
-                if storage_oid and backend.validate_and_store_model_for_oid(storage_oid) == State.OIDStatus.VALID:
-                    oid_to_use = storage_oid
-                    output_to_use = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
-                    source = "storage"
-
-            # 3. If still no OID, check environment variables (third priority)
-            if oid_to_use is None and oid is None and conf.single_overlay:
-                env_oid = conf.oid
-                if env_oid and backend.validate_and_store_model_for_oid(env_oid) == State.OIDStatus.VALID:
-                    oid_to_use = env_oid
-                    output_to_use = conf.output
-                    source = "environment"
-
-            # 4. If no valid OID was found from any source, open the dialog
-            if oid_to_use is None:
-                notification.dismiss()
-                logger.info("No valid OID from URL, storage, or environment. Opening dialog.")
-                dialog = OidDialog(backend=backend)
-                result = await dialog.open()
-                if result:
-                    oid_to_use = result.get(OidDialog.CONTROL_TOKEN_KEY)
-                    output_to_use = result.get(OidDialog.OUTPUT_URL_KEY)
-                    source = "dialog"
-                    AppStorage.save(AppStorage.Category.CONFIGURED_OID, oid_to_use)
-                    AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, output_to_use)
-
-            if oid_to_use:
-                # If we have an OID but missing the output token, try to fetch it automatically
-                if not output_to_use:
-                    token = backend.fetch_output_token(oid_to_use)
-                    if token:
-                        output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + token
-
-                logger.info("Using OID from %s: %s", source, oid_to_use)
-                conf.oid = oid_to_use
-                conf.output = output_to_use
+        # 1. Check for OID in URL parameters (highest priority)
+        if oid is not None:
+            if backend.validate_and_store_model_for_oid(oid) == State.OIDStatus.VALID:
+                oid_to_use = oid
+                source = "URL"
+                if output:
+                    output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + output
             else:
-                notification.dismiss()
-                ui.label("Scoreboard could not be loaded. A valid overlay is required.").classes('m-auto text-negative')
-                return
+                logger.warning("Invalid OID provided in URL: %s", oid)
 
-            scoreboard_page = GUI(tabs, conf, backend)
-            customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
+        # 2. If no valid OID from URL, check AppStorage (second priority)
+        if oid_to_use is None:
+            storage_oid = AppStorage.load(AppStorage.Category.CONFIGURED_OID, default=None)
+            if storage_oid and backend.validate_and_store_model_for_oid(storage_oid) == State.OIDStatus.VALID:
+                oid_to_use = storage_oid
+                output_to_use = AppStorage.load(AppStorage.Category.CONFIGURED_OUTPUT, default=None)
+                source = "storage"
 
-            options_dialog.set_callback(scoreboard_page.update_button_style)
+        # 3. If still no OID, check environment variables (third priority)
+        if oid_to_use is None and oid is None and conf.single_overlay:
+            env_oid = conf.oid
+            if env_oid and backend.validate_and_store_model_for_oid(env_oid) == State.OIDStatus.VALID:
+                oid_to_use = env_oid
+                output_to_use = conf.output
+                source = "environment"
 
-            with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full h-full") as panels:
-                scoreboardTabPanel = ui.tab_panel(scoreboardTab)
-                with scoreboardTabPanel:
-                    await scoreboard_page.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
-                configurationTabPanel = ui.tab_panel(configurationTab)
-                with configurationTabPanel:
-                    customization_page.init(configurationTabPanel)
+        # 4. If no valid OID was found from any source, open the dialog
+        if oid_to_use is None:
+            logger.info("No valid OID from URL, storage, or environment. Opening dialog.")
+            dialog = OidDialog(backend=backend)
+            result = await dialog.open()
+            if result:
+                oid_to_use = result.get(OidDialog.CONTROL_TOKEN_KEY)
+                output_to_use = result.get(OidDialog.OUTPUT_URL_KEY)
+                source = "dialog"
+                AppStorage.save(AppStorage.Category.CONFIGURED_OID, oid_to_use)
+                AppStorage.save(AppStorage.Category.CONFIGURED_OUTPUT, output_to_use)
 
-            async def handle_resize(e):
-                width = e.args['width']
-                height = e.args['height']
-                await scoreboard_page.set_page_size(width, height)
-                logger.debug("New size: %s x %s", width, height)
-                natural_width = 650 
-                if not GUI.is_portrait(width, height) and width < natural_width:
-                    scale = width / natural_width
-                    logger.debug("scale size: %s", scale)
-                    scoreboard_page.current_panel_style = f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;'
-                    panels.style(scoreboard_page.current_panel_style)
-                else:
-                    logger.debug(f'current_style: {scoreboard_page.current_panel_style}')
-                    panels.style(remove=scoreboard_page.current_panel_style, add='transform: none;')
-                    
-            
-            ui.on('resize', handle_resize)
-            
-            await scoreboard_page.set_page_size(await get_client_width(), await get_client_height())
+        if oid_to_use:
+            # If we have an OID but missing the output token, try to fetch it automatically
+            if not output_to_use:
+                token = backend.fetch_output_token(oid_to_use)
+                if token:
+                    output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + token
 
-            with tabs:
-                scoreboardTab
-                configurationTab
-        finally:
-            notification.dismiss()
+            logger.info("Using OID from %s: %s", source, oid_to_use)
+            conf.oid = oid_to_use
+            conf.output = output_to_use
+        else:
+            ui.label("Scoreboard could not be loaded. A valid overlay is required.").classes('m-auto text-negative')
+            return
+
+        scoreboard_page = GUI(tabs, conf, backend)
+        customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
+
+        options_dialog.set_callback(scoreboard_page.update_button_style)
+
+        with ui.tab_panels(tabs, value=scoreboardTab).classes("w-full h-full") as panels:
+            scoreboardTabPanel = ui.tab_panel(scoreboardTab)
+            with scoreboardTabPanel:
+                await scoreboard_page.init(custom_points_limit=custom_points_limit, custom_points_limit_last_set=custom_points_limit_last_set, custom_sets_limit=custom_sets_limit)
+            configurationTabPanel = ui.tab_panel(configurationTab)
+            with configurationTabPanel:
+                customization_page.init(configurationTabPanel)
+
+        async def handle_resize(e):
+            width = e.args['width']
+            height = e.args['height']
+            await scoreboard_page.set_page_size(width, height)
+            logger.debug("New size: %s x %s", width, height)
+            natural_width = 650 
+            if not GUI.is_portrait(width, height) and width < natural_width:
+                scale = width / natural_width
+                logger.debug("scale size: %s", scale)
+                scoreboard_page.current_panel_style = f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;'
+                panels.style(scoreboard_page.current_panel_style)
+            else:
+                logger.debug(f'current_style: {scoreboard_page.current_panel_style}')
+                panels.style(remove=scoreboard_page.current_panel_style, add='transform: none;')                    
+        
+        ui.on('resize', handle_resize)
+        
+        await scoreboard_page.set_page_size(await get_client_width(), await get_client_height())
+
+        with tabs:
+            scoreboardTab
+            configurationTab
+
 
 async def get_client_height():
     h = await ui.run_javascript('window.innerHeight')

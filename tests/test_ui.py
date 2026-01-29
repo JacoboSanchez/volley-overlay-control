@@ -421,11 +421,11 @@ async def test_team_selection_from_env_var(user: User, mock_backend, monkeypatch
 async def test_lock_buttons_prevent_changes(user: User, mock_backend, monkeypatch):
     """Tests that the lock buttons prevent color and icon changes when a new team is selected."""
     # Define new teams for this test
-    new_teams = {
-        "Team A": {"icon": "A.png", "color": "#AAAAAA", "text_color": "#111111"},
-        "Team B": {"icon": "B.png", "color": "#BBBBBB", "text_color": "#222222"},
-    }
-    monkeypatch.setattr('app.customization.Customization.predefined_teams', new_teams)
+    new_teams = json.dumps({
+        "Locked Team A": {"icon": "A.png", "color": "#AAAAAA", "text_color": "#111111"},
+        "Locked Team B": {"icon": "B.png", "color": "#BBBBBB", "text_color": "#222222"},
+    })
+    monkeypatch.setenv("APP_TEAMS", new_teams)
 
     await _navigate_to_config(user)
     await user.should_see(marker='team-1-name-selector')
@@ -435,19 +435,18 @@ async def test_lock_buttons_prevent_changes(user: User, mock_backend, monkeypatc
     initial_t1_color = initial_customization[Customization.T1_COLOR]
     initial_t1_logo = initial_customization[Customization.T1_LOGO]
 
-    # Lock team 1's icons and colors
+    # --- Phase 1: Lock Icon Only ---
+    # Lock team 1's icon
     await user.should_see(marker='team-1-icon-lock')
     user.find(marker='team-1-icon-lock').click()
-    await user.should_see(marker='team-1-color-lock')
-    user.find(marker='team-1-color-lock').click()
     
-
-    # Change team 1 to "Team A"
+    # Change team 1 to "Locked Team A"
     await user.should_see(marker='team-1-name-selector')
     user.find(marker='team-1-name-selector').click()
-    await user.should_see("Team A")
-    user.find("Team A").click()
+    await user.should_see("Locked Team A")
+    user.find("Locked Team A").click()
     await user.should_see(marker='save-button')
+    
     # Save the changes
     user.find(marker='save-button').click()
     await user.should_see(marker='team-1-score') # Wait to be back on the scoreboard
@@ -455,13 +454,47 @@ async def test_lock_buttons_prevent_changes(user: User, mock_backend, monkeypatc
 
     # Verify that save_json_customization was called
     mock_backend.save_json_customization.assert_called()
-    call_args = mock_backend.save_json_customization.call_args[0][0]
+    call_args_1 = mock_backend.save_json_customization.call_args[0][0]
     
-    # Assert that team 1's color and logo have NOT changed
-    assert call_args[Customization.T1_COLOR] == initial_t1_color
-    assert call_args[Customization.T1_LOGO] == initial_t1_logo
-    # The name should still change
-    assert call_args[Customization.A_TEAM] == "Team A"
+    # Assert that team 1's logo has NOT changed (Locked), but color HAS changed (Unlocked)
+    assert call_args_1[Customization.T1_LOGO] == initial_t1_logo
+    assert call_args_1[Customization.T1_COLOR] == "#AAAAAA" # Team A Color
+    assert call_args_1[Customization.A_TEAM] == "Locked Team A"
+
+
+    # --- Phase 2: Lock Color Only ---
+    # Go back to config
+    await _navigate_to_config(user, open_root_page=None)
+    
+    # Unlock icon (toggle off)
+    await user.should_see(marker='team-1-icon-lock')
+    user.find(marker='team-1-icon-lock').click()
+    
+    # Lock color (toggle on)
+    await user.should_see(marker='team-1-color-lock')
+    user.find(marker='team-1-color-lock').click()
+
+    # Change team 1 to "Locked Team B"
+    await user.should_see(marker='team-1-name-selector')
+    user.find(marker='team-1-name-selector').click()
+    await user.should_see("Locked Team B")
+    user.find("Locked Team B").click()
+    
+    # Save the changes
+    user.find(marker='save-button').click()
+    await user.should_see(marker='team-1-score') 
+    await asyncio.sleep(0.2)
+
+    # Verify calls
+    # Note: call_args will return the most recent call
+    call_args_2 = mock_backend.save_json_customization.call_args[0][0]
+    
+    # Assert that team 1's color has NOT changed (Locked), but logo HAS changed (Unlocked)
+    # The current color should be from Phase 1 (#AAAAAA), not the initial one
+    assert call_args_2[Customization.T1_COLOR] == "#AAAAAA" 
+    assert call_args_2[Customization.T1_LOGO] == "B.png" # Team B Logo
+    assert call_args_2[Customization.A_TEAM] == "Locked Team B"
+    
     await asyncio.sleep(0.1)
 
 
