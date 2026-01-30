@@ -98,6 +98,16 @@ class OptionsDialog:
                             on_change=self.on_follow_team_colors_change
                         ).mark('follow-team-colors-switch')
 
+                        with ui.row().classes('w-full items-center justify-between'):
+                            self.show_team_icon_switch = ui.switch(
+                                Messages.get(Messages.SHOW_TEAM_ICON),
+                                on_change=self.on_show_team_icon_change
+                            ).mark('show-team-icon-switch')
+
+                            self.icon_opacity_knob = ui.knob(min=10, max=100, step=10, on_change=self.on_icon_opacity_change, track_color='grey-2', show_value=True) \
+                                .props('size=40px') \
+                                .bind_visibility_from(self.show_team_icon_switch, 'value')
+
                         follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
                         initial_classes = 'max-h-0 opacity-0' if follow_team else 'max-h-[200px] opacity-100'
                         
@@ -245,6 +255,16 @@ class OptionsDialog:
         if self.on_change_callback:
             self.on_change_callback()
 
+    def on_show_team_icon_change(self, e):
+        AppStorage.save(AppStorage.Category.BUTTONS_SHOW_ICON, e.value)
+        if self.on_change_callback:
+            self.on_change_callback()
+
+    def on_icon_opacity_change(self, e):
+        AppStorage.save(AppStorage.Category.BUTTONS_ICON_OPACITY, e.value / 100.0)
+        if self.on_change_callback:
+            self.on_change_callback()
+
     def set_callback(self, callback):
         self.on_change_callback = callback
 
@@ -281,6 +301,12 @@ class OptionsDialog:
 
         follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
         self.follow_team_colors_switch.value = follow_team
+
+        show_icon = AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
+        self.show_team_icon_switch.value = show_icon
+
+        icon_opacity = AppStorage.load(AppStorage.Category.BUTTONS_ICON_OPACITY, 0.1)
+        self.icon_opacity_knob.value = int(icon_opacity * 100)
         
         if follow_team:
             self.custom_colors_container.classes(remove='max-h-[200px] opacity-100', add='max-h-0 opacity-0')

@@ -62,6 +62,8 @@ class Messages:
     RESET_COLORS = "Reset colors"
     FONT = "Font"
     DEFAULT = "Default"
+    SHOW_TEAM_ICON = "Show Team Icon"
+    ICON_OPACITY = "Icon Opacity"
 
 
     messages = {
@@ -125,7 +127,9 @@ class Messages:
             BUTTON_TEXT_COLOR: "Color de texto",
             RESET_COLORS: "Restablecer colores",
             FONT: "Fuente",
-            DEFAULT: "Predeterminado"
+            DEFAULT: "Predeterminado",
+            SHOW_TEAM_ICON: "Mostrar icono de equipo",
+            ICON_OPACITY: "Opacidad del icono"
         },
         "en": {
           }

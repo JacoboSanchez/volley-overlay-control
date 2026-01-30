@@ -395,14 +395,55 @@ class GUI:
         if self.button_text_size:
             text_size_style = f"font-size: {self.button_text_size}px !important;"
 
+        # Helper to generate style string including background
+        def get_team_style(team_id, base_color, text_color):
+            style_parts = [
+                f'background-color: {base_color} !important',
+                f'color: {text_color} !important',
+                font_style,
+                size_style,
+                text_size_style
+            ]
+            
+            show_icon = AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
+            if show_icon:
+                logo_url = self.current_customize_state.get_team_logo(team_id)
+                if logo_url:
+                    icon_opacity = float(AppStorage.load(AppStorage.Category.BUTTONS_ICON_OPACITY, 0.3))
+                    
+                    # Calculate overlay color for opacity simulation
+                    overlay_rgba = None
+                    if base_color and base_color.startswith('#') and len(base_color) == 7:
+                        try:
+                            c = base_color.lstrip('#')
+                            rgb = tuple(int(c[i:i+2], 16) for i in (0, 2, 4))
+                            # We overlay the background color with (1 - opacity) to fade the icon
+                            overlay_alpha = 1.0 - icon_opacity
+                            overlay_rgba = f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {overlay_alpha:.2f})"
+                        except Exception as e:
+                            self.logger.error(f"Error parsing color {base_color}: {e}")
+                            pass
+                    
+                    if overlay_rgba:
+                         style_parts.append(f"background-image: linear-gradient({overlay_rgba}, {overlay_rgba}), url('{logo_url}') !important")
+                    else:
+                         style_parts.append(f"background-image: url('{logo_url}') !important")
+                         style_parts.append("background-blend-mode: overlay !important")
+
+                    style_parts.append("background-size: contain !important")
+                    style_parts.append("background-repeat: no-repeat !important")
+                    style_parts.append("background-position: center !important")
+            
+            return '; '.join([s for s in style_parts if s])
+
         # Apply styles, removing the default text-white class to allow custom text colors
         if self.teamAButton:
             self.teamAButton.classes(remove='text-white')
-            self.teamAButton.style(replace=f'background-color: {color1} !important; color: {text1} !important; {font_style} {size_style} {text_size_style}')
+            self.teamAButton.style(replace=get_team_style(1, color1, text1))
             
         if self.teamBButton:
             self.teamBButton.classes(remove='text-white')
-            self.teamBButton.style(replace=f'background-color: {color2} !important; color: {text2} !important; {font_style} {size_style} {text_size_style}')
+            self.teamBButton.style(replace=get_team_style(2, color2, text2))
             
         # Apply font style to set buttons as well
         if self.teamASet:
