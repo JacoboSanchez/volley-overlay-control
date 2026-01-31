@@ -23,7 +23,7 @@ class OptionsDialog:
                 with ui.column().classes('w-full sm:w-[49%] gap-1'):
                     ui.label(Messages.get(Messages.HIDE_OPTIONS)).classes('text-base font-semibold text-primary')
                     
-                    with ui.card().classes('w-full p-2 shadow-none border'):
+                    with ui.card().classes('w-full p-2 shadow-none'):
                         self.auto_hide_switch = ui.switch(
                             Messages.get(Messages.AUTO_HIDE),
                             on_change=self.on_auto_hide_change
@@ -33,8 +33,6 @@ class OptionsDialog:
                             self.hide_timeout_label = ui.label()
                             self.hide_timeout_slider = ui.slider(min=1, max=15, step=1, on_change=self.on_hide_timeout_change) \
                                 .bind_enabled_from(self.auto_hide_switch, 'value')
-        
-                        ui.separator().classes('my-2')
                         
                         self.auto_simple_mode_switch = ui.switch(
                             Messages.get(Messages.AUTO_SIMPLE_MODE),
@@ -50,7 +48,7 @@ class OptionsDialog:
                 with ui.column().classes('w-full sm:w-[49%] gap-1'):
                     ui.label(Messages.get(Messages.BUTTONS_CONFIGURATION)).classes('text-base font-semibold text-primary')
                     
-                    with ui.card().classes('w-full p-2 shadow-none border'):
+                    with ui.card().classes('w-full p-2 shadow-none'):
                         # Font Selector
                         font_options = [{'label': Messages.get(Messages.DEFAULT), 'value': 'Default'}]
                         font_dir = 'font'
@@ -93,8 +91,6 @@ class OptionsDialog:
                                     </div>
                                 ''')
                         
-                        ui.separator().classes('my-2')
-                        
                         self.follow_team_colors_switch = ui.switch(
                             Messages.get(Messages.FOLLOW_TEAM_COLORS),
                             on_change=self.on_follow_team_colors_change
@@ -117,21 +113,17 @@ class OptionsDialog:
                         with self.custom_colors_container:
                             with ui.row().classes('w-full items-center justify-between gap-2'):
                                 with ui.row().classes('items-center gap-2'):
-                                    ui.space()
                                     ui.label(Messages.get(Messages.LOCAL)).classes('text-sm font-medium')
-                                    ui.space()
                                     self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR), marker='color-picker-team-1-btn')
                                     self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR), marker='color-picker-team-1-text')
 
                                 with ui.row().classes('items-center gap-2'):
                                     ui.label(Messages.get(Messages.VISITOR)).classes('text-sm font-medium')
-                                    ui.space()
                                     self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR), marker='color-picker-team-2-btn')
                                     self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR), marker='color-picker-team-2-text')
-                                    ui.space()
                             
-                            ui.button(Messages.get(Messages.RESET_COLORS), icon='replay', on_click=self.reset_all_button_colors) \
-                                .props('flat dense size=sm').classes('w-full text-gray-500 hover:text-gray-800').mark('reset-colors-button')
+                                ui.button(Messages.get(Messages.RESET_COLORS), icon='replay', on_click=self.reset_all_button_colors) \
+                                    .props('flat dense').classes('text-gray-500 hover:text-gray-800').mark('reset-colors-button')
 
 
 
