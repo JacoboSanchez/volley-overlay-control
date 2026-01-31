@@ -1,3 +1,4 @@
+from app.theme import CONTROL_BUTTON_CLASSES
 import asyncio
 import logging
 from nicegui import ui, app
@@ -250,7 +251,7 @@ class CustomizationPage:
     def _create_action_buttons(self):
         """Creates the bottom row of action buttons."""
         def button_classes():
-            return 'w-12 h-12 rounded-lg'
+            return CONTROL_BUTTON_CLASSES
 
         with ui.row().classes('w-full'):
             ui.button(icon='keyboard_arrow_left',

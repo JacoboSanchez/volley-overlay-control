@@ -31,6 +31,8 @@ GAME_BUTTON_PADDING_NORMAL = 'p-0'
 GAME_BUTTON_TEXT_NORMAL = 'text-6xl'
 GAME_BUTTON_CLASSES = ' text-center align-middle shadow-lg rounded-lg text-white h-auto min-h-0 '
 
+# Control buttons
+CONTROL_BUTTON_CLASSES = 'w-9 h-9 rounded-lg'
 
 # Default Button Colors
 DEFAULT_BUTTON_A_COLOR = '#2196f3' # Blue

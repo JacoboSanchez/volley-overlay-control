@@ -311,7 +311,7 @@ class GUI:
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
         def button_classes():
-            return 'w-12 h-12 rounded-lg'
+            return CONTROL_BUTTON_CLASSES
 
         with ui.row().classes("w-full justify-around"):
             self.visibility_button = ui.button(icon='visibility',
