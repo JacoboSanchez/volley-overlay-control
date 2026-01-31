@@ -15,19 +15,19 @@ class OptionsDialog:
         self.on_change_callback = None
         self.color_buttons = {} # Store references to color buttons to update them on reset
 
-        with self.dialog, ui.card().classes('relative w-full max-w-4xl p-0'):
-            ui.button(icon='close', on_click=self.dialog.close).props('flat round dense size=sm').classes('absolute top-2 right-2 z-10').mark('close-options-button')
+        with self.dialog, ui.card().classes(DIALOG_CARD_CLASSES):
+            ui.button(icon='close', on_click=self.dialog.close).props(CLOSE_BUTTON_PROPS).classes(CLOSE_BUTTON_CLASSES).mark('close-options-button')
 
             with ui.row().classes('w-full p-2 gap-2'):
                 # Left Column: Display Options
                 with ui.column().classes('w-full sm:w-[49%] gap-1'):
-                    ui.label(Messages.get(Messages.HIDE_OPTIONS)).classes('text-base font-semibold text-primary')
+                    ui.label(Messages.get(Messages.HIDE_OPTIONS)).classes(SECTION_TITLE_CLASSES)
                     
-                    with ui.card().classes('w-full p-2 shadow-none'):
+                    with ui.card().classes(SECTION_CARD_CLASSES):
                         self.auto_hide_switch = ui.switch(
                             Messages.get(Messages.AUTO_HIDE),
                             on_change=self.on_auto_hide_change
-                        ).classes('w-full')
+                        ).classes(SWITCH_CLASSES)
         
                         with ui.column().classes('w-full gap-0 pt-2'):
                             self.hide_timeout_label = ui.label()
@@ -37,18 +37,18 @@ class OptionsDialog:
                         self.auto_simple_mode_switch = ui.switch(
                             Messages.get(Messages.AUTO_SIMPLE_MODE),
                             on_change=self.on_auto_simple_mode_change
-                        ).classes('w-full')
+                        ).classes(SWITCH_CLASSES)
                         
                         self.auto_simple_mode_timeout_switch = ui.switch(
                             Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT),
                             on_change=self.on_auto_simple_mode_timeout_change
-                        ).bind_enabled_from(self.auto_simple_mode_switch, 'value').classes('w-full')
+                        ).bind_enabled_from(self.auto_simple_mode_switch, 'value').classes(SWITCH_CLASSES)
 
                 # Right Column: Appearance
                 with ui.column().classes('w-full sm:w-[49%] gap-1'):
-                    ui.label(Messages.get(Messages.BUTTONS_CONFIGURATION)).classes('text-base font-semibold text-primary')
+                    ui.label(Messages.get(Messages.BUTTONS_CONFIGURATION)).classes(SECTION_TITLE_CLASSES)
                     
-                    with ui.card().classes('w-full p-2 shadow-none'):
+                    with ui.card().classes(SECTION_CARD_CLASSES):
                         # Font Selector
                         font_options = [{'label': Messages.get(Messages.DEFAULT), 'value': 'Default'}]
                         font_dir = 'font'
@@ -63,11 +63,10 @@ class OptionsDialog:
                         # Find the option object that matches the stored string value
                         selected_font_option = next((f for f in font_options if f['value'] == selected_font_str), font_options[0])
                         
-                        # If default fallback occurred, save it
                         if selected_font_option['value'] != selected_font_str:
                             AppStorage.save(AppStorage.Category.SELECTED_FONT, selected_font_option['value'])
 
-                        with ui.row().classes('w-full items-center justify-between'):
+                        with ui.row().classes(ROW_CENTER_CLASSES + ' justify-between'):
                             ui.label(Messages.get(Messages.FONT))
                             with ui.select(
                                 font_options, 
@@ -94,9 +93,9 @@ class OptionsDialog:
                         self.follow_team_colors_switch = ui.switch(
                             Messages.get(Messages.FOLLOW_TEAM_COLORS),
                             on_change=self.on_follow_team_colors_change
-                        ).mark('follow-team-colors-switch').classes('w-full')
+                        ).mark('follow-team-colors-switch').classes(SWITCH_CLASSES)
 
-                        with ui.row().classes('w-full items-center justify-between'):
+                        with ui.row().classes(ROW_CENTER_CLASSES + ' justify-between'):
                             self.show_team_icon_switch = ui.switch(
                                 Messages.get(Messages.SHOW_TEAM_ICON),
                                 on_change=self.on_show_team_icon_change

@@ -38,3 +38,13 @@ CONTROL_BUTTON_CLASSES = 'w-9 h-9 rounded-lg'
 DEFAULT_BUTTON_A_COLOR = '#2196f3' # Blue
 DEFAULT_BUTTON_B_COLOR = '#f44336' # Red
 DEFAULT_BUTTON_TEXT_COLOR = '#ffffff'
+
+# General UI Constants
+DIALOG_CARD_CLASSES = 'relative w-full max-w-4xl p-0'
+SECTION_CARD_CLASSES = 'w-full p-2 shadow-none'
+SECTION_TITLE_CLASSES = 'text-base font-semibold text-primary'
+SWITCH_CLASSES = 'w-full'
+CLOSE_BUTTON_PROPS = 'flat round dense size=sm'
+CLOSE_BUTTON_CLASSES = 'absolute top-2 right-2 z-10'
+ICON_BUTTON_PROPS = 'flat round dense'
+ROW_CENTER_CLASSES = 'items-center w-full'
