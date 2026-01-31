@@ -1061,7 +1061,7 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     user.find(marker='options-button').click()
     await user.should_see(Messages.get(Messages.AUTO_HIDE))
     user.find(Messages.get(Messages.AUTO_HIDE)).click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='scoreboard-tab-button').click()
     await user.should_see(marker='team-1-score')
 
@@ -1143,7 +1143,7 @@ async def test_auto_simple_mode_feature(user: User, mock_backend):
     user.find(marker='options-button').click()
     await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE))
     user.find(Messages.get(Messages.AUTO_SIMPLE_MODE)).click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='scoreboard-tab-button').click()
     await user.should_see(marker='team-1-score')
 
@@ -1456,7 +1456,7 @@ async def test_auto_simple_mode_timeout_feature(user: User, mock_backend):
     user.find(Messages.get(Messages.AUTO_SIMPLE_MODE)).click()
     await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT))
     user.find(Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT)).click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='scoreboard-tab-button').click()
     await user.should_see(marker='team-1-score')
 
@@ -1580,7 +1580,7 @@ async def test_button_style_update(user: User, mock_backend):
     await _navigate_to_config(user, open_root_page=None)
     user.find(marker='options-button').click()
     user.find(marker='follow-team-colors-switch').click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     
     # Go back to scoreboard
     user.find(marker='scoreboard-tab-button').click()
@@ -1620,7 +1620,7 @@ async def test_button_color_reset(user: User, mock_backend):
     # we are about to click reset. 
     # But wait, if we wrote to storage *after* the dialog opened, the UI won't reflect it unless we reload.
     # So let's close and reopen.
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='options-button').click()
     
     await asyncio.sleep(0.5)

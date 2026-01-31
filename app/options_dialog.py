@@ -15,33 +15,42 @@ class OptionsDialog:
         self.on_change_callback = None
         self.color_buttons = {} # Store references to color buttons to update them on reset
 
-        with self.dialog, ui.card():
-            ui.label(Messages.get(Messages.OPTIONS_TITLE)).classes('text-lg font-semibold')
-            with ui.column().classes('w-full'):
-                with ui.expansion(Messages.get(Messages.HIDE_OPTIONS), icon='hide_image').mark('visibility-section').classes('w-full border rounded-lg mb-2').props('header-class="text-lg font-semibold"'):
-                    with ui.column().classes('w-full p-2'):
+        with self.dialog, ui.card().classes('relative w-full max-w-4xl p-0'):
+            ui.button(icon='close', on_click=self.dialog.close).props('flat round dense size=sm').classes('absolute top-2 right-2 z-10').mark('close-options-button')
+
+            with ui.row().classes('w-full p-2 gap-2'):
+                # Left Column: Display Options
+                with ui.column().classes('w-full sm:w-[49%] gap-1'):
+                    ui.label(Messages.get(Messages.HIDE_OPTIONS)).classes('text-base font-semibold text-primary')
+                    
+                    with ui.card().classes('w-full p-2 shadow-none border'):
                         self.auto_hide_switch = ui.switch(
                             Messages.get(Messages.AUTO_HIDE),
                             on_change=self.on_auto_hide_change
-                        )
+                        ).classes('w-full')
         
                         with ui.column().classes('w-full gap-0 pt-2'):
                             self.hide_timeout_label = ui.label()
                             self.hide_timeout_slider = ui.slider(min=1, max=15, step=1, on_change=self.on_hide_timeout_change) \
                                 .bind_enabled_from(self.auto_hide_switch, 'value')
         
+                        ui.separator().classes('my-2')
+                        
                         self.auto_simple_mode_switch = ui.switch(
                             Messages.get(Messages.AUTO_SIMPLE_MODE),
                             on_change=self.on_auto_simple_mode_change
-                        )
-                        with ui.row().classes('w-full'):
-                            self.auto_simple_mode_timeout_switch = ui.switch(
-                                Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT),
-                                on_change=self.on_auto_simple_mode_timeout_change
-                            ).bind_enabled_from(self.auto_simple_mode_switch, 'value')
+                        ).classes('w-full')
+                        
+                        self.auto_simple_mode_timeout_switch = ui.switch(
+                            Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT),
+                            on_change=self.on_auto_simple_mode_timeout_change
+                        ).bind_enabled_from(self.auto_simple_mode_switch, 'value').classes('w-full')
 
-                with ui.expansion(Messages.get(Messages.BUTTONS_CONFIGURATION), icon='tune').classes('w-full border rounded-lg mb-2').props('header-class="text-lg font-semibold"'):
-                    with ui.column().classes('w-full p-2'):
+                # Right Column: Appearance
+                with ui.column().classes('w-full sm:w-[49%] gap-1'):
+                    ui.label(Messages.get(Messages.BUTTONS_CONFIGURATION)).classes('text-base font-semibold text-primary')
+                    
+                    with ui.card().classes('w-full p-2 shadow-none border'):
                         # Font Selector
                         font_options = [{'label': Messages.get(Messages.DEFAULT), 'value': 'Default'}]
                         font_dir = 'font'
@@ -66,7 +75,7 @@ class OptionsDialog:
                                 font_options, 
                                 value=selected_font_option,
                                 on_change=self.on_font_change
-                            ).classes('w-50').props('option-label="label.label"') as self.font_select:
+                            ).classes('min-w-[150px]').props('option-label="label.label"') as self.font_select:
                                 self.font_select.add_slot('option', '''
                                     <q-item v-bind="props.itemProps">
                                         <q-item-section>
@@ -78,19 +87,18 @@ class OptionsDialog:
                                     </q-item>
                                 ''')
                                 self.font_select.add_slot('selected-item', '''
-                                    <div class="flex items-center w-full justify-between">
+                                    <div class="flex items-center w-full justify-between gap-2">
                                         <span>{{ props.opt.label.label }}</span>
                                         <span v-if="props.opt.label.value !== 'Default'" :style="{ fontFamily: '\\'' + props.opt.label.value + '\\'' }" class="text-xl">25</span>
                                     </div>
                                 ''')
                         
                         ui.separator().classes('my-2')
-                        ui.label(Messages.get(Messages.BUTTONS_COLORS_SECTION)).classes('text-lg font-semibold')
                         
                         self.follow_team_colors_switch = ui.switch(
                             Messages.get(Messages.FOLLOW_TEAM_COLORS),
                             on_change=self.on_follow_team_colors_change
-                        ).mark('follow-team-colors-switch')
+                        ).mark('follow-team-colors-switch').classes('w-full')
 
                         with ui.row().classes('w-full items-center justify-between'):
                             self.show_team_icon_switch = ui.switch(
@@ -99,7 +107,7 @@ class OptionsDialog:
                             ).mark('show-team-icon-switch')
 
                             self.icon_opacity_knob = ui.knob(min=10, max=100, step=10, on_change=self.on_icon_opacity_change, track_color='grey-2', show_value=True) \
-                                .props('size=40px') \
+                                .props('size=30px') \
                                 .bind_visibility_from(self.show_team_icon_switch, 'value')
 
                         follow_team = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
@@ -107,28 +115,23 @@ class OptionsDialog:
                         
                         self.custom_colors_container = ui.column().classes(f'w-full gap-2 transition-all duration-300 ease-in-out overflow-hidden {initial_classes}')
                         with self.custom_colors_container:
-                            with ui.row().classes('w-full items-center justify-between'):
-                                ui.label(Messages.get(Messages.LOCAL))
-                                with ui.row():
+                            with ui.row().classes('w-full items-center justify-between gap-2'):
+                                with ui.row().classes('items-center gap-2'):
+                                    ui.space()
+                                    ui.label(Messages.get(Messages.LOCAL)).classes('text-sm font-medium')
+                                    ui.space()
                                     self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR), marker='color-picker-team-1-btn')
-                                    with ui.element('div').classes('w-2'): pass
                                     self.create_color_picker(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR), marker='color-picker-team-1-text')
 
-                            with ui.row().classes('w-full items-center justify-between'):
-                                ui.label(Messages.get(Messages.VISITOR))
-                                with ui.row():
+                                with ui.row().classes('items-center gap-2'):
+                                    ui.label(Messages.get(Messages.VISITOR)).classes('text-sm font-medium')
+                                    ui.space()
                                     self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR, tooltip=Messages.get(Messages.BUTTON_COLOR), marker='color-picker-team-2-btn')
-                                    with ui.element('div').classes('w-2'): pass
                                     self.create_color_picker(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR, tooltip=Messages.get(Messages.BUTTON_TEXT_COLOR), marker='color-picker-team-2-text')
+                                    ui.space()
                             
                             ui.button(Messages.get(Messages.RESET_COLORS), icon='replay', on_click=self.reset_all_button_colors) \
                                 .props('flat dense size=sm').classes('w-full text-gray-500 hover:text-gray-800').mark('reset-colors-button')
-
-
-
-
-            
-            ui.button(Messages.get(Messages.CLOSE), on_click=self.dialog.close).props('flat').classes('w-full mt-4')
 
 
 
