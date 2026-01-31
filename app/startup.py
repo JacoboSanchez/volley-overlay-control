@@ -121,13 +121,10 @@ def startup() -> None:
 
     async def run_page(custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None, oid=None, output=None):
         logger.debug("run page")
-        notification = ui.notification(Messages.get(Messages.LOADING), timeout=None, spinner=True)
         addHeader()
-
         scoreboardTab = ui.tab(Customization.SCOREBOARD_TAB)
         configurationTab = ui.tab(Customization.CONFIG_TAB)
-        notification.dismiss()
-        
+               
         await ui.context.client.connected()
         tabs = ui.tabs().props('horizontal').classes("w-full")
         conf = Conf()

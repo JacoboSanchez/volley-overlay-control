@@ -249,20 +249,23 @@ class CustomizationPage:
 
     def _create_action_buttons(self):
         """Creates the bottom row of action buttons."""
+        def button_classes():
+            return 'w-12 h-12 rounded-lg'
+
         with ui.row().classes('w-full'):
-            ui.button(icon='keyboard_arrow_left', color='stone-500',
-                      on_click=self.switch_to_scoreboard).props('round').mark('scoreboard-tab-button').classes('text-white')
+            ui.button(icon='keyboard_arrow_left',
+                      on_click=self.switch_to_scoreboard).props('outline color=stone-500').mark('scoreboard-tab-button').classes(button_classes())
             ui.space()
-            ui.button(icon='save', color='blue-500',
-                      on_click=self.save).props('round').mark('save-button').classes('text-white')
-            ui.button(icon='sync', color='emerald-600',
-                      on_click=self.ask_refresh).props('round').mark('refresh-button').classes('text-white')
-            ui.button(icon='recycling', color='orange-500',
-                      on_click=self.ask_reset).props('round').mark('reset-button').classes('text-white')
+            ui.button(icon='save',
+                      on_click=self.save).props('outline color=blue-500').mark('save-button').classes(button_classes())
+            ui.button(icon='sync',
+                      on_click=self.ask_refresh).props('outline color=emerald-600').mark('refresh-button').classes(button_classes())
+            ui.button(icon='recycling',
+                      on_click=self.ask_reset).props('outline color=orange-500').mark('reset-button').classes(button_classes())
 
             if AppStorage.load(AppStorage.Category.USERNAME, None) is not None:
-                ui.button(icon='logout', color='red-700',
-                          on_click=self.ask_logout).props('round').mark('logout-button').classes('text-white')
+                ui.button(icon='logout',
+                          on_click=self.ask_logout).props('outline color=red-700').mark('logout-button').classes(button_classes())
 
     def init(self, configuration_container=None, force_reset=False):
         """Initializes and builds the customization page."""

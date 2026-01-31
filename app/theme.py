@@ -31,9 +31,6 @@ GAME_BUTTON_PADDING_NORMAL = 'p-0'
 GAME_BUTTON_TEXT_NORMAL = 'text-6xl'
 GAME_BUTTON_CLASSES = ' text-center align-middle shadow-lg rounded-lg text-white h-auto min-h-0 '
 
-# Options Dialog Colors
-COLOR_FULLSCREEN_BUTTON = 'gray-400'
-COLOR_EXIT_FULLSCREEN_BUTTON = 'gray-600'
 
 # Default Button Colors
 DEFAULT_BUTTON_A_COLOR = '#2196f3' # Blue

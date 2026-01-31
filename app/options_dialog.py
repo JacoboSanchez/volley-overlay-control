@@ -11,16 +11,10 @@ class OptionsDialog:
     def __init__(self, configuration: Conf):
         self.configuration = configuration
         self.dialog = ui.dialog()
-        self.dark_mode = ui.dark_mode()
+
         self.on_change_callback = None
         self.color_buttons = {} # Store references to color buttons to update them on reset
 
-        saved_dark_mode_option = AppStorage.load(AppStorage.Category.DARK_MODE, default=None)
-        logging.debug('loaded dark mode %s', saved_dark_mode_option)
-        if saved_dark_mode_option == None:
-            saved_dark_mode_option = self.configuration.darkMode
-        logging.info('Setting dark mode %s', saved_dark_mode_option)
-        self.set_ui_dark_mode(saved_dark_mode_option)
         with self.dialog, ui.card():
             ui.label(Messages.get(Messages.OPTIONS_TITLE)).classes('text-lg font-semibold')
             with ui.column().classes('w-full'):
@@ -130,61 +124,13 @@ class OptionsDialog:
                             ui.button(Messages.get(Messages.RESET_COLORS), icon='replay', on_click=self.reset_all_button_colors) \
                                 .props('flat dense size=sm').classes('w-full text-gray-500 hover:text-gray-800').mark('reset-colors-button')
 
-                with ui.expansion(Messages.get(Messages.VISUALIZATION_OPTIONS), icon='monitor').classes('w-full border rounded-lg').props('header-class="text-lg font-semibold"'):
-                     with ui.column().classes('w-full p-2'):
-                        with ui.row().classes('justify-center w-full'):
-                            self.fullscreen = ui.fullscreen(on_value_change=self.full_screen_updated)
-                            self.fullscreenButton = ui.button(icon='fullscreen', color=COLOR_FULLSCREEN_BUTTON,
-                                                            on_click=self.fullscreen.toggle).props(
-                                'outline color=' + COLOR_FULLSCREEN_BUTTON).classes('w-8 h-8 m-auto')
-                            self.update_full_screen_icon()
-                            ui.space()
-                            self.slider = ui.slide_item()
-                            with self.slider:
-                                with ui.item():
-                                    with ui.item_section():
-                                        with ui.row():
-                                            ui.icon('dark_mode')
-                                            ui.icon('multiple_stop')
-                                            ui.icon('light_mode', color='amber')
-                                with self.slider.right(color='black', on_slide=lambda: self.switch_darkmode('on')):
-                                    ui.icon('dark_mode')
-                                with self.slider.left(color='white', on_slide=lambda: self.switch_darkmode('off')):
-                                    ui.icon('light_mode', color='amber')
-                                self.slider.top('auto', color='gray-400', on_slide=lambda: self.switch_darkmode('auto'))
+
+
 
             
             ui.button(Messages.get(Messages.CLOSE), on_click=self.dialog.close).props('flat').classes('w-full mt-4')
 
-    def full_screen_updated(self, e):
-        self.update_full_screen_icon(e.value)
 
-    def update_full_screen_icon(self, inputValue=None):
-        value = inputValue
-        if inputValue is None:
-            value = self.fullscreen.value
-        logging.debug('value %s', value)
-        if value:
-            self.fullscreenButton.icon = 'fullscreen_exit'
-            self.fullscreenButton.props('color=' + COLOR_EXIT_FULLSCREEN_BUTTON)
-        else:
-            self.fullscreenButton.icon = 'fullscreen'
-            self.fullscreenButton.props('color=' + COLOR_FULLSCREEN_BUTTON)
-
-    def switch_darkmode(self, value: str):
-        self.set_ui_dark_mode(value)
-        AppStorage.save(AppStorage.Category.DARK_MODE, value)
-        self.slider.reset()
-
-    def set_ui_dark_mode(self, darkMode: str):
-        logging.debug('Setting dark mode %s', darkMode)
-        match darkMode:
-            case 'on':
-                self.dark_mode.enable()
-            case 'off':
-                self.dark_mode.disable()
-            case 'auto':
-                self.dark_mode.auto()
 
     def on_auto_hide_change(self, e):
         AppStorage.save(AppStorage.Category.AUTOHIDE_ENABLED, e.value)
