@@ -4,17 +4,17 @@ Centralized theme and style constants for the application's UI.
 
 # Team A Colors
 TACOLOR = 'blue'
-TACOLOR_VLIGHT = 'blue-grey-5'
-TACOLOR_LIGHT = 'indigo-4'
+TACOLOR_VLIGHT = 'indigo-5'
+TACOLOR_LIGHT = 'indigo-5'
 TACOLOR_MEDIUM = 'indigo-5'
-TACOLOR_HIGH = 'teal-8'
+TACOLOR_HIGH = 'indigo-5'
 
 # Team B Colors
 TBCOLOR = 'red'
-TBCOLOR_VLIGHT = 'blue-grey-5'
-TBCOLOR_LIGHT = 'indigo-4'
+TBCOLOR_VLIGHT = 'indigo-5'
+TBCOLOR_LIGHT = 'indigo-5'
 TBCOLOR_MEDIUM = 'indigo-5'
-TBCOLOR_HIGH = 'teal-8'
+TBCOLOR_HIGH = 'indigo-5'
 
 # Other UI Colors
 DO_COLOR = 'indigo-700'
