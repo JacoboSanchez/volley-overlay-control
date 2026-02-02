@@ -194,33 +194,53 @@ async def test_serve_icon_asignation(user: User, mock_backend):
     await user.should_see(marker='team-1-serve')
     # Initially no serve is set
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_VLIGHT == team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
+
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_VLIGHT == team2_serve_icon.elements.pop().props['color']
+    elements = team2_serve_icon.elements.pop()
+    assert TBCOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
     
     # point scored by team 1 => t1 color high, t2 color light 
     user.find(marker='team-1-serve').click()
     await user.should_see(marker='team-1-serve')
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_HIGH in team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_HIGH in elements.props['color']
+    assert elements._style['opacity'] == '1'
+    
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_VLIGHT == team2_serve_icon.elements.pop().props['color']
+    elements = team2_serve_icon.elements.pop()
+    assert TBCOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
 
     # point scored by team 2 => t2 color high, t1 color light 
     user.find(marker='team-2-serve').click()
     await user.should_see(marker='team-2-serve')
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_HIGH == team2_serve_icon.elements.pop().props['color']
+    element = team2_serve_icon.elements.pop()
+    assert TBCOLOR_HIGH == elements.props['color']
+    assert elements._style['opacity'] == '1'
+
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_VLIGHT == team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
 
     # point scored by team 1 => t1 color high, t2 color light 
     user.find(marker='team-1-serve').click()
     await user.should_see(marker='team-2-serve')
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_VLIGHT == team2_serve_icon.elements.pop().props['color']
+    elements = team2_serve_icon.elements.pop()
+    assert TBCOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
+    
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_HIGH == team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_HIGH == elements.props['color']
+    assert elements._style['opacity'] == '1'
     await asyncio.sleep(0.1)
 
 

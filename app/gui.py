@@ -327,11 +327,11 @@ class GUI:
                         'outline').mark('preview-button').classes(button_classes()).classes('text-gray-500')
             ui.space()
             # Dark Mode
-            self.dark_mode_button = ui.button(on_click=self._cycle_dark_mode).props('outline').classes(button_classes()).classes('text-gray-500')
+            self.dark_mode_button = ui.button(on_click=self._cycle_dark_mode).props('outline color=indigo-5').classes(button_classes()).classes('text-gray-500')
             self._update_dark_mode_icon()
 
             # Fullscreen
-            self.fullscreen_button = ui.button(icon='fullscreen', on_click=self.fullscreen.toggle).props('outline').classes(button_classes()).classes('text-gray-500')
+            self.fullscreen_button = ui.button(icon='fullscreen', on_click=self.fullscreen.toggle).props('outline color=light-green-10').classes(button_classes()).classes('text-gray-500')
             def update_fs_icon(e):
                 self.fullscreen_button.props(f'icon={"fullscreen_exit" if e.value else "fullscreen"}')
             self.fullscreen.on_value_change(update_fs_icon)
@@ -588,10 +588,14 @@ class GUI:
         Updates the serve icons based on the current state.
         """
         current_serve = update_state.get_current_serve()
-        self.serveA.props(
-            f'color={TACOLOR_HIGH if current_serve == State.SERVE_1 else TACOLOR_VLIGHT}')
-        self.serveB.props(
-            f'color={TBCOLOR_HIGH if current_serve == State.SERVE_2 else TBCOLOR_VLIGHT}')
+        
+        is_serving_a = current_serve == State.SERVE_1
+        self.serveA.props(f'color={TACOLOR_HIGH if is_serving_a else TACOLOR_VLIGHT}')
+        self.serveA.style(f'opacity: {1 if is_serving_a else 0.4}')
+
+        is_serving_b = current_serve == State.SERVE_2
+        self.serveB.props(f'color={TBCOLOR_HIGH if is_serving_b else TBCOLOR_VLIGHT}')
+        self.serveB.style(f'opacity: {1 if is_serving_b else 0.4}')
 
     def update_ui_sets(self, update_state):
         t1sets = update_state.get_sets(1)
