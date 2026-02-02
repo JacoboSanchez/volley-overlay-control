@@ -234,18 +234,18 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 
 ### Main Control Panel
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/c222fa98-740b-437e-bf48-8237c539b46b" width="100%" />
+  <img width="909" height="389" alt="image" src="https://github.com/user-attachments/assets/3585b1ab-7611-4473-80b3-44f8e29b9ada" />
 </p>
 
 ### Setup & Preview
 | Setup Panel | Preview Page |
 | :---: | :---: |
-| <img src="https://github.com/user-attachments/assets/44d46012-d9ff-4deb-851d-8bf237922d47" width="100%" /> | <img src="https://github.com/user-attachments/assets/a1abbfa8-4e01-4f3f-a128-07bf71f8b5e4" width="100%" /> |
+| <img width="945" height="383" alt="image" src="https://github.com/user-attachments/assets/63c0c546-fe9b-446a-b69a-461df43abb34" /> | <img src="https://github.com/user-attachments/assets/a1abbfa8-4e01-4f3f-a128-07bf71f8b5e4" width="100%" /> |
 
 ### Dialogs
 | Configuration Dialog | Links Dialog |
 | :---: | :---: |
-| <img src="https://github.com/user-attachments/assets/fa46f2a4-7549-4414-8a83-87b00a1df67f" width="100%" /> | <img src="https://github.com/user-attachments/assets/2ca28187-ee74-436f-acfa-ca09605b82ed" width="100%" /> |
+| <img width="904" height="293" alt="image" src="https://github.com/user-attachments/assets/3930da7f-ed6e-4198-9789-e20761bddeea" /> | <img src="https://github.com/user-attachments/assets/2ca28187-ee74-436f-acfa-ca09605b82ed" width="100%" /> |
 
 ### Example Overlay
 <p align="center">
