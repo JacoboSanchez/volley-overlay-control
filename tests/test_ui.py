@@ -194,33 +194,53 @@ async def test_serve_icon_asignation(user: User, mock_backend):
     await user.should_see(marker='team-1-serve')
     # Initially no serve is set
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_VLIGHT == team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
+
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_VLIGHT == team2_serve_icon.elements.pop().props['color']
+    elements = team2_serve_icon.elements.pop()
+    assert TBCOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
     
     # point scored by team 1 => t1 color high, t2 color light 
     user.find(marker='team-1-serve').click()
     await user.should_see(marker='team-1-serve')
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_HIGH in team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_HIGH in elements.props['color']
+    assert elements._style['opacity'] == '1'
+    
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_VLIGHT == team2_serve_icon.elements.pop().props['color']
+    elements = team2_serve_icon.elements.pop()
+    assert TBCOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
 
     # point scored by team 2 => t2 color high, t1 color light 
     user.find(marker='team-2-serve').click()
     await user.should_see(marker='team-2-serve')
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_HIGH == team2_serve_icon.elements.pop().props['color']
+    element = team2_serve_icon.elements.pop()
+    assert TBCOLOR_HIGH == elements.props['color']
+    assert elements._style['opacity'] == '1'
+
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_VLIGHT == team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
 
     # point scored by team 1 => t1 color high, t2 color light 
     user.find(marker='team-1-serve').click()
     await user.should_see(marker='team-2-serve')
     team2_serve_icon = user.find(marker='team-2-serve')
-    assert TBCOLOR_VLIGHT == team2_serve_icon.elements.pop().props['color']
+    elements = team2_serve_icon.elements.pop()
+    assert TBCOLOR_VLIGHT == elements.props['color']
+    assert elements._style['opacity'] == '0.4'
+    
     team1_serve_icon = user.find(marker='team-1-serve')
-    assert TACOLOR_HIGH == team1_serve_icon.elements.pop().props['color']
+    elements = team1_serve_icon.elements.pop()
+    assert TACOLOR_HIGH == elements.props['color']
+    assert elements._style['opacity'] == '1'
     await asyncio.sleep(0.1)
 
 
@@ -1061,7 +1081,7 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     user.find(marker='options-button').click()
     await user.should_see(Messages.get(Messages.AUTO_HIDE))
     user.find(Messages.get(Messages.AUTO_HIDE)).click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='scoreboard-tab-button').click()
     await user.should_see(marker='team-1-score')
 
@@ -1143,7 +1163,7 @@ async def test_auto_simple_mode_feature(user: User, mock_backend):
     user.find(marker='options-button').click()
     await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE))
     user.find(Messages.get(Messages.AUTO_SIMPLE_MODE)).click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='scoreboard-tab-button').click()
     await user.should_see(marker='team-1-score')
 
@@ -1456,7 +1476,7 @@ async def test_auto_simple_mode_timeout_feature(user: User, mock_backend):
     user.find(Messages.get(Messages.AUTO_SIMPLE_MODE)).click()
     await user.should_see(Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT))
     user.find(Messages.get(Messages.AUTO_SIMPLE_MODE_TIMEOUT_ON_TIMEOUT)).click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='scoreboard-tab-button').click()
     await user.should_see(marker='team-1-score')
 
@@ -1580,7 +1600,7 @@ async def test_button_style_update(user: User, mock_backend):
     await _navigate_to_config(user, open_root_page=None)
     user.find(marker='options-button').click()
     user.find(marker='follow-team-colors-switch').click()
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     
     # Go back to scoreboard
     user.find(marker='scoreboard-tab-button').click()
@@ -1620,7 +1640,7 @@ async def test_button_color_reset(user: User, mock_backend):
     # we are about to click reset. 
     # But wait, if we wrote to storage *after* the dialog opened, the UI won't reflect it unless we reload.
     # So let's close and reopen.
-    user.find(Messages.get(Messages.CLOSE)).click()
+    user.find(marker='close-options-button').click()
     user.find(marker='options-button').click()
     
     await asyncio.sleep(0.5)

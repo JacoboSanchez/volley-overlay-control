@@ -59,9 +59,11 @@ class Messages:
     FOLLOW_TEAM_COLORS = "Follow team colors"
     BUTTON_COLOR = "Button Color"
     BUTTON_TEXT_COLOR = "Text Color"
-    RESET_COLORS = "Reset colors"
+    RESET_COLORS = ""
     FONT = "Font"
     DEFAULT = "Default"
+    SHOW_TEAM_ICON = "Show Team Icon"
+    ICON_OPACITY = "Icon Opacity"
 
 
     messages = {
@@ -123,9 +125,11 @@ class Messages:
             FOLLOW_TEAM_COLORS: "Usar colores de equipo",
             BUTTON_COLOR: "Color de botón",
             BUTTON_TEXT_COLOR: "Color de texto",
-            RESET_COLORS: "Restablecer colores",
+            RESET_COLORS: "",
             FONT: "Fuente",
-            DEFAULT: "Predeterminado"
+            DEFAULT: "Predeterminado",
+            SHOW_TEAM_ICON: "Mostrar icono de equipo",
+            ICON_OPACITY: "Opacidad del icono"
         },
         "en": {
           }

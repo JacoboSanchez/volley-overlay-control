@@ -58,6 +58,10 @@ class GUI:
         self.button_size = None
         self.button_text_size = None
 
+        self.dark_mode = ui.dark_mode()
+        self.fullscreen = ui.fullscreen()
+
+
         # --- Reusable Dialog for Custom Values ---
         self.dialog_team = None
         self.dialog_is_set = None
@@ -279,28 +283,76 @@ class GUI:
                     with self.preview_container:
                         await self.create_iframe()
 
+    def _update_dark_mode_icon(self):
+        if self.dark_mode_button:
+             if self.dark_mode.value is True:
+                 self.dark_mode_button.props('icon=dark_mode')
+             elif self.dark_mode.value is False:
+                 self.dark_mode_button.props('icon=light_mode')
+             else:
+                 self.dark_mode_button.props('icon=brightness_auto')
+
+    async def _cycle_dark_mode(self):
+        if self.dark_mode.value is True:
+            self.dark_mode.disable() # Go to Light
+        elif self.dark_mode.value is False:
+            self.dark_mode.auto() # Go to Auto
+        else:
+            self.dark_mode.enable() # Go to Dark
+        
+        self._update_dark_mode_icon()
+        AppStorage.save(AppStorage.Category.DARK_MODE, 'on' if self.dark_mode.value is True else 'off' if self.dark_mode.value is False else 'auto')
+
+        if self.preview_visible and self.preview_container is not None:
+             self.preview_container.clear()
+             with self.preview_container:
+                 await self.create_iframe()
+
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
-        with ui.row().classes("w-full justify-around"):
-            self.visibility_button = ui.button(icon='visibility', color=VISIBLE_ON_COLOR,
-                                               on_click=self.switch_visibility).props('round').mark('visibility-button').classes('text-white')
-            self.simple_button = ui.button(icon='grid_on', color=FULL_SCOREBOARD_COLOR,
-                                           on_click=self.switch_simple_mode).props('round').mark('simple-mode-button').classes('text-white')
+        def button_classes():
+            return CONTROL_BUTTON_CLASSES
 
-            self.undo_button = ui.button(icon='undo', color=UNDO_COLOR, on_click=lambda: self.switch_undo(
-                False)).props('round').mark('undo-button').classes('text-white')
+        with ui.row().classes("w-full justify-around"):
+            self.visibility_button = ui.button(icon='visibility',
+                                               on_click=self.switch_visibility).props(f'outline color={VISIBLE_ON_COLOR}').mark('visibility-button').classes(button_classes())
+            self.simple_button = ui.button(icon='grid_on',
+                                           on_click=self.switch_simple_mode).props(f'outline color={FULL_SCOREBOARD_COLOR}').mark('simple-mode-button').classes(button_classes())
+
+            self.undo_button = ui.button(icon='undo', on_click=lambda: self.switch_undo(
+                False)).props(f'outline color={UNDO_COLOR}').mark('undo-button').classes(button_classes())
             if not self.conf.disable_overview and self.conf.output is not None:
                 icon = GUI.PREVIEW_ENABLED_ICON if self.preview_visible else GUI.PREVIEW_DISABLED_ICON
                 self.preview_button = ui.button(icon=icon, on_click=self.toggle_preview).props(
-                        'round').mark('preview-button').classes('text-gray')
+                        'outline').mark('preview-button').classes(button_classes()).classes('text-gray-500')
             ui.space()
+            # Dark Mode
+            self.dark_mode_button = ui.button(on_click=self._cycle_dark_mode).props('outline color=indigo-5').classes(button_classes()).classes('text-gray-500')
+            self._update_dark_mode_icon()
+
+            # Fullscreen
+            self.fullscreen_button = ui.button(icon='fullscreen', on_click=self.fullscreen.toggle).props('outline color=light-green-10').classes(button_classes()).classes('text-gray-500')
+            def update_fs_icon(e):
+                self.fullscreen_button.props(f'icon={"fullscreen_exit" if e.value else "fullscreen"}')
+            self.fullscreen.on_value_change(update_fs_icon)
+
             
-            ui.button(icon='keyboard_arrow_right', color='stone-500', on_click=lambda: self.tabs.set_value(
-                Customization.CONFIG_TAB)).props('round').mark('config-tab-button').classes('text-white')
+            
+            ui.button(icon='keyboard_arrow_right', on_click=lambda: self.tabs.set_value(
+                Customization.CONFIG_TAB)).props('outline color=stone-500').mark('config-tab-button').classes(button_classes())
 
     async def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized and not force:
             return
+
+        # Restore dark mode
+        saved_dark_mode = AppStorage.load(AppStorage.Category.DARK_MODE, 'auto')
+        if saved_dark_mode == 'on':
+             self.dark_mode.enable()
+        elif saved_dark_mode == 'off':
+             self.dark_mode.disable()
+        else:
+             self.dark_mode.auto()
 
         self.game_manager = GameManager(self.conf, self.backend)
 
@@ -395,14 +447,55 @@ class GUI:
         if self.button_text_size:
             text_size_style = f"font-size: {self.button_text_size}px !important;"
 
+        # Helper to generate style string including background
+        def get_team_style(team_id, base_color, text_color):
+            style_parts = [
+                f'background-color: {base_color} !important',
+                f'color: {text_color} !important',
+                font_style,
+                size_style,
+                text_size_style
+            ]
+            
+            show_icon = AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
+            if show_icon:
+                logo_url = self.current_customize_state.get_team_logo(team_id)
+                if logo_url:
+                    icon_opacity = float(AppStorage.load(AppStorage.Category.BUTTONS_ICON_OPACITY, 0.3))
+                    
+                    # Calculate overlay color for opacity simulation
+                    overlay_rgba = None
+                    if base_color and base_color.startswith('#') and len(base_color) == 7:
+                        try:
+                            c = base_color.lstrip('#')
+                            rgb = tuple(int(c[i:i+2], 16) for i in (0, 2, 4))
+                            # We overlay the background color with (1 - opacity) to fade the icon
+                            overlay_alpha = 1.0 - icon_opacity
+                            overlay_rgba = f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {overlay_alpha:.2f})"
+                        except Exception as e:
+                            self.logger.error(f"Error parsing color {base_color}: {e}")
+                            pass
+                    
+                    if overlay_rgba:
+                         style_parts.append(f"background-image: linear-gradient({overlay_rgba}, {overlay_rgba}), url('{logo_url}') !important")
+                    else:
+                         style_parts.append(f"background-image: url('{logo_url}') !important")
+                         style_parts.append("background-blend-mode: overlay !important")
+
+                    style_parts.append("background-size: contain !important")
+                    style_parts.append("background-repeat: no-repeat !important")
+                    style_parts.append("background-position: center !important")
+            
+            return '; '.join([s for s in style_parts if s])
+
         # Apply styles, removing the default text-white class to allow custom text colors
         if self.teamAButton:
             self.teamAButton.classes(remove='text-white')
-            self.teamAButton.style(replace=f'background-color: {color1} !important; color: {text1} !important; {font_style} {size_style} {text_size_style}')
+            self.teamAButton.style(replace=get_team_style(1, color1, text1))
             
         if self.teamBButton:
             self.teamBButton.classes(remove='text-white')
-            self.teamBButton.style(replace=f'background-color: {color2} !important; color: {text2} !important; {font_style} {size_style} {text_size_style}')
+            self.teamBButton.style(replace=get_team_style(2, color2, text2))
             
         # Apply font style to set buttons as well
         if self.teamASet:
@@ -495,10 +588,14 @@ class GUI:
         Updates the serve icons based on the current state.
         """
         current_serve = update_state.get_current_serve()
-        self.serveA.props(
-            f'color={TACOLOR_HIGH if current_serve == State.SERVE_1 else TACOLOR_VLIGHT}')
-        self.serveB.props(
-            f'color={TBCOLOR_HIGH if current_serve == State.SERVE_2 else TBCOLOR_VLIGHT}')
+        
+        is_serving_a = current_serve == State.SERVE_1
+        self.serveA.props(f'color={TACOLOR_HIGH if is_serving_a else TACOLOR_VLIGHT}')
+        self.serveA.style(f'opacity: {1 if is_serving_a else 0.4}')
+
+        is_serving_b = current_serve == State.SERVE_2
+        self.serveB.props(f'color={TBCOLOR_HIGH if is_serving_b else TBCOLOR_VLIGHT}')
+        self.serveB.style(f'opacity: {1 if is_serving_b else 0.4}')
 
     def update_ui_sets(self, update_state):
         t1sets = update_state.get_sets(1)
@@ -729,4 +826,9 @@ class GUI:
 
     async def create_iframe(self):
         ui.separator()
-        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width)
+        is_dark = self.dark_mode.value
+        # If auto (None), we might default to False or try to detect.
+        # However, passing None to create_iframe_card will trigger the JS detection, which is what we want for Auto.
+        # But if we just switched to Auto, JS might need a moment.
+        # Let's pass the explicit boolean if set, otherwise None.
+        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width, dark_mode=is_dark)

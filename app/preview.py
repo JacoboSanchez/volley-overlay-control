@@ -2,10 +2,12 @@ from nicegui import ui
 import os
 
 
-async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height: int, card_width: int=250):
+async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height: int, card_width: int=250, dark_mode: bool=None):
     """Creates a NiceGUI card with a specific region of an iframe, scaled to a fixed size."""
     dark_enabled = False
-    if "PYTEST_CURRENT_TEST" not in os.environ:
+    if dark_mode is not None:
+        dark_enabled = dark_mode
+    elif "PYTEST_CURRENT_TEST" not in os.environ:
         dark_enabled = await ui.run_javascript('Quasar.Dark.isActive')
     background = '?bgcolor=rgb(29, 29, 29)' if dark_enabled else '?bgcolor=white'
     url = url + background

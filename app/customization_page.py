@@ -1,3 +1,4 @@
+from app.theme import CONTROL_BUTTON_CLASSES, ICON_BUTTON_PROPS
 import asyncio
 import logging
 from nicegui import ui, app
@@ -197,7 +198,7 @@ class CustomizationPage:
                 if len(list(self.customization.get_theme_names())) > 0:
                     ui.button(icon='palette',
                               on_click=self.show_theme_dialog).props('flat').mark('theme-button')
-                ui.button(icon='link', on_click=self.show_links_dialog).props('flat round dense color=primary') \
+                ui.button(icon='link', on_click=self.show_links_dialog).props(ICON_BUTTON_PROPS + ' color=primary') \
                     .tooltip(Messages.get(Messages.LINKS)).mark('links-button')
                 ui.button(icon='tune', on_click=self.options_dialog.open).props(
                     'flat').classes('text-gray-500 -ml-2 mr-2').mark('options-button')
@@ -205,7 +206,7 @@ class CustomizationPage:
                 ui.space()
                 if AppStorage.load(AppStorage.Category.CONFIGURED_OID, None) is not None:
                     ui.button(icon='logout', on_click=reset_and_reload) \
-                        .props('flat round dense color=primary') \
+                        .props(ICON_BUTTON_PROPS + ' color=primary') \
                         .tooltip(Messages.get(Messages.RESET_LINKS)).mark('change-overlay-button')
                 
 
@@ -218,7 +219,7 @@ class CustomizationPage:
                           control_link, new_tab=True)
                 ui.space()
                 ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
-                    f'navigator.clipboard.writeText("{control_link}")')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+                    f'navigator.clipboard.writeText("{control_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
             if self.configuration.output and self.configuration.output.strip():
                 overlay_link = self.configuration.output
                 with ui.row().classes('items-center w-full'):
@@ -226,7 +227,7 @@ class CustomizationPage:
                               overlay_link, new_tab=True)
                     ui.space()
                     ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
-                        f'navigator.clipboard.writeText("{overlay_link}")')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+                        f'navigator.clipboard.writeText("{overlay_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
                 
                 token = overlay_link.split('/')[-1]
                 posx = self.customization.get_h_pos()
@@ -240,7 +241,7 @@ class CustomizationPage:
                               preview_link, new_tab=True)
                     ui.space()
                     ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
-                        f'navigator.clipboard.writeText(new URL("{preview_link}", window.location.href).href)')).props('flat round dense').tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+                        f'navigator.clipboard.writeText(new URL("{preview_link}", window.location.href).href)')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
             with ui.row().classes('w-full'):
                 ui.space()
                 ui.button(Messages.get(Messages.CLOSE),
@@ -249,20 +250,23 @@ class CustomizationPage:
 
     def _create_action_buttons(self):
         """Creates the bottom row of action buttons."""
+        def button_classes():
+            return CONTROL_BUTTON_CLASSES
+
         with ui.row().classes('w-full'):
-            ui.button(icon='keyboard_arrow_left', color='stone-500',
-                      on_click=self.switch_to_scoreboard).props('round').mark('scoreboard-tab-button').classes('text-white')
+            ui.button(icon='keyboard_arrow_left',
+                      on_click=self.switch_to_scoreboard).props('outline color=stone-500').mark('scoreboard-tab-button').classes(button_classes())
             ui.space()
-            ui.button(icon='save', color='blue-500',
-                      on_click=self.save).props('round').mark('save-button').classes('text-white')
-            ui.button(icon='sync', color='emerald-600',
-                      on_click=self.ask_refresh).props('round').mark('refresh-button').classes('text-white')
-            ui.button(icon='recycling', color='orange-500',
-                      on_click=self.ask_reset).props('round').mark('reset-button').classes('text-white')
+            ui.button(icon='save',
+                      on_click=self.save).props('outline color=blue-500').mark('save-button').classes(button_classes())
+            ui.button(icon='sync',
+                      on_click=self.ask_refresh).props('outline color=emerald-600').mark('refresh-button').classes(button_classes())
+            ui.button(icon='recycling',
+                      on_click=self.ask_reset).props('outline color=orange-500').mark('reset-button').classes(button_classes())
 
             if AppStorage.load(AppStorage.Category.USERNAME, None) is not None:
-                ui.button(icon='logout', color='red-700',
-                          on_click=self.ask_logout).props('round').mark('logout-button').classes('text-white')
+                ui.button(icon='logout',
+                          on_click=self.ask_logout).props('outline color=red-700').mark('logout-button').classes(button_classes())
 
     def init(self, configuration_container=None, force_reset=False):
         """Initializes and builds the customization page."""

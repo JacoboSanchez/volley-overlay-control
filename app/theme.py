@@ -4,17 +4,17 @@ Centralized theme and style constants for the application's UI.
 
 # Team A Colors
 TACOLOR = 'blue'
-TACOLOR_VLIGHT = 'blue-1'
-TACOLOR_LIGHT = 'blue-2'
-TACOLOR_MEDIUM = 'blue-3'
-TACOLOR_HIGH = 'blue-4'
+TACOLOR_VLIGHT = 'indigo-5'
+TACOLOR_LIGHT = 'indigo-5'
+TACOLOR_MEDIUM = 'indigo-5'
+TACOLOR_HIGH = 'indigo-5'
 
 # Team B Colors
 TBCOLOR = 'red'
-TBCOLOR_VLIGHT = 'red-1'
-TBCOLOR_LIGHT = 'red-2'
-TBCOLOR_MEDIUM = 'red-3'
-TBCOLOR_HIGH = 'red-4'
+TBCOLOR_VLIGHT = 'indigo-5'
+TBCOLOR_LIGHT = 'indigo-5'
+TBCOLOR_MEDIUM = 'indigo-5'
+TBCOLOR_HIGH = 'indigo-5'
 
 # Other UI Colors
 DO_COLOR = 'indigo-700'
@@ -31,11 +31,20 @@ GAME_BUTTON_PADDING_NORMAL = 'p-0'
 GAME_BUTTON_TEXT_NORMAL = 'text-6xl'
 GAME_BUTTON_CLASSES = ' text-center align-middle shadow-lg rounded-lg text-white h-auto min-h-0 '
 
-# Options Dialog Colors
-COLOR_FULLSCREEN_BUTTON = 'gray-400'
-COLOR_EXIT_FULLSCREEN_BUTTON = 'gray-600'
+# Control buttons
+CONTROL_BUTTON_CLASSES = 'w-9 h-9 rounded-lg'
 
 # Default Button Colors
 DEFAULT_BUTTON_A_COLOR = '#2196f3' # Blue
 DEFAULT_BUTTON_B_COLOR = '#f44336' # Red
 DEFAULT_BUTTON_TEXT_COLOR = '#ffffff'
+
+# General UI Constants
+DIALOG_CARD_CLASSES = 'relative w-full max-w-4xl p-0'
+SECTION_CARD_CLASSES = 'w-full p-2 shadow-none'
+SECTION_TITLE_CLASSES = 'text-base font-semibold text-primary'
+SWITCH_CLASSES = 'w-full'
+CLOSE_BUTTON_PROPS = 'flat round dense size=sm'
+CLOSE_BUTTON_CLASSES = 'absolute top-2 right-2 z-10'
+ICON_BUTTON_PROPS = 'flat round dense'
+ROW_CENTER_CLASSES = 'items-center w-full'
