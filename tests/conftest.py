@@ -2,7 +2,8 @@ import pytest
 import os
 import json
 import importlib
-from nicegui import app
+import sys
+from nicegui import app as nice_app
 from nicegui.testing import User
 from dotenv import load_dotenv
 from typing import Generator
@@ -50,7 +51,7 @@ def mock_backend():
         # We need a MagicMock to allow replacing the side_effect in tests
         mock_instance.validate_and_store_model_for_oid = MagicMock(side_effect=validate_side_effect)
         yield mock_instance
-    app.startup_handler_registered = False  # Reset for other tests
+    nice_app.startup_handler_registered = False  # Reset for other tests
 
 @pytest.fixture(autouse=True)
 def load_test_env(monkeypatch):
@@ -74,8 +75,9 @@ def load_test_env(monkeypatch):
     AppStorage.clear_user_storage()
     
     # Reload the oid_dialog module to ensure it picks up the clean state
+    # We import it via sys.modules or direct import to avoid ambiguity with 'app' variable if valid
     import app.oid_dialog
-    importlib.reload(app.oid_dialog)
+    importlib.reload(sys.modules['app.oid_dialog'])
 
 def load_fixture(name):
     """Auxiliary function to load a JSON file from the fixtures folder."""
