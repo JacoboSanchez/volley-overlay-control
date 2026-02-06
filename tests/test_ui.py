@@ -3,6 +3,7 @@ import json
 import os
 import asyncio
 import importlib
+import sys
 from nicegui.testing import User
 from tests.conftest import load_fixture
 from app.theme import *
@@ -426,7 +427,7 @@ async def test_team_selection_from_env_var(user: User, mock_backend, monkeypatch
     # We need to reload the customization module for the change to take effect
     import importlib
     import app.customization
-    importlib.reload(app.customization)
+    importlib.reload(sys.modules['app.customization'])
     
     await _navigate_to_config(user)
     await user.should_see(marker='team-1-name-selector')
@@ -696,7 +697,7 @@ def predefined_overlays_env(monkeypatch):
     # Reload the oid_dialog module to ensure it picks up the changed environment variables
     import importlib
     import app.oid_dialog
-    importlib.reload(app.oid_dialog)
+    importlib.reload(sys.modules['app.oid_dialog'])
 
 async def test_predefined_overlay_dialog_with_hide_flag(user: User, mock_backend, predefined_overlays_env, monkeypatch):
     """
@@ -705,7 +706,7 @@ async def test_predefined_overlay_dialog_with_hide_flag(user: User, mock_backend
     monkeypatch.setenv('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'true')
     import importlib
     import app.oid_dialog
-    importlib.reload(app.oid_dialog)
+    importlib.reload(sys.modules['app.oid_dialog'])
 
     await user.open('/')
     
@@ -733,7 +734,7 @@ async def test_predefined_overlay_cycle(user: User, mock_backend, predefined_ove
     monkeypatch.setenv('HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED', 'false')
     import importlib
     import app.oid_dialog
-    importlib.reload(app.oid_dialog)
+    importlib.reload(sys.modules['app.oid_dialog'])
     
     await user.open('/')
     
@@ -902,7 +903,7 @@ async def test_env_vars_for_points_limit(user: User, mock_backend, monkeypatch):
 
     # Reload modules to apply the new environment variables
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/?control=test_oid_valid')
     await user.should_see(marker='team-1-score')
@@ -928,7 +929,7 @@ async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
     monkeypatch.setenv("MATCH_GAME_POINTS_LAST_SET", "5")
     
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/?control=test_oid_valid')
     await asyncio.sleep(0)
@@ -962,7 +963,7 @@ def auth_users_env(monkeypatch):
     monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
     # Reload modules to apply the new environment variables
     import app.authentication
-    importlib.reload(app.authentication)
+    importlib.reload(sys.modules['app.authentication'])
     import main
     importlib.reload(main)
 
@@ -1031,7 +1032,7 @@ async def test_predefined_overlay_with_user_filter(user: User, mock_backend, aut
     monkeypatch.setenv('PREDEFINED_OVERLAYS', json.dumps(overlays))
     
     import app.oid_dialog
-    importlib.reload(app.oid_dialog)
+    importlib.reload(sys.modules['app.oid_dialog'])
     
     await user.open('/')
     
@@ -1380,7 +1381,7 @@ async def test_single_overlay_mode_false_with_env_var(user: User, mock_backend, 
     monkeypatch.setenv('UNO_OVERLAY_OID', 'test_oid_valid')
     # Reload conf to apply env var
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
 
     await user.open('/')
@@ -1396,7 +1397,7 @@ async def test_single_overlay_mode_true_with_env_var(user: User, mock_backend, m
     monkeypatch.setenv('UNO_OVERLAY_OID', 'test_oid_valid')
     # Reload conf to apply env var
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/')
     await user.should_not_see(marker='control-url-input')
@@ -1412,7 +1413,7 @@ async def test_single_overlay_mode_false_with_url_param(user: User, mock_backend
     monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
     # Reload conf to apply env var
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/?control=predefined_1_valid')
     await user.should_not_see(marker='control-url-input')
@@ -1428,7 +1429,7 @@ async def test_single_overlay_mode_true_with_url_param_override(user: User, mock
     monkeypatch.setenv('UNO_OVERLAY_OID', 'test_oid_valid')
     # Reload conf to apply env var
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/?control=predefined_1_valid')
     await user.should_not_see(marker='control-url-input')
@@ -1445,7 +1446,7 @@ async def test_single_overlay_mode_false_no_oid(user: User, mock_backend, monkey
     monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
     # Reload conf to apply env var
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/')
     await user.should_see(marker='control-url-input')
@@ -1460,7 +1461,7 @@ async def test_single_overlay_mode_true_no_oid(user: User, mock_backend, monkeyp
     monkeypatch.delenv('UNO_OVERLAY_OID', raising=False)
     # Reload conf to apply env var
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/')
     await user.should_see(marker='control-url-input')
@@ -1497,7 +1498,7 @@ async def test_show_preview_toggle(user: User, mock_backend, monkeypatch):
     monkeypatch.setenv('SHOW_PREVIEW', 'true')
     
     import app.conf
-    importlib.reload(app.conf)
+    importlib.reload(sys.modules['app.conf'])
 
     await user.open('/?control=test_oid_valid&output=custom_output_token')
     await asyncio.sleep(0)
