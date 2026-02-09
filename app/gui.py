@@ -55,6 +55,7 @@ class GUI:
         self.current_panel_style = None
         self.main_conainer_layout = None
         self.current_dimension = None
+        self.rebuild_dimension = None
         self.button_size = None
         self.button_text_size = None
 
@@ -101,10 +102,19 @@ class GUI:
         self.button_text_size = self.button_size / 2
         
         self.logger.debug('Dimension: %s, Button Size: %s', dimension, self.button_size)
-        if self.main_container is not None and (self.current_dimension is None or self.current_dimension != dimension or current_portrait != self.is_portrait):
-            self.logger.debug('Reinitializing main container due to orientation change.')
+        should_rebuild = False
+        if self.main_container is not None:
+            if self.rebuild_dimension is None or current_portrait != self.is_portrait:
+                should_rebuild = True
+            elif abs(self.rebuild_dimension - dimension) > 50:
+                should_rebuild = True
+
+        if should_rebuild:
+            self.logger.debug('Reinitializing main container...')
             self.main_container.clear()
             await self._initialize_main_container()
+            self.rebuild_dimension = dimension
+
         self.current_dimension = dimension
         
         self.update_button_style()

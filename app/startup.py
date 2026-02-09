@@ -269,8 +269,8 @@ def addHeader():
     <script>
     function emitSize() {{
         window.emitEvent('resize', {{
-            width: document.body.offsetWidth,
-            height: document.body.offsetHeight,
+            width: window.innerWidth,
+            height: window.innerHeight,
         }});
         }}
         window.onload = emitSize;
