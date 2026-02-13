@@ -56,6 +56,8 @@ class GUI:
         self.main_conainer_layout = None
         self.current_dimension = None
         self.rebuild_dimension = None
+        self.rebuild_width = None
+        self.rebuild_height = None
         self.button_size = None
         self.button_text_size = None
 
@@ -84,40 +86,88 @@ class GUI:
 
     async def set_page_size(self, width, height):
         """Adjusts UI element sizes based on page dimensions."""
+        if width <= 0 or height <= 0:
+            return
+
         self.page_height = height
         self.page_width = width
-        current_portrait = self.is_portrait
-        self.is_portrait = GUI.is_portrait(self.page_width, self.page_height)
-        self.logger.debug('Set page size to: %sx%s',
-                         self.page_height, self.page_width)
         
-        if not self.is_portrait:
-            dimension = self.page_width
-            self.preview_card_width = self.page_width/4
-            self.button_size = self.page_width / 4.5
-        else: 
-            dimension = self.page_height
-            self.button_size = self.page_height / 5
+        self.logger.debug(f'Resize Event: {self.page_width}x{self.page_height}')
+        
+        # Hysteresis Logic for Orientation
+        # Existing logic: is_portrait = height > 1.2 * width and width <= 800
+        # Landscape -> Portrait threshold: Ratio > 1.3
+        # Portrait -> Landscape threshold: Ratio < 1.1
+        
+        new_is_portrait = self.is_portrait
+        
+        if width > 800:
+             new_is_portrait = False
+        else:
+            ratio = height / width
+            if self.is_portrait:
+                # Currently Portrait. Switch to Landscape if ratio drops below 1.1
+                if ratio < 1.1:
+                    new_is_portrait = False
+            else:
+                # Currently Landscape. Switch to Portrait if ratio exceeds 1.3
+                if ratio > 1.3:
+                    new_is_portrait = True
 
-        self.button_text_size = self.button_size / 2
-        
-        self.logger.debug('Dimension: %s, Button Size: %s', dimension, self.button_size)
-        should_rebuild = False
+        significant_resize = False
         if self.main_container is not None:
-            if self.rebuild_dimension is None or current_portrait != self.is_portrait:
-                should_rebuild = True
-            elif abs(self.rebuild_dimension - dimension) > 50:
-                should_rebuild = True
-
-        if should_rebuild:
-            self.logger.debug('Reinitializing main container...')
-            self.main_container.clear()
-            await self._initialize_main_container()
-            self.rebuild_dimension = dimension
-
-        self.current_dimension = dimension
+            if self.rebuild_width is None or self.rebuild_height is None:
+                significant_resize = True
+            else:
+                 width_diff = abs(self.page_width - self.rebuild_width)
+                 height_diff = abs(self.page_height - self.rebuild_height)
+                 if width_diff > 50 or height_diff > 50:
+                      significant_resize = True
         
-        self.update_button_style()
+        # Rebuild if:
+        # 1. Orientation changed (Definitive switch)
+        # 2. First build (rebuild_width is None)
+        # Note: We do NOT rebuild just for significant resize if orientation is same.
+        
+        orientation_changed = (new_is_portrait != self.is_portrait)
+        should_rebuild = orientation_changed or (self.main_container is not None and self.rebuild_width is None)
+
+        # Update Styles if:
+        # 1. We are Rebuilding
+        # 2. OR Significant resize happened (even if same orientation)
+        
+        if should_rebuild or significant_resize:
+            
+            self.is_portrait = new_is_portrait
+            
+            if not self.is_portrait:
+                dimension = self.page_width
+                self.preview_card_width = self.page_width/4
+                self.button_size = self.page_width / 4.5
+            else: 
+                dimension = self.page_height
+                self.button_size = self.page_height / 5
+
+            self.button_text_size = self.button_size / 2
+            
+            if should_rebuild:
+                self.logger.debug('Set page size to: %sx%s. Rebuilding (Orientation Change/Init).',
+                                 self.page_height, self.page_width)
+                self.logger.debug('Dimension: %s, Button Size: %s', dimension, self.button_size)
+
+                self.logger.debug('Reinitializing main container...')
+                self.main_container.clear()
+                await self._initialize_main_container()
+            else:
+                 self.logger.debug('Set page size to: %sx%s. Resize only (No Rebuild).',
+                                 self.page_height, self.page_width)
+
+            self.rebuild_dimension = dimension
+            self.rebuild_width = self.page_width
+            self.rebuild_height = self.page_height
+            self.current_dimension = dimension
+        
+            self.update_button_style()
 
     def _handle_custom_value_submit(self):
         """Submits the value from the reusable dialog."""
