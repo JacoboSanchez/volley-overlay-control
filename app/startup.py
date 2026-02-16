@@ -218,14 +218,17 @@ def startup() -> None:
             await scoreboard_page.set_page_size(width, height)
             logger.debug("New size: %s x %s", width, height)
             natural_width = 650 
-            if not GUI.is_portrait(width, height) and width < natural_width:
+            if not scoreboard_page.is_portrait and width < natural_width:
                 scale = width / natural_width
                 logger.debug("scale size: %s", scale)
-                scoreboard_page.current_panel_style = f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;'
-                panels.style(scoreboard_page.current_panel_style)
+                new_style = f'transform: scale({scale}); transform-origin: top left; width: {natural_width}px;'
             else:
-                logger.debug(f'current_style: {scoreboard_page.current_panel_style}')
-                panels.style(remove=scoreboard_page.current_panel_style, add='transform: none;')                    
+                new_style = 'transform: none;'
+
+            if scoreboard_page.current_panel_style != new_style:
+                logger.debug(f'Updating style from {scoreboard_page.current_panel_style} to {new_style}')
+                scoreboard_page.current_panel_style = new_style
+                panels.style(new_style)                    
         
         ui.on('resize', handle_resize)
         
@@ -269,8 +272,8 @@ def addHeader():
     <script>
     function emitSize() {{
         window.emitEvent('resize', {{
-            width: document.body.offsetWidth,
-            height: document.body.offsetHeight,
+            width: window.innerWidth,
+            height: window.innerHeight,
         }});
         }}
         window.onload = emitSize;
