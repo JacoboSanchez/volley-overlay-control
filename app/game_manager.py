@@ -26,7 +26,6 @@ class GameManager:
         self.backend.reset(self.main_state)
         self.main_state = State(self.backend.get_current_model())
 
-
     def save(self, simple: bool, current_set: int):
         """Saves the current game state."""
         self.logger.debug(f"Saving state, simple mode: {simple}, current set: {current_set}")
@@ -67,6 +66,10 @@ class GameManager:
         self.logger.debug(f"Setting sets value for team {team} to {value}")
         self.main_state.set_sets(team, value)
 
+    def _is_winning_score(self, score: int, rival_score: int, limit: int) -> bool:
+        """Helper method to determine if a score is enough to win the set."""
+        return score >= limit and (score - rival_score > 1)
+
     def add_game(self, team: int, current_set: int, points_limit: int, points_limit_last_set: int, sets_limit: int, undo: bool) -> bool:
         """Adds or removes a point to a team and checks if the set or match is won."""
         self.logger.debug(f"Adding game point for team {team} in set {current_set}, undo: {undo}")
@@ -84,13 +87,13 @@ class GameManager:
         if undo:
             if current_score > 0:
                 # Check if the score before undoing was a winning score
-                was_a_win = current_score >= game_limit and (current_score - rival_score > 1)
+                was_a_win = self._is_winning_score(current_score, rival_score, game_limit)
                 
                 self.main_state.set_game(current_set, team, current_score - 1)
                 new_score = current_score - 1
                 
                 # Check if the new score is no longer a winning score
-                is_still_a_win = new_score >= game_limit and (new_score - rival_score > 1)
+                is_still_a_win = self._is_winning_score(new_score, rival_score, game_limit)
 
                 if was_a_win and not is_still_a_win:
                     self.logger.debug(f"Team {team} 'un-won' set {current_set} due to undo.")
@@ -100,7 +103,7 @@ class GameManager:
             self.main_state.set_game(current_set, team, current_score + 1)
             current_score += 1
 
-            if current_score >= game_limit and (current_score - rival_score > 1):
+            if self._is_winning_score(current_score, rival_score, game_limit):
                 self.logger.debug(f"Team {team} won set {current_set}")
                 self.add_set(team, undo)
                 return True
@@ -146,7 +149,7 @@ class GameManager:
         rival_score = self.main_state.get_game(rival_team, current_set)
         game_limit = points_limit_last_set if current_set == sets_limit else points_limit
 
-        if current_score >= game_limit and (current_score - rival_score > 1):
+        if self._is_winning_score(current_score, rival_score, game_limit):
             self.logger.debug(f"Team {team} won set {current_set}")
             self.add_set(team, False)
             return True
