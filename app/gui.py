@@ -11,6 +11,7 @@ import asyncio
 
 class GUI:
 
+    @staticmethod
     def is_portrait(width, height):
         return height > 1.2 * width and not width > 800
 

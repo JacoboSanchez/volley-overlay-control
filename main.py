@@ -15,7 +15,7 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
 setup_logging()
 logger = logging.getLogger("Main")
 
-if (PasswordAuthenticator.do_authenticate_users()):
+if PasswordAuthenticator.do_authenticate_users():
     logger.info("User authentication enabled")
     app.add_middleware(AuthMiddleware)
 

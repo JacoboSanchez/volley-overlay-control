@@ -44,7 +44,7 @@ class State:
                 CURRENT_SET_INT: "1"
                 }
     
-
+    @staticmethod
     def keys_to_reset_simple_mode():
         return {State.T1SET5_INT,
                 State.T2SET5_INT,
@@ -75,6 +75,7 @@ class State:
     def set_current_set(self, set):
         self.current_model[State.CURRENT_SET_INT]=set
 
+    @staticmethod
     def simplify_model(simplified): 
         current_set = simplified[State.CURRENT_SET_INT]
         t1_points = simplified[f'Team 1 Game {current_set} Score']
@@ -110,4 +111,3 @@ class State:
 
     def get_current_serve(self):
         return self.current_model[State.SERVE]
-    
