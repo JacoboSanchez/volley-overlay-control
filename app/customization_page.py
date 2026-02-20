@@ -30,6 +30,15 @@ class CustomizationPage:
             self.backend.get_current_customization())
         self.options_dialog = options
         self.container = None  # Initialize container attribute
+        
+        # Initialize dark mode and fullscreen reading from persistent storage
+        saved_dark_mode = AppStorage.load(AppStorage.Category.DARK_MODE, 'auto')
+        init_val = True if saved_dark_mode == 'on' else False if saved_dark_mode == 'off' else None
+        self.dark_mode = ui.dark_mode(value=init_val)
+        self.dark_mode.on_value_change(self._update_dark_mode_icon)
+        
+        self.fullscreen = ui.fullscreen()
+        self.dark_mode_button = None
 
         with ui.dialog().props('persistent') as self.dialog_reset, ui.card():
             ui.label(Messages.get(Messages.ASK_RESET))
@@ -56,6 +65,32 @@ class CustomizationPage:
                             on_click=lambda: self.logout_dialog.submit(False)).mark('cancel-logout-button')
 
 
+    def _update_dark_mode_icon(self, e=None):
+        if getattr(self, 'dark_mode_button', None) and self.dark_mode_button is not None:
+             if self.dark_mode.value is True:
+                 self.dark_mode_button.props('icon=dark_mode')
+             elif self.dark_mode.value is False:
+                 self.dark_mode_button.props('icon=light_mode')
+             else:
+                 self.dark_mode_button.props('icon=brightness_auto')
+
+    async def _cycle_dark_mode(self):
+        if self.dark_mode.value is True:
+            self.dark_mode.disable() # Go to Light
+            new_val = 'off'
+        elif self.dark_mode.value is False:
+            self.dark_mode.auto() # Go to Auto
+            new_val = 'auto'
+        else:
+            self.dark_mode.enable() # Go to Dark
+            new_val = 'on'
+        
+        AppStorage.save(AppStorage.Category.DARK_MODE, new_val)
+
+        if self.gui and self.gui.preview_visible and self.gui.preview_container is not None:
+             self.gui.preview_container.clear()
+             with self.gui.preview_container:
+                 await self.gui.create_iframe()
 
     def update_team_selection(self, team, logo, tname, color, textColor, selector):
         fallback_name = CustomizationPage.get_fallback_team_name(team)
@@ -108,6 +143,7 @@ class CustomizationPage:
             else:
                 self.customization.set_game_color(color)
 
+    @staticmethod
     def get_fallback_team_name(team):
         return Customization.LOCAL_NAME if team == 1 else Customization.VISITOR_NAME
 
@@ -256,6 +292,17 @@ class CustomizationPage:
         with ui.row().classes('w-full'):
             ui.button(icon='keyboard_arrow_left',
                       on_click=self.switch_to_scoreboard).props('outline color=stone-500').mark('scoreboard-tab-button').classes(button_classes())
+            
+            # Dark Mode
+            self.dark_mode_button = ui.button(on_click=self._cycle_dark_mode).props('outline color=indigo-5').classes(button_classes()).classes('text-gray-500')
+            self._update_dark_mode_icon()
+
+            # Fullscreen
+            self.fullscreen_button = ui.button(icon='fullscreen', on_click=self.fullscreen.toggle).props('outline color=light-green-10').classes(button_classes()).classes('text-gray-500')
+            def update_fs_icon(e):
+                self.fullscreen_button.props(f'icon={"fullscreen_exit" if e.value else "fullscreen"}')
+            self.fullscreen.on_value_change(update_fs_icon)
+
             ui.space()
             ui.button(icon='save',
                       on_click=self.save).props('outline color=blue-500').mark('save-button').classes(button_classes())
