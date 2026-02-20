@@ -1,14 +1,14 @@
 import requests
+import requests.exceptions
 import copy
-import threading
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from app.state import State
 from app.app_storage import AppStorage
 
 class Backend:
     logger = logging.getLogger("Backend")
-
 
     def __init__(self, config):
         self.conf = config
@@ -18,6 +18,9 @@ class Backend:
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/plain, */*'
         })
+        # Initialize a thread pool with a maximum number of workers (e.g., 5)
+        # This prevents uncontrolled thread creation during rapid changes.
+        self.executor = ThreadPoolExecutor(max_workers=5)
 
     def save_model(self, current_model, simple):
         Backend.logger.info('saving model...')
@@ -25,8 +28,10 @@ class Backend:
         to_save = copy.copy(current_model)
         if (simple):
             to_save = State.simplify_model(to_save)
+            
         if self.conf.multithread:
-            threading.Thread(target=self.save_json_model, args=(to_save,)).start()
+            # Replaced threading.Thread with ThreadPoolExecutor
+            self.executor.submit(self.save_json_model, to_save)
         else:
             self.save_json_model(to_save)
         Backend.logger.info('saved')
@@ -71,8 +76,17 @@ class Backend:
     def do_send_request(self, oid, jsonin):
         logging.debug("Sending [%s] via Session", jsonin)
         url = f'https://app.overlays.uno/apiv2/controlapps/{oid}/api'
-        response = self.session.put(url, json=jsonin)
-        return self.process_response(response)
+        try:
+            # Added a 5.0 second timeout to prevent blocking
+            response = self.session.put(url, json=jsonin, timeout=5.0)
+            return self.process_response(response)
+        except requests.exceptions.RequestException as e:
+            Backend.logger.error(f"Network error in do_send_request: {e}")
+            # Return a mock object or None that the app can handle in case of a network error
+            class MockResponse:
+                status_code = 500
+                text = str(e)
+            return MockResponse()
 
     def get_current_model(self, customOid=None, saveResult=False):
         oid = customOid if customOid is not None else self.conf.oid
@@ -82,10 +96,11 @@ class Backend:
             logging.info('Using stored model')
             logging.debug(currentModel)
             return currentModel
+        
         response = self.send_command_with_id_and_content("GetOverlayContent", customOid=oid)
         if response.status_code == 200:
-            result = response.json()['payload']
-            if saveResult:
+            result = response.json().get('payload')
+            if saveResult and result:
                 AppStorage.save(AppStorage.Category.CURRENT_MODEL, result, oid=oid)
             return result
         return None
@@ -94,15 +109,14 @@ class Backend:
         Backend.logger.info('getting customization')
         response = self.send_command_with_id_and_content("GetCustomization", customOid=customOid)
         if response.status_code == 200:
-            return response.json()['payload']
+            return response.json().get('payload')
         return None
 
     def is_visible(self):
         response = self.send_command_with_id_and_content("GetOverlayVisibility")
         if response.status_code == 200:
-            return response.json()['payload']
-        else:
-            return False
+            return response.json().get('payload', False)
+        return False
 
     def reset(self, state):
         self.save_model(state.get_reset_model(), False)
@@ -136,12 +150,12 @@ class Backend:
         try:
             Backend.logger.info(f"Fetching output token for OID: {oid}")
             url = f'https://app.overlays.uno/apiv2/controlapps/{oid}'
-            response = self.session.get(url)
+            # Added a 5.0 second timeout for GET requests
+            response = self.session.get(url, timeout=5.0)
             if response.status_code == 200:
                 data = response.json()
                 output_url = data.get('outputUrl')
                 if output_url:
-                    # Expecting format: .../output/<token>/...
                     match = re.search(r'/output/([^/?]+)', output_url)
                     if match:
                         token = match.group(1)
@@ -149,6 +163,8 @@ class Backend:
                         return token
             else:
                 Backend.logger.warning(f"Failed to fetch output token for OID {oid}: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            Backend.logger.error(f"Network error fetching output token: {e}")
         except Exception as e:
             Backend.logger.error(f"Error fetching output token: {e}")
         return None
