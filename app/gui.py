@@ -62,7 +62,10 @@ class GUI:
         self.button_size = None
         self.button_text_size = None
 
-        self.dark_mode = ui.dark_mode()
+        # Initialize dark mode and fullscreen reading from persistent storage
+        saved_dark_mode = AppStorage.load(AppStorage.Category.DARK_MODE, 'auto')
+        init_val = True if saved_dark_mode == 'on' else False if saved_dark_mode == 'off' else None
+        self.dark_mode = ui.dark_mode(value=init_val)
         self.fullscreen = ui.fullscreen()
 
 
@@ -344,31 +347,6 @@ class GUI:
                     with self.preview_container:
                         await self.create_iframe()
 
-    def _update_dark_mode_icon(self):
-        if self.dark_mode_button:
-             if self.dark_mode.value is True:
-                 self.dark_mode_button.props('icon=dark_mode')
-             elif self.dark_mode.value is False:
-                 self.dark_mode_button.props('icon=light_mode')
-             else:
-                 self.dark_mode_button.props('icon=brightness_auto')
-
-    async def _cycle_dark_mode(self):
-        if self.dark_mode.value is True:
-            self.dark_mode.disable() # Go to Light
-        elif self.dark_mode.value is False:
-            self.dark_mode.auto() # Go to Auto
-        else:
-            self.dark_mode.enable() # Go to Dark
-        
-        self._update_dark_mode_icon()
-        AppStorage.save(AppStorage.Category.DARK_MODE, 'on' if self.dark_mode.value is True else 'off' if self.dark_mode.value is False else 'auto')
-
-        if self.preview_visible and self.preview_container is not None:
-             self.preview_container.clear()
-             with self.preview_container:
-                 await self.create_iframe()
-
     def _create_control_buttons(self):
         """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
         def button_classes():
@@ -387,17 +365,6 @@ class GUI:
                 self.preview_button = ui.button(icon=icon, on_click=self.toggle_preview).props(
                         'outline').mark('preview-button').classes(button_classes()).classes('text-gray-500')
             ui.space()
-            # Dark Mode
-            self.dark_mode_button = ui.button(on_click=self._cycle_dark_mode).props('outline color=indigo-5').classes(button_classes()).classes('text-gray-500')
-            self._update_dark_mode_icon()
-
-            # Fullscreen
-            self.fullscreen_button = ui.button(icon='fullscreen', on_click=self.fullscreen.toggle).props('outline color=light-green-10').classes(button_classes()).classes('text-gray-500')
-            def update_fs_icon(e):
-                self.fullscreen_button.props(f'icon={"fullscreen_exit" if e.value else "fullscreen"}')
-            self.fullscreen.on_value_change(update_fs_icon)
-
-            
             
             ui.button(icon='keyboard_arrow_right', on_click=lambda: self.tabs.set_value(
                 Customization.CONFIG_TAB)).props('outline color=stone-500').mark('config-tab-button').classes(button_classes())
@@ -405,15 +372,6 @@ class GUI:
     async def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized and not force:
             return
-
-        # Restore dark mode
-        saved_dark_mode = AppStorage.load(AppStorage.Category.DARK_MODE, 'auto')
-        if saved_dark_mode == 'on':
-             self.dark_mode.enable()
-        elif saved_dark_mode == 'off':
-             self.dark_mode.disable()
-        else:
-             self.dark_mode.auto()
 
         self.game_manager = GameManager(self.conf, self.backend)
 
