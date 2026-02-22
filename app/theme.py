@@ -31,6 +31,23 @@ GAME_BUTTON_PADDING_NORMAL = 'p-0'
 GAME_BUTTON_TEXT_NORMAL = 'text-6xl'
 GAME_BUTTON_CLASSES = ' text-center align-middle shadow-lg rounded-lg text-white h-auto min-h-0 '
 
+# Font Scaling Multipliers to normalize visual size inside buttons
+# Format: 'Font Name': {'scale': float, 'offset_y': float}
+# offset_y specifices vertical translation percentage (negative moves text up, positive moves down) relative to button size.
+FONT_SCALES = {
+    'Default': {'scale': 1.0, 'offset_y': 0.0},
+    'Digital Dismay': {'scale': 1.16, 'offset_y': 0.01},
+    'Aluminum': {'scale': 1.06, 'offset_y': 0.02},
+    'Atlas': {'scale': 0.96, 'offset_y': 0.01},
+    'Bypass': {'scale': 0.96, 'offset_y': 0.0},
+    'Catch': {'scale': 1.17, 'offset_y': 0.01},
+    'Devotee': {'scale': 1.14, 'offset_y': 0.02},
+    'Digital Readout': {'scale': 1.39, 'offset_y': 0.0},
+    'LED board': {'scale': 0.79, 'offset_y': -0.01},
+    'Open 24': {'scale': 1.14, 'offset_y': -0.02},
+    'Alarm Clock': {'scale': 1.01, 'offset_y': 0.01},
+}
+
 # Control buttons
 CONTROL_BUTTON_CLASSES = 'w-9 h-9 rounded-lg'
 

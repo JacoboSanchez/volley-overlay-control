@@ -7,6 +7,9 @@ from app.messages import Messages
 from app.theme import *
 from app.game_manager import GameManager
 from app.preview import create_iframe_card
+from app.components.team_panel import TeamPanel
+from app.components.center_panel import CenterPanel
+from app.components.control_buttons import ControlButtons
 import asyncio
 
 class GUI:
@@ -263,112 +266,6 @@ class GUI:
         elif self.preview_container is not None:
             self.preview_container.clear()
 
-    def _create_team_panel(self, team_id, button_color, timeout_light_color, serve_vlight_color):
-        """Creates the UI panel for a single team."""
-        with ui.card(align_items='begin'):
-            with ui.row() if self.is_portrait else ui.column():
-                button = ui.button('00', color=button_color).mark(f'team-{team_id}-score')
-                button.on('mousedown', lambda: self.handle_button_press(
-                    team_id, is_set_button=False))
-                button.on('touchstart', lambda: self.handle_button_press(
-                    team_id, is_set_button=False), [])
-                button.on('mouseup', lambda: self.handle_button_release(
-                    team_id, is_set_button=False))
-                button.on('touchend', lambda: self.handle_button_release(
-                    team_id, is_set_button=False))
-                button.on('touchmove', self.handle_press_cancel)
-                button.classes(GAME_BUTTON_CLASSES)
-
-                if self.is_portrait:
-                    with ui.column().classes('text-4xl h-full'):
-                        serve_icon = ui.icon(
-                            name='sports_volleyball', color=serve_vlight_color).mark(f'team-{team_id}-serve')
-                        ui.space()
-                        ui.button(icon='timer', color=timeout_light_color,
-                                on_click=lambda: self.add_timeout(team_id)).props('outline round').mark(f'team-{team_id}-timeout').classes('shadow-lg')
-                        timeouts = ui.row().mark(f'team-{team_id}-timeouts-display')
-                        serve_icon.on('click', lambda: self.change_serve(team_id))  
-                else: 
-                    with ui.row().classes('text-4xl w-full'):
-                        ui.button(icon='timer', color=timeout_light_color,
-                                on_click=lambda: self.add_timeout(team_id)).props('outline round').mark(f'team-{team_id}-timeout').classes('shadow-lg')
-                        timeouts = ui.column().mark(f'team-{team_id}-timeouts-display')
-                        ui.space()
-                        serve_icon = ui.icon(
-                            name='sports_volleyball', color=serve_vlight_color).mark(f'team-{team_id}-serve')
-                        serve_icon.on('click', lambda: self.change_serve(team_id))
-        return button, timeouts, serve_icon
-
-    async def _create_center_panel(self):
-        """Creates the central control panel with set scores and pagination."""
-        with ui.column().classes('h-full'):
-            with ui.row().classes('w-full justify-center'):
-                self.teamASet = ui.button('0', color='gray-700').mark('team-1-sets')
-                self.teamASet.on('mousedown', lambda: self.handle_button_press(
-                    1, is_set_button=True))
-                self.teamASet.on('touchstart', lambda: self.handle_button_press(
-                    1, is_set_button=True), [])
-                self.teamASet.on('mouseup', lambda: self.handle_button_release(
-                    1, is_set_button=True))
-                self.teamASet.on('touchend', lambda: self.handle_button_release(
-                    1, is_set_button=True))
-                self.teamASet.on('touchmove', self.handle_press_cancel)
-                self.teamASet.classes('text-white text-2xl')
-
-                with ui.row().classes('justify-center items-start gap-x-2'):
-                    with ui.column().classes('items-center gap-y-0'):
-                        logo1_src = self.current_customize_state.get_team_logo(1)
-                        self.teamA_logo = ui.image(source=logo1_src).classes('w-6 h-6').mark('team-1-logo')
-                        self.teamA_scores_container = ui.column().classes('items-center gap-y-0 min-h-24')
-
-                    with ui.column().classes('items-center gap-y-0'):
-                        logo2_src = self.current_customize_state.get_team_logo(2)
-                        self.teamB_logo = ui.image(source=logo2_src).classes('w-6 h-6').mark('team-2-logo')
-                        self.teamB_scores_container = ui.column().classes('items-center gap-y-0 min-h-24')
-
-                self.teamBSet = ui.button('0', color='gray-700').mark('team-2-sets')
-                self.teamBSet.on('mousedown', lambda: self.handle_button_press(
-                    2, is_set_button=True))
-                self.teamBSet.on('touchstart', lambda: self.handle_button_press(
-                    2, is_set_button=True), [])
-                self.teamBSet.on('mouseup', lambda: self.handle_button_release(
-                    2, is_set_button=True))
-                self.teamBSet.on('touchend', lambda: self.handle_button_release(
-                    2, is_set_button=True))
-                self.teamBSet.on('touchmove', self.handle_press_cancel)
-                self.teamBSet.classes('text-white text-2xl')
-
-            self.set_selector = ui.pagination(1, self.sets_limit, direction_links=True, on_change=lambda e: self.switch_to_set(
-                e.value)).props('color=grey active-color=teal').classes('w-full justify-center').mark('set-selector')
-            
-            if self.conf.show_preview and self.conf.output is not None:
-                self.preview_container = ui.column()
-                if self.preview_visible:
-                    with self.preview_container:
-                        await self.create_iframe()
-
-    def _create_control_buttons(self):
-        """Creates the main control buttons (visibility, simple mode, undo, etc.)."""
-        def button_classes():
-            return CONTROL_BUTTON_CLASSES
-
-        with ui.row().classes("w-full justify-around"):
-            self.visibility_button = ui.button(icon='visibility',
-                                               on_click=self.switch_visibility).props(f'outline color={VISIBLE_ON_COLOR}').mark('visibility-button').classes(button_classes())
-            self.simple_button = ui.button(icon='grid_on',
-                                           on_click=self.switch_simple_mode).props(f'outline color={FULL_SCOREBOARD_COLOR}').mark('simple-mode-button').classes(button_classes())
-
-            self.undo_button = ui.button(icon='undo', on_click=lambda: self.switch_undo(
-                False)).props(f'outline color={UNDO_COLOR}').mark('undo-button').classes(button_classes())
-            if not self.conf.disable_overview and self.conf.output is not None:
-                icon = GUI.PREVIEW_ENABLED_ICON if self.preview_visible else GUI.PREVIEW_DISABLED_ICON
-                self.preview_button = ui.button(icon=icon, on_click=self.toggle_preview).props(
-                        'outline').mark('preview-button').classes(button_classes()).classes('text-gray-500')
-            ui.space()
-            
-            ui.button(icon='keyboard_arrow_right', on_click=lambda: self.tabs.set_value(
-                Customization.CONFIG_TAB)).props('outline color=stone-500').mark('config-tab-button').classes(button_classes())
-
     async def init(self, force=True, custom_points_limit=None, custom_points_limit_last_set=None, custom_sets_limit=None):
         if self.initialized and not force:
             return
@@ -389,7 +286,7 @@ class GUI:
         self.logger.info('Sets to win: %s', self.sets_limit)
         self.main_container = ui.element('div').classes('w-full h-full')
         await self._initialize_main_container()
-        self._create_control_buttons()
+        ControlButtons(self).create()
 
         self.update_ui(False)
         self.initialized = True
@@ -400,13 +297,13 @@ class GUI:
             self.main_conainer_layout.clear()
         with self.main_container:
             with ui.column(align_items='center').classes('w-full') if self.is_portrait else ui.row().classes('w-full') as self.main_conainer_layout:
-                self.teamAButton, self.timeoutsA, self.serveA = self._create_team_panel(
-                    1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT)
+                self.teamAButton, self.timeoutsA, self.serveA = TeamPanel(
+                    self, 1, BLUE_BUTTON_COLOR, TACOLOR_LIGHT, TACOLOR_VLIGHT).create()
                 ui.space()
-                await self._create_center_panel()
+                await CenterPanel(self).create()
                 ui.space()
-                self.teamBButton, self.timeoutsB, self.serveB = self._create_team_panel(
-                    2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT)
+                self.teamBButton, self.timeoutsB, self.serveB = TeamPanel(
+                    self, 2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT).create()
                 
                 # Apply configured styles after creation
                 self.update_button_style()
@@ -454,17 +351,33 @@ class GUI:
         # Determine font style
         selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
         font_style = ""
+        font_scale = 1.0
+        font_offset_y = 0.0
         if selected_font and selected_font != 'Default':
              font_style = f"font-family: '{selected_font}' !important;"
+             font_props = FONT_SCALES.get(selected_font, {'scale': 1.0, 'offset_y': 0.0})
+             if isinstance(font_props, dict):
+                 font_scale = font_props.get('scale', 1.0)
+                 font_offset_y = font_props.get('offset_y', 0.0)
+             else:
+                 font_scale = font_props
 
         # Size styles
         size_style = ""
+        padding_style = ""
         if self.button_size:
             size_style = f"width: {self.button_size}px !important; height: {self.button_size}px !important;"
+            if font_offset_y != 0.0:
+                offset_px = self.button_size * font_offset_y * 2.0
+                if offset_px < 0:
+                    padding_style = f"padding-bottom: {abs(offset_px)}px !important; padding-top: 0px !important;"
+                else:
+                    padding_style = f"padding-top: {abs(offset_px)}px !important; padding-bottom: 0px !important;"
         
         text_size_style = ""
         if self.button_text_size:
-            text_size_style = f"font-size: {self.button_text_size}px !important;"
+            scaled_text_size = self.button_text_size * font_scale
+            text_size_style = f"font-size: {scaled_text_size}px !important; line-height: 1.0 !important;"
 
         # Helper to generate style string including background
         def get_team_style(team_id, base_color, text_color):
@@ -473,7 +386,8 @@ class GUI:
                 f'color: {text_color} !important',
                 font_style,
                 size_style,
-                text_size_style
+                text_size_style,
+                padding_style
             ]
             
             show_icon = AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
@@ -517,11 +431,21 @@ class GUI:
             self.teamBButton.style(replace=get_team_style(2, color2, text2))
             
         # Apply font style to set buttons as well
+        set_button_style = font_style
+        if font_scale != 1.0:
+            set_button_style += f" font-size: {24 * font_scale}px !important; line-height: 1.0 !important;"
+        if font_offset_y != 0.0:
+            offset_px_set = 24 * font_scale * font_offset_y * 2.0
+            if offset_px_set < 0:
+                set_button_style += f" padding-bottom: {abs(offset_px_set)}px !important; padding-top: 0px !important;"
+            else:
+                set_button_style += f" padding-top: {abs(offset_px_set)}px !important; padding-bottom: 0px !important;"
+
         if self.teamASet:
-            self.teamASet.style(replace=f'{font_style}')
+            self.teamASet.style(replace=set_button_style.strip())
 
         if self.teamBSet:
-             self.teamBSet.style(replace=f'{font_style}')
+             self.teamBSet.style(replace=set_button_style.strip())
 
     def update_ui(self, load_from_backend=False):
         self.logger.debug('Updating UI...')

@@ -50,13 +50,16 @@ class OptionsDialog:
                     
                     with ui.card().classes(SECTION_CARD_CLASSES):
                         # Font Selector
-                        font_options = [{'label': Messages.get(Messages.DEFAULT), 'value': 'Default'}]
+                        font_options = [{'label': Messages.get(Messages.DEFAULT), 'value': 'Default', 'scale': 1.0, 'offset_y': 0.0}]
                         font_dir = 'font'
                         if os.path.exists(font_dir):
                             for file in os.listdir(font_dir):
                                 if file.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
                                     family = os.path.splitext(file)[0]
-                                    font_options.append({'label': family, 'value': family})
+                                    props = FONT_SCALES.get(family, {'scale': 1.0, 'offset_y': 0.0})
+                                    scale = props.get('scale', 1.0) if isinstance(props, dict) else props
+                                    offset_y = props.get('offset_y', 0.0) if isinstance(props, dict) else 0.0
+                                    font_options.append({'label': family, 'value': family, 'scale': scale, 'offset_y': offset_y})
 
                         # Validate selected font
                         selected_font_str = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
@@ -79,14 +82,14 @@ class OptionsDialog:
                                             <q-item-label>{{ props.opt.label.label }}</q-item-label>
                                         </q-item-section>
                                         <q-item-section side v-if="props.opt.label.value !== 'Default'">
-                                            <q-item-label :style="{ fontFamily: '\\'' + props.opt.label.value + '\\'' }" class="text-xl">25</q-item-label>
+                                            <q-item-label :style="{ fontFamily: '\\'' + props.opt.label.value + '\\'', fontSize: Math.round(20 * (props.opt.label.scale || 1.0)) + 'px', transform: 'translateY(' + ((props.opt.label.offset_y || 0) * 100) + '%)' }">25</q-item-label>
                                         </q-item-section>
                                     </q-item>
                                 ''')
                                 self.font_select.add_slot('selected-item', '''
                                     <div class="flex items-center w-full justify-between gap-2">
                                         <span>{{ props.opt.label.label }}</span>
-                                        <span v-if="props.opt.label.value !== 'Default'" :style="{ fontFamily: '\\'' + props.opt.label.value + '\\'' }" class="text-xl">25</span>
+                                        <span v-if="props.opt.label.value !== 'Default'" :style="{ fontFamily: '\\'' + props.opt.label.value + '\\'', fontSize: Math.round(20 * (props.opt.label.scale || 1.0)) + 'px', transform: 'translateY(' + ((props.opt.label.offset_y || 0) * 100) + '%)' }">25</span>
                                     </div>
                                 ''')
                         
