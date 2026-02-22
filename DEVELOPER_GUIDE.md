@@ -23,7 +23,8 @@ Plaintext
 │   ├── backend.py           # Handles communication with the external Overlay API.
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the raw state dictionary.
-│   ├── gui.py               # Main UI logic. Renders the scoreboard control panel.
+│   ├── gui.py               # Main UI logic orchestrator.
+│   ├── components/          # Reusable NiceGUI UI components (ScoreButton, TeamPanel, etc.).
 │   ├── startup.py           # Route definitions, page loading logic, and lifecycle hooks.
 │   ├── customization.py     # Logic for handling team names, colors, logos, and layout.
 │   ├── theme.py             # UI constants (colors, CSS classes).
@@ -115,23 +116,29 @@ The "Bridge" to the outside world.
         fetch_output_token(oid): Retrieves the URL/Token required to display the overlay iframe.
 
 B. User Interface
+
+app/components/
+This directory contains modular UI pieces to prevent `gui.py` from becoming a monolith.
+    - `score_button.py`: Wraps `ui.button` with complex long-press and tap detection logic.
+    - `team_panel.py`: Renders an entire vertical/horizontal column for a specific team (Scores, Timeouts, Serve Indicator).
+    - `center_panel.py`: Manages the middle column (Detailed score table, set pagination, Live Preview iframe).
+    - `control_buttons.py`: Manages the top/bottom action bar (Visibility toggle, Simple Mode, Undo, Config).
+
 app/gui.py - class GUI
 
-The NiceGUI presentation layer.
+The NiceGUI presentation layer orchestrator.
 
-    Responsibility: Render buttons, listen for clicks, and update the DOM.
+    Responsibility: Instantiate modular components from `app/components/`, listen for state changes from the `GameManager`, and trigger updates across those components.
 
     Key Methods:
 
-        init(...): Builds the initial layout (Team panels, Center panel).
+        init(...): Builds the initial layout by instantiating `TeamPanel`, `CenterPanel`, and `ControlButtons`.
 
-        update_ui(load_from_backend): Refreshes all visual elements (scores, colors, logos) to match the GameManager state.
+        update_ui(load_from_backend): Refreshes all visual elements (scores, colors, logos) by mutating the state of the component instances.
 
-        handle_button_press/release: Implements "Long Press" logic (Short press = +1, Long press = Edit value).
+        handle_button_press/release: Invoked by `ScoreButton` components to process "Long Press" vs "Tap" logic.
 
         switch_simple_mode(): Toggles the UI and backend data payload between full detail and simplified view.
-
-        _create_team_panel(...): Generates the UI column for a specific team.
 
 app/startup.py - startup()
 
