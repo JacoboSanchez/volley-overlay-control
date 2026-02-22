@@ -14,11 +14,15 @@ Tech Stack:
     State Management: In-memory Python objects synchronized with an external API.
 
     Containerization: Docker (using `uv` for package management).
+    
+    CI/CD: GitHub Actions pipelines defined in `.github/workflows/` for automated resting and linting.
 
 2. Directory Structure & Key Files
 Plaintext
 
 ├── main.py                  # Entry point. Sets up the NiceGUI app, middleware, and env vars.
+├── .github/                 # GitHub specific files.
+│   └── workflows/           # CI/CD pipelines (e.g., ci.yml).
 ├── app/
 │   ├── backend.py           # Handles communication with the external Overlay API.
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
