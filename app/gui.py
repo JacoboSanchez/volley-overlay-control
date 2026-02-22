@@ -351,17 +351,33 @@ class GUI:
         # Determine font style
         selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
         font_style = ""
+        font_scale = 1.0
+        font_offset_y = 0.0
         if selected_font and selected_font != 'Default':
              font_style = f"font-family: '{selected_font}' !important;"
+             font_props = FONT_SCALES.get(selected_font, {'scale': 1.0, 'offset_y': 0.0})
+             if isinstance(font_props, dict):
+                 font_scale = font_props.get('scale', 1.0)
+                 font_offset_y = font_props.get('offset_y', 0.0)
+             else:
+                 font_scale = font_props
 
         # Size styles
         size_style = ""
+        padding_style = ""
         if self.button_size:
             size_style = f"width: {self.button_size}px !important; height: {self.button_size}px !important;"
+            if font_offset_y != 0.0:
+                offset_px = self.button_size * font_offset_y * 2.0
+                if offset_px < 0:
+                    padding_style = f"padding-bottom: {abs(offset_px)}px !important; padding-top: 0px !important;"
+                else:
+                    padding_style = f"padding-top: {abs(offset_px)}px !important; padding-bottom: 0px !important;"
         
         text_size_style = ""
         if self.button_text_size:
-            text_size_style = f"font-size: {self.button_text_size}px !important;"
+            scaled_text_size = self.button_text_size * font_scale
+            text_size_style = f"font-size: {scaled_text_size}px !important; line-height: 1.0 !important;"
 
         # Helper to generate style string including background
         def get_team_style(team_id, base_color, text_color):
@@ -370,7 +386,8 @@ class GUI:
                 f'color: {text_color} !important',
                 font_style,
                 size_style,
-                text_size_style
+                text_size_style,
+                padding_style
             ]
             
             show_icon = AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
@@ -414,11 +431,21 @@ class GUI:
             self.teamBButton.style(replace=get_team_style(2, color2, text2))
             
         # Apply font style to set buttons as well
+        set_button_style = font_style
+        if font_scale != 1.0:
+            set_button_style += f" font-size: {24 * font_scale}px !important; line-height: 1.0 !important;"
+        if font_offset_y != 0.0:
+            offset_px_set = 24 * font_scale * font_offset_y * 2.0
+            if offset_px_set < 0:
+                set_button_style += f" padding-bottom: {abs(offset_px_set)}px !important; padding-top: 0px !important;"
+            else:
+                set_button_style += f" padding-top: {abs(offset_px_set)}px !important; padding-bottom: 0px !important;"
+
         if self.teamASet:
-            self.teamASet.style(replace=f'{font_style}')
+            self.teamASet.style(replace=set_button_style.strip())
 
         if self.teamBSet:
-             self.teamBSet.style(replace=f'{font_style}')
+             self.teamBSet.style(replace=set_button_style.strip())
 
     def update_ui(self, load_from_backend=False):
         self.logger.debug('Updating UI...')
