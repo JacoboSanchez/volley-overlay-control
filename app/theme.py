@@ -45,7 +45,7 @@ FONT_SCALES = {
     'Digital Readout': {'scale': 1.39, 'offset_y': 0.0},
     'LED board': {'scale': 0.79, 'offset_y': -0.01},
     'Open 24': {'scale': 1.14, 'offset_y': -0.02},
-    'alarm clock': {'scale': 1.01, 'offset_y': 0.01},
+    'Alarm Clock': {'scale': 1.01, 'offset_y': 0.01},
 }
 
 # Control buttons
