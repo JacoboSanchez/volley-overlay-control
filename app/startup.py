@@ -3,7 +3,7 @@ import os
 from app.oid_dialog import OidDialog
 from app.gui import GUI
 from app.options_dialog import OptionsDialog
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from app.authentication import AuthMiddleware, PasswordAuthenticator
 from nicegui import ui, app
 from app.customization import Customization
@@ -23,6 +23,15 @@ logger = logging.getLogger("Webapp")
 
 # Serve fonts directory
 app.add_static_files('/fonts', 'font')
+app.add_static_files('/pwa', 'app/pwa')
+
+@app.get('/sw.js')
+def serve_sw():
+    return FileResponse('app/pwa/sw.js', media_type='application/javascript')
+
+@app.get('/manifest.json')
+def serve_manifest():
+    return FileResponse('app/pwa/manifest.json', media_type='application/json')
 
 def startup() -> None:
     def reset_all():
@@ -266,10 +275,22 @@ def addHeader():
     
     # We must escape the brackets for the Javascript function because we are inside an f-string
     ui.add_head_html(f'''
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    <link rel="apple-touch-icon" href="/pwa/icon-192.png">
     <style>
-        {font_css}
+        {{font_css}}
     </style>
     <script>
+    if ('serviceWorker' in navigator) {{
+        window.addEventListener('load', function() {{
+            navigator.serviceWorker.register('/sw.js').then(function(registration) {{
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            }}, function(err) {{
+                console.log('ServiceWorker registration failed: ', err);
+            }});
+        }});
+    }}
     function emitSize() {{
         window.emitEvent('resize', {{
             width: window.innerWidth,
