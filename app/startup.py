@@ -279,7 +279,7 @@ def addHeader():
     <meta name="theme-color" content="#1976d2">
     <link rel="apple-touch-icon" href="/pwa/icon-192.png">
     <style>
-        {{font_css}}
+        {font_css}
     </style>
     <script>
     if ('serviceWorker' in navigator) {{
