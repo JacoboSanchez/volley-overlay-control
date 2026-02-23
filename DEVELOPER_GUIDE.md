@@ -35,6 +35,7 @@ Plaintext
 │   ├── conf.py              # Configuration object mapping env vars to settings.
 │   ├── authentication.py    # User login/logout logic.
 │   ├── app_storage.py       # Wrapper for NiceGUI's browser-local storage.
+│   ├── pwa/                 # Progressive Web App assets (Service Worker, Manifest, Icons).
 │   └── ... (Dialogs and helper pages)
 ├── font/                    # Custom font files for the UI/Overlay.
 └── tests/                   # Pytest suite.
@@ -155,6 +156,8 @@ app/startup.py - startup()
         If missing, launches OidDialog.
 
         Initializes GUI and Backend.
+        
+        Serves PWA assets (`/sw.js`, `/manifest.json`, `/pwa/*`) and registers the Service Worker.
 
 app/theme.py
 
