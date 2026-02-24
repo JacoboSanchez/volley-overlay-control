@@ -157,7 +157,7 @@ app/startup.py - startup()
 
         Initializes GUI and Backend.
         
-        Serves PWA assets (`/sw.js`, `/manifest.json`, `/pwa/*`) and registers the Service Worker.
+        Serves PWA assets (`/sw.js`, `/manifest.json`, `/pwa/*`), registers the Service Worker, and implements the Screen Wake Lock API logic (via JavaScript injection) to keep devices awake during use.
 
 app/theme.py
 

@@ -33,6 +33,8 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 *   **Overlay Library**: Select from a list of predefined overlays for quick setup.
 
 ### 🖥️ User-Friendly Interface
+*   **Progressive Web App (PWA)**: Install the scoreboard on mobile devices for a native, full-screen standalone experience.
+*   **Screen Wake Lock**: Automatically prevents the device screen from sleeping or turning off during an active match.
 *   **Dark Mode**: Native support for dark mode (Auto, On, Off).
 *   **Auto-Hide**: Automatically hide the scoreboard after a configurable timeout.
 *   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay.

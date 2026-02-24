@@ -291,13 +291,39 @@ def addHeader():
             }});
         }});
     }}
+
+    let wakeLock = null;
+    const requestWakeLock = async () => {{
+        if ('wakeLock' in navigator) {{
+            try {{
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => {{
+                    console.log('Screen Wake Lock released:', wakeLock.released);
+                }});
+                console.log('Screen Wake Lock acquired:', wakeLock !== null);
+            }} catch (err) {{
+                console.error(`${{err.name}}, ${{err.message}}`);
+            }}
+        }} else {{
+            console.log('Screen Wake Lock API not supported by this browser.');
+        }}
+    }};
+
+    window.addEventListener('load', requestWakeLock);
+
+    document.addEventListener('visibilitychange', async () => {{
+        if (wakeLock !== null && document.visibilityState === 'visible') {{
+            requestWakeLock();
+        }}
+    }});
+
     function emitSize() {{
         window.emitEvent('resize', {{
             width: window.innerWidth,
             height: window.innerHeight,
         }});
-        }}
-        window.onload = emitSize;
-        window.onresize = emitSize;
+    }}
+    window.onload = emitSize;
+    window.onresize = emitSize;
     </script>
 ''')
