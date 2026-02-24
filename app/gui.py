@@ -64,6 +64,12 @@ class GUI:
         self.rebuild_height = None
         self.button_size = None
         self.button_text_size = None
+        
+        # Double tap tracking
+        self.tap_count = 0
+        self.tap_timer = None
+        self.tap_team = None
+        self.tap_is_set = None
 
         # Initialize dark mode and fullscreen reading from persistent storage
         saved_dark_mode = AppStorage.load(AppStorage.Category.DARK_MODE, 'auto')
@@ -217,6 +223,10 @@ class GUI:
             return
         self.click_gate_open = False  # Close the gate immediately
 
+        # If a different button was pressed while a tap was pending, execute the pending tap immediately
+        if self.tap_count > 0 and (self.tap_team != team or self.tap_is_set != is_set_button):
+            self._execute_pending_tap()
+
         if is_set_button:
             button = self.teamASet if team == 1 else self.teamBSet
             initial_value = int(button.text)
@@ -228,19 +238,60 @@ class GUI:
 
         async def long_press_callback():
             self.long_press_timer = None
+            self.tap_count = 0 # Cancel any double-tap sequence if it becomes a long press
+            if self.tap_timer is not None:
+                self.tap_timer.cancel()
+                self.tap_timer = None
             await self.show_custom_value_dialog(team, is_set_button, initial_value, max_value)
 
         self.long_press_timer = ui.timer(0.5, long_press_callback, once=True)
 
+    def _execute_pending_tap(self):
+        """Executes the action for a single tap."""
+        if self.tap_timer is not None:
+            self.tap_timer.cancel()
+            self.tap_timer = None
+        
+        if self.tap_count > 0:
+            if self.tap_is_set:
+                self.add_set(self.tap_team)
+            else:
+                self.add_game(self.tap_team)
+            self.tap_count = 0
+            self.tap_team = None
+            self.tap_is_set = None
+
     def handle_button_release(self, team: int, is_set_button: bool):
-        """Cancels the timer on mouseup/touchend and handles the click action."""
+        """Cancels the long press timer and processes tap or double-tap."""
         if self.long_press_timer is not None:
             self.long_press_timer.cancel()
             self.long_press_timer = None
-            if is_set_button:
-                self.add_set(team)
-            else:
-                self.add_game(team)
+            
+            # This was a valid tap (not a long press)
+            self.tap_team = team
+            self.tap_is_set = is_set_button
+            self.tap_count += 1
+
+            if self.tap_count == 1:
+                # Start timer to wait for a potential second tap
+                self.tap_timer = ui.timer(0.3, self._execute_pending_tap, once=True)
+            elif self.tap_count == 2:
+                # Double tap detected
+                if self.tap_timer is not None:
+                    self.tap_timer.cancel()
+                    self.tap_timer = None
+                
+                # Execute undo action
+                self.undo = True
+                if self.tap_is_set:
+                    self.add_set(self.tap_team)
+                else:
+                    self.add_game(self.tap_team)
+                self.undo = False # reset undo back just in case
+                
+                self.tap_count = 0
+                self.tap_team = None
+                self.tap_is_set = None
         
         # Re-open the gate after a short delay to ignore ghost clicks
         ui.timer(0.2, self.open_click_gate, once=True)
@@ -250,6 +301,10 @@ class GUI:
         if self.long_press_timer is not None:
             self.long_press_timer.cancel()
             self.long_press_timer = None
+            self.tap_count = 0
+            if self.tap_timer is not None:
+                self.tap_timer.cancel()
+                self.tap_timer = None
         self.open_click_gate() # Re-open gate immediately if press is cancelled
 
     async def toggle_preview(self):
