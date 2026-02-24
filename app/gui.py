@@ -242,6 +242,8 @@ class GUI:
             if self.tap_timer is not None:
                 self.tap_timer.cancel()
                 self.tap_timer = None
+            if not is_set_button:
+                ui.run_javascript('if (navigator.vibrate) navigator.vibrate(200)')
             await self.show_custom_value_dialog(team, is_set_button, initial_value, max_value)
 
         self.long_press_timer = ui.timer(1.0, long_press_callback, once=True)
@@ -256,6 +258,7 @@ class GUI:
             if self.tap_is_set:
                 self.add_set(self.tap_team)
             else:
+                ui.run_javascript('if (navigator.vibrate) navigator.vibrate(50)')
                 self.add_game(self.tap_team)
             self.tap_count = 0
             self.tap_team = None
@@ -286,6 +289,7 @@ class GUI:
                 if self.tap_is_set:
                     self.add_set(self.tap_team)
                 else:
+                    ui.run_javascript('if (navigator.vibrate) navigator.vibrate([50, 100, 50])')
                     self.add_game(self.tap_team)
                 self.undo = False # reset undo back just in case
                 
