@@ -1,6 +1,8 @@
-const CACHE_NAME = 'volley-overlay-control-v1';
+// Increment the cache version to force an update and clear the old cache
+const CACHE_NAME = 'volley-overlay-control-v2'; 
+
+// Remove '/' from the cached URLs array
 const CACHE_URLS = [
-    '/',
     '/manifest.json',
     '/pwa/icon-192.png',
     '/pwa/icon-512.png'
@@ -15,7 +17,6 @@ const WEBSOCKET_URLS = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-
             return Promise.all(
                 CACHE_URLS.map(url => {
                     return cache.add(url).catch(error => {
@@ -48,7 +49,7 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        return caches.delete(cacheName);
+                        return caches.delete(cacheName); // This will delete the old 'v1' cache that contains the problematic '/' route
                     }
                 })
             );
