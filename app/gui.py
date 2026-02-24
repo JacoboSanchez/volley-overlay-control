@@ -274,7 +274,7 @@ class GUI:
 
             if self.tap_count == 1:
                 # Start timer to wait for a potential second tap
-                self.tap_timer = ui.timer(0.3, self._execute_pending_tap, once=True)
+                self.tap_timer = ui.timer(0.4, self._execute_pending_tap, once=True)
             elif self.tap_count == 2:
                 # Double tap detected
                 if self.tap_timer is not None:
@@ -294,7 +294,7 @@ class GUI:
                 self.tap_is_set = None
         
         # Re-open the gate after a short delay to ignore ghost clicks
-        ui.timer(0.2, self.open_click_gate, once=True)
+        ui.timer(0.1, self.open_click_gate, once=True)
 
     def handle_press_cancel(self):
         """Cancels the long press timer if the touch moves."""

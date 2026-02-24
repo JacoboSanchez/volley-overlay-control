@@ -123,10 +123,10 @@ async def test_game_buttons_increment(user: User, mock_backend):
     await user.open('/')
     await _assert_scores_and_sets(user, '00', '0', '00', '0')
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '01', '0', '00', '0')
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '02', '0', '00', '0')
     await asyncio.sleep(0.1)
     mock_backend.save.assert_called()
@@ -136,11 +136,11 @@ async def test_set_buttons_increment(user: User, mock_backend):
     await user.open('/')
     await _assert_scores_and_sets(user, '00', '0', '00', '0')
     user.find(marker='team-1-sets').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '00', '1', '00', '0')
     await _assert_all_set_scores(user, [('00', '00')])
     user.find(marker='team-2-sets').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '00', '1', '00', '1')
     await asyncio.sleep(0.1)
     mock_backend.save.assert_called()
@@ -176,7 +176,7 @@ async def test_set_pagination(user: User, mock_backend, monkeypatch):
 
     await _assert_scores_and_sets(user, '05', '1', '06', '1')
     user.find(marker=f'team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '06', '1', '06', '1')
 
     # Click the next set button in the pagination
@@ -257,13 +257,13 @@ async def test_undo_button(user: User, mock_backend):
     for i in range(1, 2):
         await user.should_see('00', marker=f'team-{i}-score')
         user.find(marker=f'team-{i}-score').click()
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
         await user.should_see('01', marker=f'team-{i}-score')
         
         # Click undo button
         user.find(marker='undo-button').click()
         user.find(marker=f'team-{i}-score').click() # This now should be an undo action
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
         await user.should_see('00', marker=f'team-{i}-score')
     await asyncio.sleep(0.1)
 
@@ -274,14 +274,14 @@ async def test_double_tap_undo_button(user: User, mock_backend):
         await user.should_see('00', marker=f'team-{i}-score')
         
         user.find(marker=f'team-{i}-score').click()
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
         await user.should_see('01', marker=f'team-{i}-score')
         
         # Double click the score button
         user.find(marker=f'team-{i}-score').click()
         await asyncio.sleep(0.1)
         user.find(marker=f'team-{i}-score').click()
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
 
         # Score should be undone back to 00
         await user.should_see('00', marker=f'team-{i}-score')
@@ -343,15 +343,15 @@ async def test_end_game_and_undo(user: User, mock_backend):
 
     # Team 1 scores two points to win the set and match
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '24', '2', '22', '1')
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '25', '3', '22', '1') # Match finished
 
     # Test that adding more points is blocked
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await user.should_see(Messages.get(Messages.MATCH_FINISHED))
     await _assert_scores_and_sets(user, '25', '3', '22', '1')  # Score should not change
     await _assert_all_set_scores(user, [('16', '25'), ('25', '14'), ('25', '09'), ('25', '22')])
@@ -359,7 +359,7 @@ async def test_end_game_and_undo(user: User, mock_backend):
     # Test that undo works and reverts the end-game state
     user.find(marker='undo-button').click()
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)  # Undo the winning point
+    await asyncio.sleep(0.5)  # Undo the winning point
 
     # After undoing, score is 24, and set count for T1 should be 2.
     await asyncio.sleep(0.1)
@@ -385,10 +385,10 @@ async def test_refresh(user: User, mock_backend):
 
     # Team 1 scores two points to win the set and match
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '24', '2', '22', '1')
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '25', '3', '22', '1')
 
     # Go to config tab to test refresh
@@ -575,7 +575,7 @@ async def test_reset_from_config(user: User, mock_backend):
     # Score a point
     await _assert_scores_and_sets(user, '23', '2', '22', '1')
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '24', '2', '22', '1')
     await _assert_all_set_scores(user, [('16', '25'), ('25', '14'), ('25', '09')])
 
@@ -896,7 +896,7 @@ async def test_beach_mode_limits(user: User, mock_backend):
 
     # Score the winning point for Team 1
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.01)
     await _assert_scores_and_sets(user, '00', '1', '00', '0') # Team 1 wins the set
     await _assert_all_set_scores(user, [('21', '00')])
@@ -906,7 +906,7 @@ async def test_beach_mode_limits(user: User, mock_backend):
     
     # Try to score another point, which should be blocked as the match is over
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.01)
     await _assert_scores_and_sets(user, '21', '2', '00', '0') # Score should not change
     await _assert_all_set_scores(user, [('21', '00'), ('21', '00')])
@@ -920,13 +920,13 @@ async def test_indoor_mode_limits(user: User, mock_backend):
 
     # Score points up to 24 for Team 1
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '24', '2', '22', '1') # Set not won yet
     await _assert_all_set_scores(user, [('16', '25'), ('25', '14'), ('25', '09')])
 
     # Score the winning point
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.01)
     await _assert_all_set_scores(user, [('16', '25'), ('25', '14'), ('25', '09'), ('25', '22')]) # Team 1 wins the set
     await asyncio.sleep(0.3)
@@ -949,13 +949,13 @@ async def test_env_vars_for_points_limit(user: User, mock_backend, monkeypatch):
     # Score up to 9 points for Team 1
     for i in range(1, 10):
         user.find(marker='team-1-score').click()
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
         await asyncio.sleep(0.01)
         await _assert_scores_and_sets(user, f'{i:02d}', '0', '00', '0')
 
     # Score the winning point
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
     await _assert_scores_and_sets(user, '00', '1', '00', '0')
     await asyncio.sleep(0.2)
@@ -978,7 +978,7 @@ async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
     # Win the first set
     for i in range(1, 6):
         user.find(marker='team-2-score').click()
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
         await asyncio.sleep(0.01)
         if i < 5:
             await _assert_scores_and_sets(user, '00', '0', f'{i:02d}', '0')
@@ -987,7 +987,7 @@ async def test_env_vars_for_sets_limit(user: User, mock_backend, monkeypatch):
 
     # The match should be over. Trying to score another point should fail.
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
     await _assert_scores_and_sets(user, '00', '0', '05', '1') # Score should not change
     await asyncio.sleep(0.2)
@@ -1131,7 +1131,7 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     # --- Test 1: Scoring a regular point should trigger hide ---
     mock_backend.change_overlay_visibility.reset_mock()
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
 
     # Should immediately become visible
@@ -1151,7 +1151,7 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     # Score 5 points with a 0.3s delay
     for _ in range(5):
         user.find(marker='team-2-score').click()
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
         await asyncio.sleep(0.3)
 
     # It should have been made visible on the first click
@@ -1182,7 +1182,7 @@ async def test_autohide_feature(user: User, mock_backend, monkeypatch):
     await _do_long_press(user, 'team-1-score', '24', True)
     await _assert_scores_and_sets(user, '24', '0', '05', '0')
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
     await _assert_scores_and_sets(user, '00', '1', '00', '0') # Set is won
     await _assert_all_set_scores(user, [('25', '05')])
@@ -1220,7 +1220,7 @@ async def test_auto_simple_mode_feature(user: User, mock_backend):
 
     # --- Test 2: Scoring a point should switch to simple mode ---
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
 
     mock_backend.reduce_games_to_one.assert_called_once()
@@ -1231,12 +1231,12 @@ async def test_auto_simple_mode_feature(user: User, mock_backend):
 
     for _ in range(23):
         user.find(marker='team-1-score').click()
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.5)
         await asyncio.sleep(0.01)
         await user.should_see('window', marker='simple-mode-button')
 
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.01)
     await user.should_see('1', marker='team-1-sets')
     await asyncio.sleep(0.1)
@@ -1246,7 +1246,7 @@ async def test_auto_simple_mode_feature(user: User, mock_backend):
 
     # Starting the set again returns to simple mode
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.01)
     await user.should_see('window', marker='simple-mode-button')
 
@@ -1257,7 +1257,7 @@ async def test_long_press_game_score(user: User, mock_backend):
     await _do_long_press(user, 'team-1-score', '15', True)
     await _assert_scores_and_sets(user, '15', '0', '00', '0')
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
     await _assert_scores_and_sets(user, '16', '0', '00', '0')
     await asyncio.sleep(0.2)
@@ -1271,7 +1271,7 @@ async def test_long_press_game_score_and_cancel(user: User, mock_backend):
     await _do_long_press(user, 'team-2-score', '12', False)
     await _assert_scores_and_sets(user, '00', '0', '00', '0')
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
     await _assert_scores_and_sets(user, '00', '0', '01', '0')
     await asyncio.sleep(0.2)
@@ -1283,7 +1283,7 @@ async def test_long_press_set_score(user: User, mock_backend):
     await _do_long_press(user, 'team-2-sets', '2', True)
     await _assert_scores_and_sets(user, '00', '0', '00', '2')
     user.find(marker='team-2-sets').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '00', '0', '00', '3')
     await asyncio.sleep(0.2)
     mock_backend.save.assert_called()
@@ -1295,7 +1295,7 @@ async def test_long_press_set_score_cancel(user: User, mock_backend):
     await _do_long_press(user, 'team-1-sets', '2', False)
     await _assert_scores_and_sets(user, '00', '0', '00', '0')
     user.find(marker='team-2-sets').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '00', '0', '00', '1')
     await asyncio.sleep(0.2)
 
@@ -1324,7 +1324,7 @@ async def test_long_press_wins_match(user: User, mock_backend, monkeypatch):
     
     # Try to score another point, which should be blocked
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '15', '3', '00', '2') # Score should not change
     await _assert_all_set_scores(user, [('16', '25'), ('25', '14'), ('25', '09'), ('23', '25'), ('15', '00')])
     await asyncio.sleep(0.2)
@@ -1344,7 +1344,7 @@ async def test_long_press_on_sets_wins_match(user: User, mock_backend, monkeypat
 
     # Try to score a point, which should be blocked
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '11', '2', '09', '1')
     await asyncio.sleep(0.2)
 
@@ -1355,13 +1355,13 @@ async def test_simultaneous_clicks(user: User, mock_backend):
 
     # Simulate rapid clicks on both score buttons
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
 
     await asyncio.sleep(0.5) # Allow UI to settle
 
@@ -1383,22 +1383,22 @@ async def test_deuce_and_win_by_two(user: User, mock_backend):
 
     # Team 1 scores, now 25-24
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '25', '0', '24', '0') # Set is not won yet
 
     # Team 2 scores, back to deuce 25-25
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '25', '0', '25', '0')
 
     # Team 2 scores again, 25-26
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '25', '0', '26', '0') # Set is not won yet
 
     # Team 2 scores the winning point, 25-27
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await _assert_scores_and_sets(user, '00', '0', '00', '1') # Team 2 wins the set
     await _assert_all_set_scores(user, [('25', '27')])
     await asyncio.sleep(0.2)
@@ -1410,23 +1410,23 @@ async def test_state_persistence_on_refresh(user: User, mock_backend):
 
     # Score some points
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0)
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0)
     user.find(marker='team-1-sets').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0)
     
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0)
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0)
     user.find(marker='team-2-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0)
     await user.should_see(marker='team-1-score')
 
@@ -1552,7 +1552,7 @@ async def test_auto_simple_mode_timeout_feature(user: User, mock_backend):
 
     # Scoring a point should switch to simple mode
     user.find(marker='team-1-score').click()
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.5)
     await asyncio.sleep(0.1)
     mock_backend.reduce_games_to_one.assert_called_once()
     await user.should_see('window', marker='simple-mode-button')
