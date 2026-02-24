@@ -3,7 +3,7 @@ import os
 from app.oid_dialog import OidDialog
 from app.gui import GUI
 from app.options_dialog import OptionsDialog
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from app.authentication import AuthMiddleware, PasswordAuthenticator
 from nicegui import ui, app
 from app.customization import Customization
@@ -23,6 +23,15 @@ logger = logging.getLogger("Webapp")
 
 # Serve fonts directory
 app.add_static_files('/fonts', 'font')
+app.add_static_files('/pwa', 'app/pwa')
+
+@app.get('/sw.js')
+def serve_sw():
+    return FileResponse('app/pwa/sw.js', media_type='application/javascript')
+
+@app.get('/manifest.json')
+def serve_manifest():
+    return FileResponse('app/pwa/manifest.json', media_type='application/json')
 
 def startup() -> None:
     def reset_all():
@@ -266,17 +275,55 @@ def addHeader():
     
     # We must escape the brackets for the Javascript function because we are inside an f-string
     ui.add_head_html(f'''
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    <link rel="apple-touch-icon" href="/pwa/icon-192.png">
     <style>
         {font_css}
     </style>
     <script>
+    if ('serviceWorker' in navigator) {{
+        window.addEventListener('load', function() {{
+            navigator.serviceWorker.register('/sw.js').then(function(registration) {{
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            }}, function(err) {{
+                console.log('ServiceWorker registration failed: ', err);
+            }});
+        }});
+    }}
+
+    let wakeLock = null;
+    const requestWakeLock = async () => {{
+        if ('wakeLock' in navigator) {{
+            try {{
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => {{
+                    console.log('Screen Wake Lock released:', wakeLock.released);
+                }});
+                console.log('Screen Wake Lock acquired:', wakeLock !== null);
+            }} catch (err) {{
+                console.error(`${{err.name}}, ${{err.message}}`);
+            }}
+        }} else {{
+            console.log('Screen Wake Lock API not supported by this browser.');
+        }}
+    }};
+
+    window.addEventListener('load', requestWakeLock);
+
+    document.addEventListener('visibilitychange', async () => {{
+        if (wakeLock !== null && document.visibilityState === 'visible') {{
+            requestWakeLock();
+        }}
+    }});
+
     function emitSize() {{
         window.emitEvent('resize', {{
             width: window.innerWidth,
             height: window.innerHeight,
         }});
-        }}
-        window.onload = emitSize;
-        window.onresize = emitSize;
+    }}
+    window.onload = emitSize;
+    window.onresize = emitSize;
     </script>
 ''')

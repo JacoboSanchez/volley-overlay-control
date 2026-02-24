@@ -15,9 +15,9 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 ### 🎮 Complete Match Control
 *   **Score Management**: Easily manage points, sets, and timeouts for both teams.
 *   **Service Indicator**: Clearly indicate the serving team.
-*   **Undo Capability**: Mistake-proof your scoring with undo functionality for points and timeouts.
+*   **Undo Capability**: Mistake-proof your scoring with an undo button or a quick **double-tap** on any score/set button.
 *   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets).
-*   **Quick Edits**: Long press to manually adjust set or point counters.
+*   **Quick Edits**: Long press (1 second) to manually adjust set or point counters.
 
 ### 🎨 Advanced Customization
 *   **Team Identity**: Customize team names, logos, and colors to match the teams playing.
@@ -33,6 +33,8 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 *   **Overlay Library**: Select from a list of predefined overlays for quick setup.
 
 ### 🖥️ User-Friendly Interface
+*   **Progressive Web App (PWA)**: Install the scoreboard on mobile devices for a native, full-screen standalone experience.
+*   **Screen Wake Lock**: Automatically prevents the device screen from sleeping or turning off during an active match.
 *   **Dark Mode**: Native support for dark mode (Auto, On, Off).
 *   **Auto-Hide**: Automatically hide the scoreboard after a configurable timeout.
 *   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay.
