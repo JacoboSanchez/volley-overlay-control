@@ -244,7 +244,7 @@ class GUI:
                 self.tap_timer = None
             await self.show_custom_value_dialog(team, is_set_button, initial_value, max_value)
 
-        self.long_press_timer = ui.timer(0.5, long_press_callback, once=True)
+        self.long_press_timer = ui.timer(1.0, long_press_callback, once=True)
 
     def _execute_pending_tap(self):
         """Executes the action for a single tap."""

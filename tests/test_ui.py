@@ -52,7 +52,7 @@ async def _do_long_press(user: User, marker: str, value: str, confirm: bool, fir
 
     # Perform a long press on the specified element
     user.find(marker=marker).trigger('mousedown')
-    await asyncio.sleep(1)
+    await asyncio.sleep(1.5)
     user.find(marker=marker).trigger('mouseup')
     await asyncio.sleep(0)
     
