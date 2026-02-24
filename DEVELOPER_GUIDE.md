@@ -141,7 +141,7 @@ The NiceGUI presentation layer orchestrator.
 
         update_ui(load_from_backend): Refreshes all visual elements (scores, colors, logos) by mutating the state of the component instances.
 
-        handle_button_press/release: Invoked by `ScoreButton` components to process "Long Press" vs "Tap" logic.
+        handle_button_press/release: Invoked by `ScoreButton` components to process "Long Press", "Tap", and "Double Tap" (undo) logic.
 
         switch_simple_mode(): Toggles the UI and backend data payload between full detail and simplified view.
 
