@@ -43,26 +43,26 @@ class CustomizationPage:
         with ui.dialog().props('persistent') as self.dialog_reset, ui.card():
             ui.label(Messages.get(Messages.ASK_RESET))
             with ui.row():
-                ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reset.submit(True)).mark('confirm-reset-button')
-                ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reset.submit(False)).mark('cancel-reset-button')
+                ui.button(icon='done', color=None,
+                          on_click=lambda: self.dialog_reset.submit(True)).props('flat').classes('text-green-500').mark('confirm-reset-button')
+                ui.button(icon='close', color=None,
+                          on_click=lambda: self.dialog_reset.submit(False)).props('flat').classes('text-red-500').mark('cancel-reset-button')
 
         with ui.dialog().props('persistent') as self.dialog_reload, ui.card():
             ui.label(Messages.get(Messages.ASK_RELOAD))
             with ui.row():
-                ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reload.submit(True)).mark('confirm-refresh-button')
-                ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reload.submit(False)).mark('cancel-refresh-button')
+                ui.button(icon='done', color=None,
+                          on_click=lambda: self.dialog_reload.submit(True)).props('flat').classes('text-green-500').mark('confirm-refresh-button')
+                ui.button(icon='close', color=None,
+                          on_click=lambda: self.dialog_reload.submit(False)).props('flat').classes('text-red-500').mark('cancel-refresh-button')
 
         with ui.dialog().props('persistent') as self.logout_dialog, ui.card():
             ui.label(Messages.get(Messages.ASK_LOGOUT))
             with ui.row():
-                ui.button(color='green-500', icon='done',
-                            on_click=lambda: self.logout_dialog.submit(True)).mark('confirm-logout-button')
-                ui.button(color='red-500', icon='close',
-                            on_click=lambda: self.logout_dialog.submit(False)).mark('cancel-logout-button')
+                ui.button(icon='done', color=None,
+                            on_click=lambda: self.logout_dialog.submit(True)).props('flat').classes('text-green-500').mark('confirm-logout-button')
+                ui.button(icon='close', color=None,
+                            on_click=lambda: self.logout_dialog.submit(False)).props('flat').classes('text-red-500').mark('cancel-logout-button')
 
 
     def _update_dark_mode_icon(self, e=None):
