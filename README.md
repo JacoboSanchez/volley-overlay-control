@@ -63,6 +63,7 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 2.  Navigate to [this overlay](https://overlays.uno/library/437-Volleyball-Scorebug---Standard) and click **Add to My Overlays**.
 3.  **Open your overlay** to get the necessary tokens:
     *   **Control URL**: Copy the URL. The part after `https://app.overlays.uno/control/` is your **`UNO_OVERLAY_OID`**.
+    *   _Note_: The application natively supports this `Standard` template alongside newer `Volleyball` layouts.
 4.  *(Optional)* For local-only setups, use the [NiceGUI On Air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air) feature. Get your token and use it as `UNO_OVERLAY_AIR_ID`.
 
 > [!IMPORTANT]

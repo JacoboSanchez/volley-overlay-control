@@ -116,7 +116,9 @@ The "Bridge" to the outside world.
 
         get_current_model(): Fetches the last known state from the server.
 
-        save(state, simple): Pushes local state changes to the server.
+        save(state, simple): Pushes local state changes to the server. Note: specifically injects `Sets Display` explicitly for newer layout configurations (`446a...`).
+
+        fetch_and_update_overlay_id(oid): Executes `GetOverlays` to translate a user's Control Token (OID) into the specific backend layout ID (e.g., `8637...` or `446a...`). This ensures all API calls target the correct schema.
 
         fetch_output_token(oid): Retrieves the URL/Token required to display the overlay iframe.
 
@@ -171,6 +173,7 @@ C. Configuration & Extras
 app/customization.py
 
     Responsibility: Manages cosmetic data that isn't strict game logic: Team Names, Logos, Colors, and Overlay geometry (X/Y/Width/Height).
+    Logic Details: Abstracts payload keys to support multiple layout templates. If `Team 1 Text Name` doesn't exist (like in newer layouts), it automatically falls back to looking for `Team 1 Name`. Applies safe `.get()` defaults to gracefully handle unsupported customization variables per layout.
 
 app/conf.py
 
