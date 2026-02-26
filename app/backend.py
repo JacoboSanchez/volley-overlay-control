@@ -29,6 +29,10 @@ class Backend:
         if (simple):
             to_save = State.simplify_model(to_save)
             
+        # Explicitly set Sets Display for the new overlay ID
+        if self.conf.id == '446a382f-25c0-4d1d-ae25-48373334e06b':
+            to_save["Sets Display"] = str(to_save.get(State.CURRENT_SET_INT, "1"))
+            
         if self.conf.multithread:
             # Replaced threading.Thread with ThreadPoolExecutor
             self.executor.submit(self.save_json_model, to_save)
