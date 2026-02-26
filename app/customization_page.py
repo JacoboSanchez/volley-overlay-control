@@ -271,7 +271,7 @@ class CustomizationPage:
                 width = self.customization.get_width()
                 height = self.customization.get_height()
 
-                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}'
+                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}&layout_id={self.configuration.id}'
                 with ui.row().classes('items-center w-full'):
                     ui.link(Messages.get(Messages.PREVIEW_LINK),
                               preview_link, new_tab=True)

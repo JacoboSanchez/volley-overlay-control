@@ -833,4 +833,4 @@ class GUI:
         # However, passing None to create_iframe_card will trigger the JS detection, which is what we want for Auto.
         # But if we just switched to Auto, JS might need a moment.
         # Let's pass the explicit boolean if set, otherwise None.
-        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width, dark_mode=is_dark)
+        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width, dark_mode=is_dark, layout_id=self.conf.id)

@@ -233,7 +233,7 @@ def test_get_current_model_saves_result(mock_appstorage_load, mock_appstorage_sa
 
 def test_fetch_and_update_overlay_id(backend, mock_requests_session, conf):
     """Tests that validating an oid triggers a specific GetOverlays call to dynamically map conf.id"""
-    expected_mock_layout_id = "446a382f-25c0-4d1d-ae25-48373334e06b"
+    expected_mock_layout_id = State.CHAMPIONSHIP_LAYOUT_ID
     mock_requests_session.put.return_value.json.return_value = {
         'status': 200, 
         'payload': [{'id': expected_mock_layout_id, 'name': 'Volleyball'}]
@@ -245,7 +245,7 @@ def test_fetch_and_update_overlay_id(backend, mock_requests_session, conf):
 
 def test_save_model_explicit_sets_display_for_new_layout(backend, mock_requests_session, conf):
     """Tests that save_model specifically injects Sets Display when config ID matches the new layout."""
-    conf.id = "446a382f-25c0-4d1d-ae25-48373334e06b"
+    conf.id = State.CHAMPIONSHIP_LAYOUT_ID
     conf.multithread = False
     
     # State containing Current Set property representing "2"
