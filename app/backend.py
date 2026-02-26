@@ -119,7 +119,14 @@ class Backend:
         return False
 
     def reset(self, state):
-        self.save_model(state.get_reset_model(), False)
+        current = state.get_current_model()
+        reset_model = state.get_reset_model()
+        
+        # Merge reset_model over current_model to preserve unknown keys like "Sets Display"
+        new_state = copy.copy(current)
+        new_state.update(reset_model)
+        
+        self.save_model(new_state, False)
 
     def save(self, state, simple):
         self.save_model(state.get_current_model(), simple)
@@ -136,6 +143,10 @@ class Backend:
         if oid is None or oid.strip() == "":
             logging.debug("empty oid: %s", oid)
             return State.OIDStatus.EMPTY
+        
+        # First try to fetch the actual layout ID
+        self.fetch_and_update_overlay_id(oid)
+
         result = self.get_current_model(customOid=oid, saveResult=True)
         if result is not None:
             if result.get("game1State") is not None:
@@ -143,6 +154,18 @@ class Backend:
             return State.OIDStatus.VALID
         return State.OIDStatus.INVALID
     
+    def fetch_and_update_overlay_id(self, oid: str):
+        Backend.logger.info('Fetching specific overlay ID for oid %s', oid)
+        jsonin = {"command": "GetOverlays", "value": ""}
+        response = self.do_send_request(oid, jsonin)
+        if response.status_code == 200:
+            payload = response.json().get('payload')
+            if payload and isinstance(payload, list) and len(payload) > 0:
+                overlay_id = payload[0].get('id')
+                if overlay_id:
+                    self.conf.id = overlay_id
+                    Backend.logger.info('Updated conf.id to %s', overlay_id)
+        
     def fetch_output_token(self, oid):
         """
         Fetches the output token associated with the given OID by querying the overlays.uno API.
