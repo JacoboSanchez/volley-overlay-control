@@ -1,26 +1,26 @@
 from nicegui import ui
 import os
+from app.state import State
 
 
-async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height: int, card_width: int=250, dark_mode: bool=None):
+async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height: int, card_width: int=250, dark_mode: bool=None, layout_id: str=None):
+    championship_layout = layout_id == State.CHAMPIONSHIP_LAYOUT_ID
     """Creates a NiceGUI card with a specific region of an iframe, scaled to a fixed size."""
     dark_enabled = False
     if dark_mode is not None:
         dark_enabled = dark_mode
     elif "PYTEST_CURRENT_TEST" not in os.environ:
         dark_enabled = await ui.run_javascript('Quasar.Dark.isActive')
-    background = '?bgcolor=rgb(29, 29, 29)' if dark_enabled else '?bgcolor=white'
+    background = '?bgcolor=rgb(29, 29, 29)&aspect=16:9' if dark_enabled else '?bgcolor=white'
     url = url + background
     card_height = card_width * height / width
     iframe_width = 600
     iframe_height = iframe_width * 9 / 16  # As in original code
 
-    # --- New Calculation Logic based on user premises ---
-
     # 1. Calculate the dimensions of the desired region in pixels.
     # `width` and `height` are given in a [0, 100] range from the abstract coordinate system.
     region_width_px = (width / 100) * iframe_width
-    region_height_px = (height / 100) * iframe_height
+    region_height_px = (height / (60 if championship_layout else 100)) * iframe_height
 
     # 2. Define the object's center in the [-50, 50] coordinate system,
     #    and calculate the top-left corner of the bounding box in the same system.
@@ -32,7 +32,11 @@ async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height:
     # 3. Convert the top-left corner to iframe pixel coordinates. This determines the iframe's offset.
     # The coordinate system range is 100 (from -50 to 50).
     left_px = ((left_coord + 50) / 100) * iframe_width
-    top_px = ((top_coord + 50) / 100) * iframe_height
+    
+    if championship_layout:
+        top_px = (top_coord / 100) * iframe_height
+    else:
+        top_px = ((top_coord + 50) / 100) * iframe_height
 
     # 4. Calculate the scale factor to fit the selected region into the card.
     scale = 1

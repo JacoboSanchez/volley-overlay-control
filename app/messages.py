@@ -8,6 +8,7 @@ class Messages:
     GAME = "Game"
     HEIGHT = "Height"
     WIDTH = "Width"
+    TEAMS = "Teams"
     HPOS = "Pos. X"
     VPOS = "Pos. Y"
     ASK_RESET = "Reset score?"
@@ -72,6 +73,7 @@ class Messages:
             LOGOS:"Logos",
             SET:"Set",
             GAME:"Juego",
+            TEAMS:"Equipos",
             HEIGHT:"Altura",
             WIDTH:"Ancho",
             HPOS:"Pos. X",

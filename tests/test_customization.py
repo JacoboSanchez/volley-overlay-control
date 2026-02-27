@@ -23,7 +23,7 @@ def test_initial_state(customization):
     assert customization.get_team_text_color(2) == "#000000"
     assert customization.get_width() == 30.0
     assert customization.is_glossy() == "true"
-    assert customization.get_team_name(1) is None # Names are not in the reset_state and should return None
+    assert customization.get_team_name(1) == "" # Names are not in the reset_state and should return empty string
 
 def test_get_and_set_team_colors(customization):
     """Tests getting and setting colors for both teams."""
@@ -137,9 +137,9 @@ def test_set_new_model(customization):
     assert customization.get_height() == 21.0
     assert customization.get_team_color(1) == "#000000"
     # Check for a key that wasn't in the new model to ensure it's gone
-    assert customization.get_model().get(Customization.T2_COLOR) is None
-    # Check that get_team_name now returns None since the key is missing
-    assert customization.get_team_name(1) is None
+    assert customization.get_team_color(2) == "#ffffff"  # Now falls back to default #ffffff instead of None
+    # Check that get_team_name now returns empty string instead of None since the key is missing
+    assert customization.get_team_name(1) == ""
 
 
 # --- Environment Variable Loading (Requires monkeypatch) ---

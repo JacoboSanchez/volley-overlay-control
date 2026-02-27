@@ -4,12 +4,13 @@ from app.preview import create_iframe_card
 
 class PreviewPage:
     
-    def __init__(self, xpos: float = -20, ypos: float = -10, width: float = 40, height: float = 12, output: str = None):
+    def __init__(self, xpos: float = -20, ypos: float = -10, width: float = 40, height: float = 12, output: str = None, layout_id: str = None):
         self.xpos = xpos
         self.ypos = ypos
         self.width = width
         self.height = height
         self.output = output
+        self.layout_id = layout_id
         self.page_height = None
         self.page_width = None
         self.dark_mode = ui.dark_mode()
@@ -17,6 +18,7 @@ class PreviewPage:
         self.scale_factor = 1.0
         self._is_rendering = False
         self.dark_enabled = False
+        self.frame_container = None
       
     async def initialize(self):  
         current_size = await ui.run_javascript(
@@ -92,6 +94,6 @@ class PreviewPage:
             if self.page_width is not None and self.page_height is not None:
                 with self.frame_container:
                     card_width = (600 if self.page_height is None or self.page_width is None else self.page_width / 1.2) * self.scale_factor
-                    await create_iframe_card(self.output, self.xpos, self.ypos, self.width, self.height, card_width)
+                    await create_iframe_card(self.output, self.xpos, self.ypos, self.width, self.height, card_width, layout_id=self.layout_id)
         finally:
             self._is_rendering = False

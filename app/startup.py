@@ -92,10 +92,14 @@ def startup() -> None:
         return None
 
     @ui.page('/preview')
-    async def preview_page(x: float = None, y: float = None, width: float = None, height: float = None, output: str = None, control: str = None):
+    async def preview_page(x: float = None, y: float = None, width: float = None, height: float = None, output: str = None, control: str = None, layout_id: str = None):
         if control:
             conf = Conf()
             backend = Backend(conf)
+            
+            # Fetch the specific layout ID for accurate math calculation, if available
+            backend.fetch_and_update_overlay_id(control)
+            layout_id = conf.id
             
             if not output:
                 output = backend.fetch_output_token(control)
@@ -122,7 +126,7 @@ def startup() -> None:
         
         url = OidDialog.UNO_OUTPUT_BASE_URL + output
 
-        preview_page = PreviewPage(output=url, xpos=x, ypos=y, width=width, height=height)
+        preview_page = PreviewPage(output=url, xpos=x, ypos=y, width=width, height=height, layout_id=layout_id)
         ui.on('resize', lambda e: preview_page.set_page_size(e.args['width'], e.args['height']))
         await preview_page.initialize()
         addHeader()

@@ -880,7 +880,7 @@ async def test_url_params_set_output(user: User, mock_backend, monkeypatch):
     user.find(marker='links-button').click()
     await user.should_see(Messages.get(Messages.PREVIEW_LINK))
     output_link = user.find(Messages.get(Messages.PREVIEW_LINK))
-    expected_href = './preview?output=custom_output_token&width=55.0&height=20.0&x=-19.5&y=34.0'
+    expected_href = './preview?output=custom_output_token&width=55.0&height=20.0&x=-19.5&y=34.0&layout_id=8637cb0f-df01-45bb-9782-c6d705aeff46'
     assert output_link.elements.pop().props['href'] == expected_href
 
     await asyncio.sleep(0.1)

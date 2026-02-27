@@ -220,11 +220,45 @@ def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     assert mock_requests_session.put.call_args[0][0] == expected_url
 
 @patch('app.backend.AppStorage.save')
-def test_get_current_model_saves_result(mock_appstorage_save, backend, mock_requests_session):
+@patch('app.backend.AppStorage.load')
+def test_get_current_model_saves_result(mock_appstorage_load, mock_appstorage_save, backend, mock_requests_session):
     """Tests that get_current_model saves the result when saveResult is True."""
+    mock_appstorage_load.return_value = None
     expected_model = {'Team 1 Sets': '1'}
     mock_requests_session.put.return_value.json.return_value = {'payload': expected_model}
 
     backend.get_current_model(customOid="some_oid", saveResult=True)
 
     mock_appstorage_save.assert_called_once_with(AppStorage.Category.CURRENT_MODEL, expected_model, oid="some_oid")
+
+def test_fetch_and_update_overlay_id(backend, mock_requests_session, conf):
+    """Tests that validating an oid triggers a specific GetOverlays call to dynamically map conf.id"""
+    expected_mock_layout_id = State.CHAMPIONSHIP_LAYOUT_ID
+    mock_requests_session.put.return_value.json.return_value = {
+        'status': 200, 
+        'payload': [{'id': expected_mock_layout_id, 'name': 'Volleyball'}]
+    }
+    
+    # Executing the fetch updates the config
+    backend.fetch_and_update_overlay_id("my_custom_oid")
+    assert conf.id == expected_mock_layout_id
+
+def test_save_model_explicit_sets_display_for_new_layout(backend, mock_requests_session, conf):
+    """Tests that save_model specifically injects Sets Display when config ID matches the new layout."""
+    conf.id = State.CHAMPIONSHIP_LAYOUT_ID
+    conf.multithread = False
+    
+    # State containing Current Set property representing "2"
+    mock_state = {State.CURRENT_SET_INT: "2"}
+    
+    backend.save_model(mock_state, simple=False)
+    
+    # Expected payload should explicitly carry the Sets Display map overriding "1" strings to what the Current Set possesses
+    expected_payload = {
+        "command": "SetOverlayContent",
+        "id": conf.id,
+        "content": {State.CURRENT_SET_INT: "2", "Sets Display": "2"}
+    }
+    mock_requests_session.put.assert_called_once_with(
+        mock_requests_session.put.call_args[0][0], json=expected_payload, timeout=5.0
+    )

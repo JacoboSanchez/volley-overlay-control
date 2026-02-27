@@ -43,26 +43,26 @@ class CustomizationPage:
         with ui.dialog().props('persistent') as self.dialog_reset, ui.card():
             ui.label(Messages.get(Messages.ASK_RESET))
             with ui.row():
-                ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reset.submit(True)).mark('confirm-reset-button')
-                ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reset.submit(False)).mark('cancel-reset-button')
+                ui.button(icon='done', color=None,
+                          on_click=lambda: self.dialog_reset.submit(True)).props('flat').classes('text-green-500').mark('confirm-reset-button')
+                ui.button(icon='close', color=None,
+                          on_click=lambda: self.dialog_reset.submit(False)).props('flat').classes('text-red-500').mark('cancel-reset-button')
 
         with ui.dialog().props('persistent') as self.dialog_reload, ui.card():
             ui.label(Messages.get(Messages.ASK_RELOAD))
             with ui.row():
-                ui.button(color='green-500', icon='done',
-                          on_click=lambda: self.dialog_reload.submit(True)).mark('confirm-refresh-button')
-                ui.button(color='red-500', icon='close',
-                          on_click=lambda: self.dialog_reload.submit(False)).mark('cancel-refresh-button')
+                ui.button(icon='done', color=None,
+                          on_click=lambda: self.dialog_reload.submit(True)).props('flat').classes('text-green-500').mark('confirm-refresh-button')
+                ui.button(icon='close', color=None,
+                          on_click=lambda: self.dialog_reload.submit(False)).props('flat').classes('text-red-500').mark('cancel-refresh-button')
 
         with ui.dialog().props('persistent') as self.logout_dialog, ui.card():
             ui.label(Messages.get(Messages.ASK_LOGOUT))
             with ui.row():
-                ui.button(color='green-500', icon='done',
-                            on_click=lambda: self.logout_dialog.submit(True)).mark('confirm-logout-button')
-                ui.button(color='red-500', icon='close',
-                            on_click=lambda: self.logout_dialog.submit(False)).mark('cancel-logout-button')
+                ui.button(icon='done', color=None,
+                            on_click=lambda: self.logout_dialog.submit(True)).props('flat').classes('text-green-500').mark('confirm-logout-button')
+                ui.button(icon='close', color=None,
+                            on_click=lambda: self.logout_dialog.submit(False)).props('flat').classes('text-red-500').mark('cancel-logout-button')
 
 
     def _update_dark_mode_icon(self, e=None):
@@ -205,8 +205,9 @@ class CustomizationPage:
                           on_change=lambda e: self.customization.set_glossy(e.value)).mark('gradient-switch')
 
             with ui.row():
-                self.create_choose_color(Messages.get(Messages.SET), True)
-                self.create_choose_color(Messages.get(Messages.GAME), False)
+                is_championship = self.configuration.id == State.CHAMPIONSHIP_LAYOUT_ID
+                self.create_choose_color(Messages.get(Messages.GAME if is_championship else Messages.SET), True)
+                self.create_choose_color(Messages.get(Messages.TEAMS if is_championship else Messages.GAME), False)
 
     def _create_scoreboard_geometry_card(self):
         """Creates the geometry and links configuration card."""
@@ -271,7 +272,7 @@ class CustomizationPage:
                 width = self.customization.get_width()
                 height = self.customization.get_height()
 
-                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}'
+                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}&layout_id={self.configuration.id}'
                 with ui.row().classes('items-center w-full'):
                     ui.link(Messages.get(Messages.PREVIEW_LINK),
                               preview_link, new_tab=True)
@@ -377,6 +378,11 @@ class CustomizationPage:
                 color_lock_value = self.configuration.lock_teamA_colors if team == 1 else self.configuration.lock_teamB_colors
                 colors_switch = ui.switch(on_change=lambda e: self.changed_color_lock(
                     team, colors_switch, e.value), value=color_lock_value).props('icon=no_encryption' if not color_lock_value else 'icon=lock').mark(f'team-{team}-color-lock')
+                
+                if self.configuration.id == State.CHAMPIONSHIP_LAYOUT_ID:
+                    team_color.classes(add='hidden')
+                    team_text_color.classes(add='hidden')
+                    colors_switch.classes(add='hidden')
 
     def changed_icon_lock(self, team, switch_lock, value):
         if team == 1:

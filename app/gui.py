@@ -88,8 +88,8 @@ class GUI:
                 format='%.0f'
             ).classes('w-full').mark('value-input')
             with ui.row():
-                ui.button('OK', on_click=self._handle_custom_value_submit).mark('value-input-ok-button')
-                ui.button('Cancel', on_click=self.custom_value_dialog.close).mark('value-input-cancel-button')
+                ui.button('OK', icon='done', color=None, on_click=self._handle_custom_value_submit).props('flat').classes('text-green-500').mark('value-input-ok-button')
+                ui.button('Cancel', icon='close', color=None, on_click=self.custom_value_dialog.close).props('flat').classes('text-red-500').mark('value-input-cancel-button')
 
 
     def set_customization_model(self, model):
@@ -833,4 +833,4 @@ class GUI:
         # However, passing None to create_iframe_card will trigger the JS detection, which is what we want for Auto.
         # But if we just switched to Auto, JS might need a moment.
         # Let's pass the explicit boolean if set, otherwise None.
-        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width, dark_mode=is_dark)
+        await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width, dark_mode=is_dark, layout_id=self.conf.id)
