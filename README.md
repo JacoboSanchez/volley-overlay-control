@@ -26,6 +26,7 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 *   **Logo Control**: Toggle team logos on or off.
 *   **Lock Settings**: Lock team colors and icons to prevent accidental changes during a match.
 *   **Themes**: Create, save, and load custom themes to switch styles instantly.
+*   **Adaptive Layout Options**: Customization dynamically adapts based on the loaded layout (e.g., hiding unnecessary color pickers or adjusting terminology for specific Championship overlays).
 
 ### 👥 User and Overlay Management
 *   **Multi-User Support**: Secure access with password protection for multiple users.

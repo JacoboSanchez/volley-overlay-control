@@ -205,8 +205,9 @@ class CustomizationPage:
                           on_change=lambda e: self.customization.set_glossy(e.value)).mark('gradient-switch')
 
             with ui.row():
-                self.create_choose_color(Messages.get(Messages.SET), True)
-                self.create_choose_color(Messages.get(Messages.GAME), False)
+                is_championship = self.configuration.id == State.CHAMPIONSHIP_LAYOUT_ID
+                self.create_choose_color(Messages.get(Messages.GAME if is_championship else Messages.SET), True)
+                self.create_choose_color(Messages.get(Messages.TEAMS if is_championship else Messages.GAME), False)
 
     def _create_scoreboard_geometry_card(self):
         """Creates the geometry and links configuration card."""
@@ -377,6 +378,11 @@ class CustomizationPage:
                 color_lock_value = self.configuration.lock_teamA_colors if team == 1 else self.configuration.lock_teamB_colors
                 colors_switch = ui.switch(on_change=lambda e: self.changed_color_lock(
                     team, colors_switch, e.value), value=color_lock_value).props('icon=no_encryption' if not color_lock_value else 'icon=lock').mark(f'team-{team}-color-lock')
+                
+                if self.configuration.id == State.CHAMPIONSHIP_LAYOUT_ID:
+                    team_color.classes(add='hidden')
+                    team_text_color.classes(add='hidden')
+                    colors_switch.classes(add='hidden')
 
     def changed_icon_lock(self, team, switch_lock, value):
         if team == 1:

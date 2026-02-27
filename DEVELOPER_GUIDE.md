@@ -170,10 +170,10 @@ app/theme.py
         - TACOLOR / TBCOLOR: Team colors.
 
 C. Configuration & Extras
-app/customization.py
+app/customization.py & app/customization_page.py
 
     Responsibility: Manages cosmetic data that isn't strict game logic: Team Names, Logos, Colors, and Overlay geometry (X/Y/Width/Height).
-    Logic Details: Abstracts payload keys to support multiple layout templates. If `Team 1 Text Name` doesn't exist (like in newer layouts), it automatically falls back to looking for `Team 1 Name`. Applies safe `.get()` defaults to gracefully handle unsupported customization variables per layout.
+    Logic Details: Abstracts payload keys to support multiple layout templates. If `Team 1 Text Name` doesn't exist (like in newer layouts), it automatically falls back to looking for `Team 1 Name`. Applies safe `.get()` defaults to gracefully handle unsupported customization variables per layout. `customization_page.py` additionally hides components natively unsupported by the active layout (e.g. Volleyball Championship layout removes team color configuration and renames "Set").
 
 app/conf.py
 
