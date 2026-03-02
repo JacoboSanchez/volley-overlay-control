@@ -1,3 +1,6 @@
 __pycache__/
 /.env
 /screenshots*
+/.nicegui
+/data
+/data

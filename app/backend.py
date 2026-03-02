@@ -6,9 +6,14 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from app.state import State
 from app.app_storage import AppStorage
+from app.env_vars_manager import EnvVarsManager
+import os
+import json
+
+from app.app_storage import AppStorage
 
 class Backend:
-    logger = logging.getLogger("Backend")
+    logger = logging.getLogger(__name__)
 
     def __init__(self, config):
         self.conf = config
@@ -22,9 +27,34 @@ class Backend:
         # This prevents uncontrolled thread creation during rapid changes.
         self.executor = ThreadPoolExecutor(max_workers=5)
 
+    def is_custom_overlay(self, oid=None):
+        check_oid = oid if oid is not None else self.conf.oid
+        return check_oid is not None and str(check_oid).upper().startswith("C-")
+
+    def get_custom_overlay_id(self, oid=None):
+        check_oid = oid if oid is not None else self.conf.oid
+        if self.is_custom_overlay(check_oid):
+            raw_id = str(check_oid)[2:] # Remove "C-" prefix
+            parts = raw_id.split('/', 1)
+            base_id = parts[0]
+            style = parts[1] if len(parts) > 1 else None
+            return base_id, style
+        return check_oid, None
+
     def save_model(self, current_model, simple):
         Backend.logger.info('saving model...')
-        AppStorage.save(AppStorage.Category.CURRENT_MODEL, current_model, oid=self.conf.oid)
+        
+        # Uno overlays store in user session, custom overlays store globally
+        if self.is_custom_overlay(self.conf.oid):
+            custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
+            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+            try:
+                self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"model": current_model}, timeout=2.0)
+            except Exception as e:
+                Backend.logger.error(f"Failed to save custom overlay model remote: {e}")
+        else:
+            AppStorage.save(AppStorage.Category.CURRENT_MODEL, current_model, oid=self.conf.oid)
+            
         to_save = copy.copy(current_model)
         if (simple):
             to_save = State.simplify_model(to_save)
@@ -34,12 +64,18 @@ class Backend:
             to_save["Sets Display"] = str(to_save.get(State.CURRENT_SET_INT, "1"))
             
         if self.conf.multithread:
-            # Replaced threading.Thread with ThreadPoolExecutor
-            self.executor.submit(self.save_json_model, to_save)
+            if self.is_custom_overlay():
+                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
+                self.executor.submit(self.update_local_overlay, current_model, None, None, show_only)
+            else:
+                self.executor.submit(self.save_json_model, to_save)
         else:
-            self.save_json_model(to_save)
+            if self.is_custom_overlay():
+                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
+                self.update_local_overlay(current_model, None, None, show_only)
+            else:
+                self.save_json_model(to_save)
         Backend.logger.info('saved')
-
     def reduce_games_to_one(self):
         """
         Resets the scores of sets 2, 3, 4, and 5 to zero in a single API call.
@@ -58,6 +94,25 @@ class Backend:
 
     def save_json_customization(self, to_save):
         Backend.logger.info('saving JSON customization...')
+        
+        # update local overlay as well, fetching current state if custom
+        if self.is_custom_overlay():
+            custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
+            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+            try:
+                self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"customization": to_save}, timeout=2.0)
+            except Exception as e:
+                Backend.logger.error(f"Failed to save custom overlay customization remote: {e}")
+                
+            current_model = self.get_current_model(self.conf.oid)
+            if current_model:
+                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
+                if self.conf.multithread:
+                    self.executor.submit(self.update_local_overlay, current_model, None, to_save, show_only)
+                else:
+                    self.update_local_overlay(current_model, None, to_save, show_only)
+            return type('MockResponse', (object,), {'status_code': 200, 'json': lambda self: {'payload': {}}})()
+        
         return self.send_command_with_value("SetCustomization", to_save)
 
     def change_overlay_visibility(self, show):
@@ -65,6 +120,17 @@ class Backend:
         command = "HideOverlay"
         if show:
             command = "ShowOverlay"
+        
+        if self.is_custom_overlay():
+            current_model = self.get_current_model(self.conf.oid)
+            if current_model:
+                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
+                if self.conf.multithread:
+                    self.executor.submit(self.update_local_overlay, current_model, show, None, show_only)
+                else:
+                    self.update_local_overlay(current_model, show, None, show_only)
+            return type('MockResponse', (object,), {'status_code': 200, 'json': lambda self: {'payload': {}}})()
+
         return self.send_command_with_id_and_content(command)
 
     def send_command_with_value(self, command, value="", customOid=None):
@@ -79,6 +145,9 @@ class Backend:
 
     def do_send_request(self, oid, jsonin):
         logging.debug("Sending [%s] via Session", jsonin)
+        if self.is_custom_overlay(oid):
+             return type('MockResponse', (object,), {'status_code': 200, 'json': lambda self: {'payload': {}}})()
+
         url = f'https://app.overlays.uno/apiv2/controlapps/{oid}/api'
         try:
             # Added a 5.0 second timeout to prevent blocking
@@ -87,14 +156,25 @@ class Backend:
         except requests.exceptions.RequestException as e:
             Backend.logger.error(f"Network error in do_send_request: {e}")
             # Return a mock object or None that the app can handle in case of a network error
-            class MockResponse:
-                status_code = 500
-                text = str(e)
-            return MockResponse()
+            return type('MockResponse', (object,), {'status_code': 500, 'text': str(e), 'json': lambda self: {}})()
 
     def get_current_model(self, customOid=None, saveResult=False):
         oid = customOid if customOid is not None else self.conf.oid
         Backend.logger.info('getting state for oid %s', oid)
+        
+        if self.is_custom_overlay(oid):
+            custom_id, _ = self.get_custom_overlay_id(oid)
+            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+            try:
+                resp = self.session.get(f"{base_url}/api/raw_config/{custom_id}", timeout=2.0)
+                if resp.status_code == 200:
+                    data = resp.json().get("model", {})
+                    if data:
+                        return data
+            except Exception as e:
+                Backend.logger.error(f"Failed to fetch custom overlay model: {e}")
+            return State().get_reset_model()
+
         currentModel = AppStorage.load(AppStorage.Category.CURRENT_MODEL, oid=oid)
         if currentModel is not None:
             logging.info('Using stored model')
@@ -111,12 +191,31 @@ class Backend:
 
     def get_current_customization(self, customOid=None):
         Backend.logger.info('getting customization')
+        
+        if self.is_custom_overlay(customOid):
+            custom_id, _ = self.get_custom_overlay_id(customOid)
+            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+            try:
+                resp = self.session.get(f"{base_url}/api/raw_config/{custom_id}", timeout=2.0)
+                if resp.status_code == 200:
+                    data = resp.json().get("customization", {})
+                    if data:
+                        return data
+            except Exception as e:
+                Backend.logger.error(f"Failed to fetch custom overlay customization: {e}")
+                
+            from app.customization import Customization
+            return copy.copy(Customization.reset_state)
+            
         response = self.send_command_with_id_and_content("GetCustomization", customOid=customOid)
         if response.status_code == 200:
             return response.json().get('payload')
         return None
 
     def is_visible(self):
+        if self.is_custom_overlay():
+            # Standard visibility fallback if stored locally.
+            return True
         response = self.send_command_with_id_and_content("GetOverlayVisibility")
         if response.status_code == 200:
             return response.json().get('payload', False)
@@ -159,10 +258,14 @@ class Backend:
         return State.OIDStatus.INVALID
     
     def fetch_and_update_overlay_id(self, oid: str):
+        if self.is_custom_overlay(oid):
+            Backend.logger.info('Custom overlay detected, skipping Uno ID fetch')
+            return
+
         Backend.logger.info('Fetching specific overlay ID for oid %s', oid)
         jsonin = {"command": "GetOverlays", "value": ""}
         response = self.do_send_request(oid, jsonin)
-        if response.status_code == 200:
+        if hasattr(response, 'status_code') and response.status_code == 200:
             payload = response.json().get('payload')
             if payload and isinstance(payload, list) and len(payload) > 0:
                 overlay_id = payload[0].get('id')
@@ -174,6 +277,26 @@ class Backend:
         """
         Fetches the output token associated with the given OID by querying the overlays.uno API.
         """
+        if self.is_custom_overlay(oid):
+            try:
+                Backend.logger.info(f"Fetching local output config for OID: {oid}")
+                custom_id, style = self.get_custom_overlay_id(oid)
+                base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+                url = f"{base_url}/api/config/{custom_id}"
+                response = self.session.get(url, timeout=5.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    output_url = data.get('outputUrl')
+                    if output_url:
+                        if style:
+                            separator = "&" if "?" in output_url else "?"
+                            output_url = f"{output_url}{separator}style={style}"
+                        Backend.logger.info(f"Local output URL found: {output_url}")
+                        return output_url
+            except Exception as e:
+                Backend.logger.error(f"Error fetching local output token: {e}")
+            return None
+
         try:
             Backend.logger.info(f"Fetching output token for OID: {oid}")
             url = f'https://app.overlays.uno/apiv2/controlapps/{oid}'
@@ -195,3 +318,86 @@ class Backend:
         except Exception as e:
             Backend.logger.error(f"Error fetching output token: {e}")
         return None
+
+    def update_local_overlay(self, current_model, force_visibility=None, customization_state=None, show_only_current_set=False):
+        try:
+            from app.customization import Customization
+            
+            if customization_state is None:
+                customization_state = self.get_current_customization() or {}
+            cust = Customization(customization_state)
+
+            def get_set_history(team):
+                return {
+                    "set_1": int(current_model.get(f'Team {team} Game 1 Score', 0)),
+                    "set_2": int(current_model.get(f'Team {team} Game 2 Score', 0)),
+                    "set_3": int(current_model.get(f'Team {team} Game 3 Score', 0)),
+                    "set_4": int(current_model.get(f'Team {team} Game 4 Score', 0)),
+                    "set_5": int(current_model.get(f'Team {team} Game 5 Score', 0)),
+                }
+
+            current_set = int(current_model.get(State.CURRENT_SET_INT, 1))
+            
+            # Default to visible unless otherwise tracked locally.
+            visibility = True if force_visibility is None else force_visibility
+
+            payload = {
+                "match_info": {
+                    "tournament": "Superliga Masculina",
+                    "phase": "Playoffs",
+                    "best_of_sets": int(self.conf.sets),
+                    "current_set": current_set,
+                    "show_only_current_set": show_only_current_set
+                },
+                "team_home": {
+                    "name": cust.get_team_name(1),
+                    "short_name": cust.get_team_name(1)[:3].upper() if cust.get_team_name(1) else "HOM",
+                    "color_primary": cust.get_team_color(1),
+                    "color_secondary": cust.get_team_text_color(1),
+                    "logo_url": cust.get_team_logo(1),
+                    "sets_won": int(current_model.get(State.T1SETS_INT, 0)),
+                    "points": int(current_model.get(f'Team 1 Game {current_set} Score', 0)),
+                    "serving": current_model.get(State.SERVE) == State.SERVE_1,
+                    "timeouts_taken": int(current_model.get(State.T1TIMEOUTS_INT, 0)),
+                    "set_history": get_set_history(1)
+                },
+                "team_away": {
+                    "name": cust.get_team_name(2),
+                    "short_name": cust.get_team_name(2)[:3].upper() if cust.get_team_name(2) else "AWA",
+                    "color_primary": cust.get_team_color(2),
+                    "color_secondary": cust.get_team_text_color(2),
+                    "logo_url": cust.get_team_logo(2),
+                    "sets_won": int(current_model.get(State.T2SETS_INT, 0)),
+                    "points": int(current_model.get(f'Team 2 Game {current_set} Score', 0)),
+                    "serving": current_model.get(State.SERVE) == State.SERVE_2,
+                    "timeouts_taken": int(current_model.get(State.T2TIMEOUTS_INT, 0)),
+                    "set_history": get_set_history(2)
+                },
+                "overlay_control": {
+                    "show_main_scoreboard": visibility,
+                    "show_bottom_ticker": False,
+                    "ticker_message": "",
+                    "show_player_stats": False,
+                    "player_stats_data": None,
+                    "geometry": {
+                        "width": cust.get_width(),
+                        "height": cust.get_height(),
+                        "xpos": cust.get_hpos(),
+                        "ypos": cust.get_vpos()
+                    },
+                    "colors": {
+                        "set_bg": cust.get_set_color(),
+                        "set_text": cust.get_set_text_color(),
+                        "game_bg": cust.get_game_color(),
+                        "game_text": cust.get_game_text_color()
+                    }
+                }
+            }
+            
+            custom_id, _ = self.get_custom_overlay_id()
+            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+            url = f"{base_url}/api/state/{custom_id}"
+            
+            requests.post(url, json=payload, timeout=2.0)
+        except Exception as e:
+            Backend.logger.error(f"Error updating local overlay: {e}")

@@ -24,7 +24,7 @@ Plaintext
 ├── .github/                 # GitHub specific files.
 │   └── workflows/           # CI/CD pipelines (e.g., ci.yml).
 ├── app/
-│   ├── backend.py           # Handles communication with the external Overlay API.
+│   ├── backend.py           # Handles communication with the external Overlay API & local overlay instance.
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the raw state dictionary.
 │   ├── gui.py               # Main UI logic orchestrator.
@@ -37,6 +37,9 @@ Plaintext
 │   ├── app_storage.py       # Wrapper for NiceGUI's browser-local storage.
 │   ├── pwa/                 # Progressive Web App assets (Service Worker, Manifest, Icons).
 │   └── ... (Dialogs and helper pages)
+├── overlay/                 # Optional High-Speed Local Broadcast Package
+│   ├── main.py              # A FastAPI websockets server
+│   └── templates/index.html # Local Browser Source UI
 ├── font/                    # Custom font files for the UI/Overlay.
 └── tests/                   # Pytest suite.
 
@@ -60,7 +63,7 @@ Typical Data Flow (e.g., Adding a Point):
 
     Logic Processing: GameManager validates the move (checks if match finished), increments the score in State, checks for set-win conditions, and auto-switches serve.
 
-    State Sync: GameManager calls Backend.save() to push new data to the cloud/overlay.
+    State Sync: GameManager calls Backend.save() to push new data to the cloud/overlay (and to `overlay/main.py` if running locally).
 
     UI Refresh: GUI reads the updated State and calls update_ui() to reflect changes (e.g., button text, colors).
 
@@ -114,13 +117,15 @@ The "Bridge" to the outside world.
 
     Key Methods:
 
-        get_current_model(): Fetches the last known state from the server.
+        get_current_model(): Fetches the last known state from the remote API. For Custom Overlays, this hits `/api/raw_config/{id}` to bypass local caching storage requirements.
 
-        save(state, simple): Pushes local state changes to the server. Note: specifically injects `Sets Display` explicitly for newer layout configurations (`446a...`).
+        save(state, simple): Pushes local state changes to the cloud server and proxies it to the local overlay engine via `update_local_overlay()`. For custom overlays, it also syncs raw state JSON structure payloads backwards via `POST /api/raw_config/{id}` to keep persistent data alive across backend restarts since the backend no longer saves custom JSON states locally on its own disk.
+
+        update_local_overlay(current_model, force_visibility, customization_state): Parses the game scoring and UI branding properties, combining them into a standardized JSON payload structure (`match_info`, `team_home`/`team_away`, `overlay_control`). It executes a POST request containing this payload to `[APP_CUSTOM_OVERLAY_URL]/api/state/{custom_id}`.
 
         fetch_and_update_overlay_id(oid): Executes `GetOverlays` to translate a user's Control Token (OID) into the specific backend layout ID (e.g., `8637...` or `446a...`). This ensures all API calls target the correct schema.
 
-        fetch_output_token(oid): Retrieves the URL/Token required to display the overlay iframe.
+        fetch_output_token(oid): Retrieves the URL/Token required to display the UNO overlay iframe.
 
 B. User Interface
 

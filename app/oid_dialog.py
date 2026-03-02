@@ -145,6 +145,8 @@ class OidDialog:
             return url
         
     def compose_output(self, output : str) -> str:
+        if output.startswith("http://") or output.startswith("https://"):
+            return output
         prefix = OidDialog.UNO_OUTPUT_BASE_URL
         if not output.startswith(prefix):
             return prefix + output

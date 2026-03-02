@@ -10,6 +10,7 @@ from app.authentication import PasswordAuthenticator
 from app.messages import Messages
 from app.options_dialog import OptionsDialog
 from app.app_storage import AppStorage
+import urllib.parse
 
 
 class CustomizationPage:
@@ -267,12 +268,13 @@ class CustomizationPage:
                         f'navigator.clipboard.writeText("{overlay_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
                 
                 token = overlay_link.split('/')[-1]
+                encoded_token = urllib.parse.quote(token, safe='')
                 posx = self.customization.get_h_pos()
                 posy = self.customization.get_v_pos()
                 width = self.customization.get_width()
                 height = self.customization.get_height()
 
-                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}&layout_id={self.configuration.id}'
+                preview_link = f'./preview?output={encoded_token}&width={width}&height={height}&x={posx}&y={posy}&layout_id={self.configuration.id}'
                 with ui.row().classes('items-center w-full'):
                     ui.link(Messages.get(Messages.PREVIEW_LINK),
                               preview_link, new_tab=True)

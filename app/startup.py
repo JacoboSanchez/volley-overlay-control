@@ -124,7 +124,7 @@ def startup() -> None:
             ui.label("Output token is missing.")
             return
         
-        url = OidDialog.UNO_OUTPUT_BASE_URL + output
+        url = output if output.startswith("http") else OidDialog.UNO_OUTPUT_BASE_URL + output
 
         preview_page = PreviewPage(output=url, xpos=x, ypos=y, width=width, height=height, layout_id=layout_id)
         ui.on('resize', lambda e: preview_page.set_page_size(e.args['width'], e.args['height']))
@@ -166,7 +166,7 @@ def startup() -> None:
                 oid_to_use = oid
                 source = "URL"
                 if output:
-                    output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + output
+                    output_to_use = output if output.startswith("http") else OidDialog.UNO_OUTPUT_BASE_URL + output
             else:
                 logger.warning("Invalid OID provided in URL: %s", oid)
 
@@ -203,7 +203,7 @@ def startup() -> None:
             if not output_to_use:
                 token = backend.fetch_output_token(oid_to_use)
                 if token:
-                    output_to_use = OidDialog.UNO_OUTPUT_BASE_URL + token
+                    output_to_use = token if token.startswith("http") else OidDialog.UNO_OUTPUT_BASE_URL + token
 
             logger.info("Using OID from %s: %s", source, oid_to_use)
             conf.oid = oid_to_use

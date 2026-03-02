@@ -38,10 +38,11 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 *   **Screen Wake Lock**: Automatically prevents the device screen from sleeping or turning off during an active match.
 *   **Dark Mode**: Native support for dark mode (Auto, On, Off).
 *   **Auto-Hide**: Automatically hide the scoreboard after a configurable timeout.
-*   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay.
+*   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay, with smooth overlay animations for hiding previous set data.
 *   **Smart Timeout**: Option to switch back to full mode when a timeout is called.
 *   **Live Preview**: Toggle a real-time preview of the overlay directly in the control panel.
 *   **Internationalization**: Available in **English** and **Spanish**.
+*   **Local Overlay Output**: Feeds directly into a high-performance local web graphic engine (run via FastAPI) for low-latency TV-style graphics.
 
 ### 🚀 Flexible Deployment
 *   **Local Execution**: Run locally as a standard Python application.
@@ -69,6 +70,10 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 
 > [!IMPORTANT]
 > **Compatibility Note:** Version 0.2 breaks compatibility with overlays created before March 2025.
+
+### ✨ Building a Custom Overlay
+
+If you want to build and host your own completely custom graphical overlay (instead of using overlays.uno), please refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for details on the required HTTP API contract.
 
 ---
 
@@ -107,6 +112,14 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
     python main.py
     ```
     NiceGUI will automatically open the scoreboard in your browser.
+
+4.  **Start the Local Overlay Engine (Optional)**:
+    If utilizing the high-performance local HTML graphics:
+    ```bash
+    cd overlay
+    python main.py
+    ```
+    Then load `http://localhost:8000/overlay/default` inside OBS Studio or vmix.
 
 ### Running with Docker 🐳
 

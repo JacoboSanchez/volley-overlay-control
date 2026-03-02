@@ -17,13 +17,19 @@ from app.app_storage import AppStorage
 
 @pytest.fixture
 def mock_requests_session():
-    """Fixture to mock the requests.Session object."""
-    with patch('app.backend.requests.Session') as mock_session_class:
+    """Fixture to mock the requests.Session object and top level requests."""
+    with patch('app.backend.requests.Session') as mock_session_class, \
+         patch('app.backend.requests.post') as mock_post:
         mock_session_instance = mock_session_class.return_value
         # Default successful response
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.json.return_value = {'payload': {}}
         mock_session_instance.put.return_value = mock_response
+        mock_session_instance.get.return_value = mock_response
+        
+        mock_post.return_value = mock_response
+        
         yield mock_session_instance
 
 @pytest.fixture
@@ -35,6 +41,12 @@ def conf():
 def backend(conf, mock_requests_session):
     """Provides a Backend instance with a mocked session."""
     return Backend(conf)
+
+@pytest.fixture(autouse=True)
+def mock_local_cache_path(tmp_path):
+    """Overrides the local cache path to use pytest's tmp_path to prevent cross-test file pollution."""
+    with patch('app.backend.Backend._get_local_cache_path', side_effect=lambda oid, suffix: str(tmp_path / f"custom_{oid}_{suffix}.json")):
+        yield
 
 # --- Test Cases ---
 
@@ -145,7 +157,7 @@ def test_save_model_multithreaded(mock_submit, backend, conf):
     """Tests that save_model starts a new thread task when multithreading is enabled."""
     conf.multithread = True
     backend.save_model({}, simple=False)
-    mock_submit.assert_called_once()
+    assert mock_submit.call_count == 1
 
 @patch('app.backend.ThreadPoolExecutor.submit')
 def test_save_model_single_threaded(mock_submit, backend, conf):
@@ -206,9 +218,10 @@ def test_reset(backend, mock_requests_session, conf):
     }
 
     # Now the assertion will correctly find that .put() has been called with the timeout included
-    mock_requests_session.put.assert_called_once_with(
-        mock_requests_session.put.call_args[0][0], json=expected_payload, timeout=5.0
+    mock_requests_session.put.assert_any_call(
+        mock_requests_session.put.call_args_list[0][0][0], json=expected_payload, timeout=5.0
     )
+    assert mock_requests_session.put.call_count == 1
 
 def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     """Tests that a custom OID overrides the default one in API calls."""
@@ -259,6 +272,100 @@ def test_save_model_explicit_sets_display_for_new_layout(backend, mock_requests_
         "id": conf.id,
         "content": {State.CURRENT_SET_INT: "2", "Sets Display": "2"}
     }
-    mock_requests_session.put.assert_called_once_with(
-        mock_requests_session.put.call_args[0][0], json=expected_payload, timeout=5.0
+    mock_requests_session.put.assert_any_call(
+        mock_requests_session.put.call_args_list[0][0][0], json=expected_payload, timeout=5.0
     )
+    assert mock_requests_session.put.call_count == 1
+
+# --- Custom Alternative Overlays Testing ---
+
+@patch('app.backend.requests.post')
+def test_custom_overlay_save_model(mock_post, backend, mock_requests_session, conf):
+    """Tests that a C- prefixed OID skips Uno and sends to the custom local url."""
+    conf.oid = "C-test_overlay"
+    conf.multithread = False
+    
+    mock_model = {"Team 1 Sets": "1"}
+    
+    # Run the save
+    backend.save_model(mock_model, simple=False)
+    
+    # Ensure Uno is NOT hit
+    mock_requests_session.put.assert_not_called()
+    
+    # Ensure the local overlay IS hit
+    mock_post.assert_called_once()
+    assert mock_post.call_args[0][0] == "http://localhost:8000/api/state/test_overlay"
+    
+@patch('app.backend.requests.post')
+def test_custom_overlay_lowercase_prefix(mock_post, backend, mock_requests_session, conf):
+    """Tests that a lowercase c- prefixed OID still routes to custom local url."""
+    conf.oid = "c-test_overlay_lower"
+    conf.multithread = False
+    
+    # Run the save
+    backend.save_model({"Team 1 Sets": "1"}, simple=False)
+    
+    # Ensure Uno is NOT hit
+    mock_requests_session.put.assert_not_called()
+    
+    # Ensure the local overlay IS hit
+    mock_post.assert_called_once()
+    assert mock_post.call_args[0][0] == "http://localhost:8000/api/state/test_overlay_lower"
+    
+@patch('app.backend.AppStorage.load')
+@patch('app.backend.requests.post')
+def test_custom_overlay_visibility(mock_post, mock_load, backend, mock_requests_session, conf):
+    """Tests that a C- prefixed OID handles visibility locally."""
+    conf.oid = "C-test_overlay"
+    conf.multithread = False
+    mock_load.return_value = {"Team 1 Sets": "0"}
+    
+    backend.change_overlay_visibility(True)
+    
+    # Uno bypassed
+    mock_requests_session.put.assert_not_called()
+    
+    # Local overlay hit
+    mock_post.assert_called_once()
+
+def test_custom_overlay_fetch_token_skips(backend, mock_requests_session, conf):
+    """Tests that fetch_output_token requests the local config endpoint for custom overlays."""
+    conf.oid = "C-test_overlay"
+    
+    # Setup mock to return the expected configured outputUrl
+    mock_requests_session.get.return_value.json.return_value = {"outputUrl": "http://localhost:8000/overlay/test_overlay"}
+    
+    result = backend.fetch_output_token(conf.oid)
+    
+    assert result == "http://localhost:8000/overlay/test_overlay"
+    mock_requests_session.get.assert_called_once()
+    assert mock_requests_session.get.call_args[0][0] == "http://localhost:8000/api/config/test_overlay"
+
+def test_custom_overlay_get_current_model_fallbacks(backend, mock_requests_session, conf):
+    """Tests that missing backend data returns default State instead of empty dict."""
+    conf.oid = "C-test_overlay"
+    
+    # Run the get
+    model = backend.get_current_model()
+    
+    assert model is not None
+    assert model.get("Team 1 Timeouts") == "0"
+    assert model.get("Current Set") == "1"
+
+def test_custom_overlay_get_current_customization_fallbacks(backend, mock_requests_session, conf):
+    """Tests that a missing customization returns default Customization state instead of empty dict."""
+    conf.oid = "C-test_overlay"
+    
+    cust = backend.get_current_customization()
+    
+    assert cust is not None
+    assert cust.get("Logos") == "true"
+    assert "Color 1" in cust
+
+@patch('app.backend.AppStorage.load')
+def test_custom_overlay_is_visible_fallback(mock_load, backend, mock_requests_session, conf):
+    """Tests that is_visible uses local fallback and true by default for custom overlays."""
+    conf.oid = "C-test_overlay"
+    assert backend.is_visible() is True
+    mock_requests_session.put.assert_not_called()
