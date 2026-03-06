@@ -98,7 +98,7 @@ class OidDialog:
         await asyncio.sleep(0)
         output = None
         if  (self.show_predefined_overlays and self.checkBoxEnabled == False)  or (self.radioButton != None and self.radioButton.value):
-            token = self.predefined_overlays[self.predefined_overlay_selector.value]['control']
+            token = self.extract_oid(self.predefined_overlays[self.predefined_overlay_selector.value]['control'])
             output = self.predefined_overlays[self.predefined_overlay_selector.value].get('output', None)
         else:
             token = self.extract_oid(self.control_url_input.value)
@@ -137,7 +137,7 @@ class OidDialog:
             return False
     
     def extract_oid(self, url: str) -> str:
-        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9]*)\??"
+        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??"
         match = re.match(pattern, url)
         if match:
             return match.group(1)
