@@ -171,9 +171,13 @@ class Backend:
                     data = resp.json().get("model", {})
                     if data:
                         return data
+                return State().get_reset_model()
+            except requests.exceptions.RequestException as e:
+                Backend.logger.error(f"Network error fetching custom overlay model: {e}")
+                return None
             except Exception as e:
                 Backend.logger.error(f"Failed to fetch custom overlay model: {e}")
-            return State().get_reset_model()
+                return None
 
         currentModel = AppStorage.load(AppStorage.Category.CURRENT_MODEL, oid=oid)
         if currentModel is not None:
