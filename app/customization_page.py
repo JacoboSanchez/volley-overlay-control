@@ -251,13 +251,14 @@ class CustomizationPage:
     async def show_links_dialog(self):
         with ui.dialog() as dialog, ui.card():
             ui.label(Messages.get(Messages.LINKS)).classes('text-h6')
-            control_link = f'https://app.overlays.uno/control/{self.configuration.oid}'
-            with ui.row().classes('items-center w-full'):
-                ui.link(Messages.get(Messages.CONTROL_LINK),
-                          control_link, new_tab=True)
-                ui.space()
-                ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
-                    f'navigator.clipboard.writeText("{control_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+            if not self.backend.is_custom_overlay(self.configuration.oid):
+                control_link = f'https://app.overlays.uno/control/{self.configuration.oid}'
+                with ui.row().classes('items-center w-full'):
+                    ui.link(Messages.get(Messages.CONTROL_LINK),
+                              control_link, new_tab=True)
+                    ui.space()
+                    ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
+                        f'navigator.clipboard.writeText("{control_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
             if self.configuration.output and self.configuration.output.strip():
                 overlay_link = self.configuration.output
                 with ui.row().classes('items-center w-full'):

@@ -31,6 +31,9 @@ def mock_backend():
         # Default model for simple tests. More complex tests will override this.
         mock_instance.get_current_model.return_value = load_fixture('base_model')
 
+        # Simulates is_custom_overlay
+        mock_instance.is_custom_overlay.side_effect = lambda oid=None: str(oid or "").upper().startswith("C-")
+
         # Simulates OID validation: only 'test_oid_valid' is valid.
         def validate_side_effect(oid):
             if oid is None:
