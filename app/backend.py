@@ -193,19 +193,31 @@ class Backend:
         Backend.logger.info('getting customization')
         
         if self.is_custom_overlay(customOid):
-            custom_id, _ = self.get_custom_overlay_id(customOid)
+            custom_id, style = self.get_custom_overlay_id(customOid)
             base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
             try:
                 resp = self.session.get(f"{base_url}/api/raw_config/{custom_id}", timeout=2.0)
                 if resp.status_code == 200:
                     data = resp.json().get("customization", {})
-                    if data:
-                        return data
+                    # If the OID included a /style and we don't have a preferred style explicitly saved, or we want OID to overwrite:
+                    # Let's see if we should set it. If data is empty we just use reset_state.
+                    # We will always set preferredStyle if style is provided in OID
+                    if not data:
+                        from app.customization import Customization
+                        data = copy.copy(Customization.reset_state)
+                    
+                    if style:
+                        data["preferredStyle"] = style
+                        
+                    return data
             except Exception as e:
                 Backend.logger.error(f"Failed to fetch custom overlay customization: {e}")
                 
             from app.customization import Customization
-            return copy.copy(Customization.reset_state)
+            data = copy.copy(Customization.reset_state)
+            if style:
+                data["preferredStyle"] = style
+            return data
             
         response = self.send_command_with_id_and_content("GetCustomization", customOid=customOid)
         if response.status_code == 200:
@@ -241,6 +253,21 @@ class Backend:
             logging.info("response status: %s", response.status_code)
             logging.debug("response message: '%s'", response.text)
         return response
+
+    def get_available_styles(self, oid: str = None) -> list:
+        check_oid = oid if oid is not None else self.conf.oid
+        if self.is_custom_overlay(check_oid):
+            custom_id, _ = self.get_custom_overlay_id(check_oid)
+            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+            url = f"{base_url}/api/config/{custom_id}"
+            try:
+                response = self.session.get(url, timeout=5.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get('availableStyles', [])
+            except Exception as e:
+                Backend.logger.error(f"Error fetching available styles from local overlay: {e}")
+        return []
 
     def validate_and_store_model_for_oid(self, oid: str):
         if oid is None or oid.strip() == "":
@@ -290,9 +317,6 @@ class Backend:
                     if output_url:
                         # Reconstruct output_url to prevent internal proxy hostname/HTTP leakage (Mixed Content block)
                         output_url = f"{base_url}/overlay/{custom_id}"
-                        if style:
-                            separator = "&" if "?" in output_url else "?"
-                            output_url = f"{output_url}{separator}style={style}"
                         Backend.logger.info(f"Local output URL found: {output_url}")
                         return output_url
             except Exception as e:
@@ -392,7 +416,8 @@ class Backend:
                         "set_text": cust.get_set_text_color(),
                         "game_bg": cust.get_game_color(),
                         "game_text": cust.get_game_text_color()
-                    }
+                    },
+                    "preferredStyle": cust.get_preferred_style()
                 }
             }
             

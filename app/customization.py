@@ -30,6 +30,7 @@ class Customization:
     GAME_TEXT_COLOR = "Text Color 2"
     COLOR3 = "Color 3"
     TEXT_COLOR3 = "Text Color 3"
+    PREFERRED_STYLE = "preferredStyle"
     LOCAL_NAME = Messages.get(Messages.LOCAL)
     VISITOR_NAME = Messages.get(Messages.VISITOR)
 
@@ -212,6 +213,15 @@ class Customization:
 
     def set_glossy(self, value):
         self.customization_model[Customization.GLOSS_EFFECT_BOOL] = value                    
+
+    def get_preferred_style(self):
+        return self.customization_model.get(Customization.PREFERRED_STYLE, None)
+
+    def set_preferred_style(self, style):
+        if style:
+            self.customization_model[Customization.PREFERRED_STYLE] = style
+        elif Customization.PREFERRED_STYLE in self.customization_model:
+            del self.customization_model[Customization.PREFERRED_STYLE]
 
     def get_width(self):
         val = self.customization_model.get(Customization.WIDTH_FLOAT, 30)

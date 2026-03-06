@@ -15,9 +15,9 @@ It will then communicate directly with your custom overlay server using the Base
 The `custom_id` passed to your server will be the user's overlay ID **without** the `C-` prefix. For `C-mybroadcast`, the `custom_id` passed in URLs is `mybroadcast`.
 
 **Styling Support**
-Users can append a specific style constraint to their overlay ID using the `/` separator (e.g., `C-mybroadcast/line`). When this happens:
-1. Remote-Scoreboard will parse `mybroadcast` as the `custom_id` for all `POST` state and `GET` configuration requests.
-2. If your `/api/config/{custom_id}` endpoint returns a basic output URL (e.g., `http://127.0.0.1/overlay/mybroadcast`), Remote-Scoreboard will automatically append the `?style=line` query parameter before giving the link to the user.
+Users can append a specific style constraint to their overlay ID using the `/` separator (e.g., `C-mybroadcast/line`). This specifies to the system exactly which layout template to use.
+Alternatively, users can change the current layout directly from the Remote-Scoreboard controller UI using the "Preferred Style" dropdown options fetched from your `/api/config/{custom_id}` endpoint.
+Remote-Scoreboard will send `preferredStyle` inside the `overlay_control` block of the JSON payload, and custom overlays can default to this style when the output URL has no explicit `?style` query constraint.
 
 ---
 
@@ -111,7 +111,8 @@ This is the core communication channel. Whenever a score changes, a timeout is c
       "set_text": "#FFFFFF",
       "game_bg": "#111111",
       "game_text": "#FFFFFF"
-    }
+    },
+    "preferredStyle": "line"
   }
 }
 ```
@@ -139,6 +140,7 @@ When `remote-scoreboard` boots up or users click save, it will heavily utilize t
     *   `show_main_scoreboard` *(Boolean)*: Controls the visibility of the entire graphic (toggled via the "eye" icon in the controller).
     *   `geometry`: The width scaling, X position, and Y position variables configured in the layout settings. Note that these are historically percentage or abstract coordinate numbers, requiring subjective mathematical mapping within your graphics engine.
     *   `colors`: Fallback or override colors for specific areas (Sets Box and Game Points Box).
+    *   `preferredStyle`: The layout style identifier that the user has selected from the remote-scoreboard UI dropdown based on your `availableStyles`.
 
 #### Expected Response:
 The backend does strict synchronous timeouts (usually 2.0 seconds) for overlay POST requests to minimize UI lag.

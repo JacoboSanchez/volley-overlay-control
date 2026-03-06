@@ -156,21 +156,29 @@ class CustomizationPage:
             self.init(self.container, force_reset=False)
 
     async def show_theme_dialog(self):
+        available_styles = self.backend.get_available_styles()
+
         with ui.dialog().props('persistent') as dialog, ui.card():
             ui.label(Messages.get(Messages.THEME_TITLE)).classes('text-lg font-semibold')
             theme_list = self.customization.get_theme_names()
             if not theme_list:
                 ui.label(Messages.get(Messages.NO_THEMES))
-                ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close).props('flat').classes('w-full mt-4')
             else:
                 selection = ui.select(list(theme_list), label=Messages.get(
                     Messages.THEME)).classes('w-[300px]').props('outlined').mark('theme-selector')
-                with ui.row().classes('w-full'):
+                with ui.row().classes('w-full mb-2'):
                     ui.button(Messages.get(Messages.LOAD),
                             on_click=lambda: self.apply_and_refresh(selection.value, dialog)).props('flat').mark('load-theme-button')
-                    ui.space()
-                    ui.button(Messages.get(Messages.CLOSE),
-                            on_click=dialog.close).props('flat').mark('close-theme-button')
+            
+            if available_styles and len(available_styles) > 1:
+                ui.separator()
+                ui.label("Preferred Style").classes('text-lg font-semibold mt-2')
+                ui.select(options=available_styles, label="Style",
+                          value=self.customization.get_preferred_style(),
+                          on_change=lambda e: self.customization.set_preferred_style(e.value)).classes('w-[300px]').props('outlined').mark('style-selector')
+
+            with ui.row().classes('w-full mt-4'):
+                ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close).props('flat').classes('w-full').mark('close-theme-button')
         await dialog
 
     def _setup_container(self, configuration_container=None):
@@ -233,7 +241,8 @@ class CustomizationPage:
                 ui.navigate.to('/')
 
             with ui.row().classes('items-center w-full'):
-                if len(list(self.customization.get_theme_names())) > 0:
+                available_styles = self.backend.get_available_styles()
+                if len(list(self.customization.get_theme_names())) > 0 or (available_styles and len(available_styles) > 1):
                     ui.button(icon='palette',
                               on_click=self.show_theme_dialog).props('flat').mark('theme-button')
                 ui.button(icon='link', on_click=self.show_links_dialog).props(ICON_BUTTON_PROPS + ' color=primary') \
@@ -328,6 +337,8 @@ class CustomizationPage:
         self.logger.info("Initializing")
         if not self._setup_container(configuration_container):
             return
+
+        available_styles = self.backend.get_available_styles()
 
         with self.container:
             team_names = self._prepare_team_names()
