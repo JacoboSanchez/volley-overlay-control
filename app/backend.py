@@ -288,6 +288,8 @@ class Backend:
                     data = response.json()
                     output_url = data.get('outputUrl')
                     if output_url:
+                        # Reconstruct output_url to prevent internal proxy hostname/HTTP leakage (Mixed Content block)
+                        output_url = f"{base_url}/overlay/{custom_id}"
                         if style:
                             separator = "&" if "?" in output_url else "?"
                             output_url = f"{output_url}{separator}style={style}"
