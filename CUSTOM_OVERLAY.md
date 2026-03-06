@@ -11,6 +11,7 @@ This document outlines the API contract that your custom overlay must implement 
 When the user configures an overlay ID starting with `C-` (e.g., `C-mybroadcast`), Remote-Scoreboard identifies this as a **Custom Overlay**.
 
 It will then communicate directly with your custom overlay server using the Base URL defined in the `APP_CUSTOM_OVERLAY_URL` environment variable (which defaults to `http://127.0.0.1:8000`).
+If your overlay needs an external-facing URL to be exposed to users via the "Links" dialog (e.g. for OBS consumption across networks), you can optionally provide `APP_CUSTOM_OVERLAY_OUTPUT_URL` (e.g. `http://my-public-domain.com:8000`). If missing, it falls back to the internal `APP_CUSTOM_OVERLAY_URL`.
 
 The `custom_id` passed to your server will be the user's overlay ID **without** the `C-` prefix. For `C-mybroadcast`, the `custom_id` passed in URLs is `mybroadcast`.
 

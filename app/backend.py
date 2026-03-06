@@ -328,7 +328,8 @@ class Backend:
                     output_url = data.get('outputUrl')
                     if output_url:
                         # Reconstruct output_url to prevent internal proxy hostname/HTTP leakage (Mixed Content block)
-                        output_url = f"{base_url}/overlay/{custom_id}"
+                        output_base_url = EnvVarsManager.get_custom_overlay_output_url().rstrip('/')
+                        output_url = f"{output_base_url}/overlay/{custom_id}"
                         Backend.logger.info(f"Local output URL found: {output_url}")
                         return output_url
             except Exception as e:

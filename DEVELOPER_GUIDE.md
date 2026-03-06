@@ -227,7 +227,7 @@ When modifying the code, keep these dependencies in mind:
 
     Adding a new Setting:
 
-        Add field to app/conf.py.
+        Add field to app/conf.py (or `app/env_vars_manager.py` for dynamic environment variables like `APP_CUSTOM_OVERLAY_OUTPUT_URL`).
 
         Add UI control to app/options_dialog.py.
 

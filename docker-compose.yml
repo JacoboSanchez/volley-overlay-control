@@ -15,6 +15,7 @@ services:
       - UNO_OVERLAY_OUTPUT=${UNO_OVERLAY_OUTPUT:-} #Optional (https://app.overlays.uno/output/<code>)
       - UNO_OVERLAY_AIR_ID=${UNO_OVERLAY_AIR_ID:-} #Optional
       - APP_CUSTOM_OVERLAY_URL=${APP_CUSTOM_OVERLAY_URL:-http://localhost:8000}
+      - APP_CUSTOM_OVERLAY_OUTPUT_URL=${APP_CUSTOM_OVERLAY_OUTPUT_URL:-} #Optional
       - APP_DARK_MODE=${APP_DARK_MODE:-auto}
       - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
       - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}

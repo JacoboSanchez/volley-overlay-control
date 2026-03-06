@@ -21,6 +21,11 @@ class EnvVarsManager:
         return cls.get_env_var('APP_CUSTOM_OVERLAY_URL', 'http://localhost:8000')
 
     @classmethod
+    def get_custom_overlay_output_url(cls):
+        return cls.get_env_var('APP_CUSTOM_OVERLAY_OUTPUT_URL', cls.get_custom_overlay_url())
+
+
+    @classmethod
     def _load_remote_config_if_needed(cls):
         remote_config_url = os.environ.get('REMOTE_CONFIG_URL', None)
         if remote_config_url is None:
