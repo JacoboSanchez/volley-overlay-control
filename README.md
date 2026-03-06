@@ -146,6 +146,7 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. A dialog will ask for it if not configured | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
+| `APP_CUSTOM_OVERLAY_URL` | The API URL for communicating with self-hosted custom overlays. | `http://localhost:8000` |
 | `APP_TITLE` | The title of the web page. | `Scoreboard` |
 | `APP_DARK_MODE` | Dark mode setting. Options: `on`, `off`, `auto`. | `auto` |
 | `APP_DEFAULT_LOGO` | URL of an image for teams without a predefined logo. | `https://...` |

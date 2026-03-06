@@ -5,36 +5,37 @@ services:
       dockerfile: Dockerfile
     restart: always
     ports:
-        - ${EXTERNAL_PORT:-80}:8080
+      - ${EXTERNAL_PORT:-80}:8080
     environment:
-        - PUID=1000 # change this to your user id
-        - PGID=1000 # change this to your group id
-        - APP_PORT=8080
-        - APP_TITLE=${APP_TITLE:-Scoreboard} #Optional
-        - UNO_OVERLAY_OID=${UNO_OVERLAY_OID:-}
-        - UNO_OVERLAY_OUTPUT=${UNO_OVERLAY_OUTPUT:-}  #Optional (https://app.overlays.uno/output/<code>)
-        - UNO_OVERLAY_AIR_ID=${UNO_OVERLAY_AIR_ID:-}  #Optional
-        - APP_DARK_MODE=${APP_DARK_MODE:-auto}
-        - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
-        - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
-        - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
-        - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
-        - APP_TEAMS=${APP_TEAMS:-}
-        - MATCH_GAME_POINTS=${MATCH_GAME_POINTS:-25}
-        - MATCH_GAME_POINTS_LAST_SET=${MATCH_GAME_POINTS_LAST_SET:-15}
-        - MATCH_SETS=${MATCH_SETS:-5}
-        - PREDEFINED_OVERLAYS=${PREDEFINED_OVERLAYS:-}
-        - HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=${HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED:-}
-        - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
-        - SCOREBOARD_LANGUAGE=${SCOREBOARD_LANGUAGE:-}
-        - REST_USER_AGENT=${REST_USER_AGENT:-}
-        - APP_THEMES=${APP_THEMES:-}
-        - APP_RELOAD=${APP_RELOAD:-false}
-        - APP_SHOW=${APP_SHOW:-false}
-        - AUTO_HIDE_ENABLED=${AUTO_HIDE_ENABLED:-false}
-        - DEFAULT_HIDE_TIMEOUT=${DEFAULT_HIDE_TIMEOUT:-5}
-        - AUTO_SIMPLE_MODE=${AUTO_SIMPLE_MODE:-false}
-        - AUTO_SIMPLE_MODE_TIMEOUT=${AUTO_SIMPLE_MODE_TIMEOUT:-false}
-        - DISABLE_OVERVIEW=${SHOW_PREVIEW:-false}
+      - PUID=1000 # change this to your user id
+      - PGID=1000 # change this to your group id
+      - APP_PORT=8080
+      - APP_TITLE=${APP_TITLE:-Scoreboard} #Optional
+      - UNO_OVERLAY_OID=${UNO_OVERLAY_OID:-}
+      - UNO_OVERLAY_OUTPUT=${UNO_OVERLAY_OUTPUT:-} #Optional (https://app.overlays.uno/output/<code>)
+      - UNO_OVERLAY_AIR_ID=${UNO_OVERLAY_AIR_ID:-} #Optional
+      - APP_CUSTOM_OVERLAY_URL=${APP_CUSTOM_OVERLAY_URL:-http://localhost:8000}
+      - APP_DARK_MODE=${APP_DARK_MODE:-auto}
+      - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
+      - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
+      - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
+      - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
+      - APP_TEAMS=${APP_TEAMS:-}
+      - MATCH_GAME_POINTS=${MATCH_GAME_POINTS:-25}
+      - MATCH_GAME_POINTS_LAST_SET=${MATCH_GAME_POINTS_LAST_SET:-15}
+      - MATCH_SETS=${MATCH_SETS:-5}
+      - PREDEFINED_OVERLAYS=${PREDEFINED_OVERLAYS:-}
+      - HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=${HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED:-}
+      - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
+      - SCOREBOARD_LANGUAGE=${SCOREBOARD_LANGUAGE:-}
+      - REST_USER_AGENT=${REST_USER_AGENT:-}
+      - APP_THEMES=${APP_THEMES:-}
+      - APP_RELOAD=${APP_RELOAD:-false}
+      - APP_SHOW=${APP_SHOW:-false}
+      - AUTO_HIDE_ENABLED=${AUTO_HIDE_ENABLED:-false}
+      - DEFAULT_HIDE_TIMEOUT=${DEFAULT_HIDE_TIMEOUT:-5}
+      - AUTO_SIMPLE_MODE=${AUTO_SIMPLE_MODE:-false}
+      - AUTO_SIMPLE_MODE_TIMEOUT=${AUTO_SIMPLE_MODE_TIMEOUT:-false}
+      - DISABLE_OVERVIEW=${SHOW_PREVIEW:-false}
     volumes:
-        - ./:/app/
+      - ./:/app/
