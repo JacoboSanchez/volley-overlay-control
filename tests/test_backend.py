@@ -42,11 +42,6 @@ def backend(conf, mock_requests_session):
     """Provides a Backend instance with a mocked session."""
     return Backend(conf)
 
-@pytest.fixture(autouse=True)
-def mock_local_cache_path(tmp_path):
-    """Overrides the local cache path to use pytest's tmp_path to prevent cross-test file pollution."""
-    with patch('app.backend.Backend._get_local_cache_path', side_effect=lambda oid, suffix: str(tmp_path / f"custom_{oid}_{suffix}.json")):
-        yield
 
 # --- Test Cases ---
 
