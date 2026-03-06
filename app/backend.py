@@ -206,8 +206,12 @@ class Backend:
                         from app.customization import Customization
                         data = copy.copy(Customization.reset_state)
                     
-                    if style:
+                    if style and data.get("preferredStyle") != style:
                         data["preferredStyle"] = style
+                        if self.conf.multithread:
+                            self.executor.submit(self.save_json_customization, data)
+                        else:
+                            self.save_json_customization(data)
                         
                     return data
             except Exception as e:
@@ -215,8 +219,12 @@ class Backend:
                 
             from app.customization import Customization
             data = copy.copy(Customization.reset_state)
-            if style:
+            if style and data.get("preferredStyle") != style:
                 data["preferredStyle"] = style
+                if self.conf.multithread:
+                    self.executor.submit(self.save_json_customization, data)
+                else:
+                    self.save_json_customization(data)
             return data
             
         response = self.send_command_with_id_and_content("GetCustomization", customOid=customOid)
