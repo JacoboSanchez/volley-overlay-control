@@ -121,7 +121,7 @@ def startup() -> None:
         height = height if height is not None else 100
 
         if not output:
-            ui.label("Output token is missing.")
+            ui.label(Messages.get(Messages.OUTPUT_TOKEN_MISSING))
             return
         
         url = output if output.startswith("http") else OidDialog.UNO_OUTPUT_BASE_URL + output
@@ -209,7 +209,7 @@ def startup() -> None:
             conf.oid = oid_to_use
             conf.output = output_to_use
         else:
-            ui.label("Scoreboard could not be loaded. A valid overlay is required.").classes('m-auto text-negative')
+            ui.label(Messages.get(Messages.SCOREBOARD_LOAD_ERROR)).classes('m-auto text-negative')
             return
 
         scoreboard_page = GUI(tabs, conf, backend)

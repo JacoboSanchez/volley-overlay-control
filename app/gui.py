@@ -88,8 +88,8 @@ class GUI:
                 format='%.0f'
             ).classes('w-full').mark('value-input')
             with ui.row():
-                ui.button('OK', icon='done', color=None, on_click=self._handle_custom_value_submit).props('flat').classes('text-green-500').mark('value-input-ok-button')
-                ui.button('Cancel', icon='close', color=None, on_click=self.custom_value_dialog.close).props('flat').classes('text-red-500').mark('value-input-cancel-button')
+                ui.button(Messages.get(Messages.OK), icon='done', color=None, on_click=self._handle_custom_value_submit).props('flat').classes('text-green-500').mark('value-input-ok-button')
+                ui.button(Messages.get(Messages.CANCEL), icon='close', color=None, on_click=self.custom_value_dialog.close).props('flat').classes('text-red-500').mark('value-input-cancel-button')
 
 
     def set_customization_model(self, model):
