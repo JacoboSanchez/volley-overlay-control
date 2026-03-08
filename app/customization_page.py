@@ -172,10 +172,11 @@ class CustomizationPage:
             
             if available_styles and len(available_styles) > 1:
                 ui.separator()
-                ui.label("Preferred Style").classes('text-lg font-semibold mt-2')
-                ui.select(options=available_styles, label="Style",
+                ui.label(Messages.get(Messages.PREFERRED_STYLE)).classes('text-lg font-semibold mt-2')
+                ui.select(options=available_styles, label=Messages.get(Messages.STYLE),
                           value=self.customization.get_preferred_style(),
                           on_change=lambda e: self.customization.set_preferred_style(e.value)).classes('w-[300px]').props('outlined').mark('style-selector')
+                ui.label(Messages.get(Messages.STYLE_REQUIRES_SAVE)).classes('text-sm text-gray-500 mt-1')
 
             with ui.row().classes('w-full mt-4'):
                 ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close).props('flat').classes('w-full').mark('close-theme-button')
