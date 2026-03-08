@@ -46,4 +46,4 @@ jobs:
         APP_PORT: 8080
         UNO_OVERLAY_OID: dummy_token_for_tests
       run: |
-        pytest tests/
+        pytest tests/ --cov=app --cov-report=term-missing
