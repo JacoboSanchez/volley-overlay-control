@@ -12,6 +12,9 @@ from app.constants import Constants
 if "PYTEST_CURRENT_TEST" not in os.environ:
     load_dotenv()
 
+from app.config_validator import validate_config
+validate_config()
+
 # Call the configuration function
 setup_logging()
 logger = logging.getLogger("Main")
