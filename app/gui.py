@@ -11,8 +11,11 @@ from app.components.team_panel import TeamPanel
 from app.components.center_panel import CenterPanel
 from app.components.control_buttons import ControlButtons
 import asyncio
+import weakref
 
 class GUI:
+    # Class-level registry of active GUI instances for multi-user broadcast
+    _instances = weakref.WeakSet()
 
     @staticmethod
     def is_portrait(width, height):
@@ -76,6 +79,9 @@ class GUI:
         init_val = True if saved_dark_mode == 'on' else False if saved_dark_mode == 'off' else None
         self.dark_mode = ui.dark_mode(value=init_val)
         self.fullscreen = ui.fullscreen()
+
+        # Register this instance for multi-user broadcast
+        GUI._instances.add(self)
 
 
         # --- Reusable Dialog for Custom Values ---
@@ -615,8 +621,9 @@ class GUI:
         self.visibility_button.props(f'color={color}')
 
     def send_state(self):
-        """Sends the current state to the backend."""
+        """Sends the current state to the backend and broadcasts to other clients."""
         self.game_manager.save(self.simple, self.current_set)
+        self._broadcast_to_others()
 
     async def reset(self):
         """Resets the game state, saves it, and updates the UI."""
@@ -629,6 +636,15 @@ class GUI:
         """Reloads the game state from the backend and updates the UI."""
         self.logger.debug('Refresh called, reloading state from backend.')
         self.update_ui(load_from_backend=True)
+
+    def _broadcast_to_others(self):
+        """Notify all other connected GUI instances to refresh their UI."""
+        for instance in GUI._instances:
+            if instance is not self and instance.initialized:
+                try:
+                    instance.update_ui(load_from_backend=True)
+                except Exception as e:
+                    self.logger.debug(f'Broadcast to other client failed: {e}')
         
 
     def change_serve(self, team, force=False):
