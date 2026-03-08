@@ -273,6 +273,37 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 
 ---
 
+## 🔧 Troubleshooting
+
+| Issue | Solution |
+| :--- | :--- |
+| App won't start / blank page | Verify `UNO_OVERLAY_OID` is set correctly. Check the browser console for errors. |
+| Overlay not updating | Ensure the overlay control token is valid and matches the correct layout. Try clicking "Reload data" in the control panel. |
+| Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
+| "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
+| Custom overlay not receiving updates | Verify `APP_CUSTOM_OVERLAY_URL` is reachable. Overlay IDs must start with `C-`. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1.  **Fork** the repository and create a feature branch.
+2.  **Install dependencies** and ensure tests pass (`pytest tests/`).
+3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
+4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.
+
+For custom overlay development, see [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md).
+
+---
+
+## 📄 License
+
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+
+---
+
 ## ⚠️ Disclaimer
 
 This software was developed as a personal project and is provided **as-is**. It was built iteratively and may lack comprehensive error handling.

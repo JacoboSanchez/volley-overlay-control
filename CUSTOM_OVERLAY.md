@@ -4,6 +4,14 @@ The **Remote-Scoreboard** system is capable of driving completely custom, third-
 
 This document outlines the API contract that your custom overlay must implement to be fully compatible with Remote-Scoreboard.
 
+> [!TIP]
+> **Quick Start Checklist** — Your custom overlay server must:
+> 1. Implement `GET /api/config/{id}` returning `{ "outputUrl": "...", "availableStyles": [...] }`
+> 2. Implement `POST /api/state/{id}` accepting the full match state JSON
+> 3. Implement `GET /api/raw_config/{id}` and `POST /api/raw_config/{id}` for state persistence
+> 4. Use overlay IDs prefixed with `C-` (e.g., `C-mybroadcast`)
+> 5. Return `200 OK` within 2 seconds on POST requests
+
 ---
 
 ## 🔗 The Connection Protocol
@@ -185,3 +193,11 @@ window.parent.postMessage({
 ```
 
 **Implementation Tip:** Attach this `postMessage` call to a `ResizeObserver` or `MutationObserver` mapped to your main scoreboard `<div>`. Whenever your overlay scales, moves, or changes dimensions (like when expanding to show additional set history), the observer will automatically dispatch updated boundaries ensuring the controller's preview always stays perfectly framed!
+
+---
+
+## 📎 Reference Implementation
+
+The `.web/` directory in the Remote-Scoreboard repository contains a React-Router based local overlay frontend that implements this API contract. You can use it as a starting point for your own custom overlay.
+
+For general application architecture and development guidance, see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
