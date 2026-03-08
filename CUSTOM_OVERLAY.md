@@ -200,4 +200,6 @@ window.parent.postMessage({
 
 The `.web/` directory in the Remote-Scoreboard repository contains a React-Router based local overlay frontend that implements this API contract. You can use it as a starting point for your own custom overlay.
 
+A machine-readable **OpenAPI 3.0 specification** for the full contract is available at [CUSTOM_OVERLAY_API.yaml](CUSTOM_OVERLAY_API.yaml). It can be imported into tools like Swagger UI, Postman, or Insomnia for interactive exploration and automatic mock generation.
+
 For general application architecture and development guidance, see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).

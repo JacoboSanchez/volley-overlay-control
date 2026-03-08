@@ -1,0 +1,325 @@
+openapi: 3.0.3
+info:
+  title: Remote-Scoreboard Custom Overlay API
+  version: "1.0"
+  description: >
+    HTTP contract that any custom overlay server must implement to be driven
+    by Remote-Scoreboard. Overlay IDs must be prefixed with `C-` in the
+    Remote-Scoreboard UI (e.g. `C-mybroadcast`). The prefix is stripped before
+    being passed to these endpoints as `{custom_id}`.
+
+    The base URL of the overlay server is configured via the
+    `APP_CUSTOM_OVERLAY_URL` environment variable (default
+    `http://127.0.0.1:8000`). See `CUSTOM_OVERLAY.md` for full integration
+    guidance and the reference implementation in `.web/`.
+
+servers:
+  - url: http://127.0.0.1:8000
+    description: Default local overlay server
+
+paths:
+  /api/config/{custom_id}:
+    get:
+      operationId: getOverlayConfig
+      summary: Output URL and available styles
+      description: >
+        Polled by Remote-Scoreboard when the user views or previews the overlay
+        link. Must return the public output URL and the list of visual styles
+        the overlay supports.
+      parameters:
+        - $ref: '#/components/parameters/custom_id'
+      responses:
+        "200":
+          description: Overlay configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayConfig'
+              example:
+                outputUrl: "http://127.0.0.1:8000/overlay/mybroadcast"
+                availableStyles:
+                  - default
+                  - line
+                  - minimal
+
+  /api/state/{custom_id}:
+    post:
+      operationId: pushMatchState
+      summary: Push current match state
+      description: >
+        Called by Remote-Scoreboard on every score change, timeout, colour
+        update, or visibility toggle. The overlay server must respond with
+        `200 OK` within **2 seconds** to avoid UI lag. The server should
+        immediately relay the received payload to connected browser clients
+        via WebSocket.
+      parameters:
+        - $ref: '#/components/parameters/custom_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchState'
+      responses:
+        "200":
+          description: State accepted
+
+  /api/raw_config/{custom_id}:
+    get:
+      operationId: getRawConfig
+      summary: Retrieve persisted model and customization
+      description: >
+        Remote-Scoreboard uses this endpoint to reload its own internal state
+        (model + customization JSON) from the overlay server on startup or when
+        switching overlays. Unrecognised IDs should return a `404`.
+      parameters:
+        - $ref: '#/components/parameters/custom_id'
+      responses:
+        "200":
+          description: Stored raw configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RawConfig'
+        "404":
+          description: Overlay ID not initialised
+
+    post:
+      operationId: saveRawConfig
+      summary: Persist model or customization
+      description: >
+        Remote-Scoreboard posts one or both top-level keys (`model`,
+        `customization`) to durably store its state alongside the overlay
+        instance. The server must persist the payload and return `200 OK`
+        promptly.
+      parameters:
+        - $ref: '#/components/parameters/custom_id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RawConfig'
+      responses:
+        "200":
+          description: Configuration saved
+
+components:
+  parameters:
+    custom_id:
+      name: custom_id
+      in: path
+      required: true
+      description: >
+        Overlay identifier — the user's overlay ID with the `C-` prefix
+        removed (e.g. `mybroadcast` for overlay ID `C-mybroadcast`).
+      schema:
+        type: string
+        example: mybroadcast
+
+  schemas:
+    OverlayConfig:
+      type: object
+      required:
+        - outputUrl
+      properties:
+        outputUrl:
+          type: string
+          format: uri
+          description: >
+            Absolute URL where the graphical overlay view is served (the URL
+            pasted into OBS/vMix as a browser source).
+          example: "http://127.0.0.1:8000/overlay/mybroadcast"
+        availableStyles:
+          type: array
+          description: >
+            Visual layout/theme identifiers supported by this overlay.
+            Shown in the Remote-Scoreboard "Preferred Style" dropdown.
+          items:
+            type: string
+          example:
+            - default
+            - line
+            - minimal
+
+    MatchState:
+      type: object
+      required:
+        - match_info
+        - team_home
+        - team_away
+        - overlay_control
+      properties:
+        match_info:
+          $ref: '#/components/schemas/MatchInfo'
+        team_home:
+          $ref: '#/components/schemas/TeamState'
+        team_away:
+          $ref: '#/components/schemas/TeamState'
+        overlay_control:
+          $ref: '#/components/schemas/OverlayControl'
+
+    MatchInfo:
+      type: object
+      properties:
+        tournament:
+          type: string
+          example: "Superliga Masculina"
+        phase:
+          type: string
+          example: "Playoffs"
+        best_of_sets:
+          type: integer
+          minimum: 1
+          example: 5
+        current_set:
+          type: integer
+          minimum: 1
+          example: 2
+        show_only_current_set:
+          type: boolean
+          description: >
+            When `true` (Simple Mode active) the overlay should hide previous
+            set history rendering.
+          example: false
+
+    TeamState:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Home Team Name"
+        short_name:
+          type: string
+          description: Abbreviation, typically the first 3 characters of the name.
+          example: "HOM"
+        color_primary:
+          type: string
+          description: CSS hex colour used for team background.
+          example: "#E21836"
+        color_secondary:
+          type: string
+          description: CSS hex colour used for team text.
+          example: "#FFFFFF"
+        logo_url:
+          type: string
+          description: Absolute URL to the team logo image. Empty string if unset.
+          example: "https://example.com/logo.png"
+        sets_won:
+          type: integer
+          minimum: 0
+          example: 1
+        points:
+          type: integer
+          minimum: 0
+          description: Points scored in the current set.
+          example: 24
+        serving:
+          type: boolean
+          description: "`true` if this team is currently serving."
+          example: true
+        timeouts_taken:
+          type: integer
+          minimum: 0
+          example: 1
+        set_history:
+          type: object
+          description: Points scored by this team in each set.
+          properties:
+            set_1: { type: integer, minimum: 0 }
+            set_2: { type: integer, minimum: 0 }
+            set_3: { type: integer, minimum: 0 }
+            set_4: { type: integer, minimum: 0 }
+            set_5: { type: integer, minimum: 0 }
+          example:
+            set_1: 25
+            set_2: 24
+            set_3: 0
+            set_4: 0
+            set_5: 0
+
+    OverlayControl:
+      type: object
+      properties:
+        show_main_scoreboard:
+          type: boolean
+          description: >
+            Master visibility flag for the entire graphic (toggled via the
+            eye icon in the controller UI).
+          example: true
+        show_bottom_ticker:
+          type: boolean
+          example: false
+        ticker_message:
+          type: string
+          example: "Match delayed by 5 minutes"
+        show_player_stats:
+          type: boolean
+          example: false
+        player_stats_data:
+          nullable: true
+          example: null
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        colors:
+          $ref: '#/components/schemas/Colors'
+        preferredStyle:
+          type: string
+          description: >
+            Layout style identifier selected by the user from the
+            `availableStyles` list. The overlay should default to this style
+            when no explicit `?style` query parameter is present in the URL.
+          example: "line"
+
+    Geometry:
+      type: object
+      description: >
+        Abstract positioning values configured in the Remote-Scoreboard layout
+        settings. Mapping to actual pixel coordinates is the overlay's
+        responsibility.
+      properties:
+        width:
+          type: number
+          example: 30.0
+        height:
+          type: number
+          example: 0.0
+        xpos:
+          type: number
+          example: -45.0
+        ypos:
+          type: number
+          example: 40.0
+
+    Colors:
+      type: object
+      description: Override colours for the Sets Box and Game Points Box.
+      properties:
+        set_bg:
+          type: string
+          example: "#333333"
+        set_text:
+          type: string
+          example: "#FFFFFF"
+        game_bg:
+          type: string
+          example: "#111111"
+        game_text:
+          type: string
+          example: "#FFFFFF"
+
+    RawConfig:
+      type: object
+      description: >
+        Arbitrary JSON blobs that Remote-Scoreboard persists on the overlay
+        server to avoid storing state locally. Both keys are optional in POST
+        requests (either one may be sent independently).
+      properties:
+        model:
+          type: object
+          description: Raw overlay content model (key/value pairs).
+          additionalProperties: true
+        customization:
+          type: object
+          description: Raw customization state (team names, colours, geometry, etc.).
+          additionalProperties: true
