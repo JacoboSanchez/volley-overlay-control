@@ -22,7 +22,7 @@ class ControlButtons:
                 icon='undo', on_click=lambda: self.gui.switch_undo(False)
             ).props(f'outline color={UNDO_COLOR}').mark('undo-button').classes(CONTROL_BUTTON_CLASSES)
             
-            if not self.gui.conf.disable_overview and self.gui.conf.output is not None:
+            if self.gui.conf.show_overview and self.gui.conf.output is not None:
                 icon = self.gui.PREVIEW_ENABLED_ICON if self.gui.preview_visible else self.gui.PREVIEW_DISABLED_ICON
                 self.gui.preview_button = ui.button(
                     icon=icon, on_click=self.gui.toggle_preview
