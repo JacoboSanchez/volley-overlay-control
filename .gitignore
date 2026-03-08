@@ -3,3 +3,7 @@ __pycache__/
 /screenshots*
 /.nicegui
 /data
+/assets
+/bin
+/.states
+/test
