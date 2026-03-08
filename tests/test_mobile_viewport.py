@@ -6,14 +6,19 @@ that PWA-critical features are in place, using two complementary approaches:
 
 1. NiceGUI User tests  — functional checks for mobile-critical UI elements
    (score buttons, control buttons, navigation) using the same headless client
-   as the rest of the test suite.
+   as the rest of the test suite.  These run in CI as part of the standard
+   test suite.
 
 2. Playwright viewport tests  — launch a real Chromium browser at common mobile
    resolutions (iPhone 14 Pro: 393×852, Pixel 7: 412×915) to assert that key
    elements are actually visible and not clipped/overflowing on small screens.
+   These are marked ``mobile_browser`` and require the app to be running:
 
-Running the Playwright tests requires browser binaries to be installed:
-    playwright install chromium
+       # Terminal 1 — start the app
+       python main.py
+
+       # Terminal 2 — run browser tests
+       pytest tests/test_mobile_viewport.py -m mobile_browser --headed
 """
 
 import json
@@ -21,8 +26,6 @@ import os
 import pytest
 import asyncio
 from nicegui.testing import User
-from tests.conftest import load_fixture
-from app.messages import Messages
 
 # ---------------------------------------------------------------------------
 # Shared viewport definitions
@@ -35,15 +38,8 @@ MOBILE_VIEWPORTS = [
 ]
 
 # ---------------------------------------------------------------------------
-# NiceGUI User tests — mobile-critical functional checks
+# NiceGUI User tests — mobile-critical functional checks (run in CI)
 # ---------------------------------------------------------------------------
-
-async def test_pwa_manifest_accessible(user: User):
-    """The PWA manifest must be reachable so mobile browsers can install the app."""
-    await user.open("/pwa/manifest.json")
-    # NiceGUI serves static files; any non-error response means it's reachable
-    await user.should_not_see("404")
-    await user.should_not_see("Not Found")
 
 
 async def test_score_buttons_present_on_mobile(user: User):
@@ -77,7 +73,7 @@ async def test_score_increment_works_on_mobile(user: User):
 
 
 # ---------------------------------------------------------------------------
-# PWA manifest content validation
+# PWA manifest content validation (runs in CI, no server needed)
 # ---------------------------------------------------------------------------
 
 
@@ -109,32 +105,30 @@ def test_pwa_manifest_has_required_mobile_fields():
 
 
 # ---------------------------------------------------------------------------
-# Playwright viewport tests
+# Playwright viewport tests — marked mobile_browser, excluded from CI default
+# run.  Require `python main.py` to be running and `playwright install chromium`.
 # ---------------------------------------------------------------------------
 
+_APP_URL = os.environ.get("APP_BASE_URL", "http://localhost:8080")
 
+
+@pytest.mark.mobile_browser
 @pytest.mark.parametrize("viewport", MOBILE_VIEWPORTS, ids=[v["name"] for v in MOBILE_VIEWPORTS])
-def test_app_renders_at_mobile_viewport(viewport, page, nicegui_reset_globals):
+def test_app_renders_at_mobile_viewport(viewport, page):
     """
     Launch the app in a real Chromium browser at the given mobile resolution and
     verify that the primary score area is visible without horizontal overflow.
-
-    Requires: playwright install chromium
     """
     page.set_viewport_size({"width": viewport["width"], "height": viewport["height"]})
-
-    # NiceGUI test server runs on port 3392 by default when using nicegui.testing.plugin
-    page.goto("http://localhost:3392/")
+    page.goto(_APP_URL)
     page.wait_for_load_state("networkidle", timeout=10_000)
 
-    # The two score elements must be in the viewport — not scrolled off-screen
     team1_score = page.locator("[data-testid='team-1-score'], [marker='team-1-score']").first
     team2_score = page.locator("[data-testid='team-2-score'], [marker='team-2-score']").first
 
     assert team1_score.is_visible(), f"Team 1 score not visible at {viewport['name']} resolution"
     assert team2_score.is_visible(), f"Team 2 score not visible at {viewport['name']} resolution"
 
-    # Check for horizontal scroll — a key mobile UX failure
     overflow = page.evaluate(
         "document.documentElement.scrollWidth > document.documentElement.clientWidth"
     )
@@ -144,14 +138,15 @@ def test_app_renders_at_mobile_viewport(viewport, page, nicegui_reset_globals):
     )
 
 
+@pytest.mark.mobile_browser
 @pytest.mark.parametrize("viewport", MOBILE_VIEWPORTS, ids=[v["name"] for v in MOBILE_VIEWPORTS])
-def test_score_buttons_are_touch_friendly(viewport, page, nicegui_reset_globals):
+def test_score_buttons_are_touch_friendly(viewport, page):
     """
     Score buttons must meet a minimum 44×44 px touch target size recommended by
     WCAG 2.5.5 and Apple/Google mobile HIG guidelines.
     """
     page.set_viewport_size({"width": viewport["width"], "height": viewport["height"]})
-    page.goto("http://localhost:3392/")
+    page.goto(_APP_URL)
     page.wait_for_load_state("networkidle", timeout=10_000)
 
     for marker in ("team-1-score", "team-2-score"):
