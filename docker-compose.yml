@@ -38,5 +38,11 @@ services:
       - AUTO_SIMPLE_MODE=${AUTO_SIMPLE_MODE:-false}
       - AUTO_SIMPLE_MODE_TIMEOUT=${AUTO_SIMPLE_MODE_TIMEOUT:-false}
       - SHOW_PREVIEW=${SHOW_PREVIEW:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     volumes:
       - ./:/app/

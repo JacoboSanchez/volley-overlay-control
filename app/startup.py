@@ -33,6 +33,15 @@ def serve_sw():
 def serve_manifest():
     return FileResponse('app/pwa/manifest.json', media_type='application/json')
 
+@app.get('/health')
+def health_check():
+    import time
+    return {
+        'status': 'ok',
+        'timestamp': int(time.time()),
+        'service': 'volley-overlay-control'
+    }
+
 def startup() -> None:
     def reset_all():
         logger.info("Clearing storage")
