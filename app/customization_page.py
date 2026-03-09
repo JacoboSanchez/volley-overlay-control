@@ -10,6 +10,7 @@ from app.authentication import PasswordAuthenticator
 from app.messages import Messages
 from app.options_dialog import OptionsDialog
 from app.app_storage import AppStorage
+import urllib.parse
 
 
 class CustomizationPage:
@@ -155,21 +156,30 @@ class CustomizationPage:
             self.init(self.container, force_reset=False)
 
     async def show_theme_dialog(self):
+        available_styles = self.backend.get_available_styles()
+
         with ui.dialog().props('persistent') as dialog, ui.card():
             ui.label(Messages.get(Messages.THEME_TITLE)).classes('text-lg font-semibold')
             theme_list = self.customization.get_theme_names()
             if not theme_list:
                 ui.label(Messages.get(Messages.NO_THEMES))
-                ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close).props('flat').classes('w-full mt-4')
             else:
                 selection = ui.select(list(theme_list), label=Messages.get(
                     Messages.THEME)).classes('w-[300px]').props('outlined').mark('theme-selector')
-                with ui.row().classes('w-full'):
+                with ui.row().classes('w-full mb-2'):
                     ui.button(Messages.get(Messages.LOAD),
                             on_click=lambda: self.apply_and_refresh(selection.value, dialog)).props('flat').mark('load-theme-button')
-                    ui.space()
-                    ui.button(Messages.get(Messages.CLOSE),
-                            on_click=dialog.close).props('flat').mark('close-theme-button')
+            
+            if available_styles and len(available_styles) > 1:
+                ui.separator()
+                ui.label(Messages.get(Messages.PREFERRED_STYLE)).classes('text-lg font-semibold mt-2')
+                ui.select(options=available_styles, label=Messages.get(Messages.STYLE),
+                          value=self.customization.get_preferred_style(),
+                          on_change=lambda e: self.customization.set_preferred_style(e.value)).classes('w-[300px]').props('outlined').mark('style-selector')
+                ui.label(Messages.get(Messages.STYLE_REQUIRES_SAVE)).classes('text-sm text-gray-500 mt-1')
+
+            with ui.row().classes('w-full mt-4'):
+                ui.button(Messages.get(Messages.CLOSE), on_click=dialog.close).props('flat').classes('w-full').mark('close-theme-button')
         await dialog
 
     def _setup_container(self, configuration_container=None):
@@ -232,7 +242,8 @@ class CustomizationPage:
                 ui.navigate.to('/')
 
             with ui.row().classes('items-center w-full'):
-                if len(list(self.customization.get_theme_names())) > 0:
+                available_styles = self.backend.get_available_styles()
+                if len(list(self.customization.get_theme_names())) > 0 or (available_styles and len(available_styles) > 1):
                     ui.button(icon='palette',
                               on_click=self.show_theme_dialog).props('flat').mark('theme-button')
                 ui.button(icon='link', on_click=self.show_links_dialog).props(ICON_BUTTON_PROPS + ' color=primary') \
@@ -250,13 +261,14 @@ class CustomizationPage:
     async def show_links_dialog(self):
         with ui.dialog() as dialog, ui.card():
             ui.label(Messages.get(Messages.LINKS)).classes('text-h6')
-            control_link = f'https://app.overlays.uno/control/{self.configuration.oid}'
-            with ui.row().classes('items-center w-full'):
-                ui.link(Messages.get(Messages.CONTROL_LINK),
-                          control_link, new_tab=True)
-                ui.space()
-                ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
-                    f'navigator.clipboard.writeText("{control_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
+            if not self.backend.is_custom_overlay(self.configuration.oid):
+                control_link = f'https://app.overlays.uno/control/{self.configuration.oid}'
+                with ui.row().classes('items-center w-full'):
+                    ui.link(Messages.get(Messages.CONTROL_LINK),
+                              control_link, new_tab=True)
+                    ui.space()
+                    ui.button(icon='content_copy', on_click=lambda: ui.run_javascript(
+                        f'navigator.clipboard.writeText("{control_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
             if self.configuration.output and self.configuration.output.strip():
                 overlay_link = self.configuration.output
                 with ui.row().classes('items-center w-full'):
@@ -267,12 +279,13 @@ class CustomizationPage:
                         f'navigator.clipboard.writeText("{overlay_link}")')).props(ICON_BUTTON_PROPS).tooltip(Messages.get(Messages.COPY_TO_CLIPBOARD))
                 
                 token = overlay_link.split('/')[-1]
+                encoded_token = urllib.parse.quote(token, safe='')
                 posx = self.customization.get_h_pos()
                 posy = self.customization.get_v_pos()
                 width = self.customization.get_width()
                 height = self.customization.get_height()
 
-                preview_link = f'./preview?output={token}&width={width}&height={height}&x={posx}&y={posy}&layout_id={self.configuration.id}'
+                preview_link = f'./preview?output={encoded_token}&width={width}&height={height}&x={posx}&y={posy}&layout_id={self.configuration.id}'
                 with ui.row().classes('items-center w-full'):
                     ui.link(Messages.get(Messages.PREVIEW_LINK),
                               preview_link, new_tab=True)
@@ -325,6 +338,8 @@ class CustomizationPage:
         self.logger.info("Initializing")
         if not self._setup_container(configuration_container):
             return
+
+        available_styles = self.backend.get_available_styles()
 
         with self.container:
             team_names = self._prepare_team_names()

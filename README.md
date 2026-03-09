@@ -38,10 +38,11 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 *   **Screen Wake Lock**: Automatically prevents the device screen from sleeping or turning off during an active match.
 *   **Dark Mode**: Native support for dark mode (Auto, On, Off).
 *   **Auto-Hide**: Automatically hide the scoreboard after a configurable timeout.
-*   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay.
+*   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay, with smooth overlay animations for hiding previous set data.
 *   **Smart Timeout**: Option to switch back to full mode when a timeout is called.
 *   **Live Preview**: Toggle a real-time preview of the overlay directly in the control panel.
 *   **Internationalization**: Available in **English** and **Spanish**.
+*   **Local Overlay Output**: Feeds directly into a high-performance local web graphic engine (run via FastAPI) for low-latency TV-style graphics.
 
 ### 🚀 Flexible Deployment
 *   **Local Execution**: Run locally as a standard Python application.
@@ -69,6 +70,10 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 
 > [!IMPORTANT]
 > **Compatibility Note:** Version 0.2 breaks compatibility with overlays created before March 2025.
+
+### ✨ Building a Custom Overlay
+
+If you want to build and host your own completely custom graphical overlay (instead of using overlays.uno), please refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for details on the required HTTP API contract.
 
 ---
 
@@ -108,6 +113,14 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
     ```
     NiceGUI will automatically open the scoreboard in your browser.
 
+4.  **Start the Local Overlay Engine (Optional)**:
+    If utilizing the high-performance local HTML graphics:
+    ```bash
+    cd overlay
+    python main.py
+    ```
+    Then load `http://localhost:8000/overlay/default` inside OBS Studio or vmix.
+
 ### Running with Docker 🐳
 
 Use the provided `docker-compose.yml`.
@@ -133,6 +146,8 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. A dialog will ask for it if not configured | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
+| `APP_CUSTOM_OVERLAY_URL` | The API URL for communicating with self-hosted custom overlays. | `http://localhost:8000` |
+| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | The external output URL for user-facing links. Falls back to `APP_CUSTOM_OVERLAY_URL`. | |
 | `APP_TITLE` | The title of the web page. | `Scoreboard` |
 | `APP_DARK_MODE` | Dark mode setting. Options: `on`, `off`, `auto`. | `auto` |
 | `APP_DEFAULT_LOGO` | URL of an image for teams without a predefined logo. | `https://...` |
@@ -255,6 +270,37 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 <p align="center">
   <img src="https://github.com/user-attachments/assets/152a586c-1aaa-4c30-b969-c15884097d04" width="100%" />
 </p>
+
+---
+
+## 🔧 Troubleshooting
+
+| Issue | Solution |
+| :--- | :--- |
+| App won't start / blank page | Verify `UNO_OVERLAY_OID` is set correctly. Check the browser console for errors. |
+| Overlay not updating | Ensure the overlay control token is valid and matches the correct layout. Try clicking "Reload data" in the control panel. |
+| Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
+| "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
+| Custom overlay not receiving updates | Verify `APP_CUSTOM_OVERLAY_URL` is reachable. Overlay IDs must start with `C-`. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1.  **Fork** the repository and create a feature branch.
+2.  **Install dependencies** and ensure tests pass (`pytest tests/`).
+3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
+4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.
+
+For custom overlay development, see [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md).
+
+---
+
+## 📄 License
+
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
 
 ---
 

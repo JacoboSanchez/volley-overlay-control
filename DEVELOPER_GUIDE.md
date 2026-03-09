@@ -1,229 +1,339 @@
-Project Documentation: Volley Overlay Control
-1. Project Overview
+# Developer Guide — Volley Overlay Control
 
-Volley Overlay Control is a web-based application built with Python and NiceGUI. It serves as a remote control for updating volleyball scoreboards (overlays) in real-time. The application manages game logic (score, sets, serving, timeouts), handles user authentication, and synchronizes state with an external backend (likely the Uno Overlay system).
+> A comprehensive reference for developers contributing to or extending the Volley Overlay Control codebase. For user-facing setup and configuration, see [README.md](README.md). For building a custom overlay engine, see [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md).
 
-Tech Stack:
+---
 
-    Frontend/UI: NiceGUI (based on Vue/Quasar, rendered via Python).
+## 1. Project Overview
 
-    Backend Logic: Python 3.x.
+Volley Overlay Control is a web-based application built with Python and NiceGUI. It serves as a remote control for updating volleyball scoreboards (overlays) in real-time. The application manages game logic (score, sets, serving, timeouts), handles user authentication, and synchronizes state with an external backend (the overlays.uno system or a custom overlay server).
 
-    Styling: Tailwind CSS (via NiceGUI utility classes) and app/theme.py.
-    
-    State Management: In-memory Python objects synchronized with an external API.
+### Tech Stack
 
-    Containerization: Docker (using `uv` for package management).
-    
-    CI/CD: GitHub Actions pipelines defined in `.github/workflows/` for automated resting and linting.
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend/UI** | [NiceGUI](https://nicegui.io) (Vue/Quasar rendered via Python) |
+| **Backend Logic** | Python 3.x |
+| **Styling** | Tailwind CSS (via NiceGUI utility classes) and `app/theme.py` |
+| **State Management** | In-memory Python objects synchronized with an external API |
+| **Containerization** | Docker (using `uv` for package management) |
+| **CI/CD** | GitHub Actions pipelines (`.github/workflows/`) for automated testing and linting |
 
-2. Directory Structure & Key Files
-Plaintext
+### Key Dependencies
 
+| Package | Purpose |
+| :--- | :--- |
+| `nicegui` | Full-stack web UI framework |
+| `requests` | HTTP communication with overlay APIs |
+| `python-dotenv` | `.env` file loading |
+| `pytest` / `pytest-asyncio` | Test suite |
+| `playwright` | Browser-based UI tests (CI only) |
+
+---
+
+## 2. Directory Structure & Key Files
+
+```
 ├── main.py                  # Entry point. Sets up the NiceGUI app, middleware, and env vars.
 ├── .github/                 # GitHub specific files.
-│   └── workflows/           # CI/CD pipelines (e.g., ci.yml).
+│   └── workflows/           # CI/CD pipelines (ci.yml, docker-publish.yml, docker-publish-dev.yml).
 ├── app/
-│   ├── backend.py           # Handles communication with the external Overlay API.
+│   ├── backend.py           # Handles communication with the external Overlay API & local overlay.
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the raw state dictionary.
 │   ├── gui.py               # Main UI logic orchestrator.
 │   ├── components/          # Reusable NiceGUI UI components (ScoreButton, TeamPanel, etc.).
 │   ├── startup.py           # Route definitions, page loading logic, and lifecycle hooks.
 │   ├── customization.py     # Logic for handling team names, colors, logos, and layout.
-│   ├── theme.py             # UI constants (colors, CSS classes).
+│   ├── customization_page.py # UI page for customization options.
+│   ├── theme.py             # UI constants (colors, CSS classes, font scales).
 │   ├── conf.py              # Configuration object mapping env vars to settings.
-│   ├── authentication.py    # User login/logout logic.
+│   ├── constants.py         # Centralized hardcoded strings, URLs, and favicon.
+│   ├── messages.py          # Internationalization (i18n) string definitions.
+│   ├── authentication.py    # User login/logout logic and AuthMiddleware.
 │   ├── app_storage.py       # Wrapper for NiceGUI's browser-local storage.
-│   ├── pwa/                 # Progressive Web App assets (Service Worker, Manifest, Icons).
-│   └── ... (Dialogs and helper pages)
-├── font/                    # Custom font files for the UI/Overlay.
-└── tests/                   # Pytest suite.
+│   ├── env_vars_manager.py  # Dynamic environment variable management.
+│   ├── logging_config.py    # Logging level configuration.
+│   ├── options_dialog.py    # Settings/configuration dialog UI.
+│   ├── oid_dialog.py        # Overlay ID entry dialog UI.
+│   ├── preview.py           # Preview logic.
+│   ├── preview_page.py      # Preview page UI.
+│   └── pwa/                 # Progressive Web App assets (Service Worker, Manifest, Icons).
+├── .web/                    # Optional local overlay frontend (React-Router based).
+├── font/                    # Custom font files for the UI/Overlay (10 fonts).
+├── storage/                 # Local data and temp storage directories.
+├── tests/                   # Pytest suite.
+│   ├── conftest.py          # Test fixtures and configuration.
+│   ├── test_backend.py      # Backend API communication tests.
+│   ├── test_customization.py # Customization logic tests.
+│   ├── test_env_vars_manager.py # Environment variable manager tests.
+│   ├── test_game_manager.py # Game rules and scoring tests.
+│   ├── test_state.py        # State model tests.
+│   └── test_ui.py           # Full UI interaction tests (Playwright/NiceGUI).
+└── docker-compose.yml       # Docker Compose configuration.
+```
 
-3. Core Architecture & Data Flow
+---
 
-The application follows a Model-View-Controller (MVC) hybrid pattern:
+## 3. Core Architecture & Data Flow
 
-    Model (State): Represents the snapshot of the game (scores, timeouts, serve status).
+The application follows a **Model-View-Controller (MVC)** hybrid pattern:
 
-    Controller (GameManager): Manipulates the Model based on Volleyball rules. It acts as the bridge between the UI and the Data.
+| Role | Component | Description |
+| :--- | :--- | :--- |
+| **Model** | `State` | Snapshot of the game (scores, timeouts, serve status) |
+| **Controller** | `GameManager` | Manipulates the Model based on volleyball rules |
+| **View** | `GUI` | Displays the Model and captures user input |
+| **Sync** | `Backend` | Pushes Model changes to the external overlay server |
 
-    View (GUI): Displays the Model to the user and captures input events.
+### Typical Data Flow (e.g., Adding a Point)
 
-    Sync (Backend): Pushes the Model changes to the external overlay server.
+```mermaid
+sequenceDiagram
+    participant User as 🖱️ User
+    participant GUI as GUI
+    participant GM as GameManager
+    participant State as State
+    participant Backend as Backend
+    participant API as Overlay API
 
-Typical Data Flow (e.g., Adding a Point):
+    User->>GUI: Click "Team 1 Score" button
+    GUI->>GM: add_game(team=1)
+    GM->>State: Validate & increment score
+    GM->>GM: Check set-win conditions, auto-switch serve
+    GM->>Backend: save()
+    Backend->>API: Push new state to cloud/local overlay
+    GUI->>GUI: update_ui() — refresh all visual elements
+```
 
-    User Action: User clicks "Team 1 Score" button in GUI.
+---
 
-    Event Handling: GUI calls GameManager.add_game(team=1).
+## 4. Class & Method Reference
 
-    Logic Processing: GameManager validates the move (checks if match finished), increments the score in State, checks for set-win conditions, and auto-switches serve.
+### A. Core Logic
 
-    State Sync: GameManager calls Backend.save() to push new data to the cloud/overlay.
-
-    UI Refresh: GUI reads the updated State and calls update_ui() to reflect changes (e.g., button text, colors).
-
-4. Class & Method Reference
-A. Core Logic
-app/state.py - class State
+#### `app/state.py` — class `State`
 
 Represents the data structure of the match.
 
-    Responsibility: Holds the "Single Source of Truth" dictionary (current_model) that maps keys (e.g., 'Team 1 Sets') to values.
+- **Responsibility**: Holds the "Single Source of Truth" dictionary (`current_model`) that maps keys (e.g., `'Team 1 Sets'`) to values.
+- **Key Attributes**:
+  - `reset_model` — Default/zero state dictionary.
+  - `current_model` — Active state dictionary.
+- **Key Methods**:
+  - `get_game(team, set)` / `set_game(...)` — Get/Set points for a specific set.
+  - `get_sets(team)` / `set_sets(...)` — Get/Set sets won.
+  - `simplify_model(simplified)` — Prepares the state for "simple mode" (reduced data payload).
 
-    Key Attributes:
+#### `app/game_manager.py` — class `GameManager`
 
-        reset_model: A dictionary defining the default/zero state.
+The "Brain" of the application. Enforces volleyball rules.
 
-        current_model: The active state dictionary.
+- **Responsibility**: Manipulate `State` safely.
+- **Key Methods**:
+  - `add_game(team, ...)` — Increments score. Handles "Winning by 2", point limits, and match completion.
+  - `add_set(team)` — Increments set count. Resets timeouts and serve for the next set.
+  - `change_serve(team)` — Updates the serving indicator.
+  - `undo` — (Boolean flag passed to methods) Reverses the last action.
+  - `match_finished()` — Returns `True` if a team has reached the set limit.
+  - `save(simple, current_set)` — Persists state via `Backend`.
 
-    Key Methods:
-
-        get_game(team, set) / set_game(...): Get/Set points for a specific set.
-
-        get_sets(team) / set_sets(...): Get/Set sets won.
-
-        simplify_model(simplified): Prepares the state for "simple mode" (reduced data payload).
-
-app/game_manager.py - class GameManager
-
-The "Brain" of the application. It enforces volleyball rules.
-
-    Responsibility: Manipulate State safely.
-
-    Key Methods:
-
-        add_game(team, ...): Increments score. Handles logic for "Winning by 2", reaching point limits, and match completion.
-
-        add_set(team): Increments set count. Resets timeouts and serve for the next set.
-
-        change_serve(team): Updates the serving indicator.
-
-        undo: (Boolean flag passed to methods) Reverses the last action (decrements score/set).
-
-        match_finished(): Returns True if a team has reached the set limit.
-
-        save(simple, current_set): Persists state via Backend.
-
-app/backend.py - class Backend
+#### `app/backend.py` — class `Backend`
 
 The "Bridge" to the outside world.
 
-    Responsibility: HTTP communication with the Overlay API.
+- **Responsibility**: HTTP communication with the Overlay API.
+- **Key Methods**:
+  - `get_current_model()` — Fetches the last known state from the remote API. For Custom Overlays, hits `/api/raw_config/{id}` to bypass local caching.
+  - `save(state, simple)` — Pushes local state changes to the cloud and proxies to the local overlay engine via `update_local_overlay()`. For custom overlays, also syncs raw state JSON via `POST /api/raw_config/{id}`.
+  - `update_local_overlay(current_model, force_visibility, customization_state)` — Parses scoring and UI branding properties into a standardized JSON payload (`match_info`, `team_home`/`team_away`, `overlay_control`) and POSTs to `[APP_CUSTOM_OVERLAY_URL]/api/state/{custom_id}`.
+  - `fetch_and_update_overlay_id(oid)` — Translates a user's Control Token (OID) into the specific backend layout ID via `GetOverlays`.
+  - `fetch_output_token(oid)` — Retrieves the URL/Token required to display the overlay iframe.
 
-    Key Methods:
+### B. User Interface
 
-        get_current_model(): Fetches the last known state from the server.
+#### `app/components/`
 
-        save(state, simple): Pushes local state changes to the server. Note: specifically injects `Sets Display` explicitly for newer layout configurations (`446a...`).
+Modular UI components to prevent `gui.py` from becoming a monolith:
 
-        fetch_and_update_overlay_id(oid): Executes `GetOverlays` to translate a user's Control Token (OID) into the specific backend layout ID (e.g., `8637...` or `446a...`). This ensures all API calls target the correct schema.
+| File | Purpose |
+| :--- | :--- |
+| `score_button.py` | Wraps `ui.button` with long-press and tap detection logic |
+| `team_panel.py` | Renders a team column (Scores, Timeouts, Serve Indicator) |
+| `center_panel.py` | Manages the middle column (Score table, set pagination, Preview iframe) |
+| `control_buttons.py` | Manages action bars (Visibility toggle, Simple Mode, Undo, Config) |
 
-        fetch_output_token(oid): Retrieves the URL/Token required to display the overlay iframe.
-
-B. User Interface
-
-app/components/
-This directory contains modular UI pieces to prevent `gui.py` from becoming a monolith.
-    - `score_button.py`: Wraps `ui.button` with complex long-press and tap detection logic.
-    - `team_panel.py`: Renders an entire vertical/horizontal column for a specific team (Scores, Timeouts, Serve Indicator).
-    - `center_panel.py`: Manages the middle column (Detailed score table, set pagination, Live Preview iframe).
-    - `control_buttons.py`: Manages the top/bottom action bar (Visibility toggle, Simple Mode, Undo, Config).
-
-app/gui.py - class GUI
+#### `app/gui.py` — class `GUI`
 
 The NiceGUI presentation layer orchestrator.
 
-    Responsibility: Instantiate modular components from `app/components/`, listen for state changes from the `GameManager`, and trigger updates across those components.
+- **Responsibility**: Instantiate modular components, listen for state changes from `GameManager`, and trigger updates.
+- **Key Methods**:
+  - `init(...)` — Builds the initial layout by instantiating `TeamPanel`, `CenterPanel`, and `ControlButtons`.
+  - `update_ui(load_from_backend)` — Refreshes all visual elements (scores, colors, logos).
+  - `handle_button_press/release` — Processes "Long Press", "Tap", and "Double Tap" (undo) logic.
+  - `switch_simple_mode()` — Toggles between full detail and simplified view.
 
-    Key Methods:
+#### `app/startup.py` — `startup()`
 
-        init(...): Builds the initial layout by instantiating `TeamPanel`, `CenterPanel`, and `ControlButtons`.
+- **Responsibility**: Defines application routing (`/`, `/login`, `/preview`) and startup sequence.
+- **Logic**:
+  - Checks for `oid` (Overlay ID) in URL → Storage → Environment.
+  - If missing, launches `OidDialog`.
+  - Initializes `GUI` and `Backend`.
+  - Serves PWA assets (`/sw.js`, `/manifest.json`, `/pwa/*`), registers the Service Worker, and implements Screen Wake Lock API logic.
 
-        update_ui(load_from_backend): Refreshes all visual elements (scores, colors, logos) by mutating the state of the component instances.
+#### `app/theme.py`
 
-        handle_button_press/release: Invoked by `ScoreButton` components to process "Long Press", "Tap", and "Double Tap" (undo) logic.
+- **Responsibility**: Centralized configuration for UI colors (Tailwind classes) and button styles.
+- **Key Constants**:
+  - `GAME_BUTTON_CLASSES` — Shape, shadow, and text alignment for score buttons.
+  - `TACOLOR` / `TBCOLOR` — Team colors.
+  - `FONT_SCALES` — Per-font `scale` multiplier and vertical `offset_y` for consistent rendering.
 
-        switch_simple_mode(): Toggles the UI and backend data payload between full detail and simplified view.
+### C. Configuration & Extras
 
-app/startup.py - startup()
+#### `app/customization.py` & `app/customization_page.py`
 
-    Responsibility: Defines the application routing (/, /login, /preview) and startup sequence.
+- **Responsibility**: Manages cosmetic data (Team Names, Logos, Colors, Overlay geometry).
+- **Logic**: Abstracts payload keys to support multiple layout templates. Falls back from `Team 1 Text Name` to `Team 1 Name` if needed. `customization_page.py` hides components unsupported by the active layout.
 
-    Logic:
+#### `app/conf.py`
 
-        Checks for oid (Overlay ID) in URL, Storage, or Environment.
+- **Responsibility**: Loads environment variables (e.g., `APP_PORT`, `UNO_OVERLAY_URL`) into a structured `Conf` object.
 
-        If missing, launches OidDialog.
+#### `app/messages.py`
 
-        Initializes GUI and Backend.
-        
-        Serves PWA assets (`/sw.js`, `/manifest.json`, `/pwa/*`), registers the Service Worker, and implements the Screen Wake Lock API logic (via JavaScript injection) to keep devices awake during use.
+- **Responsibility**: Internationalization (i18n). Defines all user-facing strings with translations. Currently supports **English** (default) and **Spanish**.
 
-app/theme.py
+#### `app/constants.py`
 
-    Responsibility: Centralized configuration for UI colors (Tailwind classes) and button styles.
+- **Responsibility**: Centralized hardcoded strings, the SVG favicon, and the `API_BASE_URL` for overlays.uno.
 
-    Key Constants: 
-        - GAME_BUTTON_CLASSES: Defines the shape, shadow, and text alignment (centered) of score buttons.
-        - TACOLOR / TBCOLOR: Team colors.
+---
 
-C. Configuration & Extras
-app/customization.py & app/customization_page.py
+## 5. Testing
 
-    Responsibility: Manages cosmetic data that isn't strict game logic: Team Names, Logos, Colors, and Overlay geometry (X/Y/Width/Height).
-    Logic Details: Abstracts payload keys to support multiple layout templates. If `Team 1 Text Name` doesn't exist (like in newer layouts), it automatically falls back to looking for `Team 1 Name`. Applies safe `.get()` defaults to gracefully handle unsupported customization variables per layout. `customization_page.py` additionally hides components natively unsupported by the active layout (e.g. Volleyball Championship layout removes team color configuration and renames "Set").
+### Running Tests Locally
 
-app/conf.py
+```bash
+# Install dependencies
+pip install -r requirements.txt
+pip install playwright pytest-playwright
+playwright install chromium
 
-    Responsibility: Loads environment variables (e.g., APP_PORT, UNO_OVERLAY_URL) into a structured object.
+# Run the full test suite
+pytest tests/
 
-5. Important Logic Flows for AI Agents
+# Run a specific test file
+pytest tests/test_game_manager.py -v
+
+# Run with log output
+pytest tests/ --log-cli-level=debug
+```
+
+### Test Organization
+
+| File | Coverage Area |
+| :--- | :--- |
+| `test_state.py` | `State` model operations |
+| `test_game_manager.py` | Scoring rules, set logic, undo functionality |
+| `test_backend.py` | API communication, custom overlay integration |
+| `test_customization.py` | Team/color customization logic |
+| `test_env_vars_manager.py` | Environment variable loading |
+| `test_ui.py` | Full end-to-end UI tests via NiceGUI's test client |
+
+### CI Pipeline
+
+The GitHub Actions CI pipeline (`.github/workflows/ci.yml`) runs on `push` / `pull_request` to `main` and `dev` branches:
+
+1. **Lint** — `flake8` for syntax errors and style warnings.
+2. **Test** — Full `pytest tests/` suite with Playwright (Chromium).
+
+---
+
+## 6. Important Logic Flows for Developers
 
 When modifying the code, keep these dependencies in mind:
 
-    UI Updates:
+### UI Updates
 
-        NiceGUI is reactive but often requires manual calls to element.update() or set_text().
+NiceGUI is reactive but often requires manual calls to `element.update()` or `set_text()`.
 
-        Crucial: If you modify State in GameManager, you must ensure GUI.update_ui() is triggered (usually via a refresh flow or immediate UI set) so the user sees the change.
+> [!IMPORTANT]
+> If you modify `State` in `GameManager`, you **must** ensure `GUI.update_ui()` is triggered so the user sees the change.
 
-    Long Press Logic:
+### Long Press Logic
 
-        The buttons in GUI use a timer-based system to distinguish between a tap (Add Point) and a hold (Open Edit Dialog). Do not remove the touchstart/mousedown event listeners without preserving this logic.
+The buttons in `GUI` use a timer-based system to distinguish between a **tap** (Add Point) and a **hold** (Open Edit Dialog). Do not remove the `touchstart`/`mousedown` event listeners without preserving this logic.
 
-    State Synchronization:
+### State Synchronization
 
-        The app assumes it is the primary controller. However, GameManager.reset() reloads data from the Backend to ensure it syncs with any external resets.
+The app assumes it is the **primary controller**. However, `GameManager.reset()` reloads data from `Backend` to ensure it syncs with any external resets.
 
-    Responsive Design:
+### Responsive Design
 
-        GUI detects orientation (is_portrait). Layouts switch between ui.row() (Landscape) and ui.column() (Portrait). Any new UI elements must handle both contexts.
+`GUI` detects orientation (`is_portrait`). Layouts switch between `ui.row()` (Landscape) and `ui.column()` (Portrait). Any new UI elements must handle both contexts.
 
-    Fonts:
+### Custom Fonts
 
-        The app loads custom fonts from the font/ directory. These are applied via CSS injection in app/startup.py (addHeader function) and used in theme.py / gui.py.
-        Custom fonts are normalized to match the visual footprint of the default font. `FONT_SCALES` in `theme.py` defines a precise `scale` multiplier and vertical offset (`offset_y`) for each font. These values were generated by rendering each font in a flex container (emulating NiceGUI behavior) and mathematically measuring the exact painted pixels. Any new font additions should be measured and added to `FONT_SCALES` to ensure UI consistency.
+The app loads custom fonts from the `font/` directory. These are applied via CSS injection in `startup.py` and used in `theme.py` / `gui.py`.
 
-6. Common Modification Scenarios
+> [!NOTE]
+> Custom fonts are normalized via `FONT_SCALES` in `theme.py`. These values were generated by rendering each font in a flex container and mathematically measuring painted pixels. New font additions should be measured and added to `FONT_SCALES`.
 
-    Adding a new Rule (e.g., Golden Set):
+---
 
-        Modify app/game_manager.py -> add_game to check for the new condition.
+## 7. Common Modification Scenarios
 
-        Update app/state.py if new counters are needed.
+### Adding a new Rule (e.g., Golden Set)
 
-    Changing Button Styles:
+1. Modify `app/game_manager.py` → `add_game` to check for the new condition.
+2. Update `app/state.py` if new counters are needed.
 
-        Edit app/theme.py constants.
+### Changing Button Styles
 
-        If logic-based (e.g., color changes on win), edit app/gui.py -> update_button_style.
+1. Edit `app/theme.py` constants.
+2. If logic-based (e.g., color changes on win), edit `app/gui.py` → `update_button_style`.
 
-    Adding a new Setting:
+### Adding a new Setting
 
-        Add field to app/conf.py.
+1. Add field to `app/conf.py` (or `app/env_vars_manager.py` for dynamic env vars).
+2. Add UI control to `app/options_dialog.py`.
+3. Pass the config to `GameManager` if it affects rules.
 
-        Add UI control to app/options_dialog.py.
+### Adding a new Language
 
-        Pass the config to GameManager if it affects rules.
+1. Add a new key to the `messages` dictionary in `app/messages.py`.
+2. Translate all existing string constants to the new language.
+3. Set `SCOREBOARD_LANGUAGE` environment variable to the new language code.
+
+---
+
+## 8. Environment Setup (Quick Start)
+
+```bash
+# 1. Clone the repository
+git clone <repo-url>
+cd remote-scoreboard
+
+# 2. Create a virtual environment (recommended)
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux/macOS:
+source .venv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment
+cp .env.example .env  # or create .env manually
+# Edit .env with your UNO_OVERLAY_OID and preferences
+
+# 5. Run the application
+python main.py
+
+# 6. Run the test suite
+pytest tests/ -v
+```

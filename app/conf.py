@@ -19,7 +19,7 @@ class Conf:
         self.points_last_set = int(EnvVarsManager.get_env_var('MATCH_GAME_POINTS_LAST_SET', 15))
         self.sets = int(EnvVarsManager.get_env_var('MATCH_SETS', 5))
         self.single_overlay = str(EnvVarsManager.get_env_var('SINGLE_OVERLAY_MODE', 'true')).lower() in ("yes", "true", "t", "1")
-        self.disable_overview = str(EnvVarsManager.get_env_var('DISABLE_OVERVIEW', 'false')).lower() in ("yes", "true", "t", "1")
+        self.show_overview = str(EnvVarsManager.get_env_var('SHOW_PREVIEW', 'true')).lower() in ("yes", "true", "t", "1")
 
     @property
     def lock_teamA_icons(self):

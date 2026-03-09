@@ -1,6 +1,7 @@
 import os
 from nicegui import ui
 from app.preview import create_iframe_card
+from app.messages import Messages
 
 class PreviewPage:
     
@@ -51,7 +52,7 @@ class PreviewPage:
 
     async def create_page(self):
         if not self.output:
-            ui.label("Output token is missing.")
+            ui.label(Messages.get(Messages.OUTPUT_TOKEN_MISSING))
             return
         
         if self.page_width is not None and self.page_height is not None:

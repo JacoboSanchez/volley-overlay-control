@@ -65,6 +65,13 @@ class Messages:
     DEFAULT = "Default"
     SHOW_TEAM_ICON = "Show Team Icon"
     ICON_OPACITY = "Icon Opacity"
+    PREFERRED_STYLE = "Preferred Style"
+    STYLE = "Style"
+    STYLE_REQUIRES_SAVE = "Note: Style changes require saving"
+    OK = "OK"
+    CANCEL = "Cancel"
+    OUTPUT_TOKEN_MISSING = "Output token is missing."
+    SCOREBOARD_LOAD_ERROR = "Scoreboard could not be loaded. A valid overlay is required."
 
 
     messages = {
@@ -131,7 +138,14 @@ class Messages:
             FONT: "Fuente",
             DEFAULT: "Predeterminado",
             SHOW_TEAM_ICON: "Mostrar icono de equipo",
-            ICON_OPACITY: "Opacidad del icono"
+            ICON_OPACITY: "Opacidad del icono",
+            PREFERRED_STYLE: "Estilo Preferido",
+            STYLE: "Estilo",
+            STYLE_REQUIRES_SAVE: "Nota: Los cambios de estilo requieren guardar",
+            OK: "Aceptar",
+            CANCEL: "Cancelar",
+            OUTPUT_TOKEN_MISSING: "Falta el token de salida.",
+            SCOREBOARD_LOAD_ERROR: "No se pudo cargar el marcador. Se requiere un overlay válido."
         },
         "en": {
           }

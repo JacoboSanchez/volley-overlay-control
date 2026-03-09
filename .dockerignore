@@ -1,0 +1,10 @@
+.git
+__pycache__
+.pytest_cache
+.nicegui
+screenshots*
+*.pyc
+tests/
+.github/
+.env
+walkthrough.md

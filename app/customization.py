@@ -30,6 +30,7 @@ class Customization:
     GAME_TEXT_COLOR = "Text Color 2"
     COLOR3 = "Color 3"
     TEXT_COLOR3 = "Text Color 3"
+    PREFERRED_STYLE = "preferredStyle"
     LOCAL_NAME = Messages.get(Messages.LOCAL)
     VISITOR_NAME = Messages.get(Messages.VISITOR)
 
@@ -53,6 +54,7 @@ class Customization:
         SET_TEXT_COLOR: RESET_COLORS[SET_TEXT_COLOR],
         SET_COLOR: RESET_COLORS[SET_COLOR],
         GLOSS_EFFECT_BOOL: "true",
+        LOGOS_BOOL: "true",
         HEIGHT_FLOAT: 10,
         HPOS_FLOAT: -33,
         GAME_COLOR: RESET_COLORS[GAME_COLOR],
@@ -197,7 +199,7 @@ class Customization:
             self.customization_model[new_key] = name
     
     def is_show_logos(self):
-        return self.customization_model[Customization.LOGOS_BOOL]
+        return self.customization_model.get(Customization.LOGOS_BOOL, "true")
     
     def set_show_logos(self, value):
         self.customization_model[Customization.LOGOS_BOOL] = value
@@ -212,26 +214,47 @@ class Customization:
     def set_glossy(self, value):
         self.customization_model[Customization.GLOSS_EFFECT_BOOL] = value                    
 
+    def get_preferred_style(self):
+        return self.customization_model.get(Customization.PREFERRED_STYLE, None)
+
+    def set_preferred_style(self, style):
+        if style:
+            self.customization_model[Customization.PREFERRED_STYLE] = style
+        elif Customization.PREFERRED_STYLE in self.customization_model:
+            del self.customization_model[Customization.PREFERRED_STYLE]
+
     def get_width(self):
-        return float(self.customization_model.get(Customization.WIDTH_FLOAT, 30))
+        val = self.customization_model.get(Customization.WIDTH_FLOAT, 30)
+        return float(val) if val not in [None, 'None', ''] else 30.0
 
     def set_width(self, width):
         self.customization_model[Customization.WIDTH_FLOAT] = width
 
     def get_height(self):
-        return float(self.customization_model.get(Customization.HEIGHT_FLOAT, 10))
+        val = self.customization_model.get(Customization.HEIGHT_FLOAT, 10)
+        return float(val) if val not in [None, 'None', ''] else 10.0
+
+    def get_hpos(self):
+        val = self.customization_model.get(Customization.HPOS_FLOAT, -33)
+        return float(val) if val not in [None, 'None', ''] else -33.0
+
+    def get_vpos(self):
+        val = self.customization_model.get(Customization.VPOS_FLOAT, -41.1)
+        return float(val) if val not in [None, 'None', ''] else -41.1
 
     def set_height(self, float_val):
         self.customization_model[Customization.HEIGHT_FLOAT] = float_val
 
     def get_h_pos(self):
-        return float(self.customization_model.get(Customization.HPOS_FLOAT, -33))
+        val = self.customization_model.get(Customization.HPOS_FLOAT, -33)
+        return float(val) if val not in [None, 'None', ''] else -33.0
 
     def set_h_pos(self, width):
         self.customization_model[Customization.HPOS_FLOAT] = width
 
     def get_v_pos(self):
-        return float(self.customization_model.get(Customization.VPOS_FLOAT, -41.1))
+        val = self.customization_model.get(Customization.VPOS_FLOAT, -41.1)
+        return float(val) if val not in [None, 'None', ''] else -41.1
 
     def set_v_pos(self, float_val):
         self.customization_model[Customization.VPOS_FLOAT] = float_val

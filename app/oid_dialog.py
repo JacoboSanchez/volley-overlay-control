@@ -98,7 +98,7 @@ class OidDialog:
         await asyncio.sleep(0)
         output = None
         if  (self.show_predefined_overlays and self.checkBoxEnabled == False)  or (self.radioButton != None and self.radioButton.value):
-            token = self.predefined_overlays[self.predefined_overlay_selector.value]['control']
+            token = self.extract_oid(self.predefined_overlays[self.predefined_overlay_selector.value]['control'])
             output = self.predefined_overlays[self.predefined_overlay_selector.value].get('output', None)
         else:
             token = self.extract_oid(self.control_url_input.value)
@@ -109,12 +109,12 @@ class OidDialog:
             }
             logger.debug("Valid")
 
-            if output is None:
+            if not output:
                 fetched_token = self.backend.fetch_output_token(token)
                 if fetched_token:
                     output = fetched_token
 
-            if output != None:
+            if output:
                 self.result[OidDialog.OUTPUT_URL_KEY] = self.compose_output(output)
             self.dialog.submit(self.result)
         else:
@@ -137,7 +137,7 @@ class OidDialog:
             return False
     
     def extract_oid(self, url: str) -> str:
-        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9]*)\??"
+        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??"
         match = re.match(pattern, url)
         if match:
             return match.group(1)
@@ -145,6 +145,8 @@ class OidDialog:
             return url
         
     def compose_output(self, output : str) -> str:
+        if output.startswith("http://") or output.startswith("https://"):
+            return output
         prefix = OidDialog.UNO_OUTPUT_BASE_URL
         if not output.startswith(prefix):
             return prefix + output
