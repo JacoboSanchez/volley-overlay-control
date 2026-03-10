@@ -46,9 +46,10 @@ class AppStorage:
         
         try:
             if app.storage is not None:
-                # This will raise a RuntimeError if not in a NiceGUI page context
+                # This will raise a RuntimeError if not in a NiceGUI page context,
+                # or an AssertionError if user storage hasn't been initialized yet
                 return app.storage.user
-        except RuntimeError:
+        except (RuntimeError, AssertionError):
             # We are in a test or non-UI environment, use the in-memory fallback
             pass
             
