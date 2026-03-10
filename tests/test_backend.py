@@ -27,9 +27,10 @@ def mock_requests_session():
         mock_response.json.return_value = {'payload': {}}
         mock_session_instance.put.return_value = mock_response
         mock_session_instance.get.return_value = mock_response
-        
+        mock_session_instance.post.return_value = mock_response
+
         mock_post.return_value = mock_response
-        
+
         yield mock_session_instance
 
 @pytest.fixture
@@ -274,55 +275,55 @@ def test_save_model_explicit_sets_display_for_new_layout(backend, mock_requests_
 
 # --- Custom Alternative Overlays Testing ---
 
-@patch('app.backend.requests.post')
-def test_custom_overlay_save_model(mock_post, backend, mock_requests_session, conf):
+def test_custom_overlay_save_model(backend, mock_requests_session, conf):
     """Tests that a C- prefixed OID skips Uno and sends to the custom local url."""
     conf.oid = "C-test_overlay"
     conf.multithread = False
-    
+
     mock_model = {"Team 1 Sets": "1"}
-    
+
     # Run the save
     backend.save_model(mock_model, simple=False)
-    
+
     # Ensure Uno is NOT hit
     mock_requests_session.put.assert_not_called()
-    
-    # Ensure the local overlay IS hit
-    mock_post.assert_called_once()
-    assert mock_post.call_args[0][0] == "http://localhost:8000/api/state/test_overlay"
-    
-@patch('app.backend.requests.post')
-def test_custom_overlay_lowercase_prefix(mock_post, backend, mock_requests_session, conf):
+
+    # Ensure the local overlay IS hit via session.post (raw_config save + api/state update)
+    state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
+    assert len(state_calls) == 1
+    assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay"
+
+def test_custom_overlay_lowercase_prefix(backend, mock_requests_session, conf):
     """Tests that a lowercase c- prefixed OID still routes to custom local url."""
     conf.oid = "c-test_overlay_lower"
     conf.multithread = False
-    
+
     # Run the save
     backend.save_model({"Team 1 Sets": "1"}, simple=False)
-    
+
     # Ensure Uno is NOT hit
     mock_requests_session.put.assert_not_called()
-    
-    # Ensure the local overlay IS hit
-    mock_post.assert_called_once()
-    assert mock_post.call_args[0][0] == "http://localhost:8000/api/state/test_overlay_lower"
-    
+
+    # Ensure the local overlay IS hit via session.post
+    state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
+    assert len(state_calls) == 1
+    assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay_lower"
+
 @patch('app.backend.AppStorage.load')
-@patch('app.backend.requests.post')
-def test_custom_overlay_visibility(mock_post, mock_load, backend, mock_requests_session, conf):
+def test_custom_overlay_visibility(mock_load, backend, mock_requests_session, conf):
     """Tests that a C- prefixed OID handles visibility locally."""
     conf.oid = "C-test_overlay"
     conf.multithread = False
     mock_load.return_value = {"Team 1 Sets": "0"}
-    
+
     backend.change_overlay_visibility(True)
-    
+
     # Uno bypassed
     mock_requests_session.put.assert_not_called()
-    
-    # Local overlay hit
-    mock_post.assert_called_once()
+
+    # Local overlay hit via session.post
+    state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
+    assert len(state_calls) == 1
 
 def test_custom_overlay_fetch_token_skips(backend, mock_requests_session, conf):
     """Tests that fetch_output_token requests the local config endpoint for custom overlays."""
