@@ -26,6 +26,7 @@ class Backend:
         # Initialize a thread pool with a maximum number of workers (e.g., 5)
         # This prevents uncontrolled thread creation during rapid changes.
         self.executor = ThreadPoolExecutor(max_workers=5)
+        self._customization_cache = None
 
     def is_custom_overlay(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
@@ -94,7 +95,8 @@ class Backend:
 
     def save_json_customization(self, to_save):
         Backend.logger.info('saving JSON customization...')
-        
+        self._customization_cache = to_save
+
         # update local overlay as well, fetching current state if custom
         if self.is_custom_overlay():
             custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
@@ -212,23 +214,25 @@ class Backend:
                     
                     if style and data.get("preferredStyle") != style:
                         data["preferredStyle"] = style
-                        if self.conf.multithread:
-                            self.executor.submit(self.save_json_customization, data)
-                        else:
-                            self.save_json_customization(data)
-                        
+                        try:
+                            self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"customization": data}, timeout=2.0)
+                        except Exception as persist_err:
+                            Backend.logger.warning(f"Failed to persist preferredStyle update: {persist_err}")
+
+                    self._customization_cache = data
                     return data
             except Exception as e:
                 Backend.logger.error(f"Failed to fetch custom overlay customization: {e}")
-                
+
             from app.customization import Customization
             data = copy.copy(Customization.reset_state)
             if style and data.get("preferredStyle") != style:
                 data["preferredStyle"] = style
-                if self.conf.multithread:
-                    self.executor.submit(self.save_json_customization, data)
-                else:
-                    self.save_json_customization(data)
+                try:
+                    self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"customization": data}, timeout=2.0)
+                except Exception as persist_err:
+                    Backend.logger.warning(f"Failed to persist preferredStyle update: {persist_err}")
+            self._customization_cache = data
             return data
             
         response = self.send_command_with_id_and_content("GetCustomization", customOid=customOid)
@@ -363,7 +367,7 @@ class Backend:
             from app.customization import Customization
             
             if customization_state is None:
-                customization_state = self.get_current_customization() or {}
+                customization_state = self._customization_cache if self._customization_cache is not None else (self.get_current_customization() or {})
             cust = Customization(customization_state)
 
             def get_set_history(team):
@@ -438,6 +442,6 @@ class Backend:
             base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
             url = f"{base_url}/api/state/{custom_id}"
             
-            requests.post(url, json=payload, timeout=2.0)
+            self.session.post(url, json=payload, timeout=2.0)
         except Exception as e:
             Backend.logger.error(f"Error updating local overlay: {e}")
