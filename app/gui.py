@@ -1,5 +1,6 @@
 import logging
 from nicegui import ui
+from nicegui.client import Client
 from app.state import State
 from app.customization import Customization
 from app.app_storage import AppStorage
@@ -82,6 +83,7 @@ class GUI:
 
         # Register this instance for multi-user broadcast
         GUI._instances.add(self)
+        self._client = ui.context.client
 
 
         # --- Reusable Dialog for Custom Values ---
@@ -641,6 +643,9 @@ class GUI:
         """Notify all other connected GUI instances to refresh their UI."""
         for instance in GUI._instances:
             if instance is not self and instance.initialized:
+                client = getattr(instance, '_client', None)
+                if client is None or client.id not in Client.instances:
+                    continue
                 try:
                     instance.update_ui(load_from_backend=True)
                 except Exception as e:
