@@ -1,7 +1,7 @@
 import logging
+import weakref
 from nicegui import ui
 from nicegui.client import Client
-from app.state import State
 from app.customization import Customization
 from app.app_storage import AppStorage
 from app.messages import Messages
@@ -11,10 +11,11 @@ from app.preview import create_iframe_card
 from app.components.team_panel import TeamPanel
 from app.components.center_panel import CenterPanel
 from app.components.control_buttons import ControlButtons
-import asyncio
-import weakref
+from app.components.button_interaction import ButtonInteraction
+from app.gui_update_mixin import UIUpdateMixin
 
-class GUI:
+
+class GUI(UIUpdateMixin):
     # Class-level registry of active GUI instances for multi-user broadcast
     _instances = weakref.WeakSet()
 
@@ -48,13 +49,10 @@ class GUI:
         self.PADDINGS = GAME_BUTTON_PADDING_NORMAL
         self.TEXTSIZE = GAME_BUTTON_TEXT_NORMAL
         self.hide_timer = None
-        self.long_press_timer = None
         self.teamA_logo = None
         self.teamB_logo = None
         self.teamA_scores_container = None
         self.teamB_scores_container = None
-        # Flag to control event processing gate
-        self.click_gate_open = True
         self.preview_container = None
         self.preview_button = None
         self.preview_visible = self.conf.show_preview
@@ -68,12 +66,9 @@ class GUI:
         self.rebuild_height = None
         self.button_size = None
         self.button_text_size = None
-        
-        # Double tap tracking
-        self.tap_count = 0
-        self.tap_timer = None
-        self.tap_team = None
-        self.tap_is_set = None
+
+        # Button interaction handler (tap, double-tap, long-press)
+        self.interaction = ButtonInteraction(self)
 
         # Initialize dark mode and fullscreen reading from persistent storage
         saved_dark_mode = AppStorage.load(AppStorage.Category.DARK_MODE, 'auto')
@@ -84,7 +79,6 @@ class GUI:
         # Register this instance for multi-user broadcast
         GUI._instances.add(self)
         self._client = ui.context.client
-
 
         # --- Reusable Dialog for Custom Values ---
         self.dialog_team = None
@@ -99,7 +93,6 @@ class GUI:
                 ui.button(Messages.get(Messages.OK), icon='done', color=None, on_click=self._handle_custom_value_submit).props('flat').classes('text-green-500').mark('value-input-ok-button')
                 ui.button(Messages.get(Messages.CANCEL), icon='close', color=None, on_click=self.custom_value_dialog.close).props('flat').classes('text-red-500').mark('value-input-cancel-button')
 
-
     def set_customization_model(self, model):
         """Directly sets the customization model from an external source."""
         self.logger.debug("Setting customization model directly.")
@@ -112,26 +105,20 @@ class GUI:
 
         self.page_height = height
         self.page_width = width
-        
+
         self.logger.debug(f'Resize Event: {self.page_width}x{self.page_height}')
-        
+
         # Hysteresis Logic for Orientation
-        # Existing logic: is_portrait = height > 1.2 * width and width <= 800
-        # Landscape -> Portrait threshold: Ratio > 1.3
-        # Portrait -> Landscape threshold: Ratio < 1.1
-        
         new_is_portrait = self.is_portrait
-        
+
         if width > 800:
-             new_is_portrait = False
+            new_is_portrait = False
         else:
             ratio = height / width
             if self.is_portrait:
-                # Currently Portrait. Switch to Landscape if ratio drops below 1.1
                 if ratio < 1.1:
                     new_is_portrait = False
             else:
-                # Currently Landscape. Switch to Portrait if ratio exceeds 1.3
                 if ratio > 1.3:
                     new_is_portrait = True
 
@@ -140,54 +127,44 @@ class GUI:
             if self.rebuild_width is None or self.rebuild_height is None:
                 significant_resize = True
             else:
-                 width_diff = abs(self.page_width - self.rebuild_width)
-                 height_diff = abs(self.page_height - self.rebuild_height)
-                 if width_diff > 50 or height_diff > 50:
-                      significant_resize = True
-        
-        # Rebuild if:
-        # 1. Orientation changed (Definitive switch)
-        # 2. First build (rebuild_width is None)
-        # Note: We do NOT rebuild just for significant resize if orientation is same.
-        
+                width_diff = abs(self.page_width - self.rebuild_width)
+                height_diff = abs(self.page_height - self.rebuild_height)
+                if width_diff > 50 or height_diff > 50:
+                    significant_resize = True
+
         orientation_changed = (new_is_portrait != self.is_portrait)
         should_rebuild = orientation_changed or (self.main_container is not None and self.rebuild_width is None)
 
-        # Update Styles if:
-        # 1. We are Rebuilding
-        # 2. OR Significant resize happened (even if same orientation)
-        
         if should_rebuild or significant_resize:
-            
+
             self.is_portrait = new_is_portrait
-            
+
             if not self.is_portrait:
                 dimension = self.page_width
-                self.preview_card_width = self.page_width/4
+                self.preview_card_width = self.page_width / 4
                 self.button_size = self.page_width / 4.5
-            else: 
+            else:
                 dimension = self.page_height
                 self.button_size = self.page_height / 5
 
             self.button_text_size = self.button_size / 2
-            
+
             if should_rebuild:
                 self.logger.debug('Set page size to: %sx%s. Rebuilding (Orientation Change/Init).',
-                                 self.page_height, self.page_width)
+                                  self.page_height, self.page_width)
                 self.logger.debug('Dimension: %s, Button Size: %s', dimension, self.button_size)
-
                 self.logger.debug('Reinitializing main container...')
                 self.main_container.clear()
                 await self._initialize_main_container()
             else:
-                 self.logger.debug('Set page size to: %sx%s. Resize only (No Rebuild).',
-                                 self.page_height, self.page_width)
+                self.logger.debug('Set page size to: %sx%s. Resize only (No Rebuild).',
+                                  self.page_height, self.page_width)
 
             self.rebuild_dimension = dimension
             self.rebuild_width = self.page_width
             self.rebuild_height = self.page_height
             self.current_dimension = dimension
-        
+
             self.update_button_style()
 
     def _handle_custom_value_submit(self):
@@ -197,127 +174,26 @@ class GUI:
     async def show_custom_value_dialog(self, team: int, is_set_button: bool, initial_value: int, max_value: int):
         """Opens a reusable dialog to set a custom value for points or sets."""
         title = Messages.get(Messages.SET_CUSTOM_SET_VALUE) if is_set_button else Messages.get(Messages.SET_CUSTOM_GAME_VALUE)
-        
-        # Store context for the submit handler
+
         self.dialog_team = team
         self.dialog_is_set = is_set_button
 
-        # Update dialog elements with current context
         self.dialog_label.set_text(title)
         self.dialog_input.label = Messages.get(Messages.VALUE)
         self.dialog_input.value = initial_value
         self.dialog_input.min = 0
         self.dialog_input.max = max_value
-        
+
         result = await self.custom_value_dialog
-        
+
         if result is not None:
             value = int(result)
-            # Use the stored context to apply the value
             if self.dialog_is_set:
                 self.set_sets_value(self.dialog_team, value)
             else:
                 self.set_game_value(self.dialog_team, value)
-        
-        self.open_click_gate()
 
-    def open_click_gate(self):
-        """Opens the gate to allow new click events."""
-        self.click_gate_open = True
-        
-    def handle_button_press(self, team: int, is_set_button: bool):
-        """Starts a timer on mousedown/touchstart to detect a long press."""
-        if not self.click_gate_open:
-            return
-        self.click_gate_open = False  # Close the gate immediately
-
-        # If a different button was pressed while a tap was pending, execute the pending tap immediately
-        if self.tap_count > 0 and (self.tap_team != team or self.tap_is_set != is_set_button):
-            self._execute_pending_tap()
-
-        if is_set_button:
-            button = self.teamASet if team == 1 else self.teamBSet
-            initial_value = int(button.text)
-            max_value = self.sets_limit
-        else:
-            button = self.teamAButton if team == 1 else self.teamBButton
-            initial_value = int(button.text)
-            max_value = self.get_game_limit(self.current_set)
-
-        async def long_press_callback():
-            self.long_press_timer = None
-            self.tap_count = 0 # Cancel any double-tap sequence if it becomes a long press
-            if self.tap_timer is not None:
-                self.tap_timer.cancel()
-                self.tap_timer = None
-            if not is_set_button:
-                ui.run_javascript('if (navigator.vibrate) navigator.vibrate(200)')
-            await self.show_custom_value_dialog(team, is_set_button, initial_value, max_value)
-
-        self.long_press_timer = ui.timer(1.0, long_press_callback, once=True)
-
-    def _execute_pending_tap(self):
-        """Executes the action for a single tap."""
-        if self.tap_timer is not None:
-            self.tap_timer.cancel()
-            self.tap_timer = None
-        
-        if self.tap_count > 0:
-            if self.tap_is_set:
-                self.add_set(self.tap_team)
-            else:
-                ui.run_javascript('if (navigator.vibrate) navigator.vibrate(50)')
-                self.add_game(self.tap_team)
-            self.tap_count = 0
-            self.tap_team = None
-            self.tap_is_set = None
-
-    def handle_button_release(self, team: int, is_set_button: bool):
-        """Cancels the long press timer and processes tap or double-tap."""
-        if self.long_press_timer is not None:
-            self.long_press_timer.cancel()
-            self.long_press_timer = None
-            
-            # This was a valid tap (not a long press)
-            self.tap_team = team
-            self.tap_is_set = is_set_button
-            self.tap_count += 1
-
-            if self.tap_count == 1:
-                # Start timer to wait for a potential second tap
-                self.tap_timer = ui.timer(0.4, self._execute_pending_tap, once=True)
-            elif self.tap_count == 2:
-                # Double tap detected
-                if self.tap_timer is not None:
-                    self.tap_timer.cancel()
-                    self.tap_timer = None
-                
-                # Execute undo action
-                self.undo = True
-                if self.tap_is_set:
-                    self.add_set(self.tap_team)
-                else:
-                    ui.run_javascript('if (navigator.vibrate) navigator.vibrate([50, 100, 50])')
-                    self.add_game(self.tap_team)
-                self.undo = False # reset undo back just in case
-                
-                self.tap_count = 0
-                self.tap_team = None
-                self.tap_is_set = None
-        
-        # Re-open the gate after a short delay to ignore ghost clicks
-        ui.timer(0.1, self.open_click_gate, once=True)
-
-    def handle_press_cancel(self):
-        """Cancels the long press timer if the touch moves."""
-        if self.long_press_timer is not None:
-            self.long_press_timer.cancel()
-            self.long_press_timer = None
-            self.tap_count = 0
-            if self.tap_timer is not None:
-                self.tap_timer.cancel()
-                self.tap_timer = None
-        self.open_click_gate() # Re-open gate immediately if press is cancelled
+        self.interaction.open_click_gate()
 
     async def toggle_preview(self):
         self.preview_visible = not self.preview_visible
@@ -348,8 +224,7 @@ class GUI:
         self.sets_limit = custom_sets_limit if custom_sets_limit is not None else self.conf.sets
 
         self.logger.info('Set points: %s', self.points_limit)
-        self.logger.info('Set points last set: %s',
-                         self.points_limit_last_set)
+        self.logger.info('Set points last set: %s', self.points_limit_last_set)
         self.logger.info('Sets to win: %s', self.sets_limit)
         self.main_container = ui.element('div').classes('w-full h-full')
         await self._initialize_main_container()
@@ -371,256 +246,16 @@ class GUI:
                 ui.space()
                 self.teamBButton, self.timeoutsB, self.serveB = TeamPanel(
                     self, 2, RED_BUTTON_COLOR, TBCOLOR_LIGHT, TBCOLOR_VLIGHT).create()
-                
-                # Apply configured styles after creation
+
                 self.update_button_style()
-                
+
                 current_state = self.game_manager.get_current_state()
                 self.update_ui_timeouts(current_state)
                 self.update_ui_games(current_state)
-
                 self.update_ui_sets(current_state)
                 self.current_set = self.compute_current_set(current_state)
                 self.update_ui_current_set(self.current_set)
                 self.update_ui_serve(current_state)
-
-
-    def compute_current_set(self, current_state):
-        t1sets = current_state.get_sets(1)
-        t2sets = current_state.get_sets(2)
-        current_sets = t1sets + t2sets
-        if not self.game_manager.match_finished():
-            current_sets += 1
-        return current_sets
-
-    def update_ui_logos(self):
-        """Updates the team logos without recreating the elements."""
-        logo1_src = self.current_customize_state.get_team_logo(1)
-        logo2_src = self.current_customize_state.get_team_logo(2)
-        self.teamA_logo.set_source(logo1_src)
-        self.teamB_logo.set_source(logo2_src)
-
-    def update_button_style(self):
-        """Updates the style of the score buttons based on configuration."""
-        follow_team_colors = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
-        
-        if follow_team_colors:
-            color1 = self.current_customize_state.get_team_color(1)
-            text1 = self.current_customize_state.get_team_text_color(1)
-            color2 = self.current_customize_state.get_team_color(2)
-            text2 = self.current_customize_state.get_team_text_color(2)
-        else:
-            color1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR)
-            text1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
-            color2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR)
-            text2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
-        
-        # Determine font style
-        selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
-        font_style = ""
-        font_scale = 1.0
-        font_offset_y = 0.0
-        if selected_font and selected_font != 'Default':
-             font_style = f"font-family: '{selected_font}' !important;"
-             font_props = FONT_SCALES.get(selected_font, {'scale': 1.0, 'offset_y': 0.0})
-             if isinstance(font_props, dict):
-                 font_scale = font_props.get('scale', 1.0)
-                 font_offset_y = font_props.get('offset_y', 0.0)
-             else:
-                 font_scale = font_props
-
-        # Size styles
-        size_style = ""
-        padding_style = ""
-        if self.button_size:
-            size_style = f"width: {self.button_size}px !important; height: {self.button_size}px !important;"
-            if font_offset_y != 0.0:
-                offset_px = self.button_size * font_offset_y * 2.0
-                if offset_px < 0:
-                    padding_style = f"padding-bottom: {abs(offset_px)}px !important; padding-top: 0px !important;"
-                else:
-                    padding_style = f"padding-top: {abs(offset_px)}px !important; padding-bottom: 0px !important;"
-        
-        text_size_style = ""
-        if self.button_text_size:
-            scaled_text_size = self.button_text_size * font_scale
-            text_size_style = f"font-size: {scaled_text_size}px !important; line-height: 1.0 !important;"
-
-        # Helper to generate style string including background
-        def get_team_style(team_id, base_color, text_color):
-            style_parts = [
-                f'background-color: {base_color} !important',
-                f'color: {text_color} !important',
-                font_style,
-                size_style,
-                text_size_style,
-                padding_style
-            ]
-            
-            show_icon = AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
-            if show_icon:
-                logo_url = self.current_customize_state.get_team_logo(team_id)
-                if logo_url:
-                    icon_opacity = float(AppStorage.load(AppStorage.Category.BUTTONS_ICON_OPACITY, 0.3))
-                    
-                    # Calculate overlay color for opacity simulation
-                    overlay_rgba = None
-                    if base_color and base_color.startswith('#') and len(base_color) == 7:
-                        try:
-                            c = base_color.lstrip('#')
-                            rgb = tuple(int(c[i:i+2], 16) for i in (0, 2, 4))
-                            # We overlay the background color with (1 - opacity) to fade the icon
-                            overlay_alpha = 1.0 - icon_opacity
-                            overlay_rgba = f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {overlay_alpha:.2f})"
-                        except Exception as e:
-                            self.logger.error(f"Error parsing color {base_color}: {e}")
-                            pass
-                    
-                    if overlay_rgba:
-                         style_parts.append(f"background-image: linear-gradient({overlay_rgba}, {overlay_rgba}), url('{logo_url}') !important")
-                    else:
-                         style_parts.append(f"background-image: url('{logo_url}') !important")
-                         style_parts.append("background-blend-mode: overlay !important")
-
-                    style_parts.append("background-size: contain !important")
-                    style_parts.append("background-repeat: no-repeat !important")
-                    style_parts.append("background-position: center !important")
-            
-            return '; '.join([s for s in style_parts if s])
-
-        # Apply styles, removing the default text-white class to allow custom text colors
-        if self.teamAButton:
-            self.teamAButton.classes(remove='text-white')
-            self.teamAButton.style(replace=get_team_style(1, color1, text1))
-            
-        if self.teamBButton:
-            self.teamBButton.classes(remove='text-white')
-            self.teamBButton.style(replace=get_team_style(2, color2, text2))
-            
-        # Apply font style to set buttons as well
-        set_button_style = font_style
-        if font_scale != 1.0:
-            set_button_style += f" font-size: {24 * font_scale}px !important; line-height: 1.0 !important;"
-        if font_offset_y != 0.0:
-            offset_px_set = 24 * font_scale * font_offset_y * 2.0
-            if offset_px_set < 0:
-                set_button_style += f" padding-bottom: {abs(offset_px_set)}px !important; padding-top: 0px !important;"
-            else:
-                set_button_style += f" padding-top: {abs(offset_px_set)}px !important; padding-bottom: 0px !important;"
-
-        if self.teamASet:
-            self.teamASet.style(replace=set_button_style.strip())
-
-        if self.teamBSet:
-             self.teamBSet.style(replace=set_button_style.strip())
-
-    def update_ui(self, load_from_backend=False):
-        self.logger.debug('Updating UI...')
-        if load_from_backend:
-            self.logger.info('loading data from backend')
-            self.game_manager = GameManager(self.conf, self.backend)
-            self.current_customize_state.set_model(
-                self.backend.get_current_customization())
-            self.visible = self.backend.is_visible()
-            self.update_ui_logos()
-        self.update_button_style()
-
-        update_state = self.game_manager.get_current_state()
- 
-        self.current_set = self.compute_current_set(update_state)
-
-        self.update_ui_serve(update_state)
-        self.update_ui_sets(update_state)
-        self.update_ui_games(update_state)
-        self.update_ui_timeouts(update_state)
-        self.update_ui_current_set(self.current_set)
-        self.update_ui_visible(self.visible)
-        clientSimple = AppStorage.load(
-            AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
-        if clientSimple is not None:
-            self.switch_simple_mode(clientSimple)
-
-    def update_ui_games(self, update_state):
-        """Updates the game scores on the UI."""
-        for i in range(1, self.sets_limit + 1):
-            teamA_game_int = update_state.get_game(1, i)
-            teamB_game_int = update_state.get_game(2, i)
-            if i == self.current_set:
-                self.logger.debug(f'setting games {teamA_game_int:02d} {teamB_game_int:02d} on current set {self.current_set:01d}')
-                self.teamAButton.set_text(f'{teamA_game_int:02d}')
-                self.teamBButton.set_text(f'{teamB_game_int:02d}')
-        self.update_ui_games_table(update_state)
-
-    def update_ui_games_table(self, update_state):
-        if self.teamA_scores_container is None or self.teamB_scores_container is None:
-            return
-            
-        self.teamA_scores_container.clear()
-        self.teamB_scores_container.clear()
-
-        lastWithoutZeroZero = 1
-        match_finished = self.game_manager.match_finished()
-        for i in range(1, self.sets_limit + 1):
-            teamA_game_int = update_state.get_game(1, i)
-            teamB_game_int = update_state.get_game(2, i)
-            if teamA_game_int + teamB_game_int > 0:
-                lastWithoutZeroZero = i
-
-        for i in range(1, self.sets_limit + 1):
-            teamA_game_int = update_state.get_game(1, i)
-            teamB_game_int = update_state.get_game(2, i)
-            do_break = False
-            empty_label = False
-            if i > 1 and i > lastWithoutZeroZero:
-                do_break = True
-            if i == self.current_set and i < self.sets_limit and not match_finished:
-                do_break = True
-            if do_break: 
-                break
-
-
-            with self.teamA_scores_container:
-                label1 = ui.label(f'{teamA_game_int:02d}').classes('p-0 m-0').mark(f'team-1-set-{i}-score')
-            with self.teamB_scores_container:
-                label2 = ui.space() if empty_label else ui.label(f'{teamB_game_int:02d}').classes('p-0 m-0').mark(f'team-2-set-{i}-score')
-
-            if teamA_game_int > teamB_game_int:
-                label1.classes('text-bold')
-            elif teamA_game_int < teamB_game_int:
-                label2.classes('text-bold')
-
-    def update_ui_timeouts(self, update_state):
-        self.change_ui_timeout(1, update_state.get_timeout(1))
-        self.change_ui_timeout(2, update_state.get_timeout(2))
-
-    def update_ui_serve(self, update_state):
-        """
-        Updates the serve icons based on the current state.
-        """
-        current_serve = update_state.get_current_serve()
-        
-        is_serving_a = current_serve == State.SERVE_1
-        self.serveA.props(f'color={TACOLOR_HIGH if is_serving_a else TACOLOR_VLIGHT}')
-        self.serveA.style(f'opacity: {1 if is_serving_a else 0.4}')
-
-        is_serving_b = current_serve == State.SERVE_2
-        self.serveB.props(f'color={TBCOLOR_HIGH if is_serving_b else TBCOLOR_VLIGHT}')
-        self.serveB.style(f'opacity: {1 if is_serving_b else 0.4}')
-
-    def update_ui_sets(self, update_state):
-        t1sets = update_state.get_sets(1)
-        t2sets = update_state.get_sets(2)
-        self.teamASet.set_text(str(t1sets))
-        self.teamBSet.set_text(str(t2sets))
-
-    def update_ui_current_set(self, set_number):
-        self.set_selector.set_value(set_number)
-
-    def update_ui_visible(self, enabled):
-        icon = 'visibility' if enabled else 'visibility_off'
-        color = VISIBLE_ON_COLOR if enabled else VISIBLE_OFF_COLOR
-        self.visibility_button.set_icon(icon)
-        self.visibility_button.props(f'color={color}')
 
     def send_state(self):
         """Sends the current state to the backend and broadcasts to other clients."""
@@ -632,7 +267,6 @@ class GUI:
         self.logger.debug('Reset called')
         self.game_manager.reset()
         self.update_ui(load_from_backend=True)
-
 
     async def refresh(self):
         """Reloads the game state from the backend and updates the UI."""
@@ -650,7 +284,6 @@ class GUI:
                     instance.update_ui(load_from_backend=True)
                 except Exception as e:
                     self.logger.debug(f'Broadcast to other client failed: {e}')
-        
 
     def change_serve(self, team, force=False):
         self.game_manager.change_serve(team, force)
@@ -667,25 +300,14 @@ class GUI:
         self.update_ui_timeouts(self.game_manager.get_current_state())
         self.send_state()
 
-    def change_ui_timeout(self, team, value):
-        color = TACOLOR_MEDIUM if team == 1 else TBCOLOR_MEDIUM
-        container = self.timeoutsA if team == 1 else self.timeoutsB
-        container.clear()
-        with container:
-            for n in range(value):
-                ui.icon(name='radio_button_unchecked',
-                          color=color, size='12px').mark(f'timeout-{team}-number-{n}')
-
     def set_game_value(self, team: int, value: int):
         """Directly sets the game score for a team."""
         self.game_manager.set_game_value(team, value, self.current_set)
-        
+
         set_won = self.game_manager.check_set_won(
             team, self.current_set, self.points_limit, self.points_limit_last_set, self.sets_limit
         )
 
-        # Always update the main score button right after setting the value.
-        # This ensures the winning score is displayed.
         current_state = self.game_manager.get_current_state()
         self.teamAButton.set_text(f'{current_state.get_game(1, self.current_set):02d}')
         self.teamBButton.set_text(f'{current_state.get_game(2, self.current_set):02d}')
@@ -695,11 +317,9 @@ class GUI:
             self.update_ui_timeouts(current_state)
             if not self.game_manager.match_finished():
                 self.switch_to_set(self.compute_current_set(current_state))
-        
-        # Update the detailed score table regardless.
+
         self.update_ui_games_table(current_state)
         self.send_state()
-
 
     def set_sets_value(self, team: int, value: int):
         """Directly sets the sets won for a team."""
@@ -717,7 +337,6 @@ class GUI:
         set_won = self.game_manager.add_game(
             team, self.current_set, self.points_limit, self.points_limit_last_set, self.sets_limit, self.undo)
 
-        # Explicitly update the main score buttons with the score of the set that was just played.
         current_state = self.game_manager.get_current_state()
         self.teamAButton.set_text(f'{current_state.get_game(1, self.current_set):02d}')
         self.teamBButton.set_text(f'{current_state.get_game(2, self.current_set):02d}')
@@ -750,7 +369,7 @@ class GUI:
             if self.is_auto_simple_mode_enabled():
                 self.logger.debug('Switch simple mode on due to auto_simple_mode being enabled')
                 self.switch_simple_mode(True)
-        
+
         self.update_ui_games_table(self.game_manager.get_current_state())
         self.send_state()
 
@@ -832,7 +451,7 @@ class GUI:
 
         if force_value is None:
             AppStorage.save(AppStorage.Category.SIMPLE_MODE,
-                              self.simple, oid=self.conf.oid)
+                            self.simple, oid=self.conf.oid)
         self.send_state()
 
     def switch_undo(self, reset=False):
@@ -850,8 +469,4 @@ class GUI:
     async def create_iframe(self):
         ui.separator()
         is_dark = self.dark_mode.value
-        # If auto (None), we might default to False or try to detect.
-        # However, passing None to create_iframe_card will trigger the JS detection, which is what we want for Auto.
-        # But if we just switched to Auto, JS might need a moment.
-        # Let's pass the explicit boolean if set, otherwise None.
         await create_iframe_card(self.conf.output, self.current_customize_state.get_h_pos(), self.current_customize_state.get_v_pos(), self.current_customize_state.get_width(), self.current_customize_state.get_height(), self.preview_card_width, dark_mode=is_dark, layout_id=self.conf.id)
