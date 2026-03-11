@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
 ![NiceGUI](https://img.shields.io/badge/built%20with-NiceGUI-5898d4.svg)
 
-**Volley Overlay Control** is a powerful, self-hostable web application designed to seamlessly control volleyball scoreboards from *overlays.uno*. 
+**Volley Overlay Control** is a powerful, self-hostable web application for controlling volleyball scoreboards. It works with *overlays.uno* cloud overlays and with fully custom, self-hosted overlay engines.
 
 It offers a user-friendly interface to manage every aspect of a volleyball match—scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes, making it the perfect solution for managing scoreboards across various events.
 
@@ -68,9 +68,6 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
     *   _Note_: The application natively supports this `Standard` template alongside newer `Volleyball` layouts.
 4.  *(Optional)* For local-only setups, use the [NiceGUI On Air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air) feature. Get your token and use it as `UNO_OVERLAY_AIR_ID`.
 
-> [!IMPORTANT]
-> **Compatibility Note:** Version 0.2 breaks compatibility with overlays created before March 2025.
-
 ### ✨ Building a Custom Overlay
 
 If you want to build and host your own completely custom graphical overlay (instead of using overlays.uno), please refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for details on the required HTTP API contract.
@@ -113,13 +110,8 @@ If you want to build and host your own completely custom graphical overlay (inst
     ```
     NiceGUI will automatically open the scoreboard in your browser.
 
-4.  **Start the Local Overlay Engine (Optional)**:
-    If utilizing the high-performance local HTML graphics:
-    ```bash
-    cd overlay
-    python main.py
-    ```
-    Then load `http://localhost:8000/overlay/default` inside OBS Studio or vmix.
+4.  **Use a Custom Overlay Engine (Optional)**:
+    If using a self-hosted overlay instead of *overlays.uno*, set the `APP_CUSTOM_OVERLAY_URL` environment variable to your server's base URL and configure your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the full API contract and a reference implementation.
 
 ### Running with Docker 🐳
 
@@ -144,7 +136,7 @@ Configure the application using the following environment variables:
 
 | Variable | Description | Default Value |
 | :--- | :--- | :--- |
-| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. A dialog will ask for it if not configured | |
+| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. Required when using overlays.uno; a dialog will prompt if not set. Not needed when using a custom overlay (`C-` prefix). | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
 | `APP_CUSTOM_OVERLAY_URL` | The API URL for communicating with self-hosted custom overlays. | `http://localhost:8000` |
 | `APP_CUSTOM_OVERLAY_OUTPUT_URL` | The external output URL for user-facing links. Falls back to `APP_CUSTOM_OVERLAY_URL`. | |
@@ -173,6 +165,8 @@ Configure the application using the following environment variables:
 | `AUTO_SIMPLE_MODE` | If `true`, auto-switch to simplified view during gameplay. | `false` |
 | `AUTO_SIMPLE_MODE_TIMEOUT` | If `true`, switch back to full view on timeout. | `false` |
 | `SHOW_PREVIEW` | If `true`, shows a preview of the overlay on the control page. | `true` |
+| `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
+| `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
 
 <br>
 

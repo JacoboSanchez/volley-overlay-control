@@ -67,10 +67,12 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 │   ├── test_backend.py      # Backend API communication tests.
 │   ├── test_customization.py # Customization logic tests.
 │   ├── test_env_vars_manager.py # Environment variable manager tests.
-│   ├── test_game_manager.py # Game rules and scoring tests.
-│   ├── test_state.py        # State model tests.
-│   └── test_ui.py           # Full UI interaction tests (Playwright/NiceGUI).
-└── docker-compose.yml       # Docker Compose configuration.
+│   ├── test_game_manager.py     # Game rules and scoring tests.
+│   ├── test_state.py            # State model tests.
+│   ├── test_config_validator.py # Startup configuration validation tests.
+│   ├── test_mobile_viewport.py  # Mobile viewport/PWA browser tests (Playwright).
+│   └── test_ui.py               # Full UI interaction tests (Playwright/NiceGUI).
+└── docker-compose.yml           # Docker Compose configuration.
 ```
 
 ---
@@ -143,10 +145,15 @@ The "Brain" of the application. Enforces volleyball rules.
 The "Bridge" to the outside world.
 
 - **Responsibility**: HTTP communication with the Overlay API.
+- **Key Internals**:
+  - Uses a shared `requests.Session` for all HTTP calls to enable TCP connection reuse (lower latency on repeated posts).
+  - `_customization_cache` — In-memory cache for the last fetched customization state, preventing redundant GET requests on every score update.
+  - A `ThreadPoolExecutor` (5 workers) handles overlay updates asynchronously when `ENABLE_MULTITHREAD=true`.
 - **Key Methods**:
   - `get_current_model()` — Fetches the last known state from the remote API. For Custom Overlays, hits `/api/raw_config/{id}` to bypass local caching.
+  - `get_current_customization()` — Fetches team/color/layout settings. Result is cached in `_customization_cache`.
   - `save(state, simple)` — Pushes local state changes to the cloud and proxies to the local overlay engine via `update_local_overlay()`. For custom overlays, also syncs raw state JSON via `POST /api/raw_config/{id}`.
-  - `update_local_overlay(current_model, force_visibility, customization_state)` — Parses scoring and UI branding properties into a standardized JSON payload (`match_info`, `team_home`/`team_away`, `overlay_control`) and POSTs to `[APP_CUSTOM_OVERLAY_URL]/api/state/{custom_id}`.
+  - `update_local_overlay(current_model, force_visibility, customization_state)` — Parses scoring and UI branding properties into a standardized JSON payload (`match_info`, `team_home`/`team_away`, `overlay_control`) and POSTs to `[APP_CUSTOM_OVERLAY_URL]/api/state/{custom_id}`. Uses `_customization_cache` when available.
   - `fetch_and_update_overlay_id(oid)` — Translates a user's Control Token (OID) into the specific backend layout ID via `GetOverlays`.
   - `fetch_output_token(oid)` — Retrieves the URL/Token required to display the overlay iframe.
 
@@ -168,11 +175,15 @@ Modular UI components to prevent `gui.py` from becoming a monolith:
 The NiceGUI presentation layer orchestrator.
 
 - **Responsibility**: Instantiate modular components, listen for state changes from `GameManager`, and trigger updates.
+- **Key Internals**:
+  - `_instances` — Class-level `weakref.WeakSet` of all active `GUI` instances across connected browser tabs.
+  - `_client` — Reference to the NiceGUI `Client` for this instance, used by `_broadcast_to_others` to skip stale/deleted clients.
 - **Key Methods**:
   - `init(...)` — Builds the initial layout by instantiating `TeamPanel`, `CenterPanel`, and `ControlButtons`.
   - `update_ui(load_from_backend)` — Refreshes all visual elements (scores, colors, logos).
   - `handle_button_press/release` — Processes "Long Press", "Tap", and "Double Tap" (undo) logic.
   - `switch_simple_mode()` — Toggles between full detail and simplified view.
+  - `_broadcast_to_others()` — Notifies all other connected GUI instances to refresh after a state change. Checks `Client.instances` before calling `update_ui` on each instance to avoid "Client has been deleted" warnings for closed tabs.
 
 #### `app/startup.py` — `startup()`
 
@@ -198,9 +209,18 @@ The NiceGUI presentation layer orchestrator.
 - **Responsibility**: Manages cosmetic data (Team Names, Logos, Colors, Overlay geometry).
 - **Logic**: Abstracts payload keys to support multiple layout templates. Falls back from `Team 1 Text Name` to `Team 1 Name` if needed. `customization_page.py` hides components unsupported by the active layout.
 
+#### `app/app_storage.py` — class `AppStorage`
+
+- **Responsibility**: Unified wrapper around NiceGUI's browser-local user storage (`app.storage.user`) with an in-memory fallback for test environments.
+- **Key Methods**:
+  - `save(tag, value, oid=None)` — Persists a value under a `Category` enum key, optionally scoped to an OID.
+  - `load(tag, default, oid=None)` — Loads a persisted value, returning `default` if not found.
+  - `refresh_state(oid, preserve_keys)` — Clears or partially resets the OID-scoped storage bucket.
+- **Notes**: Catches both `RuntimeError` and `AssertionError` when accessing `app.storage.user` so early startup calls (before the NiceGUI session is fully initialized) fall back to in-memory storage gracefully.
+
 #### `app/conf.py`
 
-- **Responsibility**: Loads environment variables (e.g., `APP_PORT`, `UNO_OVERLAY_URL`) into a structured `Conf` object.
+- **Responsibility**: Loads environment variables (e.g., `APP_PORT`, `UNO_OVERLAY_URL`) into a structured `Conf` object. Some values (e.g., `lock_teamA_icons`, `auto_hide`) are `@property` accessors that read from `AppStorage` first, falling back to the env var default.
 
 #### `app/messages.py`
 
@@ -241,6 +261,8 @@ pytest tests/ --log-cli-level=debug
 | `test_backend.py` | API communication, custom overlay integration |
 | `test_customization.py` | Team/color customization logic |
 | `test_env_vars_manager.py` | Environment variable loading |
+| `test_config_validator.py` | Startup environment variable validation |
+| `test_mobile_viewport.py` | Mobile viewport/PWA rendering (Playwright + Chromium, marked `mobile_browser`) |
 | `test_ui.py` | Full end-to-end UI tests via NiceGUI's test client |
 
 ### CI Pipeline
@@ -266,6 +288,10 @@ NiceGUI is reactive but often requires manual calls to `element.update()` or `se
 ### Long Press Logic
 
 The buttons in `GUI` use a timer-based system to distinguish between a **tap** (Add Point) and a **hold** (Open Edit Dialog). Do not remove the `touchstart`/`mousedown` event listeners without preserving this logic.
+
+### Multi-User Broadcast
+
+When multiple browser tabs are open, `GUI._broadcast_to_others()` notifies all other registered instances after a state change. Before calling `update_ui` on a foreign instance it checks `client.id in Client.instances` — if the tab was closed and NiceGUI deleted its client, the broadcast skips that instance silently. Any new `GUI` instance stores `self._client = ui.context.client` during `__init__` for this check.
 
 ### State Synchronization
 
@@ -328,8 +354,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Configure environment
-cp .env.example .env  # or create .env manually
-# Edit .env with your UNO_OVERLAY_OID and preferences
+# Create a .env file with your settings, for example:
+# UNO_OVERLAY_OID=your_token_here
+# SCOREBOARD_USERS={"admin": {"password": "secret"}}
 
 # 5. Run the application
 python main.py
