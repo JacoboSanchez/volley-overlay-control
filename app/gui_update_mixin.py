@@ -60,7 +60,7 @@ class UIUpdateMixin:
         clientSimple = AppStorage.load(
             AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid)
         if clientSimple is not None:
-            self.switch_simple_mode(clientSimple)
+            self.switch_simple_mode(clientSimple, update_backend=False)
 
     def update_ui_games(self, update_state):
         """Updates the game scores on the UI."""

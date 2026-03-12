@@ -285,6 +285,19 @@ class GUI(UIUpdateMixin):
                 except Exception as e:
                     self.logger.debug(f'Broadcast to other client failed: {e}')
 
+    def _broadcast_visibility_to_others(self):
+        """Directly propagate visibility state to other connected GUI instances."""
+        for instance in GUI._instances:
+            if instance is not self and instance.initialized:
+                client = getattr(instance, '_client', None)
+                if client is None or client.id not in Client.instances:
+                    continue
+                try:
+                    instance.visible = self.visible
+                    instance.update_ui_visible(self.visible)
+                except Exception as e:
+                    self.logger.debug(f'Broadcast visibility to other client failed: {e}')
+
     def change_serve(self, team, force=False):
         self.game_manager.change_serve(team, force)
         self.update_ui_serve(self.game_manager.get_current_state())
@@ -437,8 +450,9 @@ class GUI(UIUpdateMixin):
         if update:
             self.update_ui_visible(self.visible)
             self.backend.change_overlay_visibility(self.visible)
+            self._broadcast_visibility_to_others()
 
-    def switch_simple_mode(self, force_value=None):
+    def switch_simple_mode(self, force_value=None, update_backend=True):
         if self.simple and force_value is not True:
             self.simple = False
             self.simple_button.set_icon('grid_on')
@@ -447,12 +461,14 @@ class GUI(UIUpdateMixin):
             self.simple = True
             self.simple_button.set_icon('window')
             self.simple_button.props(f'color={SIMPLE_SCOREBOARD_COLOR}')
-            self.backend.reduce_games_to_one()
+            if update_backend:
+                self.backend.reduce_games_to_one()
 
         if force_value is None:
             AppStorage.save(AppStorage.Category.SIMPLE_MODE,
                             self.simple, oid=self.conf.oid)
-        self.send_state()
+        if update_backend:
+            self.send_state()
 
     def switch_undo(self, reset=False):
         if self.undo:

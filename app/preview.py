@@ -10,7 +10,10 @@ async def create_iframe_card(url: str, xpos: int, ypos: int, width: int, height:
     if dark_mode is not None:
         dark_enabled = dark_mode
     elif "PYTEST_CURRENT_TEST" not in os.environ:
-        dark_enabled = await ui.run_javascript('Quasar.Dark.isActive')
+        try:
+            dark_enabled = await ui.run_javascript('Quasar.Dark.isActive', timeout=3.0)
+        except Exception:
+            dark_enabled = False
         
     is_custom_overlay = layout_id and (str(layout_id).startswith('C-') or str(layout_id) == 'auto')
     
