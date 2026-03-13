@@ -4,6 +4,7 @@ from app.theme import (
     TACOLOR_HIGH, TACOLOR_VLIGHT, TACOLOR_MEDIUM,
     TBCOLOR_HIGH, TBCOLOR_VLIGHT, TBCOLOR_MEDIUM,
     VISIBLE_ON_COLOR, VISIBLE_OFF_COLOR,
+    DEFAULT_BUTTON_A_COLOR, DEFAULT_BUTTON_B_COLOR, DEFAULT_BUTTON_TEXT_COLOR,
 )
 from app.game_manager import GameManager
 from app.app_storage import AppStorage
@@ -12,6 +13,40 @@ from app.components.button_style import update_button_style as _update_button_st
 
 class UIUpdateMixin:
     """Mixin providing all UI state-update methods for the GUI class."""
+
+    def _load_local_visual_settings(self):
+        """Read all visual-only (per-browser) settings from AppStorage.
+
+        Must be called while executing in this instance's own browser context
+        so that AppStorage reads the correct user storage.
+        """
+        return {
+            AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS:
+                AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False),
+            AppStorage.Category.TEAM_1_BUTTON_COLOR:
+                AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR),
+            AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR:
+                AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR),
+            AppStorage.Category.TEAM_2_BUTTON_COLOR:
+                AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR),
+            AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR:
+                AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR),
+            AppStorage.Category.SELECTED_FONT:
+                AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default'),
+            AppStorage.Category.BUTTONS_SHOW_ICON:
+                AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False),
+            AppStorage.Category.BUTTONS_ICON_OPACITY:
+                AppStorage.load(AppStorage.Category.BUTTONS_ICON_OPACITY, 0.3),
+        }
+
+    def on_visual_settings_changed(self):
+        """Called by the options dialog when any visual-only setting changes.
+
+        Refreshes the instance's local settings cache (safe because we are
+        executing in this browser's own context) then updates the buttons.
+        """
+        self._local_visual_settings = self._load_local_visual_settings()
+        self.update_button_style()
 
     def compute_current_set(self, current_state):
         t1sets = current_state.get_sets(1)
@@ -34,6 +69,7 @@ class UIUpdateMixin:
             self.teamAButton, self.teamBButton, self.teamASet, self.teamBSet,
             self.button_size, self.button_text_size,
             self.current_customize_state, self.logger,
+            local_settings=getattr(self, '_local_visual_settings', None),
         )
 
     def update_ui(self, load_from_backend=False):

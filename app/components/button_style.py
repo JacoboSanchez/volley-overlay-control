@@ -7,12 +7,23 @@ from app.app_storage import AppStorage
 
 
 def update_button_style(teamAButton, teamBButton, teamASet, teamBSet,
-                        button_size, button_text_size, customize_state, logger=None):
-    """Updates the style of the score buttons based on configuration."""
+                        button_size, button_text_size, customize_state, logger=None,
+                        local_settings=None):
+    """Updates the style of the score buttons based on configuration.
+
+    local_settings: optional dict with pre-loaded per-instance visual settings.
+    When provided it is used instead of AppStorage so that broadcasts to other
+    browser tabs always apply the *target* tab's own preferences.
+    """
     if logger is None:
         logger = logging.getLogger(__name__)
 
-    follow_team_colors = AppStorage.load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
+    def _load(key, default):
+        if local_settings is not None:
+            return local_settings.get(key, default)
+        return AppStorage.load(key, default)
+
+    follow_team_colors = _load(AppStorage.Category.BUTTONS_FOLLOW_TEAM_COLORS, False)
 
     if follow_team_colors:
         color1 = customize_state.get_team_color(1)
@@ -20,13 +31,13 @@ def update_button_style(teamAButton, teamBButton, teamASet, teamBSet,
         color2 = customize_state.get_team_color(2)
         text2 = customize_state.get_team_text_color(2)
     else:
-        color1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR)
-        text1 = AppStorage.load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
-        color2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR)
-        text2 = AppStorage.load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
+        color1 = _load(AppStorage.Category.TEAM_1_BUTTON_COLOR, DEFAULT_BUTTON_A_COLOR)
+        text1 = _load(AppStorage.Category.TEAM_1_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
+        color2 = _load(AppStorage.Category.TEAM_2_BUTTON_COLOR, DEFAULT_BUTTON_B_COLOR)
+        text2 = _load(AppStorage.Category.TEAM_2_BUTTON_TEXT_COLOR, DEFAULT_BUTTON_TEXT_COLOR)
 
     # Determine font style
-    selected_font = AppStorage.load(AppStorage.Category.SELECTED_FONT, 'Default')
+    selected_font = _load(AppStorage.Category.SELECTED_FONT, 'Default')
     font_style = ""
     font_scale = 1.0
     font_offset_y = 0.0
@@ -66,11 +77,11 @@ def update_button_style(teamAButton, teamBButton, teamASet, teamBSet,
             padding_style,
         ]
 
-        show_icon = AppStorage.load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
+        show_icon = _load(AppStorage.Category.BUTTONS_SHOW_ICON, False)
         if show_icon:
             logo_url = customize_state.get_team_logo(team_id)
             if logo_url:
-                icon_opacity = float(AppStorage.load(AppStorage.Category.BUTTONS_ICON_OPACITY, 0.3))
+                icon_opacity = float(_load(AppStorage.Category.BUTTONS_ICON_OPACITY, 0.3))
 
                 overlay_rgba = None
                 if base_color and base_color.startswith('#') and len(base_color) == 7:

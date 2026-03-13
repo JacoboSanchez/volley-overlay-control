@@ -35,6 +35,19 @@ class AppStorage:
         ('BUTTONS_SHOW_ICON', 'buttons_show_icon'),
         ('BUTTONS_ICON_OPACITY', 'buttons_icon_opacity')
     ])
+
+    # Keys stored in browser-local storage (app.storage.browser) so they are
+    # isolated per browser tab and never propagated to other connected clients.
+    _LOCAL_STORAGE_KEYS = {
+        'buttons_follow_team_colors',
+        'team_1_button_color',
+        'team_1_button_text_color',
+        'team_2_button_color',
+        'team_2_button_text_color',
+        'selected_font',
+        'buttons_show_icon',
+        'buttons_icon_opacity',
+    }
     
     logger = logging.getLogger("Storage")
 
@@ -43,7 +56,7 @@ class AppStorage:
         Determines the appropriate storage backend.
         """
         global _cached_storage
-        
+
         try:
             if app.storage is not None:
                 # This will raise a RuntimeError if not in a NiceGUI page context,
@@ -52,19 +65,17 @@ class AppStorage:
         except (RuntimeError, AssertionError):
             # We are in a test or non-UI environment, use the in-memory fallback
             pass
-            
+
         if _cached_storage is None:
             logging.info('Using in-memory storage')
             _cached_storage = _memory_storage
-            
-        
+
         return _cached_storage
-    
+
     def _reset_cache():
         """Resets the storage cache. Primarily for use in testing."""
         global _cached_storage
         _cached_storage = None
-
 
     def save(tag: Category, value, oid=None):
         storage = AppStorage._get_storage()
