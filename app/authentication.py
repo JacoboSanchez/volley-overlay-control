@@ -73,7 +73,7 @@ class PasswordAuthenticator:
             self.password = ui.input(Messages.get(Messages.PASSWORD), password=True, password_toggle_button=True).on('keydown.enter', self.try_login).classes('w-full')
             with ui.row().classes('w-full'):
                 ui.space()
-                ui.button(Messages.get(Messages.LOGIN), on_click=self.try_login)
+                ui.button(Messages.get(Messages.LOGIN), on_click=self.try_login).props('flat')
 
     async def open(self):
         logger.debug("open dialog")

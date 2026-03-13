@@ -97,7 +97,7 @@ def startup() -> None:
             ).on('keydown.enter', do_login).classes('w-full').mark('password-input')
             with ui.row().classes('w-full'):
                 ui.space()
-                ui.button(Messages.get(Messages.LOGIN), on_click=do_login).mark('login-button')
+                ui.button(Messages.get(Messages.LOGIN), on_click=do_login).mark('login-button').props('flat')
         return None
 
     @ui.page('/preview')
