@@ -76,6 +76,10 @@ class GUI(UIUpdateMixin):
         self.dark_mode = ui.dark_mode(value=init_val)
         self.fullscreen = ui.fullscreen()
 
+        # Cache visual-only settings per-instance so broadcasts from other tabs
+        # never overwrite this browser's own button style preferences.
+        self._local_visual_settings = self._load_local_visual_settings()
+
         # Register this instance for multi-user broadcast
         GUI._instances.add(self)
         self._client = ui.context.client
