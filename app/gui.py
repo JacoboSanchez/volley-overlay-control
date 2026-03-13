@@ -79,6 +79,7 @@ class GUI(UIUpdateMixin):
         # Register this instance for multi-user broadcast
         GUI._instances.add(self)
         self._client = ui.context.client
+        self._client.on_disconnect(lambda: setattr(self, 'initialized', False))
 
         # --- Reusable Dialog for Custom Values ---
         self.dialog_team = None
