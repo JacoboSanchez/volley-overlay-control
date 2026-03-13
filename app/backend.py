@@ -66,14 +66,12 @@ class Backend:
             
         if self.conf.multithread:
             if self.is_custom_overlay():
-                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
-                self.executor.submit(self.update_local_overlay, current_model, None, None, show_only)
+                self.executor.submit(self.update_local_overlay, current_model, None, None, simple)
             else:
                 self.executor.submit(self.save_json_model, to_save)
         else:
             if self.is_custom_overlay():
-                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
-                self.update_local_overlay(current_model, None, None, show_only)
+                self.update_local_overlay(current_model, None, None, simple)
             else:
                 self.save_json_model(to_save)
         Backend.logger.info('saved')
@@ -108,11 +106,10 @@ class Backend:
                 
             current_model = self.get_current_model(self.conf.oid)
             if current_model:
-                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
                 if self.conf.multithread:
-                    self.executor.submit(self.update_local_overlay, current_model, None, to_save, show_only)
+                    self.executor.submit(self.update_local_overlay, current_model, None, to_save, None)
                 else:
-                    self.update_local_overlay(current_model, None, to_save, show_only)
+                    self.update_local_overlay(current_model, None, to_save, None)
             return type('MockResponse', (object,), {'status_code': 200, 'json': lambda self: {'payload': {}}})()
         
         return self.send_command_with_value("SetCustomization", to_save)
@@ -126,11 +123,10 @@ class Backend:
         if self.is_custom_overlay():
             current_model = self.get_current_model(self.conf.oid)
             if current_model:
-                show_only = AppStorage.load(AppStorage.Category.SIMPLE_MODE, oid=self.conf.oid) or False
                 if self.conf.multithread:
-                    self.executor.submit(self.update_local_overlay, current_model, show, None, show_only)
+                    self.executor.submit(self.update_local_overlay, current_model, show, None, None)
                 else:
-                    self.update_local_overlay(current_model, show, None, show_only)
+                    self.update_local_overlay(current_model, show, None, None)
             return type('MockResponse', (object,), {'status_code': 200, 'json': lambda self: {'payload': {}}})()
 
         return self.send_command_with_id_and_content(command)
@@ -362,7 +358,7 @@ class Backend:
             Backend.logger.error(f"Error fetching output token: {e}")
         return None
 
-    def update_local_overlay(self, current_model, force_visibility=None, customization_state=None, show_only_current_set=False):
+    def update_local_overlay(self, current_model, force_visibility=None, customization_state=None, show_only_current_set=None):
         try:
             from app.customization import Customization
             
@@ -380,9 +376,6 @@ class Backend:
                 }
 
             current_set = int(current_model.get(State.CURRENT_SET_INT, 1))
-            
-            # Default to visible unless otherwise tracked locally.
-            visibility = True if force_visibility is None else force_visibility
 
             payload = {
                 "match_info": {
@@ -390,7 +383,6 @@ class Backend:
                     "phase": "Playoffs",
                     "best_of_sets": int(self.conf.sets),
                     "current_set": current_set,
-                    "show_only_current_set": show_only_current_set
                 },
                 "team_home": {
                     "name": cust.get_team_name(1),
@@ -417,7 +409,6 @@ class Backend:
                     "set_history": get_set_history(2)
                 },
                 "overlay_control": {
-                    "show_main_scoreboard": visibility,
                     "show_bottom_ticker": False,
                     "ticker_message": "",
                     "show_player_stats": False,
@@ -437,6 +428,12 @@ class Backend:
                     "preferredStyle": cust.get_preferred_style()
                 }
             }
+            
+            if show_only_current_set is not None:
+                payload["match_info"]["show_only_current_set"] = show_only_current_set
+                
+            if force_visibility is not None:
+                payload["overlay_control"]["show_main_scoreboard"] = force_visibility
             
             custom_id, _ = self.get_custom_overlay_id()
             base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')

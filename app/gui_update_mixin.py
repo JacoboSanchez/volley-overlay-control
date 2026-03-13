@@ -37,14 +37,20 @@ class UIUpdateMixin:
         )
 
     def update_ui(self, load_from_backend=False):
-        self.logger.debug('Updating UI...')
+        import time
+        t_start = time.time()
+        self.logger.debug(f'Updating UI... load_from_backend={load_from_backend}')
         if load_from_backend:
+            t_load = time.time()
             self.logger.info('loading data from backend')
             self.game_manager = GameManager(self.conf, self.backend)
+            t_gm = time.time()
             self.current_customize_state.set_model(
                 self.backend.get_current_customization())
+            t_cust = time.time()
             self.visible = self.backend.is_visible()
             self.update_ui_logos()
+            self.logger.debug(f'Backend load took: gm={t_gm - t_load:.3f}s, cust={t_cust - t_gm:.3f}s, total={time.time() - t_load:.3f}s')
         self.update_button_style()
 
         update_state = self.game_manager.get_current_state()

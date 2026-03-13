@@ -276,28 +276,47 @@ class GUI(UIUpdateMixin):
 
     def _broadcast_to_others(self):
         """Notify all other connected GUI instances to refresh their UI."""
+        import time
+        start_t = time.time()
+        self.logger.debug(f'Broadcasting state change to up to {len(GUI._instances) - 1} other clients')
         for instance in GUI._instances:
             if instance is not self and instance.initialized:
                 client = getattr(instance, '_client', None)
                 if client is None or client.id not in Client.instances:
                     continue
                 try:
-                    instance.update_ui(load_from_backend=True)
+                    c_start = time.time()
+                    self.logger.debug(f'Broadcasting state change to client {client.id}')
+                    
+                    # Instead of forcing a full backend HTTP reload per client, 
+                    # sync the game and customization state directly in-memory.
+                    import copy
+                    from app.state import State
+                    instance.game_manager.main_state = State(copy.deepcopy(self.game_manager.main_state.get_current_model()))
+                    instance.current_customize_state.set_model(copy.deepcopy(self.current_customize_state.get_model()))
+                    instance.visible = getattr(self, 'visible', True)
+                    instance.update_ui_logos()
+                    
+                    instance.update_ui(load_from_backend=False)
+                    self.logger.debug(f'Finished broadcast to client {client.id} in {time.time() - c_start:.3f}s')
                 except Exception as e:
-                    self.logger.debug(f'Broadcast to other client failed: {e}')
+                    self.logger.warning(f"Broadcast to client {getattr(client, 'id', 'unknown')} failed: {e}")
+        self.logger.debug(f'Completed _broadcast_to_others in {time.time() - start_t:.3f}s')
 
     def _broadcast_visibility_to_others(self):
         """Directly propagate visibility state to other connected GUI instances."""
+        self.logger.debug(f'Broadcasting visibility change to up to {len(GUI._instances) - 1} other clients')
         for instance in GUI._instances:
             if instance is not self and instance.initialized:
                 client = getattr(instance, '_client', None)
                 if client is None or client.id not in Client.instances:
                     continue
                 try:
+                    self.logger.debug(f'Broadcasting visibility change to client {client.id}')
                     instance.visible = self.visible
                     instance.update_ui_visible(self.visible)
                 except Exception as e:
-                    self.logger.debug(f'Broadcast visibility to other client failed: {e}')
+                    self.logger.warning(f"Broadcast visibility to client {getattr(client, 'id', 'unknown')} failed: {e}")
 
     def change_serve(self, team, force=False):
         self.game_manager.change_serve(team, force)
