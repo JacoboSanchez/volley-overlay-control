@@ -39,4 +39,5 @@ if __name__ in {"__main__", "__mp_main__"}:
     custom_favicon = Constants.CUSTOM_FAVICON
     reload = EnvVarsManager.get_env_var('APP_RELOAD', 'false').lower() in ("yes", "true", "t", "1")
     show = EnvVarsManager.get_env_var('APP_SHOW', 'false').lower() in ("yes", "true", "t", "1")
-    ui.run(title=title, favicon=custom_favicon, on_air=onair, port=port, storage_secret=secret, show=show, reload=reload)
+    ui.run(title=title, favicon=custom_favicon, on_air=onair, port=port, storage_secret=secret, show=show, reload=reload,
+           ws_ping_interval=20, ws_ping_timeout=20, reconnect_timeout=10.0)

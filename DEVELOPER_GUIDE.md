@@ -183,7 +183,7 @@ The NiceGUI presentation layer orchestrator.
   - `update_ui(load_from_backend)` — Refreshes all visual elements (scores, colors, logos).
   - `handle_button_press/release` — Processes "Long Press", "Tap", and "Double Tap" (undo) logic.
   - `switch_simple_mode()` — Toggles between full detail and simplified view.
-  - `_broadcast_to_others()` — Notifies all other connected GUI instances to refresh after a state change. Checks `Client.instances` before calling `update_ui` on each instance to avoid "Client has been deleted" warnings for closed tabs.
+  - `_broadcast_to_others()` — Notifies all other connected GUI instances to refresh after a state change. Checks `Client.instances` before syncing state. To avoid performance bottlenecks, state is deep-copied directly between instances instead of requesting a full backend reload for every client.
 
 #### `app/startup.py` — `startup()`
 
@@ -291,7 +291,7 @@ The buttons in `GUI` use a timer-based system to distinguish between a **tap** (
 
 ### Multi-User Broadcast
 
-When multiple browser tabs are open, `GUI._broadcast_to_others()` notifies all other registered instances after a state change. Before calling `update_ui` on a foreign instance it checks `client.id in Client.instances` — if the tab was closed and NiceGUI deleted its client, the broadcast skips that instance silently. Any new `GUI` instance stores `self._client = ui.context.client` during `__init__` for this check.
+When multiple browser tabs are open, `GUI._broadcast_to_others()` notifies all other registered instances after a state change. Before pushing state to a foreign instance it checks `client.id in Client.instances` — if the tab was closed and NiceGUI deleted its client, the broadcast skips that instance silently. Any new `GUI` instance stores `self._client = ui.context.client` during `__init__` for this check. To ensure fast synchronization without hammering the overlay backend with HTTP requests, the originating instance deep-copies its current `GameManager` and `Customization` state to the targeted instances directly in-memory before triggering their UI updates.
 
 ### State Synchronization
 

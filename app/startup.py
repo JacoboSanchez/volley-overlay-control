@@ -97,7 +97,7 @@ def startup() -> None:
             ).on('keydown.enter', do_login).classes('w-full').mark('password-input')
             with ui.row().classes('w-full'):
                 ui.space()
-                ui.button(Messages.get(Messages.LOGIN), on_click=do_login).mark('login-button')
+                ui.button(Messages.get(Messages.LOGIN), on_click=do_login).mark('login-button').props('flat')
         return None
 
     @ui.page('/preview')
@@ -254,7 +254,9 @@ def startup() -> None:
         
         ui.on('resize', handle_resize)
         
-        await scoreboard_page.set_page_size(await get_client_width(), await get_client_height())
+        width, height = await get_client_width(), await get_client_height()
+        if width is not None and height is not None:
+            await scoreboard_page.set_page_size(width, height)
 
         with tabs:
             scoreboardTab
@@ -262,14 +264,22 @@ def startup() -> None:
 
 
 async def get_client_height():
-    h = await ui.run_javascript('window.innerHeight')
-    logger.debug("get_client_height: %s", h)
-    return h
+    try:
+        h = await ui.run_javascript('window.innerHeight', timeout=5.0)
+        logger.debug("get_client_height: %s", h)
+        return h
+    except TimeoutError:
+        logger.warning("get_client_height timed out, returning None")
+        return None
 
 async def get_client_width():
-    w = await ui.run_javascript('window.innerWidth')
-    logger.debug("get_client_width: %s", w)
-    return w
+    try:
+        w = await ui.run_javascript('window.innerWidth', timeout=5.0)
+        logger.debug("get_client_width: %s", w)
+        return w
+    except TimeoutError:
+        logger.warning("get_client_width timed out, returning None")
+        return None
 
 def addHeader():
     # Iterate through fonts in the directory

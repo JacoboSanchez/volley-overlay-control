@@ -68,9 +68,9 @@ class OidDialog:
                         self.update_selector()
             with ui.row().classes('w-full'):
                 if current_user != None:
-                    ui.button(Messages.get(Messages.LOGOUT), on_click=PasswordAuthenticator.logout).mark('logout-button-oid')
+                    ui.button(Messages.get(Messages.LOGOUT), on_click=PasswordAuthenticator.logout).mark('logout-button-oid').props('flat text-red-500')
                 ui.space()
-                self.submit_button = ui.button("OK", on_click=self.submit).mark('submit-overlay-button')
+                self.submit_button = ui.button("OK", on_click=self.submit).mark('submit-overlay-button').props('flat')
 
     def update_selector(self):
         if self.checkBoxEnabled:
