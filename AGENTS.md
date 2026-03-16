@@ -46,7 +46,8 @@ remote-scoreboard/
 │   ├── options_dialog.py      # Settings dialog
 │   ├── preview.py             # Preview logic
 │   ├── preview_page.py        # Preview page UI
-│   ├── gui_update_mixin.py    # Mixin with UI refresh helper methods
+│   ├── gui_update_mixin.py    # Mixin with UI refresh helper methods for GUI
+│   ├── config_validator.py    # Startup configuration validation (env var checks)
 │   │
 │   └── components/            # Reusable NiceGUI UI components
 │       ├── score_button.py    # ui.button wrapper with long-press / tap detection
@@ -218,6 +219,29 @@ All environment variables are listed in the table below. When adding a new confi
 | `MINIMIZE_BACKEND_USAGE` | true | Cache customization responses |
 | `SINGLE_OVERLAY_MODE` | true | One active overlay at a time |
 | `ORDERED_TEAMS` | true | Alphabetically sort team list |
+| `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | false | Hide manual overlay entry if predefined list exists |
+| `AUTO_SIMPLE_MODE_TIMEOUT` | false | Switch back to full view on timeout |
+| `APP_DEFAULT_LOGO` | *(flaticon URL)* | Fallback team logo URL |
+| `APP_RELOAD` | false | Auto-reload on code changes (dev mode) |
+| `APP_SHOW` | false | Auto-open in browser on startup |
+| `REST_USER_AGENT` | "curl/8.15.0" | User-Agent for outbound HTTP (avoids Cloudflare bot detection) |
+| `UNO_OVERLAY_AIR_ID` | — | NiceGUI On Air token for local-only setups |
+| `UNO_OVERLAY_OUTPUT` | — | Custom output URL override |
+
+---
+
+## Routes & Endpoints
+
+| Route | Description |
+|-------|-------------|
+| `/` | Main control panel (default indoor mode) |
+| `/indoor` | Indoor volleyball mode (25 pts/set, best of 5) |
+| `/beach` | Beach volleyball mode (21 pts/set, best of 3) |
+| `/login` | Login page (active when `SCOREBOARD_USERS` is configured) |
+| `/preview` | Full-page overlay preview (no auth required) |
+| `/health` | Health check — returns `200 OK` with timestamp |
+
+Routes are defined in `app/startup.py`. All routes except `/login`, `/preview`, and `/health` pass through `AuthMiddleware`.
 
 ---
 
@@ -238,7 +262,9 @@ All user-visible strings must come from `app/messages.py`. Keys are referenced a
 pip install -r requirements.txt
 
 # Optional: configure environment
-cp .env.example .env   # then edit .env with your OID etc.
+# Create a .env file with your settings, for example:
+# UNO_OVERLAY_OID=your_token_here
+# SCOREBOARD_LANGUAGE=en
 
 # Start the app
 python main.py

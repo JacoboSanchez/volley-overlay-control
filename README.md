@@ -145,7 +145,7 @@ Configure the application using the following environment variables:
 | `APP_DEFAULT_LOGO` | URL of an image for teams without a predefined logo. | `https://...` |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
-| `MATCH_SETS` | Number of sets to win the match. | `5` |
+| `MATCH_SETS` | Total sets in the match (best of N). First team to win `N/2 + 1` sets wins. | `5` |
 | `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
 | `ENABLE_MULTITHREAD` | If `true`, API calls will not block the UI. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
@@ -167,6 +167,8 @@ Configure the application using the following environment variables:
 | `SHOW_PREVIEW` | If `true`, shows a preview of the overlay on the control page. | `true` |
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
 | `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
+| `UNO_OVERLAY_AIR_ID` | NiceGUI On Air token for local-only setups (see [NiceGUI On Air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air)). | |
+| `UNO_OVERLAY_OUTPUT` | Custom output URL override for the overlay display link. | |
 
 <br>
 
@@ -234,6 +236,17 @@ List of themes.
 ### Remote Configuration
 Import configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup. Useful for centralized management.
 *   **Example Source**: [volleyball-scoreboard-configurator](https://github.com/JacoboSanchez/volleyball-scoreboard-configurator/)
+
+### Available Routes
+
+| Route | Description |
+| :--- | :--- |
+| `/` | Main control panel (default indoor mode). |
+| `/indoor` | Indoor volleyball mode (25 points/set, best of 5). |
+| `/beach` | Beach volleyball mode (21 points/set, best of 3). |
+| `/login` | Login page (only active when `SCOREBOARD_USERS` is configured). |
+| `/preview` | Full-page overlay preview (no authentication required). |
+| `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
 ### Overlay Loading Priority
 1.  **URL Parameter**: `?control=<your_oid>` (Highest priority)

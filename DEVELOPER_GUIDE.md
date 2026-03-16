@@ -58,6 +58,8 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 │   ├── oid_dialog.py        # Overlay ID entry dialog UI.
 │   ├── preview.py           # Preview logic.
 │   ├── preview_page.py      # Preview page UI.
+│   ├── gui_update_mixin.py  # Mixin with UI refresh helper methods for GUI.
+│   ├── config_validator.py  # Startup configuration validation (env var checks).
 │   └── pwa/                 # Progressive Web App assets (Service Worker, Manifest, Icons).
 ├── .web/                    # Optional local overlay frontend (React-Router based).
 ├── font/                    # Custom font files for the UI/Overlay (10 fonts).
@@ -169,6 +171,8 @@ Modular UI components to prevent `gui.py` from becoming a monolith:
 | `team_panel.py` | Renders a team column (Scores, Timeouts, Serve Indicator) |
 | `center_panel.py` | Manages the middle column (Score table, set pagination, Preview iframe) |
 | `control_buttons.py` | Manages action bars (Visibility toggle, Simple Mode, Undo, Config) |
+| `button_interaction.py` | Long-press (1s) vs tap (0.4s) vs double-tap detection logic |
+| `button_style.py` | Button appearance utilities (colors, fonts, opacity) |
 
 #### `app/gui.py` — class `GUI`
 
@@ -185,9 +189,16 @@ The NiceGUI presentation layer orchestrator.
   - `switch_simple_mode()` — Toggles between full detail and simplified view.
   - `_broadcast_to_others()` — Notifies all other connected GUI instances to refresh after a state change. Checks `Client.instances` before syncing state. To avoid performance bottlenecks, state is deep-copied directly between instances instead of requesting a full backend reload for every client.
 
+#### `app/gui_update_mixin.py` — `GUIUpdateMixin`
+
+Mixin class providing UI refresh helper methods used by `GUI`.
+
+- **Responsibility**: Extracts common UI update patterns out of the main `GUI` class to reduce its size.
+- **Usage**: `GUI` inherits from this mixin. Do not instantiate it directly.
+
 #### `app/startup.py` — `startup()`
 
-- **Responsibility**: Defines application routing (`/`, `/login`, `/preview`) and startup sequence.
+- **Responsibility**: Defines application routing (`/`, `/indoor`, `/beach`, `/login`, `/preview`, `/health`) and startup sequence.
 - **Logic**:
   - Checks for `oid` (Overlay ID) in URL → Storage → Environment.
   - If missing, launches `OidDialog`.
@@ -230,6 +241,10 @@ The NiceGUI presentation layer orchestrator.
 
 - **Responsibility**: Centralized hardcoded strings, the SVG favicon, and the `API_BASE_URL` for overlays.uno.
 
+#### `app/config_validator.py`
+
+- **Responsibility**: Validates environment variables and configuration at startup. Checks for required values, valid JSON formatting, and compatible option combinations. Logs warnings or raises errors for misconfigurations before the app fully initializes.
+
 ---
 
 ## 5. Testing
@@ -237,8 +252,11 @@ The NiceGUI presentation layer orchestrator.
 ### Running Tests Locally
 
 ```bash
-# Install dependencies
+# Install runtime and dev/test dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# For browser-based tests (optional)
 pip install playwright pytest-playwright
 playwright install chromium
 
