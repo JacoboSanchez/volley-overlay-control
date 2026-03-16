@@ -27,6 +27,186 @@ class Backend:
         # This prevents uncontrolled thread creation during rapid changes.
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._customization_cache = None
+        self._ws_client = None
+        self._obs_client_count = 0
+
+    # -- WebSocket lifecycle -------------------------------------------------
+
+    def init_ws_client(self, oid=None):
+        """Probe the overlay server for WS support and connect if available."""
+        check_oid = oid if oid is not None else self.conf.oid
+        if not self.is_custom_overlay(check_oid):
+            return
+        self.close_ws_client()
+        custom_id, _ = self.get_custom_overlay_id(check_oid)
+        base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+        try:
+            resp = self.session.get(
+                f"{base_url}/api/config/{custom_id}", timeout=5.0
+            )
+            if resp.status_code == 200:
+                ws_url = resp.json().get('controlWebSocketUrl')
+                if ws_url:
+                    from app.ws_client import WSControlClient
+                    self._ws_client = WSControlClient(
+                        overlay_id=custom_id,
+                        ws_url=ws_url,
+                        on_event=self._handle_ws_event,
+                    )
+                    self._ws_client.connect()
+                    Backend.logger.info(
+                        'WS client initialized for %s', custom_id
+                    )
+                    return
+        except Exception as e:
+            Backend.logger.debug('WS discovery failed: %s', e)
+
+    def close_ws_client(self):
+        """Disconnect any active WS client."""
+        if self._ws_client:
+            self._ws_client.disconnect()
+            self._ws_client = None
+
+    @property
+    def ws_connected(self):
+        """True if a WebSocket connection to the overlay is active."""
+        return self._ws_client is not None and self._ws_client.is_connected
+
+    @property
+    def obs_client_count(self):
+        """Number of OBS browser clients connected to the overlay."""
+        return self._obs_client_count
+
+    def _handle_ws_event(self, event: dict):
+        """Callback for incoming overlay→controller WS messages."""
+        etype = event.get('type')
+        if etype in ('obs_event', 'ack', 'connected'):
+            self._obs_client_count = event.get(
+                'obs_clients', self._obs_client_count
+            )
+
+    # -- helpers ------------------------------------------------------------
+
+    def _build_overlay_payload(
+        self, current_model,
+        force_visibility=None,
+        customization_state=None,
+        show_only_current_set=None,
+    ):
+        """Build the standardized overlay state JSON payload."""
+        from app.customization import Customization
+
+        if customization_state is None:
+            customization_state = (
+                self._customization_cache
+                if self._customization_cache is not None
+                else (self.get_current_customization() or {})
+            )
+        cust = Customization(customization_state)
+
+        def get_set_history(team):
+            return {
+                f"set_{i}": int(
+                    current_model.get(
+                        f'Team {team} Game {i} Score', 0
+                    )
+                )
+                for i in range(1, 6)
+            }
+
+        current_set = int(
+            current_model.get(State.CURRENT_SET_INT, 1)
+        )
+
+        payload = {
+            "match_info": {
+                "tournament": "Superliga Masculina",
+                "phase": "Playoffs",
+                "best_of_sets": int(self.conf.sets),
+                "current_set": current_set,
+            },
+            "team_home": {
+                "name": cust.get_team_name(1),
+                "short_name": (
+                    cust.get_team_name(1)[:3].upper()
+                    if cust.get_team_name(1) else "HOM"
+                ),
+                "color_primary": cust.get_team_color(1),
+                "color_secondary": cust.get_team_text_color(1),
+                "logo_url": cust.get_team_logo(1),
+                "sets_won": int(
+                    current_model.get(State.T1SETS_INT, 0)
+                ),
+                "points": int(
+                    current_model.get(
+                        f'Team 1 Game {current_set} Score', 0
+                    )
+                ),
+                "serving": (
+                    current_model.get(State.SERVE) == State.SERVE_1
+                ),
+                "timeouts_taken": int(
+                    current_model.get(State.T1TIMEOUTS_INT, 0)
+                ),
+                "set_history": get_set_history(1),
+            },
+            "team_away": {
+                "name": cust.get_team_name(2),
+                "short_name": (
+                    cust.get_team_name(2)[:3].upper()
+                    if cust.get_team_name(2) else "AWA"
+                ),
+                "color_primary": cust.get_team_color(2),
+                "color_secondary": cust.get_team_text_color(2),
+                "logo_url": cust.get_team_logo(2),
+                "sets_won": int(
+                    current_model.get(State.T2SETS_INT, 0)
+                ),
+                "points": int(
+                    current_model.get(
+                        f'Team 2 Game {current_set} Score', 0
+                    )
+                ),
+                "serving": (
+                    current_model.get(State.SERVE) == State.SERVE_2
+                ),
+                "timeouts_taken": int(
+                    current_model.get(State.T2TIMEOUTS_INT, 0)
+                ),
+                "set_history": get_set_history(2),
+            },
+            "overlay_control": {
+                "show_bottom_ticker": False,
+                "ticker_message": "",
+                "show_player_stats": False,
+                "player_stats_data": None,
+                "geometry": {
+                    "width": cust.get_width(),
+                    "height": cust.get_height(),
+                    "xpos": cust.get_hpos(),
+                    "ypos": cust.get_vpos(),
+                },
+                "colors": {
+                    "set_bg": cust.get_set_color(),
+                    "set_text": cust.get_set_text_color(),
+                    "game_bg": cust.get_game_color(),
+                    "game_text": cust.get_game_text_color(),
+                },
+                "preferredStyle": cust.get_preferred_style(),
+            },
+        }
+
+        if show_only_current_set is not None:
+            payload["match_info"][
+                "show_only_current_set"
+            ] = show_only_current_set
+
+        if force_visibility is not None:
+            payload["overlay_control"][
+                "show_main_scoreboard"
+            ] = force_visibility
+
+        return payload
 
     def is_custom_overlay(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
@@ -47,12 +227,17 @@ class Backend:
         
         # Uno overlays store in user session, custom overlays store globally
         if self.is_custom_overlay(self.conf.oid):
-            custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
-            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
-            try:
-                self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"model": current_model}, timeout=2.0)
-            except Exception as e:
-                Backend.logger.error(f"Failed to save custom overlay model remote: {e}")
+            raw_payload = {"model": current_model}
+            # Prefer WS for raw_config persistence
+            if self._ws_client and self._ws_client.is_connected:
+                self._ws_client.send_raw_config(raw_payload)
+            else:
+                custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
+                base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+                try:
+                    self.session.post(f"{base_url}/api/raw_config/{custom_id}", json=raw_payload, timeout=2.0)
+                except Exception as e:
+                    Backend.logger.error(f"Failed to save custom overlay model remote: {e}")
         else:
             AppStorage.save(AppStorage.Category.CURRENT_MODEL, current_model, oid=self.conf.oid)
             
@@ -97,12 +282,17 @@ class Backend:
 
         # update local overlay as well, fetching current state if custom
         if self.is_custom_overlay():
-            custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
-            base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
-            try:
-                self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"customization": to_save}, timeout=2.0)
-            except Exception as e:
-                Backend.logger.error(f"Failed to save custom overlay customization remote: {e}")
+            raw_payload = {"customization": to_save}
+            # Prefer WS for raw_config persistence
+            if self._ws_client and self._ws_client.is_connected:
+                self._ws_client.send_raw_config(raw_payload)
+            else:
+                custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
+                base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
+                try:
+                    self.session.post(f"{base_url}/api/raw_config/{custom_id}", json=raw_payload, timeout=2.0)
+                except Exception as e:
+                    Backend.logger.error(f"Failed to save custom overlay customization remote: {e}")
                 
             current_model = self.get_current_model(self.conf.oid)
             if current_model:
@@ -119,8 +309,12 @@ class Backend:
         command = "HideOverlay"
         if show:
             command = "ShowOverlay"
-        
+
         if self.is_custom_overlay():
+            # Prefer WS for direct visibility toggle
+            if self._ws_client and self._ws_client.is_connected:
+                self._ws_client.send_visibility(show)
+                return type('MockResponse', (object,), {'status_code': 200, 'json': lambda self: {'payload': {}}})()
             current_model = self.get_current_model(self.conf.oid)
             if current_model:
                 if self.conf.multithread:
@@ -360,85 +554,22 @@ class Backend:
 
     def update_local_overlay(self, current_model, force_visibility=None, customization_state=None, show_only_current_set=None):
         try:
-            from app.customization import Customization
-            
-            if customization_state is None:
-                customization_state = self._customization_cache if self._customization_cache is not None else (self.get_current_customization() or {})
-            cust = Customization(customization_state)
+            payload = self._build_overlay_payload(
+                current_model,
+                force_visibility=force_visibility,
+                customization_state=customization_state,
+                show_only_current_set=show_only_current_set,
+            )
 
-            def get_set_history(team):
-                return {
-                    "set_1": int(current_model.get(f'Team {team} Game 1 Score', 0)),
-                    "set_2": int(current_model.get(f'Team {team} Game 2 Score', 0)),
-                    "set_3": int(current_model.get(f'Team {team} Game 3 Score', 0)),
-                    "set_4": int(current_model.get(f'Team {team} Game 4 Score', 0)),
-                    "set_5": int(current_model.get(f'Team {team} Game 5 Score', 0)),
-                }
+            # Prefer WebSocket if connected
+            if self._ws_client and self._ws_client.is_connected:
+                if self._ws_client.send_state(payload):
+                    return
 
-            current_set = int(current_model.get(State.CURRENT_SET_INT, 1))
-
-            payload = {
-                "match_info": {
-                    "tournament": "Superliga Masculina",
-                    "phase": "Playoffs",
-                    "best_of_sets": int(self.conf.sets),
-                    "current_set": current_set,
-                },
-                "team_home": {
-                    "name": cust.get_team_name(1),
-                    "short_name": cust.get_team_name(1)[:3].upper() if cust.get_team_name(1) else "HOM",
-                    "color_primary": cust.get_team_color(1),
-                    "color_secondary": cust.get_team_text_color(1),
-                    "logo_url": cust.get_team_logo(1),
-                    "sets_won": int(current_model.get(State.T1SETS_INT, 0)),
-                    "points": int(current_model.get(f'Team 1 Game {current_set} Score', 0)),
-                    "serving": current_model.get(State.SERVE) == State.SERVE_1,
-                    "timeouts_taken": int(current_model.get(State.T1TIMEOUTS_INT, 0)),
-                    "set_history": get_set_history(1)
-                },
-                "team_away": {
-                    "name": cust.get_team_name(2),
-                    "short_name": cust.get_team_name(2)[:3].upper() if cust.get_team_name(2) else "AWA",
-                    "color_primary": cust.get_team_color(2),
-                    "color_secondary": cust.get_team_text_color(2),
-                    "logo_url": cust.get_team_logo(2),
-                    "sets_won": int(current_model.get(State.T2SETS_INT, 0)),
-                    "points": int(current_model.get(f'Team 2 Game {current_set} Score', 0)),
-                    "serving": current_model.get(State.SERVE) == State.SERVE_2,
-                    "timeouts_taken": int(current_model.get(State.T2TIMEOUTS_INT, 0)),
-                    "set_history": get_set_history(2)
-                },
-                "overlay_control": {
-                    "show_bottom_ticker": False,
-                    "ticker_message": "",
-                    "show_player_stats": False,
-                    "player_stats_data": None,
-                    "geometry": {
-                        "width": cust.get_width(),
-                        "height": cust.get_height(),
-                        "xpos": cust.get_hpos(),
-                        "ypos": cust.get_vpos()
-                    },
-                    "colors": {
-                        "set_bg": cust.get_set_color(),
-                        "set_text": cust.get_set_text_color(),
-                        "game_bg": cust.get_game_color(),
-                        "game_text": cust.get_game_text_color()
-                    },
-                    "preferredStyle": cust.get_preferred_style()
-                }
-            }
-            
-            if show_only_current_set is not None:
-                payload["match_info"]["show_only_current_set"] = show_only_current_set
-                
-            if force_visibility is not None:
-                payload["overlay_control"]["show_main_scoreboard"] = force_visibility
-            
+            # Fallback: HTTP POST
             custom_id, _ = self.get_custom_overlay_id()
             base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
             url = f"{base_url}/api/state/{custom_id}"
-            
             self.session.post(url, json=payload, timeout=2.0)
         except Exception as e:
             Backend.logger.error(f"Error updating local overlay: {e}")
