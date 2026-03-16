@@ -136,14 +136,16 @@ class WSControlClient:
 
     def _run_loop(self) -> None:
         """Background thread: connect, listen, reconnect."""
-        import websocket as ws_lib  # lazy import
+        if not hasattr(self, '_ws_lib'):
+            import websocket
+            self._ws_lib = websocket
 
         backoff = _RECONNECT_BASE
 
         while not self._stop_event.is_set():
             try:
                 logger.debug("Connecting to %s …", self._ws_url)
-                sock = ws_lib.create_connection(
+                sock = self._ws_lib.create_connection(
                     self._ws_url, timeout=10
                 )
                 with self._lock:
@@ -181,7 +183,7 @@ class WSControlClient:
                     break
                 msg = json.loads(raw)
                 self._handle_message(msg)
-            except TimeoutError:
+            except self._ws_lib.WebSocketTimeoutException:
                 pass  # recv timed out — send heartbeat below
             except Exception as e:
                 logger.debug("WS recv error: %s", e)
