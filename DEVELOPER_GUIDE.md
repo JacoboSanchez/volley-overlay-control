@@ -25,6 +25,7 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 | :--- | :--- |
 | `nicegui` | Full-stack web UI framework |
 | `requests` | HTTP communication with overlay APIs |
+| `websocket-client` | Persistent WebSocket connection to custom overlay servers |
 | `python-dotenv` | `.env` file loading |
 | `pytest` / `pytest-asyncio` | Test suite |
 | `playwright` | Browser-based UI tests (CI only) |
@@ -39,6 +40,7 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 │   └── workflows/           # CI/CD pipelines (ci.yml, docker-publish.yml, docker-publish-dev.yml).
 ├── app/
 │   ├── backend.py           # Handles communication with the external Overlay API & local overlay.
+│   ├── ws_client.py         # Persistent WebSocket client for custom overlay control channel.
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the raw state dictionary.
 │   ├── gui.py               # Main UI logic orchestrator.
@@ -72,6 +74,7 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 │   ├── test_game_manager.py     # Game rules and scoring tests.
 │   ├── test_state.py            # State model tests.
 │   ├── test_config_validator.py # Startup configuration validation tests.
+│   ├── test_ws_client.py        # WebSocket client and Backend WS integration tests.
 │   ├── test_mobile_viewport.py  # Mobile viewport/PWA browser tests (Playwright).
 │   └── test_ui.py               # Full UI interaction tests (Playwright/NiceGUI).
 └── docker-compose.yml           # Docker Compose configuration.
@@ -146,18 +149,41 @@ The "Brain" of the application. Enforces volleyball rules.
 
 The "Bridge" to the outside world.
 
-- **Responsibility**: HTTP communication with the Overlay API.
+- **Responsibility**: Communication with the Overlay API — WebSocket-first for custom overlays, HTTP fallback, HTTP-only for cloud overlays.
 - **Key Internals**:
   - Uses a shared `requests.Session` for all HTTP calls to enable TCP connection reuse (lower latency on repeated posts).
+  - `_ws_client` — `WSControlClient` instance for the active custom overlay WebSocket connection (or `None`).
   - `_customization_cache` — In-memory cache for the last fetched customization state, preventing redundant GET requests on every score update.
   - A `ThreadPoolExecutor` (5 workers) handles overlay updates asynchronously when `ENABLE_MULTITHREAD=true`.
 - **Key Methods**:
+  - `init_ws_client()` — Discovers `controlWebSocketUrl` from `/api/config/{id}` and creates a `WSControlClient` with auto-connect. Called once during startup for custom overlays.
+  - `close_ws_client()` — Disconnects the WebSocket client and clears the reference.
   - `get_current_model()` — Fetches the last known state from the remote API. For Custom Overlays, hits `/api/raw_config/{id}` to bypass local caching.
   - `get_current_customization()` — Fetches team/color/layout settings. Result is cached in `_customization_cache`.
-  - `save(state, simple)` — Pushes local state changes to the cloud and proxies to the local overlay engine via `update_local_overlay()`. For custom overlays, also syncs raw state JSON via `POST /api/raw_config/{id}`.
-  - `update_local_overlay(current_model, force_visibility, customization_state)` — Parses scoring and UI branding properties into a standardized JSON payload (`match_info`, `team_home`/`team_away`, `overlay_control`) and POSTs to `[APP_CUSTOM_OVERLAY_URL]/api/state/{custom_id}`. Uses `_customization_cache` when available.
+  - `save(state, simple)` — Pushes local state changes to the cloud and proxies to the local overlay engine via `update_local_overlay()`. For custom overlays, also syncs raw state JSON via WebSocket `raw_config` or `POST /api/raw_config/{id}`.
+  - `update_local_overlay(current_model, force_visibility, customization_state)` — Builds a standardized JSON payload (`match_info`, `team_home`/`team_away`, `overlay_control`) via `_build_overlay_payload()`. Sends via `WSControlClient.send_state()` if connected, otherwise falls back to HTTP `POST /api/state/{custom_id}`.
+  - `change_overlay_visibility(show)` — Sends visibility toggle via WebSocket `send_visibility()` for custom overlays when connected, otherwise uses the HTTP path.
   - `fetch_and_update_overlay_id(oid)` — Translates a user's Control Token (OID) into the specific backend layout ID via `GetOverlays`.
   - `fetch_output_token(oid)` — Retrieves the URL/Token required to display the overlay iframe.
+- **Properties**: `ws_connected` (bool), `obs_client_count` (int from WS handshake/ack messages).
+
+#### `app/ws_client.py` — class `WSControlClient`
+
+Persistent WebSocket connection to a custom overlay server's `/ws/control/{overlay_id}` endpoint.
+
+- **Responsibility**: Maintains a background daemon thread with auto-reconnect and heartbeat for low-latency state pushes.
+- **Key Internals**:
+  - Background thread runs `_run_loop()` → `_listen()` with exponential backoff reconnect (1s → 30s max).
+  - Thread-safe sends via `threading.Lock`.
+  - Heartbeat pings every 25 seconds (inside the server's 30s timeout).
+  - Lazy imports `websocket-client` to avoid import errors when the package isn't installed.
+- **Key Methods**:
+  - `connect()` / `disconnect()` — Start/stop the background thread.
+  - `send_state(payload)` — Send a `state_update` message.
+  - `send_visibility(show)` — Send a `visibility` toggle.
+  - `send_raw_config(payload)` — Send a `raw_config` message (model and/or customization).
+  - `send_get_state()` — Request current state from the server.
+- **Properties**: `is_connected` (bool), `obs_client_count` (int — updated from server messages).
 
 ### B. User Interface
 
@@ -280,6 +306,7 @@ pytest tests/ --log-cli-level=debug
 | `test_customization.py` | Team/color customization logic |
 | `test_env_vars_manager.py` | Environment variable loading |
 | `test_config_validator.py` | Startup environment variable validation |
+| `test_ws_client.py` | WebSocket client unit tests and Backend WS integration tests |
 | `test_mobile_viewport.py` | Mobile viewport/PWA rendering (Playwright + Chromium, marked `mobile_browser`) |
 | `test_ui.py` | Full end-to-end UI tests via NiceGUI's test client |
 

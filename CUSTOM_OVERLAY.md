@@ -11,6 +11,7 @@ This document outlines the API contract that your custom overlay must implement 
 > 3. Implement `GET /api/raw_config/{id}` and `POST /api/raw_config/{id}` for state persistence
 > 4. Use overlay IDs prefixed with `C-` (e.g., `C-mybroadcast`)
 > 5. Return `200 OK` within 2 seconds on POST requests
+> 6. *(Optional)* Implement `/ws/control/{id}` WebSocket endpoint and return `controlWebSocketUrl` in `/api/config` for low-latency persistent connections
 
 ---
 
@@ -44,12 +45,14 @@ This endpoint is polled by Remote-Scoreboard when the user attempts to view the 
 ```json
 {
   "outputUrl": "http://127.0.0.1:8000/overlay/mybroadcast",
-  "availableStyles": ["default", "line", "minimal"]
+  "availableStyles": ["default", "line", "minimal"],
+  "controlWebSocketUrl": "ws://127.0.0.1:8000/ws/control/mybroadcast"
 }
 ```
 
 *   `outputUrl` **(Required)**: The absolute URL where the actual graphical view of the overlay can be accessed (the link that gets pasted into OBS/vMix).
 *   `availableStyles` *(Optional)*: A list of strings representing different visual themes or styles your overlay supports.
+*   `controlWebSocketUrl` *(Optional)*: A WebSocket URL for the persistent control channel. When present, Remote-Scoreboard will open a WebSocket connection for low-latency state pushes instead of polling via HTTP POST. If absent, HTTP-only mode is used (fully backward-compatible).
 
 ### 2. The State Update Endpoint
 
@@ -154,6 +157,48 @@ When `remote-scoreboard` boots up or users click save, it will heavily utilize t
 #### Expected Response:
 The backend does strict synchronous timeouts (usually 2.0 seconds) for overlay POST requests to minimize UI lag.
 **You must return a `200 OK` response as fast as possible.**
+
+---
+
+## 🔌 Optional: WebSocket Control Endpoint
+
+**Endpoint:** `WS /ws/control/{custom_id}`
+
+If your overlay server supports it, you can implement a persistent WebSocket control channel. When `controlWebSocketUrl` is included in your `/api/config/{id}` response, Remote-Scoreboard will open this connection on startup and use it for all state pushes, visibility toggles, and raw_config syncs — eliminating per-update HTTP overhead.
+
+### Protocol (v1)
+
+**Handshake:** On connection, your server should immediately send:
+```json
+{
+  "type": "connected",
+  "protocol": 1,
+  "overlay_id": "mybroadcast",
+  "obs_clients": 2,
+  "current_state": { "...full state object..." }
+}
+```
+
+**Incoming message types from Remote-Scoreboard:**
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `state_update` | `{ "payload": { ...match state... } }` | Partial or full state update (deep-merged) |
+| `visibility` | `{ "show": true/false }` | Toggle overlay visibility |
+| `raw_config` | `{ "payload": { "model": {...}, "customization": {...} } }` | Persist raw model/customization data |
+| `get_state` | *(none)* | Request current state |
+| `ping` | *(none)* | Heartbeat (sent every ~25s) |
+
+**Response messages your server should send:**
+
+| Type | When | Payload |
+|------|------|---------|
+| `ack` | After `state_update`, `visibility`, `raw_config` | `{ "type": "ack", "ref": "<message_type>", "obs_clients": N }` |
+| `state` | After `get_state` | `{ "type": "state", "payload": { "model": {...}, "customization": {...} } }` |
+| `pong` | After `ping` | `{ "type": "pong" }` |
+| `obs_event` | When OBS browser clients connect/disconnect | `{ "type": "obs_event", "event": "connected"/"disconnected", "obs_clients": N }` |
+
+**Backward compatibility:** This endpoint is entirely optional. If your server does not implement it or omits `controlWebSocketUrl` from `/api/config`, Remote-Scoreboard falls back to HTTP-only mode with no loss of functionality.
 
 ---
 
