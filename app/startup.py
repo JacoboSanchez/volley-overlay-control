@@ -221,6 +221,7 @@ def startup() -> None:
             ui.label(Messages.get(Messages.SCOREBOARD_LOAD_ERROR)).classes('m-auto text-negative')
             return
 
+        backend.init_ws_client()
         scoreboard_page = GUI(tabs, conf, backend)
         customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
 
