@@ -13,6 +13,12 @@ info:
     `http://127.0.0.1:8000`). See `CUSTOM_OVERLAY.md` for full integration
     guidance and the reference implementation in `.web/`.
 
+    Overlay servers may optionally implement a WebSocket control channel at
+    `/ws/control/{custom_id}` and advertise it via the `controlWebSocketUrl`
+    field in the `/api/config` response. When present, Remote-Scoreboard
+    opens a persistent WebSocket for low-latency state pushes instead of
+    per-update HTTP POSTs. See `CUSTOM_OVERLAY.md` for the wire protocol.
+
 servers:
   - url: http://127.0.0.1:8000
     description: Default local overlay server
@@ -41,6 +47,7 @@ paths:
                   - default
                   - line
                   - minimal
+                controlWebSocketUrl: "ws://127.0.0.1:8000/ws/control/mybroadcast"
 
   /api/state/{custom_id}:
     post:
@@ -141,6 +148,16 @@ components:
             - default
             - line
             - minimal
+        controlWebSocketUrl:
+          type: string
+          format: uri
+          description: >
+            Optional WebSocket URL for the persistent control channel.
+            When present, Remote-Scoreboard opens a WebSocket connection
+            for low-latency state pushes, visibility toggles, and
+            raw_config syncs instead of using per-update HTTP POSTs.
+            If absent, HTTP-only mode is used (fully backward-compatible).
+          example: "ws://127.0.0.1:8000/ws/control/mybroadcast"
 
     MatchState:
       type: object

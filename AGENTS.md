@@ -8,7 +8,7 @@ This document provides everything an AI coding agent needs to understand, naviga
 
 Remote-Scoreboard is a self-hostable web application for controlling volleyball scoreboards. It provides a control interface for managing match state (scores, sets, timeouts, serve) and synchronizes that state to overlay graphics engines — either the hosted **overlays.uno** cloud service or a fully self-hosted **custom overlay** server.
 
-**Stack:** Python 3.11 · NiceGUI 3.8.0 · requests · python-dotenv · Docker
+**Stack:** Python 3.11 · NiceGUI 3.8.0 · requests · python-dotenv · websocket-client · Docker
 **Test stack:** pytest · pytest-asyncio · pytest-playwright · flake8
 **No database** — all state is in-memory with browser-local storage persistence.
 
@@ -29,7 +29,8 @@ remote-scoreboard/
 ├── app/                       # All application source code
 │   ├── state.py               # Data model — match state dictionary
 │   ├── game_manager.py        # Business logic — volleyball rules & score mutations
-│   ├── backend.py             # HTTP bridge — pushes state to overlay servers
+│   ├── backend.py             # Sync bridge — pushes state via WebSocket (preferred) or HTTP
+│   ├── ws_client.py           # Persistent WebSocket client for custom overlay control channel
 │   ├── gui.py                 # Presentation layer — NiceGUI layout orchestrator
 │   ├── startup.py             # Route definitions and lifecycle hooks
 │   ├── customization.py       # Team names, colors, logos, layout geometry
@@ -46,7 +47,8 @@ remote-scoreboard/
 │   ├── options_dialog.py      # Settings dialog
 │   ├── preview.py             # Preview logic
 │   ├── preview_page.py        # Preview page UI
-│   ├── gui_update_mixin.py    # Mixin with UI refresh helper methods
+│   ├── gui_update_mixin.py    # Mixin with UI refresh helper methods for GUI
+│   ├── config_validator.py    # Startup configuration validation (env var checks)
 │   │
 │   └── components/            # Reusable NiceGUI UI components
 │       ├── score_button.py    # ui.button wrapper with long-press / tap detection
@@ -64,6 +66,7 @@ remote-scoreboard/
 │   ├── test_customization.py  # Unit tests for team/color customization
 │   ├── test_env_vars_manager.py
 │   ├── test_config_validator.py
+│   ├── test_ws_client.py      # WebSocket client and Backend WS integration tests
 │   ├── test_ui.py             # NiceGUI test-client integration tests
 │   ├── test_mobile_viewport.py  # Playwright browser tests (marked mobile_browser)
 │   └── fixtures/              # JSON test data (game states, overlay configs)
@@ -80,7 +83,8 @@ remote-scoreboard/
 | Model | `State` | `app/state.py` | Single source of truth; match state dict |
 | Controller | `GameManager` | `app/game_manager.py` | Enforces volleyball rules; mutates State |
 | View | `GUI` | `app/gui.py` | NiceGUI layout; instantiates components |
-| Sync | `Backend` | `app/backend.py` | HTTP bridge to overlay servers |
+| Sync | `Backend` | `app/backend.py` | WebSocket-first / HTTP-fallback bridge to overlay servers |
+| Sync | `WSControlClient` | `app/ws_client.py` | Persistent WebSocket connection to custom overlay server |
 
 ### Canonical Data Flow — "User adds a point"
 
@@ -148,7 +152,11 @@ When you add new scoring variants (e.g., beach volleyball mode), adjust the poin
 | OID Prefix | Type | Protocol |
 |-----------|------|---------|
 | *(none / plain token)* | overlays.uno cloud | `PUT https://app.overlays.uno/apiv2/controlapps/{oid}/api` with command JSON |
-| `C-{id}` or `C-{id}/{style}` | Custom self-hosted overlay | `POST {APP_CUSTOM_OVERLAY_URL}/api/state/{id}` with match state JSON |
+| `C-{id}` or `C-{id}/{style}` | Custom self-hosted overlay | WebSocket-first via `/ws/control/{id}`, HTTP fallback via `POST /api/state/{id}` |
+
+**WebSocket sync (custom overlays):** On startup, `Backend.init_ws_client()` probes `GET /api/config/{id}` for a `controlWebSocketUrl` field. If found, it creates a `WSControlClient` that connects in a background daemon thread with auto-reconnect (exponential backoff 1s→30s) and heartbeat pings every 25s. All state pushes, visibility toggles, and raw_config saves prefer the WebSocket when connected. If the WebSocket is unavailable or send fails, each method transparently falls back to the equivalent HTTP call.
+
+**WSControlClient** (`app/ws_client.py`): Thread-safe persistent WebSocket client. Key methods: `send_state()`, `send_visibility()`, `send_raw_config()`, `send_get_state()`. Properties: `is_connected`, `obs_client_count`. The client processes server messages (`connected`, `ack`, `obs_event`, `pong`, `state`) and dispatches them to an optional `on_event` callback.
 
 **Caching:** `_customization_cache` in `Backend` prevents redundant GET requests. Do not clear it except in tests.
 
@@ -218,6 +226,29 @@ All environment variables are listed in the table below. When adding a new confi
 | `MINIMIZE_BACKEND_USAGE` | true | Cache customization responses |
 | `SINGLE_OVERLAY_MODE` | true | One active overlay at a time |
 | `ORDERED_TEAMS` | true | Alphabetically sort team list |
+| `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | false | Hide manual overlay entry if predefined list exists |
+| `AUTO_SIMPLE_MODE_TIMEOUT` | false | Switch back to full view on timeout |
+| `APP_DEFAULT_LOGO` | *(flaticon URL)* | Fallback team logo URL |
+| `APP_RELOAD` | false | Auto-reload on code changes (dev mode) |
+| `APP_SHOW` | false | Auto-open in browser on startup |
+| `REST_USER_AGENT` | "curl/8.15.0" | User-Agent for outbound HTTP (avoids Cloudflare bot detection) |
+| `UNO_OVERLAY_AIR_ID` | — | NiceGUI On Air token for local-only setups |
+| `UNO_OVERLAY_OUTPUT` | — | Custom output URL override |
+
+---
+
+## Routes & Endpoints
+
+| Route | Description |
+|-------|-------------|
+| `/` | Main control panel (default indoor mode) |
+| `/indoor` | Indoor volleyball mode (25 pts/set, best of 5) |
+| `/beach` | Beach volleyball mode (21 pts/set, best of 3) |
+| `/login` | Login page (active when `SCOREBOARD_USERS` is configured) |
+| `/preview` | Full-page overlay preview (no auth required) |
+| `/health` | Health check — returns `200 OK` with timestamp |
+
+Routes are defined in `app/startup.py`. All routes except `/login`, `/preview`, and `/health` pass through `AuthMiddleware`.
 
 ---
 
@@ -238,7 +269,9 @@ All user-visible strings must come from `app/messages.py`. Keys are referenced a
 pip install -r requirements.txt
 
 # Optional: configure environment
-cp .env.example .env   # then edit .env with your OID etc.
+# Create a .env file with your settings, for example:
+# UNO_OVERLAY_OID=your_token_here
+# SCOREBOARD_LANGUAGE=en
 
 # Start the app
 python main.py
@@ -275,6 +308,7 @@ pytest tests/test_mobile_viewport.py -v -m mobile_browser
 - Unit tests for scoring logic belong in `test_game_manager.py`.
 - Unit tests for state mutations belong in `test_state.py`.
 - Tests for HTTP communication go in `test_backend.py` — mock the `requests.Session` rather than making real HTTP calls.
+- Tests for WebSocket client and Backend WS integration go in `test_ws_client.py` — mock the `WSControlClient` and `websocket` library rather than making real connections.
 - Full UI interaction tests using NiceGUI's test client go in `test_ui.py`.
 - `asyncio_mode = auto` is set globally in `pytest.ini`; do not add `@pytest.mark.asyncio` manually.
 
