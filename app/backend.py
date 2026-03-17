@@ -4,6 +4,7 @@ import copy
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 from app.state import State
 from app.app_storage import AppStorage
 from app.env_vars_manager import EnvVarsManager
@@ -521,9 +522,12 @@ class Backend:
                     data = response.json()
                     output_url = data.get('outputUrl')
                     if output_url:
-                        # Reconstruct output_url to prevent internal proxy hostname/HTTP leakage (Mixed Content block)
-                        output_base_url = EnvVarsManager.get_custom_overlay_output_url().rstrip('/')
-                        output_url = f"{output_base_url}/overlay/{custom_id}"
+                        if EnvVarsManager.has_custom_overlay_output_url():
+                            # Reconstruct output_url to prevent internal proxy hostname/HTTP leakage (Mixed Content block)
+                            # Preserve the path from the overlay server (which uses the output key, not the overlay name)
+                            output_base_url = EnvVarsManager.get_custom_overlay_output_url().rstrip('/')
+                            output_path = urlparse(output_url).path
+                            output_url = f"{output_base_url}{output_path}"
                         Backend.logger.info(f"Local output URL found: {output_url}")
                         return output_url
             except Exception as e:

@@ -42,7 +42,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/OverlayConfig'
               example:
-                outputUrl: "http://127.0.0.1:8000/overlay/mybroadcast"
+                outputUrl: "http://127.0.0.1:8000/overlay/a1b2c3d4e5f6"
+                outputKey: "a1b2c3d4e5f6"
                 availableStyles:
                   - default
                   - line
@@ -135,8 +136,20 @@ components:
           format: uri
           description: >
             Absolute URL where the graphical overlay view is served (the URL
-            pasted into OBS/vMix as a browser source).
-          example: "http://127.0.0.1:8000/overlay/mybroadcast"
+            pasted into OBS/vMix as a browser source). This URL uses the
+            `outputKey` (a deterministic hash of the overlay name) instead of
+            the overlay name itself, making the public output URL
+            unpredictable. The overlay server also accepts the overlay name
+            in the URL path for convenience.
+          example: "http://127.0.0.1:8000/overlay/a1b2c3d4e5f6"
+        outputKey:
+          type: string
+          description: >
+            A short deterministic hash of the overlay name. Acts as an alias
+            for the overlay ID in the `/overlay/` output path so that the
+            public URL does not reveal the overlay name. Remote-Scoreboard
+            uses this key when composing the output URL shown to users.
+          example: "a1b2c3d4e5f6"
         availableStyles:
           type: array
           description: >

@@ -20,7 +20,14 @@ This document outlines the API contract that your custom overlay must implement 
 When the user configures an overlay ID starting with `C-` (e.g., `C-mybroadcast`), Remote-Scoreboard identifies this as a **Custom Overlay**.
 
 It will then communicate directly with your custom overlay server using the Base URL defined in the `APP_CUSTOM_OVERLAY_URL` environment variable (which defaults to `http://127.0.0.1:8000`).
-If your overlay needs an external-facing URL to be exposed to users via the "Links" dialog (e.g. for OBS consumption across networks), you can optionally provide `APP_CUSTOM_OVERLAY_OUTPUT_URL` (e.g. `http://my-public-domain.com:8000`). If missing, it falls back to the internal `APP_CUSTOM_OVERLAY_URL`.
+
+**Output URL resolution**
+
+Remote-Scoreboard determines the final output URL shown in the "Links" dialog using the following logic:
+
+1.  It fetches the `outputUrl` from your `/api/config/{id}` endpoint.
+2.  If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is set, Remote-Scoreboard replaces the host and port of the fetched `outputUrl` with the value from this environment variable, but preserves the path (which should contain the `outputKey`). This is useful when the overlay server is behind a proxy or on a different network.
+3.  If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is **not** set, Remote-Scoreboard uses the `outputUrl` from your server as-is. Ensure your overlay server returns a publicly accessible URL in this case (e.g., by configuring its own `OVERLAY_PUBLIC_URL`).
 
 The `custom_id` passed to your server will be the user's overlay ID **without** the `C-` prefix. For `C-mybroadcast`, the `custom_id` passed in URLs is `mybroadcast`.
 
@@ -44,13 +51,15 @@ This endpoint is polled by Remote-Scoreboard when the user attempts to view the 
 #### Expected Response (JSON):
 ```json
 {
-  "outputUrl": "http://127.0.0.1:8000/overlay/mybroadcast",
+  "outputUrl": "http://127.0.0.1:8000/overlay/a1b2c3d4e5f6",
+  "outputKey": "a1b2c3d4e5f6",
   "availableStyles": ["default", "line", "minimal"],
   "controlWebSocketUrl": "ws://127.0.0.1:8000/ws/control/mybroadcast"
 }
 ```
 
-*   `outputUrl` **(Required)**: The absolute URL where the actual graphical view of the overlay can be accessed (the link that gets pasted into OBS/vMix).
+*   `outputUrl` **(Required)**: The absolute URL where the actual graphical view of the overlay can be accessed (the link that gets pasted into OBS/vMix). This URL should use the `outputKey` (see below) instead of the raw overlay name so that the public URL is not easily guessable.
+*   `outputKey` *(Recommended)*: A short deterministic hash of the overlay name that acts as an alias in the `/overlay/` output path. Remote-Scoreboard uses this key when composing the output URL shown to users. The overlay server must accept both the overlay name and the output key as valid identifiers in `/overlay/{id}`.
 *   `availableStyles` *(Optional)*: A list of strings representing different visual themes or styles your overlay supports.
 *   `controlWebSocketUrl` *(Optional)*: A WebSocket URL for the persistent control channel. When present, Remote-Scoreboard will open a WebSocket connection for low-latency state pushes instead of polling via HTTP POST. If absent, HTTP-only mode is used (fully backward-compatible).
 
