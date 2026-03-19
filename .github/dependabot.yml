@@ -9,10 +9,18 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    groups:
+      nicegui:
+        patterns:
+          - "nicegui"
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      nicegui:
+        patterns:
+          - "zauberzeug/nicegui"
   - package-ecosystem: "github-actions"
     # Workflow files stored in the default location of `.github/workflows`
     # You don't need to specify `/.github/workflows` for `directory`. You can use `directory: "/"`.
