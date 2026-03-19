@@ -300,6 +300,12 @@ components:
             `availableStyles` list. The overlay should default to this style
             when no explicit `?style` query parameter is present in the URL.
           example: "line"
+        show_logos:
+          type: boolean
+          description: >
+            When `false`, the overlay should hide team logo images.
+            Controlled by the "Logos" toggle in the customization page.
+          example: true
 
     Geometry:
       type: object
