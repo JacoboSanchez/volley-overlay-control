@@ -194,6 +194,7 @@ class Backend:
                     "game_text": cust.get_game_text_color(),
                 },
                 "preferredStyle": cust.get_preferred_style(),
+                "show_logos": cust.is_show_logos() not in (False, "false", "False"),
             },
         }
 
