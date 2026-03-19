@@ -797,7 +797,7 @@ class TestWSControlClientBackgroundLoop:
         def fake_wait(timeout=None):
             wait_timeouts.append(timeout)
             if call_count[0] >= 3:
-                client._stop_event._flag = True  # force stop
+                client._stop_event.set()  # force stop
 
         client._ws_lib.create_connection.side_effect = fake_create
         client._stop_event.wait = fake_wait
