@@ -695,3 +695,227 @@ class TestAppStorageRefreshState:
     def test_refresh_state_for_unknown_oid_is_noop(self):
         """refresh_state() on a non-existent OID should not raise."""
         AppStorage.refresh_state('nonexistent_oid')  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# 6. WSControlClient – disconnect edge cases + _run_loop + _listen
+# ---------------------------------------------------------------------------
+
+import websocket as _websocket_module  # imported once for the exception class
+
+
+class TestWSControlClientBackgroundLoop:
+    """Tests for disconnect edge cases and the background _run_loop / _listen."""
+
+    @pytest.fixture
+    def client(self):
+        c = WSControlClient(
+            overlay_id='test_overlay',
+            ws_url='ws://localhost:9000/ws/control/test_overlay',
+        )
+        # Pre-assign _ws_lib so tests don't need a real websocket import
+        c._ws_lib = MagicMock()
+        c._ws_lib.WebSocketTimeoutException = _websocket_module.WebSocketTimeoutException
+        return c
+
+    # -- disconnect() missing branches (lines 84-85, 89-90) -------------------
+
+    def test_disconnect_swallows_ws_close_exception(self, client):
+        """disconnect() should not propagate exceptions from ws.close()."""
+        mock_ws = MagicMock()
+        mock_ws.close.side_effect = Exception("close failed")
+        client._ws = mock_ws
+        client._connected = True
+        client.disconnect()  # must not raise
+        assert client._connected is False
+
+    def test_disconnect_joins_and_clears_thread(self, client):
+        """disconnect() should join the background thread and set it to None."""
+        mock_thread = MagicMock()
+        client._thread = mock_thread
+        client.disconnect()
+        mock_thread.join.assert_called_once_with(timeout=5)
+        assert client._thread is None
+
+    # -- _run_loop (lines 139-172) --------------------------------------------
+
+    def test_run_loop_connects_and_calls_listen(self, client):
+        """_run_loop connects successfully and calls _listen."""
+        mock_sock = MagicMock()
+        client._ws_lib.create_connection.return_value = mock_sock
+
+        def fake_listen(sock):
+            assert client._connected is True
+            client._stop_event.set()
+
+        client._listen = fake_listen
+        client._run_loop()
+
+        client._ws_lib.create_connection.assert_called_once()
+        assert client._connected is False  # reset in finally
+
+    def test_run_loop_resets_connected_in_finally(self, client):
+        """_run_loop always resets _connected=False after _listen returns."""
+        mock_sock = MagicMock()
+        client._ws_lib.create_connection.return_value = mock_sock
+        client._listen = lambda sock: client._stop_event.set()
+
+        client._run_loop()
+
+        assert client._connected is False
+        assert client._ws is None
+
+    def test_run_loop_handles_connection_failure_and_retries(self, client):
+        """_run_loop retries after a connection error."""
+        call_count = [0]
+
+        def fake_create(url, timeout):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise Exception("connection refused")
+            # Second attempt: stop the loop after connecting
+            client._stop_event.set()
+            raise Exception("stopped")
+
+        client._ws_lib.create_connection.side_effect = fake_create
+        client._stop_event.wait = MagicMock()  # don't actually sleep
+
+        client._run_loop()
+
+        assert call_count[0] == 2
+
+    def test_run_loop_backoff_doubles_on_each_failure(self, client):
+        """_run_loop applies exponential backoff between reconnect attempts."""
+        import app.ws_client as ws_mod
+        wait_timeouts = []
+        call_count = [0]
+
+        def fake_create(url, timeout):
+            call_count[0] += 1
+            raise Exception("fail")
+
+        def fake_wait(timeout=None):
+            wait_timeouts.append(timeout)
+            if call_count[0] >= 3:
+                client._stop_event._flag = True  # force stop
+
+        client._ws_lib.create_connection.side_effect = fake_create
+        client._stop_event.wait = fake_wait
+
+        client._run_loop()
+
+        # Backoff should start at _RECONNECT_BASE and double each time
+        assert wait_timeouts[0] == ws_mod._RECONNECT_BASE
+        assert wait_timeouts[1] == ws_mod._RECONNECT_BASE * 2
+
+    def test_run_loop_imports_websocket_if_not_set(self):
+        """_run_loop auto-imports the websocket library when _ws_lib is absent."""
+        client = WSControlClient('x', 'ws://localhost/ws')
+        # No _ws_lib set
+        client._stop_event.set()  # exit immediately on first check
+        client._run_loop()
+        assert hasattr(client, '_ws_lib')
+
+    # -- _listen (lines 176-199) ----------------------------------------------
+
+    def test_listen_processes_received_message(self, client):
+        """_listen calls _handle_message for each valid JSON message."""
+        msg = {'type': 'pong'}
+        call_count = [0]
+
+        def fake_recv():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return json.dumps(msg)
+            client._stop_event.set()
+            return None
+
+        mock_sock = MagicMock()
+        mock_sock.recv = fake_recv
+        client._handle_message = MagicMock()
+        client._listen(mock_sock)
+
+        client._handle_message.assert_called_once_with(msg)
+
+    def test_listen_breaks_on_none_recv(self, client):
+        """_listen exits cleanly when recv returns None."""
+        mock_sock = MagicMock()
+        mock_sock.recv.return_value = None
+        client._listen(mock_sock)  # must return without hanging
+
+    def test_listen_breaks_on_generic_exception(self, client):
+        """_listen exits cleanly when recv raises a non-timeout exception."""
+        mock_sock = MagicMock()
+        mock_sock.recv.side_effect = Exception("connection reset")
+        client._listen(mock_sock)  # must not raise
+
+    def test_listen_continues_on_timeout_exception(self, client):
+        """_listen keeps running when recv raises WebSocketTimeoutException."""
+        call_count = [0]
+
+        def fake_recv():
+            call_count[0] += 1
+            if call_count[0] >= 2:
+                client._stop_event.set()
+            raise _websocket_module.WebSocketTimeoutException("timeout")
+
+        mock_sock = MagicMock()
+        mock_sock.recv = fake_recv
+        client._listen(mock_sock)
+
+        assert call_count[0] >= 2  # looped at least twice
+
+    def test_listen_sends_heartbeat_when_interval_elapsed(self, client):
+        """_listen sends {"type": "ping"} after _HEARTBEAT_INTERVAL seconds."""
+        import app.ws_client as ws_mod
+        call_count = [0]
+
+        def fake_recv():
+            call_count[0] += 1
+            if call_count[0] >= 2:
+                client._stop_event.set()
+            raise _websocket_module.WebSocketTimeoutException("timeout")
+
+        mock_sock = MagicMock()
+        mock_sock.recv = fake_recv
+
+        # Control time so heartbeat fires on the first check
+        time_values = iter([
+            0.0,                                    # last_ping = time.monotonic()
+            ws_mod._HEARTBEAT_INTERVAL + 1.0,       # now (first iteration)
+            ws_mod._HEARTBEAT_INTERVAL + 2.0,       # now (second iteration, no-op)
+        ])
+
+        with patch('app.ws_client.time') as mock_time:
+            mock_time.monotonic.side_effect = lambda: next(time_values)
+            client._listen(mock_sock)
+
+        mock_sock.send.assert_called_once()
+        assert json.loads(mock_sock.send.call_args[0][0]) == {'type': 'ping'}
+
+    def test_listen_breaks_when_heartbeat_send_fails(self, client):
+        """_listen exits when the heartbeat send raises an exception."""
+        import app.ws_client as ws_mod
+
+        mock_sock = MagicMock()
+        mock_sock.recv.side_effect = _websocket_module.WebSocketTimeoutException("timeout")
+        mock_sock.send.side_effect = Exception("send failed")
+
+        time_values = iter([
+            0.0,
+            ws_mod._HEARTBEAT_INTERVAL + 1.0,
+        ])
+
+        with patch('app.ws_client.time') as mock_time:
+            mock_time.monotonic.side_effect = lambda: next(time_values)
+            client._listen(mock_sock)  # must return after heartbeat failure
+
+        mock_sock.send.assert_called_once()
+
+    def test_listen_sets_sock_timeout(self, client):
+        """_listen should configure the socket timeout to _HEARTBEAT_INTERVAL."""
+        import app.ws_client as ws_mod
+        mock_sock = MagicMock()
+        mock_sock.recv.return_value = None  # exit immediately
+        client._listen(mock_sock)
+        mock_sock.settimeout.assert_called_once_with(ws_mod._HEARTBEAT_INTERVAL)
