@@ -1,7 +1,7 @@
-# Mobile Landscape UX Specification
+# Mobile UX Specification
 
 **Project:** Volley Overlay Control
-**Scope:** Optimized experience for phones held in landscape orientation
+**Scope:** Optimized experience for phones in landscape and portrait orientations, plus full overlay connectivity contract
 **Status:** Draft
 
 ---
@@ -16,7 +16,7 @@ The application already ships as a PWA and detects orientation via `GUI.is_portr
 - The options/customization dialogs use desktop-oriented forms that are difficult to interact with one-handed.
 - There is no visual lock to prevent accidental taps while a phone is being passed to a co-scorer.
 
-The goal of this specification is to define a layout, interaction model, and configuration surface that makes the app **fully operable with one thumb in landscape mode on a phone-sized screen (≥ 360 × 640 dp)** without degrading the experience on tablets or desktop browsers.
+The goal of this specification is to define a layout, interaction model, configuration surface, and overlay connectivity contract that makes the app **fully operable with one thumb on a phone-sized screen (≥ 360 × 640 dp) in both orientations** without degrading the experience on tablets or desktop browsers.
 
 ---
 
@@ -24,13 +24,16 @@ The goal of this specification is to define a layout, interaction model, and con
 
 | Class | Width (dp) | Height (dp) | Typical Device |
 |---|---|---|---|
+| Phone portrait (small) | 320 – 375 | 568 – 667 | iPhone SE, Galaxy A series |
+| Phone portrait (standard) | 375 – 390 | 667 – 844 | iPhone 14/15, Pixel 7 |
+| Phone portrait (large) | 390 – 430 | 844 – 932 | iPhone 14/15 Plus/Pro Max |
 | Phone landscape (small) | 568 – 667 | 320 – 375 | iPhone SE, Galaxy A series |
 | Phone landscape (standard) | 667 – 844 | 375 – 390 | iPhone 14/15, Pixel 7 |
 | Phone landscape (large) | 844 – 932 | 390 – 430 | iPhone 14/15 Plus/Pro Max |
 | Tablet landscape | 1024 + | 768 + | iPad, Galaxy Tab |
 | Desktop | 1280 + | 800 + | browser window |
 
-All layout decisions in this document target **phone landscape** as the primary class. Tablet and desktop layouts must continue to work as today with no regressions.
+**Phone landscape** is the primary scoring layout (operator holds the phone sideways during play). **Phone portrait** is the secondary layout used when first setting up a match or reviewing scores between sets. Tablet and desktop layouts must continue to work as today with no regressions.
 
 ---
 
@@ -41,16 +44,17 @@ All layout decisions in this document target **phone landscape** as the primary 
 return height > 1.2 * width and not width > 800
 ```
 
-This correctly identifies portrait for narrow phones but should be updated to explicitly handle the phone-landscape class:
+This correctly identifies portrait for narrow phones but should be updated to explicitly distinguish all three layout classes:
 
 ```
 is_phone_landscape = width <= 932 and height <= 430
-is_portrait         = height > 1.2 * width and width <= 800
+is_phone_portrait  = height > width and width <= 430
+# Everything else → tablet/desktop landscape (existing behavior)
 ```
 
 Devices wider than 932 dp (tablets, desktops) use the existing landscape layout unchanged.
 
-Hysteresis thresholds remain at 1.1 (exit portrait) / 1.3 (enter portrait) as today.
+Hysteresis thresholds remain at 1.1 (exit portrait) / 1.3 (enter portrait) as today. The rebuild-on-orientation-change logic in `set_page_size()` already handles this correctly and needs no structural change.
 
 ---
 
@@ -214,9 +218,274 @@ When running as a PWA in fullscreen mode (already configured with `display: full
 
 ---
 
-## 8. State and Data Model
+## 8. Layout: Phone Portrait Mode
 
-No changes to `State`, `GameManager`, `Backend`, or the overlay communication protocol. This specification is purely a presentation-layer change.
+Portrait is the natural orientation when a phone is handed to someone, used while setting up before a match, or when the device cannot be rotated. The layout must be scorable in portrait too, though it is optimized less aggressively for one-handed use than landscape.
+
+### 8.1 Grid Structure
+
+A single-column vertical stack that fills 100 vw × 100 vh with no scrolling:
+
+```
+┌─────────────────────────────┐
+│  TEAM A ROW                 │  ← 40% height
+│  (score button + sidebar)   │
+├─────────────────────────────┤
+│  CENTER BAND                │  ← 22% height
+│  (sets, set selector)       │
+├─────────────────────────────┤
+│  TEAM B ROW                 │  ← 38% height
+│  (score button + sidebar)   │
+└─────────────────────────────┘
+```
+
+Team A sits at the top, Team B at the bottom. The center band separates them.
+
+### 8.2 Team Row (Portrait)
+
+Each team row is a horizontal flex row:
+
+```
+┌──────────────────────────┬────────────┐
+│                          │  SERVE ●   │
+│   SCORE BUTTON           │            │
+│   (tap = +1 point)       │  SETS  0   │
+│                          │            │
+│                          │  ● ○  TOs  │
+└──────────────────────────┴────────────┘
+```
+
+- **Score button**: 70% of row width, full row height. Font size: `button_width * 0.45`.
+- **Sidebar** (30% width): vertical stack of serve icon (top), sets badge (middle), timeout dots (bottom). Each element gets equal height.
+- At 375 × 667 dp the score button is approximately 263 × 267 dp — well above minimum.
+
+### 8.3 Center Band (Portrait)
+
+Left-to-right inside the band:
+
+1. **Team A sets badge** (circular, tappable) — left-aligned.
+2. **Set scores table** — compact `text-xs` grid in the center showing past set scores.
+3. **Set selector** (← N →) — right-aligned.
+
+The set scores table and selector scroll horizontally if there are more sets than fit (up to 5 sets).
+
+### 8.4 Control Bar (Portrait)
+
+Same collapsible control bar as landscape (§4.4), anchored to the bottom edge. The handle and expanded bar behave identically.
+
+### 8.5 Portrait-Specific Behavior
+
+- **Live preview** is not shown in portrait phone mode (same rule as landscape).
+- **Options drawer** (§6) works identically in portrait; columns reflow to single-column automatically since portrait width is narrow.
+- All touch interactions (double-tap undo, swipe-left undo, long press, tap-lock) apply identically.
+
+---
+
+## 9. Overlay Connectivity
+
+This section documents the full overlay backend contract so that the UI can be rebuilt without reading the existing `backend.py` implementation.
+
+### 9.1 Configuration Entry (OID Dialog)
+
+On first launch, or when the user taps "Change Overlay" in the Links dialog, the app shows a single text input for the **Overlay Control OID**. The OID is a string that determines which backend the app talks to:
+
+| OID format | Backend type |
+|---|---|
+| UUID or alphanumeric string (e.g. `abc123xyz`) | overlays.uno cloud |
+| Prefixed with `C-` (e.g. `C-mybroadcast`) | Custom / self-hosted overlay |
+| `C-mybroadcast/line` | Custom overlay with locked style `line` |
+
+**Validation flow:**
+1. If the OID is empty → show `Messages.EMPTY_OVERLAY_CONTROL_TOKEN` and block.
+2. Call `validate_and_store_model_for_oid(oid)`:
+   - Returns `VALID` → proceed to the main scoring screen.
+   - Returns `DEPRECATED` → show `Messages.OVERLAY_DEPRECATED` warning and allow proceeding.
+   - Returns `INVALID` → show `Messages.INVALID_OVERLAY_CONTROL_TOKEN` and stay on the OID screen.
+
+The OID is persisted in `AppStorage` so the user does not need to re-enter it on reload.
+
+### 9.2 overlays.uno Protocol
+
+All communication uses HTTPS PUT to:
+
+```
+https://app.overlays.uno/apiv2/controlapps/{oid}/api
+```
+
+Request body shape:
+
+```json
+{ "command": "<CommandName>", "id": "<overlay_id>", "content": <payload> }
+```
+
+or for customization:
+
+```json
+{ "command": "SetCustomization", "value": <customization_object> }
+```
+
+The `overlay_id` (separate from the OID) is fetched once on startup via `GetOverlays` and cached in `conf.id`. A mismatch between the stored `conf.id` and the real overlay causes silent failures, so the fetch must happen before the first state save.
+
+**Required commands:**
+
+| Command | Direction | Purpose |
+|---|---|---|
+| `GetOverlays` | GET-equivalent | Fetch the actual overlay UUID (`conf.id`) |
+| `GetOverlayContent` | read | Fetch initial match state on startup |
+| `SetOverlayContent` | write | Push updated match state after every score change |
+| `GetCustomization` | read | Fetch team names, colors, logos on startup |
+| `SetCustomization` | write | Push updated customization |
+| `ShowOverlay` / `HideOverlay` | write | Toggle scoreboard visibility |
+| `GetOverlayVisibility` | read | Sync visibility state on startup |
+
+**Output URL resolution (overlays.uno):**
+
+Call `GET https://app.overlays.uno/apiv2/controlapps/{oid}` to retrieve the `outputUrl` field. Extract the token from the path segment after `/output/` and use it to construct the browser-source URL shown in the Links dialog.
+
+**Network requirements:**
+- All requests must include a `User-Agent` header (configurable via `REST_USER_AGENT` env var; default `curl/8.15.0`).
+- All requests must include `Content-Type: application/json` and `Accept: application/json, text/plain, */*`.
+- Timeout per request: 5 s for reads, 5 s for writes.
+- On `status >= 300` log a warning but do not crash; the app must remain operational when the overlay cloud is unreachable.
+- Use a persistent HTTP session (keep-alive) to avoid TCP setup overhead on every score update.
+- Multithreaded write: score-update saves should be dispatched to a thread pool (max 5 workers) so the UI is never blocked waiting for network.
+
+### 9.3 Custom Overlay Protocol
+
+When the OID starts with `C-`, the app communicates with a local server whose base URL is set via the `APP_CUSTOM_OVERLAY_URL` environment variable (default: `http://127.0.0.1:8000`). The `custom_id` used in URLs is the OID with the `C-` prefix removed and any `/style` suffix stripped.
+
+**Required HTTP endpoints:**
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/config/{custom_id}` | Fetch `outputUrl`, `availableStyles`, optional `controlWebSocketUrl` |
+| `POST` | `/api/state/{custom_id}` | Push full normalized match-state payload (see §9.4) |
+| `GET` | `/api/raw_config/{custom_id}` | Fetch raw model + customization blobs on startup |
+| `POST` | `/api/raw_config/{custom_id}` | Persist raw model + customization blobs |
+
+Timeouts: 5 s for GET `/api/config`, 2 s for all other calls.
+
+**Output URL resolution (custom):**
+
+1. Fetch `outputUrl` from `GET /api/config/{custom_id}`.
+2. If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is set, replace the host+port of the fetched URL with the value of that variable while keeping the path (which contains the output key). This is required when the overlay server is behind a reverse proxy.
+3. If the env var is not set, use the fetched URL as-is.
+
+**Initial state loading:**
+
+On startup, call `GET /api/raw_config/{custom_id}`. The response must be `{ "model": {...}, "customization": {...} }`. If `model` is absent or empty, initialize with the default reset model. If `customization` is absent, initialize with the default customization state.
+
+**Style locking:**
+
+If the OID contains a `/style` suffix (e.g. `C-mybroadcast/line`), extract the style string and write it into the customization object as `preferredStyle: "line"`, then immediately persist it back via `POST /api/raw_config`.
+
+### 9.4 Normalized State Payload
+
+Every score or customization change that targets a custom overlay sends the following JSON body to `POST /api/state/{custom_id}`. This is also the format used over WebSocket `state_update` messages.
+
+```jsonc
+{
+  "match_info": {
+    "tournament": "Superliga Masculina",   // static placeholder
+    "phase": "Playoffs",                   // static placeholder
+    "best_of_sets": 5,                     // from conf.sets
+    "current_set": 2,                      // 1-based active set index
+    "show_only_current_set": false         // present only when simple mode is active
+  },
+  "team_home": {
+    "name": "Home Team Name",
+    "short_name": "HOM",                   // first 3 chars of name, uppercased
+    "color_primary": "#2196f3",
+    "color_secondary": "#ffffff",
+    "logo_url": "https://...",
+    "sets_won": 1,
+    "points": 24,                          // current-set points only
+    "serving": true,
+    "timeouts_taken": 1,
+    "set_history": {                       // all 5 sets always included
+      "set_1": 25, "set_2": 24,
+      "set_3": 0, "set_4": 0, "set_5": 0
+    }
+  },
+  "team_away": { /* same shape as team_home */ },
+  "overlay_control": {
+    "show_main_scoreboard": true,          // present only when visibility changes
+    "show_bottom_ticker": false,
+    "ticker_message": "",
+    "show_player_stats": false,
+    "player_stats_data": null,
+    "geometry": {
+      "width": 30.0, "height": 0.0,
+      "xpos": -45.0, "ypos": 40.0        // configured in customization panel
+    },
+    "colors": {
+      "set_bg": "#333333", "set_text": "#ffffff",
+      "game_bg": "#111111", "game_text": "#ffffff"
+    },
+    "preferredStyle": "line",             // from customization.preferredStyle
+    "show_logos": true
+  }
+}
+```
+
+**Visibility-only updates** (eye icon toggle) include `show_main_scoreboard` in `overlay_control` and re-send the last known state. The WebSocket path sends a `visibility` message type instead (see §9.5).
+
+### 9.5 WebSocket Control Channel (Custom Overlay, Optional)
+
+If `GET /api/config/{custom_id}` returns a `controlWebSocketUrl` field, the app must open a persistent WebSocket to that URL on startup and use it in preference to HTTP for all subsequent state pushes.
+
+**Message types the app sends:**
+
+| Type | When | Payload |
+|---|---|---|
+| `state_update` | Every score/customization change | `{ "type": "state_update", "payload": <normalized state> }` |
+| `visibility` | Eye icon toggle | `{ "type": "visibility", "show": true/false }` |
+| `raw_config` | Save/reset actions | `{ "type": "raw_config", "payload": { "model": {...}, "customization": {...} } }` |
+| `ping` | Every ~25 s (heartbeat) | `{ "type": "ping" }` |
+
+**Message types the app expects to receive:**
+
+| Type | Action |
+|---|---|
+| `connected` | Parse `obs_clients` count; show connection indicator |
+| `ack` | Confirm the last message was received; update `obs_clients` count |
+| `pong` | Reset heartbeat timeout |
+| `obs_event` | Update the OBS client count shown in the UI |
+
+**Reconnection:** if the WebSocket closes unexpectedly, wait 3 s and retry. After 3 failed reconnections, fall back to HTTP POST for the remainder of the session and show a brief connection-lost notification.
+
+**HTTP fallback:** if no `controlWebSocketUrl` is present, use the HTTP endpoints from §9.3 for all writes. Both modes must produce identical overlay behavior.
+
+### 9.6 Environment Variables
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `UNO_OVERLAY_OID` | Yes (overlays.uno) | — | The overlay control OID for overlays.uno |
+| `UNO_OVERLAY_ID` | No | fetched at startup | The internal UUID of the overlay layout (auto-fetched) |
+| `UNO_OVERLAY_OUTPUT` | No | auto-fetched | Override the output/preview URL |
+| `APP_CUSTOM_OVERLAY_URL` | Yes (custom) | `http://127.0.0.1:8000` | Base URL of the custom overlay HTTP server |
+| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | No | — | Public base URL for the overlay browser-source link |
+| `REST_USER_AGENT` | No | `curl/8.15.0` | HTTP User-Agent sent with all backend requests |
+| `MATCH_GAME_POINTS` | No | `25` | Points needed to win a regular set |
+| `MATCH_GAME_POINTS_LAST_SET` | No | `15` | Points needed to win the deciding set |
+| `MATCH_SETS` | No | `5` | Number of sets in the match (best-of) |
+| `MINIMIZE_BACKEND_USAGE` | No | `true` | Cache model locally to reduce cloud API calls |
+| `ENABLE_MULTITHREAD` | No | `true` | Dispatch backend writes to a thread pool |
+| `AUTO_HIDE_ENABLED` | No | `false` | Auto-hide the scoreboard overlay after scoring |
+| `DEFAULT_HIDE_TIMEOUT` | No | `5` | Seconds before auto-hide fires |
+| `AUTO_SIMPLE_MODE` | No | `false` | Collapse to current-set-only view while playing |
+| `AUTO_SIMPLE_MODE_TIMEOUT` | No | `false` | Switch back to full view when timeout is called |
+| `SHOW_PREVIEW` | No | `false` | Show live overlay preview iframe in the control panel |
+| `APP_DARK_MODE` | No | `auto` | Dark mode preference: `on`, `off`, `auto` |
+| `SCOREBOARD_LANGUAGE` | No | `en` | UI language: `en` or `es` |
+| `SINGLE_OVERLAY_MODE` | No | `true` | Disable multi-overlay switcher |
+| `ORDERED_TEAMS` | No | `true` | Lock team order (home always left/top) |
+
+---
+
+## 10. State and Data Model
+
+No changes to the internal `State` or `GameManager` logic. The UI reads from and writes to these objects exactly as today.
 
 The following `AppStorage` category keys may be added:
 
@@ -227,18 +496,19 @@ The following `AppStorage` category keys may be added:
 
 ---
 
-## 9. Affected Files
+## 11. Affected Files
 
 | File | Change Type |
 |---|---|
-| `app/gui.py` | Update `is_portrait()` logic, button sizing calculation for phone landscape |
-| `app/components/team_panel.py` | Refactor column layout, timeout dots, serve icon sizing |
-| `app/components/center_panel.py` | Remove preview from phone landscape, compact set table |
-| `app/components/control_buttons.py` | Move buttons into collapsible overlay bar |
+| `app/gui.py` | Update orientation detection, button sizing for both phone layouts |
+| `app/components/team_panel.py` | Refactor for portrait row and landscape column layouts |
+| `app/components/center_panel.py` | Compact set table, hide preview on phone, portrait center band |
+| `app/components/control_buttons.py` | Extract into collapsible overlay bar (both orientations) |
 | `app/components/button_interaction.py` | Add swipe-left gesture for undo |
 | `app/options_dialog.py` | Convert to bottom drawer, add Match section |
-| `app/theme.py` | Add constants for phone landscape breakpoint (932 dp) |
+| `app/theme.py` | Add breakpoint constants (portrait/landscape phone thresholds) |
 | `app/app_storage.py` | Add `TAP_LOCK_ACTIVE` and `CONTROL_BAR_EXPANDED` categories |
+| `app/backend.py` | No structural changes; env vars documented in §9.6 |
 | `app/pwa/manifest.json` | No change |
 
 New files:
@@ -247,38 +517,41 @@ New files:
 
 ---
 
-## 10. Testing Requirements
+## 12. Testing Requirements
 
-### 10.1 Viewport Tests (Playwright)
+### 12.1 Viewport Tests (Playwright)
 
 Extend the existing mobile viewport test suite (`tests/test_mobile_viewport.py`) with the following cases:
 
 | Test | Viewport (w × h px) | Assertion |
 |---|---|---|
-| Score buttons fill majority of team columns | 667 × 375 | Each score button height ≥ 200 px |
-| No horizontal scroll | 568 × 320 | `document.body.scrollWidth <= 568` |
-| Control bar hidden by default | 667 × 375 | Control bar element `display: none` or `opacity: 0` |
-| Control bar shows on handle tap | 667 × 375 | Control bar visible after simulated tap on handle |
+| Score buttons fill majority of team columns (landscape) | 667 × 375 | Each score button height ≥ 200 px |
+| Score buttons fill majority of team rows (portrait) | 375 × 667 | Each score button width ≥ 200 px |
+| No horizontal scroll (landscape) | 568 × 320 | `document.body.scrollWidth <= 568` |
+| No vertical scroll (portrait) | 375 × 667 | `document.body.scrollHeight <= 667` |
+| Control bar hidden by default | 667 × 375 | Control bar element not visible |
+| Control bar shows on handle tap | 667 × 375 | Control bar visible after tap on handle |
 | Tap-lock prevents scoring | 667 × 375 | Score does not change when lock is active |
-| Swipe-left triggers undo | 667 × 375 | Score decrements on synthesized swipe-left gesture |
-| Serve icon tap target ≥ 44 px | 667 × 375 | Computed touch area of serve icon ≥ 44 × 44 px |
-| Options drawer slides up | 667 × 375 | Drawer element visible after options button tap |
+| Swipe-left triggers undo (landscape) | 667 × 375 | Score decrements on synthesized swipe-left |
+| Swipe-left triggers undo (portrait) | 375 × 667 | Score decrements on synthesized swipe-left |
+| Serve icon tap target ≥ 44 px | 667 × 375 | Computed touch area ≥ 44 × 44 px |
+| Options drawer slides up | 667 × 375 | Drawer visible after options button tap |
 | Tablet layout unchanged | 1024 × 768 | Layout matches current landscape behavior |
 | Desktop layout unchanged | 1280 × 800 | Layout matches current landscape behavior |
 
-### 10.2 Unit Tests
+### 12.2 Unit Tests
 
-- `GameManager` and `State` require no new unit tests (no logic changes).
-- `ButtonInteraction`: add tests for swipe-left detection and the threshold conditions (≥ 40 dp horizontal, < 30 dp vertical).
+- `GameManager` and `State`: no new unit tests (no logic changes).
+- `ButtonInteraction`: add tests for swipe-left detection and threshold conditions (≥ 40 dp horizontal, < 30 dp vertical).
 - `AppStorage`: add tests for the two new categories.
+- `Backend` overlay connectivity: existing tests cover the HTTP paths; add a test for WS reconnection fallback to HTTP.
 
 ---
 
-## 11. Out of Scope
+## 13. Out of Scope
 
 - Server-side rendering optimizations.
-- Changes to the overlay communication protocol or `Backend`.
-- Custom overlay API contract changes.
+- Changes to the normalized state payload schema or custom overlay API contract.
 - Internationalization of new UI strings (English first; Spanish strings can be added in a follow-up).
-- Changing the portrait layout.
 - Tablet-specific layout improvements.
+- Multi-overlay switcher UI changes.
