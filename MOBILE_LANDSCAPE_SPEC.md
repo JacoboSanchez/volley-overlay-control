@@ -441,20 +441,24 @@ If `GET /api/config/{custom_id}` returns a `controlWebSocketUrl` field, the app 
 | `state_update` | Every score/customization change | `{ "type": "state_update", "payload": <normalized state> }` |
 | `visibility` | Eye icon toggle | `{ "type": "visibility", "show": true/false }` |
 | `raw_config` | Save/reset actions | `{ "type": "raw_config", "payload": { "model": {...}, "customization": {...} } }` |
+| `get_state` | On demand (e.g. after reconnect) | `{ "type": "get_state" }` |
 | `ping` | Every ~25 s (heartbeat) | `{ "type": "ping" }` |
 
 **Message types the app expects to receive:**
 
 | Type | Action |
 |---|---|
-| `connected` | Parse `obs_clients` count; show connection indicator |
-| `ack` | Confirm the last message was received; update `obs_clients` count |
-| `pong` | Reset heartbeat timeout |
+| `connected` | Validate `protocol == 1`; log warning on mismatch but continue. Parse `obs_clients` count. |
+| `ack` | Confirm the last message was received; update `obs_clients` count from `ack.obs_clients` |
+| `state` | Response to `get_state`; forwarded to the event callback |
+| `pong` | Heartbeat acknowledged; no action needed |
 | `obs_event` | Update the OBS client count shown in the UI |
 
-**Reconnection:** if the WebSocket closes unexpectedly, wait 3 s and retry. After 3 failed reconnections, fall back to HTTP POST for the remainder of the session and show a brief connection-lost notification.
+**Connection setup:** `create_connection` uses a 10 s socket timeout. The heartbeat loop uses a 25 s recv timeout (inside the server's 30 s keepalive window); if recv times out, a `ping` is sent immediately.
 
-**HTTP fallback:** if no `controlWebSocketUrl` is present, use the HTTP endpoints from §9.3 for all writes. Both modes must produce identical overlay behavior.
+**Reconnection:** uses exponential backoff — initial delay 1 s, doubling on each failure, capped at 30 s. The delay resets to 1 s on a successful connection. Reconnection continues indefinitely; there is no automatic fallback to HTTP after a fixed number of retries. The HTTP path is only used if `controlWebSocketUrl` was never present in the first place.
+
+**HTTP fallback:** if `GET /api/config/{custom_id}` returns no `controlWebSocketUrl`, use the HTTP endpoints from §9.3 for all writes. Both modes must produce identical overlay behavior.
 
 ### 9.6 Environment Variables
 
