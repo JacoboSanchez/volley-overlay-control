@@ -39,8 +39,8 @@ The goal of this specification is to define a layout, interaction model, configu
 
 ## 3. Orientation Detection
 
-**Current rule** (in `gui.py:23`):
-```python
+**Current rule** (in the orientation detection module):
+```
 return height > 1.2 * width and not width > 800
 ```
 
@@ -54,7 +54,7 @@ is_phone_portrait  = height > width and width <= 430
 
 Devices wider than 932 dp (tablets, desktops) use the existing landscape layout unchanged.
 
-Hysteresis thresholds remain at 1.1 (exit portrait) / 1.3 (enter portrait) as today. The rebuild-on-orientation-change logic in `set_page_size()` already handles this correctly and needs no structural change.
+Hysteresis thresholds remain at 1.1 (exit portrait) / 1.3 (enter portrait) as today. The rebuild-on-orientation-change logic already handles this correctly and needs no structural change.
 
 ---
 
@@ -210,7 +210,7 @@ On devices with a notch or a home indicator (iPhone X and later), the layout mus
 - Left/right paddings on the outer row: `max(8px, env(safe-area-inset-left))` and `max(8px, env(safe-area-inset-right))`.
 - Bottom padding of the control bar: `max(8px, env(safe-area-inset-bottom))`.
 
-These can be injected via NiceGUI's `ui.add_head_html` or inline style on the root container.
+These can be injected via the framework's head HTML injection API or as inline styles on the root container element.
 
 ### 7.4 Status Bar / PWA Theme
 
@@ -486,13 +486,13 @@ When the `SCOREBOARD_USERS` environment variable is set, the app requires a logi
 
 **Login flow:**
 
-1. Any unauthenticated request (except `/login` and NiceGUI internal routes) is redirected to `/login`.
+1. Any unauthenticated request (except `/login` and framework-internal routes) is redirected to `/login`.
 2. The login page shows username + password fields.
 3. On successful authentication: mark session as authenticated, store username, store `control` and `output` from the user's config entry, then redirect to the original requested path.
 4. On failure: show `Messages.WRONG_USER_NAME` notification and stay on `/login`.
 5. Logout clears all user session storage and navigates to `./`.
 
-**Session isolation:** session state (`authenticated`, `configured_oid`, etc.) is stored in NiceGUI's per-user server-side storage (`app.storage.user`), keyed by session cookie. Two browser tabs belonging to the same user share the same session storage.
+**Session isolation:** session state (`authenticated`, `configured_oid`, etc.) is stored in server-side session storage, keyed by session cookie. Two browser tabs belonging to the same user share the same session storage.
 
 ### 9.7 Environment Variables
 
@@ -531,10 +531,10 @@ No changes to the internal `State` or `GameManager` logic. The UI reads from and
 
 The app uses two distinct storage scopes that must be kept separate:
 
-| Scope | NiceGUI backend | Shared across tabs? | Purpose |
+| Scope | Storage Backend | Shared across tabs? | Purpose |
 |---|---|---|---|
-| **User/session storage** | `app.storage.user` | Yes — same session cookie | Authentication state, OID, current game model, display preferences (auto-hide, simple mode, show preview, lock flags) |
-| **Browser-local storage** | `app.storage.browser` | No — per tab | Visual-only button settings that each scorer may want independently |
+| **User/session storage** | Server-side session store | Yes — same session cookie | Authentication state, OID, current game model, display preferences (auto-hide, simple mode, show preview, lock flags) |
+| **Browser-local storage** | Browser `localStorage` | No — per tab | Visual-only button settings that each scorer may want independently |
 
 The following keys are **browser-local** and must never be included in any cross-tab broadcast:
 
@@ -551,7 +551,7 @@ All other AppStorage keys use user/session storage and are shared across tabs of
 
 Multiple browser tabs or devices can open the scoring screen simultaneously and control the same overlay. The app uses in-process in-memory broadcasting rather than polling or WebSockets between tabs.
 
-**Instance registry:** every active GUI instance (one per connected browser client) is held in a server-side `WeakSet`. Instances are automatically removed when the browser disconnects.
+**Instance registry:** every active UI instance (one per connected browser client) is held in a server-side registry. Instances are automatically removed when the browser disconnects.
 
 **Broadcast on every state change:** after any action that modifies game or customization state, the acting instance:
 
@@ -566,7 +566,7 @@ Multiple browser tabs or devices can open the scoring screen simultaneously and 
 - Browser-local visual settings (button colors, font, icon — see §10.2). Each tab keeps its own.
 - The `simple` mode toggle state (each tab tracks this independently for its own view).
 
-**Failure handling:** if a registered instance's client context is no longer in NiceGUI's active client table (stale/disconnected), that instance is skipped silently. The `WeakSet` eventually drops it when it is garbage collected.
+**Failure handling:** if a registered instance's client context is stale or disconnected, that instance is skipped silently. The registry eventually drops it when it is cleaned up.
 
 **Consequence for the UI spec:** the scoring buttons and all displayed values (score, sets, serve, timeouts) must be updatable by an external broadcast at any time, not just by local user action. All UI elements that reflect game state must be bound to or refreshable from the shared state object.
 
