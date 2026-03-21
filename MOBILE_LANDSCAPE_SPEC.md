@@ -518,6 +518,14 @@ When the `SCOREBOARD_USERS` environment variable is set, the app requires a logi
 | `SCOREBOARD_LANGUAGE` | No | `en` | UI language: `en` or `es` |
 | `SINGLE_OVERLAY_MODE` | No | `true` | Disable multi-overlay switcher |
 | `ORDERED_TEAMS` | No | `true` | Lock team order (home always left/top) |
+| `SCOREBOARD_USERS` | No | — | JSON string mapping usernames to passwords and OIDs (see §9.6) |
+| `APP_TEAMS` | No | — | JSON string of predefined team presets for the customization picker |
+| `APP_THEMES` | No | — | JSON string of named color themes available in the customization panel |
+| `APP_DEFAULT_LOGO` | No | CDN volleyball icon | Default logo URL applied when no team logo has been configured |
+| `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | No | — | Hide the manual OID text field when predefined overlays are configured |
+| `PREDEFINED_OVERLAYS` | No | — | JSON list of pre-configured OID entries shown in the OID selection dialog |
+| `REMOTE_CONFIG_URL` | No | — | URL of a remote JSON endpoint that overrides env vars; polled with a 10 s cache |
+| `LOGGING_LEVEL` | No | `INFO` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ---
 
@@ -570,18 +578,52 @@ Multiple browser tabs or devices can open the scoring screen simultaneously and 
 
 **Consequence for the UI spec:** the scoring buttons and all displayed values (score, sets, serve, timeouts) must be updatable by an external broadcast at any time, not just by local user action. All UI elements that reflect game state must be bound to or refreshable from the shared state object.
 
-### 10.4 New AppStorage Keys
+### 10.4 AppStorage Key Reference
 
-The following `AppStorage` category keys are added by this spec:
+The complete set of `AppStorage` category keys used across the application. New keys introduced by this spec are marked *(new)*.
 
-| Key | Scope | Type | Default | Purpose |
-|---|---|---|---|---|
-| `TAP_LOCK_ACTIVE` | session | `bool` | `false` | Per-session tap lock state (resets on page reload) |
-| `CONTROL_BAR_EXPANDED` | browser-local | `bool` | `false` | Remember whether the control bar is pinned open |
+**Session-scoped keys** (shared across all tabs of the same authenticated session):
+
+| Key | Type | Default | Purpose |
+|---|---|---|---|
+| `USERNAME` | `str` | — | Authenticated user's name |
+| `AUTHENTICATED` | `bool` | `false` | Whether the current session has passed login |
+| `CONFIGURED_OID` | `str` | — | Active overlay control OID for this session |
+| `CONFIGURED_OUTPUT` | `str` | — | Active overlay output URL for this session |
+| `CURRENT_MODEL` | `dict` | — | Cached game state model (overlays.uno only; custom overlays use their own server) |
+| `REDIRECT_PATH` | `str` | `/` | Path to redirect to after successful login |
+| `SIMPLE_MODE` | `bool` | `false` | Whether the scoreboard is in simple (current-set-only) mode |
+| `DARK_MODE` | `str` | `auto` | Dark mode preference for this session: `on`, `off`, or `auto` |
+| `AUTOHIDE_ENABLED` | `bool` | env var | Session override for auto-hide enabled flag |
+| `AUTOHIDE_SECONDS` | `int` | env var | Session override for auto-hide delay in seconds |
+| `SIMPLIFY_OPTION_ENABLED` | `bool` | env var | Session override for auto-simple-mode flag |
+| `SIMPLIFY_ON_TIMEOUT_ENABLED` | `bool` | env var | Session override: revert to full view when timeout is called |
+| `SHOW_PREVIEW` | `bool` | env var | Session override for live preview iframe visibility |
+| `LOCK_TEAM_A_ICONS` | `bool` | `false` | Prevent Team A logo from being changed (per-OID) |
+| `LOCK_TEAM_B_ICONS` | `bool` | `false` | Prevent Team B logo from being changed (per-OID) |
+| `LOCK_TEAM_A_COLORS` | `bool` | `false` | Prevent Team A colors from being changed (per-OID) |
+| `LOCK_TEAM_B_COLORS` | `bool` | `false` | Prevent Team B colors from being changed (per-OID) |
+| `TAP_LOCK_ACTIVE` *(new)* | `bool` | `false` | Per-session tap lock state (resets on page reload) |
+
+**Browser-local keys** (isolated per browser tab — never broadcast to other clients):
+
+| Key | Type | Default | Purpose |
+|---|---|---|---|
+| `BUTTONS_FOLLOW_TEAM_COLORS` | `bool` | `false` | Score buttons inherit team colors from customization |
+| `TEAM_1_BUTTON_COLOR` | `str` | `#2196f3` | Team 1 score button background color |
+| `TEAM_1_BUTTON_TEXT_COLOR` | `str` | `#ffffff` | Team 1 score button text color |
+| `TEAM_2_BUTTON_COLOR` | `str` | `#f44336` | Team 2 score button background color |
+| `TEAM_2_BUTTON_TEXT_COLOR` | `str` | `#ffffff` | Team 2 score button text color |
+| `SELECTED_FONT` | `str` | `Default` | Score button font family name |
+| `BUTTONS_SHOW_ICON` | `bool` | `false` | Show team logo icon overlaid on score button |
+| `BUTTONS_ICON_OPACITY` | `float` | — | Opacity of the team logo icon overlay |
+| `CONTROL_BAR_EXPANDED` *(new)* | `bool` | `false` | Remember whether the control bar is pinned open |
 
 ---
 
 ## 11. Affected Files
+
+### 11.1 Modified Files
 
 | File | Change Type |
 |---|---|
@@ -596,9 +638,49 @@ The following `AppStorage` category keys are added by this spec:
 | `app/backend.py` | No structural changes; env vars documented in §9.6 |
 | `app/pwa/manifest.json` | No change |
 
-New files:
+### 11.2 New Files (this spec)
+
 - `app/components/tap_lock.py` — manages tap lock state and the lock overlay element.
 - `app/components/control_bar.py` — collapsible bottom bar extracted from `ControlButtons`.
+
+### 11.3 Complete File Inventory (existing codebase)
+
+All files that make up the full application, for reference when rebuilding from scratch:
+
+| File | Role |
+|---|---|
+| `main.py` | Entry point; starts the server via `startup()` |
+| `app/startup.py` | Registers all routes, static files, PWA assets, and middleware |
+| `app/gui.py` | Main scoring UI; orientation detection; multi-tab broadcast registry |
+| `app/gui_update_mixin.py` | `UIUpdateMixin` base class providing update methods called by broadcasts |
+| `app/game_manager.py` | Game logic (points, sets, timeouts, serve, win detection) |
+| `app/state.py` | `State` data model and `simplify_model` helper |
+| `app/backend.py` | All overlay HTTP/WS communication (overlays.uno + custom) |
+| `app/ws_client.py` | Persistent WebSocket client for custom overlay servers |
+| `app/conf.py` | `Conf` configuration object populated from env vars + session storage |
+| `app/app_storage.py` | `AppStorage` abstraction (session store + browser-local store) |
+| `app/authentication.py` | `AuthMiddleware` + `PasswordAuthenticator` (login flow) |
+| `app/customization.py` | `Customization` data model and accessors |
+| `app/customization_page.py` | Configuration tab UI (team names, colors, logos, geometry) |
+| `app/options_dialog.py` | Options/settings dialog (auto-hide, simple mode, fonts, colors) |
+| `app/oid_dialog.py` | OID entry dialog (first-launch and "Change Overlay" flow) |
+| `app/preview_page.py` | Standalone `/preview` route with scale/dark-mode controls |
+| `app/preview.py` | `create_iframe_card` helper used by preview page and inline preview |
+| `app/env_vars_manager.py` | Environment variable resolution with optional remote config override |
+| `app/conf.py` | Runtime `Conf` object; reads env vars + per-session storage overrides |
+| `app/messages.py` | Localised string constants (`en` / `es`) |
+| `app/logging_config.py` | Logging setup controlled by `LOGGING_LEVEL` env var |
+| `app/theme.py` | UI style constants, color names, font scaling multipliers |
+| `app/components/score_button.py` | Score button widget |
+| `app/components/button_style.py` | Button visual style helpers |
+| `app/components/button_interaction.py` | Tap / double-tap / long-press / swipe gesture detection |
+| `app/components/team_panel.py` | Team column/row layout (score button + serve + sets + timeouts) |
+| `app/components/center_panel.py` | Center strip / band (set history table, set selector, status) |
+| `app/components/control_buttons.py` | Collapsible control bar (undo, lock, visibility, options, …) |
+| `app/pwa/manifest.json` | PWA manifest (fullscreen display, icons, theme color) |
+| `app/pwa/sw.js` | Service worker for offline caching |
+| `app/pwa/icon-*.png` | PWA icons (192 × 192, 512 × 512) |
+| `font/` | Optional custom font files (TTF/OTF/WOFF/WOFF2) loaded at runtime |
 
 ---
 
@@ -640,3 +722,279 @@ Extend the existing mobile viewport test suite (`tests/test_mobile_viewport.py`)
 - Internationalization of new UI strings (English first; Spanish strings can be added in a follow-up).
 - Tablet-specific layout improvements.
 - Multi-overlay switcher UI changes.
+
+---
+
+## 14. Data Models
+
+This section documents all internal data models so the application can be rebuilt without reading the existing implementation.
+
+### 14.1 Game State Model (`State`)
+
+The game state is a flat string-keyed dictionary. All values are stored as strings. The reset (initial) state is:
+
+```json
+{
+  "Serve":                    "None",
+  "Team 1 Sets":              "0",
+  "Team 2 Sets":              "0",
+  "Team 1 Game 1 Score":      "0",
+  "Team 1 Game 2 Score":      "0",
+  "Team 1 Game 3 Score":      "0",
+  "Team 1 Game 4 Score":      "0",
+  "Team 1 Game 5 Score":      "0",
+  "Team 2 Game 1 Score":      "0",
+  "Team 2 Game 2 Score":      "0",
+  "Team 2 Game 3 Score":      "0",
+  "Team 2 Game 4 Score":      "0",
+  "Team 2 Game 5 Score":      "0",
+  "Team 1 Timeouts":          "0",
+  "Team 2 Timeouts":          "0",
+  "Current Set":              "1"
+}
+```
+
+**Serve values:** `"None"` (no server), `"A"` (Team 1 serving), `"B"` (Team 2 serving).
+
+**Special constant:** `CHAMPIONSHIP_LAYOUT_ID = "446a382f-25c0-4d1d-ae25-48373334e06b"` — when `conf.id` matches this value, a `"Sets Display"` key is injected into the payload sent to the overlay, set to the current set number as a string.
+
+**OID validation statuses:** `VALID`, `INVALID`, `DEPRECATED`, `EMPTY`.
+- `DEPRECATED` is returned when the fetched model contains a `game1State` key (legacy schema).
+
+**`simplify_model` transformation:** collapses all set history to Set 1 only. Copies the current-set scores into `Team 1 Game 1 Score` / `Team 2 Game 1 Score`, then zeroes out all other set score keys. Used when simple mode is active to send a one-set view to the overlay.
+
+### 14.2 Customization Model (`Customization`)
+
+The customization state is a flat string-keyed dictionary. Default (reset) values:
+
+| Key | Default | Type | Purpose |
+|---|---|---|---|
+| `"Team 1 Text Name"` | `""` | string | Team 1 display name (legacy key; new key is `"Team 1 Name"`) |
+| `"Team 2 Text Name"` | `""` | string | Team 2 display name (legacy key; new key is `"Team 2 Name"`) |
+| `"Logos"` | `"true"` | bool-string | Show team logos on the overlay |
+| `"Gradient"` | `"true"` | bool-string | Apply gloss/gradient effect on the overlay |
+| `"Height"` | `10` | float | Overlay height as a percentage of the scene |
+| `"Left-Right"` | `-33` | float | Horizontal position (negative = left of center) |
+| `"Up-Down"` | `-41.1` | float | Vertical position (negative = above center) |
+| `"Width"` | `30` | float | Overlay width as a percentage of the scene |
+| `"Team 1 Color"` | `"#060f8a"` | hex | Team 1 primary/background color |
+| `"Team 1 Text Color"` | `"#ffffff"` | hex | Team 1 text/secondary color |
+| `"Team 1 Logo"` | CDN URL | URL | Team 1 logo image URL |
+| `"Team 1 Logo Fit"` | `"contain"` | string | CSS `object-fit` for Team 1 logo (`"contain"` or `"cover"`) |
+| `"Team 2 Color"` | `"#ffffff"` | hex | Team 2 primary/background color |
+| `"Team 2 Text Color"` | `"#000000"` | hex | Team 2 text/secondary color |
+| `"Team 2 Logo"` | CDN URL | URL | Team 2 logo image URL |
+| `"Team 2 Logo Fit"` | `"contain"` | string | CSS `object-fit` for Team 2 logo |
+| `"Color 1"` | `"#2a2f35"` | hex | Set-wins background color |
+| `"Text Color 1"` | `"#ffffff"` | hex | Set-wins text color |
+| `"Color 2"` | `"#ffffff"` | hex | Game-score background color |
+| `"Text Color 2"` | `"#2a2f35"` | hex | Game-score text color |
+| `"Color 3"` | `"0055ff"` | hex | Additional accent color |
+| `"Text Color 3"` | `"FFFFFF"` | hex | Additional accent text color |
+| `"preferredStyle"` | `null` | string or null | Overlay style variant key (e.g. `"line"`) |
+
+**Team name backward compatibility:** both `"Team 1 Text Name"` (legacy) and `"Team 1 Name"` (new) are accepted. Reads prefer the legacy key if present.
+
+**Logo URL normalization:** URLs beginning with `"//"` are prefixed with `"https:"` before use.
+
+**Predefined teams** (`APP_TEAMS` env var): a JSON object where each key is a team name and the value is `{ "icon": "<url>", "color": "<hex>", "text_color": "<hex>" }`. If not set, defaults to two entries labelled with the configured language's "Local" and "Visitor" strings.
+
+**Themes** (`APP_THEMES` env var): a JSON object where each key is a theme name and the value is a partial customization object applied as an overlay on top of the current state when selected.
+
+### 14.3 Configuration Object (`Conf`)
+
+Runtime configuration loaded from env vars at startup, with some properties overridable by session storage:
+
+| Property | Source | Default | Notes |
+|---|---|---|---|
+| `id` | `UNO_OVERLAY_ID` env var | `"8637cb0f-df01-45bb-9782-c6d705aeff46"` | Auto-updated after `GetOverlays` call |
+| `oid` | `UNO_OVERLAY_OID` env var | `null` | Set to URL param / storage value before use |
+| `output` | `UNO_OVERLAY_OUTPUT` env var | `null` | Output URL; auto-fetched if absent |
+| `rest_user_agent` | `REST_USER_AGENT` env var | `"curl/8.15.0"` | Sent as HTTP `User-Agent` |
+| `darkMode` | `APP_DARK_MODE` env var | `"auto"` | `"on"`, `"off"`, or `"auto"` |
+| `multithread` | `ENABLE_MULTITHREAD` env var | `true` | Dispatch saves to thread pool |
+| `cache` | `MINIMIZE_BACKEND_USAGE` env var | `true` | Cache model in session to avoid re-fetching |
+| `orderedTeams` | `ORDERED_TEAMS` env var | `true` | Lock home team to left/top position |
+| `points` | `MATCH_GAME_POINTS` env var | `25` | Points to win a regular set |
+| `points_last_set` | `MATCH_GAME_POINTS_LAST_SET` env var | `15` | Points to win the deciding set |
+| `sets` | `MATCH_SETS` env var | `5` | Best-of sets count |
+| `single_overlay` | `SINGLE_OVERLAY_MODE` env var | `true` | Disable multi-overlay switcher |
+| `show_overview` | `SHOW_PREVIEW` env var | `false` | Show inline preview iframe |
+| `auto_hide` | session → `AUTO_HIDE_ENABLED` | `false` | Session value takes priority over env var |
+| `hide_timeout` | session → `DEFAULT_HIDE_TIMEOUT` | `5` | Session value takes priority over env var |
+| `auto_simple_mode` | session → `AUTO_SIMPLE_MODE` | `false` | Session value takes priority over env var |
+| `auto_simple_mode_timeout` | session → `AUTO_SIMPLE_MODE_TIMEOUT` | `false` | Session value takes priority over env var |
+| `show_preview` | session → `SHOW_PREVIEW` | `false` | Session value takes priority over env var |
+| `lock_teamA_icons` | session (per-OID) | `false` | Stored under the OID namespace |
+| `lock_teamB_icons` | session (per-OID) | `false` | Stored under the OID namespace |
+| `lock_teamA_colors` | session (per-OID) | `false` | Stored under the OID namespace |
+| `lock_teamB_colors` | session (per-OID) | `false` | Stored under the OID namespace |
+
+---
+
+## 15. Game Logic
+
+### 15.1 GameManager
+
+`GameManager` owns all mutable game state and exposes the following operations:
+
+| Method | Description |
+|---|---|
+| `add_game(team, current_set, points_limit, points_limit_last_set, sets_limit, undo)` | Add or remove a point; triggers `add_set` if the set is won/un-won. Returns `True` if set state changed. |
+| `add_set(team, undo)` | Add or remove a set won. On new set: resets both teams' timeouts to 0 and clears serve. |
+| `add_timeout(team, undo)` | Increment or decrement a team's timeout count (clamped 0–2). |
+| `change_serve(team, force)` | Set the serving team. Passing `team=0` clears serve. If `force=False` and the team is already serving, serve is cleared (toggle). |
+| `set_game_value(team, value, current_set)` | Directly set a team's score for the current set. |
+| `set_sets_value(team, value)` | Directly set a team's sets-won count. |
+| `match_finished()` | Returns `True` when either team has won ⌈sets/2⌉ sets. |
+| `check_set_won(team, current_set, points_limit, points_limit_last_set, sets_limit)` | Re-check win condition after a direct score update; triggers `add_set` if met. |
+| `save(simple, current_set)` | Persist state to backend (with optional simplification). |
+| `reset()` | Reset state to `State.reset_model` and persist. |
+
+**Win condition:** a score wins a set when `score >= limit AND score − rival_score > 1` (standard rally-point with deuce).
+
+**Points limit selection:** the deciding set (set index equals `sets_limit`) uses `points_limit_last_set`; all other sets use `points_limit`.
+
+**Match win:** `⌈conf.sets / 2⌉ + 1` sets required (soft ceiling: a best-of-5 requires 3 sets).
+
+### 15.2 OID Resolution Priority
+
+When a scoring page loads, the OID is resolved in this priority order:
+
+1. **URL query parameter** `?control=<oid>` — validated immediately; if valid, used and stored.
+2. **Session storage** (`CONFIGURED_OID`) — validated; if valid, used as-is.
+3. **Environment variable** `UNO_OVERLAY_OID` — only checked when `SINGLE_OVERLAY_MODE=true` and no URL param was provided.
+4. **OID dialog** — shown when all above sources yield no valid OID.
+
+After resolving, if no output URL is available from the same source, `fetch_output_token(oid)` is called automatically to obtain the browser-source URL.
+
+---
+
+## 16. Application Routes
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/` | Main scoring screen (uses `MATCH_*` env var defaults) |
+| `GET` | `/indoor` | Scoring screen preset: 25 pts / 15 last-set / best-of-5 |
+| `GET` | `/beach` | Scoring screen preset: 21 pts / 15 last-set / best-of-3 |
+| `GET` | `/login` | Login page (shown when `SCOREBOARD_USERS` is set) |
+| `GET` | `/preview` | Standalone overlay preview with geometry and scale controls |
+| `GET` | `/health` | Health check endpoint; returns `{ "status": "ok", "timestamp": <unix>, "service": "volley-overlay-control" }` |
+| `GET` | `/manifest.json` | PWA web app manifest |
+| `GET` | `/sw.js` | Service worker script |
+| `GET` | `/fonts/*` | Static font files from the `font/` directory |
+| `GET` | `/pwa/*` | Static PWA assets (icons, etc.) |
+
+**Query parameters supported on `/`, `/indoor`, `/beach`:**
+- `control=<oid>` — pre-populate and auto-validate the OID (skips dialog).
+- `output=<token-or-url>` — override the output/browser-source URL.
+- `logout=true` — clear session storage and reload.
+
+**Query parameters supported on `/preview`:**
+- `control=<oid>` — fetch geometry and output URL automatically from backend.
+- `output=<token-or-url>` — output URL (used if `control` does not provide one).
+- `x`, `y`, `width`, `height` — geometry overrides (floats; fetched from customization if omitted).
+- `layout_id=<uuid>` — overlay layout UUID override.
+
+---
+
+## 17. PWA and Browser Integration
+
+### 17.1 Service Worker
+
+Registered at `/sw.js`. Provides offline caching so the control app remains usable when the network drops briefly during a match.
+
+### 17.2 Screen Wake Lock
+
+Acquired on page load using the `navigator.wakeLock.request('screen')` API. Re-requested whenever the page regains visibility (`visibilitychange` event). Falls back silently when the browser does not support the API. This prevents the phone from locking the screen during a match.
+
+### 17.3 Resize Events
+
+A `resize` event is emitted via the framework's client-side event bus whenever `window.innerWidth` or `window.innerHeight` changes. The server-side handler calls `set_page_size(width, height)` on the scoring page, which re-evaluates orientation and rebuilds the layout if the class boundary has been crossed.
+
+For non-phone viewports (width < 650 px and not portrait), a CSS `transform: scale()` is applied to the main tab panel so the content fits without a scrollbar, preserving the desktop-designed layout on smaller non-phone windows.
+
+### 17.4 Custom Font Loading
+
+At page load, the server reads all files in the `font/` directory with extensions `.ttf`, `.otf`, `.woff`, or `.woff2`. For each file, a `@font-face` CSS rule is injected into the page head, making the font available under its filename (without extension) as a selectable option in the options dialog.
+
+Font names with known visual sizing differences are listed in `theme.FONT_SCALES` with a `scale` multiplier and `offset_y` percentage applied to the score button text to normalize visual size across fonts.
+
+### 17.5 PWA Manifest
+
+The manifest configures the app as a `fullscreen` PWA with a `#1976d2` theme color and a 192 × 192 icon. When installed, the app launches without browser chrome.
+
+---
+
+## 18. Authentication System
+
+### 18.1 Middleware
+
+An HTTP middleware intercepts every request before routing. It exempts:
+- Framework-internal routes (paths starting with the framework's internal prefix).
+- The `/preview` route.
+- The `/login` page itself.
+
+All other requests from unauthenticated sessions are redirected to `/login`, with the original path saved to session storage as `REDIRECT_PATH`.
+
+Authentication is only active when `SCOREBOARD_USERS` is set and non-empty. When absent, the middleware passes all requests through unchanged.
+
+### 18.2 Login Page
+
+A centered card with:
+- Username text input
+- Password text input (with toggle to reveal)
+- Login button (also triggered by pressing Enter in the password field)
+
+On successful login:
+1. `AUTHENTICATED = true` and `USERNAME = <username>` are saved to session storage.
+2. The `control` OID from the user's config is saved as `CONFIGURED_OID`.
+3. If the user's config includes an `output` token, it is stored as `CONFIGURED_OUTPUT` with the prefix `https://app.overlays.uno/output/` prepended if not already a full URL.
+4. The user is redirected to `REDIRECT_PATH` (defaulting to `/`).
+
+On failure: a notification is shown and the form remains visible.
+
+### 18.3 Logout
+
+Clears all session storage (both user/session and browser-local scopes) and navigates to `./`.
+
+---
+
+## 19. Theme and Visual Style Constants
+
+The following constants from `app/theme.py` are used throughout the UI and must be reproduced in any reimplementation:
+
+**Team accent colors:**
+- Team A: `blue` / light variants `indigo-5`
+- Team B: `red` / light variants `indigo-5`
+
+**Control button colors:**
+- Undo mode active: `indigo-400`
+- Normal mode: `indigo-700`
+- Overlay visible: `green-600`
+- Overlay hidden: `green-800`
+- Full scoreboard mode: `orange-500`
+- Simple scoreboard mode: `orange-700`
+
+**Default score button colors:**
+- Team 1 background: `#2196f3` (blue)
+- Team 2 background: `#f44336` (red)
+- Text: `#ffffff`
+
+**Control button size:** `w-9 h-9 rounded-lg` (36 × 36 dp).
+
+**Font scaling multipliers** (applied to score button font size to normalize visual weight):
+
+| Font name | Scale | Vertical offset |
+|---|---|---|
+| Default | 1.00 | 0.00 |
+| Digital Dismay | 1.16 | 0.01 |
+| Aluminum | 1.06 | 0.02 |
+| Atlas | 0.96 | 0.01 |
+| Bypass | 0.96 | 0.00 |
+| Catch | 1.17 | 0.01 |
+| Devotee | 1.14 | 0.02 |
+| Digital Readout | 1.39 | 0.00 |
+| LED board | 0.79 | −0.01 |
+| Open 24 | 1.14 | −0.02 |
+| Alarm Clock | 1.01 | 0.01 |
