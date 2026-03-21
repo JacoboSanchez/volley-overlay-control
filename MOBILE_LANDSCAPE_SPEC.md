@@ -460,7 +460,41 @@ If `GET /api/config/{custom_id}` returns a `controlWebSocketUrl` field, the app 
 
 **HTTP fallback:** if `GET /api/config/{custom_id}` returns no `controlWebSocketUrl`, use the HTTP endpoints from §9.3 for all writes. Both modes must produce identical overlay behavior.
 
-### 9.6 Environment Variables
+### 9.6 User Authentication and Per-User Overlay Configuration
+
+When the `SCOREBOARD_USERS` environment variable is set, the app requires a login before showing the scoring screen. If the variable is absent or empty, authentication is skipped and the app runs open-access.
+
+**`SCOREBOARD_USERS` format** — a JSON string (set as an env var):
+
+```json
+{
+  "alice": {
+    "password": "s3cret",
+    "control": "abc123xyz",
+    "output": "a1b2c3d4e5f6"
+  },
+  "bob": {
+    "password": "hunter2",
+    "control": "C-mybroadcast"
+  }
+}
+```
+
+- `password` — plain-text password checked at login.
+- `control` — OID automatically stored on successful login. Bypasses the manual OID entry screen.
+- `output` *(optional)* — overlays.uno output token. Stored as `https://app.overlays.uno/output/<token>` and used as the browser-source URL shown in the Links dialog. If absent, the output URL is auto-fetched from the backend as normal.
+
+**Login flow:**
+
+1. Any unauthenticated request (except `/login` and NiceGUI internal routes) is redirected to `/login`.
+2. The login page shows username + password fields.
+3. On successful authentication: mark session as authenticated, store username, store `control` and `output` from the user's config entry, then redirect to the original requested path.
+4. On failure: show `Messages.WRONG_USER_NAME` notification and stay on `/login`.
+5. Logout clears all user session storage and navigates to `./`.
+
+**Session isolation:** session state (`authenticated`, `configured_oid`, etc.) is stored in NiceGUI's per-user server-side storage (`app.storage.user`), keyed by session cookie. Two browser tabs belonging to the same user share the same session storage.
+
+### 9.7 Environment Variables
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
@@ -487,16 +521,63 @@ If `GET /api/config/{custom_id}` returns a `controlWebSocketUrl` field, the app 
 
 ---
 
-## 10. State and Data Model
+## 10. State, Storage, and Multi-Browser Synchronization
+
+### 10.1 Game and Customization State
 
 No changes to the internal `State` or `GameManager` logic. The UI reads from and writes to these objects exactly as today.
 
-The following `AppStorage` category keys may be added:
+### 10.2 Storage Scopes
 
-| Key | Type | Default | Purpose |
+The app uses two distinct storage scopes that must be kept separate:
+
+| Scope | NiceGUI backend | Shared across tabs? | Purpose |
 |---|---|---|---|
-| `TAP_LOCK_ACTIVE` | `bool` | `false` | Per-session tap lock state |
-| `CONTROL_BAR_EXPANDED` | `bool` | `false` | Remember collapsed/expanded preference |
+| **User/session storage** | `app.storage.user` | Yes — same session cookie | Authentication state, OID, current game model, display preferences (auto-hide, simple mode, show preview, lock flags) |
+| **Browser-local storage** | `app.storage.browser` | No — per tab | Visual-only button settings that each scorer may want independently |
+
+The following keys are **browser-local** and must never be included in any cross-tab broadcast:
+
+- `buttons_follow_team_colors`
+- `team_1_button_color` / `team_1_button_text_color`
+- `team_2_button_color` / `team_2_button_text_color`
+- `selected_font`
+- `buttons_show_icon`
+- `buttons_icon_opacity`
+
+All other AppStorage keys use user/session storage and are shared across tabs of the same session.
+
+### 10.3 Multi-Browser (Multi-Tab) Synchronization
+
+Multiple browser tabs or devices can open the scoring screen simultaneously and control the same overlay. The app uses in-process in-memory broadcasting rather than polling or WebSockets between tabs.
+
+**Instance registry:** every active GUI instance (one per connected browser client) is held in a server-side `WeakSet`. Instances are automatically removed when the browser disconnects.
+
+**Broadcast on every state change:** after any action that modifies game or customization state, the acting instance:
+
+1. Saves state to the backend (overlay push + local cache).
+2. Iterates all other registered instances that are still connected.
+3. For each, deep-copies the current game model and customization model directly into that instance's in-memory state — no HTTP re-fetch.
+4. Calls that instance's UI update methods synchronously within its client context.
+
+**Visibility broadcast:** visibility changes use a dedicated lighter broadcast that only propagates the boolean flag, not the full model.
+
+**What is NOT broadcast:**
+- Browser-local visual settings (button colors, font, icon — see §10.2). Each tab keeps its own.
+- The `simple` mode toggle state (each tab tracks this independently for its own view).
+
+**Failure handling:** if a registered instance's client context is no longer in NiceGUI's active client table (stale/disconnected), that instance is skipped silently. The `WeakSet` eventually drops it when it is garbage collected.
+
+**Consequence for the UI spec:** the scoring buttons and all displayed values (score, sets, serve, timeouts) must be updatable by an external broadcast at any time, not just by local user action. All UI elements that reflect game state must be bound to or refreshable from the shared state object.
+
+### 10.4 New AppStorage Keys
+
+The following `AppStorage` category keys are added by this spec:
+
+| Key | Scope | Type | Default | Purpose |
+|---|---|---|---|---|
+| `TAP_LOCK_ACTIVE` | session | `bool` | `false` | Per-session tap lock state (resets on page reload) |
+| `CONTROL_BAR_EXPANDED` | browser-local | `bool` | `false` | Remember whether the control bar is pinned open |
 
 ---
 
