@@ -17,6 +17,7 @@ from typing import Optional
 from app.game_manager import GameManager
 from app.state import State
 from app.preview_page import PreviewPage
+from app.api.session_manager import SessionManager
 
 
 logger = logging.getLogger("Webapp")
@@ -222,6 +223,14 @@ def startup() -> None:
             return
 
         backend.init_ws_client()
+        # Register this overlay in the SessionManager so the REST API can
+        # access the same game session.
+        SessionManager.get_or_create(
+            oid_to_use, conf, backend,
+            points_limit=custom_points_limit,
+            points_limit_last_set=custom_points_limit_last_set,
+            sets_limit=custom_sets_limit,
+        )
         scoreboard_page = GUI(tabs, conf, backend)
         customization_page = CustomizationPage(tabs, conf, backend, scoreboard_page, options_dialog)
 

@@ -7,6 +7,7 @@ from app.startup import startup
 from nicegui import ui, app
 from app.env_vars_manager import EnvVarsManager
 from app.constants import Constants
+from app.api import api_router
 
 # Load environment variables only if tests are not running
 if "PYTEST_CURRENT_TEST" not in os.environ:
@@ -22,6 +23,9 @@ logger = logging.getLogger("Main")
 if PasswordAuthenticator.do_authenticate_users():
     logger.info("User authentication enabled")
     app.add_middleware(AuthMiddleware)
+
+# Mount the REST / WebSocket API for external frontends
+app.include_router(api_router)
 
 # Use a custom attribute on the app object to ensure the startup handler
 # is only registered once, even if the module is reloaded during tests.

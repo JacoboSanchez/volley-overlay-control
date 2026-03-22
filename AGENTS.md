@@ -50,6 +50,15 @@ remote-scoreboard/
 │   ├── gui_update_mixin.py    # Mixin with UI refresh helper methods for GUI
 │   ├── config_validator.py    # Startup configuration validation (env var checks)
 │   │
+│   ├── api/                   # REST API + WebSocket layer for external frontends
+│   │   ├── __init__.py        # Exports api_router
+│   │   ├── routes.py          # FastAPI endpoints under /api/v1/
+│   │   ├── schemas.py         # Pydantic request/response models
+│   │   ├── game_service.py    # Service layer — single entry point for all game actions
+│   │   ├── session_manager.py # Thread-safe game session management by OID
+│   │   ├── ws_hub.py          # WebSocket notification hub for real-time state push
+│   │   └── dependencies.py    # Auth + session FastAPI dependencies
+│   │
 │   └── components/            # Reusable NiceGUI UI components
 │       ├── score_button.py    # ui.button wrapper with long-press / tap detection
 │       ├── team_panel.py      # Team column (score, timeouts, serve indicator)
@@ -76,15 +85,22 @@ remote-scoreboard/
 
 ---
 
-## Architecture — Four-Layer MVC
+## Architecture — Layered MVC with API
 
 | Layer | Class | File | Responsibility |
 |-------|-------|------|----------------|
 | Model | `State` | `app/state.py` | Single source of truth; match state dict |
 | Controller | `GameManager` | `app/game_manager.py` | Enforces volleyball rules; mutates State |
+| Service | `GameService` | `app/api/game_service.py` | Single entry point for all game actions (used by GUI and REST API) |
+| API | `api_router` | `app/api/routes.py` | REST + WebSocket endpoints for external JS frontends |
+| Session | `SessionManager` | `app/api/session_manager.py` | Thread-safe game session management by OID |
+| WS Hub | `WSHub` | `app/api/ws_hub.py` | WebSocket notification hub for real-time state push |
 | View | `GUI` | `app/gui.py` | NiceGUI layout; instantiates components |
 | Sync | `Backend` | `app/backend.py` | WebSocket-first / HTTP-fallback bridge to overlay servers |
 | Sync | `WSControlClient` | `app/ws_client.py` | Persistent WebSocket connection to custom overlay server |
+
+> Both the NiceGUI frontend and external JS frontends use the same `GameService` layer.
+> See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the full API reference.
 
 ### Canonical Data Flow — "User adds a point"
 
@@ -404,6 +420,7 @@ Custom overlay servers receive the full match state JSON directly via `POST /api
 |------|---------|
 | `README.md` | End-user setup and configuration guide |
 | `DEVELOPER_GUIDE.md` | Architecture deep-dive and coding patterns |
+| `FRONTEND_DEVELOPMENT.md` | REST API reference + guide for building JS frontends |
 | `CUSTOM_OVERLAY.md` | Guide for building a custom overlay server |
 | `CUSTOM_OVERLAY_API.yaml` | OpenAPI 3.0 spec for the custom overlay REST contract |
 | `AGENTS.md` | This file — AI agent guide |

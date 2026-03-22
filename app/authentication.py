@@ -16,8 +16,10 @@ unrestricted_page_routes = {'/login'}
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Allow all NiceGUI specific routes to pass through without authentication
-        if request.url.path.startswith('/_nicegui') or request.url.path.startswith('/preview'):
+        # Allow NiceGUI internals, preview page, and the REST API (which has its own auth)
+        if (request.url.path.startswith('/_nicegui')
+                or request.url.path.startswith('/preview')
+                or request.url.path.startswith('/api/')):
             return await call_next(request)
         
         # If the user is not authenticated and the requested page is not the login page
@@ -90,6 +92,24 @@ class PasswordAuthenticator:
             else:
                 ui.notify(Messages.get(Messages.WRONG_USER_NAME), color='negative')
     
+    def check_api_key(key: str) -> bool:
+        """Check if *key* matches any configured user password.
+
+        This allows API clients to authenticate using any valid password
+        from ``SCOREBOARD_USERS`` as a Bearer token.
+        """
+        passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
+        if not passwords_json or not passwords_json.strip():
+            return False
+        try:
+            users = json.loads(passwords_json)
+        except json.JSONDecodeError:
+            return False
+        for userconf in users.values():
+            if userconf.get("password") == key:
+                return True
+        return False
+
     def compose_output(output : str) -> str:
         prefix = PasswordAuthenticator.UNO_OUTPUT_BASE_URL
         if not output.startswith(prefix):

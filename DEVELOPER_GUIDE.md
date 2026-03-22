@@ -12,7 +12,8 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 
 | Layer | Technology |
 | :--- | :--- |
-| **Frontend/UI** | [NiceGUI](https://nicegui.io) (Vue/Quasar rendered via Python) |
+| **Frontend/UI** | [NiceGUI](https://nicegui.io) (Vue/Quasar rendered via Python) — or any JS framework via REST API |
+| **REST API** | FastAPI router at `/api/v1/` with WebSocket real-time updates |
 | **Backend Logic** | Python 3.x |
 | **Styling** | Tailwind CSS (via NiceGUI utility classes) and `app/theme.py` |
 | **State Management** | In-memory Python objects synchronized with an external API |
@@ -54,6 +55,14 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 │   ├── messages.py          # Internationalization (i18n) string definitions.
 │   ├── authentication.py    # User login/logout logic and AuthMiddleware.
 │   ├── app_storage.py       # Wrapper for NiceGUI's browser-local storage.
+│   ├── api/                 # REST API + WebSocket layer for external frontends.
+│   │   ├── __init__.py      # Exports api_router.
+│   │   ├── routes.py        # FastAPI endpoints under /api/v1/.
+│   │   ├── schemas.py       # Pydantic request/response models.
+│   │   ├── game_service.py  # Service layer — single entry point for all game actions.
+│   │   ├── session_manager.py # Thread-safe game session management by OID.
+│   │   ├── ws_hub.py        # WebSocket notification hub for real-time state push.
+│   │   └── dependencies.py  # Auth + session FastAPI dependencies.
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
 │   ├── logging_config.py    # Logging level configuration.
 │   ├── options_dialog.py    # Settings/configuration dialog UI.
@@ -90,7 +99,9 @@ The application follows a **Model-View-Controller (MVC)** hybrid pattern:
 | :--- | :--- | :--- |
 | **Model** | `State` | Snapshot of the game (scores, timeouts, serve status) |
 | **Controller** | `GameManager` | Manipulates the Model based on volleyball rules |
-| **View** | `GUI` | Displays the Model and captures user input |
+| **Service** | `GameService` | Single entry point for all game actions (used by GUI and REST API) |
+| **View** | `GUI` | NiceGUI display — captures user input |
+| **API** | `api/routes.py` | REST + WebSocket endpoints for external frontends |
 | **Sync** | `Backend` | Pushes Model changes to the external overlay server |
 
 ### Typical Data Flow (e.g., Adding a Point)
@@ -112,6 +123,30 @@ sequenceDiagram
     Backend->>API: Push new state to cloud/local overlay
     GUI->>GUI: update_ui() — refresh all visual elements
 ```
+
+### REST API Flow (e.g., Adding a Point from a JS Frontend)
+
+```mermaid
+sequenceDiagram
+    participant JS as 🌐 JS Frontend
+    participant API as REST API
+    participant GS as GameService
+    participant GM as GameManager
+    participant WS as WSHub
+    participant Backend as Backend
+
+    JS->>API: POST /api/v1/game/add-point?oid=X
+    API->>GS: add_point(session, team=1)
+    GS->>GM: add_game(team=1)
+    GM->>GM: Validate & increment score
+    GS->>GM: save()
+    GM->>Backend: Push state to overlay
+    GS->>WS: broadcast(state)
+    WS-->>JS: WebSocket: {"type":"state_update", "data":{...}}
+    API-->>JS: HTTP 200 ActionResponse
+```
+
+> **Note:** Both the NiceGUI frontend and external JS frontends use the same `GameService` layer, ensuring identical business logic and state management. See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the complete API reference.
 
 ---
 
