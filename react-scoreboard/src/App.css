@@ -1,0 +1,517 @@
+/* ========================================================================
+   Volley Scoreboard — React GUI
+   Matches the NiceGUI scoreboard in functionality and appearance.
+   ======================================================================== */
+
+/* Reset & base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface-light: #1f3460;
+  --text: #e0e0e0;
+  --text-muted: #999;
+  --border: #2a2a4a;
+  --blue: #2196f3;
+  --red: #f44336;
+  --green: #2e7d32;
+  --orange: #ff9800;
+  --indigo: #5c6bc0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Init screen ─────────────────────────────────────────────────────── */
+
+.init-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+}
+
+.init-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: var(--text);
+}
+
+.init-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 360px;
+}
+
+.init-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.init-input {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.init-input:focus {
+  border-color: var(--blue);
+}
+
+.init-button {
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.init-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.init-error {
+  color: var(--red);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* ── App container ───────────────────────────────────────────────────── */
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────── */
+
+.status-bar {
+  text-align: center;
+  font-size: 0.7rem;
+  padding: 2px 0;
+  flex-shrink: 0;
+}
+
+.status-connected {
+  background: #1b5e20;
+  color: #a5d6a7;
+}
+
+.status-disconnected {
+  background: #b71c1c;
+  color: #ef9a9a;
+}
+
+/* ── Main layout ─────────────────────────────────────────────────────── */
+
+.main-layout {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0.5rem;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.main-layout-landscape {
+  flex-direction: row;
+}
+
+.main-layout-portrait {
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Team panel ──────────────────────────────────────────────────────── */
+
+.team-panel {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.team-panel-landscape .team-panel-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.team-panel-portrait .team-panel-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.team-panel-landscape .team-side-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.team-panel-portrait .team-side-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ── Score button ────────────────────────────────────────────────────── */
+
+.score-button {
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s, box-shadow 0.1s;
+  touch-action: manipulation;
+  min-width: 80px;
+  min-height: 80px;
+}
+
+.score-button:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Set button (smaller gray buttons in center) ─────────────────────── */
+
+.set-button {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  font-size: 1.5rem !important;
+  border-radius: 8px;
+}
+
+/* ── Timeout button ──────────────────────────────────────────────────── */
+
+.timeout-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s;
+}
+
+.timeout-button:active {
+  transform: scale(0.92);
+}
+
+.timeout-button .material-icons {
+  font-size: 1.25rem;
+}
+
+.timeout-dots {
+  display: flex;
+  gap: 2px;
+}
+
+.timeout-dots-row {
+  flex-direction: row;
+}
+
+.timeout-dots-col {
+  flex-direction: column;
+}
+
+/* ── Center panel ────────────────────────────────────────────────────── */
+
+.center-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sets-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logos-scores-section {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.team-score-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.team-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* ── Score table ─────────────────────────────────────────────────────── */
+
+.score-table {
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.score-table td {
+  padding: 1px 6px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.score-table .set-number-cell {
+  font-size: 0.7rem;
+  color: #666;
+}
+
+.score-table .score-bold {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.current-set-row {
+  background: var(--surface-light);
+  border-radius: 4px;
+}
+
+/* ── Set pagination ──────────────────────────────────────────────────── */
+
+.set-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-arrow {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.pagination-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.pagination-arrow:not(:disabled):hover {
+  background: var(--surface-light);
+}
+
+.pagination-page {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pagination-page:hover {
+  background: var(--surface-light);
+}
+
+.pagination-page-active {
+  background: #009688;
+  color: #fff;
+}
+
+/* ── Control buttons bar ─────────────────────────────────────────────── */
+
+.control-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+
+.control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 2px solid;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, background 0.15s;
+}
+
+.control-btn:active {
+  transform: scale(0.9);
+}
+
+.control-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.control-btn .material-icons {
+  font-size: 1.2rem;
+}
+
+.control-btn-reset {
+  border-color: #757575;
+  color: #757575;
+}
+
+/* ── Dialog ───────────────────────────────────────────────────────────── */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  min-width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.dialog-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.25rem;
+  text-align: center;
+  outline: none;
+  margin-bottom: 1rem;
+}
+
+.dialog-input:focus {
+  border-color: var(--blue);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.dialog-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.dialog-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dialog-btn .material-icons {
+  font-size: 1.1rem;
+}
+
+.dialog-btn-ok {
+  color: #4caf50;
+}
+
+.dialog-btn-cancel {
+  color: var(--red);
+}
+
+/* ── Serve icon ──────────────────────────────────────────────────────── */
+
+.serve-icon {
+  transition: opacity 0.2s;
+}
