@@ -32,7 +32,6 @@ function TeamCard({ teamId, label, model, updateField, predefinedTeams }) {
 
   return (
     <div className="config-card">
-      <h3 className="config-card-title">{label}</h3>
       <div className="config-team-header">
         <div className="config-logo-preview" data-testid={`team-${teamId}-logo-preview`}>
           {logoUrl ? (

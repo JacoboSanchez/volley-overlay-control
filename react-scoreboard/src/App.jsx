@@ -38,6 +38,8 @@ export default function App() {
   const followTeamColors = readLocalSetting('followTeamColors', true);
   const showIcon = readLocalSetting('showIcon', false);
   const iconOpacity = readLocalSetting('iconOpacity', 50);
+  const autoSimple = readLocalSetting('autoSimple', false);
+  const autoSimpleOnTimeout = readLocalSetting('autoSimpleOnTimeout', false);
 
   // Dialog state
   const [dialog, setDialog] = useState({
@@ -82,9 +84,9 @@ export default function App() {
       const portrait = h > 1.2 * w && w <= 800;
       setIsPortrait(portrait);
       if (!portrait) {
-        setButtonSize(Math.min(w / 4.5, 320));
+        setButtonSize(Math.min(w / 3.5, 360));
       } else {
-        setButtonSize(Math.min(h / 5, 320));
+        setButtonSize(Math.min(h / 4, 360));
       }
     }
     handleResize();
@@ -115,8 +117,13 @@ export default function App() {
       if (!undoMode && matchFinished) return;
       actions.addPoint(team, undoMode);
       if (undoMode) setUndoMode(false);
+      // Auto simple mode: switch to simple after scoring
+      if (autoSimple && !simpleMode && !undoMode) {
+        actions.setSimpleMode(true);
+        setSimpleMode(true);
+      }
     },
-    [actions, undoMode, matchFinished]
+    [actions, undoMode, matchFinished, autoSimple, simpleMode]
   );
 
   const handleAddSet = useCallback(
@@ -132,8 +139,13 @@ export default function App() {
     (team) => {
       actions.addTimeout(team, undoMode);
       if (undoMode) setUndoMode(false);
+      // Auto simple on timeout: switch back to full mode when timeout is called
+      if (autoSimple && autoSimpleOnTimeout && simpleMode && !undoMode) {
+        actions.setSimpleMode(false);
+        setSimpleMode(false);
+      }
     },
-    [actions, undoMode]
+    [actions, undoMode, autoSimple, autoSimpleOnTimeout, simpleMode]
   );
 
   const handleChangeServe = useCallback(
