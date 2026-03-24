@@ -1,14 +1,16 @@
 import React from 'react';
 
 /**
- * Score history table showing per-set scores.
- * Mirrors the NiceGUI center panel score columns.
+ * Per-team score column showing scores for each completed set.
+ * Displayed directly below the team logo, no set number indicator.
+ * Mirrors the NiceGUI center panel score columns layout.
  */
-export default function ScoreTable({ state, setsLimit, currentSet }) {
+export default function ScoreTable({ state, setsLimit, currentSet, teamId }) {
   if (!state) return null;
 
   const matchFinished = state.match_finished;
-  const rows = [];
+  const teamState = teamId === 1 ? state.team_1 : state.team_2;
+  const otherState = teamId === 1 ? state.team_2 : state.team_1;
 
   // Find the last set with non-zero scores
   let lastNonEmpty = 1;
@@ -18,38 +20,33 @@ export default function ScoreTable({ state, setsLimit, currentSet }) {
     if (a + b > 0) lastNonEmpty = i;
   }
 
+  const cells = [];
   for (let i = 1; i <= setsLimit; i++) {
-    const a = state.team_1.scores[`set_${i}`] ?? 0;
-    const b = state.team_2.scores[`set_${i}`] ?? 0;
+    const score = teamState.scores[`set_${i}`] ?? 0;
+    const otherScore = otherState.scores[`set_${i}`] ?? 0;
 
     // Break conditions matching NiceGUI logic
     if (i > 1 && i > lastNonEmpty) break;
     if (i === currentSet && i < setsLimit && !matchFinished) break;
 
-    rows.push(
-      <tr key={i} className={i === currentSet ? 'current-set-row' : ''}>
-        <td
-          className={a > b ? 'score-bold' : ''}
-          data-testid={`team-1-set-${i}-score`}
-        >
-          {String(a).padStart(2, '0')}
-        </td>
-        <td className="set-number-cell">S{i}</td>
-        <td
-          className={b > a ? 'score-bold' : ''}
-          data-testid={`team-2-set-${i}-score`}
-        >
-          {String(b).padStart(2, '0')}
-        </td>
-      </tr>
+    const isWinning = score > otherScore;
+
+    cells.push(
+      <div
+        key={i}
+        className={`score-cell ${i === currentSet ? 'score-cell-current' : ''} ${isWinning ? 'score-bold' : ''}`}
+        data-testid={`team-${teamId}-set-${i}-score`}
+      >
+        {String(score).padStart(2, '0')}
+      </div>
     );
   }
 
-  if (rows.length === 0) return null;
+  if (cells.length === 0) return null;
 
   return (
-    <table className="score-table">
-      <tbody>{rows}</tbody>
-    </table>
+    <div className="score-column">
+      {cells}
+    </div>
   );
 }

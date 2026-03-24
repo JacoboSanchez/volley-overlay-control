@@ -4,7 +4,8 @@ import ScoreTable from './ScoreTable';
 
 /**
  * Center panel with set buttons, team logos, score history, and set pagination.
- * Mirrors the NiceGUI CenterPanel component.
+ * Mirrors the NiceGUI CenterPanel component layout:
+ * logos on top, score columns directly below (no set indicator in between).
  */
 export default function CenterPanel({
   state,
@@ -46,12 +47,13 @@ export default function CenterPanel({
                 data-testid="team-1-logo"
               />
             )}
+            <ScoreTable
+              state={state}
+              setsLimit={setsLimit}
+              currentSet={currentSet}
+              teamId={1}
+            />
           </div>
-          <ScoreTable
-            state={state}
-            setsLimit={setsLimit}
-            currentSet={currentSet}
-          />
           <div className="team-score-column">
             {logo2 && (
               <img
@@ -61,6 +63,12 @@ export default function CenterPanel({
                 data-testid="team-2-logo"
               />
             )}
+            <ScoreTable
+              state={state}
+              setsLimit={setsLimit}
+              currentSet={currentSet}
+              teamId={2}
+            />
           </div>
         </div>
 

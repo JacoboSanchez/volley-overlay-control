@@ -228,7 +228,188 @@ function ThemeDialog({ themes, onApply, onClose }) {
  * links, themes, and action buttons (save, refresh, reset).
  * Mirrors the NiceGUI CustomizationPage layout.
  */
-export default function ConfigPanel({ oid, customization, actions, onBack, onReset }) {
+const LS_PREFIX = 'volley_';
+function loadLocal(key, fallback) {
+  try {
+    const v = localStorage.getItem(LS_PREFIX + key);
+    return v !== null ? JSON.parse(v) : fallback;
+  } catch { return fallback; }
+}
+function saveLocal(key, value) {
+  localStorage.setItem(LS_PREFIX + key, JSON.stringify(value));
+}
+
+/**
+ * Options card — auto-hide, button colors, show icon, opacity.
+ * Mirrors the NiceGUI OptionsDialog.
+ */
+function OptionsCard({ settings, onSettingsChange }) {
+  const update = (key, value) => {
+    const next = { ...settings, [key]: value };
+    onSettingsChange(next);
+    saveLocal(key, value);
+  };
+
+  return (
+    <div className="config-card">
+      <h3 className="config-card-title">Options</h3>
+
+      {/* Auto-hide */}
+      <div className="config-switch-row">
+        <label className="config-switch-label">
+          <input
+            type="checkbox"
+            checked={settings.autoHide}
+            onChange={(e) => update('autoHide', e.target.checked)}
+          />
+          Auto-hide scoreboard
+        </label>
+      </div>
+      {settings.autoHide && (
+        <div className="config-range-row">
+          <label className="config-label">Hide after {settings.autoHideSeconds}s</label>
+          <input
+            type="range"
+            min={1}
+            max={15}
+            step={1}
+            value={settings.autoHideSeconds}
+            onChange={(e) => update('autoHideSeconds', Number(e.target.value))}
+            className="config-range"
+          />
+        </div>
+      )}
+
+      {/* Auto simple mode */}
+      <div className="config-switch-row">
+        <label className="config-switch-label">
+          <input
+            type="checkbox"
+            checked={settings.autoSimple}
+            onChange={(e) => update('autoSimple', e.target.checked)}
+          />
+          Auto simple mode
+        </label>
+      </div>
+      {settings.autoSimple && (
+        <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
+          <label className="config-switch-label">
+            <input
+              type="checkbox"
+              checked={settings.autoSimpleOnTimeout}
+              onChange={(e) => update('autoSimpleOnTimeout', e.target.checked)}
+            />
+            Full mode on timeout
+          </label>
+        </div>
+      )}
+
+      <div className="config-separator" />
+
+      {/* Button configuration */}
+      <h3 className="config-card-subtitle">Button Colors</h3>
+      <div className="config-switch-row">
+        <label className="config-switch-label">
+          <input
+            type="checkbox"
+            checked={settings.followTeamColors}
+            onChange={(e) => update('followTeamColors', e.target.checked)}
+            data-testid="follow-team-colors-switch"
+          />
+          Follow team colors
+        </label>
+      </div>
+      {!settings.followTeamColors && (
+        <div className="config-color-row">
+          <div className="config-color-group">
+            <label className="config-label">T1 Btn</label>
+            <input
+              type="color"
+              className="config-color-input"
+              value={settings.team1BtnColor}
+              onChange={(e) => update('team1BtnColor', e.target.value)}
+              data-testid="color-picker-team-1-btn"
+            />
+          </div>
+          <div className="config-color-group">
+            <label className="config-label">T1 Text</label>
+            <input
+              type="color"
+              className="config-color-input"
+              value={settings.team1BtnText}
+              onChange={(e) => update('team1BtnText', e.target.value)}
+              data-testid="color-picker-team-1-text"
+            />
+          </div>
+          <div className="config-color-group">
+            <label className="config-label">T2 Btn</label>
+            <input
+              type="color"
+              className="config-color-input"
+              value={settings.team2BtnColor}
+              onChange={(e) => update('team2BtnColor', e.target.value)}
+              data-testid="color-picker-team-2-btn"
+            />
+          </div>
+          <div className="config-color-group">
+            <label className="config-label">T2 Text</label>
+            <input
+              type="color"
+              className="config-color-input"
+              value={settings.team2BtnText}
+              onChange={(e) => update('team2BtnText', e.target.value)}
+              data-testid="color-picker-team-2-text"
+            />
+          </div>
+          <button
+            className="config-icon-btn"
+            onClick={() => {
+              update('team1BtnColor', '#2196f3');
+              update('team1BtnText', '#ffffff');
+              update('team2BtnColor', '#f44336');
+              update('team2BtnText', '#ffffff');
+            }}
+            title="Reset colors"
+            data-testid="reset-colors-button"
+          >
+            <span className="material-icons">replay</span>
+          </button>
+        </div>
+      )}
+
+      <div className="config-separator" />
+
+      {/* Show icon */}
+      <div className="config-switch-row">
+        <label className="config-switch-label">
+          <input
+            type="checkbox"
+            checked={settings.showIcon}
+            onChange={(e) => update('showIcon', e.target.checked)}
+            data-testid="show-team-icon-switch"
+          />
+          Show team icon on buttons
+        </label>
+      </div>
+      {settings.showIcon && (
+        <div className="config-range-row">
+          <label className="config-label">Icon opacity: {settings.iconOpacity}%</label>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            step={10}
+            value={settings.iconOpacity}
+            onChange={(e) => update('iconOpacity', Number(e.target.value))}
+            className="config-range"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ConfigPanel({ oid, customization, actions, onBack, onReset, onCustomizationSaved }) {
   const [model, setModel] = useState(() => ({ ...customization }));
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -238,6 +419,19 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
   const [links, setLinks] = useState(null);
   const [showLinks, setShowLinks] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
+  const [localSettings, setLocalSettings] = useState(() => ({
+    autoHide: loadLocal('autoHide', false),
+    autoHideSeconds: loadLocal('autoHideSeconds', 5),
+    autoSimple: loadLocal('autoSimple', false),
+    autoSimpleOnTimeout: loadLocal('autoSimpleOnTimeout', false),
+    followTeamColors: loadLocal('followTeamColors', true),
+    team1BtnColor: loadLocal('team1BtnColor', '#2196f3'),
+    team1BtnText: loadLocal('team1BtnText', '#ffffff'),
+    team2BtnColor: loadLocal('team2BtnColor', '#f44336'),
+    team2BtnText: loadLocal('team2BtnText', '#ffffff'),
+    showIcon: loadLocal('showIcon', false),
+    iconOpacity: loadLocal('iconOpacity', 50),
+  }));
 
   // Fetch predefined data on mount
   useEffect(() => {
@@ -254,11 +448,12 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
     setSaving(true);
     try {
       await api.updateCustomization(oid, model);
+      if (onCustomizationSaved) await onCustomizationSaved();
       onBack();
     } finally {
       setSaving(false);
     }
-  }, [oid, model, onBack]);
+  }, [oid, model, onBack, onCustomizationSaved]);
 
   const handleRefresh = useCallback(async () => {
     if (!window.confirm('Reload customization from server?')) return;
@@ -451,6 +646,14 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Options card — spans full width below the two columns */}
+        <div className="config-options-row">
+          <OptionsCard
+            settings={localSettings}
+            onSettingsChange={setLocalSettings}
+          />
         </div>
       </div>
 

@@ -88,6 +88,16 @@ export function useGameState(oid) {
     setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid, enabled)),
   };
 
+  const refreshCustomization = useCallback(async () => {
+    if (!oid) return;
+    try {
+      const cust = await api.getCustomization(oid);
+      setCustomization(cust);
+    } catch (e) {
+      // ignore
+    }
+  }, [oid]);
+
   return {
     state,
     customization,
@@ -95,5 +105,6 @@ export function useGameState(oid) {
     error,
     initialize,
     actions,
+    refreshCustomization,
   };
 }

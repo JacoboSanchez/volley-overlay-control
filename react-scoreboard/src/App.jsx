@@ -28,6 +28,17 @@ export default function App() {
   const [buttonSize, setButtonSize] = useState(null);
   const [activeTab, setActiveTab] = useState('scoreboard');
 
+  // Local visual settings (persisted in localStorage by ConfigPanel)
+  const readLocalSetting = (key, fallback) => {
+    try {
+      const v = localStorage.getItem('volley_' + key);
+      return v !== null ? JSON.parse(v) : fallback;
+    } catch { return fallback; }
+  };
+  const followTeamColors = readLocalSetting('followTeamColors', true);
+  const showIcon = readLocalSetting('showIcon', false);
+  const iconOpacity = readLocalSetting('iconOpacity', 50);
+
   // Dialog state
   const [dialog, setDialog] = useState({
     open: false,
@@ -38,7 +49,7 @@ export default function App() {
     isSet: false,
   });
 
-  const { state, customization, connected, error, initialize, actions } = useGameState(oid);
+  const { state, customization, connected, error, initialize, actions, refreshCustomization } = useGameState(oid);
 
   // Compute current set from state
   const setsLimit = state?.config?.sets_limit ?? 5;
@@ -209,6 +220,23 @@ export default function App() {
     [dialog, actions, currentSet]
   );
 
+  // Compute button colors from settings
+  const btnColorA = followTeamColors
+    ? (customization?.['Team 1 Color'] ?? TEAM_A_COLOR)
+    : readLocalSetting('team1BtnColor', TEAM_A_COLOR);
+  const btnTextA = followTeamColors
+    ? (customization?.['Team 1 Text Color'] ?? '#ffffff')
+    : readLocalSetting('team1BtnText', '#ffffff');
+  const btnColorB = followTeamColors
+    ? (customization?.['Team 2 Color'] ?? TEAM_B_COLOR)
+    : readLocalSetting('team2BtnColor', TEAM_B_COLOR);
+  const btnTextB = followTeamColors
+    ? (customization?.['Team 2 Text Color'] ?? '#ffffff')
+    : readLocalSetting('team2BtnText', '#ffffff');
+
+  const iconLogoA = showIcon ? (customization?.['Team 1 Logo'] ?? null) : null;
+  const iconLogoB = showIcon ? (customization?.['Team 2 Logo'] ?? null) : null;
+
   // OID entry screen
   if (!oid || !state) {
     return (
@@ -247,11 +275,14 @@ export default function App() {
           teamId={1}
           teamState={state.team_1}
           currentSet={currentSet}
-          buttonColor={TEAM_A_COLOR}
+          buttonColor={btnColorA}
+          buttonTextColor={btnTextA}
           serveColor={TEAM_A_SERVE_ACTIVE}
           timeoutColor={TEAM_A_LIGHT}
           buttonSize={buttonSize}
           isPortrait={isPortrait}
+          iconLogo={iconLogoA}
+          iconOpacity={iconOpacity}
           onAddPoint={handleAddPoint}
           onAddTimeout={handleAddTimeout}
           onChangeServe={handleChangeServe}
@@ -272,11 +303,14 @@ export default function App() {
           teamId={2}
           teamState={state.team_2}
           currentSet={currentSet}
-          buttonColor={TEAM_B_COLOR}
+          buttonColor={btnColorB}
+          buttonTextColor={btnTextB}
           serveColor={TEAM_B_SERVE_ACTIVE}
           timeoutColor={TEAM_B_LIGHT}
           buttonSize={buttonSize}
           isPortrait={isPortrait}
+          iconLogo={iconLogoB}
+          iconOpacity={iconOpacity}
           onAddPoint={handleAddPoint}
           onAddTimeout={handleAddTimeout}
           onChangeServe={handleChangeServe}
@@ -307,6 +341,7 @@ export default function App() {
           actions={actions}
           onBack={() => setActiveTab('scoreboard')}
           onReset={handleReset}
+          onCustomizationSaved={refreshCustomization}
         />
       )}
 

@@ -3,17 +3,21 @@ import ScoreButton from './ScoreButton';
 
 /**
  * Team panel with score button, timeout button + indicators, and serve icon.
- * Mirrors the NiceGUI TeamPanel component.
+ * Supports custom button colors, team icon overlay, and icon opacity.
+ * Mirrors the NiceGUI TeamPanel + ButtonStyle component.
  */
 export default function TeamPanel({
   teamId,
   teamState,
   currentSet,
   buttonColor,
+  buttonTextColor = '#fff',
   serveColor,
   timeoutColor,
   buttonSize,
   isPortrait,
+  iconLogo,
+  iconOpacity = 50,
   onAddPoint,
   onAddTimeout,
   onChangeServe,
@@ -39,13 +43,33 @@ export default function TeamPanel({
     );
   }
 
+  // Build icon overlay style if iconLogo is set
+  const iconStyle = {};
+  if (iconLogo) {
+    const alpha = 1.0 - iconOpacity / 100;
+    // Parse hex color to rgba for overlay
+    let r = 0, g = 0, b = 0;
+    const hex = buttonColor.replace('#', '');
+    if (hex.length === 6) {
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+    iconStyle.backgroundImage = `linear-gradient(rgba(${r},${g},${b},${alpha}), rgba(${r},${g},${b},${alpha})), url(${iconLogo})`;
+    iconStyle.backgroundSize = 'contain';
+    iconStyle.backgroundRepeat = 'no-repeat';
+    iconStyle.backgroundPosition = 'center';
+  }
+
   return (
     <div className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}>
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
         <ScoreButton
           text={scoreText}
           color={buttonColor}
+          textColor={buttonTextColor}
           size={buttonSize}
+          style={iconStyle}
           onClick={() => onAddPoint(teamId)}
           onLongPress={() => onLongPressScore(teamId)}
           data-testid={`team-${teamId}-score`}
