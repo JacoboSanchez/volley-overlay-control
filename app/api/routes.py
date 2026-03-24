@@ -13,6 +13,8 @@ from app.api.ws_hub import WSHub
 from app.conf import Conf
 from app.backend import Backend
 from app.state import State
+from app.customization import Customization
+from app.authentication import PasswordAuthenticator
 
 logger = logging.getLogger("APIRoutes")
 
@@ -176,6 +178,66 @@ async def set_simple_mode(req: SimpleModeRequest,
 async def update_customization(data: dict,
                                session: GameSession = Depends(get_session)):
     return GameService.update_customization(session, data)
+
+
+# ---------------------------------------------------------------------------
+# Predefined data (teams, themes, links)
+# ---------------------------------------------------------------------------
+
+
+@api_router.get("/teams",
+                dependencies=[Depends(verify_api_key)])
+async def get_teams():
+    """Return predefined team names with icon/color data."""
+    Customization.refresh()
+    return Customization.predefined_teams
+
+
+@api_router.get("/themes",
+                dependencies=[Depends(verify_api_key)])
+async def get_themes():
+    """Return available theme definitions."""
+    Customization.refresh()
+    return Customization.THEMES
+
+
+@api_router.get("/links",
+                dependencies=[Depends(verify_api_key)])
+async def get_links(session: GameSession = Depends(get_session)):
+    """Return control, overlay, and preview links for the session."""
+    oid = session.oid
+    output = session.conf.output
+    cust = session.customization
+    links = {}
+
+    if not session.backend.is_custom_overlay(oid):
+        links["control"] = f"https://app.overlays.uno/control/{oid}"
+
+    if output and output.strip():
+        overlay_url = PasswordAuthenticator.compose_output(output)
+        links["overlay"] = overlay_url
+
+        import urllib.parse
+        token = overlay_url.split('/')[-1]
+        encoded_token = urllib.parse.quote(token, safe='')
+        posx = cust.get_h_pos()
+        posy = cust.get_v_pos()
+        width = cust.get_width()
+        height = cust.get_height()
+        layout_id = session.conf.id if hasattr(session.conf, 'id') else ''
+        links["preview"] = (
+            f"./preview?output={encoded_token}&width={width}"
+            f"&height={height}&x={posx}&y={posy}&layout_id={layout_id}"
+        )
+
+    return links
+
+
+@api_router.get("/styles",
+                dependencies=[Depends(verify_api_key)])
+async def get_styles(session: GameSession = Depends(get_session)):
+    """Return available overlay styles."""
+    return session.backend.get_available_styles()
 
 
 # ---------------------------------------------------------------------------

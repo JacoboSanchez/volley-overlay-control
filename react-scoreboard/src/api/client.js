@@ -93,3 +93,20 @@ export function setSimpleMode(oid, enabled) {
 export function updateCustomization(oid, data) {
   return request('PUT', `/customization?oid=${encodeURIComponent(oid)}`, data);
 }
+
+// Predefined data
+export function getTeams() {
+  return request('GET', '/teams');
+}
+
+export function getThemes() {
+  return request('GET', '/themes');
+}
+
+export function getLinks(oid) {
+  return request('GET', `/links?oid=${encodeURIComponent(oid)}`);
+}
+
+export function getStyles(oid) {
+  return request('GET', `/styles?oid=${encodeURIComponent(oid)}`);
+}

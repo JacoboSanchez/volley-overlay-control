@@ -1,29 +1,39 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import * as api from '../api/client';
 
 /**
- * Team customization card — shows logo preview, name, colors, and logo URL.
+ * Team customization card — logo preview, team name selector, colors.
  * Mirrors the NiceGUI create_team_card layout.
  */
-function TeamCard({ teamId, label, model, updateField }) {
+function TeamCard({ teamId, label, model, updateField, predefinedTeams }) {
   const prefix = `Team ${teamId}`;
   const nameKey = `${prefix} Text Name`;
   const colorKey = `${prefix} Color`;
   const textColorKey = `${prefix} Text Color`;
   const logoKey = `${prefix} Logo`;
   const logoUrl = model[logoKey] ?? '';
+  const currentName = model[nameKey] ?? '';
+
+  const teamNames = Object.keys(predefinedTeams);
+  // Add current name if not in the predefined list
+  const allNames = teamNames.includes(currentName) || !currentName
+    ? teamNames
+    : [...teamNames, currentName];
+
+  const handleTeamSelect = useCallback((name) => {
+    updateField(nameKey, name);
+    const team = predefinedTeams[name];
+    if (team) {
+      if (team.icon) updateField(logoKey, team.icon);
+      if (team.color) updateField(colorKey, team.color);
+      if (team.text_color) updateField(textColorKey, team.text_color);
+    }
+  }, [predefinedTeams, updateField, nameKey, logoKey, colorKey, textColorKey]);
 
   return (
     <div className="config-card">
       <h3 className="config-card-title">{label}</h3>
-      <label className="config-label">Name</label>
-      <input
-        className="config-input"
-        value={model[nameKey] ?? ''}
-        onChange={(e) => updateField(nameKey, e.target.value)}
-        data-testid={`team-${teamId}-name-input`}
-      />
-      <div className="config-team-row">
+      <div className="config-team-header">
         <div className="config-logo-preview" data-testid={`team-${teamId}-logo-preview`}>
           {logoUrl ? (
             <img
@@ -36,44 +46,186 @@ function TeamCard({ teamId, label, model, updateField }) {
             <span className="material-icons config-logo-placeholder">image</span>
           )}
         </div>
-        <div className="config-color-row">
-          <div className="config-color-group">
-            <label className="config-label">Color</label>
-            <input
-              type="color"
-              className="config-color-input"
-              value={model[colorKey] ?? (teamId === 1 ? '#060f8a' : '#ffffff')}
-              onChange={(e) => updateField(colorKey, e.target.value)}
-              data-testid={`team-${teamId}-color-input`}
-            />
-          </div>
-          <div className="config-color-group">
-            <label className="config-label">Text</label>
-            <input
-              type="color"
-              className="config-color-input"
-              value={model[textColorKey] ?? (teamId === 1 ? '#ffffff' : '#000000')}
-              onChange={(e) => updateField(textColorKey, e.target.value)}
-              data-testid={`team-${teamId}-text-color-input`}
-            />
+        <div className="config-team-header-fields">
+          <label className="config-label">Name</label>
+          <select
+            className="config-select"
+            value={currentName}
+            onChange={(e) => handleTeamSelect(e.target.value)}
+            data-testid={`team-${teamId}-name-selector`}
+          >
+            <option value="">— Select —</option>
+            {allNames.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="config-color-row">
+        <div className="config-color-group">
+          <label className="config-label">Color</label>
+          <input
+            type="color"
+            className="config-color-input"
+            value={model[colorKey] ?? (teamId === 1 ? '#060f8a' : '#ffffff')}
+            onChange={(e) => updateField(colorKey, e.target.value)}
+            data-testid={`team-${teamId}-color-input`}
+          />
+        </div>
+        <div className="config-color-group">
+          <label className="config-label">Text</label>
+          <input
+            type="color"
+            className="config-color-input"
+            value={model[textColorKey] ?? (teamId === 1 ? '#ffffff' : '#000000')}
+            onChange={(e) => updateField(textColorKey, e.target.value)}
+            data-testid={`team-${teamId}-text-color-input`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Links dialog — control, overlay, and preview links with copy buttons.
+ */
+function LinksDialog({ links, onClose }) {
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <div className="dialog-overlay" onClick={onClose}>
+      <div className="dialog-card" onClick={(e) => e.stopPropagation()}>
+        <h3 className="dialog-title">Links</h3>
+        <div className="links-list">
+          {links.control && (
+            <div className="link-row">
+              <a href={links.control} target="_blank" rel="noopener noreferrer" className="link-text">
+                Control
+              </a>
+              <button
+                className="link-copy-btn"
+                onClick={() => copyToClipboard(links.control)}
+                title="Copy to clipboard"
+              >
+                <span className="material-icons">content_copy</span>
+              </button>
+            </div>
+          )}
+          {links.overlay && (
+            <div className="link-row">
+              <a href={links.overlay} target="_blank" rel="noopener noreferrer" className="link-text">
+                Overlay
+              </a>
+              <button
+                className="link-copy-btn"
+                onClick={() => copyToClipboard(links.overlay)}
+                title="Copy to clipboard"
+              >
+                <span className="material-icons">content_copy</span>
+              </button>
+            </div>
+          )}
+          {links.preview && (
+            <div className="link-row">
+              <a href={links.preview} target="_blank" rel="noopener noreferrer" className="link-text">
+                Preview
+              </a>
+              <button
+                className="link-copy-btn"
+                onClick={() => copyToClipboard(
+                  links.preview.startsWith('./')
+                    ? new URL(links.preview, window.location.href).href
+                    : links.preview
+                )}
+                title="Copy to clipboard"
+              >
+                <span className="material-icons">content_copy</span>
+              </button>
+            </div>
+          )}
+          {!links.control && !links.overlay && !links.preview && (
+            <p className="config-label" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+              No links available for this session.
+            </p>
+          )}
+        </div>
+        <div className="dialog-actions">
+          <button className="dialog-btn dialog-btn-cancel" onClick={onClose}>
+            <span className="material-icons">close</span>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Theme dialog — select and apply a predefined theme.
+ */
+function ThemeDialog({ themes, onApply, onClose }) {
+  const [selected, setSelected] = useState('');
+  const themeNames = Object.keys(themes);
+
+  if (themeNames.length === 0) {
+    return (
+      <div className="dialog-overlay" onClick={onClose}>
+        <div className="dialog-card" onClick={(e) => e.stopPropagation()}>
+          <h3 className="dialog-title">Themes</h3>
+          <p className="config-label" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+            No themes available.
+          </p>
+          <div className="dialog-actions">
+            <button className="dialog-btn dialog-btn-cancel" onClick={onClose}>
+              <span className="material-icons">close</span>
+              Close
+            </button>
           </div>
         </div>
       </div>
-      <label className="config-label">Logo URL</label>
-      <input
-        className="config-input"
-        value={logoUrl}
-        onChange={(e) => updateField(logoKey, e.target.value)}
-        placeholder="https://..."
-        data-testid={`team-${teamId}-logo-input`}
-      />
+    );
+  }
+
+  return (
+    <div className="dialog-overlay" onClick={onClose}>
+      <div className="dialog-card" onClick={(e) => e.stopPropagation()}>
+        <h3 className="dialog-title">Themes</h3>
+        <select
+          className="config-select"
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          data-testid="theme-selector"
+        >
+          <option value="">— Select a theme —</option>
+          {themeNames.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <div className="dialog-actions" style={{ marginTop: '1rem' }}>
+          <button
+            className="dialog-btn dialog-btn-ok"
+            onClick={() => { if (selected) { onApply(selected); onClose(); } }}
+            disabled={!selected}
+          >
+            <span className="material-icons">done</span>
+            Load
+          </button>
+          <button className="dialog-btn dialog-btn-cancel" onClick={onClose}>
+            <span className="material-icons">close</span>
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 /**
  * Configuration panel for team customization, scoreboard options, geometry,
- * and action buttons (save, refresh, reset).
+ * links, themes, and action buttons (save, refresh, reset).
  * Mirrors the NiceGUI CustomizationPage layout.
  */
 export default function ConfigPanel({ oid, customization, actions, onBack, onReset }) {
@@ -81,6 +233,18 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const [predefinedTeams, setPredefinedTeams] = useState({});
+  const [themes, setThemes] = useState({});
+  const [links, setLinks] = useState(null);
+  const [showLinks, setShowLinks] = useState(false);
+  const [showThemes, setShowThemes] = useState(false);
+
+  // Fetch predefined data on mount
+  useEffect(() => {
+    api.getTeams().then(setPredefinedTeams).catch(() => {});
+    api.getThemes().then(setThemes).catch(() => {});
+    api.getLinks(oid).then(setLinks).catch(() => {});
+  }, [oid]);
 
   const updateField = useCallback((key, value) => {
     setModel((m) => ({ ...m, [key]: value }));
@@ -107,6 +271,13 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
     }
   }, [oid]);
 
+  const handleApplyTheme = useCallback((themeName) => {
+    const themeData = themes[themeName];
+    if (themeData) {
+      setModel((m) => ({ ...m, ...themeData }));
+    }
+  }, [themes]);
+
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
@@ -115,6 +286,8 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
       document.documentElement.requestFullscreen().then(() => setIsFullscreen(true));
     }
   }, []);
+
+  const hasThemes = Object.keys(themes).length > 0;
 
   return (
     <div className="config-panel">
@@ -127,6 +300,7 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
               label="Team 1 (Home)"
               model={model}
               updateField={updateField}
+              predefinedTeams={predefinedTeams}
             />
             <div className="config-card">
               <h3 className="config-card-title">Scoreboard Options</h3>
@@ -196,6 +370,7 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
               label="Team 2 (Away)"
               model={model}
               updateField={updateField}
+              predefinedTeams={predefinedTeams}
             />
             <div className="config-card">
               <h3 className="config-card-title">Position &amp; Size</h3>
@@ -253,17 +428,27 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
                   />
                 </div>
               </div>
-              {model['preferredStyle'] !== undefined && (
-                <>
-                  <label className="config-label" style={{ marginTop: '0.5rem' }}>Preferred Style</label>
-                  <input
-                    className="config-input"
-                    value={model['preferredStyle'] ?? ''}
-                    onChange={(e) => updateField('preferredStyle', e.target.value)}
-                    data-testid="style-input"
-                  />
-                </>
-              )}
+              {/* Utility row: theme + links */}
+              <div className="config-utility-row">
+                {hasThemes && (
+                  <button
+                    className="config-icon-btn"
+                    onClick={() => setShowThemes(true)}
+                    title="Themes"
+                    data-testid="theme-button"
+                  >
+                    <span className="material-icons">palette</span>
+                  </button>
+                )}
+                <button
+                  className="config-icon-btn config-icon-btn-primary"
+                  onClick={() => setShowLinks(true)}
+                  title="Links"
+                  data-testid="links-button"
+                >
+                  <span className="material-icons">link</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -320,6 +505,14 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
           <span className="material-icons">recycling</span>
         </button>
       </div>
+
+      {/* Dialogs */}
+      {showLinks && links && (
+        <LinksDialog links={links} onClose={() => setShowLinks(false)} />
+      )}
+      {showThemes && (
+        <ThemeDialog themes={themes} onApply={handleApplyTheme} onClose={() => setShowThemes(false)} />
+      )}
     </div>
   );
 }
