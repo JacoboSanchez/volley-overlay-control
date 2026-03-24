@@ -324,7 +324,7 @@ ws.onclose = (event) => {
   if (event.code === 4004) {
     console.error('Session not found. Call /api/v1/session/init first.');
   } else {
-    setTimeout(() => connect(), 3000); // Reconnect after 3s
+    setTimeout(() => connectWebSocket(), 3000); // Reconnect after 3s
   }
 };
 ```
@@ -467,8 +467,12 @@ ws.onclose = (event) => {
       };
     }
 
+    // Track last known state from WebSocket for use in API calls
+    let latestState = {};
+
     // Update the UI from state
     function updateUI(state) {
+      latestState = state;
       const set = state.current_set;
       document.getElementById('team1-score').textContent =
         String(state.team_1.scores[`set_${set}`]).padStart(2, '0');
@@ -499,14 +503,12 @@ ws.onclose = (event) => {
     }
 
     async function toggleVisibility() {
-      const res = await fetch(`${BASE}/api/v1/state?oid=${OID}`, {
-        headers: headers(),
-      });
-      const state = await res.json();
+      // Use the last known state from WebSocket instead of fetching,
+      // to avoid a race condition between GET and POST.
       await fetch(`${BASE}/api/v1/display/visibility?oid=${OID}`, {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ visible: !state.visible }),
+        body: JSON.stringify({ visible: !latestState.visible }),
       });
     }
 

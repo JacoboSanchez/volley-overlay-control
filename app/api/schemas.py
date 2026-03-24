@@ -66,5 +66,5 @@ class GameStateResponse(BaseModel):
 
 class ActionResponse(BaseModel):
     success: bool
-    state: GameStateResponse
+    state: Optional[GameStateResponse] = None
     message: Optional[str] = None

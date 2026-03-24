@@ -38,16 +38,23 @@ async def init_session(req: InitRequest):
     if req.sets_limit is not None:
         conf.sets = req.sets_limit
 
+    # Check if session already exists — avoid creating a Backend unnecessarily
+    existing = SessionManager.get(req.oid)
+    if existing is not None:
+        # Update limits if explicitly provided
+        session = SessionManager.get_or_create(
+            req.oid, conf, None,
+            req.points_limit, req.points_limit_last_set, req.sets_limit,
+        )
+        return ActionResponse(success=True, state=GameService.get_state(session))
+
+    # New session: create Backend and validate OID
     backend = Backend(conf)
     status = backend.validate_and_store_model_for_oid(req.oid)
     if status != State.OIDStatus.VALID:
         return ActionResponse(
             success=False,
-            state=GameService.get_state(
-                SessionManager.get_or_create(req.oid, conf, backend,
-                                             req.points_limit,
-                                             req.points_limit_last_set,
-                                             req.sets_limit)),
+            state=None,
             message=f"OID validation returned '{status.value}'.",
         )
 
