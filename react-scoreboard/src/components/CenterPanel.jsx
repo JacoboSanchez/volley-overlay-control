@@ -12,6 +12,7 @@ export default function CenterPanel({
   customization,
   currentSet,
   setsLimit,
+  previewUrl,
   onAddSet,
   onLongPressSet,
   onSetChange,
@@ -108,6 +109,17 @@ export default function CenterPanel({
           <span className="material-icons">chevron_right</span>
         </button>
       </div>
+
+      {previewUrl && (
+        <div className="preview-container">
+          <iframe
+            className="preview-iframe"
+            src={previewUrl}
+            title="Overlay preview"
+            data-testid="overlay-preview"
+          />
+        </div>
+      )}
     </div>
   );
 }

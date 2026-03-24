@@ -404,6 +404,21 @@ function OptionsCard({ settings, onSettingsChange }) {
           />
         </div>
       )}
+
+      <div className="config-separator" />
+
+      {/* Show preview */}
+      <div className="config-switch-row">
+        <label className="config-switch-label">
+          <input
+            type="checkbox"
+            checked={settings.showPreview}
+            onChange={(e) => update('showPreview', e.target.checked)}
+            data-testid="show-preview-switch"
+          />
+          Show overlay preview
+        </label>
+      </div>
     </div>
   );
 }
@@ -430,6 +445,7 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
     team2BtnText: loadLocal('team2BtnText', '#ffffff'),
     showIcon: loadLocal('showIcon', false),
     iconOpacity: loadLocal('iconOpacity', 50),
+    showPreview: loadLocal('showPreview', false),
   }));
 
   // Fetch predefined data on mount

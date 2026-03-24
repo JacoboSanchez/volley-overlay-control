@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
+import * as api from './api/client';
 import TeamPanel from './components/TeamPanel';
 import CenterPanel from './components/CenterPanel';
 import ControlButtons from './components/ControlButtons';
@@ -40,6 +41,24 @@ export default function App() {
   const iconOpacity = readLocalSetting('iconOpacity', 50);
   const autoSimple = readLocalSetting('autoSimple', false);
   const autoSimpleOnTimeout = readLocalSetting('autoSimpleOnTimeout', false);
+  const showPreview = readLocalSetting('showPreview', false);
+
+  // Preview URL
+  const [previewUrl, setPreviewUrl] = useState(null);
+  useEffect(() => {
+    if (oid && showPreview) {
+      api.getLinks(oid).then((links) => {
+        if (links?.preview) {
+          const url = links.preview.startsWith('./')
+            ? new URL(links.preview, window.location.href).href
+            : links.preview;
+          setPreviewUrl(url);
+        }
+      }).catch(() => {});
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [oid, showPreview]);
 
   // Dialog state
   const [dialog, setDialog] = useState({
@@ -306,6 +325,7 @@ export default function App() {
           customization={customization}
           currentSet={currentSet}
           setsLimit={setsLimit}
+          previewUrl={showPreview ? previewUrl : null}
           onAddSet={handleAddSet}
           onLongPressSet={handleLongPressSet}
           onSetChange={handleSetChange}
