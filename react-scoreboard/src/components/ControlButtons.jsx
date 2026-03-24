@@ -9,7 +9,7 @@ import {
 } from '../theme';
 
 /**
- * Bottom control bar with visibility, simple mode, undo, and reset buttons.
+ * Bottom control bar with visibility, simple mode, undo, and config navigation.
  * Mirrors the NiceGUI ControlButtons component.
  */
 export default function ControlButtons({
@@ -20,7 +20,7 @@ export default function ControlButtons({
   onToggleVisibility,
   onToggleSimpleMode,
   onToggleUndo,
-  onReset,
+  onGoToConfig,
 }) {
   return (
     <div className="control-buttons">
@@ -72,12 +72,12 @@ export default function ControlButtons({
       <div className="spacer" />
 
       <button
-        className="control-btn control-btn-reset"
-        onClick={onReset}
-        title="Reset match"
-        data-testid="reset-button"
+        className="control-btn control-btn-config"
+        onClick={onGoToConfig}
+        title="Configuration"
+        data-testid="config-tab-button"
       >
-        <span className="material-icons">restart_alt</span>
+        <span className="material-icons">keyboard_arrow_right</span>
       </button>
     </div>
   );

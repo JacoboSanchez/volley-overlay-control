@@ -3,6 +3,7 @@ import { useGameState } from './hooks/useGameState';
 import TeamPanel from './components/TeamPanel';
 import CenterPanel from './components/CenterPanel';
 import ControlButtons from './components/ControlButtons';
+import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
 import {
   TEAM_A_COLOR,
@@ -25,6 +26,7 @@ export default function App() {
   const [simpleMode, setSimpleMode] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
   const [buttonSize, setButtonSize] = useState(null);
+  const [activeTab, setActiveTab] = useState('scoreboard');
 
   // Dialog state
   const [dialog, setDialog] = useState({
@@ -69,9 +71,9 @@ export default function App() {
       const portrait = h > 1.2 * w && w <= 800;
       setIsPortrait(portrait);
       if (!portrait) {
-        setButtonSize(Math.min(w / 4.5, 200));
+        setButtonSize(Math.min(w / 4.5, 320));
       } else {
-        setButtonSize(Math.min(h / 5, 200));
+        setButtonSize(Math.min(h / 5, 320));
       }
     }
     handleResize();
@@ -239,6 +241,7 @@ export default function App() {
       </div>
 
       {/* Main scoreboard layout */}
+      {activeTab === 'scoreboard' && (
       <div className={`main-layout ${isPortrait ? 'main-layout-portrait' : 'main-layout-landscape'}`}>
         <TeamPanel
           teamId={1}
@@ -280,18 +283,32 @@ export default function App() {
           onLongPressScore={handleLongPressScore}
         />
       </div>
+      )}
 
       {/* Control buttons */}
-      <ControlButtons
-        visible={state.visible}
-        simpleMode={simpleMode}
-        undoMode={undoMode}
-        matchFinished={matchFinished}
-        onToggleVisibility={handleToggleVisibility}
-        onToggleSimpleMode={handleToggleSimpleMode}
-        onToggleUndo={handleToggleUndo}
-        onReset={handleReset}
-      />
+      {activeTab === 'scoreboard' && (
+        <ControlButtons
+          visible={state.visible}
+          simpleMode={simpleMode}
+          undoMode={undoMode}
+          matchFinished={matchFinished}
+          onToggleVisibility={handleToggleVisibility}
+          onToggleSimpleMode={handleToggleSimpleMode}
+          onToggleUndo={handleToggleUndo}
+          onGoToConfig={() => setActiveTab('config')}
+        />
+      )}
+
+      {/* Configuration panel (replaces scoreboard when active) */}
+      {activeTab === 'config' && (
+        <ConfigPanel
+          oid={oid}
+          customization={customization}
+          actions={actions}
+          onBack={() => setActiveTab('scoreboard')}
+          onReset={handleReset}
+        />
+      )}
 
       {/* Custom value dialog */}
       <SetValueDialog
