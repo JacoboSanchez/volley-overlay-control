@@ -37,7 +37,13 @@ export function useGameState(oid) {
   }, [oid, applyState]);
 
   const initialize = useCallback(async (opts = {}) => {
-    if (!oid) return;
+    if (!oid) {
+      setState(null);
+      setCustomization(null);
+      setConnected(false);
+      setError(null);
+      return;
+    }
     try {
       setError(null);
       const res = await api.initSession(oid, opts);
@@ -54,13 +60,13 @@ export function useGameState(oid) {
     }
   }, [oid, applyState, connectWs]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount or OID change (e.g. logout)
   useEffect(() => {
     return () => {
       if (wsRef.current) wsRef.current.close();
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-  }, []);
+  }, [oid]);
 
   // Action helpers — all update state from the response
   const handleAction = useCallback(async (actionFn) => {

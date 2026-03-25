@@ -423,7 +423,7 @@ function OptionsCard({ settings, onSettingsChange }) {
   );
 }
 
-export default function ConfigPanel({ oid, customization, actions, onBack, onReset, onCustomizationSaved }) {
+export default function ConfigPanel({ oid, customization, actions, onBack, onReset, onLogout, onCustomizationSaved }) {
   const [model, setModel] = useState(() => ({ ...customization }));
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -721,6 +721,14 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
           data-testid="reset-button"
         >
           <span className="material-icons">recycling</span>
+        </button>
+        <button
+          className="control-btn control-btn-logout"
+          onClick={() => { if (window.confirm('Disconnect and return to OID entry?')) onLogout(); }}
+          title="Logout"
+          data-testid="logout-button"
+        >
+          <span className="material-icons">logout</span>
         </button>
       </div>
 

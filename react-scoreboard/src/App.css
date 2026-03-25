@@ -448,6 +448,11 @@ body {
   color: #ff9800;
 }
 
+.control-btn-logout {
+  border-color: #f44336;
+  color: #f44336;
+}
+
 .control-btn-config {
   border-color: #757575;
   color: #757575;

@@ -15,13 +15,18 @@ import {
   TEAM_B_SERVE_ACTIVE,
 } from './theme';
 
-function getOidFromUrl() {
+function getInitialOid() {
+  // Priority: URL param > localStorage (matches NiceGUI's priority system)
   const params = new URLSearchParams(window.location.search);
-  return params.get('oid') || '';
+  const urlOid = params.get('oid');
+  if (urlOid) return urlOid;
+  try {
+    return localStorage.getItem('volley_oid') || '';
+  } catch { return ''; }
 }
 
 export default function App() {
-  const [oid, setOid] = useState(getOidFromUrl);
+  const [oid, setOid] = useState(getInitialOid);
   const [oidInput, setOidInput] = useState(oid);
   const [undoMode, setUndoMode] = useState(false);
   const [simpleMode, setSimpleMode] = useState(false);
@@ -130,8 +135,11 @@ export default function App() {
     [oidInput]
   );
 
+  // Persist OID to localStorage and clear stale preview when OID changes
   useEffect(() => {
     if (oid) {
+      try { localStorage.setItem('volley_oid', oid); } catch {}
+      setPreviewData(null);  // clear stale preview from previous OID
       initialize();
     }
   }, [oid, initialize]);
@@ -202,6 +210,16 @@ export default function App() {
       setSimpleMode(false);
     }
   }, [actions]);
+
+  const handleLogout = useCallback(() => {
+    try { localStorage.removeItem('volley_oid'); } catch {}
+    setOid('');
+    setOidInput('');
+    setPreviewData(null);
+    setUndoMode(false);
+    setSimpleMode(false);
+    setActiveTab('scoreboard');
+  }, []);
 
   const handleSetChange = useCallback(
     (set) => {
@@ -379,6 +397,7 @@ export default function App() {
           actions={actions}
           onBack={() => setActiveTab('scoreboard')}
           onReset={handleReset}
+          onLogout={handleLogout}
           onCustomizationSaved={refreshCustomization}
         />
       )}
