@@ -64,8 +64,10 @@ export default function App() {
             height: parseFloat(params.get('height')) || 10,
             layoutId: params.get('layout_id') || '',
           });
+        } else {
+          setPreviewData(null);
         }
-      }).catch(() => {});
+      }).catch(() => setPreviewData(null));
     } else {
       setPreviewData(null);
     }

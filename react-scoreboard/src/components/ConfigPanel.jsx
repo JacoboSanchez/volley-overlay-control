@@ -7,7 +7,10 @@ import * as api from '../api/client';
  */
 function TeamCard({ teamId, label, model, updateField, predefinedTeams }) {
   const prefix = `Team ${teamId}`;
-  const nameKey = `${prefix} Text Name`;
+  // Backend uses either old key "Team N Text Name" or new key "Team N Name"
+  const oldNameKey = `${prefix} Text Name`;
+  const newNameKey = `${prefix} Name`;
+  const nameKey = oldNameKey in model ? oldNameKey : newNameKey;
   const colorKey = `${prefix} Color`;
   const textColorKey = `${prefix} Text Color`;
   const logoKey = `${prefix} Logo`;

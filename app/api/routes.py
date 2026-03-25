@@ -16,6 +16,7 @@ from app.backend import Backend
 from app.state import State
 from app.customization import Customization
 from app.authentication import PasswordAuthenticator
+from app.oid_dialog import OidDialog
 
 logger = logging.getLogger("APIRoutes")
 
@@ -62,6 +63,15 @@ async def init_session(req: InitRequest):
         )
 
     backend.init_ws_client()
+
+    # Auto-resolve output URL if not explicitly provided (mirrors NiceGUI startup)
+    if not conf.output:
+        token = backend.fetch_output_token(req.oid)
+        if token:
+            conf.output = (
+                token if token.startswith("http")
+                else OidDialog.UNO_OUTPUT_BASE_URL + token
+            )
 
     session = SessionManager.get_or_create(
         req.oid, conf, backend,
