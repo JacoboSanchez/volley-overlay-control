@@ -43,20 +43,26 @@ export default function App() {
   const autoSimpleOnTimeout = readLocalSetting('autoSimpleOnTimeout', false);
   const showPreview = readLocalSetting('showPreview', false);
 
-  // Preview URL
-  const [previewUrl, setPreviewUrl] = useState(null);
+  // Preview data (overlay URL + geometry for cropping)
+  const [previewData, setPreviewData] = useState(null);
   useEffect(() => {
     if (oid && showPreview) {
       api.getLinks(oid).then((links) => {
-        if (links?.preview) {
-          const url = links.preview.startsWith('./')
-            ? new URL(links.preview, window.location.href).href
-            : links.preview;
-          setPreviewUrl(url);
+        if (links?.overlay && links?.preview) {
+          // Parse geometry from the preview query string
+          const params = new URLSearchParams(links.preview.split('?')[1] || '');
+          setPreviewData({
+            overlayUrl: links.overlay,
+            x: parseFloat(params.get('x')) || 0,
+            y: parseFloat(params.get('y')) || 0,
+            width: parseFloat(params.get('width')) || 30,
+            height: parseFloat(params.get('height')) || 10,
+            layoutId: params.get('layout_id') || '',
+          });
         }
       }).catch(() => {});
     } else {
-      setPreviewUrl(null);
+      setPreviewData(null);
     }
   }, [oid, showPreview]);
 
@@ -325,7 +331,7 @@ export default function App() {
           customization={customization}
           currentSet={currentSet}
           setsLimit={setsLimit}
-          previewUrl={showPreview ? previewUrl : null}
+          previewData={showPreview ? previewData : null}
           onAddSet={handleAddSet}
           onLongPressSet={handleLongPressSet}
           onSetChange={handleSetChange}

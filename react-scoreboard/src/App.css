@@ -342,22 +342,18 @@ body {
   border-radius: 4px;
 }
 
-/* ── Preview iframe ─────────────────────────────────────────────────── */
+/* ── Preview overlay ────────────────────────────────────────────────── */
 
 .preview-container {
   width: 100%;
   margin-top: 0.5rem;
   border-radius: 8px;
   overflow: hidden;
-  background: #000;
+  background: #1d1d1d;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.preview-iframe {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: none;
-  display: block;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* ── Set pagination ──────────────────────────────────────────────────── */

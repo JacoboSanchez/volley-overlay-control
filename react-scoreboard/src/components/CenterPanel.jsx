@@ -1,6 +1,7 @@
 import React from 'react';
 import ScoreButton from './ScoreButton';
 import ScoreTable from './ScoreTable';
+import OverlayPreview from './OverlayPreview';
 
 /**
  * Center panel with set buttons, team logos, score history, and set pagination.
@@ -12,7 +13,7 @@ export default function CenterPanel({
   customization,
   currentSet,
   setsLimit,
-  previewUrl,
+  previewData,
   onAddSet,
   onLongPressSet,
   onSetChange,
@@ -110,15 +111,16 @@ export default function CenterPanel({
         </button>
       </div>
 
-      {previewUrl && (
-        <div className="preview-container">
-          <iframe
-            className="preview-iframe"
-            src={previewUrl}
-            title="Overlay preview"
-            data-testid="overlay-preview"
-          />
-        </div>
+      {previewData && (
+        <OverlayPreview
+          overlayUrl={previewData.overlayUrl}
+          x={previewData.x}
+          y={previewData.y}
+          width={previewData.width}
+          height={previewData.height}
+          layoutId={previewData.layoutId}
+          cardWidth={300}
+        />
       )}
     </div>
   );
