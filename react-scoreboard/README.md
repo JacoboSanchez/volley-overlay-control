@@ -49,6 +49,7 @@ src/
 - **Simple mode** — switch between full and simplified scoreboard display
 - **Overlay visibility** — show/hide the overlay on the broadcast output
 - **Configuration panel** — edit team names, colors, logos, and overlay geometry
+- **Overlay preview** — live iframe preview of the scoreboard output, auto-refreshed on OID change
 - **Set pagination** — navigate between sets in multi-set matches
 
 ## Tabs
@@ -69,7 +70,7 @@ All communication goes through the backend REST API and WebSocket:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/v1/session/init` | POST | Initialize a session for an Overlay ID |
+| `/api/v1/session/init` | POST | Initialize a session for an Overlay ID (auto-resolves output URL) |
 | `/api/v1/state` | GET | Get current game state |
 | `/api/v1/customization` | GET | Get overlay customization model |
 | `/api/v1/customization` | PUT | Save customization changes |
@@ -115,3 +116,13 @@ Output goes to `dist/`. Serve it from the backend or any static file server — 
 - **Vite 6** — Build tool and dev server
 - **Material Icons** — Icon font (loaded from Google Fonts CDN)
 - No CSS framework — plain CSS with custom properties
+
+## Notes
+
+- **Team name keys** — The backend customization model may use either the legacy key
+  `"Team N Text Name"` or the newer `"Team N Name"`. The team selector in `ConfigPanel`
+  checks for both formats automatically.
+- **Output URL** — The backend auto-resolves the overlay output URL during session
+  init, so the React app does not need to supply it explicitly.
+- **Preview data** — Preview and overlay links are re-fetched whenever the OID changes.
+  Stale preview data from a previous session is cleared automatically.

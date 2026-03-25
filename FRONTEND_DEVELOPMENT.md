@@ -139,6 +139,12 @@ Initialise or re-use a game session.
 | `points_limit_last_set` | int | no | 15 | Points to win the last set |
 | `sets_limit` | int | no | 5 | Total sets in the match |
 
+When `output_url` is not provided, the backend automatically resolves it by calling
+`fetch_output_token(oid)`. For cloud (overlays.uno) overlays this queries the
+overlays.uno API; for custom overlays it fetches the `outputUrl` from
+`/api/config/{id}`. If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is set, the host portion is
+replaced to avoid mixed-content issues.
+
 ### State Queries
 
 #### `GET /api/v1/state?oid=<OID>`
@@ -220,6 +226,7 @@ Set an exact score value.
 {"team": 1, "set_number": 2, "value": 15}
 ```
 
+- `set_number` must be `>= 1` (no hard upper bound — the match's `sets_limit` is enforced by the service layer)
 - Automatically detects set wins after setting the score
 
 #### `POST /api/v1/game/set-sets?oid=<OID>`
@@ -270,6 +277,11 @@ Update overlay customization. Send the full customization object:
   "Team 2 Logo": "https://example.com/hawks.png"
 }
 ```
+
+> **Note:** Team names may appear under the legacy key `"Team N Text Name"` or the
+> newer key `"Team N Name"` depending on the overlay. The backend accepts both
+> formats. When reading the customization model, check for both keys (the old key
+> takes precedence when present).
 
 ---
 

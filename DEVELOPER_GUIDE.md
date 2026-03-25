@@ -199,7 +199,7 @@ The "Bridge" to the outside world.
   - `update_local_overlay(current_model, force_visibility, customization_state)` — Builds a standardized JSON payload (`match_info`, `team_home`/`team_away`, `overlay_control`) via `_build_overlay_payload()`. Sends via `WSControlClient.send_state()` if connected, otherwise falls back to HTTP `POST /api/state/{custom_id}`.
   - `change_overlay_visibility(show)` — Sends visibility toggle via WebSocket `send_visibility()` for custom overlays when connected, otherwise uses the HTTP path.
   - `fetch_and_update_overlay_id(oid)` — Translates a user's Control Token (OID) into the specific backend layout ID via `GetOverlays`.
-  - `fetch_output_token(oid)` — Retrieves the URL/Token required to display the overlay iframe.
+  - `fetch_output_token(oid)` — Retrieves the URL/Token required to display the overlay iframe. Called automatically during `POST /api/v1/session/init` when no explicit `output_url` is provided, so the session's `conf.output` is always populated.
 - **Properties**: `ws_connected` (bool), `obs_client_count` (int from WS handshake/ack messages).
 
 #### `app/ws_client.py` — class `WSControlClient`
