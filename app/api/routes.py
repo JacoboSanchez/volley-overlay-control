@@ -1,4 +1,5 @@
 import logging
+import urllib.parse
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
 
 from app.api.schemas import (
@@ -217,7 +218,6 @@ async def get_links(session: GameSession = Depends(get_session)):
         overlay_url = PasswordAuthenticator.compose_output(output)
         links["overlay"] = overlay_url
 
-        import urllib.parse
         token = overlay_url.split('/')[-1]
         encoded_token = urllib.parse.quote(token, safe='')
         posx = cust.get_h_pos()

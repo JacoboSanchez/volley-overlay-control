@@ -21,7 +21,7 @@ class TeamActionRequest(BaseModel):
 
 class SetScoreRequest(BaseModel):
     team: Literal[1, 2]
-    set_number: int = Field(ge=1, le=5)
+    set_number: int = Field(ge=1)
     value: int = Field(ge=0)
 
 
