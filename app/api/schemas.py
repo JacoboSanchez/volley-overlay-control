@@ -61,6 +61,7 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     'Color 1', 'Color 2', 'Text Color 1', 'Text Color 2',
     'Logos', 'Gradient',
     'Height', 'Width', 'Left-Right', 'Up-Down',
+    'preferredStyle',
 }
 
 
