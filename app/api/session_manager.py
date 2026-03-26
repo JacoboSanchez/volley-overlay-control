@@ -1,11 +1,16 @@
+import asyncio
 import logging
 import threading
+import time
 from app.conf import Conf
 from app.backend import Backend
 from app.game_manager import GameManager
 from app.customization import Customization
 
 logger = logging.getLogger("SessionManager")
+
+# Sessions expire after 24 hours of inactivity
+SESSION_TTL_SECONDS = 24 * 60 * 60
 
 
 class GameSession:
@@ -33,6 +38,10 @@ class GameSession:
         )
         # Compute initial current set
         self.current_set = self._compute_current_set()
+        # Async lock for protecting concurrent mutations
+        self.lock = asyncio.Lock()
+        # Last access time for TTL-based cleanup
+        self.last_accessed = time.monotonic()
         logger.info(
             "GameSession created for OID=%s (pts=%s, last=%s, sets=%s)",
             oid, self.points_limit, self.points_limit_last_set,
@@ -46,6 +55,10 @@ class GameSession:
         if not self.game_manager.match_finished():
             current += 1
         return max(1, min(current, self.sets_limit))
+
+    def touch(self):
+        """Update last access time."""
+        self.last_accessed = time.monotonic()
 
 
 class SessionManager:
@@ -66,6 +79,7 @@ class SessionManager:
         with cls._lock:
             if oid in cls._sessions:
                 session = cls._sessions[oid]
+                session.touch()
                 # Update limits if explicitly provided
                 if points_limit is not None:
                     session.points_limit = points_limit
@@ -94,7 +108,10 @@ class SessionManager:
     def get(cls, oid):
         """Return an existing session or ``None``."""
         with cls._lock:
-            return cls._sessions.get(oid)
+            session = cls._sessions.get(oid)
+            if session is not None:
+                session.touch()
+            return session
 
     @classmethod
     def remove(cls, oid):
@@ -107,3 +124,17 @@ class SessionManager:
         """Remove all sessions (mainly for testing)."""
         with cls._lock:
             cls._sessions.clear()
+
+    @classmethod
+    def cleanup_expired(cls):
+        """Remove sessions that have not been accessed within the TTL."""
+        now = time.monotonic()
+        with cls._lock:
+            expired = [
+                oid for oid, session in cls._sessions.items()
+                if (now - session.last_accessed) > SESSION_TTL_SECONDS
+            ]
+            for oid in expired:
+                del cls._sessions[oid]
+                logger.info("Expired session for OID=%s", oid)
+        return len(expired)

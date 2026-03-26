@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
+import re
 
 
 # ---------------------------------------------------------------------------
@@ -7,11 +8,18 @@ from typing import Literal, Optional
 # ---------------------------------------------------------------------------
 
 class InitRequest(BaseModel):
-    oid: str
+    oid: str = Field(min_length=1, max_length=200)
     output_url: Optional[str] = None
     points_limit: Optional[int] = None
     points_limit_last_set: Optional[int] = None
     sets_limit: Optional[int] = None
+
+    @field_validator('oid')
+    @classmethod
+    def validate_oid(cls, v):
+        if not re.match(r'^[A-Za-z0-9_\-]+$', v):
+            raise ValueError('OID must contain only alphanumeric characters, hyphens, and underscores')
+        return v
 
 
 class TeamActionRequest(BaseModel):
@@ -21,13 +29,13 @@ class TeamActionRequest(BaseModel):
 
 class SetScoreRequest(BaseModel):
     team: Literal[1, 2]
-    set_number: int = Field(ge=1, le=5)
-    value: int = Field(ge=0)
+    set_number: int = Field(ge=1)
+    value: int = Field(ge=0, le=99)
 
 
 class SetSetsRequest(BaseModel):
     team: Literal[1, 2]
-    value: int = Field(ge=0)
+    value: int = Field(ge=0, le=9)
 
 
 class ServeRequest(BaseModel):
@@ -40,6 +48,20 @@ class VisibilityRequest(BaseModel):
 
 class SimpleModeRequest(BaseModel):
     enabled: bool
+
+
+# ---------------------------------------------------------------------------
+# Customization validation
+# ---------------------------------------------------------------------------
+
+# Allowed keys for customization updates
+ALLOWED_CUSTOMIZATION_KEYS = {
+    'Team 1 Name', 'Team 1 Text Name', 'Team 1 Color', 'Team 1 Text Color', 'Team 1 Logo',
+    'Team 2 Name', 'Team 2 Text Name', 'Team 2 Color', 'Team 2 Text Color', 'Team 2 Logo',
+    'Color 1', 'Color 2', 'Text Color 1', 'Text Color 2',
+    'Logos', 'Gradient',
+    'Height', 'Width', 'Left-Right', 'Up-Down',
+}
 
 
 # ---------------------------------------------------------------------------
@@ -66,5 +88,5 @@ class GameStateResponse(BaseModel):
 
 class ActionResponse(BaseModel):
     success: bool
-    state: GameStateResponse
+    state: Optional[GameStateResponse] = None
     message: Optional[str] = None

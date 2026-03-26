@@ -34,7 +34,28 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 class PasswordAuthenticator:
     UNO_OUTPUT_BASE_URL = 'https://app.overlays.uno/output/'
-    
+    _cached_users = None
+    _cached_users_raw = None
+
+    @classmethod
+    def _get_users(cls):
+        """Return parsed SCOREBOARD_USERS, caching the result.
+
+        Re-parses only when the raw env var value changes.
+        """
+        raw = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
+        if raw == cls._cached_users_raw:
+            return cls._cached_users
+        cls._cached_users_raw = raw
+        if not raw or not raw.strip():
+            cls._cached_users = None
+            return None
+        try:
+            cls._cached_users = json.loads(raw)
+        except json.JSONDecodeError:
+            cls._cached_users = None
+        return cls._cached_users
+
     def do_authenticate_users() -> bool:
         passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
         return passwords_json is not None and passwords_json.strip() != ''
@@ -98,12 +119,8 @@ class PasswordAuthenticator:
         This allows API clients to authenticate using any valid password
         from ``SCOREBOARD_USERS`` as a Bearer token.
         """
-        passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
-        if not passwords_json or not passwords_json.strip():
-            return False
-        try:
-            users = json.loads(passwords_json)
-        except json.JSONDecodeError:
+        users = PasswordAuthenticator._get_users()
+        if users is None:
             return False
         for userconf in users.values():
             if userconf.get("password") == key:
