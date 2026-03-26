@@ -33,8 +33,9 @@ async def init_session(req: InitRequest):
     """Initialise (or re-use) a game session for the given overlay ID."""
     conf = Conf()
     conf.oid = req.oid
-    if req.output_url:
-        conf.output = req.output_url
+    # Clear env-var default — API sessions resolve output per-OID, not from
+    # the UNO_OVERLAY_OUTPUT env var (which is for NiceGUI single-overlay mode).
+    conf.output = req.output_url if req.output_url else None
     if req.points_limit is not None:
         conf.points = req.points_limit
     if req.points_limit_last_set is not None:
