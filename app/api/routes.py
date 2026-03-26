@@ -1,6 +1,6 @@
 import logging
 import urllib.parse
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect, Query
 
 from app.api.schemas import (
     InitRequest, TeamActionRequest, SetScoreRequest, SetSetsRequest,
@@ -215,7 +215,8 @@ async def get_themes():
 
 @api_router.get("/links",
                 dependencies=[Depends(verify_api_key)])
-async def get_links(session: GameSession = Depends(get_session)):
+async def get_links(request: Request,
+                    session: GameSession = Depends(get_session)):
     """Return control, overlay, and preview links for the session."""
     oid = session.oid
     output = session.conf.output
@@ -234,16 +235,17 @@ async def get_links(session: GameSession = Depends(get_session)):
         )
         links["overlay"] = overlay_url
 
-        # Pass the full overlay URL and geometry so the preview link is
-        # read-only — no control token exposed.
+        # Build an absolute preview URL pointing at the NiceGUI backend
+        # (not the React dev server) so NiceGUI's internal WebSocket works.
         encoded_output = urllib.parse.quote(overlay_url, safe='')
         posx = cust.get_h_pos()
         posy = cust.get_v_pos()
         width = cust.get_width()
         height = cust.get_height()
         layout_id = session.conf.id if hasattr(session.conf, 'id') else ''
+        base_url = str(request.base_url).rstrip('/')
         links["preview"] = (
-            f"./preview?output={encoded_output}&width={width}"
+            f"{base_url}/preview?output={encoded_output}&width={width}"
             f"&height={height}&x={posx}&y={posy}&layout_id={layout_id}"
         )
 

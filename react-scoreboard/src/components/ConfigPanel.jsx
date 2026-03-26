@@ -137,11 +137,7 @@ function LinksDialog({ links, onClose }) {
               </a>
               <button
                 className="link-copy-btn"
-                onClick={() => copyToClipboard(
-                  links.preview.startsWith('./')
-                    ? new URL(links.preview, window.location.href).href
-                    : links.preview
-                )}
+                onClick={() => copyToClipboard(links.preview)}
                 title="Copy to clipboard"
               >
                 <span className="material-icons">content_copy</span>
