@@ -349,7 +349,7 @@ body {
   margin-top: 0.5rem;
   border-radius: 8px;
   overflow: hidden;
-  background: #1d1d1d;
+  background: transparent;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   display: flex;
   justify-content: center;

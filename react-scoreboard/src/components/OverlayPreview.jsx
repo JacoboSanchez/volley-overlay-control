@@ -72,7 +72,8 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
             src={overlayUrl}
             width={iframeW}
             height={iframeH}
-            style={{ border: 0 }}
+            style={{ border: 0, background: 'transparent' }}
+            allowTransparency="true"
             title="Overlay preview"
             data-testid="overlay-preview"
           />
@@ -105,9 +106,9 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
     ? Math.min(cardWidth / regionW, (cardHeight / 2) / regionH)
     : 1;
 
-  // Append background param like preview.py does
+  // Append aspect ratio param; keep background transparent
   const separator = overlayUrl.includes('?') ? '&' : '?';
-  const src = `${overlayUrl}${separator}bgcolor=rgb(29,29,29)&aspect=16:9`;
+  const src = `${overlayUrl}${separator}aspect=16:9`;
 
   return (
     <div
@@ -128,7 +129,8 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
           src={src}
           width={iframeWidth}
           height={iframeHeight}
-          style={{ border: 0, position: 'absolute', top: -topPx, left: -leftPx }}
+          style={{ border: 0, background: 'transparent', position: 'absolute', top: -topPx, left: -leftPx }}
+          allowTransparency="true"
           title="Overlay preview"
           data-testid="overlay-preview"
         />
