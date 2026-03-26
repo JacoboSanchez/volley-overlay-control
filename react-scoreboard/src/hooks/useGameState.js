@@ -13,35 +13,38 @@ export function useGameState(oid) {
   const [error, setError] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
+  const initRef = useRef(false); // guard against concurrent initialize calls
 
-  const applyState = useCallback((newState) => {
-    setState(newState);
-  }, []);
-
-  const connectWs = useCallback(() => {
-    if (!oid) return;
-    // Clear pending reconnect so the old onClose doesn't re-trigger
+  /** Safely tear down the current WebSocket without triggering reconnect. */
+  const closeWs = useCallback(() => {
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
       reconnectTimer.current = null;
     }
     if (wsRef.current) {
-      // Null out onclose before manual close to prevent reconnect loop
       wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
       wsRef.current.close();
+      wsRef.current = null;
     }
+  }, []);
+
+  const connectWs = useCallback(() => {
+    if (!oid) return;
+    closeWs();
     wsRef.current = createWebSocket(oid, {
-      onStateUpdate: applyState,
+      onStateUpdate: (newState) => setState(newState),
       onOpen: () => setConnected(true),
       onClose: (event) => {
         setConnected(false);
+        // Only reconnect for unexpected disconnects
         if (event.code !== 4004) {
           reconnectTimer.current = setTimeout(connectWs, 3000);
         }
       },
       onError: () => setConnected(false),
     });
-  }, [oid, applyState]);
+  }, [oid, closeWs]);
 
   const initialize = useCallback(async (opts = {}) => {
     if (!oid) {
@@ -51,11 +54,14 @@ export function useGameState(oid) {
       setError(null);
       return;
     }
+    // Prevent overlapping initializations (e.g. StrictMode double-fire)
+    if (initRef.current) return;
+    initRef.current = true;
     try {
       setError(null);
       const res = await api.initSession(oid, opts);
       if (res.success) {
-        applyState(res.state);
+        setState(res.state);
         const cust = await api.getCustomization(oid);
         setCustomization(cust);
         connectWs();
@@ -64,30 +70,29 @@ export function useGameState(oid) {
       }
     } catch (e) {
       setError(e.message);
+    } finally {
+      initRef.current = false;
     }
-  }, [oid, applyState, connectWs]);
+  }, [oid, connectWs]);
 
-  // Cleanup on unmount or OID change (e.g. logout)
+  // Cleanup on unmount or OID change
   useEffect(() => {
-    return () => {
-      if (wsRef.current) wsRef.current.close();
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-    };
-  }, [oid]);
+    return () => closeWs();
+  }, [oid, closeWs]);
 
   // Action helpers — all update state from the response
   const handleAction = useCallback(async (actionFn) => {
     try {
       const res = await actionFn();
       if (res.success) {
-        applyState(res.state);
+        setState(res.state);
       }
       return res;
     } catch (e) {
       setError(e.message);
       return { success: false, message: e.message };
     }
-  }, [applyState]);
+  }, []);
 
   const actions = {
     addPoint: (team, undo = false) => handleAction(() => api.addPoint(oid, team, undo)),

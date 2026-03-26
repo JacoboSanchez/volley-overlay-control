@@ -234,17 +234,9 @@ async def get_links(session: GameSession = Depends(get_session)):
         )
         links["overlay"] = overlay_url
 
-        token = overlay_url.split('/')[-1]
-        encoded_token = urllib.parse.quote(token, safe='')
-        posx = cust.get_h_pos()
-        posy = cust.get_v_pos()
-        width = cust.get_width()
-        height = cust.get_height()
-        layout_id = session.conf.id if hasattr(session.conf, 'id') else ''
-        links["preview"] = (
-            f"./preview?output={encoded_token}&width={width}"
-            f"&height={height}&x={posx}&y={posy}&layout_id={layout_id}"
-        )
+        # Build preview link using the control parameter so the NiceGUI
+        # preview page resolves output, geometry, and layout_id itself.
+        links["preview"] = f"./preview?control={urllib.parse.quote(oid, safe='')}"
 
     return links
 
