@@ -18,6 +18,7 @@ export default function TeamPanel({
   isPortrait,
   iconLogo,
   iconOpacity = 50,
+  fontStyle,
   onAddPoint,
   onAddTimeout,
   onChangeServe,
@@ -69,6 +70,7 @@ export default function TeamPanel({
           color={buttonColor}
           textColor={buttonTextColor}
           size={buttonSize}
+          fontStyle={fontStyle}
           style={iconStyle}
           onClick={() => onAddPoint(teamId)}
           onLongPress={() => onLongPressScore(teamId)}

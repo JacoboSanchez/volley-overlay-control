@@ -13,6 +13,7 @@ import {
   TEAM_B_LIGHT,
   TEAM_A_SERVE_ACTIVE,
   TEAM_B_SERVE_ACTIVE,
+  FONT_SCALES,
 } from './theme';
 
 function getInitialOid() {
@@ -47,6 +48,7 @@ export default function App() {
   const autoSimple = readLocalSetting('autoSimple', false);
   const autoSimpleOnTimeout = readLocalSetting('autoSimpleOnTimeout', false);
   const showPreview = readLocalSetting('showPreview', false);
+  const selectedFont = readLocalSetting('selectedFont', 'Default');
 
   // Preview data (overlay URL + geometry for cropping)
   const [previewData, setPreviewData] = useState(null);
@@ -294,6 +296,12 @@ export default function App() {
   const iconLogoA = showIcon ? (customization?.['Team 1 Logo'] ?? null) : null;
   const iconLogoB = showIcon ? (customization?.['Team 2 Logo'] ?? null) : null;
 
+  // Font style for score buttons
+  const fontProps = FONT_SCALES[selectedFont] || FONT_SCALES.Default;
+  const fontStyle = selectedFont && selectedFont !== 'Default'
+    ? { fontFamily: `'${selectedFont}'`, fontScale: fontProps.scale, fontOffsetY: fontProps.offset_y }
+    : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
+
   // OID entry screen
   if (!oid || !state) {
     return (
@@ -336,6 +344,7 @@ export default function App() {
           isPortrait={isPortrait}
           iconLogo={iconLogoA}
           iconOpacity={iconOpacity}
+          fontStyle={fontStyle}
           onAddPoint={handleAddPoint}
           onAddTimeout={handleAddTimeout}
           onChangeServe={handleChangeServe}
@@ -365,6 +374,7 @@ export default function App() {
           isPortrait={isPortrait}
           iconLogo={iconLogoB}
           iconOpacity={iconOpacity}
+          fontStyle={fontStyle}
           onAddPoint={handleAddPoint}
           onAddTimeout={handleAddTimeout}
           onChangeServe={handleChangeServe}

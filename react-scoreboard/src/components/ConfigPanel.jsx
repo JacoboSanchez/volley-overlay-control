@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import * as api from '../api/client';
+import { FONT_OPTIONS } from '../theme';
 
 /**
  * Team customization card — logo preview, team name selector, colors.
@@ -406,6 +407,30 @@ function OptionsCard({ settings, onSettingsChange }) {
 
       <div className="config-separator" />
 
+      {/* Button font */}
+      <div className="config-field-row">
+        <label className="config-label">Button font</label>
+        <select
+          className="config-select"
+          value={settings.selectedFont}
+          onChange={(e) => update('selectedFont', e.target.value)}
+          style={{ fontFamily: settings.selectedFont !== 'Default' ? `'${settings.selectedFont}'` : undefined }}
+          data-testid="font-selector"
+        >
+          {FONT_OPTIONS.map((name) => (
+            <option
+              key={name}
+              value={name}
+              style={{ fontFamily: name !== 'Default' ? `'${name}'` : undefined }}
+            >
+              {name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="config-separator" />
+
       {/* Show preview */}
       <div className="config-switch-row">
         <label className="config-switch-label">
@@ -445,6 +470,7 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
     showIcon: loadLocal('showIcon', false),
     iconOpacity: loadLocal('iconOpacity', 50),
     showPreview: loadLocal('showPreview', false),
+    selectedFont: loadLocal('selectedFont', 'Default'),
   }));
 
   // Fetch predefined data on mount

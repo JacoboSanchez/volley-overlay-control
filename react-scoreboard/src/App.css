@@ -3,6 +3,19 @@
    Matches the NiceGUI scoreboard in functionality and appearance.
    ======================================================================== */
 
+/* ── Scoreboard fonts ───────────────────────────────────────────────── */
+
+@font-face { font-family: 'Alarm Clock';     src: url('/fonts/Alarm Clock.ttf'); }
+@font-face { font-family: 'Aluminum';        src: url('/fonts/Aluminum.ttf'); }
+@font-face { font-family: 'Atlas';           src: url('/fonts/Atlas.ttf'); }
+@font-face { font-family: 'Bypass';          src: url('/fonts/Bypass.ttf'); }
+@font-face { font-family: 'Catch';           src: url('/fonts/Catch.ttf'); }
+@font-face { font-family: 'Devotee';         src: url('/fonts/Devotee.ttf'); }
+@font-face { font-family: 'Digital Dismay';  src: url('/fonts/Digital Dismay.otf'); }
+@font-face { font-family: 'Digital Readout'; src: url('/fonts/Digital Readout.ttf'); }
+@font-face { font-family: 'LED board';       src: url('/fonts/LED board.ttf'); }
+@font-face { font-family: 'Open 24';         src: url('/fonts/Open 24.ttf'); }
+
 /* Reset & base */
 *,
 *::before,

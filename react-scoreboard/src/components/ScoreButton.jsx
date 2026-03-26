@@ -11,6 +11,7 @@ export default function ScoreButton({
   color,
   textColor = '#fff',
   size,
+  fontStyle,
   onClick,
   onLongPress,
   className = '',
@@ -45,13 +46,22 @@ export default function ScoreButton({
     }
   }, []);
 
+  const scale = fontStyle?.fontScale ?? 1.0;
+  const offsetY = fontStyle?.fontOffsetY ?? 0.0;
+  const baseFontSize = size ? size / 2 : 56; // 3.5rem ≈ 56px
+  const scaledFontSize = baseFontSize * scale;
+  const offsetPx = size ? size * offsetY * 2.0 : 0;
+
   const btnStyle = {
     backgroundColor: color,
     color: textColor,
     width: size ? `${size}px` : undefined,
     height: size ? `${size}px` : undefined,
-    fontSize: size ? `${size / 2}px` : '3.5rem',
+    fontSize: `${scaledFontSize}px`,
     lineHeight: 1,
+    fontFamily: fontStyle?.fontFamily,
+    paddingTop: offsetPx > 0 ? `${offsetPx}px` : undefined,
+    paddingBottom: offsetPx < 0 ? `${-offsetPx}px` : undefined,
     ...style,
   };
 
