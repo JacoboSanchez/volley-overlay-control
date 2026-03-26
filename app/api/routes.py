@@ -226,7 +226,12 @@ async def get_links(session: GameSession = Depends(get_session)):
         links["control"] = f"https://app.overlays.uno/control/{oid}"
 
     if output and output.strip():
-        overlay_url = PasswordAuthenticator.compose_output(output)
+        # compose_output prepends the uno base URL for bare tokens;
+        # full URLs (custom overlays) are used as-is.
+        overlay_url = (
+            output if output.startswith("http")
+            else PasswordAuthenticator.compose_output(output)
+        )
         links["overlay"] = overlay_url
 
         token = overlay_url.split('/')[-1]
