@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 
 const LONG_PRESS_MS = 1000;
 
@@ -21,6 +21,16 @@ export default function ScoreButton({
   const pressTimer = useRef(null);
   const isLongPress = useRef(false);
 
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pressTimer.current) {
+        clearTimeout(pressTimer.current);
+        pressTimer.current = null;
+      }
+    };
+  }, []);
+
   const startPress = useCallback(() => {
     isLongPress.current = false;
     pressTimer.current = setTimeout(() => {
@@ -29,7 +39,11 @@ export default function ScoreButton({
     }, LONG_PRESS_MS);
   }, [onLongPress]);
 
-  const endPress = useCallback(() => {
+  const endPress = useCallback((e) => {
+    // Prevent mouse events from firing after touch events
+    if (e?.type === 'touchend') {
+      e.preventDefault();
+    }
     if (pressTimer.current) {
       clearTimeout(pressTimer.current);
       pressTimer.current = null;

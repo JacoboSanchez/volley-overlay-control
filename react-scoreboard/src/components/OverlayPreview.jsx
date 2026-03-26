@@ -18,13 +18,20 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
   useEffect(() => {
     if (!isCustomOverlay) return;
     function onMessage(event) {
+      // Validate origin — only accept messages from the overlay URL's origin
+      try {
+        const allowedOrigin = new URL(overlayUrl).origin;
+        if (event.origin !== allowedOrigin) return;
+      } catch {
+        return;
+      }
       if (event.data?.type === 'overlayRenderArea') {
         setCustomBounds(event.data.bounds);
       }
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [isCustomOverlay]);
+  }, [isCustomOverlay, overlayUrl]);
 
   if (!overlayUrl) return null;
 
@@ -73,6 +80,7 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
             width={iframeW}
             height={iframeH}
             style={{ border: 0, background: 'transparent' }}
+            sandbox="allow-scripts allow-same-origin"
             allowTransparency="true"
             title="Overlay preview"
             data-testid="overlay-preview"
@@ -130,6 +138,7 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
           width={iframeWidth}
           height={iframeHeight}
           style={{ border: 0, background: 'transparent', position: 'absolute', top: -topPx, left: -leftPx }}
+          sandbox="allow-scripts allow-same-origin"
           allowTransparency="true"
           title="Overlay preview"
           data-testid="overlay-preview"

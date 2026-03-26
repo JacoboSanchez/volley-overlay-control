@@ -43,7 +43,7 @@ class WSHub:
 
         message = json.dumps({"type": "state_update", "data": data})
         stale = []
-        for ws in conns:
+        for ws in list(conns):
             try:
                 await ws.send_text(message)
             except Exception:
@@ -65,7 +65,7 @@ class WSHub:
             loop = asyncio.get_running_loop()
             loop.create_task(cls.broadcast(oid, data))
         except RuntimeError:
-            pass
+            logger.debug("No running event loop — skipping broadcast for OID=%s", oid)
 
     @classmethod
     def clear(cls):

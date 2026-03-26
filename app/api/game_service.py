@@ -1,5 +1,5 @@
 import logging
-from app.api.schemas import GameStateResponse, TeamState, ActionResponse
+from app.api.schemas import GameStateResponse, TeamState, ActionResponse, ALLOWED_CUSTOMIZATION_KEYS
 from app.api.ws_hub import WSHub
 from app.state import State
 
@@ -106,6 +106,13 @@ class GameService:
 
     @staticmethod
     def add_timeout(session, team: int, undo: bool = False) -> ActionResponse:
+        if not undo and session.game_manager.match_finished():
+            return ActionResponse(
+                success=False,
+                state=GameService.get_state(session),
+                message="Match is already finished.",
+            )
+
         session.game_manager.add_timeout(team, undo)
 
         if undo and session.undo:
@@ -164,8 +171,16 @@ class GameService:
 
     @staticmethod
     def update_customization(session, data: dict) -> ActionResponse:
-        session.customization.set_model(data)
-        session.backend.save_json_customization(data)
+        # Filter to allowed keys only
+        filtered = {k: v for k, v in data.items() if k in ALLOWED_CUSTOMIZATION_KEYS}
+        if not filtered:
+            return ActionResponse(
+                success=False,
+                state=GameService.get_state(session),
+                message="No valid customization keys provided.",
+            )
+        session.customization.set_model(filtered)
+        session.backend.save_json_customization(filtered)
         GameService._broadcast(session)
         return ActionResponse(success=True, state=GameService.get_state(session))
 

@@ -95,7 +95,17 @@ function TeamCard({ teamId, label, model, updateField, predefinedTeams }) {
  */
 function LinksDialog({ links, onClose }) {
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).catch(() => {
+      // Fallback: select from a temporary textarea
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
   };
 
   return (
@@ -450,6 +460,14 @@ function OptionsCard({ settings, onSettingsChange }) {
 export default function ConfigPanel({ oid, customization, actions, onBack, onReset, onLogout, onCustomizationSaved }) {
   const [model, setModel] = useState(() => ({ ...customization }));
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  // Sync model when customization prop updates (e.g. after external refresh)
+  useEffect(() => {
+    if (customization) {
+      setModel({ ...customization });
+    }
+  }, [customization]);
   const [refreshing, setRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
   const [predefinedTeams, setPredefinedTeams] = useState({});
@@ -486,10 +504,13 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
 
   const handleSave = useCallback(async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await api.updateCustomization(oid, model);
       if (onCustomizationSaved) await onCustomizationSaved();
       onBack();
+    } catch (e) {
+      setSaveError(e.message || 'Failed to save customization');
     } finally {
       setSaving(false);
     }
@@ -756,6 +777,11 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
           <span className="material-icons">logout</span>
         </button>
       </div>
+
+      {/* Save error message */}
+      {saveError && (
+        <p className="init-error" style={{ textAlign: 'center', margin: '0.5rem 1rem' }}>{saveError}</p>
+      )}
 
       {/* Dialogs */}
       {showLinks && links && (

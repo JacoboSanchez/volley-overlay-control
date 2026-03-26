@@ -2,6 +2,19 @@ import React from 'react';
 import ScoreButton from './ScoreButton';
 
 /**
+ * Validate that a URL uses http or https protocol.
+ */
+function isSafeUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Team panel with score button, timeout button + indicators, and serve icon.
  * Supports custom button colors, team icon overlay, and icon opacity.
  * Mirrors the NiceGUI TeamPanel + ButtonStyle component.
@@ -44,9 +57,10 @@ export default function TeamPanel({
     );
   }
 
-  // Build icon overlay style if iconLogo is set
+  // Build icon overlay style if iconLogo is set and URL is safe
   const iconStyle = {};
-  if (iconLogo) {
+  const safeIconLogo = isSafeUrl(iconLogo) ? iconLogo : null;
+  if (safeIconLogo) {
     const alpha = 1.0 - iconOpacity / 100;
     // Parse hex color to rgba for overlay
     let r = 0, g = 0, b = 0;
@@ -56,7 +70,7 @@ export default function TeamPanel({
       g = parseInt(hex.substring(2, 4), 16);
       b = parseInt(hex.substring(4, 6), 16);
     }
-    iconStyle.backgroundImage = `linear-gradient(rgba(${r},${g},${b},${alpha}), rgba(${r},${g},${b},${alpha})), url(${iconLogo})`;
+    iconStyle.backgroundImage = `linear-gradient(rgba(${r},${g},${b},${alpha}), rgba(${r},${g},${b},${alpha})), url(${safeIconLogo})`;
     iconStyle.backgroundSize = 'contain';
     iconStyle.backgroundRepeat = 'no-repeat';
     iconStyle.backgroundPosition = 'center';

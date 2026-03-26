@@ -22,6 +22,28 @@ logger = logging.getLogger("APIRoutes")
 
 api_router = APIRouter(prefix="/api/v1", tags=["Scoreboard API v1"])
 
+_cleanup_task = None
+
+
+async def _session_cleanup_loop():
+    """Periodically remove expired sessions."""
+    import asyncio
+    while True:
+        await asyncio.sleep(3600)  # Run every hour
+        try:
+            removed = SessionManager.cleanup_expired()
+            if removed:
+                logger.info("Session cleanup removed %d expired sessions", removed)
+        except Exception:
+            logger.exception("Error during session cleanup")
+
+
+@api_router.on_event("startup")
+async def _start_cleanup():
+    global _cleanup_task
+    import asyncio
+    _cleanup_task = asyncio.create_task(_session_cleanup_loop())
+
 # ---------------------------------------------------------------------------
 # Session management
 # ---------------------------------------------------------------------------
@@ -117,48 +139,55 @@ async def get_config(session: GameSession = Depends(get_session)):
                  dependencies=[Depends(verify_api_key)])
 async def add_point(req: TeamActionRequest,
                     session: GameSession = Depends(get_session)):
-    return GameService.add_point(session, req.team, req.undo)
+    async with session.lock:
+        return GameService.add_point(session, req.team, req.undo)
 
 
 @api_router.post("/game/add-set", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
 async def add_set(req: TeamActionRequest,
                   session: GameSession = Depends(get_session)):
-    return GameService.add_set(session, req.team, req.undo)
+    async with session.lock:
+        return GameService.add_set(session, req.team, req.undo)
 
 
 @api_router.post("/game/add-timeout", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
 async def add_timeout(req: TeamActionRequest,
                       session: GameSession = Depends(get_session)):
-    return GameService.add_timeout(session, req.team, req.undo)
+    async with session.lock:
+        return GameService.add_timeout(session, req.team, req.undo)
 
 
 @api_router.post("/game/change-serve", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
 async def change_serve(req: ServeRequest,
                        session: GameSession = Depends(get_session)):
-    return GameService.change_serve(session, req.team)
+    async with session.lock:
+        return GameService.change_serve(session, req.team)
 
 
 @api_router.post("/game/set-score", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
 async def set_score(req: SetScoreRequest,
                     session: GameSession = Depends(get_session)):
-    return GameService.set_score(session, req.team, req.set_number, req.value)
+    async with session.lock:
+        return GameService.set_score(session, req.team, req.set_number, req.value)
 
 
 @api_router.post("/game/set-sets", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
 async def set_sets(req: SetSetsRequest,
                    session: GameSession = Depends(get_session)):
-    return GameService.set_sets_value(session, req.team, req.value)
+    async with session.lock:
+        return GameService.set_sets_value(session, req.team, req.value)
 
 
 @api_router.post("/game/reset", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
 async def reset_game(session: GameSession = Depends(get_session)):
-    return GameService.reset(session)
+    async with session.lock:
+        return GameService.reset(session)
 
 
 # ---------------------------------------------------------------------------
@@ -170,14 +199,16 @@ async def reset_game(session: GameSession = Depends(get_session)):
                  dependencies=[Depends(verify_api_key)])
 async def set_visibility(req: VisibilityRequest,
                          session: GameSession = Depends(get_session)):
-    return GameService.set_visibility(session, req.visible)
+    async with session.lock:
+        return GameService.set_visibility(session, req.visible)
 
 
 @api_router.post("/display/simple-mode", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
 async def set_simple_mode(req: SimpleModeRequest,
                           session: GameSession = Depends(get_session)):
-    return GameService.set_simple_mode(session, req.enabled)
+    async with session.lock:
+        return GameService.set_simple_mode(session, req.enabled)
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +220,8 @@ async def set_simple_mode(req: SimpleModeRequest,
                 dependencies=[Depends(verify_api_key)])
 async def update_customization(data: dict,
                                session: GameSession = Depends(get_session)):
-    return GameService.update_customization(session, data)
+    async with session.lock:
+        return GameService.update_customization(session, data)
 
 
 # ---------------------------------------------------------------------------

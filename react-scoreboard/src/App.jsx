@@ -26,29 +26,58 @@ function getInitialOid() {
   } catch { return ''; }
 }
 
+function readLocalSetting(key, fallback) {
+  try {
+    const v = localStorage.getItem('volley_' + key);
+    return v !== null ? JSON.parse(v) : fallback;
+  } catch { return fallback; }
+}
+
+function getInitialLocalSettings() {
+  return {
+    followTeamColors: readLocalSetting('followTeamColors', true),
+    showIcon: readLocalSetting('showIcon', false),
+    iconOpacity: readLocalSetting('iconOpacity', 50),
+    autoSimple: readLocalSetting('autoSimple', false),
+    autoSimpleOnTimeout: readLocalSetting('autoSimpleOnTimeout', false),
+    showPreview: readLocalSetting('showPreview', false),
+    selectedFont: readLocalSetting('selectedFont', 'Default'),
+    team1BtnColor: readLocalSetting('team1BtnColor', TEAM_A_COLOR),
+    team1BtnText: readLocalSetting('team1BtnText', '#ffffff'),
+    team2BtnColor: readLocalSetting('team2BtnColor', TEAM_B_COLOR),
+    team2BtnText: readLocalSetting('team2BtnText', '#ffffff'),
+  };
+}
+
 export default function App() {
   const [oid, setOid] = useState(getInitialOid);
   const [oidInput, setOidInput] = useState(oid);
   const [undoMode, setUndoMode] = useState(false);
-  const [simpleMode, setSimpleMode] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
   const [buttonSize, setButtonSize] = useState(null);
   const [activeTab, setActiveTab] = useState('scoreboard');
 
-  // Local visual settings (persisted in localStorage by ConfigPanel)
-  const readLocalSetting = (key, fallback) => {
-    try {
-      const v = localStorage.getItem('volley_' + key);
-      return v !== null ? JSON.parse(v) : fallback;
-    } catch { return fallback; }
-  };
-  const followTeamColors = readLocalSetting('followTeamColors', true);
-  const showIcon = readLocalSetting('showIcon', false);
-  const iconOpacity = readLocalSetting('iconOpacity', 50);
-  const autoSimple = readLocalSetting('autoSimple', false);
-  const autoSimpleOnTimeout = readLocalSetting('autoSimpleOnTimeout', false);
-  const showPreview = readLocalSetting('showPreview', false);
-  const selectedFont = readLocalSetting('selectedFont', 'Default');
+  // Local visual settings as React state (synced from localStorage)
+  const [localSettings, setLocalSettings] = useState(getInitialLocalSettings);
+
+  // Re-read local settings when returning from config panel or on storage events
+  useEffect(() => {
+    function syncSettings() {
+      setLocalSettings(getInitialLocalSettings());
+    }
+    window.addEventListener('storage', syncSettings);
+    return () => window.removeEventListener('storage', syncSettings);
+  }, []);
+
+  // Re-read settings when switching back to scoreboard tab
+  useEffect(() => {
+    if (activeTab === 'scoreboard') {
+      setLocalSettings(getInitialLocalSettings());
+    }
+  }, [activeTab]);
+
+  const { followTeamColors, showIcon, iconOpacity, autoSimple, autoSimpleOnTimeout,
+          showPreview, selectedFont } = localSettings;
 
   // Preview data (overlay URL + geometry for cropping)
   const [previewData, setPreviewData] = useState(null);
@@ -91,6 +120,8 @@ export default function App() {
   const setsLimit = state?.config?.sets_limit ?? 5;
   const pointsLimit = state?.config?.points_limit ?? 25;
   const matchFinished = state?.match_finished ?? false;
+  // Use server's simple_mode as source of truth
+  const simpleMode = state?.simple_mode ?? false;
 
   const computeCurrentSet = useCallback(() => {
     if (!state) return 1;
@@ -106,7 +137,6 @@ export default function App() {
   useEffect(() => {
     if (state) {
       setCurrentSet(computeCurrentSet());
-      setSimpleMode(state.simple_mode);
     }
   }, [state, computeCurrentSet]);
 
@@ -157,7 +187,6 @@ export default function App() {
       // Auto simple mode: switch to simple after scoring
       if (autoSimple && !simpleMode && !undoMode) {
         actions.setSimpleMode(true);
-        setSimpleMode(true);
       }
     },
     [actions, undoMode, matchFinished, autoSimple, simpleMode]
@@ -174,15 +203,15 @@ export default function App() {
 
   const handleAddTimeout = useCallback(
     (team) => {
+      if (!undoMode && matchFinished) return;
       actions.addTimeout(team, undoMode);
       if (undoMode) setUndoMode(false);
       // Auto simple on timeout: switch back to full mode when timeout is called
       if (autoSimple && autoSimpleOnTimeout && simpleMode && !undoMode) {
         actions.setSimpleMode(false);
-        setSimpleMode(false);
       }
     },
-    [actions, undoMode, autoSimple, autoSimpleOnTimeout, simpleMode]
+    [actions, undoMode, matchFinished, autoSimple, autoSimpleOnTimeout, simpleMode]
   );
 
   const handleChangeServe = useCallback(
@@ -200,7 +229,6 @@ export default function App() {
 
   const handleToggleSimpleMode = useCallback(() => {
     actions.setSimpleMode(!simpleMode);
-    setSimpleMode((s) => !s);
   }, [actions, simpleMode]);
 
   const handleToggleUndo = useCallback(() => {
@@ -211,7 +239,6 @@ export default function App() {
     if (window.confirm('Reset the match?')) {
       actions.reset();
       setUndoMode(false);
-      setSimpleMode(false);
     }
   }, [actions]);
 
@@ -221,7 +248,6 @@ export default function App() {
     setOidInput('');
     setPreviewData(null);
     setUndoMode(false);
-    setSimpleMode(false);
     setActiveTab('scoreboard');
   }, []);
 
@@ -282,16 +308,16 @@ export default function App() {
   // Compute button colors from settings
   const btnColorA = followTeamColors
     ? (customization?.['Team 1 Color'] ?? TEAM_A_COLOR)
-    : readLocalSetting('team1BtnColor', TEAM_A_COLOR);
+    : (localSettings.team1BtnColor ?? TEAM_A_COLOR);
   const btnTextA = followTeamColors
     ? (customization?.['Team 1 Text Color'] ?? '#ffffff')
-    : readLocalSetting('team1BtnText', '#ffffff');
+    : (localSettings.team1BtnText ?? '#ffffff');
   const btnColorB = followTeamColors
     ? (customization?.['Team 2 Color'] ?? TEAM_B_COLOR)
-    : readLocalSetting('team2BtnColor', TEAM_B_COLOR);
+    : (localSettings.team2BtnColor ?? TEAM_B_COLOR);
   const btnTextB = followTeamColors
     ? (customization?.['Team 2 Text Color'] ?? '#ffffff')
-    : readLocalSetting('team2BtnText', '#ffffff');
+    : (localSettings.team2BtnText ?? '#ffffff');
 
   const iconLogoA = showIcon ? (customization?.['Team 1 Logo'] ?? null) : null;
   const iconLogoB = showIcon ? (customization?.['Team 2 Logo'] ?? null) : null;

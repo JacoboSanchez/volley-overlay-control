@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import * as api from '../api/client';
 import { createWebSocket } from '../api/websocket';
 
@@ -13,7 +13,7 @@ export function useGameState(oid) {
   const [error, setError] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
-  const initRef = useRef(false); // guard against concurrent initialize calls
+  const abortRef = useRef(null); // AbortController for cancelling in-flight init
 
   /** Safely tear down the current WebSocket without triggering reconnect. */
   const closeWs = useCallback(() => {
@@ -46,7 +46,7 @@ export function useGameState(oid) {
     });
   }, [oid, closeWs]);
 
-  const initialize = useCallback(async (opts = {}) => {
+  const initialize = useCallback(async () => {
     if (!oid) {
       setState(null);
       setCustomization(null);
@@ -54,30 +54,46 @@ export function useGameState(oid) {
       setError(null);
       return;
     }
-    // Prevent overlapping initializations (e.g. StrictMode double-fire)
-    if (initRef.current) return;
-    initRef.current = true;
+    // Cancel any in-flight initialization
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       setError(null);
-      const res = await api.initSession(oid, opts);
+      const res = await api.initSession(oid);
+      if (controller.signal.aborted) return;
       if (res.success) {
         setState(res.state);
         const cust = await api.getCustomization(oid);
+        if (controller.signal.aborted) return;
         setCustomization(cust);
         connectWs();
       } else {
         setError(res.message || 'Session initialization failed');
       }
     } catch (e) {
-      setError(e.message);
+      if (!controller.signal.aborted) {
+        setError(e.message);
+      }
     } finally {
-      initRef.current = false;
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
     }
   }, [oid, connectWs]);
 
   // Cleanup on unmount or OID change
   useEffect(() => {
-    return () => closeWs();
+    return () => {
+      closeWs();
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
+    };
   }, [oid, closeWs]);
 
   // Action helpers — all update state from the response
@@ -94,7 +110,7 @@ export function useGameState(oid) {
     }
   }, []);
 
-  const actions = {
+  const actions = useMemo(() => ({
     addPoint: (team, undo = false) => handleAction(() => api.addPoint(oid, team, undo)),
     addSet: (team, undo = false) => handleAction(() => api.addSet(oid, team, undo)),
     addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid, team, undo)),
@@ -104,7 +120,7 @@ export function useGameState(oid) {
     reset: () => handleAction(() => api.resetGame(oid)),
     setVisibility: (visible) => handleAction(() => api.setVisibility(oid, visible)),
     setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid, enabled)),
-  };
+  }), [oid, handleAction]);
 
   const refreshCustomization = useCallback(async () => {
     if (!oid) return;
