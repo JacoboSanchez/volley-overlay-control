@@ -320,10 +320,6 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Connection status */}
-      <div className={`status-bar ${connected ? 'status-connected' : 'status-disconnected'}`}>
-        {connected ? 'Connected' : 'Disconnected — reconnecting...'}
-      </div>
 
       {/* Main scoreboard layout */}
       {activeTab === 'scoreboard' && (
