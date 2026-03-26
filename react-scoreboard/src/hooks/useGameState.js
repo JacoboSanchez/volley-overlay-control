@@ -20,7 +20,14 @@ export function useGameState(oid) {
 
   const connectWs = useCallback(() => {
     if (!oid) return;
+    // Clear pending reconnect so the old onClose doesn't re-trigger
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+    }
     if (wsRef.current) {
+      // Null out onclose before manual close to prevent reconnect loop
+      wsRef.current.onclose = null;
       wsRef.current.close();
     }
     wsRef.current = createWebSocket(oid, {
