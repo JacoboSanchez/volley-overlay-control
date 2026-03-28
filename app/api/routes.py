@@ -248,6 +248,9 @@ async def get_overlays(authorization: str = Header(None)):
 
     try:
         overlays = json.loads(overlays_json)
+        if not isinstance(overlays, dict):
+            logger.warning("PREDEFINED_OVERLAYS is not a JSON object")
+            return []
     except json.JSONDecodeError:
         logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
         return []
