@@ -113,20 +113,6 @@ class PasswordAuthenticator:
             else:
                 ui.notify(Messages.get(Messages.WRONG_USER_NAME), color='negative')
     
-    def check_api_key(key: str) -> bool:
-        """Check if *key* matches any configured user password.
-
-        This allows API clients to authenticate using any valid password
-        from ``SCOREBOARD_USERS`` as a Bearer token.
-        """
-        users = PasswordAuthenticator._get_users()
-        if users is None:
-            return False
-        for userconf in users.values():
-            if userconf.get("password") == key:
-                return True
-        return False
-
     @classmethod
     def get_username_for_api_key(cls, key: str):
         """Return the username whose password matches *key*, or ``None``."""
@@ -137,6 +123,14 @@ class PasswordAuthenticator:
             if userconf.get("password") == key:
                 return username
         return None
+
+    def check_api_key(key: str) -> bool:
+        """Check if *key* matches any configured user password.
+
+        This allows API clients to authenticate using any valid password
+        from ``SCOREBOARD_USERS`` as a Bearer token.
+        """
+        return PasswordAuthenticator.get_username_for_api_key(key) is not None
 
     def compose_output(output : str) -> str:
         prefix = PasswordAuthenticator.UNO_OUTPUT_BASE_URL

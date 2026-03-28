@@ -257,7 +257,7 @@ async def get_overlays(authorization: str = Header(None)):
 
     # Identify the calling user for allowed_users filtering
     current_user = None
-    if PasswordAuthenticator.do_authenticate_users() and authorization:
+    if PasswordAuthenticator.do_authenticate_users():
         token = authorization.removeprefix("Bearer ").strip()
         current_user = PasswordAuthenticator.get_username_for_api_key(
             token)
