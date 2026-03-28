@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import urllib.parse
 from fastapi import APIRouter, Depends, Header, Request, WebSocket, WebSocketDisconnect, Query
 
@@ -25,8 +24,6 @@ logger = logging.getLogger("APIRoutes")
 
 api_router = APIRouter(prefix="/api/v1", tags=["Scoreboard API v1"])
 
-_OID_FROM_URL_RE = re.compile(
-    r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??")
 
 _cleanup_task = None
 
@@ -257,9 +254,7 @@ async def get_overlays(authorization: str = Header(None)):
 
     # Identify the calling user for allowed_users filtering
     current_user = None
-    if (PasswordAuthenticator.do_authenticate_users()
-            and authorization
-            and authorization.startswith("Bearer ")):
+    if PasswordAuthenticator.do_authenticate_users() and authorization:
         token = authorization.removeprefix("Bearer ").strip()
         current_user = PasswordAuthenticator.get_username_for_api_key(
             token)
@@ -272,8 +267,7 @@ async def get_overlays(authorization: str = Header(None)):
                      or current_user not in allowed_users)):
             continue
         control = config.get('control', '')
-        m = _OID_FROM_URL_RE.match(control)
-        oid = m.group(1) if m else control
+        oid = OidDialog.extract_oid(control)
         result.append({"name": name, "oid": oid})
 
     return result
