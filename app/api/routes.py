@@ -1,6 +1,7 @@
+import json
 import logging
 import urllib.parse
-from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, Header, Request, WebSocket, WebSocketDisconnect, Query
 
 from app.api.schemas import (
     InitRequest, TeamActionRequest, SetScoreRequest, SetSetsRequest,
@@ -16,11 +17,13 @@ from app.backend import Backend
 from app.state import State
 from app.customization import Customization
 from app.authentication import PasswordAuthenticator
+from app.env_vars_manager import EnvVarsManager
 from app.oid_dialog import OidDialog
 
 logger = logging.getLogger("APIRoutes")
 
 api_router = APIRouter(prefix="/api/v1", tags=["Scoreboard API v1"])
+
 
 _cleanup_task = None
 
@@ -227,6 +230,45 @@ async def update_customization(data: dict,
 # ---------------------------------------------------------------------------
 # Predefined data (teams, themes, links)
 # ---------------------------------------------------------------------------
+
+
+@api_router.get("/overlays",
+                dependencies=[Depends(verify_api_key)])
+async def get_overlays(authorization: str = Header(None)):
+    """Return predefined overlays available for selection.
+
+    Reads the ``PREDEFINED_OVERLAYS`` env var and returns an array of
+    ``{name, oid}`` objects.  When authentication is enabled the list is
+    filtered by ``allowed_users`` using the caller's identity.
+    """
+    overlays_json = EnvVarsManager.get_env_var(
+        'PREDEFINED_OVERLAYS', None)
+    if not overlays_json or not overlays_json.strip():
+        return []
+
+    try:
+        overlays = json.loads(overlays_json)
+        if not isinstance(overlays, dict):
+            logger.warning("PREDEFINED_OVERLAYS is not a JSON object")
+            return []
+    except json.JSONDecodeError:
+        logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
+        return []
+
+    # Identify the calling user for allowed_users filtering
+    current_user = None
+    if PasswordAuthenticator.do_authenticate_users():
+        token = authorization.removeprefix("Bearer ").strip()
+        current_user = PasswordAuthenticator.get_username_for_api_key(
+            token)
+
+    return [
+        {"name": name, "oid": OidDialog.extract_oid(
+            config.get('control', ''))}
+        for name, config in overlays.items()
+        if config.get('allowed_users') is None
+        or (current_user and current_user in config.get('allowed_users'))
+    ]
 
 
 @api_router.get("/teams",
