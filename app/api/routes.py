@@ -1,6 +1,8 @@
+import json
 import logging
+import re
 import urllib.parse
-from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, Header, Request, WebSocket, WebSocketDisconnect, Query
 
 from app.api.schemas import (
     InitRequest, TeamActionRequest, SetScoreRequest, SetSetsRequest,
@@ -16,6 +18,7 @@ from app.backend import Backend
 from app.state import State
 from app.customization import Customization
 from app.authentication import PasswordAuthenticator
+from app.env_vars_manager import EnvVarsManager
 from app.oid_dialog import OidDialog
 
 logger = logging.getLogger("APIRoutes")
@@ -227,6 +230,52 @@ async def update_customization(data: dict,
 # ---------------------------------------------------------------------------
 # Predefined data (teams, themes, links)
 # ---------------------------------------------------------------------------
+
+
+@api_router.get("/overlays",
+                dependencies=[Depends(verify_api_key)])
+async def get_overlays(authorization: str = Header(None)):
+    """Return predefined overlays available for selection.
+
+    Reads the ``PREDEFINED_OVERLAYS`` env var and returns an array of
+    ``{name, oid}`` objects.  When authentication is enabled the list is
+    filtered by ``allowed_users`` using the caller's identity.
+    """
+    overlays_json = EnvVarsManager.get_env_var(
+        'PREDEFINED_OVERLAYS', None)
+    if not overlays_json or not overlays_json.strip():
+        return []
+
+    overlays = json.loads(overlays_json)
+
+    # Identify the calling user for allowed_users filtering
+    current_user = None
+    if (PasswordAuthenticator.do_authenticate_users()
+            and authorization
+            and authorization.startswith("Bearer ")):
+        token = authorization.removeprefix("Bearer ").strip()
+        users = PasswordAuthenticator._get_users() or {}
+        for uname, uconf in users.items():
+            if uconf.get("password") == token:
+                current_user = uname
+                break
+
+    oid_pattern = re.compile(
+        r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??")
+
+    result = []
+    for name, config in overlays.items():
+        allowed_users = config.get('allowed_users', None)
+        if (allowed_users is not None
+                and (current_user is None
+                     or current_user not in allowed_users)):
+            continue
+        control = config.get('control', '')
+        m = oid_pattern.match(control)
+        oid = m.group(1) if m else control
+        result.append({"name": name, "oid": oid})
+
+    return result
 
 
 @api_router.get("/teams",
