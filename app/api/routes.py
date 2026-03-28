@@ -262,18 +262,13 @@ async def get_overlays(authorization: str = Header(None)):
         current_user = PasswordAuthenticator.get_username_for_api_key(
             token)
 
-    result = []
-    for name, config in overlays.items():
-        allowed_users = config.get('allowed_users', None)
-        if (allowed_users is not None
-                and (current_user is None
-                     or current_user not in allowed_users)):
-            continue
-        control = config.get('control', '')
-        oid = OidDialog.extract_oid(control)
-        result.append({"name": name, "oid": oid})
-
-    return result
+    return [
+        {"name": name, "oid": OidDialog.extract_oid(
+            config.get('control', ''))}
+        for name, config in overlays.items()
+        if config.get('allowed_users') is None
+        or (current_user and current_user in config.get('allowed_users'))
+    ]
 
 
 @api_router.get("/teams",
