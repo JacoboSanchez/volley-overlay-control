@@ -25,6 +25,9 @@ logger = logging.getLogger("APIRoutes")
 
 api_router = APIRouter(prefix="/api/v1", tags=["Scoreboard API v1"])
 
+_OID_FROM_URL_RE = re.compile(
+    r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??")
+
 _cleanup_task = None
 
 
@@ -246,7 +249,11 @@ async def get_overlays(authorization: str = Header(None)):
     if not overlays_json or not overlays_json.strip():
         return []
 
-    overlays = json.loads(overlays_json)
+    try:
+        overlays = json.loads(overlays_json)
+    except json.JSONDecodeError:
+        logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
+        return []
 
     # Identify the calling user for allowed_users filtering
     current_user = None
@@ -254,14 +261,8 @@ async def get_overlays(authorization: str = Header(None)):
             and authorization
             and authorization.startswith("Bearer ")):
         token = authorization.removeprefix("Bearer ").strip()
-        users = PasswordAuthenticator._get_users() or {}
-        for uname, uconf in users.items():
-            if uconf.get("password") == token:
-                current_user = uname
-                break
-
-    oid_pattern = re.compile(
-        r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??")
+        current_user = PasswordAuthenticator.get_username_for_api_key(
+            token)
 
     result = []
     for name, config in overlays.items():
@@ -271,7 +272,7 @@ async def get_overlays(authorization: str = Header(None)):
                      or current_user not in allowed_users)):
             continue
         control = config.get('control', '')
-        m = oid_pattern.match(control)
+        m = _OID_FROM_URL_RE.match(control)
         oid = m.group(1) if m else control
         result.append({"name": name, "oid": oid})
 

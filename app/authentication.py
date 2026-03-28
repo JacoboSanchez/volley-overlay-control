@@ -127,6 +127,17 @@ class PasswordAuthenticator:
                 return True
         return False
 
+    @classmethod
+    def get_username_for_api_key(cls, key: str):
+        """Return the username whose password matches *key*, or ``None``."""
+        users = cls._get_users()
+        if users is None:
+            return None
+        for username, userconf in users.items():
+            if userconf.get("password") == key:
+                return username
+        return None
+
     def compose_output(output : str) -> str:
         prefix = PasswordAuthenticator.UNO_OUTPUT_BASE_URL
         if not output.startswith(prefix):
