@@ -17,8 +17,8 @@ class InitRequest(BaseModel):
     @field_validator('oid')
     @classmethod
     def validate_oid(cls, v):
-        if not re.match(r'^[A-Za-z0-9_\-]+$', v):
-            raise ValueError('OID must contain only alphanumeric characters, hyphens, and underscores')
+        if not re.match(r'^[A-Za-z0-9_\-/.]+$', v):
+            raise ValueError('OID must contain only alphanumeric characters, hyphens, underscores, slashes, and dots')
         return v
 
 

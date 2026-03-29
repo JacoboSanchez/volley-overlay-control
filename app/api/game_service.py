@@ -58,6 +58,19 @@ class GameService:
     def get_customization(session) -> dict:
         return session.customization.get_model()
 
+    @staticmethod
+    def refresh_customization(session) -> dict:
+        """Re-fetch customization from the overlay server and update the session cache.
+
+        For custom overlays this performs an HTTP round-trip to the overlay server
+        so the React UI always sees the latest team names, colors, logos, etc.
+        For Uno overlays the backend fetches from the Uno API.
+        """
+        fresh = session.backend.get_current_customization()
+        if fresh:
+            session.customization.set_model(fresh)
+        return session.customization.get_model()
+
     # ------------------------------------------------------------------
     # State mutations
     # ------------------------------------------------------------------
@@ -179,8 +192,12 @@ class GameService:
                 state=GameService.get_state(session),
                 message="No valid customization keys provided.",
             )
-        session.customization.set_model(filtered)
-        session.backend.save_json_customization(filtered)
+        # Merge into existing model to preserve keys not in the allowed set
+        # (e.g. Team 1 Logo Fit, Color 3, Text Color 3)
+        current = session.customization.get_model()
+        merged = {**current, **filtered}
+        session.customization.set_model(merged)
+        session.backend.save_json_customization(merged)
         GameService._broadcast(session)
         return ActionResponse(success=True, state=GameService.get_state(session))
 
