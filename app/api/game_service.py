@@ -67,7 +67,7 @@ class GameService:
         For Uno overlays the backend fetches from the Uno API.
         """
         fresh = session.backend.get_current_customization()
-        if fresh:
+        if fresh is not None:
             session.customization.set_model(fresh)
         return session.customization.get_model()
 
