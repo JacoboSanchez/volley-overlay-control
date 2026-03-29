@@ -76,6 +76,9 @@ async def init_session(req: InitRequest):
             req.oid, conf, None,
             req.points_limit, req.points_limit_last_set, req.sets_limit,
         )
+        # Refresh customization from the overlay server so the React UI
+        # always sees the latest team names, colors, logos, etc.
+        GameService.refresh_customization(session)
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     # New session: create Backend and validate OID
@@ -120,7 +123,7 @@ async def get_state(session: GameSession = Depends(get_session)):
 @api_router.get("/customization",
                 dependencies=[Depends(verify_api_key)])
 async def get_customization(session: GameSession = Depends(get_session)):
-    return GameService.get_customization(session)
+    return GameService.refresh_customization(session)
 
 
 @api_router.get("/config",
