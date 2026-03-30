@@ -365,3 +365,45 @@ def test_custom_overlay_is_visible_fallback(mock_load, backend, mock_requests_se
     conf.oid = "C-test_overlay"
     assert backend.is_visible() is True
     mock_requests_session.put.assert_not_called()
+
+
+def test_validate_custom_overlay_oid_is_valid(backend, mock_requests_session, conf):
+    """Tests that a C- prefixed custom overlay OID validates as VALID."""
+    conf.oid = "C-test_overlay"
+    result = backend.validate_and_store_model_for_oid("C-test_overlay")
+    assert result == State.OIDStatus.VALID
+
+
+def test_validate_custom_overlay_oid_with_style_is_valid(backend, mock_requests_session, conf):
+    """Tests that a custom overlay OID with style suffix validates as VALID."""
+    conf.oid = "C-test_overlay/line"
+    result = backend.validate_and_store_model_for_oid("C-test_overlay/line")
+    assert result == State.OIDStatus.VALID
+
+
+def test_extract_oid_preserves_underscores_in_uno_url():
+    """Tests that extract_oid correctly captures OIDs with underscores from Uno URLs."""
+    from app.oid_dialog import OidDialog
+    assert OidDialog.extract_oid("https://app.overlays.uno/control/abc_123") == "abc_123"
+
+
+def test_extract_oid_preserves_custom_overlay_oid():
+    """Tests that extract_oid returns custom overlay OIDs unchanged."""
+    from app.oid_dialog import OidDialog
+    assert OidDialog.extract_oid("C-mybroadcast") == "C-mybroadcast"
+    assert OidDialog.extract_oid("C-mybroadcast/line") == "C-mybroadcast/line"
+
+
+def test_extract_oid_handles_query_params():
+    """Tests that extract_oid strips query params from Uno URLs."""
+    from app.oid_dialog import OidDialog
+    assert OidDialog.extract_oid("https://app.overlays.uno/control/abc123?token=x") == "abc123"
+
+
+def test_api_schema_accepts_custom_overlay_oid():
+    """Tests that the API InitRequest schema accepts custom overlay OID formats."""
+    from app.api.schemas import InitRequest
+    req = InitRequest(oid="C-mybroadcast")
+    assert req.oid == "C-mybroadcast"
+    req2 = InitRequest(oid="C-mybroadcast/line")
+    assert req2.oid == "C-mybroadcast/line"
