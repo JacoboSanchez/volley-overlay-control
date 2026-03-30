@@ -138,7 +138,7 @@ class OidDialog:
     
     @staticmethod
     def extract_oid(url: str) -> str:
-        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??"
+        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9_\-/.]+?)(?:\?.*)?$"
         match = re.match(pattern, url)
         if match:
             return match.group(1)
