@@ -403,8 +403,11 @@ class Backend:
                     if not data:
                         from app.customization import Customization
                         data = copy.copy(Customization.reset_state)
-                    
-                    if style and data.get("preferredStyle") != style:
+
+                    # Only use the OID style as the initial default when no
+                    # preferredStyle has been explicitly saved yet.  Once the
+                    # user picks a style via the UI it must be respected.
+                    if style and not data.get("preferredStyle"):
                         data["preferredStyle"] = style
                         try:
                             self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"customization": data}, timeout=2.0)
@@ -418,7 +421,7 @@ class Backend:
 
             from app.customization import Customization
             data = copy.copy(Customization.reset_state)
-            if style and data.get("preferredStyle") != style:
+            if style and not data.get("preferredStyle"):
                 data["preferredStyle"] = style
                 try:
                     self.session.post(f"{base_url}/api/raw_config/{custom_id}", json={"customization": data}, timeout=2.0)
