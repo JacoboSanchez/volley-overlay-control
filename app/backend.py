@@ -226,14 +226,13 @@ class Backend:
 
     def save_model(self, current_model, simple):
         Backend.logger.info('saving model...')
-        
+
         # Uno overlays store in user session, custom overlays store globally
         if self.is_custom_overlay(self.conf.oid):
             raw_payload = {"model": current_model}
-            # Prefer WS for raw_config persistence
-            if self._ws_client and self._ws_client.is_connected:
-                self._ws_client.send_raw_config(raw_payload)
-            else:
+            # Prefer WS for raw_config persistence; fall back to HTTP if WS send fails
+            ws_saved = self._ws_client and self._ws_client.is_connected and self._ws_client.send_raw_config(raw_payload)
+            if not ws_saved:
                 custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
                 base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
                 try:
@@ -285,10 +284,9 @@ class Backend:
         # update local overlay as well, fetching current state if custom
         if self.is_custom_overlay():
             raw_payload = {"customization": to_save}
-            # Prefer WS for raw_config persistence
-            if self._ws_client and self._ws_client.is_connected:
-                self._ws_client.send_raw_config(raw_payload)
-            else:
+            # Prefer WS for raw_config persistence; fall back to HTTP if WS send fails
+            ws_saved = self._ws_client and self._ws_client.is_connected and self._ws_client.send_raw_config(raw_payload)
+            if not ws_saved:
                 custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
                 base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
                 try:

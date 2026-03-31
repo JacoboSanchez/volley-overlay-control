@@ -407,3 +407,83 @@ def test_api_schema_accepts_custom_overlay_oid():
     assert req.oid == "C-mybroadcast"
     req2 = InitRequest(oid="C-mybroadcast/line")
     assert req2.oid == "C-mybroadcast/line"
+
+
+# --- WS raw_config fallback tests ---
+
+def _make_ws_client(send_raw_config_return=True):
+    """Helper that returns a mock WSControlClient."""
+    ws = MagicMock()
+    ws.is_connected = True
+    ws.send_raw_config.return_value = send_raw_config_return
+    ws.send_state.return_value = True
+    return ws
+
+
+def test_save_json_customization_ws_success_skips_http(backend, mock_requests_session, conf):
+    """When WS send_raw_config succeeds, HTTP POST to raw_config must NOT be called."""
+    conf.oid = "C-test_overlay"
+    conf.multithread = False
+    backend._ws_client = _make_ws_client(send_raw_config_return=True)
+
+    backend.save_json_customization({"preferredStyle": "line"})
+
+    raw_config_calls = [
+        c for c in mock_requests_session.post.call_args_list
+        if '/api/raw_config/' in str(c)
+    ]
+    assert raw_config_calls == [], "HTTP raw_config POST should be skipped when WS succeeds"
+    backend._ws_client.send_raw_config.assert_called_once()
+
+
+def test_save_json_customization_ws_failure_falls_back_to_http(backend, mock_requests_session, conf):
+    """When WS send_raw_config fails, the customization must still be saved via HTTP."""
+    conf.oid = "C-test_overlay"
+    conf.multithread = False
+    backend._ws_client = _make_ws_client(send_raw_config_return=False)
+
+    backend.save_json_customization({"preferredStyle": "line"})
+
+    raw_config_calls = [
+        c for c in mock_requests_session.post.call_args_list
+        if '/api/raw_config/' in str(c)
+    ]
+    assert len(raw_config_calls) == 1, "HTTP raw_config POST must be called as fallback when WS fails"
+    assert raw_config_calls[0][0][0] == "http://localhost:8000/api/raw_config/test_overlay"
+    posted_body = raw_config_calls[0][1]["json"]
+    assert posted_body == {"customization": {"preferredStyle": "line"}}
+
+
+def test_save_model_ws_success_skips_http(backend, mock_requests_session, conf):
+    """When WS send_raw_config succeeds, HTTP POST to raw_config must NOT be called."""
+    conf.oid = "C-test_overlay"
+    conf.multithread = False
+    backend._ws_client = _make_ws_client(send_raw_config_return=True)
+
+    backend.save_model({"Team 1 Sets": "1"}, simple=False)
+
+    raw_config_calls = [
+        c for c in mock_requests_session.post.call_args_list
+        if '/api/raw_config/' in str(c)
+    ]
+    assert raw_config_calls == [], "HTTP raw_config POST should be skipped when WS succeeds"
+    backend._ws_client.send_raw_config.assert_called_once()
+
+
+def test_save_model_ws_failure_falls_back_to_http(backend, mock_requests_session, conf):
+    """When WS send_raw_config fails, the model must still be saved via HTTP."""
+    conf.oid = "C-test_overlay"
+    conf.multithread = False
+    backend._ws_client = _make_ws_client(send_raw_config_return=False)
+
+    mock_model = {"Team 1 Sets": "1"}
+    backend.save_model(mock_model, simple=False)
+
+    raw_config_calls = [
+        c for c in mock_requests_session.post.call_args_list
+        if '/api/raw_config/' in str(c)
+    ]
+    assert len(raw_config_calls) == 1, "HTTP raw_config POST must be called as fallback when WS fails"
+    assert raw_config_calls[0][0][0] == "http://localhost:8000/api/raw_config/test_overlay"
+    posted_body = raw_config_calls[0][1]["json"]
+    assert posted_body == {"model": mock_model}
