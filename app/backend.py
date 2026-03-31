@@ -231,7 +231,7 @@ class Backend:
         if self.is_custom_overlay(self.conf.oid):
             raw_payload = {"model": current_model}
             # Prefer WS for raw_config persistence; fall back to HTTP if WS send fails
-            ws_saved = self._ws_client and self._ws_client.is_connected and self._ws_client.send_raw_config(raw_payload)
+            ws_saved = self.ws_connected and self._ws_client.send_raw_config(raw_payload)
             if not ws_saved:
                 custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
                 base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
@@ -285,7 +285,7 @@ class Backend:
         if self.is_custom_overlay():
             raw_payload = {"customization": to_save}
             # Prefer WS for raw_config persistence; fall back to HTTP if WS send fails
-            ws_saved = self._ws_client and self._ws_client.is_connected and self._ws_client.send_raw_config(raw_payload)
+            ws_saved = self.ws_connected and self._ws_client.send_raw_config(raw_payload)
             if not ws_saved:
                 custom_id, _ = self.get_custom_overlay_id(self.conf.oid)
                 base_url = EnvVarsManager.get_custom_overlay_url().rstrip('/')
