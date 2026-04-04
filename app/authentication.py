@@ -56,10 +56,12 @@ class PasswordAuthenticator:
             cls._cached_users = None
         return cls._cached_users
 
+    @staticmethod
     def do_authenticate_users() -> bool:
         passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
         return passwords_json is not None and passwords_json.strip() != ''
 
+    @staticmethod
     def check_user(user:str, password:str) -> bool:
         logger.debug("checking user")
         passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
@@ -124,6 +126,7 @@ class PasswordAuthenticator:
                 return username
         return None
 
+    @staticmethod
     def check_api_key(key: str) -> bool:
         """Check if *key* matches any configured user password.
 
@@ -132,12 +135,14 @@ class PasswordAuthenticator:
         """
         return PasswordAuthenticator.get_username_for_api_key(key) is not None
 
+    @staticmethod
     def compose_output(output : str) -> str:
         prefix = PasswordAuthenticator.UNO_OUTPUT_BASE_URL
         if not output.startswith(prefix):
             return prefix + output
         return output
 
+    @staticmethod
     def logout():
         logger.info("logging out")
         AppStorage.clear_user_storage()

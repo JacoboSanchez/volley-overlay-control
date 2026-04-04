@@ -3,7 +3,8 @@ import logging
 import urllib.parse
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import APIRouter, Depends, Header, Request, WebSocket, WebSocketDisconnect, Query
+from starlette.concurrency import run_in_threadpool
+from fastapi import APIRouter, Depends, Header, Request, WebSocket, WebSocketDisconnect, Query, HTTPException
 
 from app.api.schemas import (
     InitRequest, TeamActionRequest, SetScoreRequest, SetSetsRequest,
@@ -25,6 +26,12 @@ from app.oid_dialog import OidDialog
 logger = logging.getLogger("APIRoutes")
 
 _cleanup_task = None
+_init_locks = {}
+
+def _get_init_lock(oid: str):
+    if oid not in _init_locks:
+        _init_locks[oid] = asyncio.Lock()
+    return _init_locks[oid]
 
 
 async def _session_cleanup_loop():
@@ -57,8 +64,11 @@ api_router = APIRouter(prefix="/api/v1", tags=["Scoreboard API v1"], lifespan=ro
 
 @api_router.post("/session/init", response_model=ActionResponse,
                  dependencies=[Depends(verify_api_key)])
-async def init_session(req: InitRequest):
+async def init_session(req: InitRequest, request: Request):
     """Initialise (or re-use) a game session for the given overlay ID."""
+    from app.api.dependencies import check_oid_access
+    check_oid_access(request.headers.get("authorization", ""), req.oid)
+
     conf = Conf()
     conf.oid = req.oid
     # Clear env-var default — API sessions resolve output per-OID, not from
@@ -71,44 +81,45 @@ async def init_session(req: InitRequest):
     if req.sets_limit is not None:
         conf.sets = req.sets_limit
 
-    # Check if session already exists — avoid creating a Backend unnecessarily
-    existing = SessionManager.get(req.oid)
-    if existing is not None:
-        # Update limits if explicitly provided
-        session = SessionManager.get_or_create(
-            req.oid, conf, None,
-            req.points_limit, req.points_limit_last_set, req.sets_limit,
-        )
-        # Refresh customization from the overlay server so the React UI
-        # always sees the latest team names, colors, logos, etc.
-        GameService.refresh_customization(session)
-        return ActionResponse(success=True, state=GameService.get_state(session))
+    async with _get_init_lock(req.oid):
+        # Check if session already exists — avoid creating a Backend unnecessarily
+        existing = SessionManager.get(req.oid)
+        if existing is not None:
+            # Update limits if explicitly provided
+            session = SessionManager.get_or_create(
+                req.oid, conf, None,
+                req.points_limit, req.points_limit_last_set, req.sets_limit,
+            )
+            # Refresh customization from the overlay server so the React UI
+            # always sees the latest team names, colors, logos, etc.
+            await run_in_threadpool(GameService.refresh_customization, session)
+            return ActionResponse(success=True, state=GameService.get_state(session))
 
-    # New session: create Backend and validate OID
-    backend = Backend(conf)
-    status = backend.validate_and_store_model_for_oid(req.oid)
-    if status != State.OIDStatus.VALID:
-        return ActionResponse(
-            success=False,
-            state=None,
-            message=f"OID validation returned '{status.value}'.",
-        )
-
-    backend.init_ws_client()
-
-    # Auto-resolve output URL if not explicitly provided (mirrors NiceGUI startup)
-    if not conf.output:
-        token = backend.fetch_output_token(req.oid)
-        if token:
-            conf.output = (
-                token if token.startswith("http")
-                else OidDialog.UNO_OUTPUT_BASE_URL + token
+        # New session: create Backend and validate OID
+        backend = Backend(conf)
+        status = await run_in_threadpool(backend.validate_and_store_model_for_oid, req.oid)
+        if status != State.OIDStatus.VALID:
+            return ActionResponse(
+                success=False,
+                state=None,
+                message=f"OID validation returned '{status.value}'.",
             )
 
-    session = SessionManager.get_or_create(
-        req.oid, conf, backend,
-        req.points_limit, req.points_limit_last_set, req.sets_limit,
-    )
+        await run_in_threadpool(backend.init_ws_client)
+
+        # Auto-resolve output URL if not explicitly provided (mirrors NiceGUI startup)
+        if not conf.output:
+            token = await run_in_threadpool(backend.fetch_output_token, req.oid)
+            if token:
+                conf.output = (
+                    token if token.startswith("http")
+                    else OidDialog.UNO_OUTPUT_BASE_URL + token
+                )
+
+        session = SessionManager.get_or_create(
+            req.oid, conf, backend,
+            req.points_limit, req.points_limit_last_set, req.sets_limit,
+        )
     return ActionResponse(success=True, state=GameService.get_state(session))
 
 
@@ -346,11 +357,22 @@ async def get_styles(session: GameSession = Depends(get_session)):
 
 @api_router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, oid: str = Query(...)):
+    from app.api.dependencies import check_oid_access
+    token = ws.query_params.get("token")
+    auth_header = f"Bearer {token}" if token else ws.headers.get("authorization", "")
+    
+    try:
+        check_oid_access(auth_header, oid)
+    except HTTPException as e:
+        await ws.close(code=4003, reason=e.detail)
+        return
+
     session = SessionManager.get(oid)
     if session is None:
         await ws.close(code=4004, reason="No active session for this OID.")
         return
 
+    await ws.accept()
     await WSHub.connect(ws, oid)
     try:
         # Send current state immediately on connect
