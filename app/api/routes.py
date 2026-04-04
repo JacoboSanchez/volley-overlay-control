@@ -1,6 +1,8 @@
 import json
 import logging
 import urllib.parse
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, Header, Request, WebSocket, WebSocketDisconnect, Query
 
 from app.api.schemas import (
@@ -22,15 +24,11 @@ from app.oid_dialog import OidDialog
 
 logger = logging.getLogger("APIRoutes")
 
-api_router = APIRouter(prefix="/api/v1", tags=["Scoreboard API v1"])
-
-
 _cleanup_task = None
 
 
 async def _session_cleanup_loop():
     """Periodically remove expired sessions."""
-    import asyncio
     while True:
         await asyncio.sleep(3600)  # Run every hour
         try:
@@ -41,11 +39,16 @@ async def _session_cleanup_loop():
             logger.exception("Error during session cleanup")
 
 
-@api_router.on_event("startup")
-async def _start_cleanup():
+@asynccontextmanager
+async def router_lifespan(app):
     global _cleanup_task
-    import asyncio
     _cleanup_task = asyncio.create_task(_session_cleanup_loop())
+    yield
+    if _cleanup_task:
+        _cleanup_task.cancel()
+    SessionManager.clear()
+
+api_router = APIRouter(prefix="/api/v1", tags=["Scoreboard API v1"], lifespan=router_lifespan)
 
 # ---------------------------------------------------------------------------
 # Session management
@@ -362,5 +365,7 @@ async def websocket_endpoint(ws: WebSocket, oid: str = Query(...)):
                 await ws.send_text("pong")
     except WebSocketDisconnect:
         pass
+    except Exception as e:
+        logger.error(f"WebSocket error for OID {oid}: {e}")
     finally:
         WSHub.disconnect(ws, oid)

@@ -60,6 +60,12 @@ class GameSession:
         """Update last access time."""
         self.last_accessed = time.monotonic()
 
+    def shutdown(self):
+        """Clean up background resources to prevent leaks."""
+        if hasattr(self.backend, 'shutdown'):
+            self.backend.shutdown()
+
+
 
 class SessionManager:
     """Thread-safe singleton managing GameSession instances by OID."""
@@ -117,12 +123,16 @@ class SessionManager:
     def remove(cls, oid):
         """Remove a session (e.g. on disconnect)."""
         with cls._lock:
-            cls._sessions.pop(oid, None)
+            session = cls._sessions.pop(oid, None)
+            if session:
+                session.shutdown()
 
     @classmethod
     def clear(cls):
         """Remove all sessions (mainly for testing)."""
         with cls._lock:
+            for session in cls._sessions.values():
+                session.shutdown()
             cls._sessions.clear()
 
     @classmethod
@@ -135,6 +145,7 @@ class SessionManager:
                 if (now - session.last_accessed) > SESSION_TTL_SECONDS
             ]
             for oid in expired:
-                del cls._sessions[oid]
+                session = cls._sessions.pop(oid)
+                session.shutdown()
                 logger.info("Expired session for OID=%s", oid)
         return len(expired)

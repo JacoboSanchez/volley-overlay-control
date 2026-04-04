@@ -68,6 +68,13 @@ class Backend:
             self._ws_client.disconnect()
             self._ws_client = None
 
+    def shutdown(self):
+        """Shut down resources to prevent memory leaks."""
+        self.close_ws_client()
+        if hasattr(self, 'executor') and self.executor:
+            self.executor.shutdown(wait=False)
+
+
     @property
     def ws_connected(self):
         """True if a WebSocket connection to the overlay is active."""
