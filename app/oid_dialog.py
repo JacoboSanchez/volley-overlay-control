@@ -136,8 +136,9 @@ class OidDialog:
                     ui.notify(Messages.get(Messages.OVERLAY_CONFIGURATION_REQUIRED), color='negative')
             return False
     
-    def extract_oid(self, url: str) -> str:
-        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9-]*)\??"
+    @staticmethod
+    def extract_oid(url: str) -> str:
+        pattern = r"^https://app\.overlays\.uno/control/([a-zA-Z0-9_\-/.]+?)(?:\?.*)?$"
         match = re.match(pattern, url)
         if match:
             return match.group(1)

@@ -16,8 +16,10 @@ unrestricted_page_routes = {'/login'}
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Allow all NiceGUI specific routes to pass through without authentication
-        if request.url.path.startswith('/_nicegui') or request.url.path.startswith('/preview'):
+        # Allow NiceGUI internals, preview page, and the REST API (which has its own auth)
+        if (request.url.path.startswith('/_nicegui')
+                or request.url.path.startswith('/preview')
+                or request.url.path.startswith('/api/')):
             return await call_next(request)
         
         # If the user is not authenticated and the requested page is not the login page
@@ -32,11 +34,34 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 class PasswordAuthenticator:
     UNO_OUTPUT_BASE_URL = 'https://app.overlays.uno/output/'
-    
+    _cached_users = None
+    _cached_users_raw = None
+
+    @classmethod
+    def _get_users(cls):
+        """Return parsed SCOREBOARD_USERS, caching the result.
+
+        Re-parses only when the raw env var value changes.
+        """
+        raw = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
+        if raw == cls._cached_users_raw:
+            return cls._cached_users
+        cls._cached_users_raw = raw
+        if not raw or not raw.strip():
+            cls._cached_users = None
+            return None
+        try:
+            cls._cached_users = json.loads(raw)
+        except json.JSONDecodeError:
+            cls._cached_users = None
+        return cls._cached_users
+
+    @staticmethod
     def do_authenticate_users() -> bool:
         passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
         return passwords_json is not None and passwords_json.strip() != ''
 
+    @staticmethod
     def check_user(user:str, password:str) -> bool:
         logger.debug("checking user")
         passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
@@ -90,12 +115,34 @@ class PasswordAuthenticator:
             else:
                 ui.notify(Messages.get(Messages.WRONG_USER_NAME), color='negative')
     
+    @classmethod
+    def get_username_for_api_key(cls, key: str):
+        """Return the username whose password matches *key*, or ``None``."""
+        users = cls._get_users()
+        if users is None:
+            return None
+        for username, userconf in users.items():
+            if userconf.get("password") == key:
+                return username
+        return None
+
+    @staticmethod
+    def check_api_key(key: str) -> bool:
+        """Check if *key* matches any configured user password.
+
+        This allows API clients to authenticate using any valid password
+        from ``SCOREBOARD_USERS`` as a Bearer token.
+        """
+        return PasswordAuthenticator.get_username_for_api_key(key) is not None
+
+    @staticmethod
     def compose_output(output : str) -> str:
         prefix = PasswordAuthenticator.UNO_OUTPUT_BASE_URL
         if not output.startswith(prefix):
             return prefix + output
         return output
 
+    @staticmethod
     def logout():
         logger.info("logging out")
         AppStorage.clear_user_storage()

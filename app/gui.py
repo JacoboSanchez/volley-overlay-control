@@ -13,6 +13,8 @@ from app.components.center_panel import CenterPanel
 from app.components.control_buttons import ControlButtons
 from app.components.button_interaction import ButtonInteraction
 from app.gui_update_mixin import UIUpdateMixin
+from app.api.game_service import GameService
+from app.api.session_manager import SessionManager
 
 
 class GUI(UIUpdateMixin):
@@ -262,10 +264,33 @@ class GUI(UIUpdateMixin):
                 self.update_ui_current_set(self.current_set)
                 self.update_ui_serve(current_state)
 
+    def _get_session(self):
+        """Return the SessionManager session for this overlay, if one exists."""
+        if self.conf and self.conf.oid:
+            return SessionManager.get(self.conf.oid)
+        return None
+
+    def _save_and_broadcast_or_send(self):
+        """Save state and broadcast via both WS hub (for API clients) and
+        the legacy in-memory broadcast (for other NiceGUI tabs)."""
+        # Always save using GUI's own game_manager (which has the mutated state)
+        self.game_manager.save(self.simple, self.current_set)
+
+        # Sync state to the session and broadcast to WebSocket API clients
+        session = self._get_session()
+        if session:
+            session.visible = self.visible
+            session.simple = self.simple
+            session.current_set = self.current_set
+            # Keep session's game_manager in sync with GUI's
+            session.game_manager = self.game_manager
+            GameService._broadcast(session)
+
+        self._broadcast_to_others()
+
     def send_state(self):
         """Sends the current state to the backend and broadcasts to other clients."""
-        self.game_manager.save(self.simple, self.current_set)
-        self._broadcast_to_others()
+        self._save_and_broadcast_or_send()
 
     async def reset(self):
         """Resets the game state, saves it, and updates the UI."""
@@ -325,7 +350,7 @@ class GUI(UIUpdateMixin):
     def change_serve(self, team, force=False):
         self.game_manager.change_serve(team, force)
         self.update_ui_serve(self.game_manager.get_current_state())
-        self.send_state()
+        self._save_and_broadcast_or_send()
 
     def add_timeout(self, team):
         self.game_manager.add_timeout(team, self.undo)
@@ -335,7 +360,7 @@ class GUI(UIUpdateMixin):
             self.logger.debug('Switch simple mode off due to auto_simple_mode_timeout being enabled')
             self.switch_simple_mode(False)
         self.update_ui_timeouts(self.game_manager.get_current_state())
-        self.send_state()
+        self._save_and_broadcast_or_send()
 
     def set_game_value(self, team: int, value: int):
         """Directly sets the game score for a team."""
@@ -356,7 +381,7 @@ class GUI(UIUpdateMixin):
                 self.switch_to_set(self.compute_current_set(current_state))
 
         self.update_ui_games_table(current_state)
-        self.send_state()
+        self._save_and_broadcast_or_send()
 
     def set_sets_value(self, team: int, value: int):
         """Directly sets the sets won for a team."""
@@ -364,7 +389,7 @@ class GUI(UIUpdateMixin):
         self.update_ui_sets(self.game_manager.get_current_state())
         self.switch_to_set(
             self.compute_current_set(self.game_manager.get_current_state()))
-        self.send_state()
+        self._save_and_broadcast_or_send()
 
     def add_game(self, team):
         if self.block_additional_points():
@@ -408,7 +433,7 @@ class GUI(UIUpdateMixin):
                 self.switch_simple_mode(True)
 
         self.update_ui_games_table(self.game_manager.get_current_state())
-        self.send_state()
+        self._save_and_broadcast_or_send()
 
     def get_game_limit(self, set_number):
         return self.points_limit_last_set if set_number == self.sets_limit else self.points_limit
@@ -426,7 +451,7 @@ class GUI(UIUpdateMixin):
         self.update_ui_sets(self.game_manager.get_current_state())
         self.switch_to_set(
             self.compute_current_set(self.game_manager.get_current_state()))
-        self.send_state()
+        self._save_and_broadcast_or_send()
 
     def block_additional_points(self):
         return not self.undo and self.game_manager.match_finished()
@@ -474,6 +499,10 @@ class GUI(UIUpdateMixin):
         if update:
             self.update_ui_visible(self.visible)
             self.backend.change_overlay_visibility(self.visible)
+            session = self._get_session()
+            if session:
+                session.visible = self.visible
+                GameService._broadcast(session)
             self._broadcast_visibility_to_others()
 
     def switch_simple_mode(self, force_value=None, update_backend=True):

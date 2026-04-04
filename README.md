@@ -72,6 +72,21 @@ It offers a user-friendly interface to manage every aspect of a volleyball match
 
 If you want to build and host your own completely custom graphical overlay (instead of using overlays.uno), please refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for details on the required HTTP API contract.
 
+### 🔌 REST API for Custom Frontends
+
+Volley Overlay Control exposes a REST + WebSocket API at `/api/v1/` that allows you to build alternative frontends using any JavaScript framework (React, Vue, Svelte, vanilla JS) or any HTTP client.
+
+The API provides:
+- **Session management** — initialise and manage game sessions
+- **Game actions** — add points, sets, timeouts, change serve, reset matches
+- **Display controls** — toggle overlay visibility and simple mode
+- **Customization** — read and update team names, colors, logos
+- **Real-time WebSocket** — receive instant state updates at `ws://<host>/api/v1/ws?oid=<OID>`
+
+Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no users are configured, the API is open.
+
+For the full endpoint reference, request/response schemas, WebSocket protocol, and a complete working JavaScript example, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
+
 ---
 
 ## 📖 Usage
