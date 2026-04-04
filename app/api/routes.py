@@ -42,6 +42,11 @@ async def _session_cleanup_loop():
             removed = SessionManager.cleanup_expired()
             if removed:
                 logger.info("Session cleanup removed %d expired sessions", removed)
+            
+            # Clean up un-needed locks to prevent memory leaks
+            to_remove = [oid for oid, lock in _init_locks.items() if not lock.locked()]
+            for oid in to_remove:
+                del _init_locks[oid]
         except Exception:
             logger.exception("Error during session cleanup")
 
@@ -137,7 +142,7 @@ async def get_state(session: GameSession = Depends(get_session)):
 @api_router.get("/customization",
                 dependencies=[Depends(verify_api_key)])
 async def get_customization(session: GameSession = Depends(get_session)):
-    return GameService.refresh_customization(session)
+    return await run_in_threadpool(GameService.refresh_customization, session)
 
 
 @api_router.get("/config",
@@ -292,7 +297,7 @@ async def get_overlays(authorization: str = Header(None)):
                 dependencies=[Depends(verify_api_key)])
 async def get_teams():
     """Return predefined team names with icon/color data."""
-    Customization.refresh()
+    await run_in_threadpool(Customization.refresh)
     return Customization.predefined_teams
 
 
@@ -300,7 +305,7 @@ async def get_teams():
                 dependencies=[Depends(verify_api_key)])
 async def get_themes():
     """Return available theme definitions."""
-    Customization.refresh()
+    await run_in_threadpool(Customization.refresh)
     return Customization.THEMES
 
 
@@ -347,7 +352,7 @@ async def get_links(request: Request,
                 dependencies=[Depends(verify_api_key)])
 async def get_styles(session: GameSession = Depends(get_session)):
     """Return available overlay styles."""
-    return session.backend.get_available_styles()
+    return await run_in_threadpool(session.backend.get_available_styles)
 
 
 # ---------------------------------------------------------------------------
