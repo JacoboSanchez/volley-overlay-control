@@ -3,7 +3,7 @@
 import pytest
 import sys
 import os
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -140,27 +140,26 @@ def backend(conf, mock_requests_session):
 class TestBackendWSIntegration:
     """Tests for Backend's WebSocket-first behavior."""
 
+    def _ensure_custom_overlay(self, backend, conf):
+        """Helper: switch backend to CustomOverlayBackend for C- OID."""
+        conf.oid = "C-test_overlay"
+        backend._ensure_overlay_backend(conf.oid)
+
     def test_ws_client_initially_none(self, backend):
         """Backend starts with no WS client."""
-        assert backend._ws_client is None
         assert backend.ws_connected is False
 
     def test_init_ws_client_skips_non_custom(self, backend, conf):
         """init_ws_client does nothing for non-custom overlays."""
         conf.oid = "some_uno_token"
         backend.init_ws_client()
-        assert backend._ws_client is None
+        assert backend.ws_connected is False
 
-    @patch('app.backend.Backend.get_custom_overlay_id')
-    @patch('app.backend.Backend.is_custom_overlay')
     def test_init_ws_client_discovers_url(
-        self, mock_is_custom, mock_get_id,
-        backend, mock_requests_session, conf
+        self, backend, mock_requests_session, conf
     ):
         """init_ws_client probes /api/config and creates client if WS URL found."""
-        conf.oid = "C-test_overlay"
-        mock_is_custom.return_value = True
-        mock_get_id.return_value = ("test_overlay", None)
+        self._ensure_custom_overlay(backend, conf)
         mock_requests_session.get.return_value.json.return_value = {
             "outputUrl": "http://localhost:8002/overlay/test_overlay",
             "availableStyles": ["default"],
@@ -173,36 +172,31 @@ class TestBackendWSIntegration:
 
             MockWSClient.assert_called_once()
             mock_instance.connect.assert_called_once()
-            assert backend._ws_client is mock_instance
+            assert backend._overlay._ws_client is mock_instance
 
-    @patch('app.backend.Backend.get_custom_overlay_id')
-    @patch('app.backend.Backend.is_custom_overlay')
     def test_init_ws_client_no_ws_url(
-        self, mock_is_custom, mock_get_id,
-        backend, mock_requests_session, conf
+        self, backend, mock_requests_session, conf
     ):
         """init_ws_client falls back gracefully when no WS URL in config."""
-        conf.oid = "C-test_overlay"
-        mock_is_custom.return_value = True
-        mock_get_id.return_value = ("test_overlay", None)
+        self._ensure_custom_overlay(backend, conf)
         mock_requests_session.get.return_value.json.return_value = {
             "outputUrl": "http://localhost:8002/overlay/test_overlay",
             "availableStyles": ["default"],
         }
 
         backend.init_ws_client()
-        assert backend._ws_client is None
+        assert backend._overlay._ws_client is None
 
     def test_update_local_overlay_prefers_ws(
         self, backend, mock_requests_session, conf
     ):
         """update_local_overlay uses WS when connected."""
-        conf.oid = "C-test_overlay"
+        self._ensure_custom_overlay(backend, conf)
 
         mock_ws = MagicMock()
         mock_ws.is_connected = True
         mock_ws.send_state.return_value = True
-        backend._ws_client = mock_ws
+        backend._overlay._ws_client = mock_ws
         backend._customization_cache = {
             "Team 1 Text Name": "Local",
             "Team 2 Text Name": "Visitor",
@@ -239,11 +233,11 @@ class TestBackendWSIntegration:
         self, backend, mock_requests_session, conf
     ):
         """update_local_overlay falls back to HTTP when WS not connected."""
-        conf.oid = "C-test_overlay"
+        self._ensure_custom_overlay(backend, conf)
 
         mock_ws = MagicMock()
         mock_ws.is_connected = False
-        backend._ws_client = mock_ws
+        backend._overlay._ws_client = mock_ws
         backend._customization_cache = {
             "Team 1 Text Name": "Local",
             "Team 2 Text Name": "Visitor",
@@ -280,12 +274,12 @@ class TestBackendWSIntegration:
         self, backend, mock_requests_session, conf
     ):
         """change_overlay_visibility uses WS when connected for custom overlays."""
-        conf.oid = "C-test_overlay"
+        self._ensure_custom_overlay(backend, conf)
 
         mock_ws = MagicMock()
         mock_ws.is_connected = True
         mock_ws.send_visibility.return_value = True
-        backend._ws_client = mock_ws
+        backend._overlay._ws_client = mock_ws
 
         backend.change_overlay_visibility(True)
 
@@ -297,14 +291,14 @@ class TestBackendWSIntegration:
         self, backend, mock_requests_session, conf
     ):
         """save_model sends raw_config via WS when connected."""
-        conf.oid = "C-test_overlay"
+        self._ensure_custom_overlay(backend, conf)
         conf.multithread = False
 
         mock_ws = MagicMock()
         mock_ws.is_connected = True
         mock_ws.send_raw_config.return_value = True
         mock_ws.send_state.return_value = True
-        backend._ws_client = mock_ws
+        backend._overlay._ws_client = mock_ws
         backend._customization_cache = {
             "Team 1 Text Name": "Local",
             "Team 2 Text Name": "Visitor",
@@ -334,12 +328,13 @@ class TestBackendWSIntegration:
         call_args = mock_ws.send_raw_config.call_args[0][0]
         assert "model" in call_args
 
-    def test_close_ws_client(self, backend):
+    def test_close_ws_client(self, backend, conf):
         """close_ws_client disconnects and clears reference."""
+        self._ensure_custom_overlay(backend, conf)
         mock_ws = MagicMock()
-        backend._ws_client = mock_ws
+        backend._overlay._ws_client = mock_ws
 
         backend.close_ws_client()
 
         mock_ws.disconnect.assert_called_once()
-        assert backend._ws_client is None
+        assert backend._overlay._ws_client is None
