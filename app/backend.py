@@ -69,7 +69,7 @@ class Backend:
         if not is_custom_overlay(check_oid):
             return
         self._ensure_overlay_backend(check_oid)
-        self._overlay.init_ws_client()
+        self._overlay.init_ws_client(check_oid)
 
     def close_ws_client(self):
         self._overlay.close_ws_client()
@@ -291,7 +291,7 @@ class Backend:
     def get_available_styles(self, oid: str = None) -> list:
         check_oid = oid if oid is not None else self.conf.oid
         self._ensure_overlay_backend(check_oid)
-        return self._overlay.get_available_styles()
+        return self._overlay.get_available_styles(check_oid)
 
     # -- OID validation / output token -------------------------------------
 
@@ -307,7 +307,7 @@ class Backend:
 
     def fetch_output_token(self, oid):
         self._ensure_overlay_backend(oid)
-        return self._overlay.fetch_output_token()
+        return self._overlay.fetch_output_token(oid)
 
     # -- High-level helpers ------------------------------------------------
 

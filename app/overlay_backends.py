@@ -50,11 +50,11 @@ class OverlayBackend(ABC):
         """Return whether the overlay is currently visible."""
 
     @abstractmethod
-    def get_available_styles(self) -> list:
+    def get_available_styles(self, oid: str = None) -> list:
         """Return list of available overlay styles."""
 
     @abstractmethod
-    def fetch_output_token(self) -> str | None:
+    def fetch_output_token(self, oid: str = None) -> str | None:
         """Fetch the output URL or token for this overlay."""
 
     @abstractmethod
@@ -105,7 +105,7 @@ class OverlayBackend(ABC):
         """
         self.change_visibility(show)
 
-    def init_ws_client(self) -> None:
+    def init_ws_client(self, oid: str = None) -> None:
         """Initialize WebSocket client (no-op by default)."""
 
     def close_ws_client(self) -> None:
@@ -199,12 +199,13 @@ class UnoOverlayBackend(OverlayBackend):
             return response.json().get('payload', False)
         return False
 
-    def get_available_styles(self) -> list:
+    def get_available_styles(self, oid: str = None) -> list:
         return []
 
-    def fetch_output_token(self) -> str | None:
+    def fetch_output_token(self, oid: str = None) -> str | None:
+        target_oid = oid if oid is not None else self.conf.oid
         try:
-            url = f'https://app.overlays.uno/apiv2/controlapps/{self.conf.oid}'
+            url = f'https://app.overlays.uno/apiv2/controlapps/{target_oid}'
             response = self.session.get(url, timeout=5.0)
             if response.status_code == 200:
                 output_url = response.json().get('outputUrl')
@@ -214,7 +215,7 @@ class UnoOverlayBackend(OverlayBackend):
                         return match.group(1)
             else:
                 logger.warning("Failed to fetch output token for OID %s: %s",
-                               self.conf.oid, response.status_code)
+                               target_oid, response.status_code)
         except requests.exceptions.RequestException as e:
             logger.error("Network error fetching output token: %s", e)
         except Exception as e:
@@ -309,9 +310,9 @@ class CustomOverlayBackend(OverlayBackend):
 
     # -- WebSocket lifecycle --
 
-    def init_ws_client(self) -> None:
+    def init_ws_client(self, oid: str = None) -> None:
         self.close_ws_client()
-        custom_id = self._custom_id()
+        custom_id = self._custom_id(oid)
         base_url = self._base_url()
         try:
             resp = self.session.get(
@@ -461,8 +462,8 @@ class CustomOverlayBackend(OverlayBackend):
     def is_visible(self) -> bool:
         return True
 
-    def get_available_styles(self) -> list:
-        custom_id = self._custom_id()
+    def get_available_styles(self, oid: str = None) -> list:
+        custom_id = self._custom_id(oid)
         try:
             response = self.session.get(
                 f"{self._base_url()}/api/config/{custom_id}", timeout=5.0,
@@ -473,9 +474,9 @@ class CustomOverlayBackend(OverlayBackend):
             logger.error("Error fetching available styles: %s", e)
         return []
 
-    def fetch_output_token(self) -> str | None:
+    def fetch_output_token(self, oid: str = None) -> str | None:
         try:
-            custom_id = self._custom_id()
+            custom_id = self._custom_id(oid)
             url = f"{self._base_url()}/api/config/{custom_id}"
             response = self.session.get(url, timeout=5.0)
             if response.status_code == 200:
