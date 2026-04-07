@@ -79,6 +79,32 @@ class OverlayBackend(ABC):
     def reduce_games_to_one(self) -> None:
         """Reset scores of sets 2-5 to zero."""
 
+    def push_model_update(self, current_model: dict, to_save: dict,
+                          show_only_current_set=None) -> None:
+        """Push a model update using the backend-appropriate mechanism.
+
+        Subclasses override to send either a partial Uno model or a full
+        overlay state payload for custom backends.
+        """
+        self.send_json_model(to_save)
+
+    def on_customization_saved(self, get_model,
+                               customization: dict) -> None:
+        """Hook called after customization is persisted (no-op by default).
+
+        *get_model* is a callable returning the current model dict.
+        """
+
+    def change_visibility_with_fallback(self, show: bool,
+                                        get_model=None) -> None:
+        """Toggle visibility with an optional HTTP fallback.
+
+        *get_model* is a callable returning the current model dict (called
+        lazily only when the fallback path is needed).  Default
+        implementation delegates to ``change_visibility``.
+        """
+        self.change_visibility(show)
+
     def init_ws_client(self) -> None:
         """Initialize WebSocket client (no-op by default)."""
 
@@ -88,6 +114,10 @@ class OverlayBackend(ABC):
     def shutdown(self) -> None:
         """Clean up resources."""
         self.close_ws_client()
+
+    @property
+    def is_custom(self) -> bool:
+        return False
 
     @property
     def ws_connected(self) -> bool:
@@ -324,6 +354,37 @@ class CustomOverlayBackend(OverlayBackend):
                 'obs_clients', self._obs_client_count
             )
 
+    @property
+    def is_custom(self) -> bool:
+        return True
+
+    def push_model_update(self, current_model, to_save,
+                          show_only_current_set=None):
+        if self._build_payload:
+            payload = self._build_payload(
+                current_model, show_only_current_set=show_only_current_set,
+            )
+            self.send_overlay_state(payload)
+
+    def on_customization_saved(self, get_model, customization):
+        if self._build_payload and get_model:
+            current_model = get_model()
+            if current_model:
+                payload = self._build_payload(
+                    current_model, customization_state=customization,
+                )
+                self.send_overlay_state(payload)
+
+    def change_visibility_with_fallback(self, show, get_model=None):
+        self.change_visibility(show)
+        if not self.ws_connected and self._build_payload and get_model:
+            current_model = get_model()
+            if current_model:
+                payload = self._build_payload(
+                    current_model, force_visibility=show,
+                )
+                self.send_overlay_state(payload)
+
     # -- OverlayBackend interface --
 
     def save_model(self, current_model: dict) -> None:
@@ -354,27 +415,39 @@ class CustomOverlayBackend(OverlayBackend):
             logger.error("Failed to fetch custom overlay model: %s", e)
             return None
 
+    def _get_default_customization(self, style, custom_id):
+        """Return a default customization dict, persisting preferredStyle if needed."""
+        from app.customization import Customization
+        data = copy.copy(Customization.reset_state)
+        if style and not data.get("preferredStyle"):
+            data["preferredStyle"] = style
+            try:
+                self.session.post(
+                    f"{self._base_url()}/api/raw_config/{custom_id}",
+                    json={"customization": data}, timeout=2.0,
+                )
+            except Exception as e:
+                logger.warning("Failed to persist preferredStyle: %s", e)
+        return data
+
     def get_customization(self, oid: str = None) -> dict | None:
         check_oid = oid if oid is not None else self.conf.oid
         custom_id = self._custom_id(check_oid)
         style = self._style(check_oid)
-        base_url = self._base_url()
 
         try:
             resp = self.session.get(
-                f"{base_url}/api/raw_config/{custom_id}", timeout=2.0,
+                f"{self._base_url()}/api/raw_config/{custom_id}", timeout=2.0,
             )
             if resp.status_code == 200:
                 data = resp.json().get("customization", {})
                 if not data:
-                    from app.customization import Customization
-                    data = copy.copy(Customization.reset_state)
-
-                if style and not data.get("preferredStyle"):
+                    data = self._get_default_customization(style, custom_id)
+                elif style and not data.get("preferredStyle"):
                     data["preferredStyle"] = style
                     try:
                         self.session.post(
-                            f"{base_url}/api/raw_config/{custom_id}",
+                            f"{self._base_url()}/api/raw_config/{custom_id}",
                             json={"customization": data}, timeout=2.0,
                         )
                     except Exception as e:
@@ -383,18 +456,7 @@ class CustomOverlayBackend(OverlayBackend):
         except Exception as e:
             logger.error("Failed to fetch custom overlay customization: %s", e)
 
-        from app.customization import Customization
-        data = copy.copy(Customization.reset_state)
-        if style and not data.get("preferredStyle"):
-            data["preferredStyle"] = style
-            try:
-                self.session.post(
-                    f"{base_url}/api/raw_config/{custom_id}",
-                    json={"customization": data}, timeout=2.0,
-                )
-            except Exception as e:
-                logger.warning("Failed to persist preferredStyle: %s", e)
-        return data
+        return self._get_default_customization(style, custom_id)
 
     def is_visible(self) -> bool:
         return True

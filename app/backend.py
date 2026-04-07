@@ -33,9 +33,10 @@ class Backend:
         self._customization_cache = None
         self._overlay = self._create_overlay_backend()
 
-    def _create_overlay_backend(self):
-        """Instantiate the right overlay backend for the current OID."""
-        if is_custom_overlay(self.conf.oid):
+    def _create_overlay_backend(self, oid=None):
+        """Instantiate the right overlay backend for the given OID."""
+        check_oid = oid if oid is not None else self.conf.oid
+        if is_custom_overlay(check_oid):
             backend = CustomOverlayBackend(self.conf, self.session)
             backend._build_payload = self._build_overlay_payload
             return backend
@@ -45,10 +46,9 @@ class Backend:
         """Re-create the overlay backend if the OID type changed."""
         check_oid = oid if oid is not None else self.conf.oid
         is_custom = is_custom_overlay(check_oid)
-        current_is_custom = isinstance(self._overlay, CustomOverlayBackend)
-        if is_custom != current_is_custom:
+        if is_custom != self._overlay.is_custom:
             self._overlay.close_ws_client()
-            self._overlay = self._create_overlay_backend()
+            self._overlay = self._create_overlay_backend(check_oid)
 
     # -- Public interface (used by GameManager, GameSession, routes, GUI) ----
 
@@ -226,15 +226,14 @@ class Backend:
             to_save["Sets Display"] = str(to_save.get(State.CURRENT_SET_INT, "1"))
 
         if self.conf.multithread:
-            if isinstance(self._overlay, CustomOverlayBackend):
-                self.executor.submit(self.update_local_overlay, current_model, None, None, simple)
-            else:
-                self.executor.submit(self._overlay.send_json_model, to_save)
+            self.executor.submit(
+                self._overlay.push_model_update, current_model, to_save,
+                show_only_current_set=simple,
+            )
         else:
-            if isinstance(self._overlay, CustomOverlayBackend):
-                self.update_local_overlay(current_model, None, None, simple)
-            else:
-                self._overlay.send_json_model(to_save)
+            self._overlay.push_model_update(
+                current_model, to_save, show_only_current_set=simple,
+            )
         Backend.logger.info('saved')
 
     def reduce_games_to_one(self):
@@ -253,28 +252,20 @@ class Backend:
 
         self._overlay.save_customization(to_save)
 
-        if isinstance(self._overlay, CustomOverlayBackend):
-            current_model = self.get_current_model(self.conf.oid)
-            if current_model:
-                if self.conf.multithread:
-                    self.executor.submit(self.update_local_overlay, current_model, None, to_save, None)
-                else:
-                    self.update_local_overlay(current_model, None, to_save, None)
+        get_model = lambda: self.get_current_model(self.conf.oid)
+        if self.conf.multithread:
+            self.executor.submit(
+                self._overlay.on_customization_saved, get_model, to_save,
+            )
+        else:
+            self._overlay.on_customization_saved(get_model, to_save)
 
     def change_overlay_visibility(self, show):
         Backend.logger.info('changing overlay visibility, show: %s', show)
         self._ensure_overlay_backend()
-        self._overlay.change_visibility(show)
-
-        # Custom overlays may need an HTTP fallback when WS visibility toggle
-        # couldn't directly reach the OBS clients (e.g. WS not connected).
-        if isinstance(self._overlay, CustomOverlayBackend) and not self._overlay.ws_connected:
-            current_model = self.get_current_model(self.conf.oid)
-            if current_model:
-                if self.conf.multithread:
-                    self.executor.submit(self.update_local_overlay, current_model, show, None, None)
-                else:
-                    self.update_local_overlay(current_model, show, None, None)
+        self._overlay.change_visibility_with_fallback(
+            show, lambda: self.get_current_model(self.conf.oid),
+        )
 
     # -- Model/customization retrieval --------------------------------------
 
@@ -355,19 +346,24 @@ class Backend:
 
     def send_command_with_value(self, command, value="", customOid=None):
         """Send a value-type command to the Uno API."""
-        if isinstance(self._overlay, UnoOverlayBackend):
+        if not self._overlay.is_custom:
             return self._overlay._send_command_with_value(command, value, customOid)
         return None
 
     def send_command_with_id_and_content(self, command, content="", customOid=None):
         """Send a command with id+content to the Uno API."""
-        if isinstance(self._overlay, UnoOverlayBackend):
+        if not self._overlay.is_custom:
             return self._overlay._send_command(command, content, customOid)
         return None
 
     def do_send_request(self, oid, jsonin):
         """Direct request to the Uno API (legacy compatibility)."""
+        if is_custom_overlay(oid):
+            from app.overlay_backends import _mock_response
+            return _mock_response(200)
+
         if isinstance(self._overlay, UnoOverlayBackend):
             return self._overlay._do_request(oid, jsonin)
+
         from app.overlay_backends import _mock_response
         return _mock_response(200)
