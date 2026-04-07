@@ -96,7 +96,7 @@ def test_get_current_model_success(backend, mock_requests_session):
 
     assert retrieved_model == expected_model
 
-@patch('app.backend.AppStorage.load')
+@patch('app.overlay_backends.AppStorage.load')
 def test_get_current_model_from_storage(mock_appstorage_load, backend, mock_requests_session):
     """Tests that the model is loaded from AppStorage if available, skipping the API call."""
     stored_model = {'Team 1 Sets': '2'}
@@ -115,7 +115,7 @@ def test_get_current_model_failure(backend, mock_requests_session):
     
     assert retrieved_model is None
 
-@patch('app.backend.AppStorage.save')
+@patch('app.overlay_backends.AppStorage.save')
 def test_validate_and_store_model_for_oid_valid(mock_appstorage_save, backend, mock_requests_session):
     """Tests the validation logic for a valid OID."""
     mock_requests_session.put.return_value.json.return_value = {'payload': {'Team 1 Sets': '0'}}
@@ -228,8 +228,8 @@ def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     mock_requests_session.put.assert_called_once()
     assert mock_requests_session.put.call_args[0][0] == expected_url
 
-@patch('app.backend.AppStorage.save')
-@patch('app.backend.AppStorage.load')
+@patch('app.overlay_backends.AppStorage.save')
+@patch('app.overlay_backends.AppStorage.load')
 def test_get_current_model_saves_result(mock_appstorage_load, mock_appstorage_save, backend, mock_requests_session):
     """Tests that get_current_model saves the result when saveResult is True."""
     mock_appstorage_load.return_value = None
@@ -309,7 +309,7 @@ def test_custom_overlay_lowercase_prefix(backend, mock_requests_session, conf):
     assert len(state_calls) == 1
     assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay_lower"
 
-@patch('app.backend.AppStorage.load')
+@patch('app.overlay_backends.AppStorage.load')
 def test_custom_overlay_visibility(mock_load, backend, mock_requests_session, conf):
     """Tests that a C- prefixed OID handles visibility locally."""
     conf.oid = "C-test_overlay"
@@ -359,7 +359,7 @@ def test_custom_overlay_get_current_customization_fallbacks(backend, mock_reques
     assert cust.get("Logos") == "true"
     assert "Color 1" in cust
 
-@patch('app.backend.AppStorage.load')
+@patch('app.overlay_backends.AppStorage.load')
 def test_custom_overlay_is_visible_fallback(mock_load, backend, mock_requests_session, conf):
     """Tests that is_visible uses local fallback and true by default for custom overlays."""
     conf.oid = "C-test_overlay"
