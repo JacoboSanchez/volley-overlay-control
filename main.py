@@ -1,12 +1,14 @@
 import logging
 import os
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 from app.logging_config import setup_logging
 from app.authentication import PasswordAuthenticator, AuthMiddleware
-from dotenv import load_dotenv
-from app.startup import startup
-from nicegui import ui, app
 from app.env_vars_manager import EnvVarsManager
-from app.constants import Constants
 from app.api import api_router
 
 # Load environment variables only if tests are not running
@@ -16,32 +18,54 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
 from app.config_validator import validate_config
 validate_config()
 
-# Call the configuration function
 setup_logging()
 logger = logging.getLogger("Main")
+
+app = FastAPI(title="Volley Overlay Control")
 
 if PasswordAuthenticator.do_authenticate_users():
     logger.info("User authentication enabled")
     app.add_middleware(AuthMiddleware)
 
-# Mount the REST / WebSocket API for external frontends
+# Mount the REST / WebSocket API
 app.include_router(api_router)
 
-# Use a custom attribute on the app object to ensure the startup handler
-# is only registered once, even if the module is reloaded during tests.
-if not getattr(app, 'startup_handler_registered', False):
-    app.on_startup(startup)
-    app.startup_handler_registered = True
+# Serve static assets
+app.mount("/fonts", StaticFiles(directory="font"), name="fonts")
+app.mount("/pwa", StaticFiles(directory="app/pwa"), name="pwa")
 
-if __name__ in {"__main__", "__mp_main__"}:
-    onair = EnvVarsManager.get_env_var('UNO_OVERLAY_AIR_ID', None)
-    if onair == '':
-        onair = None
-    port = int(EnvVarsManager.get_env_var('APP_PORT', 8080))
-    title = EnvVarsManager.get_env_var('APP_TITLE', 'Scoreboard')
-    secret = EnvVarsManager.get_env_var('STORAGE_SECRET', title+str(port))
-    custom_favicon = Constants.CUSTOM_FAVICON
-    reload = EnvVarsManager.get_env_var('APP_RELOAD', 'false').lower() in ("yes", "true", "t", "1")
-    show = EnvVarsManager.get_env_var('APP_SHOW', 'false').lower() in ("yes", "true", "t", "1")
-    ui.run(title=title, favicon=custom_favicon, on_air=onair, port=port, storage_secret=secret, show=show, reload=reload,
-           ws_ping_interval=20, ws_ping_timeout=20, reconnect_timeout=10.0)
+
+@app.get("/sw.js")
+def serve_sw():
+    return FileResponse("app/pwa/sw.js", media_type="application/javascript")
+
+
+@app.get("/manifest.json")
+def serve_manifest():
+    return FileResponse("app/pwa/manifest.json", media_type="application/json")
+
+
+@app.get("/health")
+def health_check():
+    import time
+    return {
+        "status": "ok",
+        "timestamp": int(time.time()),
+        "service": "volley-overlay-control",
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(EnvVarsManager.get_env_var("APP_PORT", 8080))
+    reload = EnvVarsManager.get_env_var("APP_RELOAD", "false").lower() in (
+        "yes", "true", "t", "1",
+    )
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=reload,
+    )

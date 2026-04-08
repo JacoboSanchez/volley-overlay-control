@@ -5,12 +5,12 @@ This guide provides everything you need to build a custom frontend for Volley Ov
 ## Architecture Overview
 
 ```
-┌──────────────────────────┐     ┌──────────────────────────┐
-│   NiceGUI Frontend       │     │  Your JS Frontend        │
-│   (built-in)             │     │  (React, Vue, etc.)      │
-└──────────┬───────────────┘     └──────────┬───────────────┘
-           │ Python calls                   │ HTTP + WebSocket
-           ▼                                ▼
+┌──────────────────────────┐
+│  Your JS Frontend        │
+│  (React, Vue, etc.)      │
+└──────────┬───────────────┘
+           │ HTTP + WebSocket
+           ▼
 ┌──────────────────────────────────────────────────────────┐
 │              Game Service Layer (app/api/)                │
 │  ┌──────────────────┐  ┌──────────┐  ┌───────────────┐  │
@@ -22,7 +22,7 @@ This guide provides everything you need to build a custom frontend for Volley Ov
            │
            ▼
 ┌──────────────────────────────────────────────────────────┐
-│         Core Business Logic (unchanged)                   │
+│         Core Business Logic                               │
 │   GameManager  │  State  │  Backend  │  Customization    │
 └──────────────────────────────────────────────────────────┘
            │

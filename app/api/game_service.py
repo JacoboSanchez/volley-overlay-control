@@ -12,11 +12,7 @@ class MatchFinishedError(Exception):
 
 
 class GameService:
-    """Stateless service that operates on GameSession instances.
-
-    Both the NiceGUI frontend and the REST API call these methods, ensuring
-    a single code path for all game mutations.
-    """
+    """Stateless service that operates on GameSession instances."""
 
     # ------------------------------------------------------------------
     # State queries

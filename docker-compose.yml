@@ -13,10 +13,8 @@ services:
       - APP_TITLE=${APP_TITLE:-Scoreboard} #Optional
       - UNO_OVERLAY_OID=${UNO_OVERLAY_OID:-}
       - UNO_OVERLAY_OUTPUT=${UNO_OVERLAY_OUTPUT:-} #Optional (https://app.overlays.uno/output/<code>)
-      - UNO_OVERLAY_AIR_ID=${UNO_OVERLAY_AIR_ID:-} #Optional
       - APP_CUSTOM_OVERLAY_URL=${APP_CUSTOM_OVERLAY_URL:-http://localhost:8000}
       - APP_CUSTOM_OVERLAY_OUTPUT_URL=${APP_CUSTOM_OVERLAY_OUTPUT_URL:-} #Optional
-      - APP_DARK_MODE=${APP_DARK_MODE:-auto}
       - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
       - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
       - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
@@ -31,13 +29,6 @@ services:
       - SCOREBOARD_LANGUAGE=${SCOREBOARD_LANGUAGE:-}
       - REST_USER_AGENT=${REST_USER_AGENT:-}
       - APP_THEMES=${APP_THEMES:-}
-      - APP_RELOAD=${APP_RELOAD:-false}
-      - APP_SHOW=${APP_SHOW:-false}
-      - AUTO_HIDE_ENABLED=${AUTO_HIDE_ENABLED:-false}
-      - DEFAULT_HIDE_TIMEOUT=${DEFAULT_HIDE_TIMEOUT:-5}
-      - AUTO_SIMPLE_MODE=${AUTO_SIMPLE_MODE:-false}
-      - AUTO_SIMPLE_MODE_TIMEOUT=${AUTO_SIMPLE_MODE_TIMEOUT:-false}
-      - SHOW_PREVIEW=${SHOW_PREVIEW:-false}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
