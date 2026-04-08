@@ -1405,6 +1405,15 @@ async def test_deuce_and_win_by_two(user: User, mock_backend):
 
 async def test_state_persistence_on_refresh(user: User, mock_backend):
     """Tests that the scoreboard state is restored after a page refresh."""
+    # Capture saved state so it persists across page refreshes
+    persisted = {}
+    def save_side_effect(state, simple):
+        persisted.update(state.get_current_model())
+    mock_backend.save.side_effect = save_side_effect
+    mock_backend.get_current_model.side_effect = (
+        lambda customOid=None, saveResult=False: persisted.copy() if persisted else load_fixture('base_model')
+    )
+
     await user.open('/?control=test_oid_valid')
     await user.should_see(marker='team-1-score')
 

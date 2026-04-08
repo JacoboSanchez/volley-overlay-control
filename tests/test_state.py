@@ -83,11 +83,11 @@ def test_get_and_set_sets(state):
 
 def test_get_and_set_game(state):
     """Tests the getter and setter for game scores across all possible sets."""
-    state.set_game(set=1, team=1, value=15)
+    state.set_game(set_num=1, team=1, value=15)
     assert state.get_game(1, 1) == 15
     assert state.get_current_model()[State.T1SET1_INT] == '15'
 
-    state.set_game(set=5, team=2, value=10)
+    state.set_game(set_num=5, team=2, value=10)
     assert state.get_game(2, 5) == 10
     assert state.get_current_model()[State.T2SET5_INT] == '10'
 
