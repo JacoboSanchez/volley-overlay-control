@@ -122,27 +122,35 @@ User clicks Team 1 score button
 
 ## State Model
 
-The entire match lives in a flat dictionary with these keys:
+Internally, `State` wraps a `GameState` dataclass with typed fields:
 
 ```python
-{
-    "Serve": "A" | "B" | "None",
-    "Team 1 Sets": int,         # 0–5
-    "Team 2 Sets": int,
-    "Team 1 Game 1 Score": int, # 0–25  (set 1)
-    "Team 1 Game 2 Score": int, # 0–25  (set 2)
-    ...                         # Game 3–5 for both teams
-    "Team 2 Game 1 Score": int,
-    ...
-    "Team 1 Timeouts": int,     # 0–2 per set
-    "Team 2 Timeouts": int,
-    "Current Set": int,         # 1–5
-}
+class Serve(str, Enum):       # extends str for backward-compatible comparisons
+    TEAM_1 = 'A'
+    TEAM_2 = 'B'
+    NONE = 'None'
+
+@dataclass
+class GameState:
+    serve: Serve              # Serve.TEAM_1, .TEAM_2, or .NONE
+    current_set: int          # 1–5
+    team1_sets: int           # 0–5
+    team2_sets: int
+    team1_timeouts: int       # 0–2 per set
+    team2_timeouts: int
+    team1_scores: list[int]   # index 0 unused; indices 1–5 hold set scores
+    team2_scores: list[int]
 ```
 
-- `State` uses string keys by convention throughout the codebase — do not switch to integer keys.
-- Access scores via `state.get_game(team, set_num)` / `state.set_game(team, set_num, value)`.
-- The `simplify_model()` method strips all but the current set's data for "simple mode".
+At system boundaries (Uno API, custom overlay, AppStorage), the state is serialized to/from a legacy flat dict via `_to_dict()` / `_from_dict()`:
+
+```python
+{"Serve": "A", "Team 1 Sets": "0", "Team 1 Game 1 Score": "0", "Current Set": "1", ...}
+```
+
+- Access scores via typed methods: `state.get_game(team, set_num)` / `state.set_game(set_num, team, value)`.
+- Never access `state._state` directly outside of `State` itself.
+- The `simplify_model()` static method operates on legacy dicts, not on `GameState`.
 
 ---
 

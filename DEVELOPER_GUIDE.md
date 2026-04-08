@@ -158,14 +158,15 @@ sequenceDiagram
 
 Represents the data structure of the match.
 
-- **Responsibility**: Holds the "Single Source of Truth" dictionary (`current_model`) that maps keys (e.g., `'Team 1 Sets'`) to values.
+- **Responsibility**: Holds typed match state via an internal `GameState` dataclass (`_state`). A `Serve(str, Enum)` represents the serve indicator. Legacy string-keyed dicts are produced/consumed at system boundaries via `_to_dict()` / `_from_dict()`.
 - **Key Attributes**:
-  - `reset_model` — Default/zero state dictionary.
-  - `current_model` — Active state dictionary.
+  - `_state: GameState` — Typed dataclass with `serve`, `current_set`, `team1_sets`, `team2_sets`, `team1_timeouts`, `team2_timeouts`, `team1_scores`, `team2_scores`.
+  - `reset_model` — Class-level default/zero state dictionary (legacy format).
 - **Key Methods**:
-  - `get_game(team, set)` / `set_game(...)` — Get/Set points for a specific set.
-  - `get_sets(team)` / `set_sets(...)` — Get/Set sets won.
-  - `simplify_model(simplified)` — Prepares the state for "simple mode" (reduced data payload).
+  - `get_game(team, set_num)` / `set_game(set_num, team, value)` — Get/Set points for a specific set.
+  - `get_sets(team)` / `set_sets(team, value)` — Get/Set sets won.
+  - `get_current_model()` — Returns a legacy string-keyed dict via `_to_dict()` (for overlay backends and persistence).
+  - `simplify_model(simplified)` — Static method that prepares a dict for "simple mode" (reduced data payload).
 
 #### `app/game_manager.py` — class `GameManager`
 
