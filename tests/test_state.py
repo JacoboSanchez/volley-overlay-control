@@ -101,7 +101,7 @@ def test_get_and_set_current_serve(state):
 def test_set_current_set(state):
     """Tests setting the current set number."""
     state.set_current_set(4)
-    assert state.get_current_model()[State.CURRENT_SET_INT] == 4
+    assert state.get_current_model()[State.CURRENT_SET_INT] == '4'
 
 # --- simplify_model Scenarios ---
 

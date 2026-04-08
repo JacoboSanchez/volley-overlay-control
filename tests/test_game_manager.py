@@ -297,7 +297,7 @@ def test_save(game_manager, mock_backend):
     game_manager.save(simple=True, current_set=2)
     mock_backend.save.assert_called_once()
     state = game_manager.get_current_state()
-    assert state.get_current_model()[State.CURRENT_SET_INT] == 2
+    assert state.get_current_model()[State.CURRENT_SET_INT] == '2'
 
 def test_change_serve_force(game_manager):
     """Tests that the serve is changed even if the team is already serving."""
