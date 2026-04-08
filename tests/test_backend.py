@@ -383,21 +383,21 @@ def test_validate_custom_overlay_oid_with_style_is_valid(backend, mock_requests_
 
 def test_extract_oid_preserves_underscores_in_uno_url():
     """Tests that extract_oid correctly captures OIDs with underscores from Uno URLs."""
-    from app.oid_dialog import OidDialog
-    assert OidDialog.extract_oid("https://app.overlays.uno/control/abc_123") == "abc_123"
+    from app.oid_utils import extract_oid
+    assert extract_oid("https://app.overlays.uno/control/abc_123") == "abc_123"
 
 
 def test_extract_oid_preserves_custom_overlay_oid():
     """Tests that extract_oid returns custom overlay OIDs unchanged."""
-    from app.oid_dialog import OidDialog
-    assert OidDialog.extract_oid("C-mybroadcast") == "C-mybroadcast"
-    assert OidDialog.extract_oid("C-mybroadcast/line") == "C-mybroadcast/line"
+    from app.oid_utils import extract_oid
+    assert extract_oid("C-mybroadcast") == "C-mybroadcast"
+    assert extract_oid("C-mybroadcast/line") == "C-mybroadcast/line"
 
 
 def test_extract_oid_handles_query_params():
     """Tests that extract_oid strips query params from Uno URLs."""
-    from app.oid_dialog import OidDialog
-    assert OidDialog.extract_oid("https://app.overlays.uno/control/abc123?token=x") == "abc123"
+    from app.oid_utils import extract_oid
+    assert extract_oid("https://app.overlays.uno/control/abc123?token=x") == "abc123"
 
 
 def test_api_schema_accepts_custom_overlay_oid():

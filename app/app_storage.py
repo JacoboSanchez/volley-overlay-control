@@ -1,11 +1,9 @@
 import logging
-from nicegui import app
 from enum import Enum
 
-# In-memory fallback storage for use outside of a NiceGUI context (e.g., during tests)
+# In-memory storage (replaces the former NiceGUI per-browser storage)
 _memory_storage = {}
-# Cache for the determined storage backend
-_cached_storage = None
+
 
 class AppStorage:
     Category = Enum('Category', [
@@ -26,56 +24,12 @@ class AppStorage:
         ('LOCK_TEAM_B_ICONS', 'lock_team_b_icons'),
         ('LOCK_TEAM_A_COLORS', 'lock_team_a_colors'),
         ('LOCK_TEAM_B_COLORS', 'lock_team_b_colors'),
-        ('BUTTONS_FOLLOW_TEAM_COLORS', 'buttons_follow_team_colors'),
-        ('TEAM_1_BUTTON_COLOR', 'team_1_button_color'),
-        ('TEAM_1_BUTTON_TEXT_COLOR', 'team_1_button_text_color'),
-        ('TEAM_2_BUTTON_COLOR', 'team_2_button_color'),
-        ('TEAM_2_BUTTON_TEXT_COLOR', 'team_2_button_text_color'),
-        ('SELECTED_FONT', 'selected_font'),
-        ('BUTTONS_SHOW_ICON', 'buttons_show_icon'),
-        ('BUTTONS_ICON_OPACITY', 'buttons_icon_opacity')
     ])
 
-    # Keys stored in browser-local storage (app.storage.browser) so they are
-    # isolated per browser tab and never propagated to other connected clients.
-    _LOCAL_STORAGE_KEYS = {
-        'buttons_follow_team_colors',
-        'team_1_button_color',
-        'team_1_button_text_color',
-        'team_2_button_color',
-        'team_2_button_text_color',
-        'selected_font',
-        'buttons_show_icon',
-        'buttons_icon_opacity',
-    }
-    
     logger = logging.getLogger("Storage")
 
     def _get_storage():
-        """
-        Determines the appropriate storage backend.
-        """
-        global _cached_storage
-
-        try:
-            if app.storage is not None:
-                # This will raise a RuntimeError if not in a NiceGUI page context,
-                # or an AssertionError if user storage hasn't been initialized yet
-                return app.storage.user
-        except (RuntimeError, AssertionError):
-            # We are in a test or non-UI environment, use the in-memory fallback
-            pass
-
-        if _cached_storage is None:
-            logging.info('Using in-memory storage')
-            _cached_storage = _memory_storage
-
-        return _cached_storage
-
-    def _reset_cache():
-        """Resets the storage cache. Primarily for use in testing."""
-        global _cached_storage
-        _cached_storage = None
+        return _memory_storage
 
     def save(tag: Category, value, oid=None):
         storage = AppStorage._get_storage()
@@ -89,39 +43,27 @@ class AppStorage:
 
     def load(tag: Category, default=None, oid=None):
         storage = AppStorage._get_storage()
-        AppStorage.logger.debug('Loading %s [%s] from %s', oid, tag, type(storage).__name__)
+        AppStorage.logger.debug('Loading %s [%s]', oid, tag)
         if oid is not None:
             oid_storage = storage.get(oid, {})
-            result = oid_storage.get(tag.value, default)
-        else:
-            result = storage.get(tag.value, default)
-        AppStorage.logger.debug('Loaded %s [%s] from %s: %s', oid, tag, type(storage).__name__, result)
-        return result
-    
+            return oid_storage.get(tag.value, default)
+        return storage.get(tag.value, default)
+
     def refresh_state(oid, preserve_keys=None):
         storage = AppStorage._get_storage()
-        logging.debug('Refreshing state for %s in %s', oid, type(storage).__name__)
         if oid in storage:
             if preserve_keys:
-                # Keep only the keys that are in preserve_keys
                 preserved_data = {}
                 current_data = storage[oid]
                 if isinstance(current_data, dict):
-                     for key in preserve_keys:
+                    for key in preserve_keys:
                         if key.value in current_data:
                             preserved_data[key.value] = current_data[key.value]
-                
-                if isinstance(storage, dict):
-                    storage[oid] = preserved_data
-                else: # NiceGUI storage
-                    storage[oid] = preserved_data
+                storage[oid] = preserved_data
             else:
-                if isinstance(storage, dict):
-                    del storage[oid]
-                else: # NiceGUI storage
-                    storage[oid] = None
+                del storage[oid]
 
     def clear_user_storage():
         storage = AppStorage._get_storage()
-        logging.info('Clearing %s', type(storage).__name__)
+        logging.info('Clearing storage')
         storage.clear()

@@ -10,7 +10,7 @@ async def verify_api_key(authorization: str = Header(None)):
     """Validate the Bearer token when user authentication is enabled.
 
     If ``SCOREBOARD_USERS`` is not configured the check is skipped so
-    that the API remains open — matching the NiceGUI frontend behaviour.
+    that the API remains open.
     """
     if not PasswordAuthenticator.do_authenticate_users():
         return  # no auth required

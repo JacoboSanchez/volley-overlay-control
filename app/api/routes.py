@@ -1,6 +1,5 @@
 import json
 import logging
-import urllib.parse
 import asyncio
 from contextlib import asynccontextmanager
 from starlette.concurrency import run_in_threadpool
@@ -21,7 +20,7 @@ from app.state import State
 from app.customization import Customization
 from app.authentication import PasswordAuthenticator
 from app.env_vars_manager import EnvVarsManager
-from app.oid_dialog import OidDialog
+from app.oid_utils import extract_oid, compose_output, UNO_OUTPUT_BASE_URL
 
 logger = logging.getLogger("APIRoutes")
 
@@ -76,8 +75,6 @@ async def init_session(req: InitRequest, request: Request):
 
     conf = Conf()
     conf.oid = req.oid
-    # Clear env-var default — API sessions resolve output per-OID, not from
-    # the UNO_OVERLAY_OUTPUT env var (which is for NiceGUI single-overlay mode).
     conf.output = req.output_url if req.output_url else None
     if req.points_limit is not None:
         conf.points = req.points_limit
@@ -112,13 +109,13 @@ async def init_session(req: InitRequest, request: Request):
 
         await run_in_threadpool(backend.init_ws_client)
 
-        # Auto-resolve output URL if not explicitly provided (mirrors NiceGUI startup)
+        # Auto-resolve output URL if not explicitly provided
         if not conf.output:
             token = await run_in_threadpool(backend.fetch_output_token, req.oid)
             if token:
                 conf.output = (
                     token if token.startswith("http")
-                    else OidDialog.UNO_OUTPUT_BASE_URL + token
+                    else UNO_OUTPUT_BASE_URL + token
                 )
 
         session = SessionManager.get_or_create(
@@ -285,7 +282,7 @@ async def get_overlays(authorization: str = Header(None)):
             token)
 
     return [
-        {"name": name, "oid": OidDialog.extract_oid(
+        {"name": name, "oid": extract_oid(
             config.get('control', ''))}
         for name, config in overlays.items()
         if config.get('allowed_users') is None
@@ -316,34 +313,17 @@ async def get_links(request: Request,
     """Return control, overlay, and preview links for the session."""
     oid = session.oid
     output = session.conf.output
-    cust = session.customization
     links = {}
 
     if not session.backend.is_custom_overlay(oid):
         links["control"] = f"https://app.overlays.uno/control/{oid}"
 
     if output and output.strip():
-        # compose_output prepends the uno base URL for bare tokens;
-        # full URLs (custom overlays) are used as-is.
         overlay_url = (
             output if output.startswith("http")
-            else PasswordAuthenticator.compose_output(output)
+            else compose_output(output)
         )
         links["overlay"] = overlay_url
-
-        # Build an absolute preview URL pointing at the NiceGUI backend
-        # (not the React dev server) so NiceGUI's internal WebSocket works.
-        encoded_output = urllib.parse.quote(overlay_url, safe='')
-        posx = cust.get_h_pos()
-        posy = cust.get_v_pos()
-        width = cust.get_width()
-        height = cust.get_height()
-        layout_id = session.conf.id if hasattr(session.conf, 'id') else ''
-        base_url = str(request.base_url).rstrip('/')
-        links["preview"] = (
-            f"{base_url}/preview?output={encoded_output}&width={width}"
-            f"&height={height}&x={posx}&y={posy}&layout_id={layout_id}"
-        )
 
     return links
 
