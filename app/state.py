@@ -158,21 +158,15 @@ class State:
     def get_timeout(self, team):
         if team not in (1, 2):
             raise KeyError(f'Team {team} Timeouts')
-        val = self._state.team1_timeouts if team == 1 else self._state.team2_timeouts
-        if not isinstance(val, int):
-            return int(val)  # raises ValueError for non-numeric values
-        return val
+        return self._state.team1_timeouts if team == 1 else self._state.team2_timeouts
 
     def set_timeout(self, team, value):
         if team not in (1, 2):
             raise KeyError(f'Team {team} Timeouts')
-        # Store via int() so that invalid values (e.g. "invalid") raise
-        # ValueError on the next get_timeout() call — matching old behavior
-        # where str was stored and int() was called in the getter.
         if team == 1:
-            self._state.team1_timeouts = value
+            self._state.team1_timeouts = int(value)
         else:
-            self._state.team2_timeouts = value
+            self._state.team2_timeouts = int(value)
 
     def get_sets(self, team):
         if team not in (1, 2):
@@ -183,9 +177,9 @@ class State:
         if team not in (1, 2):
             raise KeyError(f'Team {team} Sets')
         if team == 1:
-            self._state.team1_sets = value
+            self._state.team1_sets = int(value)
         else:
-            self._state.team2_sets = value
+            self._state.team2_sets = int(value)
 
     def get_game(self, team, set_num):
         if team not in (1, 2):
@@ -201,7 +195,7 @@ class State:
         if not (1 <= set_num <= 5):
             raise KeyError(f'Team {team} Game {set_num} Score')
         scores = self._state.team1_scores if team == 1 else self._state.team2_scores
-        scores[set_num] = value
+        scores[set_num] = int(value)
 
     def set_current_serve(self, value):
         if isinstance(value, Serve):

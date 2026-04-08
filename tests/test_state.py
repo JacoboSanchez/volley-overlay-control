@@ -184,7 +184,6 @@ def test_getters_with_invalid_keys(state):
         state.get_game(1, 6)
 
 def test_setters_with_invalid_values(state):
-    """Tests that setters handle non-integer values gracefully, and getters might fail."""
-    state.set_timeout(1, "invalid")
+    """Tests that setters reject non-integer values with a ValueError."""
     with pytest.raises(ValueError):
-        state.get_timeout(1)
+        state.set_timeout(1, "invalid")
