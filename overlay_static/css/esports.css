@@ -1,0 +1,202 @@
+/* ========================================================================
+   ESPORTS OVERLAY STYLES 
+   Based on Proposal 55 - The Hexagonal Esports Board
+   ======================================================================== */
+
+.p55-board {
+    display: inline-flex;
+    flex-direction: column;
+    font-family: Inter, sans-serif;
+    gap: 10px;
+}
+
+.p55-row {
+    display: flex;
+    height: 75px;
+    clip-path: polygon(15px 0px, 100% 0px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0px 100%, 0px 15px);
+    box-shadow: rgba(0, 0, 0, 0.5) 0px 10px 20px;
+}
+
+.p55-row.h {
+    background: linear-gradient(90deg, var(--home-primary, #060f8a) 40%, rgb(24, 24, 32) 100%);
+}
+
+.p55-row.h .p55-name {
+    color: var(--home-text, #ffffff);
+}
+
+.p55-row.a {
+    background: linear-gradient(90deg, var(--away-primary, #d60000) 40%, rgb(24, 24, 32) 100%);
+}
+
+.p55-row.a .p55-name {
+    color: var(--away-text, #ffffff);
+}
+
+/* Service Indicator */
+.p55-serve-block {
+    width: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.p55-row.h .p55-serve-block.active::after {
+    content: "";
+    width: 0px;
+    height: 0px;
+    /* Right facing arrow */
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 12px solid var(--home-text, rgb(255, 255, 255));
+    filter: drop-shadow(var(--home-text, rgb(255, 255, 255)) 0px 0px 5px);
+}
+
+.p55-row.a .p55-serve-block.active::after {
+    content: "";
+    width: 0px;
+    height: 0px;
+    /* Right facing arrow since it's on the left too */
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 12px solid var(--away-text, rgb(255, 255, 255));
+    filter: drop-shadow(var(--away-text, rgb(255, 255, 255)) 0px 0px 5px);
+}
+
+
+/* Logos */
+.p55-logo {
+    width: 75px;
+    height: 75px;
+    background-color: rgb(255, 255, 255);
+    clip-path: polygon(25% 0%, 100% 0px, 75% 100%, 0% 100%);
+    margin-left: -10px;
+    overflow: hidden;
+    /* For inner image clipping */
+}
+
+.p55-logo img {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+}
+
+/* Info Section (Name & Timeouts) */
+.p55-info {
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0px 10px;
+    flex-shrink: 0;
+}
+
+.p55-name {
+    font-size: 26px;
+    font-weight: 900;
+    text-transform: uppercase;
+    font-style: italic;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Timeouts */
+.p55-to-area {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.p55-to-hex {
+    width: 14px;
+    height: 14px;
+    background: rgba(0, 0, 0, 0.4);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.p55-row.h .p55-to-hex.active {
+    background: var(--home-text, #ffffff);
+}
+
+.p55-row.a .p55-to-hex.active {
+    background: var(--away-text, #ffffff);
+}
+
+/* Set Won Counts */
+.p55-sets {
+    width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    /* Set Background */
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--set-text, rgb(170, 170, 170));
+    clip-path: polygon(10px 0px, 100% 0px, calc(100% - 10px) 100%, 0px 100%);
+    margin-right: 5px;
+}
+
+/* Set History Area */
+.p55-hist {
+    padding: 0px 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    color: rgb(102, 102, 102);
+    /* Allow expanding as more sets are added without collapsing others */
+    flex-shrink: 0;
+}
+
+/* How app.js renders things dynamically in the set-history-container */
+/* Using !important to decisively override style.css .set-score which forces large stretched blocks */
+.p55-hist .set-score {
+    background: rgb(30, 30, 40);
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    color: #999;
+
+    /* Overrides */
+    height: 28px !important;
+    border-left: none !important;
+    font-size: 16px !important;
+    width: auto !important;
+    min-width: 28px !important;
+    margin-left: 4px !important;
+}
+
+/* Won sets — softer contrast than pure white */
+.p55-hist .set-score.set-won {
+    background: rgb(210, 210, 220);
+    color: rgb(20, 20, 30);
+    box-shadow: rgba(210, 210, 220, 0.4) 0px 0px 8px;
+}
+
+/* Current Game Score */
+.points-container {
+    height: 100%;
+}
+
+.p55-score {
+    /* Keep game score at a fixed width */
+    width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 52px;
+    font-weight: 900;
+    background: var(--game-bg, #191919);
+    color: var(--game-text, #ffffff);
+    height: 100%;
+    /* Keep score from shrinking */
+    flex-shrink: 0;
+}

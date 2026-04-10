@@ -1,0 +1,287 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap');
+
+/* ========================================================================
+   ORIGINAL OVERLAY
+   Minimal two-line scoreboard.  Each row:
+     [Logo] [Name  ●● ◄] [SetsWon] [S1 S2 … Pts]
+       team colors          set colors  game colors
+   All text/numbers share the same font-size.
+   ======================================================================== */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --home-text: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --away-text: #FFD700;
+    --set-bg: #2a2f35;
+    --set-text: #FFFFFF;
+    --game-bg: #ffffff;
+    --game-text: #2a2f35;
+    --font-size: 18px;
+    --row-h: 44px;
+    --cell-w: 40px;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    font-size: var(--font-size);
+    font-weight: 700;
+}
+
+/* ── Scoreboard container ── */
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Team row ── */
+.team {
+    display: flex;
+    align-items: stretch;
+    height: var(--row-h);
+}
+
+/* ── Logo ── */
+.logo-container {
+    width: var(--row-h);
+    height: var(--row-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.team-home .logo-container { background: var(--home-primary); }
+.team-away .logo-container { background: var(--away-primary); }
+
+.team-logo {
+    max-width: 34px;
+    max-height: 34px;
+    object-fit: contain;
+}
+
+/* ── Team info (name + timeouts + serve) ── */
+.team-info {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    flex: 1;
+    min-width: 100px;
+    overflow: hidden;
+}
+
+.team-home .team-info { background: var(--home-primary); color: var(--home-text); }
+.team-away .team-info { background: var(--away-primary); color: var(--away-text); }
+
+.name-panel {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.team-name {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-left: 14px;
+}
+
+/* ── Timeout markers (two circles) ── */
+.timeout-container {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.timeout-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    background: transparent;
+    box-sizing: border-box;
+    transition: background 0.3s ease;
+}
+
+.timeout-dot.active {
+    background: currentColor;
+}
+
+/* ── Serving triangle (pointing left ◄) ── */
+.serving-indicator {
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-right: 10px solid currentColor;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.serving-indicator.active {
+    opacity: 1;
+}
+
+/* ── Sets strip (set history + current points) ── */
+.sets-strip {
+    display: flex;
+    align-items: stretch;
+    background: var(--game-bg);
+    color: var(--game-text);
+}
+
+.set-history-container {
+    display: flex;
+    align-items: center;
+    max-width: 300px;
+    overflow: hidden;
+    transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.set-score {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: var(--cell-w) !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-right: 1px solid rgba(255,255,255,0.12) !important;
+    background: none;
+    font-size: var(--font-size);
+    font-weight: 700;
+    color: var(--game-text);
+}
+
+/* ── Current points (last cell in the strip, looks like a set entry) ── */
+.points-container {
+    width: var(--cell-w);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.points {
+    font-size: var(--font-size);
+    font-weight: 700;
+    position: absolute;
+    color: var(--game-text);
+}
+
+/* ── Game score — sets won ── */
+.game-score {
+    width: var(--cell-w);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--set-bg);
+    color: var(--set-text);
+    flex-shrink: 0;
+}
+
+/* ========================================================================
+   COMPACT MODE — show_only_current_set = true
+   Hides completed-set history; current points + sets won remain.
+   ======================================================================== */
+
+.compact-mode .set-history-container {
+    max-width: 0 !important;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* ========================================================================
+   TICKER & PLAYER STATS (shared boilerplate)
+   ======================================================================== */
+
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 48px;
+    background: rgba(10,10,20,0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    border-radius: 6px;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f0f0f0;
+    white-space: nowrap;
+    letter-spacing: 1px;
+}
+
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: rgba(10,10,20,0.92);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    padding: 16px;
+    min-width: 260px;
+    opacity: 0;
+    border-left: 4px solid var(--home-primary);
+}
+
+.player-stats-title {
+    font-size: 16px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #333;
+    padding-bottom: 4px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    margin-top: 6px;
+    font-weight: bold;
+}
+
+.player-stats-label { color: #aaa; }
+.player-stats-value { color: #fff; }

@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from app.state import State
 from app.overlay_backends import (
     UnoOverlayBackend,
-    CustomOverlayBackend,
+    LocalOverlayBackend,
     is_custom_overlay,
 )
 
@@ -15,7 +15,7 @@ import requests
 class Backend:
     """Coordinator that delegates overlay communication to the right strategy.
 
-    Instantiates either a ``UnoOverlayBackend`` or ``CustomOverlayBackend``
+    Instantiates either a ``UnoOverlayBackend`` or ``LocalOverlayBackend``
     based on the OID prefix and forwards all overlay-specific operations.
     """
 
@@ -37,7 +37,8 @@ class Backend:
         """Instantiate the right overlay backend for the given OID."""
         check_oid = oid if oid is not None else self.conf.oid
         if is_custom_overlay(check_oid):
-            backend = CustomOverlayBackend(self.conf, self.session)
+            from app.overlay import overlay_state_store, obs_broadcast_hub
+            backend = LocalOverlayBackend(self.conf, overlay_state_store, obs_broadcast_hub)
             backend._build_payload = self._build_overlay_payload
             return backend
         return UnoOverlayBackend(self.conf, self.session)
@@ -59,7 +60,7 @@ class Backend:
     def get_custom_overlay_id(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
         if is_custom_overlay(check_oid):
-            return CustomOverlayBackend.get_overlay_id(check_oid)
+            return LocalOverlayBackend.get_overlay_id(check_oid)
         return check_oid, None
 
     # -- WebSocket lifecycle (delegated) ------------------------------------
