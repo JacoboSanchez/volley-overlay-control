@@ -1,0 +1,38 @@
+/* ── Shared jersey icon styles ───────────────────────────────
+   Imported by neo_jersey.css and split_jersey.css.
+   Theme-specific properties (width, height, outline) stay in
+   each theme file.
+──────────────────────────────────────────────────────────── */
+.jersey-icon {
+    flex-shrink: 0;
+    /* T-shirt silhouette */
+    clip-path: polygon(
+        25%   0%,
+        75%   0%,
+        100%  25%,
+        85%   35%,
+        85%   100%,
+        15%   100%,
+        15%   35%,
+        0%    25%
+    );
+    /* Full shirt with diagonal secondary-color band (one third) */
+    background: linear-gradient(
+        135deg,
+        var(--home-primary)   42%,
+        var(--home-secondary) 42%,
+        var(--home-secondary) 58%,
+        var(--home-primary)   58%
+    );
+    transition: background 0.3s ease;
+}
+
+.team-away .jersey-icon {
+    background: linear-gradient(
+        135deg,
+        var(--away-primary)   42%,
+        var(--away-secondary) 42%,
+        var(--away-secondary) 58%,
+        var(--away-primary)   58%
+    );
+}

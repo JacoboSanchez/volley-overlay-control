@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Split-Jersey Overlay — {{ target_id }}{% endblock %}
+
+{% block head_fonts %}
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/split_jersey.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    <div id="scoreboard-container" class="scoreboard">
+
+        <!-- ── HOME BAR ── -->
+        <div class="team-bar team-home">
+            <!--
+                Zero-size element; app.js toggles .active on it.
+                CSS uses the adjacent-sibling (+) combinator to fire the logo halo.
+            -->
+            <div class="serving-indicator" id="home-serving"></div>
+
+            <div class="logo-container">
+                <img class="team-logo" id="home-logo" src="" alt=""
+                     onerror="this.style.display='none'">
+            </div>
+
+            <!--
+                .name-panel presence tells app.js this is a CSS-driven overlay
+                (isCssDriven = true), so history visibility is owned by CSS.
+            -->
+            <div class="name-panel">
+                <div class="team-name" id="home-name">HOME</div>
+            </div>
+
+            <div class="jersey-group">
+                <div class="timeout-container" id="home-timeouts">
+                    <div class="timeout-dot"></div>
+                    <div class="timeout-dot"></div>
+                </div>
+                <div class="jersey-icon"></div>
+            </div>
+
+            <div class="history-inline">
+                <div class="set-history-container" id="home-history"></div>
+            </div>
+
+            <div class="score-section">
+                <div class="sets" id="home-sets">0</div>
+                <div class="points-container">
+                    <div class="points" id="home-points">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── AWAY BAR ── -->
+        <div class="team-bar team-away">
+            <div class="serving-indicator" id="away-serving"></div>
+
+            <div class="logo-container">
+                <img class="team-logo" id="away-logo" src="" alt=""
+                     onerror="this.style.display='none'">
+            </div>
+
+            <div class="name-panel">
+                <div class="team-name" id="away-name">AWAY</div>
+            </div>
+
+            <div class="jersey-group">
+                <div class="timeout-container" id="away-timeouts">
+                    <div class="timeout-dot"></div>
+                    <div class="timeout-dot"></div>
+                </div>
+                <div class="jersey-icon"></div>
+            </div>
+
+            <div class="history-inline">
+                <div class="set-history-container" id="away-history"></div>
+            </div>
+
+            <div class="score-section">
+                <div class="sets" id="away-sets">0</div>
+                <div class="points-container">
+                    <div class="points" id="away-points">0</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+{% endblock %}

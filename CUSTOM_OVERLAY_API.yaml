@@ -8,9 +8,9 @@ info:
     Remote-Scoreboard UI (e.g. `C-mybroadcast`). The prefix is stripped before
     being passed to these endpoints as `{custom_id}`.
 
-    The base URL of the overlay server is configured via the
-    `APP_CUSTOM_OVERLAY_URL` environment variable (default
-    `http://127.0.0.1:8000`). See `CUSTOM_OVERLAY.md` for full integration
+    The overlay is served directly from the backend. When behind a reverse
+    proxy, set the `OVERLAY_PUBLIC_URL` environment variable to the
+    public-facing base URL. See `CUSTOM_OVERLAY.md` for full integration
     guidance and the reference implementation in `.web/`.
 
     Overlay servers may optionally implement a WebSocket control channel at

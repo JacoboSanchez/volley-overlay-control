@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Original Overlay — {{ target_id }}{% endblock %}
+
+{% block head_fonts %}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/original.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    <div id="scoreboard-container" class="scoreboard">
+
+        <!-- Team Home -->
+        <div class="team team-home">
+            <div class="logo-container">
+                <img class="team-logo" id="home-logo" src="" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="team-info">
+                <div class="name-panel">
+                    <span class="team-name" id="home-name">HOME</span>
+                </div>
+                <div class="info-right">
+                    <div class="timeout-container" id="home-timeouts">
+                        <div class="timeout-dot"></div>
+                        <div class="timeout-dot"></div>
+                    </div>
+                    <div class="serving-indicator" id="home-serving"></div>
+                </div>
+            </div>
+            <div class="game-score" id="home-sets">0</div>
+            <div class="sets-strip">
+                <div class="set-history-container" id="home-history"></div>
+                <div class="points-container">
+                    <div class="points" id="home-points">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Away -->
+        <div class="team team-away">
+            <div class="logo-container">
+                <img class="team-logo" id="away-logo" src="" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="team-info">
+                <div class="name-panel">
+                    <span class="team-name" id="away-name">AWAY</span>
+                </div>
+                <div class="info-right">
+                    <div class="timeout-container" id="away-timeouts">
+                        <div class="timeout-dot"></div>
+                        <div class="timeout-dot"></div>
+                    </div>
+                    <div class="serving-indicator" id="away-serving"></div>
+                </div>
+            </div>
+            <div class="game-score" id="away-sets">0</div>
+            <div class="sets-strip">
+                <div class="set-history-container" id="away-history"></div>
+                <div class="points-container">
+                    <div class="points" id="away-points">0</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+{% endblock %}

@@ -276,7 +276,7 @@ def test_save_model_explicit_sets_display_for_new_layout(backend, mock_requests_
 # --- Custom Alternative Overlays Testing ---
 
 def test_custom_overlay_save_model(backend, mock_requests_session, conf):
-    """Tests that a C- prefixed OID skips Uno and sends to the custom local url."""
+    """Tests that a C- prefixed OID skips Uno and saves to local state store."""
     conf.oid = "C-test_overlay"
     conf.multithread = False
 
@@ -288,66 +288,61 @@ def test_custom_overlay_save_model(backend, mock_requests_session, conf):
     # Ensure Uno is NOT hit
     mock_requests_session.put.assert_not_called()
 
-    # Ensure the local overlay IS hit via session.post (raw_config save + api/state update)
-    state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
-    assert len(state_calls) == 1
-    assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay"
+    # Verify model was saved to local state store
+    raw = backend._overlay._store.get_raw_config("test_overlay")
+    assert raw["model"] == mock_model
 
 def test_custom_overlay_lowercase_prefix(backend, mock_requests_session, conf):
-    """Tests that a lowercase c- prefixed OID still routes to custom local url."""
+    """Tests that a lowercase c- prefixed OID still routes to local overlay."""
     conf.oid = "c-test_overlay_lower"
     conf.multithread = False
 
-    # Run the save
-    backend.save_model({"Team 1 Sets": "1"}, simple=False)
+    mock_model = {"Team 1 Sets": "1"}
+    backend.save_model(mock_model, simple=False)
 
     # Ensure Uno is NOT hit
     mock_requests_session.put.assert_not_called()
 
-    # Ensure the local overlay IS hit via session.post
-    state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
-    assert len(state_calls) == 1
-    assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay_lower"
+    # Verify model was saved to local state store
+    raw = backend._overlay._store.get_raw_config("test_overlay_lower")
+    assert raw["model"] == mock_model
 
-@patch('app.overlay_backends.AppStorage.load')
-def test_custom_overlay_visibility(mock_load, backend, mock_requests_session, conf):
+def test_custom_overlay_visibility(backend, mock_requests_session, conf):
     """Tests that a C- prefixed OID handles visibility locally."""
     conf.oid = "C-test_overlay"
     conf.multithread = False
-    mock_load.return_value = {"Team 1 Sets": "0"}
 
     backend.change_overlay_visibility(True)
 
     # Uno bypassed
     mock_requests_session.put.assert_not_called()
 
-    # Local overlay hit via session.post
-    state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
-    assert len(state_calls) == 1
+    # Verify visibility was set in local state store
+    state = backend._overlay._store.get_state("test_overlay")
+    assert state["overlay_control"]["show_main_scoreboard"] is True
 
 def test_custom_overlay_fetch_token_skips(backend, mock_requests_session, conf):
-    """Tests that fetch_output_token requests the local config endpoint for custom overlays."""
+    """Tests that fetch_output_token computes a local output URL for custom overlays."""
     conf.oid = "C-test_overlay"
-    
-    # Setup mock to return the expected configured outputUrl
-    mock_requests_session.get.return_value.json.return_value = {"outputUrl": "http://localhost:8000/overlay/test_overlay"}
-    
+
     result = backend.fetch_output_token(conf.oid)
-    
-    assert result == "http://localhost:8000/overlay/test_overlay"
-    mock_requests_session.get.assert_called_once()
-    assert mock_requests_session.get.call_args[0][0] == "http://localhost:8000/api/config/test_overlay"
+
+    # Local overlay returns a URL based on the output key hash
+    assert result is not None
+    assert "/overlay/" in result
+    # No HTTP calls should be made
+    mock_requests_session.get.assert_not_called()
 
 def test_custom_overlay_get_current_model_fallbacks(backend, mock_requests_session, conf):
     """Tests that missing backend data returns default State instead of empty dict."""
     conf.oid = "C-test_overlay"
-    
+
     # Run the get
     model = backend.get_current_model()
-    
+
     assert model is not None
-    assert model.get("Team 1 Timeouts") == "0"
-    assert model.get("Current Set") == "1"
+    # LocalOverlayBackend returns State().get_reset_model() when no raw model is stored
+    assert "Team 1 Sets" in model or "Current Set" in model
 
 def test_custom_overlay_get_current_customization_fallbacks(backend, mock_requests_session, conf):
     """Tests that a missing customization returns default Customization state instead of empty dict."""

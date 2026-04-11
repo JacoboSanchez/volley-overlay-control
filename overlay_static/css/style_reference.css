@@ -1,0 +1,295 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+
+    --bg-dark: rgba(20, 20, 20, 0.9);
+    --bg-medium: rgba(30, 30, 30, 0.95);
+    --text-light: #F0F0F0;
+    --font-main: 'Roboto', sans-serif;
+
+    /* Default sets and game colors, these will be dynamically overridden */
+    --set-bg: #333333;
+    --set-text: #FFFFFF;
+    --game-bg: #111111;
+    --game-text: #FFFFFF;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    /* For OBS Browser source */
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: var(--font-main);
+    color: var(--text-light);
+}
+
+.scoreboard {
+    position: absolute;
+    /* top and left will be set dynamically via JS */
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-dark);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    /* GSAP will animate this */
+    opacity: 0;
+    width: auto;
+    min-width: 600px;
+    transform-origin: top left;
+}
+
+.team {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    height: 70px;
+    position: relative;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+    transition: opacity 0.3s ease;
+}
+
+.team:last-child {
+    border-bottom: none;
+}
+
+.team-home {
+    background: linear-gradient(90deg, var(--home-primary), var(--bg-medium) 80%);
+}
+
+.team-away {
+    background: linear-gradient(90deg, var(--away-primary), var(--bg-medium) 80%);
+}
+
+.serving-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    z-index: 10;
+    background-color: transparent;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.team-home .serving-indicator.active,
+.team-away .serving-indicator.active {
+    background-color: #FFFFFF;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.logo-container {
+    width: 70px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.team-logo {
+    max-width: 50px;
+    max-height: 50px;
+    object-fit: contain;
+}
+
+.team-info {
+    position: relative;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 350px;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.team-name {
+    font-size: 26px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-light);
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.team-home .team-name {
+    color: var(--home-secondary);
+}
+
+.team-away .team-name {
+    color: var(--away-secondary);
+}
+
+.timeout-container {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.timeout-dot {
+    width: 20px;
+    height: 4px;
+}
+
+.team-home .timeout-dot {
+    background: transparent;
+}
+
+.team-away .timeout-dot {
+    background: transparent;
+}
+
+.team-home .timeout-dot.active {
+    background: var(--home-secondary);
+    box-shadow: 0 0 5px var(--home-secondary);
+}
+
+.team-away .timeout-dot.active {
+    background: var(--away-secondary);
+    box-shadow: 0 0 5px var(--away-secondary);
+}
+
+.set-history-container {
+    display: flex;
+    padding: 0 10px;
+    height: 100%;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    justify-content: flex-end;
+    overflow: hidden;
+}
+
+.set-score {
+    width: 40px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--set-text);
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    margin-left: 2px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.set-score:first-child {
+    margin-left: 0;
+}
+
+.sets {
+    width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: 900;
+    background: var(--set-bg);
+    height: 100%;
+    border-left: 2px solid #111;
+    color: var(--set-text);
+}
+
+.points-container {
+    background: var(--game-bg);
+    width: 90px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border-left: 2px solid #000;
+}
+
+.points {
+    font-size: 52px;
+    font-weight: 700;
+    position: absolute;
+    color: var(--game-text);
+}
+
+
+
+/* --- Bottom Ticker Styles --- */
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 60px;
+    background: linear-gradient(90deg, transparent, rgba(20, 20, 20, 0.9) 10%, rgba(20, 20, 20, 0.9) 90%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-light);
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}
+
+/* --- Player Stats Styles --- */
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: var(--bg-dark);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    min-width: 300px;
+    opacity: 0;
+    border-left: 6px solid var(--home-primary);
+}
+
+.player-stats-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: #FFF;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 24px;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.player-stats-label {
+    color: #AAA;
+}
+
+.player-stats-value {
+    color: #FFF;
+}

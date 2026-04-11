@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.templating import Jinja2Templates
 
 from app.logging_config import setup_logging
 from app.authentication import PasswordAuthenticator, AuthMiddleware
@@ -30,7 +31,20 @@ if PasswordAuthenticator.do_authenticate_users():
 # Mount the REST / WebSocket API
 app.include_router(api_router)
 
-# Serve static assets
+# -- Overlay serving (absorbed from volleyball-scoreboard-overlay) -----------
+from app.overlay import overlay_state_store, obs_broadcast_hub
+from app.overlay.routes import create_overlay_router
+
+_overlay_templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overlay_templates")
+_overlay_templates = Jinja2Templates(directory=_overlay_templates_dir)
+_overlay_router = create_overlay_router(overlay_state_store, obs_broadcast_hub, _overlay_templates)
+app.include_router(_overlay_router)
+
+# Serve overlay static assets (JS, CSS, images for OBS browser sources)
+_overlay_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overlay_static")
+app.mount("/static", StaticFiles(directory=_overlay_static_dir), name="overlay_static")
+
+# Serve backend static assets
 app.mount("/fonts", StaticFiles(directory="font"), name="fonts")
 app.mount("/pwa", StaticFiles(directory="app/pwa"), name="pwa")
 

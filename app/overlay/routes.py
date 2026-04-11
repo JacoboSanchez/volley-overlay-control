@@ -1,0 +1,268 @@
+"""Overlay HTTP and WebSocket endpoints.
+
+Serves overlay HTML templates to OBS browser sources, manages OBS WebSocket
+connections, and provides overlay CRUD and configuration endpoints.
+"""
+
+import json
+import logging
+import os
+import time
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse
+
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, Response
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, ConfigDict
+
+from app.overlay.state_store import OverlayStateStore, deep_merge, normalize_state
+
+logger = logging.getLogger("OverlayRoutes")
+
+# Pydantic models for validation (ported from overlay server)
+
+class TeamStateModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    name: Optional[str] = None
+    short_name: Optional[str] = None
+    color_primary: Optional[str] = None
+    color_secondary: Optional[str] = None
+    logo_url: Optional[str] = None
+    sets_won: Optional[int] = None
+    points: Optional[int] = None
+    serving: Optional[bool] = None
+    timeouts_taken: Optional[int] = None
+    set_history: Optional[Dict[str, int]] = None
+
+
+class MatchInfoModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    tournament: Optional[str] = None
+    phase: Optional[str] = None
+    best_of_sets: Optional[int] = None
+    current_set: Optional[int] = None
+    show_only_current_set: Optional[bool] = None
+
+
+class OverlayControlModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    show_main_scoreboard: Optional[bool] = None
+    show_bottom_ticker: Optional[bool] = None
+    ticker_message: Optional[str] = None
+    show_player_stats: Optional[bool] = None
+    player_stats_data: Optional[Any] = None
+    geometry: Optional[Dict[str, Any]] = None
+    colors: Optional[Dict[str, str]] = None
+    preferredStyle: Optional[str] = None
+
+
+class OverlayStateUpdate(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    match_info: Optional[MatchInfoModel] = None
+    team_home: Optional[TeamStateModel] = None
+    team_away: Optional[TeamStateModel] = None
+    overlay_control: Optional[OverlayControlModel] = None
+    raw_remote_model: Optional[Any] = None
+    raw_remote_customization: Optional[Any] = None
+
+
+class RawConfigPayload(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    model: Optional[Any] = None
+    customization: Optional[Any] = None
+
+
+# Preset themes
+PRESET_THEMES: Dict[str, dict] = {
+    "dark": {
+        "overlay_control": {
+            "colors": {
+                "set_bg": "#222222", "set_text": "#FFFFFF",
+                "game_bg": "#111111", "game_text": "#FFFFFF",
+            }
+        }
+    },
+    "light": {
+        "overlay_control": {
+            "colors": {
+                "set_bg": "#EEEEEE", "set_text": "#222222",
+                "game_bg": "#F5F5F5", "game_text": "#111111",
+            }
+        }
+    },
+    "esports": {
+        "overlay_control": {
+            "preferredStyle": "esports",
+            "colors": {
+                "set_bg": "#0d0d1a", "set_text": "#00FFFF",
+                "game_bg": "#0a0a0f", "game_text": "#00FFFF",
+            },
+        }
+    },
+    "neo_jersey": {
+        "overlay_control": {"preferredStyle": "neo_jersey"}
+    },
+    "split_jersey": {
+        "overlay_control": {"preferredStyle": "split_jersey"}
+    },
+    "clear_jersey": {
+        "overlay_control": {"preferredStyle": "clear_jersey"}
+    },
+}
+
+
+def create_overlay_router(store: OverlayStateStore, broadcast_hub, templates: Jinja2Templates) -> APIRouter:
+    """Create and return the overlay router with injected dependencies."""
+
+    router = APIRouter(tags=["Overlay"])
+
+    @router.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        return Response(content=b"", media_type="image/x-icon", status_code=200)
+
+    @router.get("/overlay/{overlay_id}", response_class=HTMLResponse)
+    async def serve_overlay(request: Request, overlay_id: str, style: str = None):
+        resolved = store.resolve_overlay_id(overlay_id)
+        if resolved is None:
+            raise HTTPException(status_code=404, detail="Overlay ID not found.")
+        overlay_id = resolved
+
+        if not style:
+            state = await store.load_persisted_state_async(overlay_id)
+            preferred_style = state.get("raw_remote_customization", {}).get("preferredStyle")
+            if preferred_style and preferred_style in store.get_available_styles_list():
+                style = preferred_style
+            else:
+                style = "default"
+
+        template_name = "index.html" if style == "default" else f"{style}.html"
+        template_path = os.path.join(store._templates_dir, template_name)
+        if not os.path.isfile(template_path):
+            raise HTTPException(status_code=404, detail=f"Overlay style '{style}' not found.")
+
+        return templates.TemplateResponse(
+            request=request,
+            name=template_name,
+            context={"target_id": overlay_id, "style": style, "v": int(time.time())},
+        )
+
+    @router.websocket("/ws/{overlay_id}")
+    async def obs_websocket(websocket: WebSocket, overlay_id: str):
+        resolved = store.resolve_overlay_id(overlay_id)
+        if resolved is None:
+            await websocket.close(code=4004, reason="Overlay not found")
+            return
+        overlay_id = resolved
+        await websocket.accept()
+        broadcast_hub.add_client(overlay_id, websocket)
+
+        try:
+            state = store.get_state(overlay_id)
+            await websocket.send_text(json.dumps(state))
+            while True:
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_text("pong")
+        except WebSocketDisconnect:
+            pass
+        finally:
+            broadcast_hub.remove_client(overlay_id, websocket)
+
+    @router.post("/api/state/{overlay_id}")
+    async def update_state(overlay_id: str, state_update: OverlayStateUpdate):
+        ctx = store.get_overlay_context(overlay_id)
+        update_dict = state_update.model_dump(exclude_unset=True)
+        deep_merge(ctx["state"], update_dict)
+        normalize_state(ctx["state"])
+        await store.save_persisted_state_async(overlay_id, ctx["state"])
+        broadcast_hub.schedule_broadcast(
+            overlay_id, lambda oid=overlay_id: store.get_state(oid)
+        )
+        return {"status": "success", "overlay_id": overlay_id}
+
+    @router.api_route("/create/overlay/{overlay_id}", methods=["GET", "POST"])
+    async def create_overlay(overlay_id: str):
+        created = store.create_overlay(overlay_id)
+        status = "created" if created else "already_exists"
+        return {"status": status, "overlay_id": overlay_id}
+
+    @router.api_route("/delete/overlay/{overlay_id}", methods=["GET", "POST", "DELETE"])
+    async def delete_overlay(overlay_id: str):
+        # Close any connected OBS clients
+        for client in broadcast_hub.get_clients(overlay_id):
+            try:
+                await client.close()
+            except Exception:
+                pass
+        broadcast_hub.cleanup_overlay(overlay_id)
+
+        existed = await store.delete_overlay(overlay_id)
+        if existed:
+            return {"status": "deleted", "overlay_id": overlay_id}
+        raise HTTPException(status_code=404, detail="Overlay not found")
+
+    @router.get("/list/overlay")
+    async def list_overlays():
+        return {"overlays": store.list_overlays()}
+
+    @router.get("/api/raw_config/{overlay_id}")
+    async def get_raw_config(overlay_id: str):
+        if not store.overlay_exists(overlay_id):
+            raise HTTPException(status_code=404, detail="Overlay not found")
+        return store.get_raw_config(overlay_id)
+
+    @router.post("/api/raw_config/{overlay_id}")
+    async def set_raw_config(overlay_id: str, payload: RawConfigPayload):
+        if not store.overlay_exists(overlay_id):
+            raise HTTPException(status_code=404, detail="Overlay not found. Call /create/overlay/ first.")
+
+        store.set_raw_config(
+            overlay_id,
+            model=payload.model,
+            customization=payload.customization,
+        )
+        # Broadcast to OBS clients if any are connected
+        broadcast_hub.schedule_broadcast(
+            overlay_id, lambda oid=overlay_id: store.get_state(oid)
+        )
+        return {"status": "success"}
+
+    @router.get("/api/config/{overlay_id}")
+    async def get_config(request: Request, overlay_id: str):
+        public_url = os.environ.get("OVERLAY_PUBLIC_URL", "").rstrip("/")
+        base_url = f"{public_url}/" if public_url else str(request.base_url)
+        output_key = store.get_output_key(overlay_id)
+        output_url = f"{base_url}overlay/{output_key}"
+
+        return {
+            "outputUrl": output_url,
+            "outputKey": output_key,
+            "availableStyles": store.get_available_styles_list(),
+        }
+
+    @router.get("/api/themes")
+    async def list_themes():
+        return {"themes": list(PRESET_THEMES.keys())}
+
+    @router.post("/api/theme/{overlay_id}/{theme_name}")
+    async def apply_theme(overlay_id: str, theme_name: str):
+        if theme_name not in PRESET_THEMES:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Theme '{theme_name}' not found. Available: {list(PRESET_THEMES.keys())}",
+            )
+        if not store.overlay_exists(overlay_id):
+            raise HTTPException(status_code=404, detail="Overlay not found")
+
+        ctx = store.get_overlay_context(overlay_id)
+        deep_merge(ctx["state"], PRESET_THEMES[theme_name])
+        normalize_state(ctx["state"])
+        await store.save_persisted_state_async(overlay_id, ctx["state"])
+        broadcast_hub.schedule_broadcast(
+            overlay_id, lambda oid=overlay_id: store.get_state(oid)
+        )
+        logger.info("Theme '%s' applied to overlay '%s'", theme_name, overlay_id)
+        return {"status": "applied", "theme": theme_name, "overlay_id": overlay_id}
+
+    return router
