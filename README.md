@@ -90,8 +90,8 @@ If you want to build and host your own completely custom graphical overlay (inst
     ```
     The FastAPI server starts on port 8080 (configurable via `APP_PORT`).
 
-4.  **Use a Custom Overlay Engine (Optional)**:
-    If using a self-hosted overlay instead of *overlays.uno*, set the `APP_CUSTOM_OVERLAY_URL` environment variable to your server's base URL and configure your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the full API contract.
+4.  **Use the Built-in Overlay Engine (Optional)**:
+    Instead of *overlays.uno*, you can use the built-in local overlay by configuring your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`). The overlay is served directly from the backend — no separate server needed. Set `OVERLAY_PUBLIC_URL` if the backend is behind a reverse proxy.
 
 ### Running with Docker
 
@@ -118,8 +118,7 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
-| `APP_CUSTOM_OVERLAY_URL` | The API URL for communicating with self-hosted custom overlays. | `http://localhost:8000` |
-| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | The external output URL for user-facing links. Falls back to `APP_CUSTOM_OVERLAY_URL`. | |
+| `OVERLAY_PUBLIC_URL` | Public-facing base URL for overlay output links (when behind a reverse proxy). | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
@@ -223,7 +222,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | Overlay not updating | Ensure the overlay control token is valid. Try calling `POST /api/v1/session/init` again. |
 | Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
 | "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
-| Custom overlay not receiving updates | Verify `APP_CUSTOM_OVERLAY_URL` is reachable. Overlay IDs must start with `C-`. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+| Custom overlay not receiving updates | Overlay IDs must start with `C-`. Ensure the backend is running and check logs for errors. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
 
 ---
 

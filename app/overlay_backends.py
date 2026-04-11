@@ -406,10 +406,6 @@ class LocalOverlayBackend(OverlayBackend):
         if public_url:
             base = public_url.rstrip("/")
             return f"{base}/overlay/{output_key}"
-        # If no public URL configured, use the custom overlay output URL
-        if EnvVarsManager.has_custom_overlay_output_url():
-            base = EnvVarsManager.get_custom_overlay_output_url().rstrip("/")
-            return f"{base}/overlay/{output_key}"
         return f"/overlay/{output_key}"
 
     def validate_oid(self, oid: str) -> State.OIDStatus:

@@ -6,7 +6,7 @@ This document provides everything an AI coding agent needs to understand, naviga
 
 ## Project Overview
 
-Volley Overlay Control is a self-hostable Python backend service for controlling volleyball scoreboards. It exposes a REST + WebSocket API that powers the React frontend ([volley-control-ui](../volley-control-ui)), managing match state (scores, sets, timeouts, serve) and synchronizing it to overlay graphics engines — either the hosted **overlays.uno** cloud service or a fully self-hosted **custom overlay** server.
+Volley Overlay Control is a self-hostable Python backend service for controlling volleyball scoreboards. It exposes a REST + WebSocket API that powers the frontend, managing match state (scores, sets, timeouts, serve) and synchronizing it to overlay graphics engines — either the hosted **overlays.uno** cloud service or a fully self-hosted **custom overlay** server.
 
 **Stack:** Python 3.x · FastAPI · Uvicorn · requests · python-dotenv · websocket-client · Docker
 **Test stack:** pytest · pytest-asyncio · flake8
@@ -158,7 +158,7 @@ The entire match lives in a flat dictionary with these keys:
 
 Config is loaded by `app/conf.py` -> `Conf` class from environment variables (`.env` or Docker compose).
 
-Key variables: `UNO_OVERLAY_OID`, `APP_PORT`, `MATCH_GAME_POINTS`, `MATCH_SETS`, `SCOREBOARD_USERS`, `APP_CUSTOM_OVERLAY_URL`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`, `SCOREBOARD_LANGUAGE`.
+Key variables: `UNO_OVERLAY_OID`, `APP_PORT`, `MATCH_GAME_POINTS`, `MATCH_SETS`, `SCOREBOARD_USERS`, `OVERLAY_PUBLIC_URL`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`, `SCOREBOARD_LANGUAGE`.
 
 Full list in [README.md](README.md).
 
