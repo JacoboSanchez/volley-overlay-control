@@ -12,6 +12,7 @@ from app.logging_config import setup_logging
 from app.authentication import PasswordAuthenticator, AuthMiddleware
 from app.env_vars_manager import EnvVarsManager
 from app.api import api_router
+from app.admin import admin_router, admin_page_router
 
 # Load environment variables only if tests are not running
 if "PYTEST_CURRENT_TEST" not in os.environ:
@@ -45,6 +46,12 @@ if PasswordAuthenticator.do_authenticate_users():
 
 # Mount the REST / WebSocket API
 app.include_router(api_router)
+
+# Overlay management page and admin API (password-protected via
+# OVERLAY_MANAGER_PASSWORD). Registered before the SPA mount so the
+# standalone ``/manage`` page is served by FastAPI, not by the SPA.
+app.include_router(admin_page_router)
+app.include_router(admin_router)
 
 # Mount overlay routes (in-process overlay serving for custom overlays)
 OVERLAY_TEMPLATES_DIR = Path("overlay_templates")
