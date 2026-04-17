@@ -6,40 +6,67 @@
 
 ## 1. Project Overview
 
-Volley Overlay Control is a Python backend service built with FastAPI. It serves as a remote control for updating volleyball scoreboards (overlays) in real-time. The application manages game logic (score, sets, serving, timeouts), handles user authentication, and synchronizes state with an external overlay backend (the overlays.uno system or a custom overlay server).
+Volley Overlay Control is a self-contained application that bundles a React frontend and a Python/FastAPI backend into a single deployable service. It manages game logic (score, sets, serving, timeouts), handles user authentication, serves the touch-friendly control UI, and synchronizes state with an external overlay backend (the overlays.uno system or a custom overlay server).
 
-The frontend is provided by a separate React application ([volley-control-ui](../volley-control-ui)) that communicates with this backend via REST API and WebSocket.
+The React frontend lives in the `frontend/` directory and is built with Vite. In production, FastAPI serves the built SPA as static files. During development, Vite's dev server provides hot-reload and proxies API calls to the backend.
 
 ### Tech Stack
 
 | Layer | Technology |
 | :--- | :--- |
+| **Frontend** | React 19, Vite, PWA (vite-plugin-pwa) |
 | **REST API** | FastAPI router at `/api/v1/` with WebSocket real-time updates |
-| **HTTP Server** | Uvicorn (ASGI) |
+| **HTTP Server** | Uvicorn (ASGI) — serves both the API and the frontend SPA |
 | **Backend Logic** | Python 3.x |
 | **State Management** | In-memory Python objects synchronized with an external API |
-| **Containerization** | Docker |
+| **Containerization** | Docker (multi-stage: Node.js + Python) |
 | **CI/CD** | GitHub Actions pipelines (`.github/workflows/`) for automated testing and linting |
 
 ### Key Dependencies
 
+**Backend (Python):**
+
 | Package | Purpose |
 | :--- | :--- |
-| `fastapi` | REST API framework |
+| `fastapi` | REST API framework + static file serving |
 | `uvicorn` | ASGI server |
 | `requests` | HTTP communication with overlay APIs |
 | `websocket-client` | Persistent WebSocket connection to custom overlay servers |
 | `python-dotenv` | `.env` file loading |
 | `pytest` / `pytest-asyncio` | Test suite |
 
+**Frontend (Node.js):**
+
+| Package | Purpose |
+| :--- | :--- |
+| `react` / `react-dom` | UI framework |
+| `react-colorful` | Color picker component |
+| `vite` | Build tool and dev server |
+| `vite-plugin-pwa` | PWA support (service worker, manifest) |
+| `vitest` / `@testing-library/react` | Test suite |
+
 ---
 
 ## 2. Directory Structure & Key Files
 
 ```
-├── main.py                  # Entry point. Creates FastAPI app, mounts routes, starts uvicorn.
-├── .github/                 # GitHub specific files.
-│   └── workflows/           # CI/CD pipelines (ci.yml, docker-publish.yml, docker-publish-dev.yml).
+├── main.py                  # Entry point. Creates FastAPI app, mounts routes + SPA, starts uvicorn.
+├── Dockerfile               # Multi-stage build (Node.js + Python).
+├── docker-compose.yml       # Docker Compose configuration.
+├── frontend/                # React control UI (built with Vite).
+│   ├── package.json         # Frontend dependencies and scripts.
+│   ├── vite.config.js       # Vite config (PWA, dev proxy, test setup).
+│   ├── index.html           # SPA entry point.
+│   ├── src/                 # React source code.
+│   │   ├── App.jsx          # Main application component.
+│   │   ├── api/client.js    # REST API client (relative paths: /api/v1/).
+│   │   ├── api/websocket.js # WebSocket client (relative URLs).
+│   │   ├── components/      # UI components (TeamPanel, ConfigPanel, etc.).
+│   │   ├── hooks/           # React hooks (useGameState, useSettings, etc.).
+│   │   ├── i18n.jsx         # Internationalization.
+│   │   ├── theme.js         # Theme constants.
+│   │   └── test/            # Vitest test suite.
+│   └── public/              # Static assets (icons, fonts).
 ├── app/
 │   ├── backend.py           # Handles communication with the external Overlay API & local overlay.
 │   ├── ws_client.py         # Persistent WebSocket client for custom overlay control channel.
@@ -64,20 +91,19 @@ The frontend is provided by a separate React application ([volley-control-ui](..
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
 │   ├── logging_config.py    # Logging level configuration.
 │   ├── config_validator.py  # Startup configuration validation (env var checks).
-│   └── pwa/                 # Progressive Web App assets (Service Worker, Manifest, Icons).
+│   └── pwa/                 # Legacy PWA assets (icons).
 ├── font/                    # Custom font files for the overlay.
-├── tests/                   # Pytest suite.
-│   ├── conftest.py          # Test fixtures and configuration.
-│   ├── test_api.py          # API layer tests (SessionManager, GameService, auth).
-│   ├── test_backend.py      # Backend API communication tests.
-│   ├── test_customization.py # Customization logic tests.
-│   ├── test_env_vars_manager.py # Environment variable manager tests.
-│   ├── test_game_manager.py     # Game rules and scoring tests.
-│   ├── test_state.py            # State model tests.
-│   ├── test_config_validator.py # Startup configuration validation tests.
-│   ├── test_ws_client.py        # WebSocket client and Backend WS integration tests.
-│   └── test_coverage_proposals.py # Additional WSControlClient coverage tests.
-└── docker-compose.yml           # Docker Compose configuration.
+└── tests/                   # Pytest suite.
+    ├── conftest.py          # Test fixtures and configuration.
+    ├── test_api.py          # API layer tests (SessionManager, GameService, auth).
+    ├── test_backend.py      # Backend API communication tests.
+    ├── test_customization.py # Customization logic tests.
+    ├── test_env_vars_manager.py # Environment variable manager tests.
+    ├── test_game_manager.py     # Game rules and scoring tests.
+    ├── test_state.py            # State model tests.
+    ├── test_config_validator.py # Startup configuration validation tests.
+    ├── test_ws_client.py        # WebSocket client and Backend WS integration tests.
+    └── test_coverage_proposals.py # Additional WSControlClient coverage tests.
 ```
 
 ---
@@ -226,21 +252,16 @@ WebSocket notification hub for broadcasting state updates to connected frontend 
 ### Running Tests Locally
 
 ```bash
-# Install runtime and dev/test dependencies
+# Backend tests
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
-
-# Run the full test suite
 pytest tests/
 
-# Run a specific test file
-pytest tests/test_game_manager.py -v
-
-# Run with log output
-pytest tests/ --log-cli-level=debug
+# Frontend tests
+cd frontend && npm ci && npm test
 ```
 
-### Test Organization
+### Backend Test Organization
 
 | File | Coverage Area |
 | :--- | :--- |
@@ -253,6 +274,10 @@ pytest tests/ --log-cli-level=debug
 | `test_config_validator.py` | Startup environment variable validation |
 | `test_ws_client.py` | WebSocket client unit tests and Backend WS integration |
 | `test_coverage_proposals.py` | Additional WSControlClient message format tests |
+
+### Frontend Tests
+
+Frontend tests use Vitest + React Testing Library and live in `frontend/src/test/`. They cover API client, WebSocket client, all UI components, hooks, i18n, and theming.
 
 ### CI Pipeline
 
@@ -309,22 +334,37 @@ cd volley-overlay-control
 
 # 2. Create a virtual environment (recommended)
 python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# 3. Install dependencies
+# 3. Install backend dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment
+# 4. Build the frontend
+cd frontend && npm ci && npm run build && cd ..
+
+# 5. Configure environment
 # Create a .env file with your settings, for example:
 # UNO_OVERLAY_OID=your_token_here
 # SCOREBOARD_USERS={"admin": {"password": "secret"}}
 
-# 5. Run the application
+# 6. Run the application (serves both API and UI on port 8080)
 python main.py
 
-# 6. Run the test suite
-pytest tests/ -v
+# 7. Run the test suites
+pytest tests/ -v           # Backend tests
+cd frontend && npm test    # Frontend tests
 ```
+
+### Frontend Development with Hot-Reload
+
+For active frontend work, use Vite's dev server instead of the built static files:
+
+```bash
+# Terminal 1: Start the backend
+python main.py
+
+# Terminal 2: Start the Vite dev server (hot-reload on port 3000)
+cd frontend && npm run dev
+```
+
+Vite proxies all `/api` requests to `http://localhost:8080`. Open `http://localhost:3000` for development.

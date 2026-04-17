@@ -4,9 +4,9 @@
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
 ![FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)
 
-**Volley Overlay Control** is a powerful, self-hostable backend service for controlling volleyball scoreboards. It works with *overlays.uno* cloud overlays and with fully custom, self-hosted overlay engines.
+**Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend and a FastAPI backend into a single deployable service.
 
-It exposes a REST + WebSocket API that powers the [volley-control-ui](../volley-control-ui) React frontend, providing complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes.
+It works with *overlays.uno* cloud overlays and with fully custom, self-hosted overlay engines, providing complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes.
 
 ---
 
@@ -41,9 +41,10 @@ Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no 
 
 For the full endpoint reference, request/response schemas, and WebSocket protocol, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
 
-### Flexible Deployment
-*   **Local Execution**: Run locally as a standard Python application.
-*   **Docker Support**: Deploy easily using Docker containers.
+### Single-App Deployment
+*   **All-in-one**: The React control UI and Python backend run as a single process from a single Docker image.
+*   **Local Execution**: Run locally as a standard Python application (with optional Vite dev server for frontend hot-reload).
+*   **Docker Support**: Deploy easily using a single Docker container — no nginx or reverse proxy required.
 
 ---
 
@@ -52,6 +53,7 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 ### Prerequisites
 
 *   **Python 3.x**
+*   **Node.js 20+** and **npm** (for building the frontend)
 *   An account on **[overlays.uno](https://overlays.uno)** (for cloud overlays), or a self-hosted overlay server.
 
 ### Creating an Overlay
@@ -75,7 +77,13 @@ If you want to build and host your own completely custom graphical overlay (inst
     ```bash
     pip install -r requirements.txt
     ```
-2.  **Configure Environment Variables**:
+
+2.  **Build the frontend**:
+    ```bash
+    cd frontend && npm ci && npm run build && cd ..
+    ```
+
+3.  **Configure Environment Variables**:
     Create a `.env` file in the root directory or export variables in your terminal. `UNO_OVERLAY_OID` is required when using overlays.uno.
 
     ```env
@@ -84,18 +92,20 @@ If you want to build and host your own completely custom graphical overlay (inst
     SCOREBOARD_USERS={"user1": {"password": "password1"}}
     ```
 
-3.  **Start the Application**:
+4.  **Start the Application**:
     ```bash
     python main.py
     ```
-    The FastAPI server starts on port 8080 (configurable via `APP_PORT`).
+    The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The control UI is available at `http://localhost:8080/`.
 
-4.  **Use a Custom Overlay Engine (Optional)**:
+5.  **Use a Custom Overlay Engine (Optional)**:
     If using a self-hosted overlay instead of *overlays.uno*, set the `APP_CUSTOM_OVERLAY_URL` environment variable to your server's base URL and configure your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the full API contract.
+
+> **Tip:** For frontend development with hot-reload, run `cd frontend && npm run dev` alongside `python main.py`. Vite serves on port 3000 and proxies API calls to the backend on port 8080.
 
 ### Running with Docker
 
-Use the provided `docker-compose.yml`.
+The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then the result is copied into the Python image. No separate frontend container or nginx is needed.
 
 1.  Create a `.env` file:
     ```env
@@ -209,6 +219,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 
 | Endpoint | Description |
 | :--- | :--- |
+| `/` | Control UI (React SPA) |
 | `/api/v1/...` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
 | `/api/v1/ws?oid=X` | WebSocket for real-time state updates |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
@@ -232,7 +243,9 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 Contributions are welcome! Here's how to get started:
 
 1.  **Fork** the repository and create a feature branch.
-2.  **Install dependencies** and ensure tests pass (`pytest tests/`).
+2.  **Install dependencies** and ensure tests pass:
+    - Backend: `pip install -r requirements.txt && pytest tests/`
+    - Frontend: `cd frontend && npm ci && npm test`
 3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
 4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.
 

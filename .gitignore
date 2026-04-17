@@ -9,3 +9,6 @@ __pycache__/
 /test
 .coverage
 htmlcov/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
