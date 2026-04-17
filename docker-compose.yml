@@ -13,8 +13,9 @@ services:
       - APP_TITLE=${APP_TITLE:-Scoreboard} #Optional
       - UNO_OVERLAY_OID=${UNO_OVERLAY_OID:-}
       - UNO_OVERLAY_OUTPUT=${UNO_OVERLAY_OUTPUT:-} #Optional (https://app.overlays.uno/output/<code>)
-      - APP_CUSTOM_OVERLAY_URL=${APP_CUSTOM_OVERLAY_URL:-http://localhost:8000}
+      - APP_CUSTOM_OVERLAY_URL=${APP_CUSTOM_OVERLAY_URL:-} #Optional (external overlay server)
       - APP_CUSTOM_OVERLAY_OUTPUT_URL=${APP_CUSTOM_OVERLAY_OUTPUT_URL:-} #Optional
+      - OVERLAY_PUBLIC_URL=${OVERLAY_PUBLIC_URL:-} #Optional (public URL for overlay links behind a reverse proxy)
       - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
       - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
       - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
@@ -36,4 +37,6 @@ services:
       retries: 3
       start_period: 15s
     volumes:
-      - ./:/app/
+      - overlay_data:/app/data
+volumes:
+  overlay_data:
