@@ -6,8 +6,10 @@ from app.state import State
 from app.overlay_backends import (
     UnoOverlayBackend,
     CustomOverlayBackend,
+    LocalOverlayBackend,
     is_custom_overlay,
 )
+from app.env_vars_manager import EnvVarsManager
 
 import requests
 
@@ -34,10 +36,21 @@ class Backend:
         self._overlay = self._create_overlay_backend()
 
     def _create_overlay_backend(self, oid=None):
-        """Instantiate the right overlay backend for the given OID."""
+        """Instantiate the right overlay backend for the given OID.
+
+        For custom overlays (``C-`` prefix), uses ``LocalOverlayBackend``
+        (in-process) by default.  If ``APP_CUSTOM_OVERLAY_URL`` is explicitly
+        set, falls back to ``CustomOverlayBackend`` (external server).
+        """
         check_oid = oid if oid is not None else self.conf.oid
         if is_custom_overlay(check_oid):
-            backend = CustomOverlayBackend(self.conf, self.session)
+            external_url = EnvVarsManager.get_env_var(
+                'APP_CUSTOM_OVERLAY_URL', None
+            )
+            if external_url:
+                backend = CustomOverlayBackend(self.conf, self.session)
+            else:
+                backend = LocalOverlayBackend(self.conf)
             backend._build_payload = self._build_overlay_payload
             return backend
         return UnoOverlayBackend(self.conf, self.session)
@@ -59,7 +72,9 @@ class Backend:
     def get_custom_overlay_id(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
         if is_custom_overlay(check_oid):
-            return CustomOverlayBackend.get_overlay_id(check_oid)
+            # Both LocalOverlayBackend and CustomOverlayBackend share
+            # the same static get_overlay_id parser.
+            return LocalOverlayBackend.get_overlay_id(check_oid)
         return check_oid, None
 
     # -- WebSocket lifecycle (delegated) ------------------------------------

@@ -274,7 +274,11 @@ def test_save_model_explicit_sets_display_for_new_layout(backend, mock_requests_
     assert mock_requests_session.put.call_count == 1
 
 # --- Custom Alternative Overlays Testing ---
+# These tests verify CustomOverlayBackend (external server via HTTP).
+# APP_CUSTOM_OVERLAY_URL must be set so Backend selects CustomOverlayBackend
+# instead of LocalOverlayBackend.
 
+@patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 def test_custom_overlay_save_model(backend, mock_requests_session, conf):
     """Tests that a C- prefixed OID skips Uno and sends to the custom local url."""
     conf.oid = "C-test_overlay"
@@ -293,6 +297,7 @@ def test_custom_overlay_save_model(backend, mock_requests_session, conf):
     assert len(state_calls) == 1
     assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay"
 
+@patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 def test_custom_overlay_lowercase_prefix(backend, mock_requests_session, conf):
     """Tests that a lowercase c- prefixed OID still routes to custom local url."""
     conf.oid = "c-test_overlay_lower"
@@ -309,6 +314,7 @@ def test_custom_overlay_lowercase_prefix(backend, mock_requests_session, conf):
     assert len(state_calls) == 1
     assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay_lower"
 
+@patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 @patch('app.overlay_backends.AppStorage.load')
 def test_custom_overlay_visibility(mock_load, backend, mock_requests_session, conf):
     """Tests that a C- prefixed OID handles visibility locally."""
@@ -325,6 +331,7 @@ def test_custom_overlay_visibility(mock_load, backend, mock_requests_session, co
     state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
     assert len(state_calls) == 1
 
+@patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 def test_custom_overlay_fetch_token_skips(backend, mock_requests_session, conf):
     """Tests that fetch_output_token requests the local config endpoint for custom overlays."""
     conf.oid = "C-test_overlay"
@@ -338,6 +345,7 @@ def test_custom_overlay_fetch_token_skips(backend, mock_requests_session, conf):
     mock_requests_session.get.assert_called_once()
     assert mock_requests_session.get.call_args[0][0] == "http://localhost:8000/api/config/test_overlay"
 
+@patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 def test_custom_overlay_get_current_model_fallbacks(backend, mock_requests_session, conf):
     """Tests that missing backend data returns default State instead of empty dict."""
     conf.oid = "C-test_overlay"

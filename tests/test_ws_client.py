@@ -137,8 +137,14 @@ def backend(conf, mock_requests_session):
     return Backend(conf)
 
 
+@patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 class TestBackendWSIntegration:
-    """Tests for Backend's WebSocket-first behavior."""
+    """Tests for Backend's WebSocket-first behavior with external overlay server.
+
+    These tests verify CustomOverlayBackend (HTTP/WebSocket to external server).
+    APP_CUSTOM_OVERLAY_URL is set to force Backend to select CustomOverlayBackend
+    instead of LocalOverlayBackend.
+    """
 
     def _ensure_custom_overlay(self, backend, conf):
         """Helper: switch backend to CustomOverlayBackend for C- OID."""

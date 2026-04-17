@@ -1,36 +1,42 @@
 # Frontend Development Guide
 
-This guide provides everything you need to build a custom frontend for Volley Overlay Control using any JavaScript framework (React, Vue, Svelte, vanilla JS, etc.) or any HTTP-capable client.
+This guide covers the REST + WebSocket API exposed by Volley Overlay Control. Use it to build a custom frontend using any JavaScript framework (React, Vue, Svelte, vanilla JS, etc.) or any HTTP-capable client.
+
+The bundled React control UI (`frontend/`) is a reference implementation that uses this API. You can also build a completely independent frontend.
 
 ## Architecture Overview
 
 ```
-┌──────────────────────────┐
-│  Your JS Frontend        │
-│  (React, Vue, etc.)      │
-└──────────┬───────────────┘
-           │ HTTP + WebSocket
-           ▼
-┌──────────────────────────────────────────────────────────┐
-│              Game Service Layer (app/api/)                │
-│  ┌──────────────────┐  ┌──────────┐  ┌───────────────┐  │
-│  │  REST API         │  │  WS Hub  │  │ Session Mgr   │  │
-│  │  /api/v1/*        │  │  /api/v1 │  │               │  │
-│  │                   │  │  /ws     │  │               │  │
-│  └──────────────────┘  └──────────┘  └───────────────┘  │
-└──────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────────────────────────────────┐
-│         Core Business Logic                               │
-│   GameManager  │  State  │  Backend  │  Customization    │
-└──────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────────────────────────────────┐
-│         External Overlay APIs                             │
-│   overlays.uno (cloud)  │  Custom overlay (self-hosted)  │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│  Volley Overlay Control (single process, port 8080)               │
+│                                                                   │
+│  ┌──────────────────────────────┐                                 │
+│  │  React Control UI (SPA)      │  served at /                    │
+│  │  frontend/dist/              │                                 │
+│  └──────────────────────────────┘                                 │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────┐         │
+│  │          Game Service Layer (app/api/)                │         │
+│  │  REST API  /api/v1/*  │  WS Hub  │  Session Manager  │         │
+│  └──────────────────────────────────────────────────────┘         │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────┐         │
+│  │       Core Business Logic                             │         │
+│  │  GameManager  │  State  │  Backend  │  Customization  │         │
+│  └──────────────────────────────────────────────────────┘         │
+│                        │                                          │
+│           ┌────────────┼────────────┐                             │
+│           ▼                         ▼                             │
+│  ┌─────────────────────┐   ┌──────────────────┐                  │
+│  │  Built-in Overlay    │   │  overlays.uno    │                  │
+│  │  Engine (app/overlay)│   │  (cloud API)     │                  │
+│  │  /overlay/* /ws/*    │   └──────────────────┘                  │
+│  └─────────────────────┘            │ (optional)                  │
+│           │                ┌──────────────────┐                   │
+│           ▼                │  External overlay │                   │
+│     OBS browser sources    │  server (HTTP/WS) │                   │
+│                            └──────────────────┘                   │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Getting Started
@@ -42,6 +48,9 @@ This guide provides everything you need to build a custom frontend for Volley Ov
 git clone <repo-url>
 pip install -r requirements.txt
 
+# Build the frontend (optional — backend works without it)
+cd frontend && npm ci && npm run build && cd ..
+
 # Configure (minimal)
 export UNO_OVERLAY_OID=C-my-overlay   # or a cloud overlay OID
 
@@ -49,7 +58,7 @@ export UNO_OVERLAY_OID=C-my-overlay   # or a cloud overlay OID
 python main.py
 ```
 
-The server starts on port `8080` by default (`APP_PORT` env var).
+The server starts on port `8080` by default (`APP_PORT` env var). The control UI is at `http://localhost:8080/`.
 
 ### 2. Initialize a Session
 
@@ -282,6 +291,32 @@ Update overlay customization. Send the full customization object:
 > newer key `"Team N Name"` depending on the overlay. The backend accepts both
 > formats. When reading the customization model, check for both keys (the old key
 > takes precedence when present).
+
+### Overlay Info
+
+#### `GET /api/v1/links?oid=<OID>`
+
+Returns overlay-related URLs for the session.
+
+```json
+{
+  "control": "https://app.overlays.uno/control/<OID>",
+  "overlay": "http://localhost:8080/overlay/<output_key>",
+  "preview": "http://localhost:8080/overlay/<output_key>?layout_id=auto"
+}
+```
+
+- `control` — Only present for overlays.uno cloud overlays.
+- `overlay` — The URL to paste into OBS/vMix as a browser source.
+- `preview` — Only present for custom overlays (`C-` prefix). Used by the frontend to render a live preview card.
+
+#### `GET /api/v1/styles?oid=<OID>`
+
+Returns available overlay style names for the session's overlay backend.
+
+```json
+["default", "esports", "glass", "compact", "ribbon", ...]
+```
 
 ---
 
@@ -534,17 +569,25 @@ ws.onclose = (event) => {
 
 ## CORS Considerations
 
-If your JavaScript frontend is served from a different origin (e.g., `http://localhost:3000` during development), you need to configure CORS. Add to your environment:
-
-```bash
-export APP_CORS_ORIGINS="http://localhost:3000"
-```
-
-Or configure directly in your deployment. The API endpoints are standard FastAPI routes, so standard FastAPI CORS middleware applies.
+The bundled React frontend is served from the same origin, so CORS is not needed. If you build an external frontend served from a different origin (e.g., `http://localhost:3000`), configure CORS via standard FastAPI middleware.
 
 ---
 
 ## Development Workflow
+
+### Using the bundled React frontend
+
+```bash
+# Terminal 1: Start the backend
+python main.py
+
+# Terminal 2: Start the Vite dev server (hot-reload)
+cd frontend && npm run dev
+```
+
+Vite serves on port 3000 and proxies `/api` requests to the backend on port 8080.
+
+### Building a custom frontend
 
 1. **Start the backend** on port 8080
 2. **Initialise a session** via `POST /api/v1/session/init`

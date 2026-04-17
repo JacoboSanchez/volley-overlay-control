@@ -325,6 +325,12 @@ async def get_links(request: Request,
         )
         links["overlay"] = overlay_url
 
+        # Custom overlays need a preview URL for the frontend preview card.
+        # The preview URL encodes geometry hints; the OverlayPreview component
+        # uses postMessage bounds for actual positioning.
+        if session.backend.is_custom_overlay(oid):
+            links["preview"] = f"{overlay_url}?layout_id=auto"
+
     return links
 
 
@@ -357,7 +363,6 @@ async def websocket_endpoint(ws: WebSocket, oid: str = Query(...)):
         await ws.close(code=4004, reason="No active session for this OID.")
         return
 
-    await ws.accept()
     await WSHub.connect(ws, oid)
     try:
         # Send current state immediately on connect

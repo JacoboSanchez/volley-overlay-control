@@ -1,0 +1,336 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap');
+
+/* ========================================================================
+   COMPACT RHOMBOID OVERLAY
+   Professional two-line overlay with parallelogram (rhomboid) shapes.
+   Two modes: compact (show_only_current_set) and full.
+   ======================================================================== */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --set-bg: #1a1a24;
+    --set-text: #FFFFFF;
+    --game-bg: #111118;
+    --game-text: #FFFFFF;
+    --skew: 12px;  /* parallelogram skew amount */
+}
+
+body {
+    margin: 0; padding: 0;
+    background: transparent;
+    width: 1920px; height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ── Scoreboard container ── */
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Team row ── */
+.team {
+    display: flex;
+    align-items: stretch;
+    height: 52px;
+}
+
+/* ── Rhomboid shapes ── */
+.rhomb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    clip-path: polygon(var(--skew) 0, 100% 0, calc(100% - var(--skew)) 100%, 0 100%);
+    flex-shrink: 0;
+    position: relative;
+}
+
+/* R1 — team primary, holds serve dot (compact) */
+.rhomb.r1 {
+    width: 32px;
+    z-index: 3;
+}
+.team-home .rhomb.r1 { background: var(--home-primary); }
+.team-away .rhomb.r1 { background: var(--away-primary); }
+
+/* R2 — team primary (slightly darker), holds logo filling the shape */
+.rhomb.r2 {
+    width: 48px;
+    margin-left: -8px;   /* overlap for seamless look */
+    z-index: 2;
+    overflow: hidden;
+}
+.team-home .rhomb.r2 { background: var(--home-primary); filter: brightness(0.85); }
+.team-away .rhomb.r2 { background: var(--away-primary); filter: brightness(0.85); }
+
+/* R3 — team secondary (text) color, holds timeout dots (compact) */
+.rhomb.r3 {
+    width: 32px;
+    margin-left: -8px;
+    z-index: 1;
+    transition: margin-left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.team-home .rhomb.r3 { background: var(--home-secondary); }
+.team-away .rhomb.r3 { background: var(--away-secondary); }
+
+/* ── Serving indicator (dot inside R1) ── */
+.serving-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: transparent;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+    flex-shrink: 0;
+}
+
+.team-home .serving-indicator.active {
+    background: var(--home-secondary);
+    box-shadow: 0 0 8px var(--home-secondary), 0 0 16px var(--home-secondary);
+}
+
+.team-away .serving-indicator.active {
+    background: var(--away-secondary);
+    box-shadow: 0 0 8px var(--away-secondary), 0 0 16px var(--away-secondary);
+}
+
+/* ── Team logo (inside R2 — fills the entire rhomboid) ── */
+.team-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Timeout dots (inside R3) ── */
+.timeout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+}
+
+.timeout-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Timeout dot colors — dark on team-secondary background */
+.team-home .timeout-dot          { background: rgba(0,0,0,0.2); }
+.team-home .timeout-dot.active   { background: var(--home-primary); box-shadow: 0 0 4px var(--home-primary); }
+.team-away .timeout-dot          { background: rgba(0,0,0,0.2); }
+.team-away .timeout-dot.active   { background: var(--away-primary); box-shadow: 0 0 4px var(--away-primary); }
+
+/* ── Name panel (full mode only — dark gray bg with italic text) ── */
+.name-panel {
+    display: flex;
+    align-items: center;
+    padding: 0 20px 0 16px;
+    background: rgba(42, 42, 53, 0.95);
+    margin-left: -8px;
+    z-index: 1;
+    clip-path: polygon(var(--skew) 0, 100% 0, calc(100% - var(--skew)) 100%, 0 100%);
+    overflow: hidden;
+    max-width: 300px;
+    transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.team-name {
+    font-size: 14px;
+    font-weight: 800;
+    font-style: italic;
+    color: #f0f0f0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Set history (its own rhomboid section) ── */
+.set-history-container {
+    display: flex !important;  /* prevent app.js from setting display:none */
+    align-items: center;
+    height: 100%;
+    padding: 0 14px 0 8px;
+    background: rgba(30, 30, 38, 0.95);
+    gap: 6px;
+    overflow: hidden;
+    clip-path: polygon(var(--skew) 0, 100% 0, calc(100% - var(--skew)) 100%, 0 100%);
+    margin-left: -8px;
+    max-width: 300px;
+    transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.set-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #aaa;
+    white-space: nowrap;
+    background: none;
+    /* Override app.js defaults */
+    width: auto !important;
+    min-width: 26px;
+    height: auto !important;
+    border-left: none !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+}
+
+.set-score.set-won {
+    color: #ffffff;
+}
+
+/* ── Score block (sets + points form one rhomboid) ── */
+.sets {
+    width: 48px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.6);
+    background: rgba(22, 22, 30, 0.95);
+    flex-shrink: 0;
+    clip-path: polygon(var(--skew) 0, 100% 0, 100% 100%, 0 100%);
+    margin-left: -2px;
+}
+
+.points-container {
+    width: 62px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-left: -1px;  /* eliminate subpixel gap */
+    clip-path: polygon(0 0, 100% 0, calc(100% - var(--skew)) 100%, 0 100%);
+}
+
+.team-home .points-container {
+    background: linear-gradient(135deg, rgba(22,22,30,0.95) 20%, var(--home-primary));
+}
+
+.team-away .points-container {
+    background: linear-gradient(135deg, rgba(22,22,30,0.95) 20%, var(--away-primary));
+}
+
+.points {
+    font-size: 34px;
+    font-weight: 700;
+    position: absolute;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+/* ========================================================================
+   COMPACT MODE — show_only_current_set = true
+   Hides name panel and set history; R3 sits tight next to R2.
+   The .compact-mode class is toggled by app.js.
+   ======================================================================== */
+
+.compact-mode .name-panel {
+    max-width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin-left: 0 !important;  /* zero so R3's -8px margin matches R1→R2 gap */
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.compact-mode .set-history-container {
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin-left: 0 !important;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* ========================================================================
+   TICKER & PLAYER STATS (shared with other overlays)
+   ======================================================================== */
+
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 48px;
+    background: rgba(10,10,20,0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    border-radius: 6px;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f0f0f0;
+    white-space: nowrap;
+    letter-spacing: 1px;
+}
+
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: rgba(10,10,20,0.92);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    padding: 16px;
+    min-width: 260px;
+    opacity: 0;
+    border-left: 4px solid var(--home-primary);
+}
+
+.player-stats-title {
+    font-size: 16px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #333;
+    padding-bottom: 4px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    margin-top: 6px;
+    font-weight: bold;
+}
+
+.player-stats-label { color: #aaa; }
+.player-stats-value { color: #fff; }

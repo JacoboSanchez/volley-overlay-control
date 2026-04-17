@@ -1,8 +1,23 @@
-# Building a Custom Overlay for Remote-Scoreboard
+# Custom Overlays
 
-The **Remote-Scoreboard** system is capable of driving completely custom, third-party overlay engines instead of relying on the default `overlays.uno` cloud system. This allows developers to build high-performance, strictly local, or highly customized broadcast graphics (e.g., in React, Vue, Vanilla HTML/JS, or Godot).
+## Built-In Overlay Engine
 
-This document outlines the API contract that your custom overlay must implement to be fully compatible with Remote-Scoreboard.
+Remote-Scoreboard includes a **built-in overlay engine** that serves custom overlays in-process — no external server is needed. When you use an overlay ID starting with `C-` (e.g., `C-mybroadcast`), the system automatically:
+
+1. Creates the overlay if it doesn't exist
+2. Persists state to `data/overlay_state_mybroadcast.json`
+3. Serves 16 overlay style templates at `/overlay/{id}` (for OBS browser sources)
+4. Broadcasts real-time updates to OBS via WebSocket at `/ws/{id}`
+
+This is the default behavior and requires no configuration beyond choosing a `C-` prefixed overlay ID.
+
+---
+
+## Building a Custom External Overlay Server
+
+If you need a fully custom overlay engine (e.g., built in React, Vue, Godot, or another framework), you can point Remote-Scoreboard at an **external overlay server** by setting `APP_CUSTOM_OVERLAY_URL`. This disables the built-in engine for custom overlays and instead communicates with your server via HTTP/WebSocket.
+
+This document outlines the API contract that your external custom overlay must implement.
 
 > [!TIP]
 > **Quick Start Checklist** — Your custom overlay server must:
@@ -17,9 +32,12 @@ This document outlines the API contract that your custom overlay must implement 
 
 ## 🔗 The Connection Protocol
 
-When the user configures an overlay ID starting with `C-` (e.g., `C-mybroadcast`), Remote-Scoreboard identifies this as a **Custom Overlay**.
+When the user configures an overlay ID starting with `C-` (e.g., `C-mybroadcast`) **and** `APP_CUSTOM_OVERLAY_URL` is set, Remote-Scoreboard identifies this as a **Custom External Overlay**.
 
-It will then communicate directly with your custom overlay server using the Base URL defined in the `APP_CUSTOM_OVERLAY_URL` environment variable (which defaults to `http://127.0.0.1:8000`).
+It will then communicate directly with your custom overlay server using the Base URL defined in the `APP_CUSTOM_OVERLAY_URL` environment variable.
+
+> [!NOTE]
+> If `APP_CUSTOM_OVERLAY_URL` is **not** set, `C-` prefixed overlays use the built-in overlay engine (see above) and none of the endpoints described below need to be implemented.
 
 **Output URL resolution**
 
@@ -252,7 +270,7 @@ window.parent.postMessage({
 
 ## 📎 Reference Implementation
 
-The `.web/` directory in the Remote-Scoreboard repository contains a React-Router based local overlay frontend that implements this API contract. You can use it as a starting point for your own custom overlay.
+The built-in overlay engine (`app/overlay/`) implements the same API contract described above and can serve as a reference for building your own external overlay server. The overlay templates in `overlay_templates/` and the frontend JavaScript in `overlay_static/js/app.js` demonstrate the OBS browser source side of the protocol.
 
 A machine-readable **OpenAPI 3.0 specification** for the full contract is available at [CUSTOM_OVERLAY_API.yaml](CUSTOM_OVERLAY_API.yaml). It can be imported into tools like Swagger UI, Postman, or Insomnia for interactive exploration and automatic mock generation.
 
