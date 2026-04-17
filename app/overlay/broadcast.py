@@ -66,49 +66,46 @@ class ObsBroadcastHub:
             return
         loop.call_soon_threadsafe(self.schedule_broadcast, overlay_id, get_state)
 
+    async def _send_to_clients(self, overlay_id: str, message: str) -> None:
+        """Send *message* to all clients in parallel, cleaning up stale ones."""
+        clients = self._clients.get(overlay_id, [])
+        if not clients:
+            return
+
+        async def _send(client):
+            try:
+                await client.send_text(message)
+                return None
+            except Exception:
+                return client
+
+        results = await asyncio.gather(*(_send(c) for c in clients))
+        disconnected = [c for c in results if c is not None]
+        for c in disconnected:
+            if c in clients:
+                clients.remove(c)
+        if disconnected:
+            logger.debug(
+                "Cleaned up %d stale client(s) for overlay '%s'",
+                len(disconnected), overlay_id,
+            )
+
     async def _debounced_broadcast(
         self, overlay_id: str, get_state, delay: float = 0.05
     ) -> None:
         """Wait *delay* seconds then broadcast the current state."""
         try:
             await asyncio.sleep(delay)
-            clients = self._clients.get(overlay_id, [])
-            if not clients:
-                return
             state = get_state()
             message = json.dumps(state)
-            disconnected = []
-            for client in clients:
-                try:
-                    await client.send_text(message)
-                except Exception:
-                    disconnected.append(client)
-            for c in disconnected:
-                if c in clients:
-                    clients.remove(c)
-            if disconnected:
-                logger.debug(
-                    "Cleaned up %d stale client(s) for overlay '%s'",
-                    len(disconnected), overlay_id,
-                )
+            await self._send_to_clients(overlay_id, message)
         except asyncio.CancelledError:
             pass  # Superseded by a newer update
 
     async def broadcast_now(self, overlay_id: str, state: dict) -> None:
         """Immediately broadcast *state* to all clients (no debounce)."""
-        clients = self._clients.get(overlay_id, [])
-        if not clients:
-            return
         message = json.dumps(state)
-        disconnected = []
-        for client in clients:
-            try:
-                await client.send_text(message)
-            except Exception:
-                disconnected.append(client)
-        for c in disconnected:
-            if c in clients:
-                clients.remove(c)
+        await self._send_to_clients(overlay_id, message)
 
     # -- Cleanup -----------------------------------------------------------
 

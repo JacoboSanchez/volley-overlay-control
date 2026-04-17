@@ -6,6 +6,7 @@ overlay server.
 """
 
 import asyncio
+import copy
 import hashlib
 import json
 import logging
@@ -207,8 +208,9 @@ class OverlayStateStore:
             return ctx
 
     def get_state(self, overlay_id: str) -> dict:
-        """Return the current state dict for *overlay_id*."""
-        return self.get_overlay_context(overlay_id)["state"]
+        """Return a snapshot of the current state for *overlay_id*."""
+        with self._lock:
+            return copy.deepcopy(self.get_overlay_context(overlay_id)["state"])
 
     def overlay_exists(self, overlay_id: str) -> bool:
         """Check whether a state file exists on disk for *overlay_id*."""
@@ -225,38 +227,40 @@ class OverlayStateStore:
         """Resolve an overlay ID or output key to the real overlay ID."""
         if os.path.exists(self.get_state_file_path(id_or_key)):
             return id_or_key
-        # Check in-memory cache first
-        cached = self._output_key_cache.get(id_or_key)
-        if cached and os.path.exists(self.get_state_file_path(cached)):
-            return cached
-        # Scan data dir and rebuild cache
-        if os.path.isdir(self._data_dir):
-            for filename in os.listdir(self._data_dir):
-                if filename.startswith("overlay_state_") and filename.endswith(".json"):
-                    candidate = filename[len("overlay_state_"):-5]
-                    key = self.get_output_key(candidate)
-                    self._output_key_cache[key] = candidate
-                    if key == id_or_key:
-                        return candidate
+        with self._lock:
+            # Check in-memory cache first
+            cached = self._output_key_cache.get(id_or_key)
+            if cached and os.path.exists(self.get_state_file_path(cached)):
+                return cached
+            # Scan data dir and rebuild cache
+            if os.path.isdir(self._data_dir):
+                for filename in os.listdir(self._data_dir):
+                    if filename.startswith("overlay_state_") and filename.endswith(".json"):
+                        candidate = filename[len("overlay_state_"):-5]
+                        key = self.get_output_key(candidate)
+                        self._output_key_cache[key] = candidate
+                        if key == id_or_key:
+                            return candidate
         return None
 
     # -- Available styles --------------------------------------------------
 
     def get_available_styles_list(self) -> list:
         """Return available overlay styles (cached after first scan)."""
-        if self._available_styles is not None:
+        with self._lock:
+            if self._available_styles is not None:
+                return self._available_styles
+            excluded = {"mosaic", "base"}
+            styles = []
+            if os.path.isdir(self._templates_dir):
+                for f in os.listdir(self._templates_dir):
+                    if f.endswith(".html"):
+                        name = f[:-5]
+                        label = "default" if name == "index" else name
+                        if label not in excluded:
+                            styles.append(label)
+            self._available_styles = sorted(styles)
             return self._available_styles
-        excluded = {"mosaic", "base"}
-        styles = []
-        if os.path.isdir(self._templates_dir):
-            for f in os.listdir(self._templates_dir):
-                if f.endswith(".html"):
-                    name = f[:-5]
-                    label = "default" if name == "index" else name
-                    if label not in excluded:
-                        styles.append(label)
-        self._available_styles = sorted(styles)
-        return self._available_styles
 
     # -- CRUD --------------------------------------------------------------
 
@@ -307,11 +311,12 @@ class OverlayStateStore:
 
     def get_raw_config(self, overlay_id: str) -> dict:
         """Return ``{model, customization}`` from the overlay state."""
-        state = self.get_state(overlay_id)
-        return {
-            "model": state.get("raw_remote_model", {}),
-            "customization": state.get("raw_remote_customization", {}),
-        }
+        with self._lock:
+            state = self.get_overlay_context(overlay_id)["state"]
+            return {
+                "model": copy.deepcopy(state.get("raw_remote_model", {})),
+                "customization": copy.deepcopy(state.get("raw_remote_customization", {})),
+            }
 
     def set_raw_config(
         self, overlay_id: str,
@@ -319,16 +324,18 @@ class OverlayStateStore:
         customization: Optional[dict] = None,
     ) -> None:
         """Persist raw model/customization data into the overlay state."""
-        ctx = self.get_overlay_context(overlay_id)
-        state = ctx["state"]
-        if model is not None:
-            state["raw_remote_model"] = model
-        if customization is not None:
-            state["raw_remote_customization"] = customization
-            ps = customization.get("preferredStyle")
-            if ps is not None:
-                state.setdefault("overlay_control", {})["preferredStyle"] = ps
-        self.save_persisted_state(overlay_id, state)
+        with self._lock:
+            ctx = self.get_overlay_context(overlay_id)
+            state = ctx["state"]
+            if model is not None:
+                state["raw_remote_model"] = model
+            if customization is not None:
+                state["raw_remote_customization"] = customization
+                ps = customization.get("preferredStyle")
+                if ps is not None:
+                    state.setdefault("overlay_control", {})["preferredStyle"] = ps
+            snapshot = copy.deepcopy(state)
+        self.save_persisted_state(overlay_id, snapshot)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)
 
@@ -336,26 +343,32 @@ class OverlayStateStore:
 
     async def update_state(self, overlay_id: str, payload: dict) -> None:
         """Deep-merge *payload* into overlay state, normalize, persist, broadcast."""
-        ctx = self.get_overlay_context(overlay_id)
-        deep_merge(ctx["state"], payload)
-        normalize_state(ctx["state"])
-        await self.save_persisted_state_async(overlay_id, ctx["state"])
+        with self._lock:
+            ctx = self.get_overlay_context(overlay_id)
+            deep_merge(ctx["state"], payload)
+            normalize_state(ctx["state"])
+            snapshot = copy.deepcopy(ctx["state"])
+        await self.save_persisted_state_async(overlay_id, snapshot)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)
 
     def update_state_sync(self, overlay_id: str, payload: dict) -> None:
         """Synchronous version of :meth:`update_state`."""
-        ctx = self.get_overlay_context(overlay_id)
-        deep_merge(ctx["state"], payload)
-        normalize_state(ctx["state"])
-        self.save_persisted_state(overlay_id, ctx["state"])
+        with self._lock:
+            ctx = self.get_overlay_context(overlay_id)
+            deep_merge(ctx["state"], payload)
+            normalize_state(ctx["state"])
+            snapshot = copy.deepcopy(ctx["state"])
+        self.save_persisted_state(overlay_id, snapshot)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)
 
     def set_visibility(self, overlay_id: str, show: bool) -> None:
         """Update ``overlay_control.show_main_scoreboard``."""
-        ctx = self.get_overlay_context(overlay_id)
-        ctx["state"].setdefault("overlay_control", {})["show_main_scoreboard"] = show
-        self.save_persisted_state(overlay_id, ctx["state"])
+        with self._lock:
+            ctx = self.get_overlay_context(overlay_id)
+            ctx["state"].setdefault("overlay_control", {})["show_main_scoreboard"] = show
+            snapshot = copy.deepcopy(ctx["state"])
+        self.save_persisted_state(overlay_id, snapshot)
         if self._broadcast_callback:
             self._broadcast_callback(overlay_id)
