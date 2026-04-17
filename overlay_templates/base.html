@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    {% block head_meta %}{% endblock %}
+    <title>{% block title %}Volleyball Overlay — {{ target_id }}{% endblock %}</title>
+    {% block head_fonts %}{% endblock %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    {% block head_css %}{% endblock %}
+</head>
+<body>
+
+    {% block body_content %}{% endblock %}
+
+    <!-- Bottom Ticker -->
+    <div id="ticker-container" class="ticker">
+        <div class="ticker-text-wrapper">
+            <div class="ticker-text" id="ticker-message"></div>
+        </div>
+    </div>
+
+    <!-- Player Stats -->
+    <div id="player-stats-container" class="player-stats">
+        <div class="player-stats-content" id="player-stats-data"></div>
+    </div>
+
+    <script>
+        const OVERLAY_ID = "{{ target_id }}";
+        window.OVERLAY_STYLE = "{{ style }}";
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/${OVERLAY_ID}`;
+    </script>
+    <script src="/static/js/app.js?v={{ v }}"></script>
+</body>
+</html>

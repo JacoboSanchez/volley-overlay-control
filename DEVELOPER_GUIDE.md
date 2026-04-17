@@ -6,7 +6,7 @@
 
 ## 1. Project Overview
 
-Volley Overlay Control is a self-contained application that bundles a React frontend and a Python/FastAPI backend into a single deployable service. It manages game logic (score, sets, serving, timeouts), handles user authentication, serves the touch-friendly control UI, and synchronizes state with an external overlay backend (the overlays.uno system or a custom overlay server).
+Volley Overlay Control is a self-contained application that bundles a React frontend, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages game logic (score, sets, serving, timeouts), handles user authentication, serves the touch-friendly control UI, renders overlay templates for OBS browser sources, and synchronizes state with overlay backends (the overlays.uno cloud service or in-process custom overlays with optional external overlay server support).
 
 The React frontend lives in the `frontend/` directory and is built with Vite. In production, FastAPI serves the built SPA as static files. During development, Vite's dev server provides hot-reload and proxies API calls to the backend.
 
@@ -18,7 +18,8 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 | **REST API** | FastAPI router at `/api/v1/` with WebSocket real-time updates |
 | **HTTP Server** | Uvicorn (ASGI) — serves both the API and the frontend SPA |
 | **Backend Logic** | Python 3.x |
-| **State Management** | In-memory Python objects synchronized with an external API |
+| **State Management** | In-memory Python objects + JSON file persistence for overlay state |
+| **Overlay Templates** | Jinja2 HTML templates for OBS browser sources (16 styles) |
 | **Containerization** | Docker (multi-stage: Node.js + Python) |
 | **CI/CD** | GitHub Actions pipelines (`.github/workflows/`) for automated testing and linting |
 
@@ -31,7 +32,8 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 | `fastapi` | REST API framework + static file serving |
 | `uvicorn` | ASGI server |
 | `requests` | HTTP communication with overlay APIs |
-| `websocket-client` | Persistent WebSocket connection to custom overlay servers |
+| `jinja2` | Overlay HTML template rendering for OBS browser sources |
+| `websocket-client` | Persistent WebSocket connection to external overlay servers (optional) |
 | `python-dotenv` | `.env` file loading |
 | `pytest` / `pytest-asyncio` | Test suite |
 
@@ -68,9 +70,9 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 │   │   └── test/            # Vitest test suite.
 │   └── public/              # Static assets (icons, fonts).
 ├── app/
-│   ├── backend.py           # Handles communication with the external Overlay API & local overlay.
-│   ├── ws_client.py         # Persistent WebSocket client for custom overlay control channel.
-│   ├── overlay_backends.py  # Strategy pattern: UnoOverlayBackend and CustomOverlayBackend.
+│   ├── backend.py           # Coordinator — delegates to overlay backend strategies.
+│   ├── overlay_backends.py  # Strategy pattern: UnoOverlayBackend, LocalOverlayBackend, CustomOverlayBackend.
+│   ├── ws_client.py         # Persistent WebSocket client for external overlay servers (optional).
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the match state.
 │   ├── customization.py     # Logic for handling team names, colors, logos, and layout.
@@ -88,10 +90,18 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 │   │   ├── session_manager.py # Thread-safe game session management by OID.
 │   │   ├── ws_hub.py        # WebSocket notification hub for real-time state push.
 │   │   └── dependencies.py  # Auth + session FastAPI dependencies.
+│   ├── overlay/             # In-process overlay serving (absorbed from volleyball-scoreboard-overlay).
+│   │   ├── __init__.py      # Package init — creates singleton OverlayStateStore & ObsBroadcastHub.
+│   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
+│   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
+│   │   └── routes.py        # HTTP/WS routes: /overlay/, /ws/, /api/config/, CRUD, themes.
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
 │   ├── logging_config.py    # Logging level configuration.
 │   ├── config_validator.py  # Startup configuration validation (env var checks).
 │   └── pwa/                 # Legacy PWA assets (icons).
+├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
+├── overlay_static/          # Static assets for overlays (JS, CSS, images).
+├── data/                    # Persisted overlay state files (overlay_state_{id}.json).
 ├── font/                    # Custom font files for the overlay.
 └── tests/                   # Pytest suite.
     ├── conftest.py          # Test fixtures and configuration.
@@ -118,7 +128,9 @@ The application follows a service-oriented architecture:
 | **Controller** | `GameManager` | Manipulates the Model based on volleyball rules |
 | **Service** | `GameService` | Single entry point for all game actions |
 | **API** | `api/routes.py` | REST + WebSocket endpoints for frontends |
-| **Sync** | `Backend` | Pushes Model changes to the external overlay server |
+| **Sync** | `Backend` | Pushes Model changes to overlay backends (in-process or cloud) |
+| **Overlay** | `OverlayStateStore` | In-memory + JSON persistence for custom overlay state |
+| **Overlay** | `ObsBroadcastHub` | Debounced WebSocket broadcasts to OBS browser sources |
 
 ### Data Flow (e.g., Adding a Point from a JS Frontend)
 
@@ -174,32 +186,48 @@ The "Brain" of the application. Enforces volleyball rules.
 
 #### `app/backend.py` — class `Backend`
 
-The "Bridge" to the outside world.
+The "Bridge" to overlay systems.
 
-- **Responsibility**: Communication with the Overlay API — WebSocket-first for custom overlays, HTTP fallback, HTTP-only for cloud overlays.
+- **Responsibility**: Coordinates overlay communication using the strategy pattern. Delegates to `LocalOverlayBackend` (in-process, default for custom overlays), `CustomOverlayBackend` (external server, when `APP_CUSTOM_OVERLAY_URL` is set), or `UnoOverlayBackend` (cloud).
 - **Key Internals**:
   - Uses a shared `requests.Session` for all HTTP calls to enable TCP connection reuse.
   - A `ThreadPoolExecutor` (5 workers) handles overlay updates asynchronously when `ENABLE_MULTITHREAD=true`.
   - `_customization_cache` — In-memory cache for the last fetched customization state.
+  - `_build_overlay_payload()` — Constructs the standardized overlay state JSON from game model + customization.
 - **Key Methods**:
-  - `init_ws_client()` — Discovers WebSocket URL and creates a `WSControlClient` for custom overlays.
-  - `get_current_model()` — Fetches the last known state from the remote API.
+  - `get_current_model()` — Fetches the last known state from the overlay backend.
   - `get_current_customization()` — Fetches team/color/layout settings.
   - `save_model(current_model, simple)` — Pushes local state changes to the overlay.
-  - `update_local_overlay(...)` — Builds a standardized JSON payload and sends via WebSocket or HTTP.
   - `change_overlay_visibility(show)` — Toggles overlay show/hide.
+
+#### `app/overlay_backends.py` — Overlay Backend Strategies
+
+Three overlay backend implementations share the `OverlayBackend` abstract interface:
+
+- **`LocalOverlayBackend`** — Default for custom overlays (`C-` prefix). Manages state in-process via `OverlayStateStore`, broadcasts to OBS via `ObsBroadcastHub`. No external server needed.
+- **`CustomOverlayBackend`** — Optional external server mode (activated when `APP_CUSTOM_OVERLAY_URL` is set). Communicates via WebSocket + HTTP fallback.
+- **`UnoOverlayBackend`** — Cloud overlays. Communicates with the overlays.uno REST API.
+
+#### `app/overlay/state_store.py` — class `OverlayStateStore`
+
+In-memory + JSON file persistence for overlay state.
+
+- **Responsibility**: Manages overlay state with lazy-loading from disk, deep merge, normalization, CRUD, raw config pass-through, output key generation, and style enumeration.
+- **Key Methods**: `get_state()`, `update_state()`, `set_raw_config()`, `get_raw_config()`, `create_overlay()`, `ensure_overlay()`, `get_available_styles_list()`.
+
+#### `app/overlay/broadcast.py` — class `ObsBroadcastHub`
+
+Debounced WebSocket broadcasts to OBS browser sources.
+
+- **Responsibility**: Tracks OBS browser source WebSocket connections per overlay and broadcasts state updates with 50ms debouncing.
+- **Key Methods**: `add_client()`, `remove_client()`, `schedule_broadcast()`, `get_client_count()`.
 
 #### `app/ws_client.py` — class `WSControlClient`
 
-Persistent WebSocket connection to a custom overlay server's `/ws/control/{overlay_id}` endpoint.
+Persistent WebSocket connection to an external custom overlay server's `/ws/control/{overlay_id}` endpoint. Only used when `APP_CUSTOM_OVERLAY_URL` is set.
 
 - **Responsibility**: Maintains a background daemon thread with auto-reconnect and heartbeat.
-- **Key Methods**:
-  - `connect()` / `disconnect()` — Start/stop the background thread.
-  - `send_state(payload)` — Send a `state_update` message.
-  - `send_visibility(show)` — Send a `visibility` toggle.
-  - `send_raw_config(payload)` — Send a `raw_config` message (model and/or customization).
-- **Properties**: `is_connected` (bool), `obs_client_count` (int).
+- **Key Methods**: `connect()`, `disconnect()`, `send_state()`, `send_visibility()`, `send_raw_config()`.
 
 ### B. API Layer
 
@@ -294,9 +322,11 @@ The GitHub Actions CI pipeline (`.github/workflows/ci.yml`) runs on `push` / `pu
 
 The app assumes it is the **primary controller**. However, `GameManager.reset()` reloads data from `Backend` to ensure it syncs with any external resets.
 
-### Custom Overlay WebSocket Protocol
+### Custom Overlay State Flow
 
-See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) and [ARCHITECTURE.md](../ARCHITECTURE.md) for the full WebSocket message format between the backend and custom overlay servers.
+By default, custom overlays (`C-` prefix) are managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
+
+If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract and [ARCHITECTURE.md](../ARCHITECTURE.md) for the full data flow diagrams.
 
 ---
 

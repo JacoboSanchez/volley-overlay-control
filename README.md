@@ -4,9 +4,9 @@
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
 ![FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)
 
-**Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend and a FastAPI backend into a single deployable service.
+**Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend, a FastAPI backend, and a **built-in overlay engine** into a single deployable service.
 
-It works with *overlays.uno* cloud overlays and with fully custom, self-hosted overlay engines, providing complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes.
+It includes 16 overlay style templates served directly to OBS browser sources — no external overlay server required. It also works with *overlays.uno* cloud overlays and with fully custom, external overlay engines. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes.
 
 ---
 
@@ -41,8 +41,14 @@ Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no 
 
 For the full endpoint reference, request/response schemas, and WebSocket protocol, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
 
+### Built-In Overlay Engine
+*   **16 Overlay Styles**: Includes pre-built HTML overlay templates (esports, glass, compact, ribbon, shield, and more) rendered via Jinja2 and served directly to OBS/vMix browser sources.
+*   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{overlay_id}`) and receive 50ms-debounced state pushes — no polling needed.
+*   **Zero Configuration**: Use any overlay ID starting with `C-` (e.g., `C-mybroadcast`) and the system auto-creates the overlay, persists state to disk, and serves it immediately.
+*   **Preset Themes**: Apply dark, light, esports, neo_jersey, split_jersey, or clear_jersey themes with one click.
+
 ### Single-App Deployment
-*   **All-in-one**: The React control UI and Python backend run as a single process from a single Docker image.
+*   **All-in-one**: The React control UI, Python backend, and overlay engine run as a single process from a single Docker image.
 *   **Local Execution**: Run locally as a standard Python application (with optional Vite dev server for frontend hot-reload).
 *   **Docker Support**: Deploy easily using a single Docker container — no nginx or reverse proxy required.
 
@@ -54,7 +60,7 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 *   **Python 3.x**
 *   **Node.js 20+** and **npm** (for building the frontend)
-*   An account on **[overlays.uno](https://overlays.uno)** (for cloud overlays), or a self-hosted overlay server.
+*   *(Optional)* An account on **[overlays.uno](https://overlays.uno)** for cloud overlays. Not needed when using the built-in overlay engine (`C-` prefixed IDs).
 
 ### Creating an Overlay
 
@@ -63,9 +69,13 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 3.  **Open your overlay** to get the necessary tokens:
     *   **Control URL**: Copy the URL. The part after `https://app.overlays.uno/control/` is your **`UNO_OVERLAY_OID`**.
 
-### Building a Custom Overlay
+### Using the Built-In Overlay Engine
 
-If you want to build and host your own completely custom graphical overlay (instead of using overlays.uno), refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md).
+The fastest way to get started is with the built-in overlay engine. Simply use an overlay ID starting with `C-` (e.g., `C-mybroadcast`). The system automatically creates the overlay, serves 16 style templates at `/overlay/{id}`, and broadcasts state updates to OBS via WebSocket at `/ws/{id}`. No external server or account is required.
+
+### Building a Custom External Overlay
+
+If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot), you can point Remote-Scoreboard at an **external overlay server** by setting `APP_CUSTOM_OVERLAY_URL`. Refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for the API contract.
 
 ---
 
@@ -98,8 +108,7 @@ If you want to build and host your own completely custom graphical overlay (inst
     ```
     The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The control UI is available at `http://localhost:8080/`.
 
-5.  **Use a Custom Overlay Engine (Optional)**:
-    If using a self-hosted overlay instead of *overlays.uno*, set the `APP_CUSTOM_OVERLAY_URL` environment variable to your server's base URL and configure your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the full API contract.
+5.  **Use a Custom Overlay** — Set your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`) to use the built-in overlay engine. The overlay is accessible at `http://localhost:8080/overlay/{id}` for OBS browser sources. If you want to use an *external* overlay server instead, additionally set `APP_CUSTOM_OVERLAY_URL`. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for details.
 
 > **Tip:** For frontend development with hot-reload, run `cd frontend && npm run dev` alongside `python main.py`. Vite serves on port 3000 and proxies API calls to the backend on port 8080.
 
@@ -128,8 +137,9 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
-| `APP_CUSTOM_OVERLAY_URL` | The API URL for communicating with self-hosted custom overlays. | `http://localhost:8000` |
-| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | The external output URL for user-facing links. Falls back to `APP_CUSTOM_OVERLAY_URL`. | |
+| `APP_CUSTOM_OVERLAY_URL` | *(Optional)* Base URL of an external custom overlay server. When set, `C-` overlays use the external server instead of the built-in engine. | *(unset — built-in engine)* |
+| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | *(Optional)* Public-facing base URL for overlay links. Used to replace the host in output URLs when the overlay server is behind a proxy. | |
+| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
@@ -221,7 +231,11 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | :--- | :--- |
 | `/` | Control UI (React SPA) |
 | `/api/v1/...` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
-| `/api/v1/ws?oid=X` | WebSocket for real-time state updates |
+| `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend) |
+| `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine) |
+| `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
+| `/api/config/{id}` | Overlay config (output URL, available styles) |
+| `/api/themes` | List preset overlay themes |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
 ---
@@ -234,7 +248,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | Overlay not updating | Ensure the overlay control token is valid. Try calling `POST /api/v1/session/init` again. |
 | Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
 | "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
-| Custom overlay not receiving updates | Verify `APP_CUSTOM_OVERLAY_URL` is reachable. Overlay IDs must start with `C-`. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+| Custom overlay not receiving updates | Overlay IDs must start with `C-`. For built-in overlays, check that `overlay_templates/` exists. For external overlays, verify `APP_CUSTOM_OVERLAY_URL` is reachable. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
 
 ---
 

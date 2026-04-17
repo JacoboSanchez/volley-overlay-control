@@ -1,0 +1,439 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&display=swap');
+@import url('jersey_shared.css');
+
+/* ============================================================
+   CLEAR-JERSEY OVERLAY
+   Neumorphic clear style with split_jersey's shirt icon,
+   compact/esports-style protruding team logo, and seamless
+   sets+points score block (no separations).
+   ============================================================ */
+
+/* ── CSS custom properties ───────────────────────────────── */
+:root {
+    /* Team colours — overridden by app.js at runtime */
+    --home-primary:   #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary:   #0047AB;
+    --away-secondary: #FFD700;
+
+    /* Neumorphic palette */
+    --nm-bg:          #e0e5ec;
+    --nm-shadow-dark: rgba(163, 177, 198, 0.60);
+    --nm-shadow-lite: rgba(255, 255, 255, 0.85);
+    --nm-inset-dark:  rgba(163, 177, 198, 0.50);
+    --nm-inset-lite:  rgba(255, 255, 255, 0.80);
+    --nm-text:        #31344b;
+    --nm-text-dim:    #777b96;
+
+    /* Bar geometry */
+    --bar-h:      62px;
+    --bar-radius: 31px;
+
+    /* Logo protrusion & diagonal */
+    --logo-size:  70px;   /* taller than bar → protrudes 4px each side */
+    --logo-skew:  12px;   /* parallelogram slant (matches compact) */
+
+    /* Collapse transition */
+    --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
+    --collapse-dur:    0.44s;
+}
+
+/* ── Reset / base ────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Outfit', sans-serif;
+}
+
+/* ── Scoreboard wrapper ──────────────────────────────────── */
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Team bar wrapper — holds the neumorphic shadow outside the clip ── */
+.team-bar-wrapper {
+    filter:
+        drop-shadow(6px 6px 10px var(--nm-shadow-dark))
+        drop-shadow(-4px -4px 8px var(--nm-shadow-lite));
+}
+
+/* ── Team bar ────────────────────────────────────────────── */
+.team-bar {
+    display: flex;
+    align-items: center;
+    height: var(--bar-h);
+    border-radius: 0;
+    background: var(--nm-bg);
+    clip-path: polygon(var(--logo-skew) 0, 100% 0, 100% 100%, 0 100%);
+    gap: 0;
+    overflow: visible;
+    position: relative;
+}
+
+/* ── Serving indicator (zero-size, drives CSS sibling halo) ── */
+.serving-indicator {
+    width: 0;
+    height: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* ── Logo container — diagonal parallelogram, protrudes above & below ── */
+/*
+    Compact/esports-style diagonal box (parallelogram via clip-path)
+    that is taller than the bar so it sticks out evenly top and bottom.
+    --logo-skew controls the diagonal slant angle.
+*/
+.logo-container {
+    width: 64px;
+    height: var(--logo-size);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+    margin-left: -2px;  /* tuck into the bar's rounded left edge to close the visual gap */
+    overflow: hidden;
+    clip-path: polygon(
+        var(--logo-skew) 0,
+        100% 0,
+        calc(100% - var(--logo-skew)) 100%,
+        0 100%
+    );
+    transition:
+        filter 0.35s ease;
+}
+
+.team-home .logo-container {
+    background: var(--home-primary);
+}
+.team-away .logo-container {
+    background: var(--away-primary);
+}
+
+.team-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition:
+        filter 0.35s ease;
+}
+
+/*
+    LOGO HALO — since clip-path clips box-shadow, use a brightness
+    filter to create the serving glow effect on the container.
+*/
+.team-home .serving-indicator.active + .logo-container {
+    filter: brightness(1.3) drop-shadow(0 0 10px color-mix(in srgb, var(--home-primary) 80%, transparent));
+}
+
+.team-away .serving-indicator.active + .logo-container {
+    filter: brightness(1.3) drop-shadow(0 0 10px color-mix(in srgb, var(--away-primary) 80%, transparent));
+}
+
+/* ── Name panel ──────────────────────────────────────────── */
+.name-panel {
+    flex-grow: 1;
+    min-width: 0;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    margin-left: -32px;   /* slide under the logo container (half of 64px) */
+    padding: 0 12px 0 44px; /* extra left padding so text clears the logo */
+    transition:
+        max-width    var(--collapse-dur) var(--collapse-easing),
+        opacity      calc(var(--collapse-dur) * 0.70) var(--collapse-easing),
+        padding      var(--collapse-dur) var(--collapse-easing),
+        margin-left  var(--collapse-dur) var(--collapse-easing);
+}
+
+/* When logos are hidden the overlap offsets must be removed so the
+   team name doesn't shift outside the clip-path visible area. */
+.scoreboard.no-logos .name-panel {
+    margin-left: 0;
+    padding-left: 12px;
+}
+
+.scoreboard.compact-mode .name-panel {
+    max-width: 0;
+    opacity: 0;
+    padding: 0;
+    margin-left: 0;      /* reset the -32px overlap so jersey-group stays visible */
+    pointer-events: none;
+}
+
+.team-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--nm-text);
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Jersey group (shirt icon + timeout dots) ────────────── */
+.jersey-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 0 12px;
+    border-left: 1px solid rgba(163, 177, 198, 0.28);
+}
+
+.jersey-icon {
+    width: 36px;
+    height: 34px;
+}
+
+/* ── Timeout dots ────────────────────────────────────────── */
+.timeout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+}
+
+.timeout-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.10);
+    transition:
+        background 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.team-home .timeout-dot.active {
+    background: var(--home-gradient, var(--home-primary));
+    box-shadow: 0 0 6px var(--home-gradient, var(--home-primary));
+}
+
+.team-away .timeout-dot.active {
+    background: var(--away-gradient, var(--away-primary));
+    box-shadow: 0 0 6px var(--away-gradient, var(--away-primary));
+}
+
+/* ── Inline history wrapper ──────────────────────────────── */
+.history-inline {
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    display: flex;
+    align-items: center;
+    transition:
+        max-width  var(--collapse-dur) var(--collapse-easing),
+        opacity    calc(var(--collapse-dur) * 0.70) var(--collapse-easing),
+        padding    var(--collapse-dur) var(--collapse-easing);
+}
+
+.scoreboard:not(.compact-mode) .team-home:has(#home-history .set-score) .history-inline,
+.scoreboard:not(.compact-mode) .team-away:has(#away-history .set-score) .history-inline {
+    max-width: 210px;
+    opacity: 1;
+    padding: 0 8px;
+}
+
+/* ── Set history container ───────────────────────────────── */
+.set-history-container {
+    display: flex !important;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    overflow: visible;
+}
+
+/* ── Set score cells ─────────────────────────────────────── */
+.set-score {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: auto !important;
+    min-width: 30px;
+    height: 40px !important;
+    padding: 0 6px !important;
+    border-radius: 5px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: rgba(119, 123, 150, 0.45);
+    background: rgba(163, 177, 198, 0.08);
+    border-left: none !important;
+    margin-left: 0 !important;
+    white-space: nowrap;
+    transition: color 0.25s ease, background 0.25s ease;
+}
+
+.set-score.set-won {
+    color: var(--nm-text);
+    background: rgba(163, 177, 198, 0.28);
+    font-weight: 900;
+    opacity: 1 !important;
+}
+
+.set-score.set-lost {
+    color: rgba(50, 50, 50, 1);
+}
+
+/* ── Score section — seamless (compact-style, no separations) ── */
+/*
+    Sets and points form one continuous block with no borders,
+    no background splits, and no visual dividers — like compact's
+    seamless score area, but using the clear/neumorphic palette.
+*/
+.score-section {
+    display: flex;
+    align-items: stretch;
+    height: var(--bar-h);
+    flex-shrink: 0;
+    border-radius: 0;
+    overflow: hidden;
+    background: #f0f1f5;
+    border-left: 1px solid rgba(163, 177, 198, 0.28);
+}
+
+.sets {
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Outfit', sans-serif;
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--nm-text-dim);
+    background: transparent;
+    height: auto;
+}
+
+.points-container {
+    width: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: transparent;
+}
+
+/*
+    Serving-gradient: the score-section background transitions from
+    flat to a team-coloured gradient when the team is serving.
+    --home-gradient / --away-gradient are set by app.js; they
+    fall back to the team text colour when the primary colour
+    is white or near-white so the tint stays visible.
+*/
+.team-home .score-section,
+.team-away .score-section {
+    transition: background 0.35s ease;
+}
+
+.team-home .serving-indicator.active ~ .score-section {
+    background: linear-gradient(90deg, #f0f1f5 30%, color-mix(in srgb, var(--home-gradient, var(--home-primary)) 35%, #f0f1f5));
+}
+
+.team-away .serving-indicator.active ~ .score-section {
+    background: linear-gradient(90deg, #f0f1f5 30%, color-mix(in srgb, var(--away-gradient, var(--away-primary)) 35%, #f0f1f5));
+}
+
+.points {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.3rem;
+    font-weight: 900;
+    color: var(--nm-text);
+    position: absolute;
+}
+
+/* ============================================================
+   TICKER & PLAYER STATS  (shared boilerplate)
+   ============================================================ */
+
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 50px;
+    background: rgba(30, 33, 50, 0.88);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-family: 'Outfit', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: #f0f0f0;
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}
+
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: var(--nm-bg);
+    border-radius: 12px;
+    box-shadow:
+        8px 8px 20px var(--nm-shadow-dark),
+        -8px -8px 20px var(--nm-shadow-lite);
+    padding: 18px;
+    min-width: 280px;
+    opacity: 0;
+    border-left: 5px solid var(--home-primary);
+}
+
+.player-stats-title {
+    font-size: 17px;
+    font-weight: 900;
+    color: var(--nm-text);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(163, 177, 198, 0.35);
+    padding-bottom: 6px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 22px;
+    margin-top: 8px;
+    font-weight: 700;
+}
+
+.player-stats-label { color: var(--nm-text-dim); }
+.player-stats-value { color: var(--nm-text); }

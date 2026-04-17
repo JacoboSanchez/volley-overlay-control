@@ -6,12 +6,12 @@ This document provides everything an AI coding agent needs to understand, naviga
 
 ## Project Overview
 
-Volley Overlay Control is a self-hostable application that bundles a React control UI and a Python/FastAPI backend into a single deployable service. It manages match state (scores, sets, timeouts, serve) and synchronizes it to overlay graphics engines — either the hosted **overlays.uno** cloud service or a fully self-hosted **custom overlay** server.
+Volley Overlay Control is a self-hostable application that bundles a React control UI, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages match state (scores, sets, timeouts, serve), renders overlay HTML templates for OBS browser sources, and synchronizes state with overlay backends — either the hosted **overlays.uno** cloud service or **in-process custom overlays** (with optional external overlay server support).
 
-**Backend stack:** Python 3.x · FastAPI · Uvicorn · requests · python-dotenv · websocket-client · Docker
+**Backend stack:** Python 3.x · FastAPI · Uvicorn · Jinja2 · requests · python-dotenv · websocket-client · Docker
 **Frontend stack:** React 19 · Vite · PWA (vite-plugin-pwa) · react-colorful
 **Test stack:** pytest · pytest-asyncio · flake8 (backend) · Vitest · React Testing Library (frontend)
-**No database** — all state is in-memory. The frontend is built with Vite and served as static files by FastAPI in production.
+**No database** — game state is in-memory; overlay state is persisted to JSON files (`data/overlay_state_{id}.json`). The frontend is built with Vite and served as static files by FastAPI in production.
 
 ---
 
@@ -45,9 +45,9 @@ volley-overlay-control/
 ├── app/                       # Backend source code
 │   ├── state.py               # Data model — match state dictionary
 │   ├── game_manager.py        # Business logic — volleyball rules & score mutations
-│   ├── backend.py             # Sync bridge — pushes state via WebSocket (preferred) or HTTP
-│   ├── overlay_backends.py    # Strategy pattern: UnoOverlayBackend, CustomOverlayBackend
-│   ├── ws_client.py           # Persistent WebSocket client for custom overlay control channel
+│   ├── backend.py             # Coordinator — delegates to overlay backend strategies
+│   ├── overlay_backends.py    # Strategy: UnoOverlayBackend, LocalOverlayBackend, CustomOverlayBackend
+│   ├── ws_client.py           # Persistent WebSocket client for external overlay servers (optional)
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
 │   ├── authentication.py      # AuthMiddleware, PasswordAuthenticator
@@ -68,7 +68,17 @@ volley-overlay-control/
 │   │   ├── ws_hub.py          # WebSocket notification hub for real-time state push
 │   │   └── dependencies.py    # Auth + session FastAPI dependencies
 │   │
+│   ├── overlay/               # In-process overlay serving (from volleyball-scoreboard-overlay)
+│   │   ├── __init__.py        # Singletons: OverlayStateStore, ObsBroadcastHub
+│   │   ├── state_store.py     # Overlay state — in-memory + JSON file persistence
+│   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
+│   │   └── routes.py          # HTTP/WS: /overlay/, /ws/, /api/config/, CRUD, themes
+│   │
 │   └── pwa/                   # Legacy PWA assets (icons)
+│
+├── overlay_templates/         # Jinja2 HTML templates for overlay styles (16 templates)
+├── overlay_static/            # Static assets for overlays (JS, CSS, images)
+├── data/                      # Persisted overlay state files (overlay_state_{id}.json)
 │
 ├── tests/                     # Pytest suite (162 tests)
 │   ├── conftest.py            # Shared fixtures: load_test_env
@@ -97,8 +107,10 @@ volley-overlay-control/
 | API | `api_router` | `app/api/routes.py` | REST + WebSocket endpoints for frontends |
 | Session | `SessionManager` | `app/api/session_manager.py` | Thread-safe game session management by OID |
 | WS Hub | `WSHub` | `app/api/ws_hub.py` | WebSocket notification hub for real-time state push |
-| Sync | `Backend` | `app/backend.py` | WebSocket-first / HTTP-fallback bridge to overlay servers |
-| Sync | `WSControlClient` | `app/ws_client.py` | Persistent WebSocket connection to custom overlay server |
+| Sync | `Backend` | `app/backend.py` | Coordinator — delegates to overlay backend strategies |
+| Overlay | `LocalOverlayBackend` | `app/overlay_backends.py` | In-process overlay state management (default for C- OIDs) |
+| Overlay | `OverlayStateStore` | `app/overlay/state_store.py` | In-memory + JSON persistence for overlay state |
+| Overlay | `ObsBroadcastHub` | `app/overlay/broadcast.py` | Debounced WebSocket broadcasts to OBS browser sources |
 
 > See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the full API reference.
 
@@ -156,16 +168,19 @@ The entire match lives in a flat dictionary with these keys:
 
 ## Backend & Overlay Integration
 
-`Backend` communicates with two overlay types:
+`Backend` communicates with overlay backends using the strategy pattern:
 
-| OID Prefix | Type | Protocol |
-|-----------|------|---------|
-| *(none / plain token)* | overlays.uno cloud | `PUT` to overlays.uno API |
-| `C-{id}` or `C-{id}/{style}` | Custom self-hosted | WebSocket-first via `/ws/control/{id}`, HTTP fallback |
+| OID Prefix | Type | Backend Class | Communication |
+|-----------|------|--------------|---------------|
+| *(none / plain token)* | overlays.uno cloud | `UnoOverlayBackend` | HTTP to overlays.uno API |
+| `C-{id}` or `C-{id}/{style}` | Custom (local) | `LocalOverlayBackend` | In-process via `OverlayStateStore` |
+| `C-{id}` (with `APP_CUSTOM_OVERLAY_URL` set) | Custom (external) | `CustomOverlayBackend` | WebSocket + HTTP to external server |
 
-**WebSocket sync (custom overlays):** `Backend.init_ws_client()` probes `GET /api/config/{id}` for a `controlWebSocketUrl`. If found, it creates a `WSControlClient` with auto-reconnect (exponential backoff 1s->30s) and heartbeat pings every 25s.
+**Default behavior:** Custom overlays (`C-` prefix) are managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `Backend` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources.
 
-**Custom overlay state schema** is defined in `CUSTOM_OVERLAY_API.yaml`.
+**External server mode:** When `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract.
+
+**Overlay templates:** 16 Jinja2 HTML templates in `overlay_templates/` serve overlay graphics to OBS browser sources at `/overlay/{id}`. The overlay `app.js` connects via WebSocket at `/ws/{id}` for real-time state updates.
 
 ---
 
@@ -185,7 +200,14 @@ Full list in [README.md](README.md).
 |----------|-------------|
 | `/` | Control UI (React SPA — served from `frontend/dist/`) |
 | `/api/v1/*` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
-| `/api/v1/ws?oid=X` | WebSocket for real-time state updates |
+| `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend) |
+| `/overlay/{overlay_id}` | Overlay HTML template for OBS browser sources |
+| `/ws/{overlay_id}` | WebSocket for OBS browser sources (overlay state broadcast) |
+| `/api/config/{overlay_id}` | Overlay config (output URL, available styles) |
+| `/api/state/{overlay_id}` | Overlay state update endpoint |
+| `/create/overlay/{overlay_id}` | Create a new overlay |
+| `/list/overlay` | List all overlays |
+| `/api/themes` | List preset overlay themes |
 | `/health` | Health check — returns `200 OK` with timestamp |
 | `/sw.js` | PWA service worker (from frontend build) |
 | `/manifest.webmanifest` | PWA manifest (from frontend build) |
@@ -234,9 +256,17 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 
 ---
 
-## SPA Serving
+## SPA & Overlay Serving
 
-`main.py` serves the frontend build from `frontend/dist/` using a custom `SPAStaticFiles` class that falls back to `index.html` for unknown paths (SPA routing). The SPA mount is registered last so it never shadows API routes, `/fonts`, `/health`, etc. If `frontend/dist/` doesn't exist (e.g., during backend-only development or testing), the SPA is not mounted and a warning is logged.
+`main.py` mounts routes in this order (earlier mounts take priority):
+1. `app.include_router(api_router)` — `/api/v1/*` REST + WebSocket API
+2. `app.include_router(overlay_router)` — `/overlay/*`, `/ws/*`, `/api/config/*`, CRUD, themes
+3. `app.mount("/fonts", ...)` — scoreboard fonts
+4. `app.mount("/static", ...)` — overlay JS/CSS/images
+5. `app.mount("/pwa", ...)` — PWA icons
+6. `app.mount("/", SPAStaticFiles(...))` — SPA catch-all (last — never shadows other routes)
+
+The SPA mount uses a custom `SPAStaticFiles` class that falls back to `index.html` for unknown paths (SPA routing). If `frontend/dist/` doesn't exist (e.g., during backend-only development or testing), the SPA is not mounted and a warning is logged. Similarly, if `overlay_templates/` doesn't exist, overlay routes are disabled.
 
 ## Documentation Files
 

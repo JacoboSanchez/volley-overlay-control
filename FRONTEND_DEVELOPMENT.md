@@ -7,30 +7,36 @@ The bundled React control UI (`frontend/`) is a reference implementation that us
 ## Architecture Overview
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Volley Overlay Control (single process, port 8080)          │
-│                                                              │
-│  ┌──────────────────────────────┐                            │
-│  │  React Control UI (SPA)      │  served at /               │
-│  │  frontend/dist/              │                            │
-│  └──────────────────────────────┘                            │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │          Game Service Layer (app/api/)                │    │
-│  │  REST API  /api/v1/*  │  WS Hub  │  Session Manager  │    │
-│  └──────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │       Core Business Logic                             │    │
-│  │  GameManager  │  State  │  Backend  │  Customization  │    │
-│  └──────────────────────────────────────────────────────┘    │
-│                        │                                     │
-└────────────────────────┼─────────────────────────────────────┘
-                         ▼
-    ┌────────────────────────────────────────────────────┐
-    │         External Overlay APIs                       │
-    │   overlays.uno (cloud)  │  Custom overlay (local)  │
-    └────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│  Volley Overlay Control (single process, port 8080)               │
+│                                                                   │
+│  ┌──────────────────────────────┐                                 │
+│  │  React Control UI (SPA)      │  served at /                    │
+│  │  frontend/dist/              │                                 │
+│  └──────────────────────────────┘                                 │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────┐         │
+│  │          Game Service Layer (app/api/)                │         │
+│  │  REST API  /api/v1/*  │  WS Hub  │  Session Manager  │         │
+│  └──────────────────────────────────────────────────────┘         │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────┐         │
+│  │       Core Business Logic                             │         │
+│  │  GameManager  │  State  │  Backend  │  Customization  │         │
+│  └──────────────────────────────────────────────────────┘         │
+│                        │                                          │
+│           ┌────────────┼────────────┐                             │
+│           ▼                         ▼                             │
+│  ┌─────────────────────┐   ┌──────────────────┐                  │
+│  │  Built-in Overlay    │   │  overlays.uno    │                  │
+│  │  Engine (app/overlay)│   │  (cloud API)     │                  │
+│  │  /overlay/* /ws/*    │   └──────────────────┘                  │
+│  └─────────────────────┘            │ (optional)                  │
+│           │                ┌──────────────────┐                   │
+│           ▼                │  External overlay │                   │
+│     OBS browser sources    │  server (HTTP/WS) │                   │
+│                            └──────────────────┘                   │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Getting Started
@@ -285,6 +291,32 @@ Update overlay customization. Send the full customization object:
 > newer key `"Team N Name"` depending on the overlay. The backend accepts both
 > formats. When reading the customization model, check for both keys (the old key
 > takes precedence when present).
+
+### Overlay Info
+
+#### `GET /api/v1/links?oid=<OID>`
+
+Returns overlay-related URLs for the session.
+
+```json
+{
+  "control": "https://app.overlays.uno/control/<OID>",
+  "overlay": "http://localhost:8080/overlay/<output_key>",
+  "preview": "http://localhost:8080/overlay/<output_key>?layout_id=auto"
+}
+```
+
+- `control` — Only present for overlays.uno cloud overlays.
+- `overlay` — The URL to paste into OBS/vMix as a browser source.
+- `preview` — Only present for custom overlays (`C-` prefix). Used by the frontend to render a live preview card.
+
+#### `GET /api/v1/styles?oid=<OID>`
+
+Returns available overlay style names for the session's overlay backend.
+
+```json
+["default", "esports", "glass", "compact", "ribbon", ...]
+```
 
 ---
 

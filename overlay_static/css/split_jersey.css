@@ -1,0 +1,442 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&display=swap');
+@import url('jersey_shared.css');
+
+/* ============================================================
+   SPLIT-JERSEY OVERLAY
+   Two independent neumorphic bars — fully-rounded left edge,
+   sharp right edge. Set history lives inline inside each bar,
+   between the jersey-group and the score section, and collapses
+   when compact mode is active or when no sets have been played.
+   ============================================================ */
+
+/* ── CSS custom properties ───────────────────────────────── */
+:root {
+    /* Team colours — overridden by app.js at runtime */
+    --home-primary:   #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary:   #0047AB;
+    --away-secondary: #FFD700;
+    /* Serve-indicator colour — falls back to primary; app.js replaces with
+       the secondary colour when the primary is white/near-white so the halo
+       stays visible. Always a plain hex colour, never a gradient image. */
+    --home-gradient:  var(--home-primary);
+    --away-gradient:  var(--away-primary);
+
+    /* Neumorphic palette (shared with neo_jersey) */
+    --nm-bg:          #e0e5ec;
+    --nm-shadow-dark: rgba(163, 177, 198, 0.60);
+    --nm-shadow-lite: rgba(255, 255, 255, 0.85);
+    --nm-inset-dark:  rgba(163, 177, 198, 0.50);
+    --nm-inset-lite:  rgba(255, 255, 255, 0.80);
+    --nm-text:        #31344b;
+    --nm-text-dim:    #777b96;
+
+    /* Bar geometry */
+    --bar-h:      62px;
+    --bar-radius: 31px;   /* = bar-h / 2  → perfect semicircle on left */
+
+    /* Collapse transition */
+    --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
+    --collapse-dur:    0.44s;
+}
+
+/* ── Reset / base ────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Outfit', sans-serif;
+}
+
+/* ── Scoreboard wrapper ──────────────────────────────────── */
+/*
+    Transparent container — just stacks the two bars with a gap.
+    No background or shadow of its own; each bar is independent.
+    GSAP animates opacity in from 0.
+*/
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Team bar ────────────────────────────────────────────── */
+/*
+    Fully-rounded left (pill half), sharp right.
+    overflow: visible so the logo halo box-shadow is not clipped.
+*/
+.team-bar {
+    display: flex;
+    align-items: center;
+    height: var(--bar-h);
+    border-radius: var(--bar-radius) 0 0 var(--bar-radius);
+    background: var(--nm-bg);
+    box-shadow:
+        8px 8px 20px var(--nm-shadow-dark),
+        -8px -8px 20px var(--nm-shadow-lite);
+    gap: 0;
+    overflow: visible;
+    position: relative;
+}
+
+/* ── Serving indicator ───────────────────────────────────── */
+.serving-indicator {
+    width: 0;
+    height: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* ── Logo container ──────────────────────────────────────── */
+.logo-container {
+    width: 64px;
+    height: var(--bar-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.team-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: contain;
+    background: rgba(0, 0, 0, 0.07);
+    border: 3px solid transparent;
+    transition:
+        border-color 0.35s ease,
+        box-shadow   0.35s ease;
+}
+
+/*
+    LOGO HALO — glows in each team's primary colour when serving.
+    color-mix() builds the transparent glow layers without needing
+    rgba() decomposition of the CSS variable.
+*/
+.team-home .serving-indicator.active + .logo-container .team-logo {
+    border-color: var(--home-gradient);
+    box-shadow:
+        0 0 14px color-mix(in srgb, var(--home-gradient) 65%, transparent),
+        0 0 32px color-mix(in srgb, var(--home-gradient) 25%, transparent),
+        0 0  6px color-mix(in srgb, var(--home-gradient) 90%, transparent) inset;
+}
+
+.team-away .serving-indicator.active + .logo-container .team-logo {
+    border-color: var(--away-gradient);
+    box-shadow:
+        0 0 14px color-mix(in srgb, var(--away-gradient) 65%, transparent),
+        0 0 32px color-mix(in srgb, var(--away-gradient) 25%, transparent),
+        0 0  6px color-mix(in srgb, var(--away-gradient) 90%, transparent) inset;
+}
+
+/* ── Name panel ──────────────────────────────────────────── */
+/*
+    .name-panel makes app.js set isCssDriven = true so all
+    compact-mode / history visibility is owned by CSS transitions.
+*/
+.name-panel {
+    flex-grow: 1;
+    min-width: 0;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    padding: 0 12px;
+    transition:
+        max-width  var(--collapse-dur) var(--collapse-easing),
+        opacity    calc(var(--collapse-dur) * 0.70) var(--collapse-easing),
+        padding    var(--collapse-dur) var(--collapse-easing);
+}
+
+.scoreboard.compact-mode .name-panel {
+    max-width: 0;
+    opacity: 0;
+    padding: 0;
+    pointer-events: none;
+}
+
+.team-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--nm-text);
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Jersey group (shirt icon + timeout dots stacked) ─────── */
+/*
+    Acts as the visual anchor between the name and the history.
+    A thin left border separates it from the name area.
+*/
+.jersey-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 0 12px;
+    border-left: 1px solid rgba(163, 177, 198, 0.28);
+}
+
+/* T-shirt silhouette — shared styles imported, theme-specific size here */
+/* Theme-specific overrides (shared styles in jersey_shared.css) */
+.jersey-icon {
+    width: 36px;
+    height: 34px;
+}
+
+/* ── Timeout dots ────────────────────────────────────────── */
+.timeout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+}
+
+.timeout-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.10);
+    transition:
+        background 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+.team-home .timeout-dot.active {
+    background: var(--home-gradient);
+    box-shadow: 0 0 6px var(--home-gradient);
+}
+
+.team-away .timeout-dot.active {
+    background: var(--away-gradient, #000);
+    box-shadow: 0 0 6px var(--away-gradient, #000);
+}
+
+/* ── Inline history wrapper ──────────────────────────────── */
+/*
+    Collapsed by default (max-width: 0, opacity: 0).
+    Expands smoothly when BOTH of these conditions hold:
+      1. The scoreboard does NOT have .compact-mode
+      2. The sibling .set-history-container has at least one
+         .set-score element (i.e. app.js has rendered real history)
+
+    :has() is evaluated per bar, so each team's history opens
+    independently — though in practice app.js populates both
+    containers simultaneously from the same currentSet counter.
+
+    The transition on padding opens extra breathing room alongside
+    the max-width expansion.
+*/
+.history-inline {
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    display: flex;
+    align-items: center;
+    transition:
+        max-width  var(--collapse-dur) var(--collapse-easing),
+        opacity    calc(var(--collapse-dur) * 0.70) var(--collapse-easing),
+        padding    var(--collapse-dur) var(--collapse-easing);
+}
+
+.scoreboard:not(.compact-mode) .team-home:has(#home-history .set-score) .history-inline,
+.scoreboard:not(.compact-mode) .team-away:has(#away-history .set-score) .history-inline {
+    max-width: 210px;
+    opacity: 1;
+    padding: 0 8px;
+}
+
+/* ── Set history container ───────────────────────────────── */
+/*
+    display: flex !important guards against the non-CSS-driven
+    GSAP path in app.js (belt-and-suspenders; isCssDriven is true
+    because .name-panel exists, so this path never fires).
+*/
+.set-history-container {
+    display: flex !important;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    overflow: visible;
+}
+
+/* ── Set score cells (inline / compact size) ─────────────── */
+.set-score {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: auto !important;
+    min-width: 30px;
+    height: 40px !important;
+    padding: 0 6px !important;
+    border-radius: 5px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: rgba(119, 123, 150, 0.45);   /* lost: barely visible */
+    background: rgba(163, 177, 198, 0.08);
+    border-left: none !important;
+    margin-left: 0 !important;
+    white-space: nowrap;
+    transition: color 0.25s ease, background 0.25s ease;
+}
+
+/*
+    Won set — no team colour, just a neutral light pill with full
+    dark text. Clearly more prominent than the lost number without
+    needing the shirt colours (which already appear on the jersey icon).
+*/
+.set-score.set-won {
+    color: var(--nm-text);
+    background: rgba(163, 177, 198, 0.28);
+    font-weight: 900;
+    opacity: 1 !important;
+}
+
+.set-score.set-lost {
+    color: rgba(50, 50, 50, 1);
+}
+
+/* ── Score section ───────────────────────────────────────── */
+/*
+    Flush with the right (sharp) edge of the bar.
+    Light #29-style inset: white points block, #f5f5f7 sets block.
+    A thin left border provides the visual separation from the
+    history / jersey zone.
+*/
+.score-section {
+    display: flex;
+    align-items: stretch;
+    height: var(--bar-h);
+    flex-shrink: 0;
+    border-radius: 0;
+    overflow: hidden;
+    background: #fdfdfd;
+    border-left: 1px solid rgba(163, 177, 198, 0.28);
+    box-shadow: inset 3px 0 6px rgba(0, 0, 0, 0.05);
+}
+
+.sets {
+    width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Outfit', sans-serif;
+    font-size: 29px;
+    font-weight: 900;
+    color: #555;
+    background: #f5f5f7;
+    height: auto;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.points-container {
+    width: 86px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.points {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #000000;
+    /* position: absolute lets GSAP's animatePoints swap elements */
+    position: absolute;
+}
+
+/* ============================================================
+   TICKER & PLAYER STATS  (shared boilerplate)
+   ============================================================ */
+
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 50px;
+    background: rgba(30, 33, 50, 0.88);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-family: 'Outfit', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: #f0f0f0;
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}
+
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: var(--nm-bg);
+    border-radius: 12px;
+    box-shadow:
+        8px 8px 20px var(--nm-shadow-dark),
+        -8px -8px 20px var(--nm-shadow-lite);
+    padding: 18px;
+    min-width: 280px;
+    opacity: 0;
+    border-left: 5px solid var(--home-primary);
+}
+
+.player-stats-title {
+    font-size: 17px;
+    font-weight: 900;
+    color: var(--nm-text);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(163, 177, 198, 0.35);
+    padding-bottom: 6px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 22px;
+    margin-top: 8px;
+    font-weight: 700;
+}
+
+.player-stats-label { color: var(--nm-text-dim); }
+.player-stats-value { color: var(--nm-text); }

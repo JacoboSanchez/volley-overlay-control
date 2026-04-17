@@ -33,8 +33,33 @@ if PasswordAuthenticator.do_authenticate_users():
 # Mount the REST / WebSocket API
 app.include_router(api_router)
 
+# Mount overlay routes (in-process overlay serving for custom overlays)
+OVERLAY_TEMPLATES_DIR = Path("overlay_templates")
+OVERLAY_STATIC_DIR = Path("overlay_static")
+
+if OVERLAY_TEMPLATES_DIR.is_dir():
+    from fastapi.templating import Jinja2Templates
+    from app.overlay import overlay_state_store, obs_broadcast_hub
+    from app.overlay.routes import create_overlay_router
+
+    _overlay_templates = Jinja2Templates(directory=str(OVERLAY_TEMPLATES_DIR))
+    overlay_router = create_overlay_router(
+        overlay_state_store, obs_broadcast_hub, _overlay_templates
+    )
+    app.include_router(overlay_router)
+    logger.info("Overlay routes mounted (templates: %s)", OVERLAY_TEMPLATES_DIR)
+else:
+    logger.warning(
+        "Overlay templates directory not found at %s — overlay routes disabled.",
+        OVERLAY_TEMPLATES_DIR,
+    )
+
 # Serve static assets
 app.mount("/fonts", StaticFiles(directory="font"), name="fonts")
+
+if OVERLAY_STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(OVERLAY_STATIC_DIR)), name="overlay-static")
+
 app.mount("/pwa", StaticFiles(directory="app/pwa"), name="pwa")
 
 

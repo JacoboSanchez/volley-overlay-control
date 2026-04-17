@@ -29,7 +29,11 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,ttf,otf}'],
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/],
+        navigateFallbackDenylist: [
+          /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/,
+          /^\/overlay/, /^\/ws\//, /^\/static/,
+          /^\/create\//, /^\/delete\//, /^\/list\//,
+        ],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
