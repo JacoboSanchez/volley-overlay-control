@@ -120,7 +120,7 @@ class OverlayStateStore:
         self._data_dir = data_dir
         self._templates_dir = templates_dir
         self._overlays: Dict[str, dict] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._broadcast_callback: Optional[Callable] = None
         self._available_styles: Optional[list] = None
         self._output_key_cache: Dict[str, str] = {}  # output_key -> overlay_id
