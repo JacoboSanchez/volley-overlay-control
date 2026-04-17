@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,7 +23,19 @@ validate_config()
 setup_logging()
 logger = logging.getLogger("Main")
 
-app = FastAPI(title="Volley Overlay Control")
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Capture the running event loop so background threads can schedule tasks."""
+    try:
+        from app.overlay import obs_broadcast_hub
+        obs_broadcast_hub.capture_event_loop()
+    except Exception:
+        pass
+    yield
+
+
+app = FastAPI(title="Volley Overlay Control", lifespan=lifespan)
 
 FRONTEND_DIR = Path("frontend/dist")
 

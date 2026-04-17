@@ -10,6 +10,8 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
+import threading
 from typing import Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -117,7 +119,10 @@ class OverlayStateStore:
         self._data_dir = data_dir
         self._templates_dir = templates_dir
         self._overlays: Dict[str, dict] = {}
+        self._lock = threading.Lock()
         self._broadcast_callback: Optional[Callable] = None
+        self._available_styles: Optional[list] = None
+        self._output_key_cache: Dict[str, str] = {}  # output_key -> overlay_id
         os.makedirs(data_dir, exist_ok=True)
 
     def set_broadcast_callback(self, callback: Callable) -> None:
@@ -126,8 +131,14 @@ class OverlayStateStore:
 
     # -- File I/O ----------------------------------------------------------
 
+    @staticmethod
+    def _sanitize_id(overlay_id: str) -> str:
+        """Strip path separators to prevent path traversal."""
+        return os.path.basename(overlay_id)
+
     def get_state_file_path(self, overlay_id: str) -> str:
-        return os.path.join(self._data_dir, f"overlay_state_{overlay_id}.json")
+        safe_id = self._sanitize_id(overlay_id)
+        return os.path.join(self._data_dir, f"overlay_state_{safe_id}.json")
 
     def _read_state_sync(self, path: str) -> Optional[dict]:
         """Read state from disk synchronously."""
@@ -141,9 +152,19 @@ class OverlayStateStore:
 
     @staticmethod
     def _write_state_sync(path: str, state: dict) -> None:
-        """Write state to disk synchronously."""
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(state, f)
+        """Write state to disk atomically via temp file + rename."""
+        dir_name = os.path.dirname(path)
+        fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(state, f)
+            os.replace(tmp_path, path)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def load_persisted_state(self, overlay_id: str) -> dict:
         path = self.get_state_file_path(overlay_id)
@@ -173,16 +194,17 @@ class OverlayStateStore:
 
     def get_overlay_context(self, overlay_id: str) -> dict:
         """Return the in-memory context for *overlay_id*, lazy-loading from disk."""
-        if overlay_id not in self._overlays:
-            self._overlays[overlay_id] = {
-                "state": self.load_persisted_state(overlay_id),
-                "clients": [],
-                "controllers": [],
-            }
-        ctx = self._overlays[overlay_id]
-        if "controllers" not in ctx:
-            ctx["controllers"] = []
-        return ctx
+        with self._lock:
+            if overlay_id not in self._overlays:
+                self._overlays[overlay_id] = {
+                    "state": self.load_persisted_state(overlay_id),
+                    "clients": [],
+                    "controllers": [],
+                }
+            ctx = self._overlays[overlay_id]
+            if "controllers" not in ctx:
+                ctx["controllers"] = []
+            return ctx
 
     def get_state(self, overlay_id: str) -> dict:
         """Return the current state dict for *overlay_id*."""
@@ -203,18 +225,27 @@ class OverlayStateStore:
         """Resolve an overlay ID or output key to the real overlay ID."""
         if os.path.exists(self.get_state_file_path(id_or_key)):
             return id_or_key
+        # Check in-memory cache first
+        cached = self._output_key_cache.get(id_or_key)
+        if cached and os.path.exists(self.get_state_file_path(cached)):
+            return cached
+        # Scan data dir and rebuild cache
         if os.path.isdir(self._data_dir):
             for filename in os.listdir(self._data_dir):
                 if filename.startswith("overlay_state_") and filename.endswith(".json"):
                     candidate = filename[len("overlay_state_"):-5]
-                    if self.get_output_key(candidate) == id_or_key:
+                    key = self.get_output_key(candidate)
+                    self._output_key_cache[key] = candidate
+                    if key == id_or_key:
                         return candidate
         return None
 
     # -- Available styles --------------------------------------------------
 
     def get_available_styles_list(self) -> list:
-        """Scan templates dir for available overlay styles."""
+        """Return available overlay styles (cached after first scan)."""
+        if self._available_styles is not None:
+            return self._available_styles
         excluded = {"mosaic", "base"}
         styles = []
         if os.path.isdir(self._templates_dir):
@@ -224,7 +255,8 @@ class OverlayStateStore:
                     label = "default" if name == "index" else name
                     if label not in excluded:
                         styles.append(label)
-        return sorted(styles)
+        self._available_styles = sorted(styles)
+        return self._available_styles
 
     # -- CRUD --------------------------------------------------------------
 
@@ -234,6 +266,7 @@ class OverlayStateStore:
         if os.path.exists(path):
             return False
         self.save_persisted_state(overlay_id, get_default_state())
+        self._output_key_cache[self.get_output_key(overlay_id)] = overlay_id
         logger.info("Overlay '%s' created", overlay_id)
         return True
 
@@ -249,9 +282,11 @@ class OverlayStateStore:
         if os.path.exists(path):
             os.remove(path)
             existed = True
-        if overlay_id in self._overlays:
-            del self._overlays[overlay_id]
-            existed = True
+        with self._lock:
+            if overlay_id in self._overlays:
+                del self._overlays[overlay_id]
+                existed = True
+        self._output_key_cache.pop(self.get_output_key(overlay_id), None)
         if existed:
             logger.info("Overlay '%s' deleted", overlay_id)
         return existed

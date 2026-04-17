@@ -20,6 +20,11 @@ class ObsBroadcastHub:
     def __init__(self):
         self._clients: Dict[str, List[WebSocket]] = {}
         self._broadcast_tasks: Dict[str, asyncio.Task] = {}
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def capture_event_loop(self) -> None:
+        """Capture the running event loop for use from background threads."""
+        self._loop = asyncio.get_running_loop()
 
     def add_client(self, overlay_id: str, ws: WebSocket) -> None:
         """Register an OBS browser source connection."""
@@ -55,19 +60,11 @@ class ObsBroadcastHub:
         )
 
     def schedule_broadcast_from_sync(self, overlay_id: str, get_state) -> None:
-        """Schedule a broadcast from a synchronous context."""
-        try:
-            loop = asyncio.get_running_loop()
-            existing = self._broadcast_tasks.get(overlay_id)
-            if existing and not existing.done():
-                existing.cancel()
-            self._broadcast_tasks[overlay_id] = loop.create_task(
-                self._debounced_broadcast(overlay_id, get_state)
-            )
-        except RuntimeError:
-            # No running event loop — skip broadcast (happens in tests
-            # or purely synchronous code paths).
-            pass
+        """Schedule a broadcast from a synchronous context (e.g. ThreadPoolExecutor)."""
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return
+        loop.call_soon_threadsafe(self.schedule_broadcast, overlay_id, get_state)
 
     async def _debounced_broadcast(
         self, overlay_id: str, get_state, delay: float = 0.05

@@ -157,26 +157,26 @@ def create_overlay_router(
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
         overlay_id = resolved
 
+        available = store.get_available_styles_list()
+
         if not style:
             state = await store.load_persisted_state_async(overlay_id)
             preferred = state.get("raw_remote_customization", {}).get(
                 "preferredStyle"
             )
-            available = store.get_available_styles_list()
             if preferred and preferred in available:
                 style = preferred
             else:
                 style = "default"
 
-        template_name = "index.html" if style == "default" else f"{style}.html"
-        template_path = os.path.join(
-            store._templates_dir, template_name
-        )
-        if not os.path.isfile(template_path):
+        # Validate style against known templates to prevent path traversal
+        if style not in available:
             raise HTTPException(
                 status_code=404,
                 detail=f"Overlay style '{style}' not found.",
             )
+
+        template_name = "index.html" if style == "default" else f"{style}.html"
 
         return templates.TemplateResponse(
             request=request,
@@ -219,14 +219,8 @@ def create_overlay_router(
     async def update_state(
         overlay_id: str, state_update: OverlayStateUpdate
     ):
-        ctx = store.get_overlay_context(overlay_id)
         update_dict = state_update.model_dump(exclude_unset=True)
-        deep_merge(ctx["state"], update_dict)
-        normalize_state(ctx["state"])
-        await store.save_persisted_state_async(overlay_id, ctx["state"])
-        broadcast.schedule_broadcast(
-            overlay_id, lambda oid=overlay_id: store.get_state(oid)
-        )
+        await store.update_state(overlay_id, update_dict)
         return {"status": "success", "overlay_id": overlay_id}
 
     # -- Overlay CRUD ------------------------------------------------------
@@ -316,13 +310,7 @@ def create_overlay_router(
             raise HTTPException(
                 status_code=404, detail="Overlay not found"
             )
-        ctx = store.get_overlay_context(overlay_id)
-        deep_merge(ctx["state"], PRESET_THEMES[theme_name])
-        normalize_state(ctx["state"])
-        await store.save_persisted_state_async(overlay_id, ctx["state"])
-        broadcast.schedule_broadcast(
-            overlay_id, lambda oid=overlay_id: store.get_state(oid)
-        )
+        await store.update_state(overlay_id, PRESET_THEMES[theme_name])
         logger.info(
             "Theme '%s' applied to overlay '%s'", theme_name, overlay_id
         )
