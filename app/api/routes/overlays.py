@@ -2,6 +2,7 @@
 
 import json
 import logging
+import urllib.parse
 
 from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, Field
@@ -98,11 +99,34 @@ async def get_links(request: Request,
         )
         links["overlay"] = overlay_url
 
-        # Custom overlays need a preview URL for the frontend preview card.
-        # The preview URL encodes geometry hints; the OverlayPreview component
-        # uses postMessage bounds for actual positioning.
+        # Build a preview-page URL pointing at the SPA /preview route. The
+        # in-app preview card consumes the geometry params from this URL, and
+        # users can also open it directly as a standalone scalable preview.
+        # Custom overlays use layout_id=auto so the overlay JS reports its
+        # render bounds via postMessage; geometry params are ignored in that
+        # branch but kept for a uniform URL shape.
         if session.backend.is_custom_overlay(oid):
-            links["preview"] = f"{overlay_url}?layout_id=auto"
+            layout_id = "auto"
+            x = y = 0.0
+            width = height = 100.0
+        else:
+            layout_id = session.conf.id or ""
+            cust = session.customization
+            x = cust.get_h_pos()
+            y = cust.get_v_pos()
+            width = cust.get_width()
+            height = cust.get_height()
+
+        base_url = str(request.base_url).rstrip('/')
+        preview_qs = urllib.parse.urlencode({
+            "output": overlay_url,
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height,
+            "layout_id": layout_id,
+        })
+        links["preview"] = f"{base_url}/preview?{preview_qs}"
 
     return links
 
