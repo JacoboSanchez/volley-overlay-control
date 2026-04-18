@@ -10,16 +10,17 @@ logger = logging.getLogger("Authenticator")
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """Restrict access to the API when user authentication is enabled.
+    """No-op hook reserved for future server-level auth.
 
-    The REST API endpoints have their own ``verify_api_key`` dependency,
-    so this middleware currently just passes requests through.  It is kept
-    as a hook for future server-level auth (e.g. static asset protection).
+    All request-level authentication currently lives in per-route
+    dependencies (``app.api.dependencies.verify_api_key`` and
+    ``app.admin.routes.require_admin``). This middleware exists solely as
+    a registration point so that future cross-cutting concerns — such as
+    gating static assets or the SPA behind a login wall — can be added
+    without touching every route. See ``AUTHENTICATION.md`` (F-1).
     """
 
     async def dispatch(self, request: Request, call_next):
-        # The API layer handles its own Bearer-token auth via dependencies.
-        # Static assets (/fonts, /pwa, /health) are public.
         return await call_next(request)
 
 

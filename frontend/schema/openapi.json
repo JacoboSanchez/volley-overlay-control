@@ -2598,7 +2598,19 @@
     },
     "/list/overlay": {
       "get": {
+        "description": "Return every overlay id plus its output key.\n\nGated behind ``OVERLAY_MANAGER_PASSWORD`` because the response\ndefeats the capability-URL design of ``/overlay/{output_key}``.\nSee ``AUTHENTICATION.md`` (F-4).",
         "operationId": "list_overlays_list_overlay_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2607,6 +2619,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "List Overlays",
