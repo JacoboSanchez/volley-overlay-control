@@ -1,12 +1,22 @@
-import React from 'react';
 import { useI18n } from '../i18n';
+
+export interface LinksDialogLinks {
+  control?: string;
+  overlay?: string;
+  preview?: string;
+}
+
+export interface LinksDialogProps {
+  links: LinksDialogLinks;
+  onClose: () => void;
+}
 
 /**
  * Links dialog — control, overlay, and preview links with copy buttons.
  */
-export default function LinksDialog({ links, onClose }) {
+export default function LinksDialog({ links, onClose }: LinksDialogProps) {
   const { t } = useI18n();
-  const copyToClipboard = (text) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).catch(() => {
       const ta = document.createElement('textarea');
       ta.value = text;
@@ -29,7 +39,7 @@ export default function LinksDialog({ links, onClose }) {
               <a href={links.control} target="_blank" rel="noopener noreferrer" className="link-text">
                 {t('links.control')}
               </a>
-              <button className="link-copy-btn" onClick={() => copyToClipboard(links.control)} title={t('links.copyToClipboard')}>
+              <button className="link-copy-btn" onClick={() => copyToClipboard(links.control!)} title={t('links.copyToClipboard')}>
                 <span className="material-icons">content_copy</span>
               </button>
             </div>
@@ -39,7 +49,7 @@ export default function LinksDialog({ links, onClose }) {
               <a href={links.overlay} target="_blank" rel="noopener noreferrer" className="link-text">
                 {t('links.overlay')}
               </a>
-              <button className="link-copy-btn" onClick={() => copyToClipboard(links.overlay)} title={t('links.copyToClipboard')}>
+              <button className="link-copy-btn" onClick={() => copyToClipboard(links.overlay!)} title={t('links.copyToClipboard')}>
                 <span className="material-icons">content_copy</span>
               </button>
             </div>
@@ -49,7 +59,7 @@ export default function LinksDialog({ links, onClose }) {
               <a href={links.preview} target="_blank" rel="noopener noreferrer" className="link-text">
                 {t('links.preview')}
               </a>
-              <button className="link-copy-btn" onClick={() => copyToClipboard(links.preview)} title={t('links.copyToClipboard')}>
+              <button className="link-copy-btn" onClick={() => copyToClipboard(links.preview!)} title={t('links.copyToClipboard')}>
                 <span className="material-icons">content_copy</span>
               </button>
             </div>
