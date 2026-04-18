@@ -8,12 +8,14 @@ inside a factory function so the ``OverlayStateStore`` and
 import json
 import logging
 import os
+import re
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
+from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict
 
@@ -138,7 +140,22 @@ def create_overlay_router(
 ) -> APIRouter:
     """Create and return the overlay router with injected dependencies."""
 
-    router = APIRouter(tags=["Overlay"])
+    def _deterministic_operation_id(route: APIRoute) -> str:
+        """Sort ``route.methods`` so multi-method routes get a stable id.
+
+        FastAPI's default generator does ``list(route.methods)[0]`` on a set,
+        which yields different results across Python processes and makes the
+        OpenAPI snapshot flap between runs.
+        """
+        methods = sorted(route.methods or [])
+        method_suffix = "_".join(m.lower() for m in methods)
+        name = re.sub(r"\W", "_", f"{route.name}{route.path_format}")
+        return f"{name}_{method_suffix}" if method_suffix else name
+
+    router = APIRouter(
+        tags=["Overlay"],
+        generate_unique_id_function=_deterministic_operation_id,
+    )
 
     # -- Favicon -----------------------------------------------------------
 

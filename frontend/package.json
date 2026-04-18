@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "gen:types": "openapi-typescript ./schema/openapi.json -o ./src/api/schema.d.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "react": "^19.1.0",
@@ -19,8 +21,12 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.4.1",
     "jsdom": "^29.0.1",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.2"
