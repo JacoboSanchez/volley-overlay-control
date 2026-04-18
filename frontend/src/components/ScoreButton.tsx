@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, CSSProperties } from 'react';
+import { useRef, useCallback, useEffect, CSSProperties, MouseEvent, TouchEvent } from 'react';
 
 const LONG_PRESS_MS = 1000;
 const DOUBLE_TAP_MS = 400;
@@ -23,7 +23,7 @@ export interface ScoreButtonProps {
   'data-testid'?: string;
 }
 
-type PressEvent = React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>;
+type PressEvent = MouseEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>;
 
 /**
  * Score button with tap (add point), double-tap (undo) and long-press
