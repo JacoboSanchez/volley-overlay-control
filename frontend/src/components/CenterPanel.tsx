@@ -3,6 +3,7 @@ import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
+import { asString } from '../utils/coerce';
 
 export interface PreviewData {
   overlayUrl: string;
@@ -23,10 +24,6 @@ export interface CenterPanelProps {
   onAddSet: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
   onSetChange: (set: number) => void;
-}
-
-function asString(v: unknown): string | null {
-  return typeof v === 'string' && v ? v : null;
 }
 
 export default function CenterPanel({

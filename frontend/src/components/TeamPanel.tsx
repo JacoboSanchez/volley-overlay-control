@@ -4,6 +4,7 @@ import ScoreTable from './ScoreTable';
 import type { GameState } from '../api/client';
 import type { components } from '../api/schema';
 import type { ConfigModel } from './TeamCard';
+import { toNumber, asString } from '../utils/coerce';
 
 type TeamState = components['schemas']['TeamState'];
 
@@ -38,14 +39,6 @@ function isSafeUrl(url: string | null | undefined): url is string {
   } catch {
     return false;
   }
-}
-
-function toNumber(v: unknown): number {
-  return typeof v === 'number' ? v : typeof v === 'string' ? Number(v) || 0 : 0;
-}
-
-function asString(v: unknown): string | null {
-  return typeof v === 'string' && v ? v : null;
 }
 
 /**

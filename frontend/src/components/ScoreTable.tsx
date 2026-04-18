@@ -1,15 +1,12 @@
 import { ReactElement } from 'react';
 import type { GameState } from '../api/client';
+import { toNumber } from '../utils/coerce';
 
 export interface ScoreTableProps {
   state: GameState | null | undefined;
   setsLimit: number;
   currentSet: number;
   teamId: 1 | 2;
-}
-
-function toNumber(v: unknown): number {
-  return typeof v === 'number' ? v : typeof v === 'string' ? Number(v) || 0 : 0;
 }
 
 /**
