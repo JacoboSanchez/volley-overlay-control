@@ -1,7 +1,29 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, CSSProperties } from 'react';
 
 const LONG_PRESS_MS = 1000;
 const DOUBLE_TAP_MS = 400;
+
+export interface ScoreButtonFontStyle {
+  fontScale?: number;
+  fontOffsetY?: number;
+  fontFamily?: string;
+}
+
+export interface ScoreButtonProps {
+  text: string;
+  color: string;
+  textColor?: string;
+  size?: number;
+  fontStyle?: ScoreButtonFontStyle;
+  onClick?: () => void;
+  onDoubleTap?: () => void;
+  onLongPress?: () => void;
+  className?: string;
+  style?: CSSProperties;
+  'data-testid'?: string;
+}
+
+type PressEvent = React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>;
 
 /**
  * Score button with tap (add point), double-tap (undo) and long-press
@@ -24,15 +46,14 @@ export default function ScoreButton({
   className = '',
   style = {},
   'data-testid': testId,
-}) {
-  const pressTimer = useRef(null);
+}: ScoreButtonProps) {
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
   const lastTapTime = useRef(0);
-  const singleTapTimer = useRef(null);
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doubleTapPending = useRef(false);
   const touchActive = useRef(false);
 
-  // Clean up timers on unmount
   useEffect(() => {
     return () => {
       if (pressTimer.current) {
@@ -46,19 +67,16 @@ export default function ScoreButton({
     };
   }, []);
 
-  const startPress = useCallback((e) => {
-    // Ignore mouse events that follow a touch (prevents double-firing)
+  const startPress = useCallback((e: PressEvent) => {
     if (e?.type === 'mousedown' && touchActive.current) return;
     if (e?.type === 'touchstart') touchActive.current = true;
 
     isLongPress.current = false;
 
-    // Detect double-tap at press-start for reliable mobile timing
     const now = Date.now();
     const gap = now - lastTapTime.current;
     if (onDoubleTap && gap > 0 && gap < DOUBLE_TAP_MS) {
       doubleTapPending.current = true;
-      // Cancel the pending single-tap action from the first tap
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
         singleTapTimer.current = null;
@@ -80,10 +98,9 @@ export default function ScoreButton({
     }, LONG_PRESS_MS);
   }, [onLongPress, onDoubleTap]);
 
-  const endPress = useCallback((e) => {
+  const endPress = useCallback((e: PressEvent) => {
     if (e?.type === 'touchend') {
       e.preventDefault();
-      // Allow mousedown again after a short delay (covers edge cases)
       setTimeout(() => { touchActive.current = false; }, 50);
     }
     if (e?.type === 'mouseup' && touchActive.current) return;
@@ -99,7 +116,6 @@ export default function ScoreButton({
       lastTapTime.current = 0;
       onDoubleTap?.();
     } else if (onDoubleTap) {
-      // First tap — defer action to allow time for a second tap
       singleTapTimer.current = setTimeout(() => {
         singleTapTimer.current = null;
         onClick?.();
@@ -109,7 +125,7 @@ export default function ScoreButton({
     }
   }, [onClick, onDoubleTap]);
 
-  const cancelPress = useCallback((e) => {
+  const cancelPress = useCallback((e: PressEvent) => {
     if (e?.type === 'touchmove') touchActive.current = false;
     if (pressTimer.current) {
       clearTimeout(pressTimer.current);
@@ -120,11 +136,11 @@ export default function ScoreButton({
 
   const scale = fontStyle?.fontScale ?? 1.0;
   const offsetY = fontStyle?.fontOffsetY ?? 0.0;
-  const baseFontSize = size ? size / 2 : 56; // 3.5rem ≈ 56px
+  const baseFontSize = size ? size / 2 : 56;
   const scaledFontSize = baseFontSize * scale;
   const offsetPx = size ? size * offsetY * 2.0 : 0;
 
-  const btnStyle = {
+  const btnStyle: CSSProperties = {
     backgroundColor: color,
     color: textColor,
     width: size ? `${size}px` : undefined,

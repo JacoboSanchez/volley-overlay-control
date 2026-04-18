@@ -1,14 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useI18n } from '../i18n';
+
+export interface SetValueDialogProps {
+  open: boolean;
+  title: string;
+  initialValue?: number;
+  maxValue: number;
+  onSubmit: (value: number) => void;
+  onClose: () => void;
+}
 
 /**
  * Dialog for setting a custom score or set value.
  * Mirrors the NiceGUI custom_value_dialog.
  */
-export default function SetValueDialog({ open, title, initialValue, maxValue, onSubmit, onClose }) {
+export default function SetValueDialog({
+  open,
+  title,
+  initialValue,
+  maxValue,
+  onSubmit,
+  onClose,
+}: SetValueDialogProps) {
   const { t } = useI18n();
-  const [value, setValue] = useState(initialValue ?? 0);
-  const inputRef = useRef(null);
+  const [value, setValue] = useState<number | ''>(initialValue ?? 0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -19,7 +35,7 @@ export default function SetValueDialog({ open, title, initialValue, maxValue, on
 
   if (!open) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const num = Number(value);
     const safe = Number.isFinite(num) ? num : 0;

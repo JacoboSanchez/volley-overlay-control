@@ -1,21 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, CSSProperties } from 'react';
 import { FONT_OPTIONS } from '../theme';
 
-function fontPreviewStyle(name) {
+function fontPreviewStyle(name: string): CSSProperties | undefined {
   return name !== 'Default' ? { fontFamily: `'${name}'` } : undefined;
+}
+
+export interface FontSelectorProps {
+  value: string;
+  onChange: (name: string) => void;
 }
 
 /**
  * Custom font selector — shows font name in default font + "25-25" preview in that font.
  */
-export default function FontSelector({ value, onChange }) {
+export default function FontSelector({ value, onChange }: FontSelectorProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    function handleClick(e: PointerEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener('pointerdown', handleClick);
     return () => document.removeEventListener('pointerdown', handleClick);

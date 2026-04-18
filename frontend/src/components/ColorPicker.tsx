@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, CSSProperties, ChangeEvent } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { useI18n } from '../i18n';
 
@@ -11,15 +11,18 @@ const PRESET_COLORS = [
 const LS_KEY = 'volley_recentColors';
 const MAX_RECENT = 8;
 
-function getRecentColors() {
+function getRecentColors(): string[] {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.filter((c): c is string => typeof c === 'string');
+    }
   } catch (e) { /* ignore */ }
   return [];
 }
 
-function saveRecentColor(color) {
+function saveRecentColor(color: string) {
   const normalized = color.toLowerCase();
   try {
     const recent = getRecentColors().filter((c) => c !== normalized);
@@ -28,27 +31,36 @@ function saveRecentColor(color) {
   } catch (e) { /* ignore */ }
 }
 
+export interface ColorPickerProps {
+  color?: string;
+  onChange: (color: string) => void;
+  className?: string;
+  'data-testid'?: string;
+}
+
 /**
  * Color picker with a swatch trigger that opens a popover with preset colors,
  * recently used colors, a full spectrum picker, and hex input.
  * Drop-in replacement for <input type="color">.
  */
-export default function ColorPicker({ color, onChange, className, 'data-testid': testId }) {
+export default function ColorPicker({
+  color,
+  onChange,
+  className,
+  'data-testid': testId,
+}: ColorPickerProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [hex, setHex] = useState(color ?? '#000000');
-  const [recentColors, setRecentColors] = useState([]);
-  const [popoverStyle, setPopoverStyle] = useState({});
-  const popover = useRef(null);
-  const swatch = useRef(null);
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
+  const popover = useRef<HTMLDivElement>(null);
+  const swatch = useRef<HTMLButtonElement>(null);
 
-  // Load recent colors when popover opens
   useEffect(() => {
     if (open) setRecentColors(getRecentColors());
   }, [open]);
 
-  // Compute fixed position relative to viewport when opening;
-  // recompute on resize/orientation change so it stays visible.
   useEffect(() => {
     if (!open) {
       setPopoverStyle({});
@@ -58,29 +70,26 @@ export default function ColorPicker({ color, onChange, className, 'data-testid':
     const updatePosition = () => {
       if (!swatch.current) return;
       const rect = swatch.current.getBoundingClientRect();
-      const popoverWidth = 232; // 200px picker + 2×8px padding + 2×1px border + buffer
-      const popoverHeight = 340; // approx height of full popover
+      const popoverWidth = 232;
+      const popoverHeight = 340;
       const gap = 4;
 
-      const style = {};
+      const style: CSSProperties = {};
       const margin = 4;
       const maxTop = window.innerHeight - margin;
 
-      // Vertical: prefer below swatch, flip above if not enough space below
-      let top;
+      let top: number;
       if (rect.bottom + gap + popoverHeight > window.innerHeight && rect.top - gap - popoverHeight > 0) {
         top = rect.top - gap - popoverHeight;
       } else {
         top = rect.bottom + gap;
       }
-      // Clamp so the popover stays within the viewport
-      style.top = Math.max(margin, Math.min(top, maxTop - popoverHeight));
+      const clampedTop = Math.max(margin, Math.min(top, maxTop - popoverHeight));
+      style.top = clampedTop;
 
-      // Limit height to available space and allow scrolling if needed
-      style.maxHeight = window.innerHeight - style.top - margin;
+      style.maxHeight = window.innerHeight - clampedTop - margin;
       style.overflowY = 'auto';
 
-      // Horizontal: prefer left-aligned with swatch, shift left if it would overflow
       if (rect.left + popoverWidth > window.innerWidth) {
         style.left = Math.max(4, window.innerWidth - popoverWidth - 4);
       } else {
@@ -95,18 +104,17 @@ export default function ColorPicker({ color, onChange, className, 'data-testid':
     return () => window.removeEventListener('resize', updatePosition);
   }, [open]);
 
-  // Sync local hex when prop changes externally
   useEffect(() => {
     setHex(color ?? '#000000');
   }, [color]);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    function handleClick(e) {
+    function handleClick(e: PointerEvent) {
+      const target = e.target as Node;
       if (
-        popover.current && !popover.current.contains(e.target) &&
-        swatch.current && !swatch.current.contains(e.target)
+        popover.current && !popover.current.contains(target) &&
+        swatch.current && !swatch.current.contains(target)
       ) {
         setOpen(false);
       }
@@ -115,24 +123,24 @@ export default function ColorPicker({ color, onChange, className, 'data-testid':
     return () => document.removeEventListener('pointerdown', handleClick);
   }, [open]);
 
-  const applyColor = useCallback((newColor) => {
+  const applyColor = useCallback((newColor: string) => {
     setHex(newColor);
     onChange(newColor);
     saveRecentColor(newColor);
     setRecentColors(getRecentColors());
   }, [onChange]);
 
-  const handlePickerChange = useCallback((newColor) => {
+  const handlePickerChange = useCallback((newColor: string) => {
     setHex(newColor);
     onChange(newColor);
   }, [onChange]);
 
-  const handlePickerChangeEnd = useCallback((newColor) => {
+  const handlePickerChangeEnd = useCallback((newColor: string) => {
     saveRecentColor(newColor);
     setRecentColors(getRecentColors());
   }, []);
 
-  const handleHexInput = useCallback((e) => {
+  const handleHexInput = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setHex(val);
     if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(val)) {
