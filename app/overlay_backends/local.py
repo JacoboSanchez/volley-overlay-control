@@ -109,8 +109,9 @@ class LocalOverlayBackend(OverlayBackend):
         custom_id = self._custom_id()
         self._store().ensure_overlay(custom_id)
         state = self._store().get_state(custom_id)
-        return bool(
-            state.get("overlay_control", {}).get("show_main_scoreboard", True)
+        overlay_control = state.get("overlay_control") or {}
+        return overlay_control.get("show_main_scoreboard") not in (
+            False, "false", 0, "0",
         )
 
     def get_available_styles(self, oid: str = None) -> list:

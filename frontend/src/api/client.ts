@@ -63,11 +63,11 @@ export function getState(oid: string): Promise<GameState> {
 }
 
 export function getConfig(oid: string): Promise<Record<string, unknown>> {
-  return request('GET', `/config?oid=${encodeURIComponent(oid)}`);
+  return request<Record<string, unknown>>('GET', `/config?oid=${encodeURIComponent(oid)}`);
 }
 
 export function getCustomization(oid: string): Promise<Record<string, unknown>> {
-  return request('GET', `/customization?oid=${encodeURIComponent(oid)}`);
+  return request<Record<string, unknown>>('GET', `/customization?oid=${encodeURIComponent(oid)}`);
 }
 
 // Game actions
@@ -149,21 +149,21 @@ export function setSimpleMode(oid: string, enabled: boolean): Promise<ActionResp
 export function updateCustomization(
   oid: string,
   data: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  return request('PUT', `/customization?oid=${encodeURIComponent(oid)}`, data);
+): Promise<ActionResponse> {
+  return request<ActionResponse>('PUT', `/customization?oid=${encodeURIComponent(oid)}`, data);
 }
 
 // Predefined data
 export function getTeams(): Promise<Record<string, unknown>> {
-  return request('GET', '/teams');
+  return request<Record<string, unknown>>('GET', '/teams');
 }
 
 export function getThemes(): Promise<Record<string, unknown>> {
-  return request('GET', '/themes');
+  return request<Record<string, unknown>>('GET', '/themes');
 }
 
 export function getLinks(oid: string): Promise<Record<string, unknown>> {
-  return request('GET', `/links?oid=${encodeURIComponent(oid)}`);
+  return request<Record<string, unknown>>('GET', `/links?oid=${encodeURIComponent(oid)}`);
 }
 
 export function getStyles(oid: string): Promise<string[]> {

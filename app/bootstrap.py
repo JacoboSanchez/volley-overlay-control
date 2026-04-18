@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
 from app.api import api_router
@@ -33,8 +34,10 @@ class SPAStaticFiles(StaticFiles):
     async def get_response(self, path, scope):
         try:
             return await super().get_response(path, scope)
-        except Exception:
-            return await super().get_response("index.html", scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
 
 
 @asynccontextmanager
