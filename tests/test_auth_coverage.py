@@ -330,3 +330,34 @@ def test_resolve_overlay_id_rejects_raw_id(tmp_path):
         "Output key must resolve back to the raw id for downstream state "
         "lookups."
     )
+
+
+def test_served_overlay_page_uses_output_key_for_ws():
+    """The overlay HTML embeds its WebSocket URL; that URL must use the
+    output key (not the raw overlay id) so it actually resolves under
+    the F-2 capability rule. Regression guard for the blank-overlay bug
+    where ``/ws/<raw_id>`` immediately returned 4004."""
+    from app.bootstrap import create_app
+    from app.overlay import overlay_state_store
+    from app.overlay.state_store import OverlayStateStore
+
+    raw_id = "ws-url-capture"
+    overlay_state_store.ensure_overlay(raw_id)
+    try:
+        output_key = OverlayStateStore.get_output_key(raw_id)
+        client = TestClient(create_app())
+        response = client.get(f"/overlay/{output_key}")
+        assert response.status_code == 200
+        body = response.text
+        assert 'OUTPUT_KEY' in body and f'"{output_key}"' in body, (
+            "Rendered overlay must expose OUTPUT_KEY bound to the output key."
+        )
+        assert '/ws/${OUTPUT_KEY}' in body, (
+            "WS URL must be built from OUTPUT_KEY, not the raw overlay id."
+        )
+        assert f'/ws/{raw_id}' not in body, (
+            "Raw overlay id must not leak into the WS URL — that URL "
+            "will not resolve after F-2."
+        )
+    finally:
+        overlay_state_store.delete_overlay(raw_id)

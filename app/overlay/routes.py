@@ -233,6 +233,7 @@ def create_overlay_router(
             name=template_name,
             context={
                 "target_id": overlay_id,
+                "output_key": OverlayStateStore.get_output_key(overlay_id),
                 "style": style,
                 "v": int(time.time()),
             },
