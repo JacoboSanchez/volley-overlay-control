@@ -25,10 +25,10 @@
     </div>
 
     <script>
-        const OVERLAY_ID = "{{ target_id }}";
+        const OUTPUT_KEY = "{{ output_key }}";
         window.OVERLAY_STYLE = "{{ style }}";
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/${OVERLAY_ID}`;
+        const wsUrl = `${protocol}//${window.location.host}/ws/${OUTPUT_KEY}`;
     </script>
     <script src="/static/js/app.js?v={{ v }}"></script>
 </body>
