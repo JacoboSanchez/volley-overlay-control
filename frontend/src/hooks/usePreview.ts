@@ -10,11 +10,19 @@ export interface PreviewData {
   layoutId: string;
 }
 
-export function usePreview(oid: string | null, showPreview: boolean): PreviewData | null {
+export function usePreview(
+  oid: string | null,
+  showPreview: boolean,
+  ready: boolean = true,
+): PreviewData | null {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
 
   useEffect(() => {
-    if (!oid || !showPreview) {
+    if (!oid || !showPreview || !ready) {
+      // /api/v1/links requires an initialised session. On first load the hook
+      // fires in parallel with session init and races it — wait for `ready`
+      // before fetching, and clear stale data in the meantime (e.g. after an
+      // oid change, before the new session is up).
       setPreviewData(null);
       return;
     }
@@ -39,7 +47,7 @@ export function usePreview(oid: string | null, showPreview: boolean): PreviewDat
       if (!cancelled) setPreviewData(null);
     });
     return () => { cancelled = true; };
-  }, [oid, showPreview]);
+  }, [oid, showPreview, ready]);
 
   return previewData;
 }
