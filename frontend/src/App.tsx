@@ -10,7 +10,6 @@ import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
 import type { GameState } from './api/client';
 import type { ConfigModel } from './components/TeamCard';
-import type { PreviewData } from './components/CenterPanel';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
 import {
   TEAM_A_COLOR,
@@ -84,7 +83,7 @@ export default function App() {
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
-  const previewData = usePreview(oid, settings.showPreview, !!state) as PreviewData | null;
+  const previewData = usePreview(oid, settings.showPreview, !!state);
 
   useEffect(() => {
     if (showControls && activeTab === 'scoreboard' && state) {

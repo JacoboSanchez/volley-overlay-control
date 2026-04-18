@@ -18,14 +18,14 @@ export function usePreview(
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
 
   useEffect(() => {
-    if (!oid || !showPreview) {
+    if (!oid || !showPreview || !ready) {
+      // /api/v1/links requires an initialised session. On first load the hook
+      // fires in parallel with session init and races it — wait for `ready`
+      // before fetching, and clear stale data in the meantime (e.g. after an
+      // oid change, before the new session is up).
       setPreviewData(null);
       return;
     }
-    // /api/v1/links requires an initialised session. On first load the hook
-    // fires in parallel with session init and races it — gate the fetch on
-    // `ready` so we wait until the session exists.
-    if (!ready) return;
     let cancelled = false;
     setPreviewData(null);
     api.getLinks(oid).then((links) => {
