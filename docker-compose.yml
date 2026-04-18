@@ -32,7 +32,9 @@ services:
       - REST_USER_AGENT=${REST_USER_AGENT:-}
       - APP_THEMES=${APP_THEMES:-}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      # python:3.12-slim does not ship with curl; use urllib instead of
+      # installing an extra binary just for the probe.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health', timeout=5).status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3

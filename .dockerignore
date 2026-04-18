@@ -39,17 +39,10 @@ scripts/
 # Screenshots / scratch
 screenshots*
 
-# Frontend: only the build output from stage 1 is used; source and deps
-# stay out of the runtime image context.
+# Frontend: drop only build outputs / caches from the context. The rest of
+# frontend/ (src, public, configs, package.json) is consumed by stage 1 to
+# build the SPA. The stage-2 runtime image does NOT copy frontend/ directly;
+# it only pulls /build/dist from stage 1, so none of the source survives.
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
-frontend/src/
-frontend/public/
-frontend/schema/
-frontend/test/
-frontend/index.html
-frontend/tsconfig.json
-frontend/vite.config.js
-frontend/package.json
-frontend/package-lock.json
