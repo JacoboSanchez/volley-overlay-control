@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
@@ -6,12 +6,16 @@ import * as api from '../api/client';
 import TeamsSection from './config/TeamsSection';
 import OverlaySection from './config/OverlaySection';
 import PositionSection from './config/PositionSection';
-import ButtonsSection from './config/ButtonsSection';
-import BehaviorSection from './config/BehaviorSection';
+import ButtonsSection, { ButtonsSectionProps } from './config/ButtonsSection';
+import BehaviorSection, { BehaviorSectionProps } from './config/BehaviorSection';
 import LinksSection from './config/LinksSection';
+import type { ConfigModel, PredefinedTeams } from './TeamCard';
+import type { LinksSectionLinks } from './config/LinksSection';
 
-const SECTIONS = ['teams', 'overlay', 'position', 'buttons', 'behavior', 'links'];
-const SECTION_KEYS = {
+type Section = 'teams' | 'overlay' | 'position' | 'buttons' | 'behavior' | 'links';
+
+const SECTIONS: readonly Section[] = ['teams', 'overlay', 'position', 'buttons', 'behavior', 'links'];
+const SECTION_KEYS: Record<Section, string> = {
   teams: 'section.teams',
   overlay: 'section.overlay',
   position: 'section.position',
@@ -19,7 +23,7 @@ const SECTION_KEYS = {
   behavior: 'section.behavior',
   links: 'section.links',
 };
-const SECTION_ICONS = {
+const SECTION_ICONS: Record<Section, string> = {
   teams: 'groups',
   overlay: 'palette',
   position: 'open_with',
@@ -28,14 +32,36 @@ const SECTION_ICONS = {
   links: 'link',
 };
 
-export default function ConfigPanel({ oid, customization, actions, onBack, onReset, onLogout, onCustomizationSaved, onCustomizationRefreshed }) {
+type Themes = Record<string, ConfigModel>;
+type LinksData = LinksSectionLinks | null;
+
+export interface ConfigPanelProps {
+  oid: string;
+  customization: ConfigModel | null | undefined;
+  actions?: unknown;
+  onBack: () => void;
+  onReset: () => void;
+  onLogout: () => void;
+  onCustomizationSaved?: () => void | Promise<void>;
+  onCustomizationRefreshed?: (fresh: ConfigModel) => void;
+}
+
+export default function ConfigPanel({
+  oid,
+  customization,
+  onBack,
+  onReset,
+  onLogout,
+  onCustomizationSaved,
+  onCustomizationRefreshed,
+}: ConfigPanelProps) {
   const { t } = useI18n();
   const { settings, setSetting } = useSettings();
   const { isPortrait } = useOrientation();
 
-  const [model, setModel] = useState(() => ({ ...customization }));
+  const [model, setModel] = useState<ConfigModel>(() => ({ ...(customization ?? {}) }));
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (customization) {
@@ -44,21 +70,21 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
   }, [customization]);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [predefinedTeams, setPredefinedTeams] = useState({});
-  const [themes, setThemes] = useState({});
-  const [styles, setStyles] = useState([]);
-  const [links, setLinks] = useState(null);
+  const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
+  const [themes, setThemes] = useState<Themes>({});
+  const [styles, setStyles] = useState<string[]>([]);
+  const [links, setLinks] = useState<LinksData>(null);
   const [selectedTheme, setSelectedTheme] = useState('');
-  const [activeSection, setActiveSection] = useState('teams');
+  const [activeSection, setActiveSection] = useState<Section | null>('teams');
 
   useEffect(() => {
-    api.getTeams().then(setPredefinedTeams).catch(console.warn);
-    api.getThemes().then(setThemes).catch(console.warn);
-    api.getLinks(oid).then(setLinks).catch(console.warn);
+    api.getTeams().then((d) => setPredefinedTeams(d as PredefinedTeams)).catch(console.warn);
+    api.getThemes().then((d) => setThemes(d as Themes)).catch(console.warn);
+    api.getLinks(oid).then((d) => setLinks(d as LinksData)).catch(console.warn);
     api.getStyles(oid).then(setStyles).catch(console.warn);
   }, [oid]);
 
-  const updateField = useCallback((key, value) => {
+  const updateField = useCallback((key: string, value: unknown) => {
     setModel((m) => ({ ...m, [key]: value }));
   }, []);
 
@@ -70,7 +96,8 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
       if (onCustomizationSaved) await onCustomizationSaved();
       onBack();
     } catch (e) {
-      setSaveError(e.message || t('config.failedToSave'));
+      const msg = e instanceof Error ? e.message : t('config.failedToSave');
+      setSaveError(msg);
     } finally {
       setSaving(false);
     }
@@ -88,16 +115,18 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
     }
   }, [oid, t, onCustomizationRefreshed]);
 
-  const handleApplyTheme = useCallback((themeName) => {
+  const handleApplyTheme = useCallback((themeName: string) => {
     const themeData = themes[themeName];
     if (themeData) {
       setModel((m) => ({ ...m, ...themeData }));
     }
   }, [themes]);
 
-  const isCustomOverlay = links?.overlay && !links.overlay.includes('overlays.uno');
+  const isCustomOverlay = !!(
+    links?.overlay && typeof links.overlay === 'string' && !links.overlay.includes('overlays.uno')
+  );
 
-  function renderSection(sec) {
+  function renderSection(sec: Section | null) {
     switch (sec) {
       case 'teams':
         return <TeamsSection model={model} updateField={updateField} predefinedTeams={predefinedTeams} />;
@@ -117,9 +146,19 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
       case 'position':
         return <PositionSection model={model} updateField={updateField} />;
       case 'buttons':
-        return <ButtonsSection settings={settings} setSetting={setSetting} />;
+        return (
+          <ButtonsSection
+            settings={settings}
+            setSetting={setSetting as ButtonsSectionProps['setSetting']}
+          />
+        );
       case 'behavior':
-        return <BehaviorSection settings={settings} setSetting={setSetting} />;
+        return (
+          <BehaviorSection
+            settings={settings}
+            setSetting={setSetting as BehaviorSectionProps['setSetting']}
+          />
+        );
       case 'links':
         return <LinksSection links={links} />;
       default:
@@ -129,7 +168,6 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
 
   return (
     <div className="config-panel">
-      {/* Sticky top bar */}
       <div className="config-top-bar">
         <button className="config-top-btn" onClick={onBack} title={t('config.backToScoreboard')}
           data-testid="scoreboard-tab-button">
@@ -139,7 +177,6 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
         <div style={{ minWidth: 44 }} />
       </div>
 
-      {/* Main body */}
       <div className={`config-body ${isPortrait ? 'config-body-portrait' : 'config-body-landscape'}`}>
         {isPortrait ? (
           <div className="config-accordion">
@@ -184,7 +221,6 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
         )}
       </div>
 
-      {/* Fixed bottom bar */}
       <div className="config-bottom-bar">
         <button className="config-bottom-btn config-bottom-btn-save"
           onClick={handleSave} disabled={saving} title={t('config.saveCustomization')} data-testid="save-button">
@@ -207,7 +243,6 @@ export default function ConfigPanel({ oid, customization, actions, onBack, onRes
         </button>
       </div>
 
-      {/* Save error */}
       {saveError && (
         <div className="config-save-error">{saveError}</div>
       )}

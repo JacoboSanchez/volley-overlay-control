@@ -1,49 +1,75 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, CSSProperties } from 'react';
 import { useI18n } from '../i18n';
 
 const CHAMPIONSHIP_LAYOUT_ID = '446a382f-25c0-4d1d-ae25-48373334e06b';
 
+export interface OverlayPreviewProps {
+  overlayUrl: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  layoutId?: string;
+  cardWidth?: number;
+}
+
+interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Renders an overlay preview by loading the full overlay output page in a
  * hidden iframe and using CSS transforms to crop/scale to just the scoreboard
- * region.  Mirrors the logic in app/preview.py create_iframe_card().
+ * region. Mirrors the logic in app/preview.py create_iframe_card().
  */
-export default function OverlayPreview({ overlayUrl, x, y, width, height, layoutId, cardWidth = 300 }) {
+export default function OverlayPreview({
+  overlayUrl,
+  x,
+  y,
+  width,
+  height,
+  layoutId,
+  cardWidth = 300,
+}: OverlayPreviewProps) {
   const { t } = useI18n();
-  const containerRef = useRef(null);
-  const [customBounds, setCustomBounds] = useState(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [customBounds, setCustomBounds] = useState<Bounds | null>(null);
   // Unique token per mount — forces the browser to bypass cache when the iframe
   // is recreated (e.g. after page reload or navigating back from ConfigPanel),
   // ensuring the overlay page re-establishes its WebSocket connection immediately.
-  const [cacheBust] = useState(() => Date.now());
+  const [cacheBust] = useState<number>(() => Date.now());
 
-  const getBustedUrl = (urlStr, params = {}) => {
+  const getBustedUrl = (urlStr: string, params: Record<string, string> = {}): string => {
     try {
       const url = new URL(urlStr, window.location.href);
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-      url.searchParams.set('_t', cacheBust);
+      url.searchParams.set('_t', String(cacheBust));
       return url.toString();
     } catch {
       return urlStr;
     }
   };
 
-  const isCustomOverlay = layoutId && (layoutId.startsWith('C-') || layoutId === 'auto')
-    || (overlayUrl && !overlayUrl.includes('overlays.uno'));
+  const isCustomOverlay = !!(
+    (layoutId && (layoutId.startsWith('C-') || layoutId === 'auto'))
+    || (overlayUrl && !overlayUrl.includes('overlays.uno'))
+  );
 
-  // Listen for postMessage from custom overlays reporting their render area
   useEffect(() => {
     if (!isCustomOverlay) return;
-    function onMessage(event) {
-      // Validate origin — only accept messages from the overlay URL's origin
+    function onMessage(event: MessageEvent) {
       try {
         const allowedOrigin = new URL(overlayUrl).origin;
         if (event.origin !== allowedOrigin) return;
       } catch {
         return;
       }
-      if (event.data?.type === 'overlayRenderArea') {
-        setCustomBounds(event.data.bounds);
+      const data = event.data as { type?: string; bounds?: Bounds } | undefined;
+      if (data?.type === 'overlayRenderArea' && data.bounds) {
+        setCustomBounds(data.bounds);
       }
     }
     window.addEventListener('message', onMessage);
@@ -57,7 +83,7 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
     const iframeW = 1920;
     const iframeH = 1080;
 
-    let wrapperStyle = {
+    let wrapperStyle: CSSProperties = {
       position: 'absolute',
       width: iframeW,
       height: iframeH,
@@ -98,7 +124,7 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
             height={iframeH}
             style={{ border: 0, background: 'transparent' }}
             sandbox="allow-scripts allow-same-origin"
-            allowTransparency="true"
+            allowTransparency
             title={t('preview.title')}
             data-testid="overlay-preview"
           />
@@ -110,15 +136,13 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
   // --- Standard overlay (overlays.uno) ---
   const championship = layoutId === CHAMPIONSHIP_LAYOUT_ID;
   const iframeWidth = 600;
-  const iframeHeight = iframeWidth * 9 / 16; // 337.5
+  const iframeHeight = iframeWidth * 9 / 16;
 
   const cardHeight = cardWidth * height / width;
 
-  // Region size in iframe pixels
   const regionW = (width / 100) * iframeWidth;
   const regionH = (height / (championship ? 60 : 100)) * iframeHeight;
 
-  // Top-left corner in abstract coords → iframe pixels
   const leftCoord = x - width / 2;
   const topCoord = y - height * (5 / 17);
   const leftPx = ((leftCoord + 50) / 100) * iframeWidth;
@@ -126,12 +150,10 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
     ? (topCoord / 100) * iframeHeight
     : ((topCoord + 50) / 100) * iframeHeight;
 
-  // Scale to fit region into the card
   const scale = regionW > 0 && regionH > 0
     ? Math.min(cardWidth / regionW, (cardHeight / 2) / regionH)
     : 1;
 
-  // Append aspect ratio param + cache-bust; keep background transparent
   const src = getBustedUrl(overlayUrl, { aspect: '16:9' });
 
   return (
@@ -155,7 +177,7 @@ export default function OverlayPreview({ overlayUrl, x, y, width, height, layout
           height={iframeHeight}
           style={{ border: 0, background: 'transparent', position: 'absolute', top: -topPx, left: -leftPx }}
           sandbox="allow-scripts allow-same-origin"
-          allowTransparency="true"
+          allowTransparency={'true' as unknown as boolean}
           title={t('preview.title')}
           data-testid="overlay-preview"
         />

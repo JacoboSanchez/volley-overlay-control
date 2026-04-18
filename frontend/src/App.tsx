@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useI18n } from './i18n';
 import { useGameState } from './hooks/useGameState';
 import { useSettings } from './hooks/useSettings';
@@ -8,19 +8,41 @@ import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
+import type { GameState } from './api/client';
+import type { ConfigModel } from './components/TeamCard';
+import type { PreviewData } from './components/CenterPanel';
+import type { ScoreButtonFontStyle } from './components/ScoreButton';
 import {
   TEAM_A_COLOR,
   TEAM_B_COLOR,
   FONT_SCALES,
 } from './theme';
 
-function getInitialOid() {
+type Team = 1 | 2;
+
+interface DialogState {
+  open: boolean;
+  title: string;
+  initialValue: number;
+  maxValue: number;
+  team: Team | null;
+  isSet: boolean;
+}
+
+interface FontScale {
+  scale: number;
+  offset_y: number;
+}
+
+function getInitialOid(): string {
   const params = new URLSearchParams(window.location.search);
   const urlOid = params.get('oid');
   if (urlOid) return urlOid;
   try {
     return localStorage.getItem('volley_oid') || '';
-  } catch { return ''; }
+  } catch {
+    return '';
+  }
 }
 
 export default function App() {
@@ -28,22 +50,22 @@ export default function App() {
   const { settings, setSetting } = useSettings();
   const { isPortrait, buttonSize } = useOrientation();
 
-  const [oid, setOid] = useState(getInitialOid);
-  const [oidInput, setOidInput] = useState(oid);
+  const [oid, setOid] = useState<string>(getInitialOid);
+  const [oidInput, setOidInput] = useState<string>(oid);
   const [undoMode, setUndoMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('scoreboard');
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(!!document.fullscreenElement);
   const [showControls, setShowControls] = useState(true);
-  const hideTimerRef = useRef(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => setShowControls(false), 10000);
-  }, [setShowControls]);
+  }, []);
 
-  const previewData = usePreview(oid, settings.showPreview);
+  const previewData = usePreview(oid, settings.showPreview) as PreviewData | null;
 
-  const [dialog, setDialog] = useState({
+  const [dialog, setDialog] = useState<DialogState>({
     open: false,
     title: '',
     initialValue: 0,
@@ -52,7 +74,36 @@ export default function App() {
     isSet: false,
   });
 
-  const { state, customization, connected, error, initialize, actions, refreshCustomization, setCustomization } = useGameState(oid);
+  interface GameStateHook {
+    state: GameState | null;
+    customization: ConfigModel | null;
+    connected: boolean;
+    error: string | null;
+    initialize: () => Promise<void>;
+    actions: {
+      addPoint: (team: Team, undo?: boolean) => Promise<unknown>;
+      addSet: (team: Team, undo?: boolean) => Promise<unknown>;
+      addTimeout: (team: Team, undo?: boolean) => Promise<unknown>;
+      changeServe: (team: Team) => Promise<unknown>;
+      setScore: (team: Team, setNumber: number, value: number) => Promise<unknown>;
+      setSets: (team: Team, value: number) => Promise<unknown>;
+      reset: () => Promise<unknown>;
+      setVisibility: (visible: boolean) => Promise<unknown>;
+      setSimpleMode: (enabled: boolean) => Promise<unknown>;
+    };
+    refreshCustomization: () => Promise<void>;
+    setCustomization: (c: ConfigModel) => void;
+  }
+
+  const {
+    state,
+    customization,
+    error,
+    initialize,
+    actions,
+    refreshCustomization,
+    setCustomization,
+  } = useGameState(oid) as unknown as GameStateHook;
 
   useEffect(() => {
     if (showControls && activeTab === 'scoreboard' && state) {
@@ -63,14 +114,13 @@ export default function App() {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       window.removeEventListener('pointerdown', resetHideTimer);
     };
-  }, [showControls, activeTab, !!state, resetHideTimer]);
+  }, [showControls, activeTab, state, resetHideTimer]);
 
-  const setsLimit = state?.config?.sets_limit ?? 5;
-  const pointsLimit = state?.config?.points_limit ?? 25;
+  const setsLimit = (state?.config?.sets_limit as number | undefined) ?? 5;
   const matchFinished = state?.match_finished ?? false;
   const simpleMode = state?.simple_mode ?? false;
 
-  const computeCurrentSet = useCallback(() => {
+  const computeCurrentSet = useCallback((): number => {
     if (!state) return 1;
     const t1 = state.team_1.sets;
     const t2 = state.team_2.sets;
@@ -88,7 +138,7 @@ export default function App() {
   }, [state, computeCurrentSet]);
 
   const handleInit = useCallback(
-    (e) => {
+    (e?: FormEvent<HTMLFormElement>) => {
       e?.preventDefault();
       if (oidInput.trim()) {
         setOid(oidInput.trim());
@@ -105,7 +155,7 @@ export default function App() {
   }, [oid, initialize]);
 
   const handleAddPoint = useCallback(
-    (team) => {
+    (team: Team) => {
       if (!undoMode && matchFinished) return;
       actions.addPoint(team, undoMode);
       if (undoMode) setUndoMode(false);
@@ -117,7 +167,7 @@ export default function App() {
   );
 
   const handleAddSet = useCallback(
-    (team) => {
+    (team: Team) => {
       if (!undoMode && matchFinished) return;
       actions.addSet(team, undoMode);
       if (undoMode) setUndoMode(false);
@@ -126,7 +176,7 @@ export default function App() {
   );
 
   const handleAddTimeout = useCallback(
-    (team) => {
+    (team: Team) => {
       if (!undoMode && matchFinished) return;
       actions.addTimeout(team, undoMode);
       if (undoMode) setUndoMode(false);
@@ -138,7 +188,7 @@ export default function App() {
   );
 
   const handleChangeServe = useCallback(
-    (team) => { actions.changeServe(team); },
+    (team: Team) => { actions.changeServe(team); },
     [actions]
   );
 
@@ -159,7 +209,9 @@ export default function App() {
       document.exitFullscreen();
       setIsFullscreen(false);
     } else {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => setIsFullscreen(false));
+      document.documentElement.requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(() => setIsFullscreen(false));
     }
   }, []);
 
@@ -183,7 +235,7 @@ export default function App() {
   }, []);
 
   const handleSetChange = useCallback(
-    (set) => {
+    (set: number) => {
       const clamped = Math.max(1, Math.min(set, setsLimit));
       setCurrentSet(clamped);
     },
@@ -191,15 +243,16 @@ export default function App() {
   );
 
   const handleDoubleTapScore = useCallback(
-    (team) => { actions.addPoint(team, true); },
+    (team: Team) => { actions.addPoint(team, true); },
     [actions]
   );
 
   const handleLongPressScore = useCallback(
-    (team) => {
+    (team: Team) => {
       if (!state) return;
       const teamState = team === 1 ? state.team_1 : state.team_2;
-      const currentScore = teamState.scores[`set_${currentSet}`] ?? 0;
+      const rawScore = teamState.scores?.[`set_${currentSet}`];
+      const currentScore = typeof rawScore === 'number' ? rawScore : 0;
       setDialog({
         open: true,
         title: t('dialog.setScore', { team }),
@@ -209,11 +262,11 @@ export default function App() {
         isSet: false,
       });
     },
-    [state, currentSet]
+    [state, currentSet, t]
   );
 
   const handleLongPressSet = useCallback(
-    (team) => {
+    (team: Team) => {
       if (!state) return;
       const teamState = team === 1 ? state.team_1 : state.team_2;
       setDialog({
@@ -225,11 +278,12 @@ export default function App() {
         isSet: true,
       });
     },
-    [state, setsLimit]
+    [state, setsLimit, t]
   );
 
   const handleDialogSubmit = useCallback(
-    (value) => {
+    (value: number) => {
+      if (dialog.team === null) return;
       if (dialog.isSet) {
         actions.setSets(dialog.team, value);
       } else {
@@ -240,24 +294,30 @@ export default function App() {
     [dialog, actions, currentSet]
   );
 
+  const asColor = (v: unknown, fallback: string): string =>
+    typeof v === 'string' && v ? v : fallback;
+  const asLogo = (v: unknown): string | null =>
+    typeof v === 'string' && v ? v : null;
+
   const btnColorA = settings.followTeamColors
-    ? (customization?.['Team 1 Color'] ?? TEAM_A_COLOR)
+    ? asColor(customization?.['Team 1 Color'], TEAM_A_COLOR)
     : (settings.team1BtnColor ?? TEAM_A_COLOR);
   const btnTextA = settings.followTeamColors
-    ? (customization?.['Team 1 Text Color'] ?? '#ffffff')
+    ? asColor(customization?.['Team 1 Text Color'], '#ffffff')
     : (settings.team1BtnText ?? '#ffffff');
   const btnColorB = settings.followTeamColors
-    ? (customization?.['Team 2 Color'] ?? TEAM_B_COLOR)
+    ? asColor(customization?.['Team 2 Color'], TEAM_B_COLOR)
     : (settings.team2BtnColor ?? TEAM_B_COLOR);
   const btnTextB = settings.followTeamColors
-    ? (customization?.['Team 2 Text Color'] ?? '#ffffff')
+    ? asColor(customization?.['Team 2 Text Color'], '#ffffff')
     : (settings.team2BtnText ?? '#ffffff');
 
-  const iconLogoA = settings.showIcon ? (customization?.['Team 1 Logo'] ?? null) : null;
-  const iconLogoB = settings.showIcon ? (customization?.['Team 2 Logo'] ?? null) : null;
+  const iconLogoA = settings.showIcon ? asLogo(customization?.['Team 1 Logo']) : null;
+  const iconLogoB = settings.showIcon ? asLogo(customization?.['Team 2 Logo']) : null;
 
-  const fontProps = FONT_SCALES[settings.selectedFont] || FONT_SCALES.Default;
-  const fontStyle = settings.selectedFont && settings.selectedFont !== 'Default'
+  const fontScales = FONT_SCALES as Record<string, FontScale>;
+  const fontProps: FontScale = fontScales[settings.selectedFont] ?? fontScales.Default;
+  const fontStyle: ScoreButtonFontStyle = settings.selectedFont && settings.selectedFont !== 'Default'
     ? { fontFamily: `'${settings.selectedFont}'`, fontScale: fontProps.scale, fontOffsetY: fontProps.offset_y }
     : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
 
