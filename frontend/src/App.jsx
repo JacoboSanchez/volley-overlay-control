@@ -4,19 +4,13 @@ import { useGameState } from './hooks/useGameState';
 import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
-import * as api from './api/client';
-import TeamPanel from './components/TeamPanel';
-import CenterPanel from './components/CenterPanel';
-import ControlButtons from './components/ControlButtons';
+import InitScreen from './components/InitScreen';
+import ScoreboardView from './components/ScoreboardView';
 import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
 import {
   TEAM_A_COLOR,
   TEAM_B_COLOR,
-  TEAM_A_SERVE_ACTIVE,
-  TEAM_B_SERVE_ACTIVE,
-  TEAM_A_LIGHT,
-  TEAM_B_LIGHT,
   FONT_SCALES,
 } from './theme';
 
@@ -49,7 +43,6 @@ export default function App() {
 
   const previewData = usePreview(oid, settings.showPreview);
 
-  // Dialog state
   const [dialog, setDialog] = useState({
     open: false,
     title: '',
@@ -72,7 +65,6 @@ export default function App() {
     };
   }, [showControls, activeTab, !!state, resetHideTimer]);
 
-  // Compute current set from state
   const setsLimit = state?.config?.sets_limit ?? 5;
   const pointsLimit = state?.config?.points_limit ?? 25;
   const matchFinished = state?.match_finished ?? false;
@@ -95,7 +87,6 @@ export default function App() {
     }
   }, [state, computeCurrentSet]);
 
-  // Initialize session
   const handleInit = useCallback(
     (e) => {
       e?.preventDefault();
@@ -106,7 +97,6 @@ export default function App() {
     [oidInput]
   );
 
-  // Persist OID to localStorage when OID changes
   useEffect(() => {
     if (oid) {
       try { localStorage.setItem('volley_oid', oid); } catch (e) { console.warn('Failed to save OID:', e); }
@@ -114,7 +104,6 @@ export default function App() {
     }
   }, [oid, initialize]);
 
-  // Actions
   const handleAddPoint = useCallback(
     (team) => {
       if (!undoMode && matchFinished) return;
@@ -149,16 +138,12 @@ export default function App() {
   );
 
   const handleChangeServe = useCallback(
-    (team) => {
-      actions.changeServe(team);
-    },
+    (team) => { actions.changeServe(team); },
     [actions]
   );
 
   const handleToggleVisibility = useCallback(() => {
-    if (state) {
-      actions.setVisibility(!state.visible);
-    }
+    if (state) actions.setVisibility(!state.visible);
   }, [actions, state]);
 
   const handleToggleSimpleMode = useCallback(() => {
@@ -205,15 +190,11 @@ export default function App() {
     [setsLimit]
   );
 
-  // Double-tap handler — undo last point
   const handleDoubleTapScore = useCallback(
-    (team) => {
-      actions.addPoint(team, true);
-    },
+    (team) => { actions.addPoint(team, true); },
     [actions]
   );
 
-  // Long-press handlers for custom value dialog
   const handleLongPressScore = useCallback(
     (team) => {
       if (!state) return;
@@ -259,7 +240,6 @@ export default function App() {
     [dialog, actions, currentSet]
   );
 
-  // Compute button colors from settings
   const btnColorA = settings.followTeamColors
     ? (customization?.['Team 1 Color'] ?? TEAM_A_COLOR)
     : (settings.team1BtnColor ?? TEAM_A_COLOR);
@@ -276,193 +256,68 @@ export default function App() {
   const iconLogoA = settings.showIcon ? (customization?.['Team 1 Logo'] ?? null) : null;
   const iconLogoB = settings.showIcon ? (customization?.['Team 2 Logo'] ?? null) : null;
 
-  // Font style for score buttons
   const fontProps = FONT_SCALES[settings.selectedFont] || FONT_SCALES.Default;
   const fontStyle = settings.selectedFont && settings.selectedFont !== 'Default'
     ? { fontFamily: `'${settings.selectedFont}'`, fontScale: fontProps.scale, fontOffsetY: fontProps.offset_y }
     : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
 
-  // Predefined overlays for selection on init screen
-  const [predefinedOverlays, setPredefinedOverlays] = useState([]);
-  useEffect(() => {
-    api.getOverlays().then((data) => {
-      let overlays = [];
-      if (Array.isArray(data)) {
-        overlays = data
-          .map((item) => {
-            if (item && typeof item === 'object' && item.oid) {
-              return { oid: item.oid, name: item.name || item.oid };
-            }
-            if (typeof item === 'string' && item) {
-              return { oid: item, name: item };
-            }
-            return null;
-          })
-          .filter(Boolean);
-      } else if (data && typeof data === 'object') {
-        overlays = Object.entries(data).map(([name, oid]) => ({ oid, name }));
-      }
-      setPredefinedOverlays(overlays);
-    }).catch((error) => {
-      console.warn('Failed to fetch predefined overlays:', error);
-    });
-  }, []);
-
-  const handleOverlaySelect = useCallback((e) => {
-    setOidInput(e.target.value);
-    if (e.target.value) {
-      setOid(e.target.value);
-    }
-  }, []);
-
-  // OID entry screen
   if (!oid || !state) {
     return (
-      <div className="init-screen">
-        <h1 className="init-title">{t('app.title')}</h1>
-        {predefinedOverlays.length > 0 && (
-          <div className="init-overlay-selector">
-            <label className="init-label">{t('app.selectOverlay')}</label>
-            <select
-              className="init-select"
-              defaultValue=""
-              onChange={handleOverlaySelect}
-            >
-              <option value="">{t('app.selectOverlayPlaceholder')}</option>
-              {predefinedOverlays.map((o) => (
-                <option key={o.oid} value={o.oid}>{o.name}</option>
-              ))}
-            </select>
-            <div className="init-divider"><span>{t('app.orManualOid')}</span></div>
-          </div>
-        )}
-        <form onSubmit={handleInit} className="init-form">
-          <label className="init-label">{t('app.oidLabel')}</label>
-          <input
-            className="init-input"
-            type="text"
-            value={oidInput}
-            onChange={(e) => setOidInput(e.target.value)}
-            placeholder={t('app.oidPlaceholder')}
-            autoFocus={predefinedOverlays.length === 0}
-          />
-          <button className="init-button" type="submit" disabled={!oidInput.trim()}>
-            {t('app.connect')}
-          </button>
-          {error && <p className="init-error">{error}</p>}
-        </form>
-      </div>
+      <InitScreen
+        oidInput={oidInput}
+        setOidInput={setOidInput}
+        onSubmit={handleInit}
+        onSelect={setOid}
+        error={error}
+      />
     );
   }
 
   return (
     <div className="app-container">
-
-      {/* Main scoreboard layout */}
       {activeTab === 'scoreboard' && (
-      <div className={`main-layout ${isPortrait ? 'main-layout-portrait' : 'main-layout-landscape'}`}>
-        <TeamPanel
-          teamId={1}
-          teamState={state.team_1}
+        <ScoreboardView
+          state={state}
+          customization={customization}
           currentSet={currentSet}
-          buttonColor={btnColorA}
-          buttonTextColor={btnTextA}
-          serveColor={TEAM_A_SERVE_ACTIVE}
-          timeoutColor={TEAM_A_LIGHT}
-          buttonSize={buttonSize}
+          setsLimit={setsLimit}
           isPortrait={isPortrait}
-          iconLogo={iconLogoA}
+          buttonSize={buttonSize}
+          previewData={previewData}
+          showPreview={settings.showPreview}
+          showControls={showControls}
+          setShowControls={setShowControls}
+          undoMode={undoMode}
+          simpleMode={simpleMode}
+          matchFinished={matchFinished}
+          isFullscreen={isFullscreen}
+          darkMode={settings.darkMode}
+          btnColorA={btnColorA}
+          btnTextA={btnTextA}
+          btnColorB={btnColorB}
+          btnTextB={btnTextB}
+          iconLogoA={iconLogoA}
+          iconLogoB={iconLogoB}
           iconOpacity={settings.iconOpacity}
           fontStyle={fontStyle}
-          state={state}
-          setsLimit={setsLimit}
-          customization={customization}
           onAddPoint={handleAddPoint}
+          onAddSet={handleAddSet}
           onAddTimeout={handleAddTimeout}
           onChangeServe={handleChangeServe}
           onDoubleTapScore={handleDoubleTapScore}
           onLongPressScore={handleLongPressScore}
-        />
-
-        <CenterPanel
-          state={state}
-          customization={customization}
-          currentSet={currentSet}
-          setsLimit={setsLimit}
-          isPortrait={isPortrait}
-          previewData={settings.showPreview ? previewData : null}
-          onAddSet={handleAddSet}
           onLongPressSet={handleLongPressSet}
           onSetChange={handleSetChange}
+          onToggleVisibility={handleToggleVisibility}
+          onToggleSimpleMode={handleToggleSimpleMode}
+          onToggleUndo={handleToggleUndo}
+          onToggleDarkMode={() => setSetting('darkMode', !settings.darkMode)}
+          onToggleFullscreen={handleToggleFullscreen}
+          onTogglePreview={handleTogglePreview}
+          onOpenConfig={() => setActiveTab('config')}
         />
-
-        <TeamPanel
-          teamId={2}
-          teamState={state.team_2}
-          currentSet={currentSet}
-          buttonColor={btnColorB}
-          buttonTextColor={btnTextB}
-          serveColor={TEAM_B_SERVE_ACTIVE}
-          timeoutColor={TEAM_B_LIGHT}
-          buttonSize={buttonSize}
-          isPortrait={isPortrait}
-          iconLogo={iconLogoB}
-          iconOpacity={settings.iconOpacity}
-          fontStyle={fontStyle}
-          state={state}
-          setsLimit={setsLimit}
-          customization={customization}
-          onAddPoint={handleAddPoint}
-          onAddTimeout={handleAddTimeout}
-          onChangeServe={handleChangeServe}
-          onDoubleTapScore={handleDoubleTapScore}
-          onLongPressScore={handleLongPressScore}
-        />
-      </div>
       )}
 
-      {/* HUD Controls */}
-      {activeTab === 'scoreboard' && (
-        <>
-          <div className={`hud-controls ${!showControls ? 'ui-hidden' : ''}`}>
-            <button
-              className="top-right-config-btn"
-              onClick={() => setActiveTab('config')}
-              title={t('ctrl.config')}
-              data-testid="config-tab-button"
-            >
-              <span className="material-icons">more_vert</span>
-            </button>
-
-            <div className="control-buttons-wrapper">
-              <div
-                className="wakeup-handle"
-                onClick={() => setShowControls(!showControls)}
-                title={showControls ? t('ctrl.hideControls') : t('ctrl.showControls')}
-              >
-                <span className="material-icons">{showControls ? 'expand_more' : 'expand_less'}</span>
-              </div>
-              <ControlButtons
-                visible={state.visible}
-                simpleMode={simpleMode}
-                undoMode={undoMode}
-                darkMode={settings.darkMode}
-                isFullscreen={isFullscreen}
-                matchFinished={matchFinished}
-                showPreview={settings.showPreview}
-                onToggleVisibility={handleToggleVisibility}
-                onToggleSimpleMode={handleToggleSimpleMode}
-                onToggleUndo={handleToggleUndo}
-                onToggleDarkMode={() => setSetting('darkMode', !settings.darkMode)}
-                onToggleFullscreen={handleToggleFullscreen}
-                onTogglePreview={handleTogglePreview}
-              />
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Configuration panel (replaces scoreboard when active) */}
       {activeTab === 'config' && (
         <ConfigPanel
           oid={oid}
@@ -476,7 +331,6 @@ export default function App() {
         />
       )}
 
-      {/* Custom value dialog */}
       <SetValueDialog
         open={dialog.open}
         title={dialog.title}
