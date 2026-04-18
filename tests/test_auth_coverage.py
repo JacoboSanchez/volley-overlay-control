@@ -10,6 +10,7 @@ fixtures stay minimal and the matrix is easy to scan.
 """
 
 import json
+import os
 
 import pytest
 from fastapi import FastAPI
@@ -333,46 +334,70 @@ def test_resolve_overlay_id_accepts_raw_id_and_output_key(tmp_path):
     assert store.resolve_overlay_id("does-not-exist") is None
 
 
-def test_served_overlay_page_uses_output_key_for_ws():
+def _make_overlay_app_with_real_templates(tmp_path):
+    """Variant of ``_make_overlay_app`` that points Jinja at the real
+    overlay templates directory so the rendered HTML reflects what
+    production serves. Data directory stays under ``tmp_path`` so the
+    test has no filesystem side effects."""
+    templates_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "overlay_templates",
+    )
+    store = OverlayStateStore(
+        data_dir=str(tmp_path / "overlays"),
+        templates_dir=templates_dir,
+    )
+
+    class _FakeBroadcast:
+        def get_client_count(self, _overlay_id):
+            return 0
+
+        async def cleanup_overlay(self, _overlay_id):
+            return None
+
+        def add_client(self, *_args, **_kwargs):
+            return None
+
+        def remove_client(self, *_args, **_kwargs):
+            return None
+
+    templates = Jinja2Templates(directory=templates_dir)
+    app = FastAPI()
+    app.include_router(create_overlay_router(store, _FakeBroadcast(), templates))
+    return app, store
+
+
+def test_served_overlay_page_uses_output_key_for_ws(tmp_path):
     """The overlay HTML embeds a WebSocket URL. When the page is served
     via /overlay/<output_key>, the template must build wsUrl from the
     output key so /ws/<output_key> resolves. Regression guard for the
     blank-overlay bug where the WS URL used the raw id while the URL
     was an output key."""
-    from app.bootstrap import create_app
-    from app.overlay import overlay_state_store
     from app.overlay.state_store import OverlayStateStore
 
+    app, store = _make_overlay_app_with_real_templates(tmp_path)
     raw_id = "ws-url-capture"
-    overlay_state_store.ensure_overlay(raw_id)
-    try:
-        output_key = OverlayStateStore.get_output_key(raw_id)
-        client = TestClient(create_app())
-        response = client.get(f"/overlay/{output_key}")
-        assert response.status_code == 200
-        body = response.text
-        assert 'OUTPUT_KEY' in body and f'"{output_key}"' in body, (
-            "Rendered overlay must expose OUTPUT_KEY bound to the output key."
-        )
-        assert '/ws/${OUTPUT_KEY}' in body, (
-            "WS URL must be built from OUTPUT_KEY so it resolves server-side."
-        )
-    finally:
-        overlay_state_store.delete_overlay(raw_id)
+    store.create_overlay(raw_id)
+
+    output_key = OverlayStateStore.get_output_key(raw_id)
+    response = TestClient(app).get(f"/overlay/{output_key}")
+    assert response.status_code == 200
+    body = response.text
+    assert f'OUTPUT_KEY = "{output_key}"' in body, (
+        "Rendered overlay must expose OUTPUT_KEY bound to the output key."
+    )
+    assert '/ws/${OUTPUT_KEY}' in body, (
+        "WS URL must be built from OUTPUT_KEY so it resolves server-side."
+    )
 
 
-def test_overlay_page_accepts_raw_id(tmp_path, monkeypatch):
+def test_overlay_page_accepts_raw_id(tmp_path):
     """/overlay/<raw_id> must render the overlay page, mirroring the
     behavior of /overlay/<output_key>."""
-    from app.bootstrap import create_app
-    from app.overlay import overlay_state_store
-
+    app, store = _make_overlay_app_with_real_templates(tmp_path)
     raw_id = "raw-id-url"
-    overlay_state_store.ensure_overlay(raw_id)
-    try:
-        client = TestClient(create_app())
-        response = client.get(f"/overlay/{raw_id}")
-        assert response.status_code == 200
-        assert 'OUTPUT_KEY' in response.text
-    finally:
-        overlay_state_store.delete_overlay(raw_id)
+    store.create_overlay(raw_id)
+
+    response = TestClient(app).get(f"/overlay/{raw_id}")
+    assert response.status_code == 200
+    assert 'OUTPUT_KEY' in response.text
