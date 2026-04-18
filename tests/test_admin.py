@@ -102,6 +102,30 @@ def test_store_delete(tmp_path):
         store.delete("Gone")
 
 
+def test_store_returns_defensive_copies(tmp_path):
+    """Mutating the dicts/lists returned by list()/get()/as_dict() must not
+    affect the store's internal state."""
+    store = OverlaysStore(str(tmp_path))
+    store.create("Main", {"control": "T", "allowed_users": ["u1"]})
+
+    snapshot = store.get("Main")
+    snapshot["control"] = "HIJACKED"
+    snapshot["allowed_users"].append("intruder")
+
+    fresh = store.get("Main")
+    assert fresh["control"] == "T"
+    assert fresh["allowed_users"] == ["u1"]
+
+    # list() and as_dict() must also yield independent copies.
+    listed = store.list()
+    listed[0]["allowed_users"].append("intruder2")
+    assert store.get("Main")["allowed_users"] == ["u1"]
+
+    as_dict = store.as_dict()
+    as_dict["Main"]["allowed_users"].append("intruder3")
+    assert store.get("Main")["allowed_users"] == ["u1"]
+
+
 def test_store_ignores_malformed_file(tmp_path):
     path = tmp_path / OverlaysStore.FILENAME
     path.write_text("not valid json", encoding="utf-8")
@@ -272,4 +296,7 @@ def test_manage_page_served(client):
     res = client.get("/manage")
     assert res.status_code == 200
     assert "Overlay Manager" in res.text
-    assert "overlay_manager_password" in res.text  # script is embedded
+    # The admin password must not be persisted client-side — the page keeps
+    # it in a JS closure variable only.
+    assert "sessionStorage.setItem" not in res.text
+    assert "localStorage.setItem" not in res.text

@@ -236,9 +236,11 @@
 
 <script>
 (function () {
-  const STORAGE_KEY = 'overlay_manager_password';
+  // Admin password lives only in this closure variable so it is not
+  // persisted to localStorage/sessionStorage. A page refresh re-prompts
+  // the operator; this avoids clear-text storage of sensitive data.
   const API = '/api/v1/admin';
-  let password = sessionStorage.getItem(STORAGE_KEY) || '';
+  let password = '';
   let currentEditName = null;
 
   const $ = (id) => document.getElementById(id);
@@ -274,8 +276,6 @@
 
   function setPassword(pw) {
     password = pw || '';
-    if (password) sessionStorage.setItem(STORAGE_KEY, password);
-    else sessionStorage.removeItem(STORAGE_KEY);
   }
 
   function showError(el, message) {
@@ -332,17 +332,6 @@
     if (!statusInfo || !statusInfo.enabled) {
       showView('disabled');
       return;
-    }
-    if (password) {
-      // Try to authenticate silently
-      try {
-        await apiCall('POST', '/login');
-        showView('admin');
-        await loadOverlays();
-        return;
-      } catch (err) {
-        setPassword('');
-      }
     }
     showView('login');
     passwordInput.focus();

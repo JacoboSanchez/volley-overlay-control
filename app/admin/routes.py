@@ -19,7 +19,11 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.admin.store import managed_overlays_store
+from app.admin.store import (
+    managed_overlays_store,
+    OverlayConflictError,
+    OverlayNotFoundError,
+)
 from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger("AdminRoutes")
@@ -140,8 +144,8 @@ def create_overlay(payload: OverlayPayload):
                 "allowed_users": payload.allowed_users,
             },
         )
-    except KeyError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+    except OverlayConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc).strip("'"))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -158,10 +162,10 @@ def update_overlay(name: str, payload: OverlayUpdatePayload):
             },
             new_name=payload.new_name,
         )
-    except KeyError as exc:
-        msg = str(exc)
-        status = 404 if "not found" in msg else 409
-        raise HTTPException(status_code=status, detail=msg)
+    except OverlayNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'"))
+    except OverlayConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc).strip("'"))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -170,6 +174,6 @@ def update_overlay(name: str, payload: OverlayUpdatePayload):
 def delete_overlay(name: str):
     try:
         managed_overlays_store.delete(name)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+    except OverlayNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'"))
     return {"ok": True}

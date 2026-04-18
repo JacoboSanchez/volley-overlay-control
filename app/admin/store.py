@@ -22,6 +22,14 @@ _DEFAULT_DATA_DIR = os.path.join(
 )
 
 
+class OverlayNotFoundError(KeyError):
+    """Raised when a managed overlay does not exist."""
+
+
+class OverlayConflictError(KeyError):
+    """Raised when a create/rename would duplicate an existing overlay."""
+
+
 class OverlaysStore:
     """Thread-safe JSON-backed store for managed overlays.
 
@@ -121,25 +129,29 @@ class OverlaysStore:
     # ------------------------------------------------------------------
 
     def list(self) -> List[dict]:
-        """Return managed overlays as a list of ``{name, ...}`` dicts."""
+        """Return managed overlays as a list of ``{name, ...}`` dicts.
+
+        Each entry is freshly normalised so callers can mutate the returned
+        dicts or nested lists without corrupting the store's internal state.
+        """
         self._ensure_loaded()
         with self._lock:
             return [
-                {"name": name, **entry}
+                {"name": name, **self._normalise(entry)}
                 for name, entry in sorted(self._overlays.items(), key=lambda kv: kv[0].lower())
             ]
 
     def as_dict(self) -> Dict[str, dict]:
-        """Return a shallow copy of the stored overlays keyed by name."""
+        """Return a defensive copy of the stored overlays keyed by name."""
         self._ensure_loaded()
         with self._lock:
-            return {name: dict(entry) for name, entry in self._overlays.items()}
+            return {name: self._normalise(entry) for name, entry in self._overlays.items()}
 
     def get(self, name: str) -> Optional[dict]:
         self._ensure_loaded()
         with self._lock:
             entry = self._overlays.get(name)
-            return dict(entry) if entry is not None else None
+            return self._normalise(entry) if entry is not None else None
 
     def create(self, name: str, entry: dict) -> dict:
         name = (name or "").strip()
@@ -151,16 +163,16 @@ class OverlaysStore:
         self._ensure_loaded()
         with self._lock:
             if name in self._overlays:
-                raise KeyError(f"Overlay '{name}' already exists")
+                raise OverlayConflictError(f"Overlay '{name}' already exists")
             self._overlays[name] = normalised
             self._write_to_disk()
-            return {"name": name, **normalised}
+            return {"name": name, **self._normalise(normalised)}
 
     def update(self, name: str, entry: dict, *, new_name: Optional[str] = None) -> dict:
         self._ensure_loaded()
         with self._lock:
             if name not in self._overlays:
-                raise KeyError(f"Overlay '{name}' not found")
+                raise OverlayNotFoundError(f"Overlay '{name}' not found")
             normalised = self._normalise(entry)
             if not normalised["control"]:
                 raise ValueError("Overlay control token/URL is required")
@@ -168,18 +180,18 @@ class OverlaysStore:
             if not target:
                 raise ValueError("Overlay name is required")
             if target != name and target in self._overlays:
-                raise KeyError(f"Overlay '{target}' already exists")
+                raise OverlayConflictError(f"Overlay '{target}' already exists")
             if target != name:
                 del self._overlays[name]
             self._overlays[target] = normalised
             self._write_to_disk()
-            return {"name": target, **normalised}
+            return {"name": target, **self._normalise(normalised)}
 
     def delete(self, name: str) -> None:
         self._ensure_loaded()
         with self._lock:
             if name not in self._overlays:
-                raise KeyError(f"Overlay '{name}' not found")
+                raise OverlayNotFoundError(f"Overlay '{name}' not found")
             del self._overlays[name]
             self._write_to_disk()
 
