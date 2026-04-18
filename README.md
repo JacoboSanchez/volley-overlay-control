@@ -154,6 +154,7 @@ Configure the application using the following environment variables:
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
 | `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the overlay manager page at `/manage`. Leave empty to disable the page. | |
+| `OVERLAY_SERVER_TOKEN` | *(Recommended)* Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). When unset the endpoints stay open and a warning is logged at startup. If you also run the control app against an **external** overlay server via `APP_CUSTOM_OVERLAY_URL`, set the same value on both sides. See [AUTHENTICATION.md](AUTHENTICATION.md) (F-3, F-5). | |
 | `APP_THEMES` | JSON with a list of customization themes. | |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
@@ -258,6 +259,35 @@ sources, the managed overlay wins.
 > **Security note**: `OVERLAY_MANAGER_PASSWORD` is a single shared password.
 > Treat it the same way you treat `SCOREBOARD_USERS` — do not expose the
 > service directly to the public internet without additional protection.
+
+### Overlay server token (`OVERLAY_SERVER_TOKEN`)
+
+When the built-in overlay server is mounted (i.e. the `overlay_templates/`
+directory is present), its mutation and config endpoints can be gated behind
+a Bearer token. Set `OVERLAY_SERVER_TOKEN` to any non-empty value and every
+request to the following routes must include
+`Authorization: Bearer <token>`:
+
+- `POST /api/state/{id}`
+- `GET` / `POST /create/overlay/{id}`
+- `GET` / `POST` / `DELETE /delete/overlay/{id}`
+- `GET` / `POST /api/raw_config/{id}`
+- `GET /api/config/{id}`
+- `POST /api/theme/{id}/{name}`
+
+When the variable is unset the routes stay open and a warning is logged at
+startup — existing deployments keep working unchanged.
+
+If the control app is pointed at an **external** overlay server via
+`APP_CUSTOM_OVERLAY_URL`, set `OVERLAY_SERVER_TOKEN` to the same value on
+both sides. The control app's `CustomOverlayBackend` forwards the token in
+every request it makes to the overlay server.
+
+The OBS capability URLs (`/overlay/{output_key}` and `/ws/{output_key}`) are
+intentionally **not** gated by this token — they are the public-by-design
+entry points that OBS loads.
+
+See [AUTHENTICATION.md](AUTHENTICATION.md) for the full route inventory.
 
 ### Remote Configuration
 Import configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup. Useful for centralized management.

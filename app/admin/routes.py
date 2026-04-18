@@ -13,6 +13,7 @@ variable to be set and the request to include a matching
 
 import os
 import logging
+import secrets
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -78,7 +79,7 @@ def require_admin(authorization: str = Header(None)) -> None:
             detail="Missing admin password. Use 'Authorization: Bearer <password>'.",
         )
     token = authorization.removeprefix("Bearer ").strip()
-    if token != password:
+    if not secrets.compare_digest(token, password):
         raise HTTPException(status_code=403, detail="Invalid admin password.")
 
 

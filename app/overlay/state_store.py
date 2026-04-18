@@ -223,23 +223,26 @@ class OverlayStateStore:
         """Return a short deterministic hash of the overlay name."""
         return hashlib.sha256(overlay_id.encode()).hexdigest()[:12]
 
-    def resolve_overlay_id(self, id_or_key: str) -> Optional[str]:
-        """Resolve an overlay ID or output key to the real overlay ID."""
-        if os.path.exists(self.get_state_file_path(id_or_key)):
-            return id_or_key
+    def resolve_overlay_id(self, output_key: str) -> Optional[str]:
+        """Resolve an output key to its real overlay ID.
+
+        Accepts the SHA-256 output key only (not the raw overlay id).
+        This turns ``/overlay/{output_key}`` and ``/ws/{output_key}``
+        into true capability URLs: knowing an overlay's raw id is no
+        longer enough to view or stream it. See ``AUTHENTICATION.md``
+        (F-2).
+        """
         with self._lock:
-            # Check in-memory cache first
-            cached = self._output_key_cache.get(id_or_key)
+            cached = self._output_key_cache.get(output_key)
             if cached and os.path.exists(self.get_state_file_path(cached)):
                 return cached
-            # Scan data dir and rebuild cache
             if os.path.isdir(self._data_dir):
                 for filename in os.listdir(self._data_dir):
                     if filename.startswith("overlay_state_") and filename.endswith(".json"):
                         candidate = filename[len("overlay_state_"):-5]
                         key = self.get_output_key(candidate)
                         self._output_key_cache[key] = candidate
-                        if key == id_or_key:
+                        if key == output_key:
                             return candidate
         return None
 

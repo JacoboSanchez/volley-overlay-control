@@ -1,6 +1,6 @@
 # Authentication Coverage Audit
 
-Last audited: 2026-04-18 (branch `claude/auth-middleware-audit`).
+Last audited: 2026-04-18 (branch `claude/overlay-auth-hardening`).
 
 This document is the single source of truth for **which routes are
 protected, which are intentionally public, and where the gaps are**. It
@@ -14,20 +14,14 @@ different environment variable:
 
 | Layer | Env var | How it's enforced | Where |
 | :--- | :--- | :--- | :--- |
-| `AuthMiddleware` | `SCOREBOARD_USERS` | Registered as middleware when `PasswordAuthenticator.do_authenticate_users()` returns `True`. **The current implementation is a pass-through `call_next`** — it does not block any request. | `app/authentication.py`, registered in `app/bootstrap.py::_register_auth` |
 | `verify_api_key` dependency | `SCOREBOARD_USERS` | Per-route `Depends(verify_api_key)`. Returns `401` when the header is missing, `403` when the Bearer token does not match any configured user. | `app/api/dependencies.py` |
 | `require_admin` dependency | `OVERLAY_MANAGER_PASSWORD` | Per-route `Depends(require_admin)`. Returns `503` when the password env var is unset, `401` when the header is missing, `403` when the Bearer token does not match. | `app/admin/routes.py` |
+| `require_overlay_server_token` dependency | `OVERLAY_SERVER_TOKEN` | Per-route `Depends(require_overlay_server_token)`. **No-op when the env var is unset** (logs a startup warning). When set: `401` without header, `403` with a mismatched Bearer token. | `app/overlay/routes.py` |
 
 The `check_oid_access` helper is a second-level check layered on top of
 `verify_api_key`: it compares the caller's `control` OID (stored in
 `SCOREBOARD_USERS`) against the OID in the request and returns `403`
 when they differ.
-
-> **Finding F-1 (low):** `AuthMiddleware.dispatch` is a pass-through and
-> has been since the REST API adopted dependency-based auth. It is kept
-> as a hook for future static-asset protection, but the module docstring
-> suggests it still "restricts access" — this is misleading. Either
-> delete the class or update the docstring.
 
 ## 2. Route inventory
 
@@ -83,20 +77,25 @@ This router powers the **in-process custom overlay server**
 It is **also consumed by `CustomOverlayBackend` when a remote app
 instance points at this server** (`APP_CUSTOM_OVERLAY_URL=…`).
 
-| Method | Path | Auth today | Classification |
+| Method | Path | Auth | Classification |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/favicon.ico` | — | Public OK |
-| `GET` | `/overlay/{overlay_id_or_output_key}` | — | **Capability URL** — intentionally public for OBS. Accepts either the raw OID or its SHA-256 prefix ("output key"). See F-2. |
-| `WS` | `/ws/{overlay_id}` | — | **Capability URL** — public for OBS browser sources. See F-2. |
-| `POST` | `/api/state/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** Anyone who can guess an overlay ID can overwrite its live scoreboard state. |
-| `GET`,`POST` | `/create/overlay/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** `GET` creates an overlay — drive-by requests suffice. |
-| `GET`,`POST`,`DELETE` | `/delete/overlay/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** `GET` deletes. |
-| `GET` | `/list/overlay` | `require_admin` | **F-4 (high): recon.** Returns every overlay id plus its deterministic output key. Trivially defeats the capability-URL design. Gated in this audit PR. |
-| `GET` | `/api/raw_config/{overlay_id}` | — | **F-5 (medium): leaks model + customization.** |
-| `POST` | `/api/raw_config/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** |
-| `GET` | `/api/config/{overlay_id}` | — | **F-5 (medium):** returns `outputUrl` + `outputKey`, breaking the capability-URL assumption for any known OID. |
+| `GET` | `/overlay/{output_key}` | — | **Capability URL** — intentionally public for OBS. Only the SHA-256 output key is accepted (F-2 fix). |
+| `WS` | `/ws/{output_key}` | — | **Capability URL** — public for OBS browser sources. Only the output key is accepted (F-2 fix). |
+| `POST` | `/api/state/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
+| `GET`,`POST` | `/create/overlay/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
+| `GET`,`POST`,`DELETE` | `/delete/overlay/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
+| `GET` | `/list/overlay` | `require_admin` | **F-4 fix.** Returns every overlay id plus its output key — gated behind the admin password. |
+| `GET` | `/api/raw_config/{overlay_id}` | `require_overlay_server_token` | Leak endpoint (F-5 fix). |
+| `POST` | `/api/raw_config/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
+| `GET` | `/api/config/{overlay_id}` | `require_overlay_server_token` | Leak endpoint (F-5 fix). |
 | `GET` | `/api/themes` | — | Public OK (theme name list is not sensitive). |
-| `POST` | `/api/theme/{overlay_id}/{theme_name}` | — | **F-3 (high): unauthenticated mutation.** |
+| `POST` | `/api/theme/{overlay_id}/{theme_name}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
+
+> **Note on `require_overlay_server_token`:** when `OVERLAY_SERVER_TOKEN`
+> is unset the dependency is a no-op (logged at startup). Existing
+> deployments keep working unchanged; setting the env var opts in to
+> enforcement. See F-3 below.
 
 ### 2.4 Static mounts and system endpoints — `app/bootstrap.py`
 
@@ -113,43 +112,41 @@ instance points at this server** (`APP_CUSTOM_OVERLAY_URL=…`).
 | `GET` | `/**` (SPA fallback) | — | Serves `index.html` for unknown paths |
 
 All of these are intentionally public. If a future change needs to gate
-static assets (e.g. hiding the SPA behind a login wall), the hook point
-is `AuthMiddleware.dispatch` — see F-1.
+static assets (e.g. hiding the SPA behind a login wall), add a custom
+`BaseHTTPMiddleware` at that point — there is no longer a pre-wired hook.
 
 ## 3. Findings
 
-### F-1 — `AuthMiddleware` is a no-op (low)
+All five findings documented in the initial audit have been addressed.
+The sections below describe each finding and the fix that was applied.
 
-`AuthMiddleware.dispatch` just calls `call_next` today, yet the class
-docstring reads "Restrict access to the API when user authentication is
-enabled." The behavior has shifted to per-route dependencies, but the
-module is still registered in `_register_auth()` when
-`SCOREBOARD_USERS` is set. This is misleading but harmless.
+### F-1 — Dead `AuthMiddleware` (low) — **fixed**
 
-**Recommendation:** update the docstring to clearly say "no-op hook for
-future static-asset protection", or remove the middleware and the
-`_register_auth()` registration. Either change is fine; the important
-thing is that code and docs agree.
+`AuthMiddleware.dispatch` was a pass-through that served no purpose;
+the real auth lives in per-route dependencies. The class and its
+registration in `_register_auth()` have been removed. If future
+cross-cutting auth is needed (e.g. gating static assets behind a login
+wall), add a dedicated middleware at that time.
 
-### F-2 — Overlay capability URL is weakened by `resolve_overlay_id` (medium)
+### F-2 — Overlay capability URL was weakened by `resolve_overlay_id` (medium) — **fixed**
 
-`/overlay/{…}` and `/ws/{…}` both call
-`OverlayStateStore.resolve_overlay_id`, which accepts **either** the
-raw overlay ID or its SHA-256 prefix. Because `get_output_key` is a
-deterministic hash of the ID, the key is only a capability as long as
-the raw ID is not learnable. `/list/overlay`, `/api/config/{id}`, and
-`/overlay/{raw_id}` itself all leak the mapping.
+`/overlay/{…}` and `/ws/{…}` used to accept **either** the raw overlay
+ID or its SHA-256 prefix. Because `get_output_key` is a deterministic
+hash of the ID, the key was only a capability as long as the raw ID
+was not learnable — which `/list/overlay` and `/api/config/{id}`
+(pre-F-3/F-5 fixes) both leaked.
 
-**Recommendation:** change `resolve_overlay_id` to accept the output
-key only. The in-process backend already constructs URLs using the
-output key (`LocalOverlayBackend.fetch_output_token`), so this is
-backward-compatible for the default deployment. OBS configurations
-that hardcode `/overlay/{raw_id}` would need updating — call this out
-in release notes.
+`resolve_overlay_id` now accepts the output key only.
+`LocalOverlayBackend.fetch_output_token` already returns URLs using the
+output key form, so the default deployment is unaffected. **OBS
+configurations that hardcode `/overlay/{raw_id}` must be updated to
+use the output key** — call this out in release notes.
 
-### F-3 — Unauthenticated mutation endpoints on the overlay router (high)
+### F-3 — Unauthenticated mutation endpoints on the overlay router (high) — **fixed**
 
-The overlay router exposes seven mutation endpoints without any auth:
+The overlay router used to expose seven mutation endpoints without any
+auth. These are now gated by the new
+`require_overlay_server_token` dependency:
 
 - `POST /api/state/{id}`
 - `GET`/`POST /create/overlay/{id}`
@@ -157,62 +154,57 @@ The overlay router exposes seven mutation endpoints without any auth:
 - `POST /api/raw_config/{id}`
 - `POST /api/theme/{id}/{name}`
 
-These are a direct data-integrity risk: anyone with network access to
-the app (or who gets a victim to visit a crafted URL, since `GET` is
-accepted for create/delete) can overwrite, create, or destroy overlays.
+The dependency reads `OVERLAY_SERVER_TOKEN`:
 
-**Recommendation:** introduce a new env var `OVERLAY_SERVER_TOKEN` and
-a matching `require_overlay_server_token` dependency. Apply it to all
-mutation endpoints. When the env var is unset, log a startup warning
-but leave the endpoints open (for backward compatibility with existing
-deployments). `CustomOverlayBackend` would need to learn to send the
-token — that's the only client-side change.
+- **Unset** → dependency is a no-op (backward compatible); a warning is
+  emitted at startup when the overlay routes are mounted.
+- **Set** → requests must include `Authorization: Bearer <token>`,
+  otherwise 401/403 is returned.
 
-### F-4 — `/list/overlay` leaks all overlay IDs and output keys (high)
+`CustomOverlayBackend` forwards the same token via a new
+`_auth_headers()` helper so control-app deployments pointed at an
+external overlay server (`APP_CUSTOM_OVERLAY_URL`) can set
+`OVERLAY_SERVER_TOKEN` on both sides and start enforcing.
 
-`GET /list/overlay` returns `{"overlays": [{"id": "...", "output_key": "..."}, ...]}`
-for every overlay on disk. This is the single most damaging recon
-primitive today — it defeats the capability-URL design (F-2) for every
-overlay in one request, and there is no known consumer in this repo.
+### F-4 — `/list/overlay` leaks all overlay IDs and output keys (high) — **fixed**
 
-**Recommendation:** gate behind `require_admin`. Already implemented as
-part of this audit PR; the behavior change is:
+`/list/overlay` is now gated behind `require_admin`
+(`OVERLAY_MANAGER_PASSWORD`). When the password is unset the endpoint
+returns 503 instead of leaking data.
 
-- When `OVERLAY_MANAGER_PASSWORD` is set → requires `Authorization: Bearer <password>`.
-- When unset → endpoint returns `503 Overlay management is disabled.`
-  instead of data. Operators that currently rely on `/list/overlay`
-  being open must either set `OVERLAY_MANAGER_PASSWORD` or open a
-  follow-up issue.
+### F-5 — Read endpoints leak config (medium) — **fixed**
 
-### F-5 — Read endpoints leak config (medium)
-
-- `GET /api/raw_config/{id}` returns the full model and customization
-  (team names, logos, colors).
-- `GET /api/config/{id}` returns the `outputUrl` and `outputKey` —
-  useful for an attacker building an OBS source against someone else's
-  overlay.
-
-**Recommendation:** same gate proposed in F-3 (`require_overlay_server_token`).
-`CustomOverlayBackend` calls both endpoints and would need to send
-the token.
+`GET /api/raw_config/{id}` and `GET /api/config/{id}` now require
+`OVERLAY_SERVER_TOKEN` (same dependency as F-3). The `outputUrl` /
+`outputKey` pair returned by `/api/config/{id}` is no longer readable
+by unauthenticated callers.
 
 ## 4. Tripwire tests
 
-`tests/test_auth_coverage.py` pins the current behavior of every
-sensitive route so that future changes to auth coverage cannot slip in
-silently. The matrix is parametrized over
-`(method, path, expected_status_without_token, expected_status_with_valid_token)`
-with `SCOREBOARD_USERS` / `OVERLAY_MANAGER_PASSWORD` set as
-appropriate. When a finding is fixed, update the expected status in
-that test.
+`tests/test_auth_coverage.py` pins the auth behavior of every sensitive
+route so that future changes to coverage cannot slip in silently. The
+matrix covers:
 
-## 5. Follow-up plan
+- Scoreboard REST API (`SCOREBOARD_USERS` set) — 401 without Bearer,
+  403 with invalid Bearer.
+- Admin API (`OVERLAY_MANAGER_PASSWORD` set) — 401/403/200 as
+  appropriate.
+- Overlay server mutation + read endpoints (`OVERLAY_SERVER_TOKEN` set)
+  — 401/403 without correct Bearer; "no-op open" behavior verified
+  when the env var is unset.
+- `/list/overlay` — admin-gated, with 503 when admin password is unset.
 
-The items below are **recommendations**, not changes applied in this
-audit PR (except F-4, which has minimal blast radius):
+When adding a new route, add a matching entry in this test file.
 
-1. Fix F-1 (docstring or deletion) — trivial.
-2. Fix F-3 and F-5 together by introducing `OVERLAY_SERVER_TOKEN` —
-   requires coordinated change to `CustomOverlayBackend`.
-3. Fix F-2 by hardening `resolve_overlay_id` — call out in release
-   notes.
+## 5. Release notes
+
+Two deployment-visible changes operators should be aware of:
+
+1. **`/overlay/{raw_id}` no longer works** — only
+   `/overlay/{output_key}` is valid. Re-copy the URL from `/manage` or
+   the control UI into OBS if needed.
+2. **`OVERLAY_SERVER_TOKEN` is recommended** — set it on any deployment
+   that exposes overlay routes (the default in-process overlay server
+   setup). Control apps pointed at an external overlay server via
+   `APP_CUSTOM_OVERLAY_URL` must also set it to the same value. Leaving
+   it unset is backward-compatible but triggers a startup warning.

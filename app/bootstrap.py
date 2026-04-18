@@ -18,7 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
 from app.api import api_router
-from app.authentication import AuthMiddleware, PasswordAuthenticator
+from app.authentication import PasswordAuthenticator
 
 logger = logging.getLogger("Bootstrap")
 
@@ -54,7 +54,6 @@ async def _lifespan(application: FastAPI):
 def _register_auth(application: FastAPI) -> None:
     if PasswordAuthenticator.do_authenticate_users():
         logger.info("User authentication enabled")
-        application.add_middleware(AuthMiddleware)
 
 
 def _register_api_routes(application: FastAPI) -> None:
@@ -83,6 +82,13 @@ def _register_overlay_routes(application: FastAPI) -> None:
     )
     application.include_router(overlay_router)
     logger.info("Overlay routes mounted (templates: %s)", OVERLAY_TEMPLATES_DIR)
+
+    if not os.environ.get("OVERLAY_SERVER_TOKEN", "").strip():
+        logger.warning(
+            "OVERLAY_SERVER_TOKEN is not set — overlay server mutation "
+            "and config endpoints are unauthenticated. See "
+            "AUTHENTICATION.md (F-3, F-5) for details."
+        )
 
 
 def _register_static_mounts(application: FastAPI) -> None:

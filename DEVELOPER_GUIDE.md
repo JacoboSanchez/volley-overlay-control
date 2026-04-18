@@ -79,7 +79,7 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 │   ├── conf.py              # Configuration object mapping env vars to settings.
 │   ├── constants.py         # Centralized hardcoded strings, URLs, and favicon.
 │   ├── messages.py          # Internationalization (i18n) string definitions.
-│   ├── authentication.py    # PasswordAuthenticator and AuthMiddleware.
+│   ├── authentication.py    # PasswordAuthenticator (API key validation).
 │   ├── app_storage.py       # In-memory key-value storage.
 │   ├── oid_utils.py         # OID parsing utilities (extract_oid, compose_output).
 │   ├── api/                 # REST API + WebSocket layer for frontends.

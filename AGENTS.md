@@ -50,7 +50,7 @@ volley-overlay-control/
 │   ├── ws_client.py           # Persistent WebSocket client for external overlay servers (optional)
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
-│   ├── authentication.py      # AuthMiddleware, PasswordAuthenticator
+│   ├── authentication.py      # PasswordAuthenticator (API-key validation)
 │   ├── app_storage.py         # In-memory key-value storage
 │   ├── oid_utils.py           # OID parsing utilities (extract_oid, compose_output)
 │   ├── env_vars_manager.py    # Centralized env var access with remote config caching

@@ -1,27 +1,10 @@
 import logging
 import json
-from fastapi import Request
-from fastapi.responses import RedirectResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+import secrets
 from app.env_vars_manager import EnvVarsManager
 from app.oid_utils import UNO_OUTPUT_BASE_URL
 
 logger = logging.getLogger("Authenticator")
-
-
-class AuthMiddleware(BaseHTTPMiddleware):
-    """No-op hook reserved for future server-level auth.
-
-    All request-level authentication currently lives in per-route
-    dependencies (``app.api.dependencies.verify_api_key`` and
-    ``app.admin.routes.require_admin``). This middleware exists solely as
-    a registration point so that future cross-cutting concerns — such as
-    gating static assets or the SPA behind a login wall — can be added
-    without touching every route. See ``AUTHENTICATION.md`` (F-1).
-    """
-
-    async def dispatch(self, request: Request, call_next):
-        return await call_next(request)
 
 
 class PasswordAuthenticator:
@@ -56,12 +39,18 @@ class PasswordAuthenticator:
 
     @classmethod
     def get_username_for_api_key(cls, key: str):
-        """Return the username whose password matches *key*, or ``None``."""
+        """Return the username whose password matches *key*, or ``None``.
+
+        Uses ``secrets.compare_digest`` for each comparison so individual
+        password checks are constant-time and don't leak a matching prefix
+        via timing (see AUTHENTICATION.md §3 and PR #149 review).
+        """
         users = cls._get_users()
-        if users is None:
+        if users is None or not isinstance(key, str):
             return None
         for username, userconf in users.items():
-            if userconf.get("password") == key:
+            password = userconf.get("password")
+            if isinstance(password, str) and secrets.compare_digest(password, key):
                 return username
         return None
 
