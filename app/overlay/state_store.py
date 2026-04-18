@@ -123,7 +123,11 @@ class OverlayStateStore:
         self._lock = threading.RLock()
         self._broadcast_callback: Optional[Callable] = None
         self._available_styles: Optional[list] = None
-        self._output_key_cache: Dict[str, str] = {}  # output_key -> overlay_id
+        # Maps any accepted URL token (output_key or raw overlay_id) to the
+        # real overlay id. Populated lazily by resolve_overlay_id and kept
+        # in sync by create/copy/delete.
+        self._output_key_cache: Dict[str, str] = {}
+        self._all_overlays_scanned = False
         os.makedirs(data_dir, exist_ok=True)
 
     def set_broadcast_callback(self, callback: Callable) -> None:
@@ -230,23 +234,33 @@ class OverlayStateStore:
         Returning on the raw id keeps the friendly ``/overlay/{id}``
         and ``/ws/{id}`` URLs working alongside the capability-style
         ``/overlay/{output_key}`` form.
+
+        Both forms are cached, and a "fully scanned" flag short-circuits
+        lookups for unknown tokens so invalid requests do not keep
+        hammering ``os.listdir``.
         """
         with self._lock:
             cached = self._output_key_cache.get(token)
-            if cached and os.path.exists(self.get_state_file_path(cached)):
+            if cached is not None:
                 return cached
-            if os.path.exists(self.get_state_file_path(token)):
-                self._output_key_cache[self.get_output_key(token)] = token
-                return token
-            if os.path.isdir(self._data_dir):
-                for filename in os.listdir(self._data_dir):
-                    if filename.startswith("overlay_state_") and filename.endswith(".json"):
-                        candidate = filename[len("overlay_state_"):-5]
-                        key = self.get_output_key(candidate)
-                        self._output_key_cache[key] = candidate
-                        if key == token:
-                            return candidate
-        return None
+            if self._all_overlays_scanned:
+                return None
+            self._populate_cache_locked()
+            return self._output_key_cache.get(token)
+
+    def _populate_cache_locked(self) -> None:
+        """Walk the data directory once and index every overlay by both
+        its raw id and its output key. Caller must hold ``self._lock``.
+        """
+        if self._all_overlays_scanned:
+            return
+        if os.path.isdir(self._data_dir):
+            for filename in os.listdir(self._data_dir):
+                if filename.startswith("overlay_state_") and filename.endswith(".json"):
+                    candidate = filename[len("overlay_state_"):-5]
+                    self._output_key_cache[candidate] = candidate
+                    self._output_key_cache[self.get_output_key(candidate)] = candidate
+        self._all_overlays_scanned = True
 
     # -- Available styles --------------------------------------------------
 
@@ -275,7 +289,9 @@ class OverlayStateStore:
         if os.path.exists(path):
             return False
         self.save_persisted_state(overlay_id, get_default_state())
-        self._output_key_cache[self.get_output_key(overlay_id)] = overlay_id
+        with self._lock:
+            self._output_key_cache[overlay_id] = overlay_id
+            self._output_key_cache[self.get_output_key(overlay_id)] = overlay_id
         logger.info("Overlay '%s' created", overlay_id)
         return True
 
@@ -295,7 +311,8 @@ class OverlayStateStore:
             if overlay_id in self._overlays:
                 del self._overlays[overlay_id]
                 existed = True
-        self._output_key_cache.pop(self.get_output_key(overlay_id), None)
+            self._output_key_cache.pop(overlay_id, None)
+            self._output_key_cache.pop(self.get_output_key(overlay_id), None)
         if existed:
             logger.info("Overlay '%s' deleted", overlay_id)
         return existed
@@ -327,6 +344,7 @@ class OverlayStateStore:
         source_state = self.load_persisted_state(source_id)
         self.save_persisted_state(target_id, copy.deepcopy(source_state))
         with self._lock:
+            self._output_key_cache[target_id] = target_id
             self._output_key_cache[self.get_output_key(target_id)] = target_id
         logger.info("Overlay '%s' copied from '%s'", target_id, source_id)
         return True
