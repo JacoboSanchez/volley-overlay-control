@@ -439,6 +439,100 @@ body {
   align-items: center;
 }
 
+/* ── Standalone preview page (/preview) ─────────────────────────────── */
+
+.preview-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.preview-page--dark {
+  background-color: #1d1d1d;
+  color: #f0f0f0;
+}
+
+.preview-page--light {
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.preview-page-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.preview-page .preview-container {
+  margin-top: 0;
+  box-shadow: none;
+}
+
+.preview-page-empty {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, -apple-system, sans-serif;
+  background-color: #1d1d1d;
+  color: #f0f0f0;
+}
+
+.preview-page-toolbar {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.25;
+  transition: opacity 0.15s ease;
+  pointer-events: auto;
+}
+
+.preview-page-toolbar:hover,
+.preview-page-toolbar:focus-within {
+  opacity: 0.95;
+}
+
+.preview-tool-spacer {
+  flex: 1 1 auto;
+}
+
+.preview-tool-btn {
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: inherit;
+  line-height: 0;
+}
+
+.preview-tool-btn:hover:not(:disabled) {
+  background: rgba(127, 127, 127, 0.18);
+}
+
+.preview-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.preview-tool-btn .material-icons {
+  font-size: 20px;
+}
+
 /* ── Set pagination ──────────────────────────────────────────────────── */
 
 .set-pagination {

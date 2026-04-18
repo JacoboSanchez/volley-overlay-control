@@ -113,6 +113,9 @@ const translations: Record<string, TranslationDict> = {
 
     // Preview
     'preview.title': 'Overlay preview',
+    'preview.zoomIn': 'Zoom in',
+    'preview.zoomOut': 'Zoom out',
+    'preview.missingOutput': 'No overlay output URL provided.',
 
     // Color picker
     'colorPicker.presets': 'Presets',
@@ -231,6 +234,9 @@ const translations: Record<string, TranslationDict> = {
 
     // Preview
     'preview.title': 'Vista previa del overlay',
+    'preview.zoomIn': 'Acercar',
+    'preview.zoomOut': 'Alejar',
+    'preview.missingOutput': 'No se ha proporcionado URL de salida del overlay.',
 
     // Color picker
     'colorPicker.presets': 'Predefinidos',
