@@ -324,7 +324,8 @@ class OverlayStateStore:
             return False
         source_state = self.load_persisted_state(source_id)
         self.save_persisted_state(target_id, copy.deepcopy(source_state))
-        self._output_key_cache[self.get_output_key(target_id)] = target_id
+        with self._lock:
+            self._output_key_cache[self.get_output_key(target_id)] = target_id
         logger.info("Overlay '%s' copied from '%s'", target_id, source_id)
         return True
 

@@ -60,8 +60,9 @@ async def get_overlays(authorization: str = Header(None)):
     return [
         {"name": name, "oid": extract_oid(config.get('control', ''))}
         for name, config in env_overlays.items()
-        if config.get('allowed_users') is None
-        or (current_user and current_user in config.get('allowed_users'))
+        if isinstance(config, dict)
+        and (config.get('allowed_users') is None
+             or (current_user and current_user in config.get('allowed_users')))
     ]
 
 

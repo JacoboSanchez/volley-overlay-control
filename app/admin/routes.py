@@ -26,6 +26,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from app.env_vars_manager import EnvVarsManager
 
@@ -194,7 +195,7 @@ async def delete_custom_overlay(name: str):
     """Remove a custom overlay and its persisted state."""
     name = _validate_overlay_id(name)
     store = _overlay_store()
-    existed = store.delete_overlay(name)
+    existed = await run_in_threadpool(store.delete_overlay, name)
     if not existed:
         raise HTTPException(status_code=404, detail=f"Overlay '{name}' not found.")
     try:
