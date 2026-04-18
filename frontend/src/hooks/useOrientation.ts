@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 
-function computeLayout() {
+export interface OrientationLayout {
+  isPortrait: boolean;
+  buttonSize: number;
+}
+
+function computeLayout(): OrientationLayout {
   const w = window.innerWidth;
   const h = window.innerHeight;
   const portrait = h > 1.2 * w && w <= 800;
@@ -10,8 +15,8 @@ function computeLayout() {
   };
 }
 
-export function useOrientation() {
-  const [layout, setLayout] = useState(computeLayout);
+export function useOrientation(): OrientationLayout {
+  const [layout, setLayout] = useState<OrientationLayout>(computeLayout);
 
   useEffect(() => {
     function handleResize() {

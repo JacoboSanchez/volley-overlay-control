@@ -30,7 +30,12 @@ export const DEFAULT_BUTTON_B_COLOR = '#f44336';
 export const DEFAULT_BUTTON_TEXT_COLOR = '#ffffff';
 
 // Font scales for score buttons — matches app/theme.py FONT_SCALES
-export const FONT_SCALES = {
+export interface FontScale {
+  scale: number;
+  offset_y: number;
+}
+
+export const FONT_SCALES: Record<string, FontScale> = {
   Default:           { scale: 1.0,  offset_y: 0.0 },
   'Digital Dismay':  { scale: 1.16, offset_y: 0.01 },
   Aluminum:          { scale: 1.06, offset_y: 0.02 },

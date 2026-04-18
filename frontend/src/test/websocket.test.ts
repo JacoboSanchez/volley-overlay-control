@@ -1,34 +1,36 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { createWebSocket } from '../api/websocket';
 
-// Mock WebSocket
 class MockWebSocket {
   static OPEN = 1;
   static CLOSED = 3;
+  static _instance: MockWebSocket | null = null;
 
-  constructor(url) {
+  url: string;
+  readyState: number;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: ((event: { code: number }) => void) | null = null;
+  onerror: ((event: { type: string }) => void) | null = null;
+  sent: string[] = [];
+  close: Mock = vi.fn();
+
+  constructor(url: string) {
     this.url = url;
     this.readyState = MockWebSocket.OPEN;
-    this.onopen = null;
-    this.onmessage = null;
-    this.onclose = null;
-    this.onerror = null;
-    this.sent = [];
-    this.close = vi.fn();
     MockWebSocket._instance = this;
   }
 
-  send(data) {
+  send(data: string) {
     this.sent.push(data);
   }
 }
 
-let originalWebSocket;
+let originalWebSocket: typeof globalThis.WebSocket;
 
 beforeEach(() => {
-  originalWebSocket = global.WebSocket;
-  global.WebSocket = MockWebSocket;
-  // Set location for URL building
+  originalWebSocket = globalThis.WebSocket;
+  globalThis.WebSocket = MockWebSocket as unknown as typeof globalThis.WebSocket;
   Object.defineProperty(window, 'location', {
     value: { protocol: 'https:', host: 'example.com', search: '' },
     writable: true,
@@ -36,39 +38,45 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  global.WebSocket = originalWebSocket;
+  globalThis.WebSocket = originalWebSocket;
   vi.restoreAllMocks();
 });
+
+function currentInstance(): MockWebSocket {
+  const instance = MockWebSocket._instance;
+  if (!instance) throw new Error('no MockWebSocket instance');
+  return instance;
+}
 
 describe('createWebSocket', () => {
   it('creates WebSocket with correct wss URL for https', () => {
     createWebSocket('abc123', {});
-    expect(MockWebSocket._instance.url).toBe('wss://example.com/api/v1/ws?oid=abc123');
+    expect(currentInstance().url).toBe('wss://example.com/api/v1/ws?oid=abc123');
   });
 
   it('creates WebSocket with correct ws URL for http', () => {
-    window.location.protocol = 'http:';
+    (window.location as unknown as { protocol: string }).protocol = 'http:';
     createWebSocket('abc123', {});
-    expect(MockWebSocket._instance.url).toBe('ws://example.com/api/v1/ws?oid=abc123');
+    expect(currentInstance().url).toBe('ws://example.com/api/v1/ws?oid=abc123');
   });
 
   it('encodes oid in URL', () => {
     createWebSocket('has space&special', {});
-    expect(MockWebSocket._instance.url).toContain('oid=has%20space%26special');
+    expect(currentInstance().url).toContain('oid=has%20space%26special');
   });
 
   it('calls onOpen callback when connection opens', () => {
     const onOpen = vi.fn();
     createWebSocket('oid1', { onOpen });
-    MockWebSocket._instance.onopen();
+    currentInstance().onopen!();
     expect(onOpen).toHaveBeenCalledOnce();
   });
 
   it('starts ping interval on open', () => {
     vi.useFakeTimers();
     createWebSocket('oid1', {});
-    const ws = MockWebSocket._instance;
-    ws.onopen();
+    const ws = currentInstance();
+    ws.onopen!();
 
     vi.advanceTimersByTime(25000);
     expect(ws.sent).toContain('ping');
@@ -81,8 +89,8 @@ describe('createWebSocket', () => {
   it('does not send ping if readyState is not OPEN', () => {
     vi.useFakeTimers();
     createWebSocket('oid1', {});
-    const ws = MockWebSocket._instance;
-    ws.onopen();
+    const ws = currentInstance();
+    ws.onopen!();
     ws.readyState = MockWebSocket.CLOSED;
 
     vi.advanceTimersByTime(25000);
@@ -93,7 +101,7 @@ describe('createWebSocket', () => {
   it('ignores pong messages', () => {
     const onStateUpdate = vi.fn();
     createWebSocket('oid1', { onStateUpdate });
-    MockWebSocket._instance.onmessage({ data: 'pong' });
+    currentInstance().onmessage!({ data: 'pong' });
     expect(onStateUpdate).not.toHaveBeenCalled();
   });
 
@@ -101,7 +109,7 @@ describe('createWebSocket', () => {
     const onStateUpdate = vi.fn();
     createWebSocket('oid1', { onStateUpdate });
     const payload = { team_1: { sets: 1 } };
-    MockWebSocket._instance.onmessage({
+    currentInstance().onmessage!({
       data: JSON.stringify({ type: 'state_update', data: payload }),
     });
     expect(onStateUpdate).toHaveBeenCalledWith(payload);
@@ -111,7 +119,7 @@ describe('createWebSocket', () => {
     const onCustomizationUpdate = vi.fn();
     createWebSocket('oid1', { onCustomizationUpdate });
     const payload = { 'Team 1 Name': 'Eagles' };
-    MockWebSocket._instance.onmessage({
+    currentInstance().onmessage!({
       data: JSON.stringify({ type: 'customization_update', data: payload }),
     });
     expect(onCustomizationUpdate).toHaveBeenCalledWith(payload);
@@ -120,8 +128,7 @@ describe('createWebSocket', () => {
   it('ignores non-JSON messages silently', () => {
     const onStateUpdate = vi.fn();
     createWebSocket('oid1', { onStateUpdate });
-    // Should not throw
-    MockWebSocket._instance.onmessage({ data: 'not json' });
+    currentInstance().onmessage!({ data: 'not json' });
     expect(onStateUpdate).not.toHaveBeenCalled();
   });
 
@@ -129,14 +136,13 @@ describe('createWebSocket', () => {
     vi.useFakeTimers();
     const onClose = vi.fn();
     createWebSocket('oid1', { onClose });
-    const ws = MockWebSocket._instance;
-    ws.onopen();
+    const ws = currentInstance();
+    ws.onopen!();
 
     const closeEvent = { code: 1000 };
-    ws.onclose(closeEvent);
+    ws.onclose!(closeEvent);
     expect(onClose).toHaveBeenCalledWith(closeEvent);
 
-    // Ping should no longer fire
     ws.sent = [];
     vi.advanceTimersByTime(25000);
     expect(ws.sent).toHaveLength(0);
@@ -147,12 +153,12 @@ describe('createWebSocket', () => {
     const onError = vi.fn();
     createWebSocket('oid1', { onError });
     const errorEvent = { type: 'error' };
-    MockWebSocket._instance.onerror(errorEvent);
+    currentInstance().onerror!(errorEvent);
     expect(onError).toHaveBeenCalledWith(errorEvent);
   });
 
   it('returns the WebSocket instance', () => {
     const ws = createWebSocket('oid1', {});
-    expect(ws).toBe(MockWebSocket._instance);
+    expect(ws).toBe(currentInstance());
   });
 });

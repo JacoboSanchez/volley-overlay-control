@@ -22,24 +22,32 @@ vi.mock('../api/websocket', () => ({
   createWebSocket: vi.fn(),
 }));
 
+import type { GameState } from '../api/client';
+
 const mockState = {
   team_1: { sets: 0, scores: { set_1: 0 } },
   team_2: { sets: 0, scores: { set_1: 0 } },
   visible: true,
   simple_mode: false,
-};
+} as unknown as GameState;
 
 const mockCustomization = { 'Team 1 Name': 'Home' };
 
+interface MockWs {
+  close: ReturnType<typeof vi.fn>;
+  onclose: ((event: CloseEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+}
+
 describe('useGameState', () => {
-  let mockWs;
+  let mockWs: MockWs;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockWs = { close: vi.fn(), onclose: null, onerror: null };
-    ws.createWebSocket.mockReturnValue(mockWs);
-    api.initSession.mockResolvedValue({ success: true, state: mockState });
-    api.getCustomization.mockResolvedValue(mockCustomization);
+    vi.mocked(ws.createWebSocket).mockReturnValue(mockWs as unknown as WebSocket);
+    vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockState });
+    vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
   });
 
   it('returns initial null state', () => {
@@ -64,7 +72,7 @@ describe('useGameState', () => {
   });
 
   it('initialize sets error on failure', async () => {
-    api.initSession.mockResolvedValue({ success: false, message: 'bad oid' });
+    vi.mocked(api.initSession).mockResolvedValue({ success: false, message: 'bad oid' });
     const { result } = renderHook(() => useGameState('bad'));
 
     await act(async () => {
@@ -76,7 +84,7 @@ describe('useGameState', () => {
   });
 
   it('initialize sets error on exception', async () => {
-    api.initSession.mockRejectedValue(new Error('network error'));
+    vi.mocked(api.initSession).mockRejectedValue(new Error('network error'));
     const { result } = renderHook(() => useGameState('fail'));
 
     await act(async () => {
@@ -109,7 +117,7 @@ describe('useGameState', () => {
 
   it('addPoint action updates state on success', async () => {
     const updatedState = { ...mockState, team_1: { ...mockState.team_1, scores: { set_1: 1 } } };
-    api.addPoint.mockResolvedValue({ success: true, state: updatedState });
+    vi.mocked(api.addPoint).mockResolvedValue({ success: true, state: updatedState });
 
     const { result } = renderHook(() => useGameState('oid'));
     await act(async () => {
@@ -125,7 +133,7 @@ describe('useGameState', () => {
   });
 
   it('addPoint with undo passes undo flag', async () => {
-    api.addPoint.mockResolvedValue({ success: true, state: mockState });
+    vi.mocked(api.addPoint).mockResolvedValue({ success: true, state: mockState });
     const { result } = renderHook(() => useGameState('oid'));
     await act(async () => {
       await result.current.initialize();
@@ -139,7 +147,7 @@ describe('useGameState', () => {
   });
 
   it('action sets error on exception', async () => {
-    api.addPoint.mockRejectedValue(new Error('action failed'));
+    vi.mocked(api.addPoint).mockRejectedValue(new Error('action failed'));
     const { result } = renderHook(() => useGameState('oid'));
     await act(async () => {
       await result.current.initialize();
@@ -154,7 +162,7 @@ describe('useGameState', () => {
   });
 
   it('reset action calls api.resetGame', async () => {
-    api.resetGame.mockResolvedValue({ success: true, state: mockState });
+    vi.mocked(api.resetGame).mockResolvedValue({ success: true, state: mockState });
     const { result } = renderHook(() => useGameState('oid'));
     await act(async () => {
       await result.current.initialize();
@@ -168,7 +176,7 @@ describe('useGameState', () => {
   });
 
   it('setVisibility action calls api', async () => {
-    api.setVisibility.mockResolvedValue({ success: true, state: mockState });
+    vi.mocked(api.setVisibility).mockResolvedValue({ success: true, state: mockState });
     const { result } = renderHook(() => useGameState('oid'));
     await act(async () => {
       await result.current.initialize();
@@ -189,7 +197,7 @@ describe('useGameState', () => {
 
     // Clear call counts from initialize() so we can assert only on refresh calls
     vi.clearAllMocks();
-    api.getCustomization.mockResolvedValue({ 'Team 1 Name': 'Updated' });
+    vi.mocked(api.getCustomization).mockResolvedValue({ 'Team 1 Name': 'Updated' });
 
     await act(async () => {
       await result.current.refreshCustomization();

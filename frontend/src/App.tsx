@@ -74,27 +74,6 @@ export default function App() {
     isSet: false,
   });
 
-  interface GameStateHook {
-    state: GameState | null;
-    customization: ConfigModel | null;
-    connected: boolean;
-    error: string | null;
-    initialize: () => Promise<void>;
-    actions: {
-      addPoint: (team: Team, undo?: boolean) => Promise<unknown>;
-      addSet: (team: Team, undo?: boolean) => Promise<unknown>;
-      addTimeout: (team: Team, undo?: boolean) => Promise<unknown>;
-      changeServe: (team: Team) => Promise<unknown>;
-      setScore: (team: Team, setNumber: number, value: number) => Promise<unknown>;
-      setSets: (team: Team, value: number) => Promise<unknown>;
-      reset: () => Promise<unknown>;
-      setVisibility: (visible: boolean) => Promise<unknown>;
-      setSimpleMode: (enabled: boolean) => Promise<unknown>;
-    };
-    refreshCustomization: () => Promise<void>;
-    setCustomization: (c: ConfigModel) => void;
-  }
-
   const {
     state,
     customization,
@@ -103,7 +82,7 @@ export default function App() {
     actions,
     refreshCustomization,
     setCustomization,
-  } = useGameState(oid) as unknown as GameStateHook;
+  } = useGameState(oid);
 
   useEffect(() => {
     if (showControls && activeTab === 'scoreboard' && state) {
