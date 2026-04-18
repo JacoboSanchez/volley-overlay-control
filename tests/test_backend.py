@@ -299,8 +299,11 @@ def test_custom_overlay_save_model(backend, mock_requests_session, conf):
 
 @patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 def test_custom_overlay_lowercase_prefix(backend, mock_requests_session, conf):
-    """Tests that a lowercase c- prefixed OID still routes to custom local url."""
-    conf.oid = "c-test_overlay_lower"
+    """Tests that a lowercase c- prefixed OID still routes to a known custom overlay."""
+    # Uses the ``test_overlay`` fixture file present in ``data/`` so the
+    # resolver classifies it as CUSTOM. The legacy ``c-`` prefix is still
+    # accepted (case-insensitive) — see ``resolve_overlay_kind``.
+    conf.oid = "c-test_overlay"
     conf.multithread = False
 
     # Run the save
@@ -312,7 +315,7 @@ def test_custom_overlay_lowercase_prefix(backend, mock_requests_session, conf):
     # Ensure the local overlay IS hit via session.post
     state_calls = [c for c in mock_requests_session.post.call_args_list if '/api/state/' in str(c)]
     assert len(state_calls) == 1
-    assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay_lower"
+    assert state_calls[0][0][0] == "http://localhost:8000/api/state/test_overlay"
 
 @patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 @patch('app.overlay_backends.AppStorage.load')
@@ -387,6 +390,50 @@ def test_validate_custom_overlay_oid_with_style_is_valid(backend, mock_requests_
     conf.oid = "C-test_overlay/line"
     result = backend.validate_and_store_model_for_oid("C-test_overlay/line")
     assert result == State.OIDStatus.VALID
+
+
+def test_validate_bare_existing_overlay_oid_is_valid(backend, mock_requests_session, conf):
+    """A bare overlay id (no ``C-`` prefix) resolves as a custom overlay when it
+    exists locally — this is the new preferred form."""
+    result = backend.validate_and_store_model_for_oid("test_overlay")
+    assert result == State.OIDStatus.VALID
+
+
+def test_validate_bare_existing_overlay_with_style_is_valid(backend, mock_requests_session, conf):
+    """The bare form also accepts a trailing ``/style`` constraint."""
+    result = backend.validate_and_store_model_for_oid("test_overlay/line")
+    assert result == State.OIDStatus.VALID
+
+
+def test_validate_legacy_prefix_missing_overlay_does_not_autocreate(
+    backend, mock_requests_session, conf,
+):
+    """Legacy ``C-`` prefix on a missing overlay must not auto-create — the
+    resolver returns INVALID and the call falls through to the UNO backend,
+    which rejects the format."""
+    from app.overlay import overlay_state_store
+    assert not overlay_state_store.overlay_exists("brand_new_local")
+
+    # Make the UNO validation endpoint reject the OID.
+    mock_requests_session.put.return_value.status_code = 404
+
+    result = backend.validate_and_store_model_for_oid("C-brand_new_local")
+    assert result == State.OIDStatus.INVALID
+    # And no overlay state file was created behind the scenes.
+    assert not overlay_state_store.overlay_exists("brand_new_local")
+
+
+def test_is_custom_overlay_recognises_bare_existing_overlay(backend, conf):
+    assert backend.is_custom_overlay("test_overlay") is True
+
+
+def test_is_custom_overlay_rejects_unknown_bare_oid(backend, conf):
+    assert backend.is_custom_overlay("nonexistent_overlay") is False
+
+
+def test_is_custom_overlay_rejects_uno_format_oid(backend, conf):
+    """22-char alphanumeric OID is treated as UNO, not custom."""
+    assert backend.is_custom_overlay("2cIXk2IjHvMuva6Wwele8j") is False
 
 
 def test_extract_oid_preserves_underscores_in_uno_url():

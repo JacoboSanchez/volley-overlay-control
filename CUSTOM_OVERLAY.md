@@ -2,14 +2,15 @@
 
 ## Built-In Overlay Engine
 
-Remote-Scoreboard includes a **built-in overlay engine** that serves custom overlays in-process — no external server is needed. When you use an overlay ID starting with `C-` (e.g., `C-mybroadcast`), the system automatically:
+Remote-Scoreboard includes a **built-in overlay engine** that serves custom overlays in-process — no external server is needed. Overlays must be created up-front from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`); the system never auto-creates overlays from the control UI. Once an overlay named e.g. `mybroadcast` exists, the system:
 
-1. Creates the overlay if it doesn't exist
-2. Persists state to `data/overlay_state_mybroadcast.json`
-3. Serves 16 overlay style templates at `/overlay/{id}` (for OBS browser sources)
-4. Broadcasts real-time updates to OBS via WebSocket at `/ws/{id}`
+1. Persists state to `data/overlay_state_mybroadcast.json`
+2. Serves 16 overlay style templates at `/overlay/{id}` (for OBS browser sources)
+3. Broadcasts real-time updates to OBS via WebSocket at `/ws/{id}`
 
-This is the default behavior and requires no configuration beyond choosing a `C-` prefixed overlay ID.
+The overlay's name is used directly as the OID in the control UI.
+
+> **Backward compatibility:** the legacy `C-<id>` syntax (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer the recommended form and is omitted from the documentation and UI.
 
 ---
 
@@ -24,20 +25,19 @@ This document outlines the API contract that your external custom overlay must i
 > 1. Implement `GET /api/config/{id}` returning `{ "outputUrl": "...", "availableStyles": [...] }`
 > 2. Implement `POST /api/state/{id}` accepting the full match state JSON
 > 3. Implement `GET /api/raw_config/{id}` and `POST /api/raw_config/{id}` for state persistence
-> 4. Use overlay IDs prefixed with `C-` (e.g., `C-mybroadcast`)
-> 5. Return `200 OK` within 2 seconds on POST requests
-> 6. *(Optional)* Implement `/ws/control/{id}` WebSocket endpoint and return `controlWebSocketUrl` in `/api/config` for low-latency persistent connections
+> 4. Return `200 OK` within 2 seconds on POST requests
+> 5. *(Optional)* Implement `/ws/control/{id}` WebSocket endpoint and return `controlWebSocketUrl` in `/api/config` for low-latency persistent connections
 
 ---
 
 ## 🔗 The Connection Protocol
 
-When the user configures an overlay ID starting with `C-` (e.g., `C-mybroadcast`) **and** `APP_CUSTOM_OVERLAY_URL` is set, Remote-Scoreboard identifies this as a **Custom External Overlay**.
+When the user enters an overlay ID that resolves to a custom overlay **and** `APP_CUSTOM_OVERLAY_URL` is set, Remote-Scoreboard identifies this as a **Custom External Overlay**.
 
 It will then communicate directly with your custom overlay server using the Base URL defined in the `APP_CUSTOM_OVERLAY_URL` environment variable.
 
 > [!NOTE]
-> If `APP_CUSTOM_OVERLAY_URL` is **not** set, `C-` prefixed overlays use the built-in overlay engine (see above) and none of the endpoints described below need to be implemented.
+> If `APP_CUSTOM_OVERLAY_URL` is **not** set, custom overlays use the built-in overlay engine (see above) and none of the endpoints described below need to be implemented.
 
 **Output URL resolution**
 
@@ -47,10 +47,10 @@ Remote-Scoreboard determines the final output URL shown in the "Links" dialog us
 2.  If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is set, Remote-Scoreboard replaces the host and port of the fetched `outputUrl` with the value from this environment variable, but preserves the path (which should contain the `outputKey`). This is useful when the overlay server is behind a proxy or on a different network.
 3.  If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is **not** set, Remote-Scoreboard uses the `outputUrl` from your server as-is. Ensure your overlay server returns a publicly accessible URL in this case (e.g., by configuring its own `OVERLAY_PUBLIC_URL`).
 
-The `custom_id` passed to your server will be the user's overlay ID **without** the `C-` prefix. For `C-mybroadcast`, the `custom_id` passed in URLs is `mybroadcast`.
+The `custom_id` passed to your server is the bare overlay ID (the legacy `C-` prefix, when present, is stripped before forwarding).
 
 **Styling Support**
-Users can append a specific style constraint to their overlay ID using the `/` separator (e.g., `C-mybroadcast/line`). This specifies to the system exactly which layout template to use.
+Users can append a specific style constraint to their overlay ID using the `/` separator (e.g., `mybroadcast/line`). This specifies to the system exactly which layout template to use.
 Alternatively, users can change the current layout directly from the Remote-Scoreboard controller UI using the "Preferred Style" dropdown options fetched from your `/api/config/{custom_id}` endpoint.
 Remote-Scoreboard will send `preferredStyle` inside the `overlay_control` block of the JSON payload, and custom overlays can default to this style when the output URL has no explicit `?style` query constraint.
 

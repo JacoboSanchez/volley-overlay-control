@@ -209,7 +209,7 @@ The "Bridge" to overlay systems.
 
 Three overlay backend implementations share the `OverlayBackend` abstract interface:
 
-- **`LocalOverlayBackend`** — Default for custom overlays (`C-` prefix). Manages state in-process via `OverlayStateStore`, broadcasts to OBS via `ObsBroadcastHub`. No external server needed.
+- **`LocalOverlayBackend`** — Default for custom overlays (selected when the OID maps to a locally-existing overlay; the legacy `C-` prefix is also accepted for backward compatibility). Manages state in-process via `OverlayStateStore`, broadcasts to OBS via `ObsBroadcastHub`. No external server needed.
 - **`CustomOverlayBackend`** — Optional external server mode (activated when `APP_CUSTOM_OVERLAY_URL` is set). Communicates via WebSocket + HTTP fallback.
 - **`UnoOverlayBackend`** — Cloud overlays. Communicates with the overlays.uno REST API.
 
@@ -255,8 +255,9 @@ WebSocket notification hub for broadcasting state updates to connected frontend 
 #### `app/admin/` — custom overlay management
 
 Standalone surface for managing **custom** overlays (those backed by the
-in-process overlay engine, OID prefix `C-`) at runtime, independent of the
-React scoreboard UI.
+in-process overlay engine) at runtime, independent of the React scoreboard
+UI. Overlays must be created here before they can be used as OIDs in the
+control UI — the system never auto-creates overlays from the control flow.
 
 - **`app/admin/routes.py`** — Two FastAPI routers:
   - `admin_page_router` → `GET /manage` serves the standalone HTML page.
@@ -358,7 +359,7 @@ The app assumes it is the **primary controller**. However, `GameManager.reset()`
 
 ### Custom Overlay State Flow
 
-By default, custom overlays (`C-` prefix) are managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
+By default, custom overlays are managed **in-process** by `LocalOverlayBackend` (an OID is treated as custom when a matching overlay file exists locally — the legacy `C-` prefix is also accepted). State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
 
 If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract and [ARCHITECTURE.md](../ARCHITECTURE.md) for the full data flow diagrams.
 

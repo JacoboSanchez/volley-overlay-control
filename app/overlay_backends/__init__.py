@@ -18,8 +18,13 @@ from app.overlay_backends.custom import CustomOverlayBackend
 from app.overlay_backends.local import LocalOverlayBackend
 from app.overlay_backends.utils import (
     _mock_response,
+    OverlayKind,
+    UNO_OID_LENGTH,
     is_custom_overlay,
+    matches_uno_format,
+    resolve_overlay_kind,
     split_custom_oid,
+    strip_legacy_prefix,
 )
 
 # Re-exported so ``@patch('app.overlay_backends.AppStorage.<method>')`` keeps
@@ -32,8 +37,13 @@ __all__ = [
     "UnoOverlayBackend",
     "CustomOverlayBackend",
     "LocalOverlayBackend",
+    "OverlayKind",
+    "UNO_OID_LENGTH",
     "is_custom_overlay",
+    "matches_uno_format",
+    "resolve_overlay_kind",
     "split_custom_oid",
+    "strip_legacy_prefix",
     "_mock_response",
     "AppStorage",
 ]

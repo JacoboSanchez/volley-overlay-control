@@ -4,9 +4,10 @@ info:
   version: "1.0"
   description: >
     HTTP contract that any custom overlay server must implement to be driven
-    by Remote-Scoreboard. Overlay IDs must be prefixed with `C-` in the
-    Remote-Scoreboard UI (e.g. `C-mybroadcast`). The prefix is stripped before
-    being passed to these endpoints as `{custom_id}`.
+    by Remote-Scoreboard. Overlay IDs are used as-is in the Remote-Scoreboard
+    UI (e.g. `mybroadcast`); the legacy `C-` prefix is still accepted for
+    backward compatibility but stripped before being passed to these endpoints
+    as `{custom_id}`.
 
     The base URL of the overlay server is configured via the
     `APP_CUSTOM_OVERLAY_URL` environment variable (default
@@ -119,8 +120,8 @@ components:
       in: path
       required: true
       description: >
-        Overlay identifier — the user's overlay ID with the `C-` prefix
-        removed (e.g. `mybroadcast` for overlay ID `C-mybroadcast`).
+        Overlay identifier — the user's overlay ID (the legacy `C-` prefix,
+        when present, is stripped before being forwarded).
       schema:
         type: string
         example: mybroadcast

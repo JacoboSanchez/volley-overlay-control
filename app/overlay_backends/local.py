@@ -131,7 +131,8 @@ class LocalOverlayBackend(OverlayBackend):
 
     def validate_oid(self, oid: str) -> State.OIDStatus:
         custom_id = self._custom_id(oid)
-        self._store().ensure_overlay(custom_id)
+        if not custom_id or not self._store().overlay_exists(custom_id):
+            return State.OIDStatus.INVALID
         return State.OIDStatus.VALID
 
     def fetch_and_update_overlay_id(self, oid: str) -> None:

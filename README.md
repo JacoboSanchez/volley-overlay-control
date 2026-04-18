@@ -45,7 +45,7 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 ### Built-In Overlay Engine
 *   **16 Overlay Styles**: Includes pre-built HTML overlay templates (esports, glass, compact, ribbon, shield, and more) rendered via Jinja2 and served directly to OBS/vMix browser sources.
 *   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{overlay_id}`) and receive 50ms-debounced state pushes — no polling needed.
-*   **Zero Configuration**: Use any overlay ID starting with `C-` (e.g., `C-mybroadcast`) and the system auto-creates the overlay, persists state to disk, and serves it immediately.
+*   **Manage Overlays in One Place**: Create, copy and delete overlays from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`). Overlay IDs created there can be used directly as OIDs in the control UI; state is persisted to disk and served immediately.
 *   **Preset Themes**: Apply dark, light, esports, neo_jersey, split_jersey, or clear_jersey themes with one click.
 
 ### Single-App Deployment
@@ -61,7 +61,7 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 *   **Python 3.x**
 *   **Node.js 20+** and **npm** (for building the frontend)
-*   *(Optional)* An account on **[overlays.uno](https://overlays.uno)** for cloud overlays. Not needed when using the built-in overlay engine (`C-` prefixed IDs).
+*   *(Optional)* An account on **[overlays.uno](https://overlays.uno)** for cloud overlays. Not needed when using the built-in overlay engine.
 
 ### Creating an Overlay
 
@@ -72,7 +72,9 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 ### Using the Built-In Overlay Engine
 
-The fastest way to get started is with the built-in overlay engine. Simply use an overlay ID starting with `C-` (e.g., `C-mybroadcast`). The system automatically creates the overlay, serves 16 style templates at `/overlay/{id}`, and broadcasts state updates to OBS via WebSocket at `/ws/{id}`. No external server or account is required.
+The fastest way to get started is with the built-in overlay engine. Open the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`) to create an overlay — say, `mybroadcast` — then use that ID directly as the OID in the control UI. The system serves 16 style templates at `/overlay/{id}` and broadcasts state updates to OBS via WebSocket at `/ws/{id}`. No external server or account is required.
+
+> **Backward compatibility:** the legacy `C-<id>` prefix (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer required and is omitted from the documentation and UI from now on.
 
 ### Building a Custom External Overlay
 
@@ -109,7 +111,7 @@ If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot),
     ```
     The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The control UI is available at `http://localhost:8080/`.
 
-5.  **Use a Custom Overlay** — Set your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`) to use the built-in overlay engine. The overlay is accessible at `http://localhost:8080/overlay/{id}` for OBS browser sources. If you want to use an *external* overlay server instead, additionally set `APP_CUSTOM_OVERLAY_URL`. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for details.
+5.  **Use a Custom Overlay** — Create an overlay from the `/manage` page (set `OVERLAY_MANAGER_PASSWORD` first) and use its ID as the OID in the control UI. The overlay is accessible at `http://localhost:8080/overlay/{id}` for OBS browser sources. If you want to use an *external* overlay server instead, additionally set `APP_CUSTOM_OVERLAY_URL`. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for details.
 
 > **Tip:** For frontend development with hot-reload, run `cd frontend && npm run dev` alongside `python main.py`. Vite serves on port 3000 and proxies API calls to the backend on port 8080.
 
@@ -138,7 +140,7 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
-| `APP_CUSTOM_OVERLAY_URL` | *(Optional)* Base URL of an external custom overlay server. When set, `C-` overlays use the external server instead of the built-in engine. | *(unset — built-in engine)* |
+| `APP_CUSTOM_OVERLAY_URL` | *(Optional)* Base URL of an external custom overlay server. When set, custom overlays use the external server instead of the built-in engine. | *(unset — built-in engine)* |
 | `APP_CUSTOM_OVERLAY_OUTPUT_URL` | *(Optional)* Public-facing base URL for overlay links. Used to replace the host in output URLs when the overlay server is behind a proxy. | |
 | `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |

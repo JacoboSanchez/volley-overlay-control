@@ -107,7 +107,7 @@ def test_create_custom_overlay(client):
     assert res.status_code == 200
     body = res.json()
     assert body["id"] == "mybroadcast"
-    assert body["oid"] == "C-mybroadcast"
+    assert body["oid"] == "mybroadcast"
     assert body["output_key"]
 
     res = client.get("/api/v1/admin/custom-overlays", headers=_auth())
