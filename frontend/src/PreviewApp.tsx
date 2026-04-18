@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import OverlayPreview from './components/OverlayPreview';
 import { I18nProvider, useI18n } from './i18n';
 
@@ -16,10 +16,7 @@ function readNumberParam(params: URLSearchParams, key: string, fallback: number)
 function PreviewPageInner() {
   const { t } = useI18n();
 
-  const queryParams = useMemo(
-    () => new URLSearchParams(window.location.search),
-    [],
-  );
+  const queryParams = new URLSearchParams(window.location.search);
   const overlayUrl = queryParams.get('output') || '';
   const x = readNumberParam(queryParams, 'x', 0);
   const y = readNumberParam(queryParams, 'y', 0);

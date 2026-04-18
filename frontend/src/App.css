@@ -447,7 +447,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
