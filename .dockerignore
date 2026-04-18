@@ -1,13 +1,55 @@
+# VCS / editor / local caches
 .git
-__pycache__
-.pytest_cache
-.nicegui
-screenshots*
-*.pyc
-tests/
 .github/
-.env
+.gitignore
+.pre-commit-config.yaml
+.ruff_cache/
+.pytest_cache/
+.nicegui
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Local runtime data (volume-mounted in docker-compose)
+data/
+
+# Tests and dev-only deps
+tests/
+pytest.ini
+requirements-dev.txt
+
+# Docs / licence (not needed at runtime)
+*.md
+LICENSE
+CUSTOM_OVERLAY_API.yaml
 walkthrough.md
+
+# Secrets / local env
+.env
+.env.*
+
+# Docker meta-files
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Scripts used at dev/CI time only
+scripts/
+
+# Screenshots / scratch
+screenshots*
+
+# Frontend: only the build output from stage 1 is used; source and deps
+# stay out of the runtime image context.
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+frontend/src/
+frontend/public/
+frontend/schema/
+frontend/test/
+frontend/index.html
+frontend/tsconfig.json
+frontend/vite.config.js
+frontend/package.json
+frontend/package-lock.json
