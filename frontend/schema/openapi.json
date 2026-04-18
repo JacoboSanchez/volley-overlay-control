@@ -50,7 +50,7 @@
             "title": "Copy From"
           },
           "name": {
-            "description": "Overlay id (without the C- prefix)",
+            "description": "Overlay id used as OID",
             "minLength": 1,
             "title": "Name",
             "type": "string"
@@ -1060,7 +1060,7 @@
     },
     "/api/v1/admin/custom-overlays": {
       "get": {
-        "description": "Return every custom overlay persisted on disk.\n\nEach entry carries the overlay id (the part after the ``C-`` prefix),\nits derived output key and the corresponding OID clients should use\nwhen pointing the scoreboard at the overlay.",
+        "description": "Return every custom overlay persisted on disk.\n\nEach entry carries the overlay id (used directly as the OID) and its\nderived output key.",
         "operationId": "list_custom_overlays_api_v1_admin_custom_overlays_get",
         "parameters": [
           {

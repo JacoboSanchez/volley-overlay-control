@@ -101,9 +101,8 @@ export interface paths {
          * List Custom Overlays
          * @description Return every custom overlay persisted on disk.
          *
-         *     Each entry carries the overlay id (the part after the ``C-`` prefix),
-         *     its derived output key and the corresponding OID clients should use
-         *     when pointing the scoreboard at the overlay.
+         *     Each entry carries the overlay id (used directly as the OID) and its
+         *     derived output key.
          */
         get: operations["list_custom_overlays_api_v1_admin_custom_overlays_get"];
         put?: never;
@@ -675,7 +674,7 @@ export interface components {
             copy_from?: string | null;
             /**
              * Name
-             * @description Overlay id (without the C- prefix)
+             * @description Overlay id used as OID
              */
             name: string;
         };
