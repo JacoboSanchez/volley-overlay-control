@@ -79,8 +79,8 @@ instance points at this server** (`APP_CUSTOM_OVERLAY_URL=…`).
 | Method | Path | Auth | Classification |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/favicon.ico` | — | Public OK |
-| `GET` | `/overlay/{output_key}` | — | **Capability URL** — intentionally public for OBS. Only the SHA-256 output key is accepted (F-2 fix). |
-| `WS` | `/ws/{output_key}` | — | **Capability URL** — public for OBS browser sources. Only the output key is accepted (F-2 fix). |
+| `GET` | `/overlay/{id}` | — | Public for OBS browser sources. Accepts **either** the raw overlay id or the SHA-256 output key. |
+| `WS` | `/ws/{id}` | — | Public for OBS browser sources. Accepts **either** the raw overlay id or the SHA-256 output key. |
 | `POST` | `/api/state/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
 | `GET`,`POST` | `/create/overlay/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
 | `GET`,`POST`,`DELETE` | `/delete/overlay/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
@@ -127,19 +127,17 @@ registration in `_register_auth()` have been removed. If future
 cross-cutting auth is needed (e.g. gating static assets behind a login
 wall), add a dedicated middleware at that time.
 
-### F-2 — Overlay capability URL was weakened by `resolve_overlay_id` (medium) — **fixed**
+### F-2 — Overlay capability URL was weakened by `resolve_overlay_id` (medium) — **intentionally reverted**
 
-`/overlay/{…}` and `/ws/{…}` used to accept **either** the raw overlay
-ID or its SHA-256 prefix. Because `get_output_key` is a deterministic
-hash of the ID, the key was only a capability as long as the raw ID
-was not learnable — which `/list/overlay` and `/api/config/{id}`
-(pre-F-3/F-5 fixes) both leaked.
+The original finding proposed treating `/overlay/{…}` and `/ws/{…}` as
+capability URLs by accepting the SHA-256 output key only. That was
+applied and later reverted: the raw overlay id is a valid entrypoint
+again so operators can share friendly `/overlay/{id}` URLs.
 
-`resolve_overlay_id` now accepts the output key only.
-`LocalOverlayBackend.fetch_output_token` already returns URLs using the
-output key form, so the default deployment is unaffected. **OBS
-configurations that hardcode `/overlay/{raw_id}` must be updated to
-use the output key** — call this out in release notes.
+Confidentiality of custom overlays therefore relies on
+`/list/overlay` (admin-gated, F-4) and the `/api/config/{id}` /
+`/api/raw_config/{id}` leaks (F-5) not exposing ids to unauthenticated
+callers. The overlay content itself is intentionally public for OBS.
 
 ### F-3 — Unauthenticated mutation endpoints on the overlay router (high) — **fixed**
 
@@ -197,12 +195,9 @@ When adding a new route, add a matching entry in this test file.
 
 ## 5. Release notes
 
-Two deployment-visible changes operators should be aware of:
+One deployment-visible change operators should be aware of:
 
-1. **`/overlay/{raw_id}` no longer works** — only
-   `/overlay/{output_key}` is valid. Re-copy the URL from `/manage` or
-   the control UI into OBS if needed.
-2. **`OVERLAY_SERVER_TOKEN` is recommended** — set it on any deployment
+1. **`OVERLAY_SERVER_TOKEN` is recommended** — set it on any deployment
    that exposes overlay routes (the default in-process overlay server
    setup). Control apps pointed at an external overlay server via
    `APP_CUSTOM_OVERLAY_URL` must also set it to the same value. Leaving

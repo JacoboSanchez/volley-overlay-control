@@ -303,15 +303,15 @@ def test_overlay_themes_list_is_public(overlay_client_with_server_token):
 
 
 # ---------------------------------------------------------------------------
-# F-2: `/overlay/{…}` and `/ws/{…}` are capability URLs — the raw overlay
-# id must no longer resolve, only the SHA-256 output key.
+# Overlay routing: `/overlay/{…}` and `/ws/{…}` must accept both the
+# SHA-256 output key and the raw overlay id so friendly URLs keep
+# working alongside the capability-style hashed URLs.
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_overlay_id_rejects_raw_id(tmp_path):
-    """F-2: ``resolve_overlay_id`` now accepts the SHA-256 output key
-    only. Passing the raw overlay id must return ``None`` even when the
-    overlay exists."""
+def test_resolve_overlay_id_accepts_raw_id_and_output_key(tmp_path):
+    """``resolve_overlay_id`` must resolve both the raw overlay id and
+    the SHA-256 output key to the same overlay."""
     from app.overlay.state_store import OverlayStateStore
 
     raw_id = "f-2-capability-check"
@@ -321,22 +321,24 @@ def test_resolve_overlay_id_rejects_raw_id(tmp_path):
     )
     store.create_overlay(raw_id)
 
-    assert store.resolve_overlay_id(raw_id) is None, (
-        "Raw overlay id must not resolve — the output key is the capability."
+    assert store.resolve_overlay_id(raw_id) == raw_id, (
+        "Raw overlay id must resolve — friendly URLs are a supported entrypoint."
     )
 
     output_key = OverlayStateStore.get_output_key(raw_id)
     assert store.resolve_overlay_id(output_key) == raw_id, (
-        "Output key must resolve back to the raw id for downstream state "
-        "lookups."
+        "Output key must still resolve back to the raw id."
     )
+
+    assert store.resolve_overlay_id("does-not-exist") is None
 
 
 def test_served_overlay_page_uses_output_key_for_ws():
-    """The overlay HTML embeds its WebSocket URL; that URL must use the
-    output key (not the raw overlay id) so it actually resolves under
-    the F-2 capability rule. Regression guard for the blank-overlay bug
-    where ``/ws/<raw_id>`` immediately returned 4004."""
+    """The overlay HTML embeds a WebSocket URL. When the page is served
+    via /overlay/<output_key>, the template must build wsUrl from the
+    output key so /ws/<output_key> resolves. Regression guard for the
+    blank-overlay bug where the WS URL used the raw id while the URL
+    was an output key."""
     from app.bootstrap import create_app
     from app.overlay import overlay_state_store
     from app.overlay.state_store import OverlayStateStore
@@ -353,11 +355,24 @@ def test_served_overlay_page_uses_output_key_for_ws():
             "Rendered overlay must expose OUTPUT_KEY bound to the output key."
         )
         assert '/ws/${OUTPUT_KEY}' in body, (
-            "WS URL must be built from OUTPUT_KEY, not the raw overlay id."
+            "WS URL must be built from OUTPUT_KEY so it resolves server-side."
         )
-        assert f'/ws/{raw_id}' not in body, (
-            "Raw overlay id must not leak into the WS URL — that URL "
-            "will not resolve after F-2."
-        )
+    finally:
+        overlay_state_store.delete_overlay(raw_id)
+
+
+def test_overlay_page_accepts_raw_id(tmp_path, monkeypatch):
+    """/overlay/<raw_id> must render the overlay page, mirroring the
+    behavior of /overlay/<output_key>."""
+    from app.bootstrap import create_app
+    from app.overlay import overlay_state_store
+
+    raw_id = "raw-id-url"
+    overlay_state_store.ensure_overlay(raw_id)
+    try:
+        client = TestClient(create_app())
+        response = client.get(f"/overlay/{raw_id}")
+        assert response.status_code == 200
+        assert 'OUTPUT_KEY' in response.text
     finally:
         overlay_state_store.delete_overlay(raw_id)
