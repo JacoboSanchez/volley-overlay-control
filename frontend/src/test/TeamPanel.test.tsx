@@ -26,7 +26,7 @@ const defaultProps: TeamPanelProps = {
   iconLogo: null,
   iconOpacity: 50,
   fontStyle: { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 },
-  state: mockGameState as never,
+  state: mockGameState,
   setsLimit: 5,
   onAddPoint: vi.fn(),
   onAddTimeout: vi.fn(),

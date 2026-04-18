@@ -40,7 +40,7 @@ describe('App', () => {
       writable: true,
     });
     vi.mocked(api.getOverlays).mockResolvedValue([]);
-    vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState as never });
+    vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState });
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
     vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });
   });
@@ -103,7 +103,7 @@ describe('App', () => {
     vi.mocked(api.getOverlays).mockResolvedValue([
       { oid: 'overlay-1', name: 'My Overlay' },
       { oid: 'overlay-2', name: 'Other Overlay' },
-    ] as never);
+    ] as unknown as api.OverlayPayload[]);
     renderWithI18n(<App />);
 
     await waitFor(() => {

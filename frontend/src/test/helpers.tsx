@@ -2,6 +2,7 @@ import { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';
+import type { GameState } from '../api/client';
 
 export function renderWithI18n(ui: ReactElement, options: Omit<RenderOptions, 'wrapper'> = {}) {
   return render(
@@ -14,7 +15,7 @@ export function renderWithI18n(ui: ReactElement, options: Omit<RenderOptions, 'w
   );
 }
 
-export const mockGameState = {
+export const mockGameState: GameState = {
   team_1: {
     sets: 1,
     timeouts: 1,
