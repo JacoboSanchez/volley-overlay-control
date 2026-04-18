@@ -516,10 +516,10 @@ export interface paths {
             cookie?: never;
         };
         /** Create Overlay */
-        get: operations["create_overlay_create_overlay__overlay_id__post"];
+        get: operations["create_overlay_create_overlay__overlay_id__get_post"];
         put?: never;
         /** Create Overlay */
-        post: operations["create_overlay_create_overlay__overlay_id__post"];
+        post: operations["create_overlay_create_overlay__overlay_id__get_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -534,12 +534,12 @@ export interface paths {
             cookie?: never;
         };
         /** Delete Overlay */
-        get: operations["delete_overlay_delete_overlay__overlay_id__delete"];
+        get: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
         put?: never;
         /** Delete Overlay */
-        post: operations["delete_overlay_delete_overlay__overlay_id__delete"];
+        post: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
         /** Delete Overlay */
-        delete: operations["delete_overlay_delete_overlay__overlay_id__delete"];
+        delete: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1971,7 +1971,7 @@ export interface operations {
             };
         };
     };
-    create_overlay_create_overlay__overlay_id__post: {
+    create_overlay_create_overlay__overlay_id__get_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2002,7 +2002,7 @@ export interface operations {
             };
         };
     };
-    create_overlay_create_overlay__overlay_id__post: {
+    create_overlay_create_overlay__overlay_id__get_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2033,7 +2033,7 @@ export interface operations {
             };
         };
     };
-    delete_overlay_delete_overlay__overlay_id__delete: {
+    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2064,7 +2064,7 @@ export interface operations {
             };
         };
     };
-    delete_overlay_delete_overlay__overlay_id__delete: {
+    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2095,7 +2095,7 @@ export interface operations {
             };
         };
     };
-    delete_overlay_delete_overlay__overlay_id__delete: {
+    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
         parameters: {
             query?: never;
             header?: never;

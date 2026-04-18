@@ -2388,7 +2388,7 @@
     },
     "/create/overlay/{overlay_id}": {
       "get": {
-        "operationId": "create_overlay_create_overlay__overlay_id__post",
+        "operationId": "create_overlay_create_overlay__overlay_id__get_post",
         "parameters": [
           {
             "in": "path",
@@ -2426,7 +2426,7 @@
         ]
       },
       "post": {
-        "operationId": "create_overlay_create_overlay__overlay_id__post",
+        "operationId": "create_overlay_create_overlay__overlay_id__get_post",
         "parameters": [
           {
             "in": "path",
@@ -2466,7 +2466,7 @@
     },
     "/delete/overlay/{overlay_id}": {
       "delete": {
-        "operationId": "delete_overlay_delete_overlay__overlay_id__delete",
+        "operationId": "delete_overlay_delete_overlay__overlay_id__delete_get_post",
         "parameters": [
           {
             "in": "path",
@@ -2504,7 +2504,7 @@
         ]
       },
       "get": {
-        "operationId": "delete_overlay_delete_overlay__overlay_id__delete",
+        "operationId": "delete_overlay_delete_overlay__overlay_id__delete_get_post",
         "parameters": [
           {
             "in": "path",
@@ -2542,7 +2542,7 @@
         ]
       },
       "post": {
-        "operationId": "delete_overlay_delete_overlay__overlay_id__delete",
+        "operationId": "delete_overlay_delete_overlay__overlay_id__delete_get_post",
         "parameters": [
           {
             "in": "path",
