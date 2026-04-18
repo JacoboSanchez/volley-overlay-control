@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { TEAM_A_COLOR, TEAM_B_COLOR } from '../theme';
 
 const LS_PREFIX = 'volley_';
@@ -86,8 +86,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle('light', !settings.darkMode);
   }, [settings.darkMode]);
 
+  const value = useMemo(() => ({ settings, setSetting }), [settings, setSetting]);
+
   return (
-    <SettingsContext.Provider value={{ settings, setSetting }}>
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );

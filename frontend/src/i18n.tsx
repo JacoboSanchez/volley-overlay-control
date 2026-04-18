@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 type TranslationDict = Record<string, string>;
 
@@ -272,14 +272,19 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     let str = translations[lang]?.[key] ?? translations.en[key] ?? key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
-        str = str.replaceAll(`{${k}}`, String(v));
+        str = str.replaceAll(`{${k}}`, () => String(v));
       });
     }
     return str;
   }, [lang]);
 
+  const value = useMemo<I18nContextValue>(
+    () => ({ lang, setLanguage, t, languages: Object.keys(translations) }),
+    [lang, setLanguage, t],
+  );
+
   return (
-    <I18nContext.Provider value={{ lang, setLanguage, t, languages: Object.keys(translations) }}>
+    <I18nContext.Provider value={value}>
       {children}
     </I18nContext.Provider>
   );
