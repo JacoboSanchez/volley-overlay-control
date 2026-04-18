@@ -91,7 +91,7 @@ instance points at this server** (`APP_CUSTOM_OVERLAY_URL=…`).
 | `POST` | `/api/state/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** Anyone who can guess an overlay ID can overwrite its live scoreboard state. |
 | `GET`,`POST` | `/create/overlay/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** `GET` creates an overlay — drive-by requests suffice. |
 | `GET`,`POST`,`DELETE` | `/delete/overlay/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** `GET` deletes. |
-| `GET` | `/list/overlay` | — | **F-4 (high): recon.** Returns every overlay id plus its deterministic output key. Trivially defeats the capability-URL design. |
+| `GET` | `/list/overlay` | `require_admin` | **F-4 (high): recon.** Returns every overlay id plus its deterministic output key. Trivially defeats the capability-URL design. Gated in this audit PR. |
 | `GET` | `/api/raw_config/{overlay_id}` | — | **F-5 (medium): leaks model + customization.** |
 | `POST` | `/api/raw_config/{overlay_id}` | — | **F-3 (high): unauthenticated mutation.** |
 | `GET` | `/api/config/{overlay_id}` | — | **F-5 (medium):** returns `outputUrl` + `outputKey`, breaking the capability-URL assumption for any known OID. |
