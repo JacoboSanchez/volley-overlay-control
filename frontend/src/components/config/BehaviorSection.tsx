@@ -9,7 +9,7 @@ export interface BehaviorSettings {
 
 export interface BehaviorSectionProps {
   settings: BehaviorSettings;
-  setSetting: (key: keyof BehaviorSettings, value: BehaviorSettings[keyof BehaviorSettings]) => void;
+  setSetting: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
 }
 
 export default function BehaviorSection({ settings, setSetting }: BehaviorSectionProps) {

@@ -15,7 +15,7 @@ export interface ButtonsSettings {
 
 export interface ButtonsSectionProps {
   settings: ButtonsSettings;
-  setSetting: (key: keyof ButtonsSettings, value: ButtonsSettings[keyof ButtonsSettings]) => void;
+  setSetting: <K extends keyof ButtonsSettings>(key: K, value: ButtonsSettings[K]) => void;
 }
 
 export default function ButtonsSection({ settings, setSetting }: ButtonsSectionProps) {

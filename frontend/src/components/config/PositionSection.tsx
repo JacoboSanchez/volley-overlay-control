@@ -30,7 +30,8 @@ export default function PositionSection({ model, updateField }: PositionSectionP
       <div className="config-stepper-grid">
         {FIELDS.map((f) => {
           const raw = model[f.key];
-          const val = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) || f.def : f.def;
+          const parsed = typeof raw === 'string' ? parseFloat(raw) : raw;
+          const val = typeof parsed === 'number' && !Number.isNaN(parsed) ? parsed : f.def;
           return (
             <div key={f.key} className="config-stepper-group">
               <label className="config-label">{t(f.labelKey)}</label>
