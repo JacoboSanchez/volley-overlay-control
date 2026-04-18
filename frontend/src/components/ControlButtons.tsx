@@ -1,4 +1,3 @@
-import React from 'react';
 import { useI18n } from '../i18n';
 import {
   VISIBLE_ON_COLOR,
@@ -11,9 +10,24 @@ import {
   PREVIEW_OFF_COLOR,
 } from '../theme';
 
+export interface ControlButtonsProps {
+  visible: boolean;
+  simpleMode: boolean;
+  undoMode: boolean;
+  darkMode: boolean;
+  isFullscreen: boolean;
+  matchFinished?: boolean;
+  onToggleVisibility: () => void;
+  onToggleSimpleMode: () => void;
+  onToggleUndo: () => void;
+  onToggleDarkMode: () => void;
+  onToggleFullscreen: () => void;
+  showPreview: boolean;
+  onTogglePreview: () => void;
+}
+
 /**
  * Bottom control bar with visibility, simple mode, undo, and config navigation.
- * Mirrors the NiceGUI ControlButtons component.
  */
 export default function ControlButtons({
   visible,
@@ -21,7 +35,6 @@ export default function ControlButtons({
   undoMode,
   darkMode,
   isFullscreen,
-  matchFinished,
   onToggleVisibility,
   onToggleSimpleMode,
   onToggleUndo,
@@ -29,7 +42,7 @@ export default function ControlButtons({
   onToggleFullscreen,
   showPreview,
   onTogglePreview,
-}) {
+}: ControlButtonsProps) {
   const { t } = useI18n();
 
   return (

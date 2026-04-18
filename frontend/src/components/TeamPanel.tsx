@@ -1,11 +1,37 @@
-import React from 'react';
-import ScoreButton from './ScoreButton';
+import { CSSProperties, ReactElement } from 'react';
+import ScoreButton, { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
+import type { GameState } from '../api/client';
+import type { components } from '../api/schema';
+import type { ConfigModel } from './TeamCard';
+import { toNumber, asString } from '../utils/coerce';
 
-/**
- * Validate that a URL uses http or https protocol.
- */
-function isSafeUrl(url) {
+type TeamState = components['schemas']['TeamState'];
+
+export interface TeamPanelProps {
+  teamId: 1 | 2;
+  teamState: TeamState | null | undefined;
+  currentSet: number;
+  buttonColor: string;
+  buttonTextColor?: string;
+  serveColor: string;
+  timeoutColor: string;
+  buttonSize?: number;
+  isPortrait: boolean;
+  iconLogo?: string | null;
+  iconOpacity?: number;
+  fontStyle?: ScoreButtonFontStyle;
+  state: GameState | null | undefined;
+  setsLimit: number;
+  customization?: ConfigModel | null;
+  onAddPoint: (teamId: 1 | 2) => void;
+  onAddTimeout: (teamId: 1 | 2) => void;
+  onChangeServe: (teamId: 1 | 2) => void;
+  onDoubleTapScore: (teamId: 1 | 2) => void;
+  onLongPressScore: (teamId: 1 | 2) => void;
+}
+
+function isSafeUrl(url: string | null | undefined): url is string {
   if (!url) return false;
   try {
     const parsed = new URL(url);
@@ -17,9 +43,6 @@ function isSafeUrl(url) {
 
 /**
  * Team panel with score button, timeout button + indicators, and serve icon.
- * Supports custom button colors, team icon overlay, and icon opacity.
- * In portrait, also shows the set history column (logo + ScoreTable) beside
- * the score button so the CenterPanel has more room for the overlay preview.
  */
 export default function TeamPanel({
   teamId,
@@ -42,14 +65,14 @@ export default function TeamPanel({
   onChangeServe,
   onDoubleTapScore,
   onLongPressScore,
-}) {
-  const score = teamState?.scores?.[`set_${currentSet}`] ?? 0;
+}: TeamPanelProps) {
+  const score = toNumber(teamState?.scores?.[`set_${currentSet}`]);
   const timeouts = teamState?.timeouts ?? 0;
   const isServing = teamState?.serving ?? false;
 
   const scoreText = String(score).padStart(2, '0');
 
-  const timeoutDots = [];
+  const timeoutDots: ReactElement[] = [];
   for (let i = 0; i < timeouts; i++) {
     timeoutDots.push(
       <span
@@ -63,12 +86,10 @@ export default function TeamPanel({
     );
   }
 
-  // Build icon overlay style if iconLogo is set and URL is safe
-  const iconStyle = {};
+  const iconStyle: CSSProperties = {};
   const safeIconLogo = isSafeUrl(iconLogo) ? iconLogo : null;
   if (safeIconLogo) {
     const alpha = 1.0 - iconOpacity / 100;
-    // Parse hex color to rgba for overlay
     let r = 0, g = 0, b = 0;
     const hex = buttonColor.replace('#', '');
     if (hex.length === 6) {
@@ -82,13 +103,11 @@ export default function TeamPanel({
     iconStyle.backgroundPosition = 'center';
   }
 
-  // In portrait, show per-team score history (logo + ScoreTable) beside the score button
-  const teamLogo = customization?.[`Team ${teamId} Logo`] || null;
+  const teamLogo = asString(customization?.[`Team ${teamId} Logo`]);
 
   return (
     <div className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}>
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
-        {/* Score history column — portrait only */}
         {isPortrait && state && (
           <div className="team-history-col">
             {teamLogo && (
@@ -153,4 +172,3 @@ export default function TeamPanel({
     </div>
   );
 }
-
