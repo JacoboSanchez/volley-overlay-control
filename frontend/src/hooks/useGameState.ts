@@ -1,21 +1,46 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, Dispatch, SetStateAction } from 'react';
 import * as api from '../api/client';
+import type { GameState, ActionResponse, Team } from '../api/client';
 import { createWebSocket } from '../api/websocket';
+
+type Customization = Record<string, unknown>;
+
+export interface GameActions {
+  addPoint: (team: Team, undo?: boolean) => Promise<ActionResponse>;
+  addSet: (team: Team, undo?: boolean) => Promise<ActionResponse>;
+  addTimeout: (team: Team, undo?: boolean) => Promise<ActionResponse>;
+  changeServe: (team: Team) => Promise<ActionResponse>;
+  setScore: (team: Team, setNumber: number, value: number) => Promise<ActionResponse>;
+  setSets: (team: Team, value: number) => Promise<ActionResponse>;
+  reset: () => Promise<ActionResponse>;
+  setVisibility: (visible: boolean) => Promise<ActionResponse>;
+  setSimpleMode: (enabled: boolean) => Promise<ActionResponse>;
+}
+
+export interface UseGameStateResult {
+  state: GameState | null;
+  customization: Customization | null;
+  connected: boolean;
+  error: string | null;
+  initialize: () => Promise<void>;
+  actions: GameActions;
+  refreshCustomization: () => Promise<void>;
+  setCustomization: Dispatch<SetStateAction<Customization | null>>;
+}
 
 /**
  * Central game state hook. Manages session init, WebSocket connection,
  * and exposes all game actions.
  */
-export function useGameState(oid) {
-  const [state, setState] = useState(null);
-  const [customization, setCustomization] = useState(null);
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState(null);
-  const wsRef = useRef(null);
-  const reconnectTimer = useRef(null);
-  const abortRef = useRef(null); // AbortController for cancelling in-flight init
+export function useGameState(oid: string | null): UseGameStateResult {
+  const [state, setState] = useState<GameState | null>(null);
+  const [customization, setCustomization] = useState<Customization | null>(null);
+  const [connected, setConnected] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  /** Safely tear down the current WebSocket without triggering reconnect. */
   const closeWs = useCallback(() => {
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
@@ -38,7 +63,6 @@ export function useGameState(oid) {
       onOpen: () => setConnected(true),
       onClose: (event) => {
         setConnected(false);
-        // Only reconnect for unexpected disconnects
         if (event.code !== 4004) {
           reconnectTimer.current = setTimeout(connectWs, 3000);
         }
@@ -55,7 +79,6 @@ export function useGameState(oid) {
       setError(null);
       return;
     }
-    // Cancel any in-flight initialization
     if (abortRef.current) {
       abortRef.current.abort();
     }
@@ -66,7 +89,7 @@ export function useGameState(oid) {
       setError(null);
       const res = await api.initSession(oid);
       if (controller.signal.aborted) return;
-      if (res.success) {
+      if (res.success && res.state) {
         setState(res.state);
         const cust = await api.getCustomization(oid);
         if (controller.signal.aborted) return;
@@ -77,7 +100,7 @@ export function useGameState(oid) {
       }
     } catch (e) {
       if (!controller.signal.aborted) {
-        setError(e.message);
+        setError(e instanceof Error ? e.message : String(e));
       }
     } finally {
       if (abortRef.current === controller) {
@@ -86,7 +109,6 @@ export function useGameState(oid) {
     }
   }, [oid, connectWs]);
 
-  // Cleanup on unmount or OID change
   useEffect(() => {
     return () => {
       closeWs();
@@ -97,31 +119,30 @@ export function useGameState(oid) {
     };
   }, [oid, closeWs]);
 
-
-  // Action helpers — all update state from the response
-  const handleAction = useCallback(async (actionFn) => {
+  const handleAction = useCallback(async (actionFn: () => Promise<ActionResponse>): Promise<ActionResponse> => {
     try {
       const res = await actionFn();
-      if (res.success) {
+      if (res.success && res.state) {
         setState(res.state);
       }
       return res;
     } catch (e) {
-      setError(e.message);
-      return { success: false, message: e.message };
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      return { success: false, message };
     }
   }, []);
 
-  const actions = useMemo(() => ({
-    addPoint: (team, undo = false) => handleAction(() => api.addPoint(oid, team, undo)),
-    addSet: (team, undo = false) => handleAction(() => api.addSet(oid, team, undo)),
-    addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid, team, undo)),
-    changeServe: (team) => handleAction(() => api.changeServe(oid, team)),
-    setScore: (team, setNumber, value) => handleAction(() => api.setScore(oid, team, setNumber, value)),
-    setSets: (team, value) => handleAction(() => api.setSets(oid, team, value)),
-    reset: () => handleAction(() => api.resetGame(oid)),
-    setVisibility: (visible) => handleAction(() => api.setVisibility(oid, visible)),
-    setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid, enabled)),
+  const actions = useMemo<GameActions>(() => ({
+    addPoint: (team, undo = false) => handleAction(() => api.addPoint(oid!, team, undo)),
+    addSet: (team, undo = false) => handleAction(() => api.addSet(oid!, team, undo)),
+    addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid!, team, undo)),
+    changeServe: (team) => handleAction(() => api.changeServe(oid!, team)),
+    setScore: (team, setNumber, value) => handleAction(() => api.setScore(oid!, team, setNumber, value)),
+    setSets: (team, value) => handleAction(() => api.setSets(oid!, team, value)),
+    reset: () => handleAction(() => api.resetGame(oid!)),
+    setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
+    setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
   }), [oid, handleAction]);
 
   const refreshCustomization = useCallback(async () => {
@@ -135,7 +156,7 @@ export function useGameState(oid) {
       // stale team names/colors and visually revert the overlay.
       const cust = await api.getCustomization(oid);
       setCustomization(cust);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [oid]);

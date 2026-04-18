@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import {
   setApiKey,
   initSession,
@@ -11,27 +11,31 @@ import {
 } from '../api/client';
 
 describe('api/client', () => {
-  let originalFetch;
+  let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
-    originalFetch = global.fetch;
-    global.fetch = vi.fn();
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn() as unknown as typeof globalThis.fetch;
     setApiKey(null);
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
   });
 
-  function mockFetchOk(data) {
-    global.fetch.mockResolvedValue({
+  function fetchMock(): Mock {
+    return globalThis.fetch as unknown as Mock;
+  }
+
+  function mockFetchOk(data: unknown) {
+    fetchMock().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(data),
     });
   }
 
-  function mockFetchError(status, text) {
-    global.fetch.mockResolvedValue({
+  function mockFetchError(status: number, text: string) {
+    fetchMock().mockResolvedValue({
       ok: false,
       status,
       text: () => Promise.resolve(text),
@@ -41,7 +45,7 @@ describe('api/client', () => {
   it('initSession sends POST with oid', async () => {
     mockFetchOk({ success: true });
     await initSession('test-oid');
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/session/init',
       expect.objectContaining({
         method: 'POST',
@@ -53,7 +57,7 @@ describe('api/client', () => {
   it('getState sends GET with encoded oid', async () => {
     mockFetchOk({ team_1: {} });
     await getState('my oid');
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/state?oid=my%20oid',
       expect.objectContaining({ method: 'GET' })
     );
@@ -62,7 +66,7 @@ describe('api/client', () => {
   it('addPoint sends team and undo flag', async () => {
     mockFetchOk({ success: true });
     await addPoint('oid', 1, true);
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/game/add-point?oid=oid',
       expect.objectContaining({
         method: 'POST',
@@ -80,7 +84,7 @@ describe('api/client', () => {
     mockFetchOk({});
     setApiKey('secret');
     await getTeams();
-    const callHeaders = global.fetch.mock.calls[0][1].headers;
+    const callHeaders = fetchMock().mock.calls[0][1].headers;
     expect(callHeaders.Authorization).toBe('Bearer secret');
     setApiKey(null);
   });
@@ -88,7 +92,7 @@ describe('api/client', () => {
   it('setVisibility sends visible flag', async () => {
     mockFetchOk({ success: true });
     await setVisibility('oid', false);
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/display/visibility?oid=oid',
       expect.objectContaining({
         method: 'POST',
@@ -100,7 +104,7 @@ describe('api/client', () => {
   it('resetGame sends POST', async () => {
     mockFetchOk({ success: true });
     await resetGame('oid');
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/game/reset?oid=oid',
       expect.objectContaining({ method: 'POST' })
     );
@@ -109,7 +113,7 @@ describe('api/client', () => {
   it('updateCustomization sends PUT', async () => {
     mockFetchOk({});
     await updateCustomization('oid', { Height: 10 });
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/customization?oid=oid',
       expect.objectContaining({
         method: 'PUT',
