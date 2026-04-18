@@ -1,7 +1,18 @@
-import React from 'react';
 import { useI18n } from '../../i18n';
 
-export default function BehaviorSection({ settings, setSetting }) {
+export interface BehaviorSettings {
+  autoHide: boolean;
+  autoHideSeconds: number;
+  autoSimple: boolean;
+  autoSimpleOnTimeout: boolean;
+}
+
+export interface BehaviorSectionProps {
+  settings: BehaviorSettings;
+  setSetting: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
+}
+
+export default function BehaviorSection({ settings, setSetting }: BehaviorSectionProps) {
   const { t, lang, setLanguage, languages } = useI18n();
   return (
     <div className="config-section-behavior">
@@ -40,7 +51,7 @@ export default function BehaviorSection({ settings, setSetting }) {
       <div className="config-field-row">
         <label className="config-label">{t('lang.label')}</label>
         <select className="config-select" value={lang} onChange={(e) => setLanguage(e.target.value)}>
-          {languages.map((l) => (
+          {(languages as string[]).map((l) => (
             <option key={l} value={l}>{l === 'en' ? 'English' : l === 'es' ? 'Español' : l}</option>
           ))}
         </select>

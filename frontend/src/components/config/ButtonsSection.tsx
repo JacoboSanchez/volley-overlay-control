@@ -1,9 +1,24 @@
-import React from 'react';
 import { useI18n } from '../../i18n';
 import ColorPicker from '../ColorPicker';
 import FontSelector from '../FontSelector';
 
-export default function ButtonsSection({ settings, setSetting }) {
+export interface ButtonsSettings {
+  followTeamColors: boolean;
+  team1BtnColor: string;
+  team1BtnText: string;
+  team2BtnColor: string;
+  team2BtnText: string;
+  showIcon: boolean;
+  iconOpacity: number;
+  selectedFont: string;
+}
+
+export interface ButtonsSectionProps {
+  settings: ButtonsSettings;
+  setSetting: <K extends keyof ButtonsSettings>(key: K, value: ButtonsSettings[K]) => void;
+}
+
+export default function ButtonsSection({ settings, setSetting }: ButtonsSectionProps) {
   const { t } = useI18n();
   return (
     <div className="config-section-buttons">
