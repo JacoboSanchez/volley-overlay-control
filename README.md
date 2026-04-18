@@ -278,6 +278,10 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/api/themes` | List preset overlay themes |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
+For a full audit of every route and its authentication requirements
+(including the overlay server endpoints consumed by OBS and
+`CustomOverlayBackend`), see [AUTHENTICATION.md](AUTHENTICATION.md).
+
 ---
 
 ## Troubleshooting

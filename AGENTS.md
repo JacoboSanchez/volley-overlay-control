@@ -218,11 +218,15 @@ Full list in [README.md](README.md).
 | `/api/config/{overlay_id}` | Overlay config (output URL, available styles) |
 | `/api/state/{overlay_id}` | Overlay state update endpoint |
 | `/create/overlay/{overlay_id}` | Create a new overlay |
-| `/list/overlay` | List all overlays |
+| `/list/overlay` | List all overlays — requires `OVERLAY_MANAGER_PASSWORD` (see `AUTHENTICATION.md` F-4) |
 | `/api/themes` | List preset overlay themes |
 | `/health` | Health check — returns `200 OK` with timestamp |
 | `/sw.js` | PWA service worker (from frontend build) |
 | `/manifest.webmanifest` | PWA manifest (from frontend build) |
+
+For the complete authentication matrix — including the overlay router
+mutation endpoints that are currently *unauthenticated* — see
+[AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
 

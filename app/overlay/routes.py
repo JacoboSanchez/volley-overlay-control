@@ -13,12 +13,13 @@ import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict
 
+from app.admin.routes import require_admin
 from app.overlay.state_store import OverlayStateStore, deep_merge, normalize_state
 
 logger = logging.getLogger(__name__)
@@ -262,8 +263,14 @@ def create_overlay_router(
             return {"status": "deleted", "overlay_id": overlay_id}
         raise HTTPException(status_code=404, detail="Overlay not found")
 
-    @router.get("/list/overlay")
+    @router.get("/list/overlay", dependencies=[Depends(require_admin)])
     async def list_overlays():
+        """Return every overlay id plus its output key.
+
+        Gated behind ``OVERLAY_MANAGER_PASSWORD`` because the response
+        defeats the capability-URL design of ``/overlay/{output_key}``.
+        See ``AUTHENTICATION.md`` (F-4).
+        """
         return {"overlays": store.list_overlays()}
 
     # -- Raw config --------------------------------------------------------

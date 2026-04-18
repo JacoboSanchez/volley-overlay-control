@@ -275,6 +275,12 @@ the React scoreboard UI.
 The routers are registered in `main.py` **before** the SPA mount so that
 `/manage` is served by FastAPI rather than falling through to `index.html`.
 
+> For the full per-route authentication matrix (scoreboard API, admin
+> API, overlay server, static mounts) and known gaps, see
+> [AUTHENTICATION.md](AUTHENTICATION.md). When adding a new route,
+> classify it there and add a matching entry in
+> `tests/test_auth_coverage.py`.
+
 ### C. Configuration & Extras
 
 #### `app/customization.py`

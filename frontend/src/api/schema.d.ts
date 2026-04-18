@@ -569,7 +569,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Overlays */
+        /**
+         * List Overlays
+         * @description Return every overlay id plus its output key.
+         *
+         *     Gated behind ``OVERLAY_MANAGER_PASSWORD`` because the response
+         *     defeats the capability-URL design of ``/overlay/{output_key}``.
+         *     See ``AUTHENTICATION.md`` (F-4).
+         */
         get: operations["list_overlays_list_overlay_get"];
         put?: never;
         post?: never;
@@ -2149,7 +2156,9 @@ export interface operations {
     list_overlays_list_overlay_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2162,6 +2171,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
