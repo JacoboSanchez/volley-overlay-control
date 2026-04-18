@@ -934,7 +934,9 @@ export interface operations {
     get_config_api_config__overlay_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -965,7 +967,9 @@ export interface operations {
     get_raw_config_api_raw_config__overlay_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -996,7 +1000,9 @@ export interface operations {
     set_raw_config_api_raw_config__overlay_id__post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -1031,7 +1037,9 @@ export interface operations {
     update_state_api_state__overlay_id__post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -1066,7 +1074,9 @@ export interface operations {
     apply_theme_api_theme__overlay_id___theme_name__post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
                 theme_name: string;
@@ -1981,7 +1991,9 @@ export interface operations {
     create_overlay_create_overlay__overlay_id__get_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -2012,7 +2024,9 @@ export interface operations {
     create_overlay_create_overlay__overlay_id__get_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -2043,7 +2057,9 @@ export interface operations {
     delete_overlay_delete_overlay__overlay_id__delete_get_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -2074,7 +2090,9 @@ export interface operations {
     delete_overlay_delete_overlay__overlay_id__delete_get_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };
@@ -2105,7 +2123,9 @@ export interface operations {
     delete_overlay_delete_overlay__overlay_id__delete_get_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string;
+            };
             path: {
                 overlay_id: string;
             };

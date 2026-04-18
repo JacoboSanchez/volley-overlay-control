@@ -841,6 +841,15 @@
               "title": "Overlay Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -881,6 +890,15 @@
               "title": "Overlay Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -917,6 +935,15 @@
             "required": true,
             "schema": {
               "title": "Overlay Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
               "type": "string"
             }
           }
@@ -967,6 +994,15 @@
             "required": true,
             "schema": {
               "title": "Overlay Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
               "type": "string"
             }
           }
@@ -1026,6 +1062,15 @@
             "required": true,
             "schema": {
               "title": "Theme Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
               "type": "string"
             }
           }
@@ -2398,6 +2443,15 @@
               "title": "Overlay Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2434,6 +2488,15 @@
             "required": true,
             "schema": {
               "title": "Overlay Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
               "type": "string"
             }
           }
@@ -2476,6 +2539,15 @@
               "title": "Overlay Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2514,6 +2586,15 @@
               "title": "Overlay Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2550,6 +2631,15 @@
             "required": true,
             "schema": {
               "title": "Overlay Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
               "type": "string"
             }
           }

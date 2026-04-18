@@ -25,6 +25,7 @@ from app.overlay.state_store import OverlayStateStore
 
 API_USER_PASSWORD = "user-secret"
 ADMIN_PASSWORD = "admin-secret"
+OVERLAY_SERVER_TOKEN = "overlay-server-secret"
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ def _reset_env(monkeypatch, tmp_path):
     managed_overlays_store._reset_for_tests(str(tmp_path / "admin"))
     monkeypatch.delenv("SCOREBOARD_USERS", raising=False)
     monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
+    monkeypatch.delenv("OVERLAY_SERVER_TOKEN", raising=False)
     monkeypatch.delenv("PREDEFINED_OVERLAYS", raising=False)
     yield
     managed_overlays_store._reset_for_tests(str(tmp_path / "admin"))
@@ -94,6 +96,13 @@ def overlay_client_no_admin(tmp_path):
 @pytest.fixture
 def overlay_client_with_admin(tmp_path, monkeypatch):
     monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", ADMIN_PASSWORD)
+    return TestClient(_make_overlay_app(tmp_path))
+
+
+@pytest.fixture
+def overlay_client_with_server_token(tmp_path, monkeypatch):
+    """Overlay router with OVERLAY_SERVER_TOKEN set so F-3/F-5 gates engage."""
+    monkeypatch.setenv("OVERLAY_SERVER_TOKEN", OVERLAY_SERVER_TOKEN)
     return TestClient(_make_overlay_app(tmp_path))
 
 
@@ -209,13 +218,13 @@ def test_list_overlay_disabled_when_admin_unset(overlay_client_no_admin):
     assert response.status_code == 503
 
 
-# The following routes are documented as *unauthenticated* (findings F-3
-# and F-5). These tests pin the current behavior so that adding auth to
-# any of them surfaces in this file instead of slipping through silently.
-# When a follow-up PR fixes F-3 / F-5, update the expected assertions.
+# Overlay router mutation + leaky read endpoints are gated by
+# ``require_overlay_server_token`` (F-3, F-5). These tests pin that
+# gate in both postures: enforced when ``OVERLAY_SERVER_TOKEN`` is set,
+# and backward-compatible no-op when the env var is unset.
 
 
-OVERLAY_OPEN_MUTATION_ROUTES = [
+OVERLAY_TOKEN_GATED_ROUTES = [
     ("POST", "/api/state/any-id", {}),
     ("GET", "/create/overlay/any-id", None),
     ("POST", "/create/overlay/any-id", None),
@@ -223,49 +232,105 @@ OVERLAY_OPEN_MUTATION_ROUTES = [
     ("POST", "/delete/overlay/any-id", None),
     ("DELETE", "/delete/overlay/any-id", None),
     ("POST", "/api/theme/any-id/dark", None),
+    ("GET", "/api/raw_config/any-id", None),
+    ("POST", "/api/raw_config/any-id", {"model": {}}),
+    ("GET", "/api/config/any-id", None),
 ]
 
 
-@pytest.mark.parametrize("method,path,body", OVERLAY_OPEN_MUTATION_ROUTES)
-def test_overlay_mutation_routes_are_currently_open(
-    overlay_client_with_admin, method, path, body,
+@pytest.mark.parametrize("method,path,body", OVERLAY_TOKEN_GATED_ROUTES)
+def test_overlay_server_token_rejects_missing(
+    overlay_client_with_server_token, method, path, body,
 ):
-    """F-3: these routes accept writes with no auth header. Test pins the
-    status quo so a future fix updates this file."""
-    response = overlay_client_with_admin.request(method, path, json=body)
+    """F-3/F-5: when OVERLAY_SERVER_TOKEN is set, the gated routes must
+    reject requests that omit the Bearer header."""
+    response = overlay_client_with_server_token.request(
+        method, path, json=body,
+    )
+    assert response.status_code == 401, (
+        f"{method} {path} should 401 without a Bearer token when "
+        f"OVERLAY_SERVER_TOKEN is set (got {response.status_code})"
+    )
+
+
+@pytest.mark.parametrize("method,path,body", OVERLAY_TOKEN_GATED_ROUTES)
+def test_overlay_server_token_rejects_invalid(
+    overlay_client_with_server_token, method, path, body,
+):
+    response = overlay_client_with_server_token.request(
+        method, path, json=body, headers={"Authorization": "Bearer wrong"},
+    )
+    assert response.status_code == 403, (
+        f"{method} {path} should 403 with an invalid Bearer token "
+        f"(got {response.status_code})"
+    )
+
+
+@pytest.mark.parametrize("method,path,body", OVERLAY_TOKEN_GATED_ROUTES)
+def test_overlay_server_token_accepts_correct(
+    overlay_client_with_server_token, method, path, body,
+):
+    """With the correct token the auth layer steps out of the way; downstream
+    business-logic responses (200/404/etc.) are fine — the test only asserts
+    the route is no longer rejecting on auth grounds."""
+    response = overlay_client_with_server_token.request(
+        method, path, json=body,
+        headers={"Authorization": f"Bearer {OVERLAY_SERVER_TOKEN}"},
+    )
     assert response.status_code not in (401, 403), (
-        f"{method} {path} unexpectedly rejected auth "
-        f"({response.status_code}). If this is the intended behavior, "
-        f"update AUTHENTICATION.md F-3 and flip this assertion."
+        f"{method} {path} rejected a correct Bearer token "
+        f"({response.status_code})"
     )
 
 
-OVERLAY_OPEN_READ_ROUTES = [
-    ("GET", "/api/config/any-id"),
-    ("GET", "/api/themes"),
-]
-
-
-@pytest.mark.parametrize("method,path", OVERLAY_OPEN_READ_ROUTES)
-def test_overlay_read_routes_are_currently_open(
-    overlay_client_with_admin, method, path,
+@pytest.mark.parametrize("method,path,body", OVERLAY_TOKEN_GATED_ROUTES)
+def test_overlay_server_token_unset_is_noop(
+    overlay_client_no_admin, method, path, body,
 ):
-    """F-5: these routes return data without auth. `/api/themes` is
-    intentionally public; `/api/config/{id}` is a known leak."""
-    response = overlay_client_with_admin.request(method, path)
-    assert response.status_code not in (401, 403)
-
-
-def test_overlay_raw_config_get_is_currently_open(overlay_client_with_admin):
-    """F-5: raw_config returns 404 on missing overlays — still reachable
-    without auth, which is the leak we are documenting."""
-    response = overlay_client_with_admin.get("/api/raw_config/any-id")
-    assert response.status_code not in (401, 403)
-
-
-def test_overlay_raw_config_post_is_currently_open(overlay_client_with_admin):
-    """F-3: raw_config POST mutates state with no auth header."""
-    response = overlay_client_with_admin.post(
-        "/api/raw_config/any-id", json={"model": {}},
+    """Backward-compat: when OVERLAY_SERVER_TOKEN is unset the dependency
+    is a no-op and the gated routes respond without any auth header. The
+    startup warning is logged elsewhere."""
+    response = overlay_client_no_admin.request(method, path, json=body)
+    assert response.status_code not in (401, 403), (
+        f"{method} {path} unexpectedly rejected auth with no token "
+        f"configured ({response.status_code}). The "
+        f"OVERLAY_SERVER_TOKEN=unset path must stay backward-compatible."
     )
-    assert response.status_code not in (401, 403)
+
+
+def test_overlay_themes_list_is_public(overlay_client_with_server_token):
+    """`/api/themes` is intentionally public (see AUTHENTICATION.md §2.3) —
+    listing preset theme names is not sensitive."""
+    response = overlay_client_with_server_token.get("/api/themes")
+    assert response.status_code == 200
+    assert "themes" in response.json()
+
+
+# ---------------------------------------------------------------------------
+# F-2: `/overlay/{…}` and `/ws/{…}` are capability URLs — the raw overlay
+# id must no longer resolve, only the SHA-256 output key.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_overlay_id_rejects_raw_id(tmp_path):
+    """F-2: ``resolve_overlay_id`` now accepts the SHA-256 output key
+    only. Passing the raw overlay id must return ``None`` even when the
+    overlay exists."""
+    from app.overlay.state_store import OverlayStateStore
+
+    raw_id = "f-2-capability-check"
+    store = OverlayStateStore(
+        data_dir=str(tmp_path / "overlays"),
+        templates_dir=str(tmp_path / "templates"),
+    )
+    store.create_overlay(raw_id)
+
+    assert store.resolve_overlay_id(raw_id) is None, (
+        "Raw overlay id must not resolve — the output key is the capability."
+    )
+
+    output_key = OverlayStateStore.get_output_key(raw_id)
+    assert store.resolve_overlay_id(output_key) == raw_id, (
+        "Output key must resolve back to the raw id for downstream state "
+        "lookups."
+    )

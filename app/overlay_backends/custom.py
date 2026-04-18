@@ -36,6 +36,18 @@ class CustomOverlayBackend(OverlayBackend):
     def _base_url(self):
         return EnvVarsManager.get_custom_overlay_url().rstrip('/')
 
+    def _auth_headers(self):
+        """Return Authorization header when OVERLAY_SERVER_TOKEN is set.
+
+        Sent per-request (not via ``session.headers``) because the same
+        ``requests.Session`` is shared with the Uno backend, which must
+        never receive this header.
+        """
+        token = EnvVarsManager.get_env_var('OVERLAY_SERVER_TOKEN', None)
+        if token and token.strip():
+            return {"Authorization": f"Bearer {token.strip()}"}
+        return {}
+
     def _custom_id(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
         cid, _ = split_custom_oid(check_oid)
@@ -56,6 +68,7 @@ class CustomOverlayBackend(OverlayBackend):
                 self.session.post(
                     f"{self._base_url()}/api/raw_config/{custom_id}",
                     json=payload, timeout=2.0,
+                    headers=self._auth_headers(),
                 )
             except Exception as e:
                 logger.error("Failed to save raw_config remote: %s", e)
@@ -68,7 +81,8 @@ class CustomOverlayBackend(OverlayBackend):
         base_url = self._base_url()
         try:
             resp = self.session.get(
-                f"{base_url}/api/config/{custom_id}", timeout=5.0
+                f"{base_url}/api/config/{custom_id}", timeout=5.0,
+                headers=self._auth_headers(),
             )
             if resp.status_code == 200:
                 ws_url = resp.json().get('controlWebSocketUrl')
@@ -155,6 +169,7 @@ class CustomOverlayBackend(OverlayBackend):
         try:
             resp = self.session.get(
                 f"{self._base_url()}/api/raw_config/{custom_id}", timeout=2.0,
+                headers=self._auth_headers(),
             )
             if resp.status_code == 200:
                 data = resp.json().get("model", {})
@@ -178,6 +193,7 @@ class CustomOverlayBackend(OverlayBackend):
                 self.session.post(
                     f"{self._base_url()}/api/raw_config/{custom_id}",
                     json={"customization": data}, timeout=2.0,
+                    headers=self._auth_headers(),
                 )
             except Exception as e:
                 logger.warning("Failed to persist preferredStyle: %s", e)
@@ -191,6 +207,7 @@ class CustomOverlayBackend(OverlayBackend):
         try:
             resp = self.session.get(
                 f"{self._base_url()}/api/raw_config/{custom_id}", timeout=2.0,
+                headers=self._auth_headers(),
             )
             if resp.status_code == 200:
                 data = resp.json().get("customization", {})
@@ -202,6 +219,7 @@ class CustomOverlayBackend(OverlayBackend):
                         self.session.post(
                             f"{self._base_url()}/api/raw_config/{custom_id}",
                             json={"customization": data}, timeout=2.0,
+                            headers=self._auth_headers(),
                         )
                     except Exception as e:
                         logger.warning("Failed to persist preferredStyle: %s", e)
@@ -219,6 +237,7 @@ class CustomOverlayBackend(OverlayBackend):
         try:
             response = self.session.get(
                 f"{self._base_url()}/api/config/{custom_id}", timeout=5.0,
+                headers=self._auth_headers(),
             )
             if response.status_code == 200:
                 return response.json().get('availableStyles', [])
@@ -230,7 +249,9 @@ class CustomOverlayBackend(OverlayBackend):
         try:
             custom_id = self._custom_id(oid)
             url = f"{self._base_url()}/api/config/{custom_id}"
-            response = self.session.get(url, timeout=5.0)
+            response = self.session.get(
+                url, timeout=5.0, headers=self._auth_headers(),
+            )
             if response.status_code == 200:
                 output_url = response.json().get('outputUrl')
                 if output_url:
@@ -264,6 +285,7 @@ class CustomOverlayBackend(OverlayBackend):
             self.session.post(
                 f"{self._base_url()}/api/state/{custom_id}",
                 json=payload, timeout=2.0,
+                headers=self._auth_headers(),
             )
         except Exception as e:
             logger.error("Error updating local overlay: %s", e)

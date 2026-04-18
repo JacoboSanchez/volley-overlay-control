@@ -1,27 +1,9 @@
 import logging
 import json
-from fastapi import Request
-from fastapi.responses import RedirectResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 from app.env_vars_manager import EnvVarsManager
 from app.oid_utils import UNO_OUTPUT_BASE_URL
 
 logger = logging.getLogger("Authenticator")
-
-
-class AuthMiddleware(BaseHTTPMiddleware):
-    """No-op hook reserved for future server-level auth.
-
-    All request-level authentication currently lives in per-route
-    dependencies (``app.api.dependencies.verify_api_key`` and
-    ``app.admin.routes.require_admin``). This middleware exists solely as
-    a registration point so that future cross-cutting concerns — such as
-    gating static assets or the SPA behind a login wall — can be added
-    without touching every route. See ``AUTHENTICATION.md`` (F-1).
-    """
-
-    async def dispatch(self, request: Request, call_next):
-        return await call_next(request)
 
 
 class PasswordAuthenticator:

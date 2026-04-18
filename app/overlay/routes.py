@@ -13,16 +13,47 @@ import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict
 
 from app.admin.routes import require_admin
+from app.env_vars_manager import EnvVarsManager
 from app.overlay.state_store import OverlayStateStore, deep_merge, normalize_state
 
 logger = logging.getLogger(__name__)
+
+
+def _get_overlay_server_token() -> Optional[str]:
+    """Return the configured overlay-server token (or None if unset)."""
+    token = EnvVarsManager.get_env_var("OVERLAY_SERVER_TOKEN", None)
+    if token is None:
+        return None
+    token = token.strip()
+    return token or None
+
+
+def require_overlay_server_token(authorization: str = Header(None)) -> None:
+    """Gate overlay-server mutation / leaky read endpoints.
+
+    When ``OVERLAY_SERVER_TOKEN`` is unset the check is a no-op so
+    existing deployments keep working (with a startup warning; see
+    ``AUTHENTICATION.md`` F-3 and F-5). When the env var is set, the
+    request must include ``Authorization: Bearer <token>``.
+    """
+    token = _get_overlay_server_token()
+    if token is None:
+        return
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Missing overlay server token. Use 'Authorization: Bearer <token>'.",
+        )
+    provided = authorization.removeprefix("Bearer ").strip()
+    if provided != token:
+        raise HTTPException(status_code=403, detail="Invalid overlay server token.")
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +264,10 @@ def create_overlay_router(
 
     # -- State update (HTTP) -----------------------------------------------
 
-    @router.post("/api/state/{overlay_id}")
+    @router.post(
+        "/api/state/{overlay_id}",
+        dependencies=[Depends(require_overlay_server_token)],
+    )
     async def update_state(
         overlay_id: str, state_update: OverlayStateUpdate
     ):
@@ -244,7 +278,9 @@ def create_overlay_router(
     # -- Overlay CRUD ------------------------------------------------------
 
     @router.api_route(
-        "/create/overlay/{overlay_id}", methods=["GET", "POST"]
+        "/create/overlay/{overlay_id}",
+        methods=["GET", "POST"],
+        dependencies=[Depends(require_overlay_server_token)],
     )
     async def create_overlay(overlay_id: str):
         if store.overlay_exists(overlay_id):
@@ -255,6 +291,7 @@ def create_overlay_router(
     @router.api_route(
         "/delete/overlay/{overlay_id}",
         methods=["GET", "POST", "DELETE"],
+        dependencies=[Depends(require_overlay_server_token)],
     )
     async def delete_overlay(overlay_id: str):
         existed = store.delete_overlay(overlay_id)
@@ -275,7 +312,10 @@ def create_overlay_router(
 
     # -- Raw config --------------------------------------------------------
 
-    @router.get("/api/raw_config/{overlay_id}")
+    @router.get(
+        "/api/raw_config/{overlay_id}",
+        dependencies=[Depends(require_overlay_server_token)],
+    )
     async def get_raw_config(overlay_id: str):
         if not store.overlay_exists(overlay_id):
             raise HTTPException(
@@ -283,7 +323,10 @@ def create_overlay_router(
             )
         return store.get_raw_config(overlay_id)
 
-    @router.post("/api/raw_config/{overlay_id}")
+    @router.post(
+        "/api/raw_config/{overlay_id}",
+        dependencies=[Depends(require_overlay_server_token)],
+    )
     async def set_raw_config(overlay_id: str, payload: RawConfigPayload):
         if not store.overlay_exists(overlay_id):
             raise HTTPException(
@@ -299,7 +342,10 @@ def create_overlay_router(
 
     # -- Config / output URL -----------------------------------------------
 
-    @router.get("/api/config/{overlay_id}")
+    @router.get(
+        "/api/config/{overlay_id}",
+        dependencies=[Depends(require_overlay_server_token)],
+    )
     async def get_config(request: Request, overlay_id: str):
         public_url = os.environ.get("OVERLAY_PUBLIC_URL", "").rstrip("/")
         base_url = (
@@ -320,7 +366,10 @@ def create_overlay_router(
     async def list_themes():
         return {"themes": list(PRESET_THEMES.keys())}
 
-    @router.post("/api/theme/{overlay_id}/{theme_name}")
+    @router.post(
+        "/api/theme/{overlay_id}/{theme_name}",
+        dependencies=[Depends(require_overlay_server_token)],
+    )
     async def apply_theme(overlay_id: str, theme_name: str):
         if theme_name not in PRESET_THEMES:
             raise HTTPException(
