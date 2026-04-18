@@ -63,8 +63,6 @@ export default function App() {
     hideTimerRef.current = setTimeout(() => setShowControls(false), 10000);
   }, []);
 
-  const previewData = usePreview(oid, settings.showPreview) as PreviewData | null;
-
   const [dialog, setDialog] = useState<DialogState>({
     open: false,
     title: '',
@@ -83,6 +81,10 @@ export default function App() {
     refreshCustomization,
     setCustomization,
   } = useGameState(oid);
+
+  // Gate preview fetch on session readiness — /api/v1/links returns 404 until
+  // initSession has created the session.
+  const previewData = usePreview(oid, settings.showPreview, !!state) as PreviewData | null;
 
   useEffect(() => {
     if (showControls && activeTab === 'scoreboard' && state) {
