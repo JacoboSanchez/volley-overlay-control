@@ -3,19 +3,28 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from weakref import WeakValueDictionary
 
 from app.api.session_manager import SessionManager
 
 logger = logging.getLogger("APIRoutes")
 
 _cleanup_task: asyncio.Task | None = None
-_init_locks: dict[str, asyncio.Lock] = {}
+# WeakValueDictionary auto-evicts entries once all strong refs to the lock are
+# released — i.e. once every caller has exited its ``async with get_init_lock``
+# block. This avoids a race where a manual cleanup could delete a lock between
+# the time one request retrieved it and the time it acquired it, causing
+# concurrent init_session calls for the same OID to serialize against
+# different locks.
+_init_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 
 
 def get_init_lock(oid: str) -> asyncio.Lock:
-    if oid not in _init_locks:
-        _init_locks[oid] = asyncio.Lock()
-    return _init_locks[oid]
+    lock = _init_locks.get(oid)
+    if lock is None:
+        lock = asyncio.Lock()
+        _init_locks[oid] = lock
+    return lock
 
 
 async def _session_cleanup_loop():
@@ -26,11 +35,6 @@ async def _session_cleanup_loop():
             removed = SessionManager.cleanup_expired()
             if removed:
                 logger.info("Session cleanup removed %d expired sessions", removed)
-
-            # Clean up un-needed locks to prevent memory leaks
-            to_remove = [oid for oid, lock in _init_locks.items() if not lock.locked()]
-            for oid in to_remove:
-                del _init_locks[oid]
         except Exception:
             logger.exception("Error during session cleanup")
 

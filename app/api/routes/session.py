@@ -3,16 +3,15 @@
 from fastapi import APIRouter, Depends, Request
 from starlette.concurrency import run_in_threadpool
 
-from app.api.dependencies import verify_api_key
+from app.api.dependencies import check_oid_access, verify_api_key
 from app.api.game_service import GameService
 from app.api.schemas import ActionResponse, InitRequest
 from app.api.session_manager import SessionManager
+from app.api.routes.lifespan import get_init_lock
 from app.backend import Backend
 from app.conf import Conf
 from app.oid_utils import UNO_OUTPUT_BASE_URL
 from app.state import State
-
-from app.api.routes.lifespan import get_init_lock
 
 router = APIRouter()
 
@@ -24,7 +23,6 @@ router = APIRouter()
 )
 async def init_session(req: InitRequest, request: Request):
     """Initialise (or re-use) a game session for the given overlay ID."""
-    from app.api.dependencies import check_oid_access
     check_oid_access(request.headers.get("authorization", ""), req.oid)
 
     conf = Conf()

@@ -2,7 +2,6 @@ import logging
 from fastapi import Header, Query, HTTPException, Request
 from app.authentication import PasswordAuthenticator
 from app.api.session_manager import SessionManager, GameSession
-import logging
 
 logger = logging.getLogger("APIDeps")
 
@@ -22,15 +21,25 @@ async def verify_api_key(authorization: str = Header(None)):
     if not PasswordAuthenticator.check_api_key(token):
         raise HTTPException(status_code=403, detail="Invalid API key.")
 
+def get_current_username(authorization: str | None) -> str | None:
+    """Return the username for a Bearer token header, or ``None``.
+
+    Does not raise: used by endpoints that want to filter by caller identity
+    without requiring authentication (e.g. ``GET /overlays``).
+    """
+    if not authorization:
+        return None
+    token = authorization.removeprefix("Bearer ").strip()
+    return PasswordAuthenticator.get_username_for_api_key(token)
+
 def check_oid_access(authorization: str, oid: str):
     """Verify that the API key has permission for the requested OID."""
     if not PasswordAuthenticator.do_authenticate_users():
         return
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing API key.")
-    
-    token = authorization.removeprefix("Bearer ").strip()
-    username = PasswordAuthenticator.get_username_for_api_key(token)
+
+    username = get_current_username(authorization)
     if not username:
         raise HTTPException(status_code=403, detail="Invalid API key.")
         

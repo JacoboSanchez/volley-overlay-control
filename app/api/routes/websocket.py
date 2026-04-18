@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 
+from app.api.dependencies import check_oid_access
 from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 from app.api.ws_hub import WSHub
@@ -15,7 +16,6 @@ router = APIRouter()
 
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, oid: str = Query(...)):
-    from app.api.dependencies import check_oid_access
     token = ws.query_params.get("token")
     auth_header = f"Bearer {token}" if token else ws.headers.get("authorization", "")
 

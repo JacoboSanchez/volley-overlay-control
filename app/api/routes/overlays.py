@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Header, Request
 from starlette.concurrency import run_in_threadpool
 
 from app.admin.store import managed_overlays_store
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_current_username, get_session, verify_api_key
 from app.api.session_manager import GameSession
 from app.authentication import PasswordAuthenticator
 from app.customization import Customization
@@ -55,9 +55,8 @@ async def get_overlays(authorization: str = Header(None)):
 
     # Identify the calling user for allowed_users filtering
     current_user = None
-    if PasswordAuthenticator.do_authenticate_users() and authorization:
-        token = authorization.removeprefix("Bearer ").strip()
-        current_user = PasswordAuthenticator.get_username_for_api_key(token)
+    if PasswordAuthenticator.do_authenticate_users():
+        current_user = get_current_username(authorization)
 
     return [
         {"name": name, "oid": extract_oid(config.get('control', ''))}
