@@ -310,6 +310,24 @@ class OverlayStateStore:
         entries.sort(key=lambda e: e["id"])
         return entries
 
+    def copy_overlay(self, source_id: str, target_id: str) -> bool:
+        """Clone *source_id*'s persisted state into *target_id*.
+
+        Returns True on success, False when the source does not exist or
+        the target already exists. Useful for creating a new overlay that
+        inherits the source's configuration (colors, preferredStyle,
+        customization, match data).
+        """
+        if not self.overlay_exists(source_id):
+            return False
+        if self.overlay_exists(target_id):
+            return False
+        source_state = self.load_persisted_state(source_id)
+        self.save_persisted_state(target_id, copy.deepcopy(source_state))
+        self._output_key_cache[self.get_output_key(target_id)] = target_id
+        logger.info("Overlay '%s' copied from '%s'", target_id, source_id)
+        return True
+
     # -- Raw config (model/customization pass-through) ---------------------
 
     def get_raw_config(self, overlay_id: str) -> dict:

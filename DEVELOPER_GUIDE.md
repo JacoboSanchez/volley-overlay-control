@@ -95,10 +95,9 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 │   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
 │   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
 │   │   └── routes.py        # HTTP/WS routes: /overlay/, /ws/, /api/config/, CRUD, themes.
-│   ├── admin/               # Overlay management page + CRUD API (password-protected).
-│   │   ├── __init__.py      # Exports admin_router, admin_page_router, managed_overlays_store.
-│   │   ├── routes.py        # /manage HTML page + /api/v1/admin/overlays CRUD endpoints.
-│   │   ├── store.py         # OverlaysStore — thread-safe JSON persistence at data/managed_overlays.json.
+│   ├── admin/               # Custom overlay management page + CRUD API (password-protected).
+│   │   ├── __init__.py      # Exports admin_router, admin_page_router.
+│   │   ├── routes.py        # /manage HTML page + /api/v1/admin/custom-overlays CRUD endpoints.
 │   │   └── static/overlays.html # Standalone management page (vanilla JS, no React).
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
 │   ├── logging_config.py    # Logging level configuration.
@@ -106,7 +105,7 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 │   └── pwa/                 # Legacy PWA assets (icons).
 ├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
 ├── overlay_static/          # Static assets for overlays (JS, CSS, images).
-├── data/                    # Persisted overlay state files (overlay_state_{id}.json) and managed overlay catalogue (managed_overlays.json).
+├── data/                    # Persisted custom overlay state files (overlay_state_{id}.json).
 ├── font/                    # Custom font files for the overlay.
 └── tests/                   # Pytest suite.
     ├── conftest.py          # Test fixtures and configuration.
@@ -253,24 +252,25 @@ Thread-safe singleton managing `GameSession` instances by OID.
 
 WebSocket notification hub for broadcasting state updates to connected frontend clients.
 
-#### `app/admin/` — overlay management
+#### `app/admin/` — custom overlay management
 
-Standalone surface for managing predefined overlays at runtime, independent of
-the React scoreboard UI.
+Standalone surface for managing **custom** overlays (those backed by the
+in-process overlay engine, OID prefix `C-`) at runtime, independent of the
+React scoreboard UI.
 
-- **`app/admin/store.py`** — `OverlaysStore`: thread-safe CRUD on
-  `data/managed_overlays.json`. `create()`, `update()` (with optional
-  `new_name=` for renames), `delete()`, `list()`, `as_dict()`. The
-  module-level singleton `managed_overlays_store` is reused by
-  `GET /api/v1/overlays` to merge managed overlays into the list.
 - **`app/admin/routes.py`** — Two FastAPI routers:
   - `admin_page_router` → `GET /manage` serves the standalone HTML page.
-  - `admin_router` → `GET|POST|PUT|DELETE /api/v1/admin/overlays[/{name}]`,
+  - `admin_router` → `GET /api/v1/admin/custom-overlays`,
+    `POST /api/v1/admin/custom-overlays` (optional `copy_from` to clone an
+    existing overlay's configuration), `DELETE /api/v1/admin/custom-overlays/{id}`,
     `POST /api/v1/admin/login`, `GET /api/v1/admin/status`. All endpoints
     (except `/status`) require `Authorization: Bearer $OVERLAY_MANAGER_PASSWORD`.
+  - Handlers operate directly on the singleton `overlay_state_store`
+    (`app/overlay/__init__.py`); there is no separate admin-side persistence
+    file.
 - **`app/admin/static/overlays.html`** — Self-contained page (no React,
-  just vanilla JS + `fetch`). Stores the password in `sessionStorage` under
-  `overlay_manager_password`.
+  just vanilla JS + `fetch`). Keeps the password in a JS closure variable
+  only (no `sessionStorage`/`localStorage`).
 
 The routers are registered in `main.py` **before** the SPA mount so that
 `/manage` is served by FastAPI rather than falling through to `index.html`.
@@ -377,10 +377,11 @@ If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBacke
 2. Add request/response schemas in `app/api/schemas.py`.
 3. Add the business logic in `app/api/game_service.py`.
 
-### Extending the overlay manager page
+### Extending the custom overlay manager page
 
-1. Extend the storage layer in `app/admin/store.py` (remember that all
-   mutations must call `_write_to_disk()` under `self._lock`).
+1. Add the new operation to `OverlayStateStore` in
+   `app/overlay/state_store.py` if it needs a new storage primitive
+   (e.g. rename, bulk export). Keep mutations under `self._lock`.
 2. Add or update the matching FastAPI route in `app/admin/routes.py` and
    keep it behind `Depends(require_admin)`.
 3. Update the UI in `app/admin/static/overlays.html` — it is a single

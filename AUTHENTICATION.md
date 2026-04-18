@@ -61,13 +61,12 @@ via `get_session` (or explicitly inside the handler).
 
 | Method | Path | Auth | Notes |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/manage` | — | Static HTML page; JS prompts for password client-side and stores it in `sessionStorage`. |
+| `GET` | `/manage` | — | Static HTML page; JS prompts for password client-side and keeps it in a closure variable only. |
 | `GET` | `/api/v1/admin/status` | — | Returns `{"enabled": bool}` only — does not leak the password itself. |
 | `POST` | `/api/v1/admin/login` | `require_admin` | Used by the management page to validate the password. |
-| `GET` | `/api/v1/admin/overlays` | `require_admin` | |
-| `POST` | `/api/v1/admin/overlays` | `require_admin` | |
-| `PUT` | `/api/v1/admin/overlays/{name}` | `require_admin` | |
-| `DELETE` | `/api/v1/admin/overlays/{name}` | `require_admin` | |
+| `GET` | `/api/v1/admin/custom-overlays` | `require_admin` | Lists custom overlays managed by the in-process engine. |
+| `POST` | `/api/v1/admin/custom-overlays` | `require_admin` | Creates a custom overlay (optional `copy_from` to clone). |
+| `DELETE` | `/api/v1/admin/custom-overlays/{id}` | `require_admin` | Deletes a custom overlay and its persisted state. |
 
 ### 2.3 Overlay server — `overlay_router` (`app/overlay/routes.py`)
 

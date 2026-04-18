@@ -1,10 +1,16 @@
-"""Admin routes — overlay management page and CRUD endpoints.
+"""Admin routes — custom overlay manager page and CRUD endpoints.
 
 Two routers are exported:
 
 * ``admin_page_router`` — serves the standalone HTML page at ``/manage``.
 * ``admin_router`` — mounted under ``/api/v1/admin`` with JSON endpoints
-  for creating, listing, updating and deleting managed overlays.
+  for listing, creating, copying and deleting custom overlays (the ones
+  handled in-process by ``LocalOverlayBackend`` and persisted to
+  ``data/overlay_state_{id}.json``).
+
+Predefined overlay catalogues are configured outside the app, either via
+the ``PREDEFINED_OVERLAYS`` environment variable or the remote
+configurator, and are not editable from this surface.
 
 All JSON endpoints require the ``OVERLAY_MANAGER_PASSWORD`` environment
 variable to be set and the request to include a matching
@@ -12,24 +18,26 @@ variable to be set and the request to include a matching
 """
 
 import os
+import re
 import logging
 import secrets
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.admin.store import (
-    managed_overlays_store,
-    OverlayConflictError,
-    OverlayNotFoundError,
-)
 from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger("AdminRoutes")
 
 _PAGE_PATH = os.path.join(os.path.dirname(__file__), "static", "overlays.html")
+
+# Custom overlay IDs are used as filenames and URL path components, so
+# only allow the characters that cannot collide with the filesystem or
+# HTTP path parsing. The ``C-`` prefix is added automatically when the
+# overlay is used as an OID.
+_OVERLAY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 # ---------------------------------------------------------------------------
@@ -37,18 +45,11 @@ _PAGE_PATH = os.path.join(os.path.dirname(__file__), "static", "overlays.html")
 # ---------------------------------------------------------------------------
 
 
-class OverlayPayload(BaseModel):
-    name: str = Field(..., min_length=1, description="Display name of the overlay")
-    control: str = Field(..., min_length=1, description="Control token or URL")
-    output: Optional[str] = Field(None, description="Optional output token or URL")
-    allowed_users: Optional[List[str]] = Field(
-        None, description="Optional list of usernames allowed to see this overlay"
-    )
-
-
-class OverlayUpdatePayload(OverlayPayload):
-    new_name: Optional[str] = Field(
-        None, description="Rename the overlay to this value (optional)"
+class CustomOverlayCreate(BaseModel):
+    name: str = Field(..., min_length=1, description="Overlay id (without the C- prefix)")
+    copy_from: Optional[str] = Field(
+        None,
+        description="Optional existing overlay id to clone configuration from",
     )
 
 
@@ -83,6 +84,23 @@ def require_admin(authorization: str = Header(None)) -> None:
         raise HTTPException(status_code=403, detail="Invalid admin password.")
 
 
+def _validate_overlay_id(value: str) -> str:
+    name = (value or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Overlay name is required.")
+    if not _OVERLAY_ID_PATTERN.fullmatch(name):
+        raise HTTPException(
+            status_code=400,
+            detail="Overlay name may only contain letters, digits, '-', '_' and '.'.",
+        )
+    return name
+
+
+def _overlay_store():
+    from app.overlay import overlay_state_store
+    return overlay_state_store
+
+
 # ---------------------------------------------------------------------------
 # Page router
 # ---------------------------------------------------------------------------
@@ -93,7 +111,7 @@ admin_page_router = APIRouter(tags=["Admin"])
 
 @admin_page_router.get("/manage", include_in_schema=False)
 def manage_overlays_page():
-    """Serve the standalone overlay management page."""
+    """Serve the standalone custom-overlay manager page."""
     if not os.path.isfile(_PAGE_PATH):
         raise HTTPException(status_code=500, detail="Admin page template not found.")
     return FileResponse(
@@ -113,12 +131,7 @@ admin_router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 
 @admin_router.get("/status")
 def admin_status():
-    """Report whether overlay management is enabled on this server.
-
-    Does not leak the password — just indicates whether an admin password
-    is configured so the management UI can show a helpful message when
-    the feature is disabled.
-    """
+    """Report whether overlay management is enabled on this server."""
     return {"enabled": _get_admin_password() is not None}
 
 
@@ -128,53 +141,65 @@ def admin_login(_: None = Depends(require_admin)):
     return {"ok": True}
 
 
-@admin_router.get("/overlays", dependencies=[Depends(require_admin)])
-def list_overlays():
-    """Return all managed overlays."""
-    return managed_overlays_store.list()
+@admin_router.get("/custom-overlays", dependencies=[Depends(require_admin)])
+def list_custom_overlays():
+    """Return every custom overlay persisted on disk.
+
+    Each entry carries the overlay id (the part after the ``C-`` prefix),
+    its derived output key and the corresponding OID clients should use
+    when pointing the scoreboard at the overlay.
+    """
+    store = _overlay_store()
+    return [
+        {
+            "id": entry["id"],
+            "oid": f"C-{entry['id']}",
+            "output_key": entry["output_key"],
+        }
+        for entry in store.list_overlays()
+    ]
 
 
-@admin_router.post("/overlays", dependencies=[Depends(require_admin)])
-def create_overlay(payload: OverlayPayload):
-    try:
-        return managed_overlays_store.create(
-            payload.name,
-            {
-                "control": payload.control,
-                "output": payload.output,
-                "allowed_users": payload.allowed_users,
-            },
+@admin_router.post("/custom-overlays", dependencies=[Depends(require_admin)])
+def create_custom_overlay(payload: CustomOverlayCreate):
+    """Create a new custom overlay, optionally cloning an existing one."""
+    name = _validate_overlay_id(payload.name)
+    store = _overlay_store()
+
+    if store.overlay_exists(name):
+        raise HTTPException(
+            status_code=409, detail=f"Overlay '{name}' already exists.",
         )
-    except OverlayConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc).strip("'"))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+
+    if payload.copy_from:
+        source = _validate_overlay_id(payload.copy_from)
+        if not store.overlay_exists(source):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Source overlay '{source}' not found.",
+            )
+        store.copy_overlay(source, name)
+    else:
+        store.create_overlay(name)
+
+    return {
+        "id": name,
+        "oid": f"C-{name}",
+        "output_key": store.get_output_key(name),
+    }
 
 
-@admin_router.put("/overlays/{name}", dependencies=[Depends(require_admin)])
-def update_overlay(name: str, payload: OverlayUpdatePayload):
+@admin_router.delete("/custom-overlays/{name}", dependencies=[Depends(require_admin)])
+async def delete_custom_overlay(name: str):
+    """Remove a custom overlay and its persisted state."""
+    name = _validate_overlay_id(name)
+    store = _overlay_store()
+    existed = store.delete_overlay(name)
+    if not existed:
+        raise HTTPException(status_code=404, detail=f"Overlay '{name}' not found.")
     try:
-        return managed_overlays_store.update(
-            name,
-            {
-                "control": payload.control,
-                "output": payload.output,
-                "allowed_users": payload.allowed_users,
-            },
-            new_name=payload.new_name,
-        )
-    except OverlayNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc).strip("'"))
-    except OverlayConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc).strip("'"))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@admin_router.delete("/overlays/{name}", dependencies=[Depends(require_admin)])
-def delete_overlay(name: str):
-    try:
-        managed_overlays_store.delete(name)
-    except OverlayNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc).strip("'"))
+        from app.overlay import obs_broadcast_hub
+        await obs_broadcast_hub.cleanup_overlay(name)
+    except Exception:
+        pass
     return {"ok": True}

@@ -6,7 +6,6 @@ import logging
 from fastapi import APIRouter, Depends, Header, Request
 from starlette.concurrency import run_in_threadpool
 
-from app.admin.store import managed_overlays_store
 from app.api.dependencies import get_current_username, get_session, verify_api_key
 from app.api.session_manager import GameSession
 from app.authentication import PasswordAuthenticator
@@ -23,44 +22,32 @@ router = APIRouter()
 async def get_overlays(authorization: str = Header(None)):
     """Return predefined overlays available for selection.
 
-    Merges two sources:
-
-    * ``PREDEFINED_OVERLAYS`` env var (read-only, configured at startup).
-    * Overlays managed through the ``/manage`` admin page, persisted in
-      ``data/managed_overlays.json``.
-
-    When a name exists in both, the managed overlay wins. Entries are
+    Sourced exclusively from the ``PREDEFINED_OVERLAYS`` environment
+    variable (also populated via the remote configurator). Entries are
     filtered by ``allowed_users`` using the caller's identity when user
     authentication is enabled.
     """
-    merged: dict = {}
-
     overlays_json = EnvVarsManager.get_env_var('PREDEFINED_OVERLAYS', None)
-    if overlays_json and overlays_json.strip():
-        try:
-            env_overlays = json.loads(overlays_json)
-            if isinstance(env_overlays, dict):
-                merged.update(env_overlays)
-            else:
-                logger.warning("PREDEFINED_OVERLAYS is not a JSON object")
-        except json.JSONDecodeError:
-            logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
-
-    # Managed overlays (file-backed) override env-defined ones with the same
-    # name so edits from the admin page take effect immediately.
-    merged.update(managed_overlays_store.as_dict())
-
-    if not merged:
+    if not overlays_json or not overlays_json.strip():
         return []
 
-    # Identify the calling user for allowed_users filtering
+    try:
+        env_overlays = json.loads(overlays_json)
+    except json.JSONDecodeError:
+        logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
+        return []
+
+    if not isinstance(env_overlays, dict):
+        logger.warning("PREDEFINED_OVERLAYS is not a JSON object")
+        return []
+
     current_user = None
     if PasswordAuthenticator.do_authenticate_users():
         current_user = get_current_username(authorization)
 
     return [
         {"name": name, "oid": extract_oid(config.get('control', ''))}
-        for name, config in merged.items()
+        for name, config in env_overlays.items()
         if config.get('allowed_users') is None
         or (current_user and current_user in config.get('allowed_users'))
     ]
