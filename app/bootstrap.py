@@ -6,11 +6,13 @@ instances in tests (``TestClient(create_app())``) without triggering the
 side-effects of module import.
 """
 
+import html
 import json
 import logging
 import os
 import re
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -31,15 +33,40 @@ OVERLAY_TEMPLATES_DIR = Path("overlay_templates")
 OVERLAY_STATIC_DIR = Path("overlay_static")
 
 
-_TITLE_PATTERN = re.compile(r"<title>.*?</title>", re.IGNORECASE | re.DOTALL)
+# Matches the first ``<title>`` element, including any attributes
+# (e.g. ``<title lang="en">``).
+_TITLE_PATTERN = re.compile(
+    r"<title(?:\s+[^>]*)?>.*?</title>", re.IGNORECASE | re.DOTALL,
+)
 
 
-def _inject_title_into_html(html: str, title: str) -> str:
-    """Replace ``<title>...</title>`` (and Apple PWA title) with *title*."""
-    escaped = (
-        title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+def _inject_title_into_html(html_content: str, title: str) -> str:
+    """Replace the first ``<title>...</title>`` with the escaped *title*."""
+    return _TITLE_PATTERN.sub(
+        f"<title>{html.escape(title)}</title>", html_content, count=1,
     )
-    return _TITLE_PATTERN.sub(f"<title>{escaped}</title>", html, count=1)
+
+
+@lru_cache(maxsize=8)
+def _render_index_html(path: str, mtime: float, title: str) -> str:
+    """Memoize the rewritten ``index.html``.
+
+    Cache key includes ``mtime`` so a rebuilt frontend invalidates the
+    entry, and ``title`` so a changed ``APP_TITLE`` (e.g. via remote config)
+    is reflected without a restart.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    return _inject_title_into_html(text, title)
+
+
+@lru_cache(maxsize=8)
+def _render_manifest(path: str, mtime: float, title: str) -> dict:
+    """Memoize the rewritten PWA manifest. See :func:`_render_index_html`."""
+    with Path(path).open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    data["name"] = title
+    data["short_name"] = title
+    return data
 
 
 class SPAStaticFiles(StaticFiles):
@@ -47,7 +74,9 @@ class SPAStaticFiles(StaticFiles):
 
     The served ``index.html`` has its ``<title>`` rewritten to the value of
     the ``APP_TITLE`` env var so the browser tab matches the configured app
-    name without rebuilding the frontend.
+    name without rebuilding the frontend. The rewritten HTML is memoized
+    by ``(path, mtime, title)`` so steady-state requests do no disk I/O
+    beyond a single ``stat()``.
     """
 
     async def get_response(self, path, scope):
@@ -65,8 +94,9 @@ class SPAStaticFiles(StaticFiles):
         index_path = Path(self.directory) / "index.html"
         if not index_path.is_file():
             return await super().get_response("index.html", scope)
-        html = index_path.read_text(encoding="utf-8")
-        rewritten = _inject_title_into_html(html, get_app_title())
+        rewritten = _render_index_html(
+            str(index_path), index_path.stat().st_mtime, get_app_title(),
+        )
         return HTMLResponse(rewritten)
 
 
@@ -151,28 +181,21 @@ def _register_system_endpoints(application: FastAPI) -> None:
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
         )
 
-    def _load_manifest(path: Path) -> dict:
-        with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        title = get_app_title()
-        data["name"] = title
-        data["short_name"] = title
-        return data
-
     @application.get("/manifest.webmanifest")
     def serve_webmanifest():
         manifest = FRONTEND_DIR / "manifest.webmanifest"
         source = manifest if manifest.is_file() else Path("app/pwa/manifest.json")
         return JSONResponse(
-            content=_load_manifest(source),
+            content=_render_manifest(str(source), source.stat().st_mtime, get_app_title()),
             media_type="application/manifest+json",
             headers={"Cache-Control": "no-cache"},
         )
 
     @application.get("/manifest.json")
     def serve_manifest():
+        source = Path("app/pwa/manifest.json")
         return JSONResponse(
-            content=_load_manifest(Path("app/pwa/manifest.json")),
+            content=_render_manifest(str(source), source.stat().st_mtime, get_app_title()),
             media_type="application/json",
         )
 
