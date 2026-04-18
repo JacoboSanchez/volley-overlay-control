@@ -4,6 +4,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, Header, Request
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import get_current_username, get_session, verify_api_key
@@ -18,7 +19,18 @@ logger = logging.getLogger("APIRoutes")
 router = APIRouter()
 
 
-@router.get("/overlays", dependencies=[Depends(verify_api_key)])
+class OverlayPayload(BaseModel):
+    """Predefined overlay entry returned by ``GET /overlays``."""
+
+    name: str = Field(..., description="Display name of the overlay")
+    oid: str = Field(..., description="Overlay identifier")
+
+
+@router.get(
+    "/overlays",
+    response_model=list[OverlayPayload],
+    dependencies=[Depends(verify_api_key)],
+)
 async def get_overlays(authorization: str = Header(None)):
     """Return predefined overlays available for selection.
 

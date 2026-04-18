@@ -756,6 +756,22 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * OverlayPayload
+         * @description Predefined overlay entry returned by ``GET /overlays``.
+         */
+        OverlayPayload: {
+            /**
+             * Name
+             * @description Display name of the overlay
+             */
+            name: string;
+            /**
+             * Oid
+             * @description Overlay identifier
+             */
+            oid: string;
+        };
         /** OverlayStateUpdate */
         OverlayStateUpdate: {
             match_info?: components["schemas"]["MatchInfoModel"] | null;
@@ -1734,7 +1750,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OverlayPayload"][];
                 };
             };
             /** @description Validation Error */

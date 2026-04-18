@@ -340,6 +340,27 @@
         "title": "OverlayControlModel",
         "type": "object"
       },
+      "OverlayPayload": {
+        "description": "Predefined overlay entry returned by ``GET /overlays``.",
+        "properties": {
+          "name": {
+            "description": "Display name of the overlay",
+            "title": "Name",
+            "type": "string"
+          },
+          "oid": {
+            "description": "Overlay identifier",
+            "title": "Oid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "oid"
+        ],
+        "title": "OverlayPayload",
+        "type": "object"
+      },
       "OverlayStateUpdate": {
         "additionalProperties": true,
         "properties": {
@@ -2031,7 +2052,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OverlayPayload"
+                  },
+                  "title": "Response Get Overlays Api V1 Overlays Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
