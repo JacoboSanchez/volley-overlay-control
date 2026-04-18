@@ -114,7 +114,7 @@ volley-overlay-control/
 | Session | `SessionManager` | `app/api/session_manager.py` | Thread-safe game session management by OID |
 | WS Hub | `WSHub` | `app/api/ws_hub.py` | WebSocket notification hub for real-time state push |
 | Sync | `Backend` | `app/backend.py` | Coordinator — delegates to overlay backend strategies |
-| Overlay | `LocalOverlayBackend` | `app/overlay_backends.py` | In-process overlay state management (default for C- OIDs) |
+| Overlay | `LocalOverlayBackend` | `app/overlay_backends.py` | In-process overlay state management (default for custom overlays) |
 | Overlay | `OverlayStateStore` | `app/overlay/state_store.py` | In-memory + JSON persistence for overlay state |
 | Overlay | `ObsBroadcastHub` | `app/overlay/broadcast.py` | Debounced WebSocket broadcasts to OBS browser sources |
 | Admin | `admin_router`, `admin_page_router` | `app/admin/routes.py` | `/manage` page + `/api/v1/admin/custom-overlays` CRUD for custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`) |
@@ -177,13 +177,15 @@ The entire match lives in a flat dictionary with these keys:
 
 `Backend` communicates with overlay backends using the strategy pattern:
 
-| OID Prefix | Type | Backend Class | Communication |
-|-----------|------|--------------|---------------|
-| *(none / plain token)* | overlays.uno cloud | `UnoOverlayBackend` | HTTP to overlays.uno API |
-| `C-{id}` or `C-{id}/{style}` | Custom (local) | `LocalOverlayBackend` | In-process via `OverlayStateStore` |
-| `C-{id}` (with `APP_CUSTOM_OVERLAY_URL` set) | Custom (external) | `CustomOverlayBackend` | WebSocket + HTTP to external server |
+| OID Pattern | Type | Backend Class | Communication |
+|-------------|------|--------------|---------------|
+| Existing local overlay id (e.g. `mybroadcast`) — bare or legacy `C-mybroadcast[/style]` | Custom (local) | `LocalOverlayBackend` | In-process via `OverlayStateStore` |
+| Same as above, with `APP_CUSTOM_OVERLAY_URL` set | Custom (external) | `CustomOverlayBackend` | WebSocket + HTTP to external server |
+| 22-char alphanumeric token (e.g. `2cIXk2IjHvMuva6Wwele8j`) | overlays.uno cloud | `UnoOverlayBackend` | HTTP to overlays.uno API |
 
-**Default behavior:** Custom overlays (`C-` prefix) are managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `Backend` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources.
+**Resolution order:** `Backend._resolve_kind()` (see `app/overlay_backends/utils.resolve_overlay_kind`) checks the local overlay store first; if a custom overlay with that id exists, it wins. Otherwise, an OID matching the UNO format (22 alphanumeric characters) is treated as a cloud overlay; anything else is INVALID. **No auto-creation** — overlays must be created up-front from `/manage`. The legacy `C-` prefix is still accepted but is no longer required and is not used in the UI/docs.
+
+**Default behavior:** Custom overlays are managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `Backend` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources.
 
 **External server mode:** When `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract.
 
@@ -270,7 +272,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 
 - **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`.
 - **Do not skip `GameManager.save()`** — after any mutation, save must be called.
-- **Custom overlay IDs start with `C-`** — `Backend.is_custom_overlay()` checks this prefix.
+- **Custom overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
 - **Undo is a flag, not a stack** — reverses only the most recent action of that type.
 
 ---

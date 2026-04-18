@@ -48,7 +48,7 @@ describe('App', () => {
   it('renders OID entry screen initially', () => {
     renderWithI18n(<App />);
     expect(screen.getByText('Volley Scoreboard')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('C-my-overlay')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('my-overlay')).toBeInTheDocument();
   });
 
   it('connect button is disabled when OID input is empty', () => {
@@ -59,14 +59,14 @@ describe('App', () => {
 
   it('connect button is enabled when OID input has value', () => {
     renderWithI18n(<App />);
-    const input = screen.getByPlaceholderText('C-my-overlay');
+    const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'test-oid' } });
     expect(screen.getByText('Connect')).not.toBeDisabled();
   });
 
   it('initializes session on form submit', async () => {
     renderWithI18n(<App />);
-    const input = screen.getByPlaceholderText('C-my-overlay');
+    const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'my-oid' } });
     fireEvent.submit(input.closest('form')!);
 
@@ -78,7 +78,7 @@ describe('App', () => {
   it('shows error message when session init fails', async () => {
     vi.mocked(api.initSession).mockResolvedValue({ success: false, message: 'Invalid OID' });
     renderWithI18n(<App />);
-    const input = screen.getByPlaceholderText('C-my-overlay');
+    const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'bad' } });
     fireEvent.submit(input.closest('form')!);
 
@@ -89,7 +89,7 @@ describe('App', () => {
 
   it('renders scoreboard after successful init', async () => {
     renderWithI18n(<App />);
-    const input = screen.getByPlaceholderText('C-my-overlay');
+    const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'valid-oid' } });
     fireEvent.submit(input.closest('form')!);
 
@@ -114,7 +114,7 @@ describe('App', () => {
 
   it('switches to config tab when config button clicked', async () => {
     renderWithI18n(<App />);
-    const input = screen.getByPlaceholderText('C-my-overlay');
+    const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'oid' } });
     fireEvent.submit(input.closest('form')!);
 
@@ -136,7 +136,7 @@ describe('App', () => {
 
   it('persists OID to localStorage on connect', async () => {
     renderWithI18n(<App />);
-    const input = screen.getByPlaceholderText('C-my-overlay');
+    const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'persist-oid' } });
     fireEvent.submit(input.closest('form')!);
 

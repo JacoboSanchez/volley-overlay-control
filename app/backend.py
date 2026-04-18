@@ -7,7 +7,8 @@ from app.overlay_backends import (
     UnoOverlayBackend,
     CustomOverlayBackend,
     LocalOverlayBackend,
-    is_custom_overlay,
+    OverlayKind,
+    resolve_overlay_kind,
 )
 from app.env_vars_manager import EnvVarsManager
 
@@ -35,15 +36,25 @@ class Backend:
         self._customization_cache = None
         self._overlay = self._create_overlay_backend()
 
+    @staticmethod
+    def _local_overlay_exists(overlay_id: str) -> bool:
+        from app.overlay import overlay_state_store
+        return bool(overlay_id) and overlay_state_store.overlay_exists(overlay_id)
+
+    def _resolve_kind(self, oid=None) -> OverlayKind:
+        check_oid = oid if oid is not None else self.conf.oid
+        return resolve_overlay_kind(check_oid, self._local_overlay_exists)
+
     def _create_overlay_backend(self, oid=None):
         """Instantiate the right overlay backend for the given OID.
 
-        For custom overlays (``C-`` prefix), uses ``LocalOverlayBackend``
-        (in-process) by default.  If ``APP_CUSTOM_OVERLAY_URL`` is explicitly
-        set, falls back to ``CustomOverlayBackend`` (external server).
+        Custom overlays use ``LocalOverlayBackend`` (in-process) by default;
+        when ``APP_CUSTOM_OVERLAY_URL`` is set, ``CustomOverlayBackend``
+        (external server) is used instead. Anything else (including OIDs
+        that fail to resolve) falls back to ``UnoOverlayBackend`` so that
+        validation can later report INVALID via the cloud REST API.
         """
-        check_oid = oid if oid is not None else self.conf.oid
-        if is_custom_overlay(check_oid):
+        if self._resolve_kind(oid) == OverlayKind.CUSTOM:
             external_url = EnvVarsManager.get_env_var(
                 'APP_CUSTOM_OVERLAY_URL', None
             )
@@ -57,21 +68,19 @@ class Backend:
 
     def _ensure_overlay_backend(self, oid=None):
         """Re-create the overlay backend if the OID type changed."""
-        check_oid = oid if oid is not None else self.conf.oid
-        is_custom = is_custom_overlay(check_oid)
+        is_custom = self._resolve_kind(oid) == OverlayKind.CUSTOM
         if is_custom != self._overlay.is_custom:
             self._overlay.close_ws_client()
-            self._overlay = self._create_overlay_backend(check_oid)
+            self._overlay = self._create_overlay_backend(oid)
 
     # -- Public interface (used by GameManager, GameSession, routes, GUI) ----
 
     def is_custom_overlay(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
-        return is_custom_overlay(check_oid)
+        return self._resolve_kind(oid) == OverlayKind.CUSTOM
 
     def get_custom_overlay_id(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
-        if is_custom_overlay(check_oid):
+        if self._resolve_kind(check_oid) == OverlayKind.CUSTOM:
             # Both LocalOverlayBackend and CustomOverlayBackend share
             # the same static get_overlay_id parser.
             return LocalOverlayBackend.get_overlay_id(check_oid)
@@ -81,7 +90,7 @@ class Backend:
 
     def init_ws_client(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
-        if not is_custom_overlay(check_oid):
+        if self._resolve_kind(check_oid) != OverlayKind.CUSTOM:
             return
         self._ensure_overlay_backend(check_oid)
         self._overlay.init_ws_client(check_oid)
@@ -373,12 +382,11 @@ class Backend:
 
     def do_send_request(self, oid, jsonin):
         """Direct request to the Uno API (legacy compatibility)."""
-        if is_custom_overlay(oid):
-            from app.overlay_backends import _mock_response
+        from app.overlay_backends import _mock_response
+        if self._resolve_kind(oid) != OverlayKind.UNO:
             return _mock_response(200)
 
         if isinstance(self._overlay, UnoOverlayBackend):
             return self._overlay._do_request(oid, jsonin)
 
-        from app.overlay_backends import _mock_response
         return _mock_response(200)

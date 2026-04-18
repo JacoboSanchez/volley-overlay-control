@@ -36,8 +36,7 @@ _PAGE_PATH = os.path.join(os.path.dirname(__file__), "static", "overlays.html")
 
 # Custom overlay IDs are used as filenames and URL path components, so
 # only allow the characters that cannot collide with the filesystem or
-# HTTP path parsing. The ``C-`` prefix is added automatically when the
-# overlay is used as an OID.
+# HTTP path parsing. The bare ID is used directly as the OID.
 _OVERLAY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
@@ -47,7 +46,7 @@ _OVERLAY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 class CustomOverlayCreate(BaseModel):
-    name: str = Field(..., min_length=1, description="Overlay id (without the C- prefix)")
+    name: str = Field(..., min_length=1, description="Overlay id used as OID")
     copy_from: Optional[str] = Field(
         None,
         description="Optional existing overlay id to clone configuration from",
@@ -146,15 +145,14 @@ def admin_login(_: None = Depends(require_admin)):
 def list_custom_overlays():
     """Return every custom overlay persisted on disk.
 
-    Each entry carries the overlay id (the part after the ``C-`` prefix),
-    its derived output key and the corresponding OID clients should use
-    when pointing the scoreboard at the overlay.
+    Each entry carries the overlay id (used directly as the OID) and its
+    derived output key.
     """
     store = _overlay_store()
     return [
         {
             "id": entry["id"],
-            "oid": f"C-{entry['id']}",
+            "oid": entry["id"],
             "output_key": entry["output_key"],
         }
         for entry in store.list_overlays()
@@ -185,7 +183,7 @@ def create_custom_overlay(payload: CustomOverlayCreate):
 
     return {
         "id": name,
-        "oid": f"C-{name}",
+        "oid": name,
         "output_key": store.get_output_key(name),
     }
 

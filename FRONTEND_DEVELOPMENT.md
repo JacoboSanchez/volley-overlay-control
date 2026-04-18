@@ -52,7 +52,7 @@ pip install -r requirements.txt
 cd frontend && npm ci && npm run build && cd ..
 
 # Configure (minimal)
-export UNO_OVERLAY_OID=C-my-overlay   # or a cloud overlay OID
+export UNO_OVERLAY_OID=my-overlay   # or a cloud overlay OID
 
 # Start the server
 python main.py
@@ -67,7 +67,7 @@ Before using any game endpoint, you must initialise a session:
 ```bash
 curl -X POST http://localhost:8080/api/v1/session/init \
   -H "Content-Type: application/json" \
-  -d '{"oid": "C-my-overlay"}'
+  -d '{"oid": "my-overlay"}'
 ```
 
 Response:
@@ -106,7 +106,7 @@ You can also override match rules when initialising:
 
 ```json
 {
-  "oid": "C-my-overlay",
+  "oid": "my-overlay",
   "points_limit": 21,
   "points_limit_last_set": 15,
   "sets_limit": 3
@@ -120,7 +120,7 @@ You can also override match rules when initialising:
 If the server has `SCOREBOARD_USERS` configured, all API endpoints (except the WebSocket handshake) require a Bearer token:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/game/add-point?oid=C-my-overlay \
+curl -X POST http://localhost:8080/api/v1/game/add-point?oid=my-overlay \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <password>" \
   -d '{"team": 1}'
@@ -327,7 +327,7 @@ Connect to `ws://localhost:8080/api/v1/ws?oid=<OID>` to receive live state updat
 ### Connection
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/api/v1/ws?oid=C-my-overlay');
+const ws = new WebSocket('ws://localhost:8080/api/v1/ws?oid=my-overlay');
 
 ws.onopen = () => {
   console.log('Connected! Initial state will arrive automatically.');
@@ -473,7 +473,7 @@ ws.onclose = (event) => {
 
   <script>
     const BASE = 'http://localhost:8080';
-    const OID = 'C-my-overlay';
+    const OID = 'my-overlay';
     // Set this if authentication is enabled:
     const API_KEY = null; // e.g. 'my-password'
 

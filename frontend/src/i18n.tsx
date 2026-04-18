@@ -7,7 +7,7 @@ const translations: Record<string, TranslationDict> = {
     // Init screen
     'app.title': 'Volley Scoreboard',
     'app.oidLabel': 'Overlay Control ID (OID)',
-    'app.oidPlaceholder': 'C-my-overlay',
+    'app.oidPlaceholder': 'my-overlay',
     'app.connect': 'Connect',
     'app.selectOverlay': 'Select Overlay',
     'app.selectOverlayPlaceholder': '— Select —',
@@ -128,7 +128,7 @@ const translations: Record<string, TranslationDict> = {
     // Init screen
     'app.title': 'Marcador',
     'app.oidLabel': 'ID de Control del Overlay (OID)',
-    'app.oidPlaceholder': 'C-mi-overlay',
+    'app.oidPlaceholder': 'mi-overlay',
     'app.connect': 'Conectar',
     'app.selectOverlay': 'Seleccionar Overlay',
     'app.selectOverlayPlaceholder': '— Elegir —',
