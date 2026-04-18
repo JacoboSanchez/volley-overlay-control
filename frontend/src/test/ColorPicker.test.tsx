@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
-import React from 'react';
 import ColorPicker from '../components/ColorPicker';
 import { renderWithI18n } from './helpers';
 
-// Mock react-colorful
 vi.mock('react-colorful', () => ({
-  HexColorPicker: ({ color, onChange }) => (
+  HexColorPicker: ({ color, onChange }: { color: string; onChange: (c: string) => void }) => (
     <div data-testid="hex-color-picker" data-color={color} onClick={() => onChange('#ff0000')}>
       MockPicker
     </div>
@@ -58,7 +56,7 @@ describe('ColorPicker', () => {
   it('shows hex input with current color value', () => {
     renderWithI18n(<ColorPicker color="#abcdef" onChange={onChange} data-testid="picker" />);
     fireEvent.click(screen.getByTestId('picker'));
-    const input = screen.getByTestId('picker-hex');
+    const input = screen.getByTestId('picker-hex') as HTMLInputElement;
     expect(input.value).toBe('#abcdef');
   });
 
@@ -148,7 +146,7 @@ describe('ColorPicker', () => {
     fireEvent.click(screen.getByTestId('picker'));
     // Click a preset
     fireEvent.click(screen.getByLabelText('#d32f2f'));
-    const stored = JSON.parse(localStorage.getItem('volley_recentColors'));
+    const stored = JSON.parse(localStorage.getItem('volley_recentColors')!);
     expect(stored).toContain('#d32f2f');
   });
 
@@ -161,7 +159,7 @@ describe('ColorPicker', () => {
     expect(localStorage.getItem('volley_recentColors')).toBeNull();
     // Saved on blur
     fireEvent.blur(input);
-    const stored = JSON.parse(localStorage.getItem('volley_recentColors'));
+    const stored = JSON.parse(localStorage.getItem('volley_recentColors')!);
     expect(stored).toContain('#aabbcc');
   });
 
@@ -180,9 +178,9 @@ describe('ColorPicker', () => {
     fireEvent.click(screen.getByTestId('picker'));
     // Pick #222222 again via preset-style click
     fireEvent.click(screen.getByLabelText('#222222'));
-    const stored = JSON.parse(localStorage.getItem('volley_recentColors'));
+    const stored = JSON.parse(localStorage.getItem('volley_recentColors')!);
     expect(stored[0]).toBe('#222222');
     // No duplicate
-    expect(stored.filter((c) => c === '#222222').length).toBe(1);
+    expect(stored.filter((c: string) => c === '#222222').length).toBe(1);
   });
 });

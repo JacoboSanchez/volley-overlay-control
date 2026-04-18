@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
-import React from 'react';
 import SetValueDialog from '../components/SetValueDialog';
 import { renderWithI18n } from './helpers';
 
@@ -51,7 +50,7 @@ describe('SetValueDialog', () => {
     const { container } = renderWithI18n(
       <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
     );
-    fireEvent.click(container.querySelector('.dialog-overlay'));
+    fireEvent.click(container.querySelector('.dialog-overlay')!);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -62,7 +61,7 @@ describe('SetValueDialog', () => {
     );
     const input = screen.getByDisplayValue('0');
     fireEvent.change(input, { target: { value: '50' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
     expect(onSubmit).toHaveBeenCalledWith(10);
   });
 
@@ -73,7 +72,7 @@ describe('SetValueDialog', () => {
     );
     const input = screen.getByDisplayValue('5');
     fireEvent.change(input, { target: { value: '' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
     expect(onSubmit).toHaveBeenCalledWith(0);
   });
 
@@ -84,7 +83,7 @@ describe('SetValueDialog', () => {
     );
     const input = screen.getByDisplayValue('5');
     fireEvent.change(input, { target: { value: '-10' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
     expect(onSubmit).toHaveBeenCalledWith(0);
   });
 });

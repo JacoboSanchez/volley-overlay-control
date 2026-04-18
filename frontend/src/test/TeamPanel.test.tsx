@@ -1,16 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import React from 'react';
-import TeamPanel from '../components/TeamPanel';
+import TeamPanel, { TeamPanelProps } from '../components/TeamPanel';
+import type { components } from '../api/schema';
+import { mockGameState } from './helpers';
 
-const defaultProps = {
+type TeamState = components['schemas']['TeamState'];
+
+const baseTeamState: TeamState = {
+  sets: 1,
+  timeouts: 2,
+  serving: true,
+  scores: { set_1: 25, set_2: 15 },
+};
+
+const defaultProps: TeamPanelProps = {
   teamId: 1,
-  teamState: {
-    sets: 1,
-    timeouts: 2,
-    serving: true,
-    scores: { set_1: 25, set_2: 15 },
-  },
+  teamState: baseTeamState,
   currentSet: 2,
   buttonColor: '#2196f3',
   buttonTextColor: '#ffffff',
@@ -21,6 +26,8 @@ const defaultProps = {
   iconLogo: null,
   iconOpacity: 50,
   fontStyle: { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 },
+  state: mockGameState,
+  setsLimit: 5,
   onAddPoint: vi.fn(),
   onAddTimeout: vi.fn(),
   onChangeServe: vi.fn(),
@@ -52,7 +59,7 @@ describe('TeamPanel', () => {
   });
 
   it('renders serve icon dimmed when not serving', () => {
-    render(<TeamPanel {...defaultProps} teamState={{ ...defaultProps.teamState, serving: false }} />);
+    render(<TeamPanel {...defaultProps} teamState={{ ...baseTeamState, serving: false }} />);
     expect(screen.getByTestId('team-1-serve').style.opacity).toBe('0.4');
   });
 
@@ -102,7 +109,7 @@ describe('TeamPanel', () => {
   });
 
   it('pads score to two digits', () => {
-    render(<TeamPanel {...defaultProps} teamState={{ ...defaultProps.teamState, scores: { set_2: 3 } }} />);
+    render(<TeamPanel {...defaultProps} teamState={{ ...baseTeamState, scores: { set_2: 3 } }} />);
     expect(screen.getByTestId('team-1-score')).toHaveTextContent('03');
   });
 });

@@ -1,19 +1,18 @@
-import '@testing-library/jest-dom';
-import { beforeEach } from 'vitest';
+import '@testing-library/jest-dom/vitest';
+import { beforeEach, vi } from 'vitest';
 
-// Mock localStorage with a simple in-memory implementation
-const store = {};
+const store: Record<string, string> = {};
 const localStorageMock = {
-  getItem: vi.fn((key) => store[key] ?? null),
-  setItem: vi.fn((key, value) => { store[key] = String(value); }),
-  removeItem: vi.fn((key) => { delete store[key]; }),
+  getItem: vi.fn((key: string) => store[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => { store[key] = String(value); }),
+  removeItem: vi.fn((key: string) => { delete store[key]; }),
   clear: vi.fn(() => {
     for (const key in store) {
       delete store[key];
     }
   }),
   get length() { return Object.keys(store).length; },
-  key: vi.fn((i) => Object.keys(store)[i] ?? null),
+  key: vi.fn((i: number) => Object.keys(store)[i] ?? null),
 };
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
@@ -25,10 +24,9 @@ beforeEach(() => {
   localStorageMock.clear.mockClear();
 });
 
-// Mock matchMedia for responsive layout tests
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -40,7 +38,6 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock fullscreen API
 document.documentElement.requestFullscreen = vi.fn().mockResolvedValue(undefined);
 document.exitFullscreen = vi.fn().mockResolvedValue(undefined);
 Object.defineProperty(document, 'fullscreenElement', { writable: true, value: null });

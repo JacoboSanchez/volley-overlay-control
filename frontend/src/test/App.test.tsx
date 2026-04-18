@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import React from 'react';
 import App from '../App';
 import * as api from '../api/client';
 import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
@@ -36,15 +35,14 @@ vi.mock('../api/websocket', () => ({
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset URL
     Object.defineProperty(window, 'location', {
       value: { protocol: 'https:', host: 'localhost', search: '', href: 'https://localhost' },
       writable: true,
     });
-    api.getOverlays.mockResolvedValue([]);
-    api.initSession.mockResolvedValue({ success: true, state: mockGameState });
-    api.getCustomization.mockResolvedValue(mockCustomization);
-    api.getLinks.mockResolvedValue({ control: '', overlay: '', preview: '' });
+    vi.mocked(api.getOverlays).mockResolvedValue([]);
+    vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState });
+    vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
+    vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });
   });
 
   it('renders OID entry screen initially', () => {
@@ -70,7 +68,7 @@ describe('App', () => {
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('C-my-overlay');
     fireEvent.change(input, { target: { value: 'my-oid' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
       expect(api.initSession).toHaveBeenCalledWith('my-oid');
@@ -78,11 +76,11 @@ describe('App', () => {
   });
 
   it('shows error message when session init fails', async () => {
-    api.initSession.mockResolvedValue({ success: false, message: 'Invalid OID' });
+    vi.mocked(api.initSession).mockResolvedValue({ success: false, message: 'Invalid OID' });
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('C-my-overlay');
     fireEvent.change(input, { target: { value: 'bad' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
       expect(screen.getByText('Invalid OID')).toBeInTheDocument();
@@ -93,7 +91,7 @@ describe('App', () => {
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('C-my-overlay');
     fireEvent.change(input, { target: { value: 'valid-oid' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
       expect(screen.getByTestId('team-1-sets')).toBeInTheDocument();
@@ -102,10 +100,10 @@ describe('App', () => {
   });
 
   it('renders predefined overlays dropdown when available', async () => {
-    api.getOverlays.mockResolvedValue([
+    vi.mocked(api.getOverlays).mockResolvedValue([
       { oid: 'overlay-1', name: 'My Overlay' },
       { oid: 'overlay-2', name: 'Other Overlay' },
-    ]);
+    ] as unknown as api.OverlayPayload[]);
     renderWithI18n(<App />);
 
     await waitFor(() => {
@@ -118,16 +116,16 @@ describe('App', () => {
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('C-my-overlay');
     fireEvent.change(input, { target: { value: 'oid' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
       expect(screen.getByTestId('config-tab-button')).toBeInTheDocument();
     });
 
     // Mock additional API calls that ConfigPanel makes
-    api.getTeams.mockResolvedValue({});
-    api.getThemes.mockResolvedValue({});
-    api.getStyles.mockResolvedValue([]);
+    vi.mocked(api.getTeams).mockResolvedValue({});
+    vi.mocked(api.getThemes).mockResolvedValue({});
+    vi.mocked(api.getStyles).mockResolvedValue([]);
 
     fireEvent.click(screen.getByTestId('config-tab-button'));
 
@@ -140,7 +138,7 @@ describe('App', () => {
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('C-my-overlay');
     fireEvent.change(input, { target: { value: 'persist-oid' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
       expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'persist-oid');
