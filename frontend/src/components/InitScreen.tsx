@@ -1,36 +1,56 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, ChangeEvent, FormEvent } from 'react';
 import { useI18n } from '../i18n';
 import * as api from '../api/client';
 
-export default function InitScreen({ oidInput, setOidInput, onSubmit, onSelect, error }) {
+export interface InitScreenProps {
+  oidInput: string;
+  setOidInput: (value: string) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  onSelect: (oid: string) => void;
+  error?: string | null;
+}
+
+interface PredefinedOverlay {
+  oid: string;
+  name: string;
+}
+
+function normalizeOverlays(data: unknown): PredefinedOverlay[] {
+  if (Array.isArray(data)) {
+    return data.flatMap((item): PredefinedOverlay[] => {
+      if (item && typeof item === 'object' && 'oid' in item) {
+        const entry = item as { oid?: unknown; name?: unknown };
+        if (typeof entry.oid === 'string' && entry.oid) {
+          const name = typeof entry.name === 'string' && entry.name ? entry.name : entry.oid;
+          return [{ oid: entry.oid, name }];
+        }
+        return [];
+      }
+      if (typeof item === 'string' && item) return [{ oid: item, name: item }];
+      return [];
+    });
+  }
+  if (data && typeof data === 'object') {
+    return Object.entries(data as Record<string, unknown>)
+      .filter(([, oid]) => typeof oid === 'string')
+      .map(([name, oid]) => ({ oid: oid as string, name }));
+  }
+  return [];
+}
+
+export default function InitScreen({ oidInput, setOidInput, onSubmit, onSelect, error }: InitScreenProps) {
   const { t } = useI18n();
-  const [predefinedOverlays, setPredefinedOverlays] = useState([]);
+  const [predefinedOverlays, setPredefinedOverlays] = useState<PredefinedOverlay[]>([]);
 
   useEffect(() => {
     api.getOverlays().then((data) => {
-      let overlays = [];
-      if (Array.isArray(data)) {
-        overlays = data
-          .map((item) => {
-            if (item && typeof item === 'object' && item.oid) {
-              return { oid: item.oid, name: item.name || item.oid };
-            }
-            if (typeof item === 'string' && item) {
-              return { oid: item, name: item };
-            }
-            return null;
-          })
-          .filter(Boolean);
-      } else if (data && typeof data === 'object') {
-        overlays = Object.entries(data).map(([name, oid]) => ({ oid, name }));
-      }
-      setPredefinedOverlays(overlays);
-    }).catch((err) => {
+      setPredefinedOverlays(normalizeOverlays(data));
+    }).catch((err: unknown) => {
       console.warn('Failed to fetch predefined overlays:', err);
     });
   }, []);
 
-  const handleOverlaySelect = useCallback((e) => {
+  const handleOverlaySelect = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
     setOidInput(e.target.value);
     if (e.target.value) {
       onSelect(e.target.value);

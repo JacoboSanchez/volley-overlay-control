@@ -1,13 +1,34 @@
-import React from 'react';
 import ScoreButton from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
+import type { GameState } from '../api/client';
+import type { ConfigModel } from './TeamCard';
 
-/**
- * Center panel with set buttons, team logos, score history, and set pagination.
- * Mirrors the NiceGUI CenterPanel component layout:
- * logos on top, score columns directly below (no set indicator in between).
- */
+export interface PreviewData {
+  overlayUrl: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  layoutId?: string;
+}
+
+export interface CenterPanelProps {
+  state: GameState | null | undefined;
+  customization: ConfigModel | null | undefined;
+  currentSet: number;
+  setsLimit: number;
+  isPortrait: boolean;
+  previewData: PreviewData | null | undefined;
+  onAddSet: (teamId: 1 | 2) => void;
+  onLongPressSet: (teamId: 1 | 2) => void;
+  onSetChange: (set: number) => void;
+}
+
+function asString(v: unknown): string | null {
+  return typeof v === 'string' && v ? v : null;
+}
+
 export default function CenterPanel({
   state,
   customization,
@@ -18,14 +39,14 @@ export default function CenterPanel({
   onAddSet,
   onLongPressSet,
   onSetChange,
-}) {
+}: CenterPanelProps) {
   if (!state) return null;
 
   const t1Sets = state.team_1.sets;
   const t2Sets = state.team_2.sets;
 
-  const logo1 = customization?.['Team 1 Logo'] || null;
-  const logo2 = customization?.['Team 2 Logo'] || null;
+  const logo1 = asString(customization?.['Team 1 Logo']);
+  const logo2 = asString(customization?.['Team 2 Logo']);
 
   return (
     <div className="center-panel">
@@ -40,17 +61,11 @@ export default function CenterPanel({
           data-testid="team-1-sets"
         />
 
-        {/* In landscape, show score history here; in portrait it moves to TeamPanels */}
         {!isPortrait && (
           <div className="logos-scores-section">
             <div className="team-score-column">
               {logo1 && (
-                <img
-                  src={logo1}
-                  alt="Team 1"
-                  className="team-logo"
-                  data-testid="team-1-logo"
-                />
+                <img src={logo1} alt="Team 1" className="team-logo" data-testid="team-1-logo" />
               )}
               <ScoreTable
                 state={state}
@@ -61,12 +76,7 @@ export default function CenterPanel({
             </div>
             <div className="team-score-column">
               {logo2 && (
-                <img
-                  src={logo2}
-                  alt="Team 2"
-                  className="team-logo"
-                  data-testid="team-2-logo"
-                />
+                <img src={logo2} alt="Team 2" className="team-logo" data-testid="team-2-logo" />
               )}
               <ScoreTable
                 state={state}
