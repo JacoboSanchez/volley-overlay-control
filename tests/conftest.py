@@ -25,7 +25,7 @@ def load_test_env(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def isolate_overlay_store(tmp_path):
+def isolate_overlay_store(tmp_path_factory):
     """Point the overlay state store at a per-test temp dir and seed
     ``test_overlay`` so the OID resolver classifies it as CUSTOM.
 
@@ -33,9 +33,14 @@ def isolate_overlay_store(tmp_path):
     developer-local fixture files. Without seeding, ``resolve_overlay_kind``
     falls through to UNO and the custom-overlay tests assert against the
     wrong backend.
+
+    Uses a dedicated tmp dir (not the per-test ``tmp_path``) so tests that
+    own their own data dir via ``tmp_path`` (e.g. ``test_admin.py``) are not
+    polluted by the seeded fixture file.
     """
     from app.overlay import overlay_state_store
 
+    seed_dir = tmp_path_factory.mktemp("overlay_seed")
     saved = {
         "_data_dir": overlay_state_store._data_dir,
         "_overlays": overlay_state_store._overlays,
@@ -43,7 +48,7 @@ def isolate_overlay_store(tmp_path):
         "_available_styles": overlay_state_store._available_styles,
         "_all_overlays_scanned": overlay_state_store._all_overlays_scanned,
     }
-    overlay_state_store._data_dir = str(tmp_path)
+    overlay_state_store._data_dir = str(seed_dir)
     overlay_state_store._overlays = {}
     overlay_state_store._output_key_cache = {}
     overlay_state_store._available_styles = None
