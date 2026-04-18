@@ -90,6 +90,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/custom-overlays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Custom Overlays
+         * @description Return every custom overlay persisted on disk.
+         *
+         *     Each entry carries the overlay id (the part after the ``C-`` prefix),
+         *     its derived output key and the corresponding OID clients should use
+         *     when pointing the scoreboard at the overlay.
+         */
+        get: operations["list_custom_overlays_api_v1_admin_custom_overlays_get"];
+        put?: never;
+        /**
+         * Create Custom Overlay
+         * @description Create a new custom overlay, optionally cloning an existing one.
+         */
+        post: operations["create_custom_overlay_api_v1_admin_custom_overlays_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/custom-overlays/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Custom Overlay
+         * @description Remove a custom overlay and its persisted state.
+         */
+        delete: operations["delete_custom_overlay_api_v1_admin_custom_overlays__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/login": {
         parameters: {
             query?: never;
@@ -110,45 +158,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/overlays": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Overlays
-         * @description Return all managed overlays.
-         */
-        get: operations["list_overlays_api_v1_admin_overlays_get"];
-        put?: never;
-        /** Create Overlay */
-        post: operations["create_overlay_api_v1_admin_overlays_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/overlays/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Overlay */
-        put: operations["update_overlay_api_v1_admin_overlays__name__put"];
-        post?: never;
-        /** Delete Overlay */
-        delete: operations["delete_overlay_api_v1_admin_overlays__name__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/status": {
         parameters: {
             query?: never;
@@ -159,10 +168,6 @@ export interface paths {
         /**
          * Admin Status
          * @description Report whether overlay management is enabled on this server.
-         *
-         *     Does not leak the password — just indicates whether an admin password
-         *     is configured so the management UI can show a helpful message when
-         *     the feature is disabled.
          */
         get: operations["admin_status_api_v1_admin_status_get"];
         put?: never;
@@ -392,13 +397,8 @@ export interface paths {
          * Get Overlays
          * @description Return predefined overlays available for selection.
          *
-         *     Merges two sources:
-         *
-         *     * ``PREDEFINED_OVERLAYS`` env var (read-only, configured at startup).
-         *     * Overlays managed through the ``/manage`` admin page, persisted in
-         *       ``data/managed_overlays.json``.
-         *
-         *     When a name exists in both, the managed overlay wins. Entries are
+         *     Sourced exclusively from the ``PREDEFINED_OVERLAYS`` environment
+         *     variable (also populated via the remote configurator). Entries are
          *     filtered by ``allowed_users`` using the caller's identity when user
          *     authentication is enabled.
          */
@@ -666,6 +666,19 @@ export interface components {
             /** Success */
             success: boolean;
         };
+        /** CustomOverlayCreate */
+        CustomOverlayCreate: {
+            /**
+             * Copy From
+             * @description Optional existing overlay id to clone configuration from
+             */
+            copy_from?: string | null;
+            /**
+             * Name
+             * @description Overlay id (without the C- prefix)
+             */
+            name: string;
+        };
         /** GameStateResponse */
         GameStateResponse: {
             /** Config */
@@ -743,28 +756,21 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** OverlayPayload */
+        /**
+         * OverlayPayload
+         * @description Predefined overlay entry returned by ``GET /overlays``.
+         */
         OverlayPayload: {
-            /**
-             * Allowed Users
-             * @description Optional list of usernames allowed to see this overlay
-             */
-            allowed_users?: string[] | null;
-            /**
-             * Control
-             * @description Control token or URL
-             */
-            control: string;
             /**
              * Name
              * @description Display name of the overlay
              */
             name: string;
             /**
-             * Output
-             * @description Optional output token or URL
+             * Oid
+             * @description Overlay identifier
              */
-            output?: string | null;
+            oid: string;
         };
         /** OverlayStateUpdate */
         OverlayStateUpdate: {
@@ -778,34 +784,6 @@ export interface components {
             team_home?: components["schemas"]["TeamStateModel"] | null;
         } & {
             [key: string]: unknown;
-        };
-        /** OverlayUpdatePayload */
-        OverlayUpdatePayload: {
-            /**
-             * Allowed Users
-             * @description Optional list of usernames allowed to see this overlay
-             */
-            allowed_users?: string[] | null;
-            /**
-             * Control
-             * @description Control token or URL
-             */
-            control: string;
-            /**
-             * Name
-             * @description Display name of the overlay
-             */
-            name: string;
-            /**
-             * New Name
-             * @description Rename the overlay to this value (optional)
-             */
-            new_name?: string | null;
-            /**
-             * Output
-             * @description Optional output token or URL
-             */
-            output?: string | null;
         };
         /** RawConfigPayload */
         RawConfigPayload: {
@@ -1125,6 +1103,105 @@ export interface operations {
             };
         };
     };
+    list_custom_overlays_api_v1_admin_custom_overlays_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_custom_overlay_api_v1_admin_custom_overlays_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomOverlayCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_custom_overlay_api_v1_admin_custom_overlays__name__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_login_api_v1_admin_login_post: {
         parameters: {
             query?: never;
@@ -1132,142 +1209,6 @@ export interface operations {
                 authorization?: string;
             };
             path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_overlays_api_v1_admin_overlays_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_overlay_api_v1_admin_overlays_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OverlayPayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_overlay_api_v1_admin_overlays__name__put: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OverlayUpdatePayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_overlay_api_v1_admin_overlays__name__delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                name: string;
-            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1809,7 +1750,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OverlayPayload"][];
                 };
             };
             /** @description Validation Error */

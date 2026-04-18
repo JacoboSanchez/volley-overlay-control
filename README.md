@@ -28,7 +28,7 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 *   **Multi-User Support**: Secure access with password-based API key authentication.
 *   **Multi-Overlay Control**: Manage multiple overlays from a single instance.
 *   **Overlay Library**: Select from predefined overlays for quick setup.
-*   **Overlay Manager Page**: Dedicated, password-protected page at `/manage` to create, edit and delete overlays at runtime (persisted to disk — independent of the scoreboard UI).
+*   **Custom Overlay Manager Page**: Dedicated, password-protected page at `/manage` to create, delete and clone custom (built-in engine) overlays at runtime — no need to use the `/create/overlay`, `/list/overlay` or `/delete/overlay` endpoints directly.
 
 ### REST + WebSocket API
 *   **Session management** — initialise and manage game sessions
@@ -153,7 +153,7 @@ Configure the application using the following environment variables:
 | `SCOREBOARD_USERS` | JSON with the list of users and passwords (also used as API keys). | |
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
-| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the overlay manager page at `/manage`. Leave empty to disable the page. | |
+| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page. | |
 | `OVERLAY_SERVER_TOKEN` | *(Recommended)* Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). When unset the endpoints stay open and a warning is logged at startup. If you also run the control app against an **external** overlay server via `APP_CUSTOM_OVERLAY_URL`, set the same value on both sides. See [AUTHENTICATION.md](AUTHENTICATION.md) (F-3, F-5). | |
 | `APP_THEMES` | JSON with a list of customization themes. | |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
@@ -224,19 +224,27 @@ List of themes.
 }
 ```
 
-### Overlay Manager Page
+### Custom Overlay Manager Page
 
 Navigate to **`/manage`** (e.g. `http://localhost:8080/manage`) to open the
-dedicated overlay manager. It is independent from the scoreboard UI: it has
-its own URL, its own password prompt, and it persists overlays to
-`data/managed_overlays.json` — surviving restarts.
+custom overlay manager. It is independent from the scoreboard UI: it has
+its own URL and its own password prompt.
 
 From this page you can:
 
-*   **Create** new overlays with a name, control token/URL, optional output
-    token/URL and an optional list of allowed users.
-*   **Edit** and **rename** existing overlays.
-*   **Delete** overlays no longer needed.
+*   **Create** a new custom overlay by name — the overlay's OID is
+    automatically `C-<name>`, and the built-in overlay engine persists its
+    state to `data/overlay_state_<name>.json`.
+*   **Clone** an existing custom overlay into a new one — the clone inherits
+    the source's colors, layout, preferred style and current state.
+*   **Delete** custom overlays no longer needed.
+
+You no longer need to call the `/create/overlay`, `/list/overlay` or
+`/delete/overlay` endpoints by hand for day-to-day management.
+
+Predefined overlay catalogues (for populating the scoreboard UI's overlay
+picker) are still configured exclusively through the `PREDEFINED_OVERLAYS`
+environment variable or the remote configurator (`REMOTE_CONFIG_URL`).
 
 #### Enabling the page
 
@@ -247,14 +255,6 @@ disabled" notice and every admin endpoint returns HTTP 503.
 ```env
 OVERLAY_MANAGER_PASSWORD=change-me
 ```
-
-#### How it relates to `PREDEFINED_OVERLAYS`
-
-Overlays declared in the `PREDEFINED_OVERLAYS` environment variable remain
-read-only (they are part of your deployment configuration). Overlays created
-from the manager page live in `data/managed_overlays.json` and are merged
-into the list returned by `GET /api/v1/overlays`. When a name exists in both
-sources, the managed overlay wins.
 
 > **Security note**: `OVERLAY_MANAGER_PASSWORD` is a single shared password.
 > Treat it the same way you treat `SCOREBOARD_USERS` — do not expose the
@@ -298,10 +298,10 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | Endpoint | Description |
 | :--- | :--- |
 | `/` | Control UI (React SPA) |
-| `/manage` | Overlay manager page (password-protected via `OVERLAY_MANAGER_PASSWORD`). |
+| `/manage` | Custom overlay manager page (password-protected via `OVERLAY_MANAGER_PASSWORD`). |
 | `/api/v1/...` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
 | `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend) |
-| `/api/v1/admin/overlays` | CRUD endpoints for managed overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`). |
+| `/api/v1/admin/custom-overlays` | List/create/delete custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`). |
 | `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine) |
 | `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
 | `/api/config/{id}` | Overlay config (output URL, available styles) |

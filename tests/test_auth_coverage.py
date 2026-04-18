@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 from fastapi.templating import Jinja2Templates
 
 from app.admin import admin_page_router, admin_router
-from app.admin.store import managed_overlays_store
 from app.api import api_router
 from app.overlay.routes import create_overlay_router
 from app.overlay.state_store import OverlayStateStore
@@ -35,13 +34,11 @@ OVERLAY_SERVER_TOKEN = "overlay-server-secret"
 
 @pytest.fixture(autouse=True)
 def _reset_env(monkeypatch, tmp_path):
-    managed_overlays_store._reset_for_tests(str(tmp_path / "admin"))
     monkeypatch.delenv("SCOREBOARD_USERS", raising=False)
     monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
     monkeypatch.delenv("OVERLAY_SERVER_TOKEN", raising=False)
     monkeypatch.delenv("PREDEFINED_OVERLAYS", raising=False)
     yield
-    managed_overlays_store._reset_for_tests(str(tmp_path / "admin"))
 
 
 @pytest.fixture
@@ -161,10 +158,9 @@ def test_scoreboard_api_rejects_invalid_token(api_client_with_users, method, pat
 
 ADMIN_PROTECTED_ROUTES = [
     ("POST", "/api/v1/admin/login"),
-    ("GET", "/api/v1/admin/overlays"),
-    ("POST", "/api/v1/admin/overlays"),
-    ("PUT", "/api/v1/admin/overlays/anything"),
-    ("DELETE", "/api/v1/admin/overlays/anything"),
+    ("GET", "/api/v1/admin/custom-overlays"),
+    ("POST", "/api/v1/admin/custom-overlays"),
+    ("DELETE", "/api/v1/admin/custom-overlays/anything"),
 ]
 
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Overlay Manager</title>
+<title>Custom Overlay Manager</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -62,7 +62,7 @@
   }
   .card h2 { margin-top: 0; font-size: 1.1rem; }
   label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; color: var(--muted); }
-  input[type="text"], input[type="password"], textarea {
+  input[type="text"], input[type="password"], select {
     width: 100%;
     padding: 0.55rem 0.75rem;
     border: 1px solid var(--border);
@@ -72,11 +72,8 @@
     font-size: 0.95rem;
     font-family: inherit;
   }
-  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; }
-  textarea { resize: vertical; min-height: 2.4rem; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; }
   .field { margin-bottom: 0.9rem; }
-  .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-  .row > * { flex: 1 1 200px; }
   button {
     padding: 0.55rem 1rem;
     border: none;
@@ -152,7 +149,7 @@
 </head>
 <body>
 <header>
-  <h1>Overlay Manager</h1>
+  <h1>Custom Overlay Manager</h1>
   <div>
     <span id="loggedInHint" class="muted hidden">Authenticated</span>
     <button id="logoutBtn" class="secondary hidden">Log out</button>
@@ -187,11 +184,11 @@
     <div id="statusMsg" class="status hidden"></div>
 
     <div class="card">
-      <h2>Managed overlays</h2>
+      <h2>Custom overlays</h2>
       <p class="muted">
-        These overlays are stored on disk and can be edited here. Overlays
-        defined via the <code>PREDEFINED_OVERLAYS</code> environment variable
-        are not editable from this page.
+        Custom overlays are served by the built-in overlay engine and live at
+        <code>/overlay/&lt;output_key&gt;</code>. Use the OID shown below when
+        pointing the scoreboard controller at an overlay.
       </p>
       <div class="toolbar" style="justify-content: flex-start;">
         <button id="newBtn">+ New overlay</button>
@@ -201,33 +198,34 @@
     </div>
   </div>
 
-  <!-- Edit modal -->
-  <div id="editModal" class="modal-backdrop hidden">
+  <!-- Create modal -->
+  <div id="createModal" class="modal-backdrop hidden">
     <div class="modal">
-      <h2 id="editTitle">New overlay</h2>
-      <form id="editForm">
+      <h2>New custom overlay</h2>
+      <form id="createForm">
         <div class="field">
           <label for="field-name">Name *</label>
-          <input type="text" id="field-name" required />
+          <input type="text" id="field-name" required
+                 pattern="[A-Za-z0-9_.\-]+"
+                 placeholder="mybroadcast" />
+          <small class="muted">
+            Letters, digits, '-', '_' and '.' only. The overlay's OID will be
+            <code>C-&lt;name&gt;</code>.
+          </small>
         </div>
         <div class="field">
-          <label for="field-control">Control token or URL *</label>
-          <input type="text" id="field-control" required
-                 placeholder="e.g. https://app.overlays.uno/control/XXXXXXXX or C-mybroadcast" />
+          <label for="field-copy">Copy configuration from (optional)</label>
+          <select id="field-copy">
+            <option value="">— Start from defaults —</option>
+          </select>
+          <small class="muted">
+            Clones the selected overlay's colors, layout and current state.
+          </small>
         </div>
-        <div class="field">
-          <label for="field-output">Output token or URL (optional)</label>
-          <input type="text" id="field-output" placeholder="https://app.overlays.uno/output/XXXXXXXX" />
-        </div>
-        <div class="field">
-          <label for="field-users">Allowed users (optional, comma-separated)</label>
-          <input type="text" id="field-users" placeholder="user1, user2" />
-          <small class="muted">Leave blank to allow all users.</small>
-        </div>
-        <div id="editError" class="status error hidden"></div>
+        <div id="createError" class="status error hidden"></div>
         <div class="toolbar">
           <button type="button" id="cancelBtn" class="secondary">Cancel</button>
-          <button type="submit" id="saveBtn">Save</button>
+          <button type="submit" id="saveBtn">Create</button>
         </div>
       </form>
     </div>
@@ -241,7 +239,7 @@
   // the operator; this avoids clear-text storage of sensitive data.
   const API = '/api/v1/admin';
   let password = '';
-  let currentEditName = null;
+  let cachedOverlays = [];
 
   const $ = (id) => document.getElementById(id);
 
@@ -258,11 +256,12 @@
   const newBtn = $('newBtn');
   const refreshBtn = $('refreshBtn');
   const statusMsg = $('statusMsg');
-  const editModal = $('editModal');
-  const editTitle = $('editTitle');
-  const editForm = $('editForm');
-  const editError = $('editError');
+  const createModal = $('createModal');
+  const createForm = $('createForm');
+  const createError = $('createError');
   const cancelBtn = $('cancelBtn');
+  const fieldName = $('field-name');
+  const fieldCopy = $('field-copy');
 
   function showStatus(text, kind) {
     statusMsg.textContent = text;
@@ -274,9 +273,7 @@
     }
   }
 
-  function setPassword(pw) {
-    password = pw || '';
-  }
+  function setPassword(pw) { password = pw || ''; }
 
   function showError(el, message) {
     el.textContent = message;
@@ -369,8 +366,9 @@
   async function loadOverlays() {
     overlayList.innerHTML = '<p class="muted">Loading…</p>';
     try {
-      const overlays = await apiCall('GET', '/overlays');
-      renderOverlays(overlays);
+      const overlays = await apiCall('GET', '/custom-overlays');
+      cachedOverlays = Array.isArray(overlays) ? overlays : [];
+      renderOverlays(cachedOverlays);
     } catch (err) {
       if (err.status === 401 || err.status === 403) {
         setPassword('');
@@ -383,30 +381,24 @@
 
   function renderOverlays(overlays) {
     if (!overlays || overlays.length === 0) {
-      overlayList.innerHTML = '<p class="empty">No managed overlays yet. Click “New overlay” to add one.</p>';
+      overlayList.innerHTML = '<p class="empty">No custom overlays yet. Click “New overlay” to add one.</p>';
       return;
     }
-    const rows = overlays.map((o) => {
-      const allowed = Array.isArray(o.allowed_users) && o.allowed_users.length
-        ? o.allowed_users.join(', ')
-        : '<span class="muted">all</span>';
-      return `
-        <tr data-name="${escapeAttr(o.name)}">
-          <td><strong>${escapeHtml(o.name)}</strong></td>
-          <td><code>${escapeHtml(o.control)}</code></td>
-          <td>${o.output ? '<code>' + escapeHtml(o.output) + '</code>' : '<span class="muted">—</span>'}</td>
-          <td>${allowed}</td>
+    const rows = overlays.map((o) => `
+        <tr data-id="${escapeAttr(o.id)}">
+          <td><strong>${escapeHtml(o.id)}</strong></td>
+          <td><code>${escapeHtml(o.oid)}</code></td>
+          <td><code>${escapeHtml(o.output_key)}</code></td>
           <td class="actions">
-            <button class="secondary" data-action="edit">Edit</button>
+            <button class="secondary" data-action="copy">Copy</button>
             <button class="danger" data-action="delete">Delete</button>
           </td>
         </tr>
-      `;
-    }).join('');
+      `).join('');
     overlayList.innerHTML = `
       <table>
         <thead>
-          <tr><th>Name</th><th>Control</th><th>Output</th><th>Allowed users</th><th></th></tr>
+          <tr><th>Name</th><th>OID</th><th>Output key</th><th></th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -414,85 +406,70 @@
     overlayList.querySelectorAll('button[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const tr = btn.closest('tr');
-        const name = tr.getAttribute('data-name');
-        if (btn.dataset.action === 'edit') openEdit(name, overlays);
-        if (btn.dataset.action === 'delete') confirmDelete(name);
+        const id = tr.getAttribute('data-id');
+        if (btn.dataset.action === 'copy') openCreate(id);
+        if (btn.dataset.action === 'delete') confirmDelete(id);
       });
     });
   }
 
-  newBtn.addEventListener('click', () => openEdit(null, []));
+  newBtn.addEventListener('click', () => openCreate(null));
   refreshBtn.addEventListener('click', loadOverlays);
-  cancelBtn.addEventListener('click', closeEdit);
-  editModal.addEventListener('click', (e) => {
-    if (e.target === editModal) closeEdit();
+  cancelBtn.addEventListener('click', closeCreate);
+  createModal.addEventListener('click', (e) => {
+    if (e.target === createModal) closeCreate();
   });
 
-  function openEdit(name, overlays) {
-    clearError(editError);
-    currentEditName = name;
-    editTitle.textContent = name ? 'Edit overlay' : 'New overlay';
-    const existing = name ? overlays.find((o) => o.name === name) : null;
-    $('field-name').value = existing ? existing.name : '';
-    $('field-control').value = existing ? existing.control || '' : '';
-    $('field-output').value = existing ? existing.output || '' : '';
-    $('field-users').value = existing && Array.isArray(existing.allowed_users)
-      ? existing.allowed_users.join(', ') : '';
-    editModal.classList.remove('hidden');
-    setTimeout(() => $('field-name').focus(), 50);
+  function openCreate(copyFromId) {
+    clearError(createError);
+    fieldName.value = '';
+    // Rebuild the copy-from dropdown from the current list.
+    fieldCopy.innerHTML = '<option value="">— Start from defaults —</option>';
+    cachedOverlays.forEach((o) => {
+      const opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = o.id;
+      fieldCopy.appendChild(opt);
+    });
+    fieldCopy.value = copyFromId || '';
+    createModal.classList.remove('hidden');
+    setTimeout(() => fieldName.focus(), 50);
   }
 
-  function closeEdit() {
-    editModal.classList.add('hidden');
-    currentEditName = null;
+  function closeCreate() {
+    createModal.classList.add('hidden');
   }
 
-  editForm.addEventListener('submit', async (e) => {
+  createForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    clearError(editError);
-    const payload = {
-      name: $('field-name').value.trim(),
-      control: $('field-control').value.trim(),
-      output: $('field-output').value.trim() || null,
-      allowed_users: parseUsers($('field-users').value),
+    clearError(createError);
+    const body = {
+      name: fieldName.value.trim(),
+      copy_from: fieldCopy.value || null,
     };
-    if (!payload.name || !payload.control) {
-      showError(editError, 'Name and control token are required.');
+    if (!body.name) {
+      showError(createError, 'Name is required.');
       return;
     }
     try {
-      if (currentEditName) {
-        const body = { ...payload };
-        if (payload.name !== currentEditName) body.new_name = payload.name;
-        body.name = currentEditName;
-        await apiCall('PUT', '/overlays/' + encodeURIComponent(currentEditName), body);
-        showStatus('Overlay updated.', 'success');
-      } else {
-        await apiCall('POST', '/overlays', payload);
-        showStatus('Overlay created.', 'success');
-      }
-      closeEdit();
+      await apiCall('POST', '/custom-overlays', body);
+      showStatus('Overlay created.', 'success');
+      closeCreate();
       await loadOverlays();
     } catch (err) {
-      showError(editError, err.message || 'Could not save overlay.');
+      showError(createError, err.message || 'Could not create overlay.');
     }
   });
 
-  async function confirmDelete(name) {
-    if (!window.confirm(`Delete overlay “${name}”?`)) return;
+  async function confirmDelete(id) {
+    if (!window.confirm(`Delete overlay “${id}”? This removes its persisted state.`)) return;
     try {
-      await apiCall('DELETE', '/overlays/' + encodeURIComponent(name));
+      await apiCall('DELETE', '/custom-overlays/' + encodeURIComponent(id));
       showStatus('Overlay deleted.', 'success');
       await loadOverlays();
     } catch (err) {
       showStatus(err.message || 'Could not delete overlay.', 'error');
     }
-  }
-
-  function parseUsers(value) {
-    if (!value) return null;
-    const parts = value.split(',').map((p) => p.trim()).filter(Boolean);
-    return parts.length ? parts : null;
   }
 
   function escapeHtml(s) {
