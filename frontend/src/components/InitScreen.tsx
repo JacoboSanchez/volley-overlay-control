@@ -8,6 +8,7 @@ export interface InitScreenProps {
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   onSelect: (oid: string) => void;
   error?: string | null;
+  title?: string;
 }
 
 interface PredefinedOverlay {
@@ -38,7 +39,7 @@ function normalizeOverlays(data: unknown): PredefinedOverlay[] {
   return [];
 }
 
-export default function InitScreen({ oidInput, setOidInput, onSubmit, onSelect, error }: InitScreenProps) {
+export default function InitScreen({ oidInput, setOidInput, onSubmit, onSelect, error, title }: InitScreenProps) {
   const { t } = useI18n();
   const [predefinedOverlays, setPredefinedOverlays] = useState<PredefinedOverlay[]>([]);
 
@@ -59,7 +60,7 @@ export default function InitScreen({ oidInput, setOidInput, onSubmit, onSelect, 
 
   return (
     <div className="init-screen">
-      <h1 className="init-title">{t('app.title')}</h1>
+      <h1 className="init-title">{title || t('app.title')}</h1>
       {predefinedOverlays.length > 0 && (
         <div className="init-overlay-selector">
           <label className="init-label">{t('app.selectOverlay')}</label>

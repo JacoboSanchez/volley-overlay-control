@@ -140,6 +140,7 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
+| `APP_TITLE` | Application title shown in the browser tab, the init screen heading and the PWA manifest. | `Volley Scoreboard` |
 | `APP_CUSTOM_OVERLAY_URL` | *(Optional)* Base URL of an external custom overlay server. When set, custom overlays use the external server instead of the built-in engine. | *(unset — built-in engine)* |
 | `APP_CUSTOM_OVERLAY_OUTPUT_URL` | *(Optional)* Public-facing base URL for overlay links. Used to replace the host in output URLs when the overlay server is behind a proxy. | |
 | `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. | |

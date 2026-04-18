@@ -14,6 +14,7 @@ export type Team = 1 | 2;
 
 export type GameState = Schemas['GameStateResponse'];
 export type ActionResponse = Schemas['ActionResponse'];
+export type AppConfig = Schemas['AppConfigResponse'];
 export type InitRequest = Schemas['InitRequest'];
 export type OverlayPayload = Schemas['OverlayPayload'];
 
@@ -172,4 +173,8 @@ export function getStyles(oid: string): Promise<string[]> {
 
 export function getOverlays(): Promise<OverlayPayload[]> {
   return request<OverlayPayload[]>('GET', '/overlays');
+}
+
+export function getAppConfig(): Promise<AppConfig> {
+  return request<AppConfig>('GET', '/app-config');
 }

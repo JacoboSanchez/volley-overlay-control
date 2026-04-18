@@ -6,18 +6,23 @@ instances in tests (``TestClient(create_app())``) without triggering the
 side-effects of module import.
 """
 
+import html
+import json
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
 from app.api import api_router
+from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
 
 logger = logging.getLogger("Bootstrap")
@@ -28,16 +33,71 @@ OVERLAY_TEMPLATES_DIR = Path("overlay_templates")
 OVERLAY_STATIC_DIR = Path("overlay_static")
 
 
+# Matches the first ``<title>`` element, including any attributes
+# (e.g. ``<title lang="en">``).
+_TITLE_PATTERN = re.compile(
+    r"<title(?:\s+[^>]*)?>.*?</title>", re.IGNORECASE | re.DOTALL,
+)
+
+
+def _inject_title_into_html(html_content: str, title: str) -> str:
+    """Replace the first ``<title>...</title>`` with the escaped *title*."""
+    return _TITLE_PATTERN.sub(
+        f"<title>{html.escape(title)}</title>", html_content, count=1,
+    )
+
+
+@lru_cache(maxsize=8)
+def _render_index_html(path: str, mtime: float, title: str) -> str:
+    """Memoize the rewritten ``index.html``.
+
+    Cache key includes ``mtime`` so a rebuilt frontend invalidates the
+    entry, and ``title`` so a changed ``APP_TITLE`` (e.g. via remote config)
+    is reflected without a restart.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    return _inject_title_into_html(text, title)
+
+
+@lru_cache(maxsize=8)
+def _render_manifest(path: str, mtime: float, title: str) -> dict:
+    """Memoize the rewritten PWA manifest. See :func:`_render_index_html`."""
+    with Path(path).open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    data["name"] = title
+    data["short_name"] = title
+    return data
+
+
 class SPAStaticFiles(StaticFiles):
-    """StaticFiles with SPA fallback: serves index.html for unknown paths."""
+    """StaticFiles with SPA fallback: serves index.html for unknown paths.
+
+    The served ``index.html`` has its ``<title>`` rewritten to the value of
+    the ``APP_TITLE`` env var so the browser tab matches the configured app
+    name without rebuilding the frontend. The rewritten HTML is memoized
+    by ``(path, mtime, title)`` so steady-state requests do no disk I/O
+    beyond a single ``stat()``.
+    """
 
     async def get_response(self, path, scope):
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
             if exc.status_code == 404:
-                return await super().get_response("index.html", scope)
+                return await self._index_response(scope)
             raise
+        if path in ("", "index.html"):
+            return await self._index_response(scope)
+        return response
+
+    async def _index_response(self, scope):
+        index_path = Path(self.directory) / "index.html"
+        if not index_path.is_file():
+            return await super().get_response("index.html", scope)
+        rewritten = _render_index_html(
+            str(index_path), index_path.stat().st_mtime, get_app_title(),
+        )
+        return HTMLResponse(rewritten)
 
 
 @asynccontextmanager
@@ -124,17 +184,20 @@ def _register_system_endpoints(application: FastAPI) -> None:
     @application.get("/manifest.webmanifest")
     def serve_webmanifest():
         manifest = FRONTEND_DIR / "manifest.webmanifest"
-        if manifest.is_file():
-            return FileResponse(
-                manifest,
-                media_type="application/manifest+json",
-                headers={"Cache-Control": "no-cache"},
-            )
-        return FileResponse("app/pwa/manifest.json", media_type="application/json")
+        source = manifest if manifest.is_file() else Path("app/pwa/manifest.json")
+        return JSONResponse(
+            content=_render_manifest(str(source), source.stat().st_mtime, get_app_title()),
+            media_type="application/manifest+json",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @application.get("/manifest.json")
     def serve_manifest():
-        return FileResponse("app/pwa/manifest.json", media_type="application/json")
+        source = Path("app/pwa/manifest.json")
+        return JSONResponse(
+            content=_render_manifest(str(source), source.stat().st_mtime, get_app_title()),
+            media_type="application/json",
+        )
 
     @application.get("/health")
     def health_check():

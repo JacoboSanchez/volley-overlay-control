@@ -9,6 +9,7 @@ api_router``) keep working.
 from fastapi import APIRouter
 
 from app.api.routes import (
+    app_config,
     customization,
     display,
     game,
@@ -25,6 +26,7 @@ api_router = APIRouter(
     lifespan=router_lifespan,
 )
 
+api_router.include_router(app_config.router)
 api_router.include_router(session.router)
 api_router.include_router(state.router)
 api_router.include_router(game.router)

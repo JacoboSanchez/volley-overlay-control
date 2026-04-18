@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, FormEvent } from 'react';
 import { useI18n } from './i18n';
+import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
 import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
@@ -46,6 +47,7 @@ function getInitialOid(): string {
 
 export default function App() {
   const { t } = useI18n();
+  const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
   const { isPortrait, buttonSize } = useOrientation();
 
@@ -309,6 +311,7 @@ export default function App() {
         onSubmit={handleInit}
         onSelect={setOid}
         error={error}
+        title={appConfig.title}
       />
     );
   }
