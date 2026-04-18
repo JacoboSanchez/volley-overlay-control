@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import OverlayPreview from './components/OverlayPreview';
+import { useAppConfig } from './hooks/useAppConfig';
 import { I18nProvider, useI18n } from './i18n';
 
 const SCALE_MIN = 0.5;
@@ -15,6 +16,7 @@ function readNumberParam(params: URLSearchParams, key: string, fallback: number)
 
 function PreviewPageInner() {
   const { t } = useI18n();
+  useAppConfig();
 
   const queryParams = new URLSearchParams(window.location.search);
   const overlayUrl = queryParams.get('output') || '';

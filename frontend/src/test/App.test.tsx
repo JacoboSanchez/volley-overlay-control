@@ -9,6 +9,7 @@ vi.mock('../api/client', () => ({
   getCustomization: vi.fn(),
   getLinks: vi.fn(),
   getOverlays: vi.fn(),
+  getAppConfig: vi.fn(),
   addPoint: vi.fn(),
   addSet: vi.fn(),
   addTimeout: vi.fn(),
@@ -40,6 +41,7 @@ describe('App', () => {
       writable: true,
     });
     vi.mocked(api.getOverlays).mockResolvedValue([]);
+    vi.mocked(api.getAppConfig).mockResolvedValue({ title: 'Volley Scoreboard' });
     vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState });
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
     vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });

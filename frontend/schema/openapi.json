@@ -35,6 +35,19 @@
         "title": "ActionResponse",
         "type": "object"
       },
+      "AppConfigResponse": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "AppConfigResponse",
+        "type": "object"
+      },
       "CustomOverlayCreate": {
         "properties": {
           "copy_from": {
@@ -1256,6 +1269,28 @@
         "summary": "Admin Status",
         "tags": [
           "Admin"
+        ]
+      }
+    },
+    "/api/v1/app-config": {
+      "get": {
+        "description": "Return runtime app configuration consumed by the SPA on boot.",
+        "operationId": "app_config_api_v1_app_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "App Config",
+        "tags": [
+          "Scoreboard API v1"
         ]
       }
     },

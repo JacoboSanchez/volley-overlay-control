@@ -91,3 +91,7 @@ class ActionResponse(BaseModel):
     success: bool
     state: Optional[GameStateResponse] = None
     message: Optional[str] = None
+
+
+class AppConfigResponse(BaseModel):
+    title: str
