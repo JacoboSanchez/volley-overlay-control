@@ -46,6 +46,4 @@ jobs:
         APP_PORT: 8080
         UNO_OVERLAY_OID: dummy_token_for_tests
       run: |
-        python --version
-        pip freeze
-        pytest tests/ -m "not mobile_browser" --cov=app --cov-report=term-missing -v -rA --tb=long
+        pytest tests/ -m "not mobile_browser" --cov=app --cov-report=term-missing
