@@ -74,13 +74,19 @@ volley-overlay-control/
 │   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
 │   │   └── routes.py          # HTTP/WS: /overlay/, /ws/, /api/config/, CRUD, themes
 │   │
+│   ├── admin/                 # Overlay manager page + CRUD API (password-protected, independent of the scoreboard)
+│   │   ├── __init__.py        # Exports admin_router, admin_page_router, managed_overlays_store
+│   │   ├── routes.py          # /manage HTML page + /api/v1/admin/overlays CRUD endpoints
+│   │   ├── store.py           # OverlaysStore — thread-safe JSON persistence at data/managed_overlays.json
+│   │   └── static/overlays.html  # Self-contained manager page (vanilla JS, no React)
+│   │
 │   └── pwa/                   # Legacy PWA assets (icons)
 │
 ├── overlay_templates/         # Jinja2 HTML templates for overlay styles (16 templates)
 ├── overlay_static/            # Static assets for overlays (JS, CSS, images)
-├── data/                      # Persisted overlay state files (overlay_state_{id}.json)
+├── data/                      # Persisted overlay state (overlay_state_{id}.json) + managed overlay catalogue (managed_overlays.json)
 │
-├── tests/                     # Pytest suite (162 tests)
+├── tests/                     # Pytest suite (181 tests)
 │   ├── conftest.py            # Shared fixtures: load_test_env
 │   ├── test_state.py          # Unit tests for State model
 │   ├── test_game_manager.py   # Unit tests for scoring rules and set logic
@@ -90,6 +96,7 @@ volley-overlay-control/
 │   ├── test_env_vars_manager.py
 │   ├── test_config_validator.py
 │   ├── test_ws_client.py      # WebSocket client and Backend WS integration tests
+│   ├── test_admin.py          # Overlay manager page + CRUD + auth tests
 │   └── test_coverage_proposals.py  # Additional WSControlClient coverage
 │
 └── font/                      # Custom TTF/OTF scoreboard fonts
@@ -111,6 +118,8 @@ volley-overlay-control/
 | Overlay | `LocalOverlayBackend` | `app/overlay_backends.py` | In-process overlay state management (default for C- OIDs) |
 | Overlay | `OverlayStateStore` | `app/overlay/state_store.py` | In-memory + JSON persistence for overlay state |
 | Overlay | `ObsBroadcastHub` | `app/overlay/broadcast.py` | Debounced WebSocket broadcasts to OBS browser sources |
+| Admin | `OverlaysStore` | `app/admin/store.py` | Thread-safe CRUD on `data/managed_overlays.json` (manager page) |
+| Admin | `admin_router`, `admin_page_router` | `app/admin/routes.py` | `/manage` page + `/api/v1/admin/overlays` CRUD (Bearer = `OVERLAY_MANAGER_PASSWORD`) |
 
 > See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the full API reference.
 
@@ -188,7 +197,7 @@ The entire match lives in a flat dictionary with these keys:
 
 Config is loaded by `app/conf.py` -> `Conf` class from environment variables (`.env` or Docker compose).
 
-Key variables: `UNO_OVERLAY_OID`, `APP_PORT`, `MATCH_GAME_POINTS`, `MATCH_SETS`, `SCOREBOARD_USERS`, `APP_CUSTOM_OVERLAY_URL`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`, `SCOREBOARD_LANGUAGE`.
+Key variables: `UNO_OVERLAY_OID`, `APP_PORT`, `MATCH_GAME_POINTS`, `MATCH_SETS`, `SCOREBOARD_USERS`, `APP_CUSTOM_OVERLAY_URL`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`, `SCOREBOARD_LANGUAGE`, `OVERLAY_MANAGER_PASSWORD` (enables the `/manage` admin page).
 
 Full list in [README.md](README.md).
 
@@ -199,7 +208,10 @@ Full list in [README.md](README.md).
 | Endpoint | Description |
 |----------|-------------|
 | `/` | Control UI (React SPA — served from `frontend/dist/`) |
+| `/manage` | Overlay manager page (password-protected via `OVERLAY_MANAGER_PASSWORD`) |
 | `/api/v1/*` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
+| `/api/v1/admin/overlays` | CRUD for managed overlays (`Authorization: Bearer $OVERLAY_MANAGER_PASSWORD`) |
+| `/api/v1/admin/login`, `/api/v1/admin/status` | Admin auth check + feature-enabled probe |
 | `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend) |
 | `/overlay/{overlay_id}` | Overlay HTML template for OBS browser sources |
 | `/ws/{overlay_id}` | WebSocket for OBS browser sources (overlay state broadcast) |
@@ -242,6 +254,12 @@ Always use `State` accessor methods; never read/write `state.current_model` dire
 2. Add schemas in `app/api/schemas.py`.
 3. Add business logic in `app/api/game_service.py`.
 
+### Extending the overlay manager page
+1. Extend storage in `app/admin/store.py` — every mutation must call `_write_to_disk()` under `self._lock`.
+2. Add the FastAPI route in `app/admin/routes.py` with `Depends(require_admin)` so the Bearer check is enforced.
+3. Update the UI in `app/admin/static/overlays.html` — single-file vanilla JS, no build step.
+4. Managed overlays are merged into `GET /api/v1/overlays` (managed wins over `PREDEFINED_OVERLAYS` on name conflict).
+
 ### OID utilities
 Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not import from deleted modules.
 
@@ -260,11 +278,13 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 
 `main.py` mounts routes in this order (earlier mounts take priority):
 1. `app.include_router(api_router)` — `/api/v1/*` REST + WebSocket API
-2. `app.include_router(overlay_router)` — `/overlay/*`, `/ws/*`, `/api/config/*`, CRUD, themes
-3. `app.mount("/fonts", ...)` — scoreboard fonts
-4. `app.mount("/static", ...)` — overlay JS/CSS/images
-5. `app.mount("/pwa", ...)` — PWA icons
-6. `app.mount("/", SPAStaticFiles(...))` — SPA catch-all (last — never shadows other routes)
+2. `app.include_router(admin_page_router)` — `/manage` standalone page
+3. `app.include_router(admin_router)` — `/api/v1/admin/*` CRUD
+4. `app.include_router(overlay_router)` — `/overlay/*`, `/ws/*`, `/api/config/*`, CRUD, themes
+5. `app.mount("/fonts", ...)` — scoreboard fonts
+6. `app.mount("/static", ...)` — overlay JS/CSS/images
+7. `app.mount("/pwa", ...)` — PWA icons
+8. `app.mount("/", SPAStaticFiles(...))` — SPA catch-all (last — never shadows other routes)
 
 The SPA mount uses a custom `SPAStaticFiles` class that falls back to `index.html` for unknown paths (SPA routing). If `frontend/dist/` doesn't exist (e.g., during backend-only development or testing), the SPA is not mounted and a warning is logged. Similarly, if `overlay_templates/` doesn't exist, overlay routes are disabled.
 

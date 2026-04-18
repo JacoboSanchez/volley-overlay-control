@@ -21,6 +21,7 @@ from app.customization import Customization
 from app.authentication import PasswordAuthenticator
 from app.env_vars_manager import EnvVarsManager
 from app.oid_utils import extract_oid, compose_output, UNO_OUTPUT_BASE_URL
+from app.admin.store import managed_overlays_store
 
 logger = logging.getLogger("APIRoutes")
 
@@ -256,35 +257,45 @@ async def update_customization(data: dict,
 async def get_overlays(authorization: str = Header(None)):
     """Return predefined overlays available for selection.
 
-    Reads the ``PREDEFINED_OVERLAYS`` env var and returns an array of
-    ``{name, oid}`` objects.  When authentication is enabled the list is
-    filtered by ``allowed_users`` using the caller's identity.
-    """
-    overlays_json = EnvVarsManager.get_env_var(
-        'PREDEFINED_OVERLAYS', None)
-    if not overlays_json or not overlays_json.strip():
-        return []
+    Merges two sources:
 
-    try:
-        overlays = json.loads(overlays_json)
-        if not isinstance(overlays, dict):
-            logger.warning("PREDEFINED_OVERLAYS is not a JSON object")
-            return []
-    except json.JSONDecodeError:
-        logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
+    * ``PREDEFINED_OVERLAYS`` env var (read-only, configured at startup).
+    * Overlays managed through the ``/manage`` admin page, persisted in
+      ``data/managed_overlays.json``.
+
+    When a name exists in both, the managed overlay wins. Entries are
+    filtered by ``allowed_users`` using the caller's identity when user
+    authentication is enabled.
+    """
+    merged: dict = {}
+
+    overlays_json = EnvVarsManager.get_env_var('PREDEFINED_OVERLAYS', None)
+    if overlays_json and overlays_json.strip():
+        try:
+            env_overlays = json.loads(overlays_json)
+            if isinstance(env_overlays, dict):
+                merged.update(env_overlays)
+            else:
+                logger.warning("PREDEFINED_OVERLAYS is not a JSON object")
+        except json.JSONDecodeError:
+            logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
+
+    # Managed overlays (file-backed) override env-defined ones with the same
+    # name so edits from the admin page take effect immediately.
+    merged.update(managed_overlays_store.as_dict())
+
+    if not merged:
         return []
 
     # Identify the calling user for allowed_users filtering
     current_user = None
-    if PasswordAuthenticator.do_authenticate_users():
+    if PasswordAuthenticator.do_authenticate_users() and authorization:
         token = authorization.removeprefix("Bearer ").strip()
-        current_user = PasswordAuthenticator.get_username_for_api_key(
-            token)
+        current_user = PasswordAuthenticator.get_username_for_api_key(token)
 
     return [
-        {"name": name, "oid": extract_oid(
-            config.get('control', ''))}
-        for name, config in overlays.items()
+        {"name": name, "oid": extract_oid(config.get('control', ''))}
+        for name, config in merged.items()
         if config.get('allowed_users') is None
         or (current_user and current_user in config.get('allowed_users'))
     ]
