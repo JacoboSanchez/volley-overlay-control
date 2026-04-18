@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
@@ -52,7 +53,7 @@ def require_overlay_server_token(authorization: str = Header(None)) -> None:
             detail="Missing overlay server token. Use 'Authorization: Bearer <token>'.",
         )
     provided = authorization.removeprefix("Bearer ").strip()
-    if provided != token:
+    if not secrets.compare_digest(provided, token):
         raise HTTPException(status_code=403, detail="Invalid overlay server token.")
 
 
