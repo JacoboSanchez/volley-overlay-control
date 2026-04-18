@@ -148,6 +148,12 @@ export function useGameState(oid: string | null): UseGameStateResult {
   const refreshCustomization = useCallback(async () => {
     if (!oid) return;
     try {
+      // Fetch the latest customization from the backend (which already has the
+      // just-saved data) and update the local customization state. We deliberately
+      // do NOT call initSession here: re-initializing the session loads data from
+      // the overlay server, which may still be serving the pre-save snapshot.
+      // Doing so would cause the next game action (e.g., addPoint) to broadcast
+      // stale team names/colors and visually revert the overlay.
       const cust = await api.getCustomization(oid);
       setCustomization(cust);
     } catch {
