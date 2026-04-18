@@ -1,0 +1,2718 @@
+{
+  "components": {
+    "schemas": {
+      "ActionResponse": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GameStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "ActionResponse",
+        "type": "object"
+      },
+      "GameStateResponse": {
+        "properties": {
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "current_set": {
+            "title": "Current Set",
+            "type": "integer"
+          },
+          "match_finished": {
+            "title": "Match Finished",
+            "type": "boolean"
+          },
+          "serve": {
+            "title": "Serve",
+            "type": "string"
+          },
+          "simple_mode": {
+            "title": "Simple Mode",
+            "type": "boolean"
+          },
+          "team_1": {
+            "$ref": "#/components/schemas/TeamState"
+          },
+          "team_2": {
+            "$ref": "#/components/schemas/TeamState"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "current_set",
+          "visible",
+          "simple_mode",
+          "match_finished",
+          "team_1",
+          "team_2",
+          "serve",
+          "config"
+        ],
+        "title": "GameStateResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InitRequest": {
+        "properties": {
+          "oid": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Oid",
+            "type": "string"
+          },
+          "output_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Url"
+          },
+          "points_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Limit"
+          },
+          "points_limit_last_set": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Limit Last Set"
+          },
+          "sets_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sets Limit"
+          }
+        },
+        "required": [
+          "oid"
+        ],
+        "title": "InitRequest",
+        "type": "object"
+      },
+      "MatchInfoModel": {
+        "additionalProperties": true,
+        "properties": {
+          "best_of_sets": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Of Sets"
+          },
+          "current_set": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Set"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase"
+          },
+          "show_only_current_set": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Only Current Set"
+          },
+          "tournament": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tournament"
+          }
+        },
+        "title": "MatchInfoModel",
+        "type": "object"
+      },
+      "OverlayControlModel": {
+        "additionalProperties": true,
+        "properties": {
+          "colors": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colors"
+          },
+          "geometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry"
+          },
+          "player_stats_data": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player Stats Data"
+          },
+          "preferredStyle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferredstyle"
+          },
+          "show_bottom_ticker": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Bottom Ticker"
+          },
+          "show_main_scoreboard": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Main Scoreboard"
+          },
+          "show_player_stats": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Player Stats"
+          },
+          "ticker_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker Message"
+          }
+        },
+        "title": "OverlayControlModel",
+        "type": "object"
+      },
+      "OverlayPayload": {
+        "properties": {
+          "allowed_users": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional list of usernames allowed to see this overlay",
+            "title": "Allowed Users"
+          },
+          "control": {
+            "description": "Control token or URL",
+            "minLength": 1,
+            "title": "Control",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the overlay",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional output token or URL",
+            "title": "Output"
+          }
+        },
+        "required": [
+          "name",
+          "control"
+        ],
+        "title": "OverlayPayload",
+        "type": "object"
+      },
+      "OverlayStateUpdate": {
+        "additionalProperties": true,
+        "properties": {
+          "match_info": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchInfoModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overlay_control": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OverlayControlModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "raw_remote_customization": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Remote Customization"
+          },
+          "raw_remote_model": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Remote Model"
+          },
+          "team_away": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamStateModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team_home": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamStateModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "OverlayStateUpdate",
+        "type": "object"
+      },
+      "OverlayUpdatePayload": {
+        "properties": {
+          "allowed_users": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional list of usernames allowed to see this overlay",
+            "title": "Allowed Users"
+          },
+          "control": {
+            "description": "Control token or URL",
+            "minLength": 1,
+            "title": "Control",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the overlay",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "new_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rename the overlay to this value (optional)",
+            "title": "New Name"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional output token or URL",
+            "title": "Output"
+          }
+        },
+        "required": [
+          "name",
+          "control"
+        ],
+        "title": "OverlayUpdatePayload",
+        "type": "object"
+      },
+      "RawConfigPayload": {
+        "additionalProperties": true,
+        "properties": {
+          "customization": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customization"
+          },
+          "model": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "title": "RawConfigPayload",
+        "type": "object"
+      },
+      "ServeRequest": {
+        "properties": {
+          "team": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Team",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team"
+        ],
+        "title": "ServeRequest",
+        "type": "object"
+      },
+      "SetScoreRequest": {
+        "properties": {
+          "set_number": {
+            "minimum": 1.0,
+            "title": "Set Number",
+            "type": "integer"
+          },
+          "team": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Team",
+            "type": "integer"
+          },
+          "value": {
+            "maximum": 99.0,
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team",
+          "set_number",
+          "value"
+        ],
+        "title": "SetScoreRequest",
+        "type": "object"
+      },
+      "SetSetsRequest": {
+        "properties": {
+          "team": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Team",
+            "type": "integer"
+          },
+          "value": {
+            "maximum": 9.0,
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team",
+          "value"
+        ],
+        "title": "SetSetsRequest",
+        "type": "object"
+      },
+      "SimpleModeRequest": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SimpleModeRequest",
+        "type": "object"
+      },
+      "TeamActionRequest": {
+        "properties": {
+          "team": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Team",
+            "type": "integer"
+          },
+          "undo": {
+            "default": false,
+            "title": "Undo",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "team"
+        ],
+        "title": "TeamActionRequest",
+        "type": "object"
+      },
+      "TeamState": {
+        "properties": {
+          "scores": {
+            "additionalProperties": true,
+            "title": "Scores",
+            "type": "object"
+          },
+          "serving": {
+            "title": "Serving",
+            "type": "boolean"
+          },
+          "sets": {
+            "title": "Sets",
+            "type": "integer"
+          },
+          "timeouts": {
+            "title": "Timeouts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sets",
+          "timeouts",
+          "scores",
+          "serving"
+        ],
+        "title": "TeamState",
+        "type": "object"
+      },
+      "TeamStateModel": {
+        "additionalProperties": true,
+        "properties": {
+          "color_primary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Primary"
+          },
+          "color_secondary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Secondary"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "serving": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serving"
+          },
+          "set_history": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set History"
+          },
+          "sets_won": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sets Won"
+          },
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Name"
+          },
+          "timeouts_taken": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeouts Taken"
+          }
+        },
+        "title": "TeamStateModel",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VisibilityRequest": {
+        "properties": {
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "visible"
+        ],
+        "title": "VisibilityRequest",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Volley Overlay Control",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/config/{overlay_id}": {
+      "get": {
+        "operationId": "get_config_api_config__overlay_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Config",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/api/raw_config/{overlay_id}": {
+      "get": {
+        "operationId": "get_raw_config_api_raw_config__overlay_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Raw Config",
+        "tags": [
+          "Overlay"
+        ]
+      },
+      "post": {
+        "operationId": "set_raw_config_api_raw_config__overlay_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RawConfigPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Raw Config",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/api/state/{overlay_id}": {
+      "post": {
+        "operationId": "update_state_api_state__overlay_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverlayStateUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update State",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/api/theme/{overlay_id}/{theme_name}": {
+      "post": {
+        "operationId": "apply_theme_api_theme__overlay_id___theme_name__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "theme_name",
+            "required": true,
+            "schema": {
+              "title": "Theme Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Theme",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/api/themes": {
+      "get": {
+        "operationId": "list_themes_api_themes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Themes",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/api/v1/admin/login": {
+      "post": {
+        "description": "Validate the admin password. Returns ``{\"ok\": true}`` on success.",
+        "operationId": "admin_login_api_v1_admin_login_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Login",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/overlays": {
+      "get": {
+        "description": "Return all managed overlays.",
+        "operationId": "list_overlays_api_v1_admin_overlays_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Overlays",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_overlay_api_v1_admin_overlays_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverlayPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Overlay",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/overlays/{name}": {
+      "delete": {
+        "operationId": "delete_overlay_api_v1_admin_overlays__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Overlay",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "put": {
+        "operationId": "update_overlay_api_v1_admin_overlays__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverlayUpdatePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Overlay",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/status": {
+      "get": {
+        "description": "Report whether overlay management is enabled on this server.\n\nDoes not leak the password \u2014 just indicates whether an admin password\nis configured so the management UI can show a helpful message when\nthe feature is disabled.",
+        "operationId": "admin_status_api_v1_admin_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Admin Status",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/config": {
+      "get": {
+        "operationId": "get_config_api_v1_config_get",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Config",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/customization": {
+      "get": {
+        "operationId": "get_customization_api_v1_customization_get",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Customization",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
+      "put": {
+        "operationId": "update_customization_api_v1_customization_put",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Data",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Customization",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/display/simple-mode": {
+      "post": {
+        "operationId": "set_simple_mode_api_v1_display_simple_mode_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimpleModeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Simple Mode",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/display/visibility": {
+      "post": {
+        "operationId": "set_visibility_api_v1_display_visibility_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Visibility",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/game/add-point": {
+      "post": {
+        "operationId": "add_point_api_v1_game_add_point_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Point",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/game/add-set": {
+      "post": {
+        "operationId": "add_set_api_v1_game_add_set_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Set",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/game/add-timeout": {
+      "post": {
+        "operationId": "add_timeout_api_v1_game_add_timeout_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Timeout",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/game/change-serve": {
+      "post": {
+        "operationId": "change_serve_api_v1_game_change_serve_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Serve",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/game/reset": {
+      "post": {
+        "operationId": "reset_game_api_v1_game_reset_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Game",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/game/set-score": {
+      "post": {
+        "operationId": "set_score_api_v1_game_set_score_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Score",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/game/set-sets": {
+      "post": {
+        "operationId": "set_sets_api_v1_game_set_sets_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSetsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Sets",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/links": {
+      "get": {
+        "description": "Return control, overlay, and preview links for the session.",
+        "operationId": "get_links_api_v1_links_get",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Links",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/overlays": {
+      "get": {
+        "description": "Return predefined overlays available for selection.\n\nMerges two sources:\n\n* ``PREDEFINED_OVERLAYS`` env var (read-only, configured at startup).\n* Overlays managed through the ``/manage`` admin page, persisted in\n  ``data/managed_overlays.json``.\n\nWhen a name exists in both, the managed overlay wins. Entries are\nfiltered by ``allowed_users`` using the caller's identity when user\nauthentication is enabled.",
+        "operationId": "get_overlays_api_v1_overlays_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Overlays",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/session/init": {
+      "post": {
+        "description": "Initialise (or re-use) a game session for the given overlay ID.",
+        "operationId": "init_session_api_v1_session_init_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Init Session",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/state": {
+      "get": {
+        "operationId": "get_state_api_v1_state_get",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get State",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/styles": {
+      "get": {
+        "description": "Return available overlay styles.",
+        "operationId": "get_styles_api_v1_styles_get",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Styles",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "description": "Return predefined team names with icon/color data.",
+        "operationId": "get_teams_api_v1_teams_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Teams",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/themes": {
+      "get": {
+        "description": "Return available theme definitions.",
+        "operationId": "get_themes_api_v1_themes_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Themes",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/create/overlay/{overlay_id}": {
+      "get": {
+        "operationId": "create_overlay_create_overlay__overlay_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Overlay",
+        "tags": [
+          "Overlay"
+        ]
+      },
+      "post": {
+        "operationId": "create_overlay_create_overlay__overlay_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Overlay",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/delete/overlay/{overlay_id}": {
+      "delete": {
+        "operationId": "delete_overlay_delete_overlay__overlay_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Overlay",
+        "tags": [
+          "Overlay"
+        ]
+      },
+      "get": {
+        "operationId": "delete_overlay_delete_overlay__overlay_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Overlay",
+        "tags": [
+          "Overlay"
+        ]
+      },
+      "post": {
+        "operationId": "delete_overlay_delete_overlay__overlay_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Overlay",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check"
+      }
+    },
+    "/list/overlay": {
+      "get": {
+        "operationId": "list_overlays_list_overlay_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Overlays",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/manifest.json": {
+      "get": {
+        "operationId": "serve_manifest_manifest_json_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Serve Manifest"
+      }
+    },
+    "/manifest.webmanifest": {
+      "get": {
+        "operationId": "serve_webmanifest_manifest_webmanifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Serve Webmanifest"
+      }
+    },
+    "/overlay/{overlay_id}": {
+      "get": {
+        "operationId": "serve_overlay_overlay__overlay_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "style",
+            "required": false,
+            "schema": {
+              "title": "Style",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Serve Overlay",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/sw.js": {
+      "get": {
+        "operationId": "serve_sw_sw_js_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Serve Sw"
+      }
+    }
+  }
+}
