@@ -1,11 +1,32 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useI18n } from '../i18n';
 import ColorPicker from './ColorPicker';
+
+export type ConfigModel = Record<string, unknown>;
+
+export interface PredefinedTeam {
+  icon?: string;
+  color?: string;
+  text_color?: string;
+}
+
+export type PredefinedTeams = Record<string, PredefinedTeam>;
+
+export interface TeamCardProps {
+  teamId: 1 | 2;
+  model: ConfigModel;
+  updateField: (key: string, value: unknown) => void;
+  predefinedTeams: PredefinedTeams;
+}
+
+function asString(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v : fallback;
+}
 
 /**
  * Team customization card — logo preview, team name selector, colors.
  */
-export default function TeamCard({ teamId, model, updateField, predefinedTeams }) {
+export default function TeamCard({ teamId, model, updateField, predefinedTeams }: TeamCardProps) {
   const { t } = useI18n();
   const prefix = `Team ${teamId}`;
   const oldNameKey = `${prefix} Text Name`;
@@ -14,8 +35,8 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
   const colorKey = `${prefix} Color`;
   const textColorKey = `${prefix} Text Color`;
   const logoKey = `${prefix} Logo`;
-  const logoUrl = model[logoKey] ?? '';
-  const currentName = model[nameKey] ?? '';
+  const logoUrl = asString(model[logoKey]);
+  const currentName = asString(model[nameKey]);
   const [editing, setEditing] = useState(false);
 
   const teamNames = Object.keys(predefinedTeams);
@@ -23,7 +44,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
     ? teamNames
     : [...teamNames, currentName];
 
-  const handleTeamSelect = useCallback((name) => {
+  const handleTeamSelect = useCallback((name: string) => {
     updateField(nameKey, name);
     const team = predefinedTeams[name];
     if (team) {
@@ -42,7 +63,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
               src={logoUrl}
               alt={`Team ${teamId} logo`}
               className="config-logo-img"
-              onError={(e) => { e.target.style.display = 'none'; }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           ) : (
             <span className="material-icons config-logo-placeholder">image</span>
@@ -91,7 +112,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
         <div className="config-color-group">
           <label className="config-label">{t('teams.color')}</label>
           <ColorPicker
-            color={model[colorKey] ?? (teamId === 1 ? '#060f8a' : '#ffffff')}
+            color={asString(model[colorKey], teamId === 1 ? '#060f8a' : '#ffffff')}
             onChange={(c) => updateField(colorKey, c)}
             data-testid={`team-${teamId}-color-input`}
           />
@@ -99,7 +120,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
         <div className="config-color-group">
           <label className="config-label">{t('teams.text')}</label>
           <ColorPicker
-            color={model[textColorKey] ?? (teamId === 1 ? '#ffffff' : '#000000')}
+            color={asString(model[textColorKey], teamId === 1 ? '#ffffff' : '#000000')}
             onChange={(c) => updateField(textColorKey, c)}
             data-testid={`team-${teamId}-text-color-input`}
           />
