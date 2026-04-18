@@ -1,5 +1,6 @@
 import logging
 import json
+import secrets
 from app.env_vars_manager import EnvVarsManager
 from app.oid_utils import UNO_OUTPUT_BASE_URL
 
@@ -38,12 +39,18 @@ class PasswordAuthenticator:
 
     @classmethod
     def get_username_for_api_key(cls, key: str):
-        """Return the username whose password matches *key*, or ``None``."""
+        """Return the username whose password matches *key*, or ``None``.
+
+        Uses ``secrets.compare_digest`` for each comparison so individual
+        password checks are constant-time and don't leak a matching prefix
+        via timing (see AUTHENTICATION.md §3 and PR #149 review).
+        """
         users = cls._get_users()
-        if users is None:
+        if users is None or not isinstance(key, str):
             return None
         for username, userconf in users.items():
-            if userconf.get("password") == key:
+            password = userconf.get("password")
+            if isinstance(password, str) and secrets.compare_digest(password, key):
                 return username
         return None
 
