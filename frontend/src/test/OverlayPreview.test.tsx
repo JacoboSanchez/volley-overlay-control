@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
-import React from 'react';
-import OverlayPreview from '../components/OverlayPreview';
+import OverlayPreview, { OverlayPreviewProps } from '../components/OverlayPreview';
 import { renderWithI18n } from './helpers';
 
 describe('OverlayPreview', () => {
@@ -17,9 +16,8 @@ describe('OverlayPreview', () => {
   });
 
   it('returns null when overlayUrl is not provided', () => {
-    const { container } = renderWithI18n(
-      <OverlayPreview x={0} y={0} width={30} height={10} layoutId="" />
-    );
+    const props = { x: 0, y: 0, width: 30, height: 10, layoutId: '' } as unknown as OverlayPreviewProps;
+    const { container } = renderWithI18n(<OverlayPreview {...props} />);
     expect(container.innerHTML).toBe('');
   });
 

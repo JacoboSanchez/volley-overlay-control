@@ -1,9 +1,9 @@
-import React from 'react';
-import { render } from '@testing-library/react';
+import { ReactElement } from 'react';
+import { render, RenderOptions } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';
 
-export function renderWithI18n(ui, options = {}) {
+export function renderWithI18n(ui: ReactElement, options: Omit<RenderOptions, 'wrapper'> = {}) {
   return render(
     <I18nProvider>
       <SettingsProvider>
@@ -30,6 +30,8 @@ export const mockGameState = {
   visible: true,
   simple_mode: false,
   match_finished: false,
+  current_set: 1,
+  serve: '1',
   config: { sets_limit: 5, points_limit: 25 },
 };
 

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import React from 'react';
 import ConfigPanel from '../components/ConfigPanel';
 import * as api from '../api/client';
 import { renderWithI18n, mockCustomization } from './helpers';
@@ -84,7 +83,7 @@ describe('ConfigPanel', () => {
   it('renders language selector in behavior section', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     // In landscape mode, click the behavior sidebar item
-    const behaviorButton = screen.getByText('Behavior').closest('button');
+    const behaviorButton = screen.getByText('Behavior').closest('button')!;
     fireEvent.click(behaviorButton);
     await waitFor(() => {
       expect(screen.getByText('English')).toBeInTheDocument();
@@ -92,10 +91,10 @@ describe('ConfigPanel', () => {
   });
 
   it('shows style selector when backend returns multiple styles', async () => {
-    api.getStyles.mockResolvedValue(['Classic', 'Modern']);
+    vi.mocked(api.getStyles).mockResolvedValue(['Classic', 'Modern']);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     // Navigate to overlay section
-    const overlayButton = screen.getByText('Overlay Style').closest('button');
+    const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
     await waitFor(() => {
       expect(screen.getByTestId('style-selector')).toBeInTheDocument();
@@ -107,9 +106,9 @@ describe('ConfigPanel', () => {
   });
 
   it('hides style selector when only one style', async () => {
-    api.getStyles.mockResolvedValue(['OnlyOne']);
+    vi.mocked(api.getStyles).mockResolvedValue(['OnlyOne']);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    const overlayButton = screen.getByText('Overlay Style').closest('button');
+    const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
     await waitFor(() => {
       expect(screen.queryByTestId('style-selector')).not.toBeInTheDocument();
@@ -117,9 +116,9 @@ describe('ConfigPanel', () => {
   });
 
   it('hides gradient toggle for custom overlays', async () => {
-    api.getLinks.mockResolvedValue({ control: '', overlay: 'http://custom-overlay.example.com/output', preview: '' });
+    vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: 'http://custom-overlay.example.com/output', preview: '' });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    const overlayButton = screen.getByText('Overlay Style').closest('button');
+    const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
     await waitFor(() => {
       expect(screen.queryByText('Gradient')).not.toBeInTheDocument();
@@ -127,9 +126,9 @@ describe('ConfigPanel', () => {
   });
 
   it('shows gradient toggle for standard overlays', async () => {
-    api.getLinks.mockResolvedValue({ control: '', overlay: 'https://overlays.uno/output/abc', preview: '' });
+    vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: 'https://overlays.uno/output/abc', preview: '' });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    const overlayButton = screen.getByText('Overlay Style').closest('button');
+    const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
     await waitFor(() => {
       expect(screen.getByText('Gradient')).toBeInTheDocument();
