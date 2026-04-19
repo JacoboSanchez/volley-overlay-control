@@ -36,6 +36,10 @@ check_untyped_defs = false
 warn_unused_ignores = true
 warn_redundant_casts = true
 
+[tool.pytest.ini_options]
+log_cli = false
+log_level = "WARNING"
+
 [tool.coverage.run]
 source = ["app"]
 branch = true
