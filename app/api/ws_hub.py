@@ -3,7 +3,7 @@ import json
 import logging
 from fastapi import WebSocket
 
-logger = logging.getLogger("WSHub")
+logger = logging.getLogger(__name__)
 
 
 class WSHub:

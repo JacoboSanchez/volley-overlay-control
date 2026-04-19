@@ -7,7 +7,7 @@ from weakref import WeakValueDictionary
 
 from app.api.session_manager import SessionManager
 
-logger = logging.getLogger("APIRoutes")
+logger = logging.getLogger(__name__)
 
 _cleanup_task: asyncio.Task | None = None
 # WeakValueDictionary auto-evicts entries once all strong refs to the lock are

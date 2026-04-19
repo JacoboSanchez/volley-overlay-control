@@ -3,7 +3,7 @@ from app.api.schemas import GameStateResponse, TeamState, ActionResponse, ALLOWE
 from app.api.ws_hub import WSHub
 from app.state import State
 
-logger = logging.getLogger("GameService")
+logger = logging.getLogger(__name__)
 
 
 class MatchFinishedError(Exception):

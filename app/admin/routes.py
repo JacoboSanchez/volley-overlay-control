@@ -30,7 +30,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.env_vars_manager import EnvVarsManager
 
-logger = logging.getLogger("AdminRoutes")
+logger = logging.getLogger(__name__)
 
 _PAGE_PATH = os.path.join(os.path.dirname(__file__), "static", "overlays.html")
 

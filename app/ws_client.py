@@ -259,5 +259,5 @@ class WSControlClient:
         if self._on_event:
             try:
                 self._on_event(msg)
-            except Exception as e:
-                logger.error("Event callback error: %s", e)
+            except Exception:
+                logger.exception("Event callback error")

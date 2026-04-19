@@ -8,8 +8,9 @@ from app.api.dependencies import check_oid_access
 from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 from app.api.ws_hub import WSHub
+from app.logging_utils import redact_oid
 
-logger = logging.getLogger("APIRoutes")
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def websocket_endpoint(ws: WebSocket, oid: str = Query(...)):
                 await ws.send_text("pong")
     except WebSocketDisconnect:
         pass
-    except Exception as e:
-        logger.error(f"WebSocket error for OID {oid}: {e}")
+    except Exception:
+        logger.exception("WebSocket error for OID %s", redact_oid(oid))
     finally:
         WSHub.disconnect(ws, oid)
