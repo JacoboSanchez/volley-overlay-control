@@ -46,17 +46,17 @@ class Backend:
         self._overlay = self._create_overlay_backend()
 
     def _remember_customization(self, data):
-        """Store *data* in the customization cache and stamp the timestamp."""
-        self._customization_cache = data
+        """Store a copy of *data* in the cache so callers can't mutate it."""
+        self._customization_cache = data.copy() if data is not None else None
         self._customization_cache_ts = time.monotonic()
 
     def _fresh_customization_cache(self):
-        """Return the cached customization if still within TTL, else None."""
+        """Return a fresh copy of the cached customization, or None if stale."""
         if self._customization_cache is None:
             return None
         if (time.monotonic() - self._customization_cache_ts) > _CUSTOMIZATION_CACHE_TTL_SECONDS:
             return None
-        return self._customization_cache
+        return self._customization_cache.copy()
 
     @staticmethod
     def _local_overlay_exists(overlay_id: str) -> bool:
