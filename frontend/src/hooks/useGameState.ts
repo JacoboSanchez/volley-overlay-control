@@ -12,7 +12,11 @@ type TeamState = components['schemas']['TeamState'];
 // authoritative state via HTTP response and WebSocket broadcast. Undo actions
 // are not predicted — their effect on match/set boundaries is non-trivial.
 function optimisticAddPoint(prev: GameState, team: Team): GameState {
-  const setNum = prev.current_set || 1;
+  // Prefer the server's current_set; fall back to the same derivation the App
+  // uses (completed sets + 1), so a missing/zero value doesn't push the point
+  // into set_0 and cause a flicker when the authoritative state arrives.
+  const derivedSet = (prev.team_1?.sets ?? 0) + (prev.team_2?.sets ?? 0) + 1;
+  const setNum = prev.current_set || derivedSet;
   const setKey = `set_${setNum}`;
   const updateTeam = (t: TeamState, isScorer: boolean): TeamState => {
     const scores = (t.scores ?? {}) as Record<string, unknown>;
@@ -66,6 +70,15 @@ export function useGameState(oid: string | null): UseGameStateResult {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Mirror of `state` used by handleAction so it can synchronously snapshot
+  // the current state and apply an optimistic update without relying on an
+  // impure setState updater. Updated eagerly on every state write.
+  const stateRef = useRef<GameState | null>(null);
+
+  const applyState = useCallback((next: GameState | null) => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
 
   const closeWs = useCallback(() => {
     if (reconnectTimer.current) {
@@ -84,7 +97,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
     if (!oid) return;
     closeWs();
     wsRef.current = createWebSocket(oid, {
-      onStateUpdate: (newState) => setState(newState),
+      onStateUpdate: (newState) => applyState(newState),
       onCustomizationUpdate: (newCust) => setCustomization(newCust),
       onOpen: () => setConnected(true),
       onClose: (event) => {
@@ -95,11 +108,11 @@ export function useGameState(oid: string | null): UseGameStateResult {
       },
       onError: () => setConnected(false),
     });
-  }, [oid, closeWs]);
+  }, [oid, closeWs, applyState]);
 
   const initialize = useCallback(async () => {
     if (!oid) {
-      setState(null);
+      applyState(null);
       setCustomization(null);
       setConnected(false);
       setError(null);
@@ -116,7 +129,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
       const res = await api.initSession(oid);
       if (controller.signal.aborted) return;
       if (res.success && res.state) {
-        setState(res.state);
+        applyState(res.state);
         const cust = await api.getCustomization(oid);
         if (controller.signal.aborted) return;
         setCustomization(cust);
@@ -133,7 +146,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
         abortRef.current = null;
       }
     }
-  }, [oid, connectWs]);
+  }, [oid, connectWs, applyState]);
 
   useEffect(() => {
     return () => {
@@ -149,33 +162,31 @@ export function useGameState(oid: string | null): UseGameStateResult {
     actionFn: () => Promise<ActionResponse>,
     optimisticUpdater?: (prev: GameState) => GameState,
   ): Promise<ActionResponse> => {
-    let snapshot: GameState | null = null;
-    let didOptimistic = false;
-    if (optimisticUpdater) {
-      setState((prev) => {
-        if (!prev) return prev;
-        snapshot = prev;
-        didOptimistic = true;
-        return optimisticUpdater(prev);
-      });
+    // Capture the snapshot synchronously from the ref (not from an impure
+    // setState updater) so rollback is reliable even if actionFn rejects
+    // before React processes the update.
+    const snapshot = stateRef.current;
+    const shouldApplyOptimistic = Boolean(optimisticUpdater && snapshot);
+    if (shouldApplyOptimistic && snapshot && optimisticUpdater) {
+      applyState(optimisticUpdater(snapshot));
     }
     try {
       const res = await actionFn();
       if (res.success && res.state) {
-        setState(res.state);
-      } else if (!res.success && didOptimistic) {
-        setState(snapshot);
+        applyState(res.state);
+      } else if (!res.success && shouldApplyOptimistic) {
+        applyState(snapshot);
       }
       return res;
     } catch (e) {
-      if (didOptimistic) {
-        setState(snapshot);
+      if (shouldApplyOptimistic) {
+        applyState(snapshot);
       }
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
       return { success: false, message };
     }
-  }, []);
+  }, [applyState]);
 
   const actions = useMemo<GameActions>(() => ({
     addPoint: (team, undo = false) => handleAction(
