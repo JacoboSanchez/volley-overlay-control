@@ -1145,7 +1145,7 @@
     },
     "/api/v1/_log": {
       "post": {
-        "description": "Accept a frontend error report. Returns 204 even on rate-limit so\nthe SPA's :func:`navigator.sendBeacon` does not retry needlessly.",
+        "description": "Accept a frontend error report. Returns 429 (empty body) when\nrate-limited so well-behaved clients back off without sendBeacon\nsurfacing a JSON error payload.",
         "operationId": "post_client_log_api_v1__log_post",
         "requestBody": {
           "content": {

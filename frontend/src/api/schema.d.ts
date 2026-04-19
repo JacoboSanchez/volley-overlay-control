@@ -101,8 +101,9 @@ export interface paths {
         put?: never;
         /**
          * Post Client Log
-         * @description Accept a frontend error report. Returns 204 even on rate-limit so
-         *     the SPA's :func:`navigator.sendBeacon` does not retry needlessly.
+         * @description Accept a frontend error report. Returns 429 (empty body) when
+         *     rate-limited so well-behaved clients back off without sendBeacon
+         *     surfacing a JSON error payload.
          */
         post: operations["post_client_log_api_v1__log_post"];
         delete?: never;
