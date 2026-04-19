@@ -199,9 +199,7 @@ def _register_system_endpoints(application: FastAPI) -> None:
 
     @application.get("/manifest.json")
     def serve_manifest():
-        # Legacy alias for /manifest.webmanifest. Description omitted to avoid
-        # OpenAPI schema drift; a docstring would surface as "description" and
-        # require regenerating frontend/src/api/schema.d.ts.
+        # No docstring: would surface in OpenAPI and force schema.d.ts regen.
         source = _vite_manifest_path()
         if source is None:
             return JSONResponse({"error": "manifest not available"}, status_code=404)

@@ -4,7 +4,6 @@ Covers the HTTP and WebSocket surface end-to-end: session lifecycle, game
 actions, session-not-found errors, and WSHub broadcast across multiple
 clients. Backend HTTP dependencies are patched so no network traffic occurs.
 """
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,35 +11,17 @@ from fastapi.testclient import TestClient
 
 from app.bootstrap import create_app
 from app.api.session_manager import SessionManager
-from app.api.ws_hub import WSHub
 from app.state import State
 
+from tests.conftest import load_fixture
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
-def _load_fixture(name: str):
-    import os
-    here = os.path.dirname(__file__)
-    with open(os.path.join(here, "fixtures", f"{name}.json")) as f:
-        return json.load(f)
+pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
 @pytest.fixture
-def app():
-    """Build a fresh FastAPI app and wipe global singletons after each test."""
-    SessionManager.clear()
-    WSHub.clear()
-    application = create_app()
-    yield application
-    SessionManager.clear()
-    WSHub.clear()
-
-
-@pytest.fixture
-def client(app):
-    with TestClient(app) as c:
+def client():
+    with TestClient(create_app()) as c:
         yield c
 
 
@@ -51,8 +32,8 @@ def fake_backend_cls():
     fake.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
     fake.init_ws_client.return_value = None
     fake.fetch_output_token.return_value = None
-    fake.get_current_model.return_value = _load_fixture("base_model")
-    fake.get_current_customization.return_value = _load_fixture("base_customization")
+    fake.get_current_model.return_value = load_fixture("base_model")
+    fake.get_current_customization.return_value = load_fixture("base_customization")
     fake.is_visible.return_value = True
     fake.is_custom_overlay.return_value = False
 

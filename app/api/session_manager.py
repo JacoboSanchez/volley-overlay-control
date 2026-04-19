@@ -85,7 +85,6 @@ class SessionManager:
         blocking) ``GameSession`` construction happens outside it so one slow
         OID cannot stall lookups for every other OID.
         """
-        # Fast path: already exists.
         with cls._lock:
             session = cls._sessions.get(oid)
             if session is not None:
@@ -98,7 +97,6 @@ class SessionManager:
                     session.sets_limit = sets_limit
                 return session
 
-        # Slow path: build the session outside the lock (may do HTTP I/O).
         if conf is None:
             conf = Conf()
             conf.oid = oid
@@ -111,7 +109,6 @@ class SessionManager:
             sets_limit=sets_limit,
         )
 
-        # Re-check under the lock; another caller may have won the race.
         with cls._lock:
             existing = cls._sessions.get(oid)
             if existing is not None:
