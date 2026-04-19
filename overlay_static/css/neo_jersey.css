@@ -20,7 +20,7 @@
     --sets-w:  42px;
     --points-w: 82px;
 
-    /* Compact-mode transition (easing from jersey_shared.css) */
+    /* Compact-mode transition timing */
     --collapse-dur:    0.48s;
 }
 

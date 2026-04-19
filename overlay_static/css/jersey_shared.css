@@ -1,6 +1,5 @@
 /* ── Shared jersey tokens and icon styles ────────────────────
-   Imported by clear_jersey.css, neo_jersey.css, split_jersey.css.
-   Theme-specific properties stay in each theme's own :root.
+   Imported by jersey-family themes; override via each theme's :root.
 ──────────────────────────────────────────────────────────── */
 :root {
     --nm-bg:          #e0e5ec;

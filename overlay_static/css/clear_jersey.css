@@ -24,7 +24,7 @@
     --logo-size:  70px;   /* taller than bar → protrudes 4px each side */
     --logo-skew:  12px;   /* parallelogram slant (matches compact) */
 
-    /* Collapse transition (easing from jersey_shared.css) */
+    /* Collapse transition */
     --collapse-dur:    0.44s;
 }
 

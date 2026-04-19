@@ -26,7 +26,7 @@
     --bar-h:      62px;
     --bar-radius: 31px;   /* = bar-h / 2  → perfect semicircle on left */
 
-    /* Collapse transition (easing from jersey_shared.css) */
+    /* Collapse transition */
     --collapse-dur:    0.44s;
 }
 
