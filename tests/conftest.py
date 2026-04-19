@@ -1,6 +1,7 @@
 import pytest
 import os
 import json
+from unittest.mock import MagicMock
 from dotenv import load_dotenv
 from app.app_storage import AppStorage
 
@@ -69,3 +70,56 @@ def load_fixture(name):
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
     with open(path) as f:
         return json.load(f)
+
+
+# ---------------------------------------------------------------------------
+# Shared API-layer fixtures (previously duplicated in test_api.py).
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def clean_sessions():
+    """Ensure a clean SessionManager and WSHub for every test."""
+    from app.api.session_manager import SessionManager
+    from app.api.ws_hub import WSHub
+
+    SessionManager.clear()
+    WSHub.clear()
+    yield
+    SessionManager.clear()
+    WSHub.clear()
+
+
+@pytest.fixture
+def mock_conf():
+    conf = MagicMock()
+    conf.oid = 'test-oid'
+    conf.output = None
+    conf.points = 25
+    conf.points_last_set = 15
+    conf.sets = 5
+    conf.multithread = False
+    conf.rest_user_agent = 'test'
+    conf.id = 'test-layout'
+    conf.single_overlay = True
+    return conf
+
+
+@pytest.fixture
+def api_backend():
+    """MagicMock Backend that returns canned customization/model fixtures.
+
+    Named ``api_backend`` (not ``mock_backend``) so it does not collide with
+    ``test_game_manager.py``'s local ``mock_backend`` which is ``spec=Backend``.
+    """
+    backend = MagicMock()
+    backend.get_current_model.return_value = load_fixture('base_model')
+    backend.get_current_customization.return_value = load_fixture('base_customization')
+    backend.is_visible.return_value = True
+    backend.is_custom_overlay.return_value = False
+    return backend
+
+
+@pytest.fixture
+def api_session(mock_conf, api_backend, clean_sessions):
+    from app.api.session_manager import SessionManager
+    return SessionManager.get_or_create('test-oid', mock_conf, api_backend)

@@ -2,9 +2,32 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+const analyze = process.env.ANALYZE === 'true';
+
+async function maybeVisualizer() {
+  if (!analyze) return null;
+  try {
+    const { visualizer } = await import('rollup-plugin-visualizer');
+    return visualizer({
+      filename: 'dist/stats.html',
+      template: 'treemap',
+      gzipSize: true,
+      brotliSize: true,
+      open: false,
+    });
+  } catch {
+    console.warn(
+      'ANALYZE=true requires rollup-plugin-visualizer. Install with: ' +
+      'npm i -D rollup-plugin-visualizer',
+    );
+    return null;
+  }
+}
+
+export default defineConfig(async () => ({
   plugins: [
     react(),
+    await maybeVisualizer(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['fonts/**/*', 'icon.svg'],
@@ -22,6 +45,18 @@ export default defineConfig({
             src: 'icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
+            purpose: 'any',
+          },
+          {
+            src: 'icon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+          {
+            src: 'icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'any maskable',
           },
         ],
@@ -71,4 +106,4 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.ts',
   },
-});
+}));

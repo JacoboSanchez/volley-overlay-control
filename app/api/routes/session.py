@@ -40,7 +40,8 @@ async def init_session(req: InitRequest, request: Request):
         existing = SessionManager.get(req.oid)
         if existing is not None:
             # Update limits if explicitly provided
-            session = SessionManager.get_or_create(
+            session = await run_in_threadpool(
+                SessionManager.get_or_create,
                 req.oid, conf, None,
                 req.points_limit, req.points_limit_last_set, req.sets_limit,
             )
@@ -70,7 +71,8 @@ async def init_session(req: InitRequest, request: Request):
                     else UNO_OUTPUT_BASE_URL + token
                 )
 
-        session = SessionManager.get_or_create(
+        session = await run_in_threadpool(
+            SessionManager.get_or_create,
             req.oid, conf, backend,
             req.points_limit, req.points_limit_last_set, req.sets_limit,
         )
