@@ -88,10 +88,10 @@ class GameManager:
             if current_score > 0:
                 # Check if the score before undoing was a winning score
                 was_a_win = self._is_winning_score(current_score, rival_score, game_limit)
-                
+
                 self.main_state.set_game(current_set, team, current_score - 1)
                 new_score = current_score - 1
-                
+
                 # Check if the new score is no longer a winning score
                 is_still_a_win = self._is_winning_score(new_score, rival_score, game_limit)
 
@@ -140,7 +140,7 @@ class GameManager:
             return True
         self.logger.debug(f"Match not finished. Score: {t1_sets}-{t2_sets}, required: {soft_limit}")
         return False
-    
+
     def check_set_won(self, team: int, current_set: int, points_limit: int, points_limit_last_set: int, sets_limit: int) -> bool:
         """Checks if a team has won the current set after a direct score update."""
         self.logger.debug(f"Checking if team {team} won set {current_set}")

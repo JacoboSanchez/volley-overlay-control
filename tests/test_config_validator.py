@@ -1,6 +1,5 @@
 import os
 import pytest
-import logging
 from unittest.mock import patch
 from app.config_validator import validate_config
 

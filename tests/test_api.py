@@ -1,7 +1,7 @@
 """Tests for the REST API layer (app/api/)."""
 import pytest
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from app.api.session_manager import SessionManager, GameSession
 from app.api.game_service import GameService

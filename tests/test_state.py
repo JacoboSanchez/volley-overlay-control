@@ -54,7 +54,7 @@ def test_reset_model_is_immutable(state):
     """Tests that modifying the retrieved reset_model doesn't affect the class's original."""
     my_reset = state.get_reset_model()
     my_reset[State.T1SETS_INT] = '99'
-    
+
     fresh_reset = state.get_reset_model()
     assert fresh_reset[State.T1SETS_INT] == '0'
 
@@ -142,7 +142,7 @@ def test_simplify_model_when_current_set_is_one(state):
     model[State.T1SET1_INT] = '5'
     model[State.T2SET1_INT] = '7'
     model[State.T1SET2_INT] = '2' # Some leftover score
-    
+
     simplified = State.simplify_model(copy.copy(model))
 
     # Scores for set 1 should remain

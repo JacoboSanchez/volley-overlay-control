@@ -1,5 +1,6 @@
 import copy
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from app.state import State
@@ -13,6 +14,13 @@ from app.overlay_backends import (
 from app.env_vars_manager import EnvVarsManager
 
 import requests
+
+# TTL for the in-memory customization cache. Overlay customization (team names,
+# colors, geometry) rarely changes during a match, but if an operator edits it
+# in another tab or via the admin panel a stale cache would delay propagation
+# for the duration of the match. 60s balances freshness against the cost of
+# extra GET round-trips on every save.
+_CUSTOMIZATION_CACHE_TTL_SECONDS = 60.0
 
 
 class Backend:
@@ -34,7 +42,21 @@ class Backend:
         })
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._customization_cache = None
+        self._customization_cache_ts = 0.0
         self._overlay = self._create_overlay_backend()
+
+    def _remember_customization(self, data):
+        """Store *data* in the customization cache and stamp the timestamp."""
+        self._customization_cache = data
+        self._customization_cache_ts = time.monotonic()
+
+    def _fresh_customization_cache(self):
+        """Return the cached customization if still within TTL, else None."""
+        if self._customization_cache is None:
+            return None
+        if (time.monotonic() - self._customization_cache_ts) > _CUSTOMIZATION_CACHE_TTL_SECONDS:
+            return None
+        return self._customization_cache
 
     @staticmethod
     def _local_overlay_exists(overlay_id: str) -> bool:
@@ -99,9 +121,16 @@ class Backend:
         self._overlay.close_ws_client()
 
     def shutdown(self):
+        # Close the WebSocket first so no new tasks are submitted that would
+        # race with the executor drain below.
         self._overlay.shutdown()
-        if hasattr(self, 'executor') and self.executor:
-            self.executor.shutdown(wait=False)
+        executor = getattr(self, 'executor', None)
+        if executor is None:
+            return
+        # wait=True so in-flight overlay saves aren't abandoned mid-request.
+        # cancel_futures=False preserves the queued tasks (queued saves will
+        # run before the executor finally exits).
+        executor.shutdown(wait=True, cancel_futures=False)
 
     @property
     def ws_connected(self):
@@ -123,9 +152,9 @@ class Backend:
         from app.customization import Customization
 
         if customization_state is None:
+            cached = self._fresh_customization_cache()
             customization_state = (
-                self._customization_cache
-                if self._customization_cache is not None
+                cached if cached is not None
                 else (self.get_current_customization() or {})
             )
         cust = Customization(customization_state)
@@ -272,11 +301,13 @@ class Backend:
     def save_json_customization(self, to_save):
         Backend.logger.info('saving JSON customization...')
         self._ensure_overlay_backend()
-        self._customization_cache = to_save
+        self._remember_customization(to_save)
 
         self._overlay.save_customization(to_save)
 
-        get_model = lambda: self.get_current_model(self.conf.oid)
+        def get_model():
+            return self.get_current_model(self.conf.oid)
+
         if self.conf.multithread:
             self.executor.submit(
                 self._overlay.on_customization_saved, get_model, to_save,
@@ -305,7 +336,7 @@ class Backend:
         self._ensure_overlay_backend(oid)
         data = self._overlay.get_customization(oid=oid)
         if data is not None:
-            self._customization_cache = data
+            self._remember_customization(data)
         return data
 
     def is_visible(self):
