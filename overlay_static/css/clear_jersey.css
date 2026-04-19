@@ -16,15 +16,6 @@
     --away-primary:   #0047AB;
     --away-secondary: #FFD700;
 
-    /* Neumorphic palette */
-    --nm-bg:          #e0e5ec;
-    --nm-shadow-dark: rgba(163, 177, 198, 0.60);
-    --nm-shadow-lite: rgba(255, 255, 255, 0.85);
-    --nm-inset-dark:  rgba(163, 177, 198, 0.50);
-    --nm-inset-lite:  rgba(255, 255, 255, 0.80);
-    --nm-text:        #31344b;
-    --nm-text-dim:    #777b96;
-
     /* Bar geometry */
     --bar-h:      62px;
     --bar-radius: 31px;
@@ -33,8 +24,7 @@
     --logo-size:  70px;   /* taller than bar → protrudes 4px each side */
     --logo-skew:  12px;   /* parallelogram slant (matches compact) */
 
-    /* Collapse transition */
-    --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
+    /* Collapse transition (easing from jersey_shared.css) */
     --collapse-dur:    0.44s;
 }
 

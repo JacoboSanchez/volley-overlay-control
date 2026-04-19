@@ -1,8 +1,18 @@
-/* ── Shared jersey icon styles ───────────────────────────────
-   Imported by neo_jersey.css and split_jersey.css.
-   Theme-specific properties (width, height, outline) stay in
-   each theme file.
+/* ── Shared jersey tokens and icon styles ────────────────────
+   Imported by clear_jersey.css, neo_jersey.css, split_jersey.css.
+   Theme-specific properties stay in each theme's own :root.
 ──────────────────────────────────────────────────────────── */
+:root {
+    --nm-bg:          #e0e5ec;
+    --nm-shadow-dark: rgba(163, 177, 198, 0.60);
+    --nm-shadow-lite: rgba(255, 255, 255, 0.85);
+    --nm-inset-dark:  rgba(163, 177, 198, 0.50);
+    --nm-inset-lite:  rgba(255, 255, 255, 0.80);
+    --nm-text:        #31344b;
+    --nm-text-dim:    #777b96;
+    --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .jersey-icon {
     flex-shrink: 0;
     /* T-shirt silhouette */
