@@ -11,7 +11,7 @@ from collections import OrderedDict, deque
 from threading import Lock
 from typing import Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field
 
 from app.logging_utils import redact_oid, redact_url
@@ -28,6 +28,18 @@ _clients_lock = Lock()
 
 
 def _client_key(request: Request) -> str:
+    """Return the best-effort peer identifier for rate-limit bucketing.
+
+    ``X-Forwarded-For`` is honoured when present so the limiter does not
+    collapse every caller into a single bucket when the app sits behind a
+    reverse proxy. For production deployments, also configure uvicorn with
+    ``--proxy-headers`` so ``request.client.host`` itself is rewritten.
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        first = forwarded.split(",", 1)[0].strip()
+        if first:
+            return first
     return request.client.host if request.client else "unknown"
 
 
@@ -71,12 +83,11 @@ _LEVELS = {"error": logging.ERROR, "warn": logging.WARNING}
 
 @router.post("/_log", status_code=status.HTTP_204_NO_CONTENT)
 async def post_client_log(record: ClientLogRecord, request: Request) -> Response:
-    """Accept a frontend error report. Returns 204 even on rate-limit so
-    the SPA's :func:`navigator.sendBeacon` does not retry needlessly."""
+    """Accept a frontend error report. Returns 429 (empty body) when
+    rate-limited so well-behaved clients back off without sendBeacon
+    surfacing a JSON error payload."""
     if _rate_limited(_client_key(request)):
-        # Tell well-behaved clients they should stop, but keep the body
-        # empty so sendBeacon does not surface an error to the user.
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
+        return Response(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
 
     extras = {
         "frontend_href": redact_url(record.href) if record.href else "-",

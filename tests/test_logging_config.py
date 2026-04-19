@@ -166,6 +166,13 @@ class TestBuildDictConfig:
         assert cfg["handlers"]["file"]["maxBytes"] == 10 * 1024 * 1024
         assert cfg["handlers"]["file"]["backupCount"] == 5
 
+    def test_file_handler_accepts_zero_for_no_rotation(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LOG_FILE_MAX_BYTES", "0")
+        monkeypatch.setenv("LOG_FILE_BACKUPS", "0")
+        cfg = build_dict_config(log_file=str(tmp_path / "x.log"))
+        assert cfg["handlers"]["file"]["maxBytes"] == 0
+        assert cfg["handlers"]["file"]["backupCount"] == 0
+
 
 class TestRedactFilter:
     @pytest.mark.parametrize(

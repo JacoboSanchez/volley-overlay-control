@@ -98,3 +98,39 @@ def test_rate_limited_after_window_exceeded(client, caplog):
         assert r.status_code == 204
     overflow = client.post("/api/v1/_log", json={"level": "error", "message": "x"})
     assert overflow.status_code == 429
+    # Body must stay empty so sendBeacon does not surface a JSON error.
+    assert overflow.content == b""
+
+
+def test_forwarded_for_buckets_clients_separately(client):
+    """Two different X-Forwarded-For peers must not share the same bucket."""
+    for _ in range(_MAX_PER_WINDOW):
+        r = client.post(
+            "/api/v1/_log",
+            headers={"x-forwarded-for": "198.51.100.1"},
+            json={"level": "error", "message": "a"},
+        )
+        assert r.status_code == 204
+    blocked = client.post(
+        "/api/v1/_log",
+        headers={"x-forwarded-for": "198.51.100.1"},
+        json={"level": "error", "message": "a"},
+    )
+    assert blocked.status_code == 429
+    other = client.post(
+        "/api/v1/_log",
+        headers={"x-forwarded-for": "198.51.100.2"},
+        json={"level": "error", "message": "a"},
+    )
+    assert other.status_code == 204
+
+
+def test_forwarded_for_uses_first_entry(client):
+    """Multiple hops in X-Forwarded-For: the first entry is the original client."""
+    client.post(
+        "/api/v1/_log",
+        headers={"x-forwarded-for": "203.0.113.9, 10.0.0.1, 10.0.0.2"},
+        json={"level": "error", "message": "a"},
+    )
+    from app.api.routes.client_log import _clients
+    assert "203.0.113.9" in _clients

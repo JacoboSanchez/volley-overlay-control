@@ -174,7 +174,9 @@ def _resolve_int_env(name: str, default: int) -> int:
         value = int(raw)
     except ValueError:
         return default
-    return value if value > 0 else default
+    # ``RotatingFileHandler`` treats ``maxBytes=0`` as "never rotate" and
+    # ``backupCount=0`` as "keep no backups" — both are valid, so allow them.
+    return value if value >= 0 else default
 
 
 def build_dict_config(
