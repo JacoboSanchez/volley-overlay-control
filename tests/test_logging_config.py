@@ -49,6 +49,14 @@ class TestJsonFormatter:
         assert payload["logger"] == "app.test"
         assert "timestamp" in payload
 
+    def test_timestamp_carries_millisecond_precision(self):
+        record = _make_record()
+        payload = json.loads(JsonFormatter().format(record))
+        assert "." in payload["timestamp"]
+        seconds, _, ms = payload["timestamp"].rpartition(".")
+        assert seconds.count(":") == 2  # HH:MM:SS
+        assert len(ms) == 3 and ms.isdigit()
+
     def test_defaults_context_fields_to_dash(self):
         record = _make_record()
         payload = json.loads(JsonFormatter().format(record))

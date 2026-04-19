@@ -16,7 +16,6 @@ don't drown the signal.
 import json
 import logging
 import logging.config
-import os
 
 
 _ANSI_COLORS = {
@@ -65,10 +64,13 @@ class JsonFormatter(logging.Formatter):
     """One JSON object per record, safe for log aggregators."""
 
     default_time_format = "%Y-%m-%dT%H:%M:%S"
+    # Override stdlib's ``"%s,%03d"`` so we emit strict ISO-8601 with a
+    # ``.`` separator — what log aggregators (Loki, Datadog) expect.
+    default_msec_format = "%s.%03d"
 
     def format(self, record: logging.LogRecord) -> str:
         payload = {
-            "timestamp": self.formatTime(record, self.default_time_format),
+            "timestamp": self.formatTime(record),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -105,14 +107,18 @@ class HealthEndpointFilter(logging.Filter):
 
 
 def _resolve_level() -> str:
-    raw = os.environ.get("LOGGING_LEVEL", "warning").upper()
+    from app.env_vars_manager import EnvVarsManager
+
+    raw = EnvVarsManager.get_env_var("LOGGING_LEVEL", "warning").upper()
     if raw not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
         raw = "WARNING"
     return raw
 
 
 def _resolve_format() -> str:
-    raw = os.environ.get("LOG_FORMAT", "text").strip().lower()
+    from app.env_vars_manager import EnvVarsManager
+
+    raw = EnvVarsManager.get_env_var("LOG_FORMAT", "text").strip().lower()
     return "json" if raw == "json" else "text"
 
 

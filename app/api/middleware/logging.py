@@ -63,9 +63,8 @@ def _extract_oid(scope) -> str | None:
     qs = scope.get("query_string") or b""
     if not qs:
         return None
-    try:
-        params = parse_qs(qs.decode("latin-1"), keep_blank_values=False)
-    except UnicodeDecodeError:
-        return None
+    # latin-1 is total over bytes (never raises) and matches Starlette's
+    # own handling of raw ASGI byte strings.
+    params = parse_qs(qs.decode("latin-1"), keep_blank_values=False)
     values = params.get("oid")
     return values[0] if values else None
