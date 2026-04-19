@@ -12,7 +12,6 @@ import re
 import secrets
 import time
 from typing import Any, Dict, Optional
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
@@ -22,7 +21,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.admin.routes import require_admin
 from app.env_vars_manager import EnvVarsManager
-from app.overlay.state_store import OverlayStateStore, deep_merge, normalize_state
+from app.overlay.state_store import OverlayStateStore
 
 logger = logging.getLogger(__name__)
 

@@ -15,7 +15,7 @@ class EnvVarsManager:
     def get_env_var(cls, key, default=None):
         cls._load_remote_config_if_needed()
         return cls._remote_config_cache.get(key, os.environ.get(key, default))
-        
+
     @classmethod
     def get_custom_overlay_url(cls):
         return cls.get_env_var('APP_CUSTOM_OVERLAY_URL', 'http://localhost:8000')
@@ -49,4 +49,3 @@ class EnvVarsManager:
                 except (requests.exceptions.RequestException, json.JSONDecodeError) as e:
                     EnvVarsManager.logger.error(f"Error loading remote configuration: {e}")
                     cls._remote_config_cache = {}
-    

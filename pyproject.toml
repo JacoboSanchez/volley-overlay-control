@@ -1,0 +1,51 @@
+[project]
+name = "volley-overlay-control"
+version = "0.0.0"
+description = "Self-hostable web application for controlling volleyball overlays."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 127
+target-version = "py311"
+extend-exclude = [
+    "frontend",
+    "overlay_static",
+    "overlay_templates",
+    "app/admin/static",
+    "scripts/generate_openapi.py",
+]
+
+[tool.ruff.lint]
+# Close to ruff defaults (E, F) plus whitespace (W). Expand progressively.
+select = ["E", "F", "W"]
+ignore = [
+    # Long strings/URLs are common in tests and overlay payloads.
+    "E501",
+]
+
+[tool.mypy]
+# Narrow scope for Sprint 1. Expand `files` / `packages` as modules become clean.
+files = ["app/api/session_manager.py", "app/api/game_service.py", "app/api/schemas.py", "app/api/ws_hub.py"]
+python_version = "3.11"
+follow_imports = "silent"
+ignore_missing_imports = true
+implicit_optional = true
+# Permissive baseline — flip these on a module-by-module basis once the core is clean.
+disallow_untyped_defs = false
+check_untyped_defs = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]

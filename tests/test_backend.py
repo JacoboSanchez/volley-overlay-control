@@ -50,10 +50,10 @@ def test_initialization(conf):
     """Tests that the Backend initializes correctly and sets up session headers."""
     with patch('app.backend.requests.Session') as mock_session_class:
         mock_session_instance = mock_session_class.return_value
-        be = Backend(conf)
-        
+        Backend(conf)
+
         mock_session_class.assert_called_once()
-        
+
         expected_headers = {
             'User-Agent': conf.rest_user_agent,
             'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ def test_save_json_model(backend, mock_requests_session, conf):
         "id": conf.id,
         "content": model_to_save
     }
-    
+
     mock_requests_session.put.assert_called_once_with(expected_url, json=expected_payload, timeout=5.0)
 
 def test_change_overlay_visibility(backend, mock_requests_session, conf):
@@ -103,7 +103,7 @@ def test_get_current_model_from_storage(mock_appstorage_load, backend, mock_requ
     mock_appstorage_load.return_value = stored_model
 
     retrieved_model = backend.get_current_model()
-    
+
     assert retrieved_model == stored_model
     mock_requests_session.put.assert_not_called()
 
@@ -112,7 +112,7 @@ def test_get_current_model_failure(backend, mock_requests_session):
     mock_requests_session.put.return_value.status_code = 404
 
     retrieved_model = backend.get_current_model()
-    
+
     assert retrieved_model is None
 
 @patch('app.overlay_backends.AppStorage.save')
@@ -130,7 +130,7 @@ def test_validate_and_store_model_for_oid_invalid(backend, mock_requests_session
     mock_requests_session.put.return_value.status_code = 403 # Forbidden
 
     result = backend.validate_and_store_model_for_oid("invalid_oid")
-    
+
     assert result == State.OIDStatus.INVALID
 
 def test_validate_and_store_model_for_oid_deprecated(backend, mock_requests_session):
@@ -165,7 +165,7 @@ def test_save_model_single_threaded(mock_submit, backend, conf):
 def test_reduce_games_to_one(backend, mock_requests_session, conf):
     """Tests that reduce_games_to_one sends the correct payload to reset scores."""
     backend.reduce_games_to_one()
-    
+
     expected_payload = {
         "command": "SetOverlayContent",
         "id": conf.id,
@@ -223,7 +223,7 @@ def test_api_call_with_custom_oid(backend, mock_requests_session, conf):
     """Tests that a custom OID overrides the default one in API calls."""
     custom_oid = "my_custom_oid"
     backend.get_current_model(customOid=custom_oid)
-    
+
     expected_url = f'https://app.overlays.uno/apiv2/controlapps/{custom_oid}/api'
     mock_requests_session.put.assert_called_once()
     assert mock_requests_session.put.call_args[0][0] == expected_url
@@ -244,10 +244,10 @@ def test_fetch_and_update_overlay_id(backend, mock_requests_session, conf):
     """Tests that validating an oid triggers a specific GetOverlays call to dynamically map conf.id"""
     expected_mock_layout_id = State.CHAMPIONSHIP_LAYOUT_ID
     mock_requests_session.put.return_value.json.return_value = {
-        'status': 200, 
+        'status': 200,
         'payload': [{'id': expected_mock_layout_id, 'name': 'Volleyball'}]
     }
-    
+
     # Executing the fetch updates the config
     backend.fetch_and_update_overlay_id("my_custom_oid")
     assert conf.id == expected_mock_layout_id
@@ -256,12 +256,12 @@ def test_save_model_explicit_sets_display_for_new_layout(backend, mock_requests_
     """Tests that save_model specifically injects Sets Display when config ID matches the new layout."""
     conf.id = State.CHAMPIONSHIP_LAYOUT_ID
     conf.multithread = False
-    
+
     # State containing Current Set property representing "2"
     mock_state = {State.CURRENT_SET_INT: "2"}
-    
+
     backend.save_model(mock_state, simple=False)
-    
+
     # Expected payload should explicitly carry the Sets Display map overriding "1" strings to what the Current Set possesses
     expected_payload = {
         "command": "SetOverlayContent",
@@ -338,12 +338,12 @@ def test_custom_overlay_visibility(mock_load, backend, mock_requests_session, co
 def test_custom_overlay_fetch_token_skips(backend, mock_requests_session, conf):
     """Tests that fetch_output_token requests the local config endpoint for custom overlays."""
     conf.oid = "C-test_overlay"
-    
+
     # Setup mock to return the expected configured outputUrl
     mock_requests_session.get.return_value.json.return_value = {"outputUrl": "http://localhost:8000/overlay/test_overlay"}
-    
+
     result = backend.fetch_output_token(conf.oid)
-    
+
     assert result == "http://localhost:8000/overlay/test_overlay"
     mock_requests_session.get.assert_called_once()
     assert mock_requests_session.get.call_args[0][0] == "http://localhost:8000/api/config/test_overlay"
@@ -352,10 +352,10 @@ def test_custom_overlay_fetch_token_skips(backend, mock_requests_session, conf):
 def test_custom_overlay_get_current_model_fallbacks(backend, mock_requests_session, conf):
     """Tests that missing backend data returns default State instead of empty dict."""
     conf.oid = "C-test_overlay"
-    
+
     # Run the get
     model = backend.get_current_model()
-    
+
     assert model is not None
     assert model.get("Team 1 Timeouts") == "0"
     assert model.get("Current Set") == "1"
@@ -363,9 +363,9 @@ def test_custom_overlay_get_current_model_fallbacks(backend, mock_requests_sessi
 def test_custom_overlay_get_current_customization_fallbacks(backend, mock_requests_session, conf):
     """Tests that a missing customization returns default Customization state instead of empty dict."""
     conf.oid = "C-test_overlay"
-    
+
     cust = backend.get_current_customization()
-    
+
     assert cust is not None
     assert cust.get("Logos") == "true"
     assert "Color 1" in cust

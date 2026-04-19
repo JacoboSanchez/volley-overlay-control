@@ -42,7 +42,7 @@ def check_oid_access(authorization: str, oid: str):
     username = get_current_username(authorization)
     if not username:
         raise HTTPException(status_code=403, detail="Invalid API key.")
-        
+
     users = PasswordAuthenticator._get_users()
     userconf = users.get(username)
     if userconf:

@@ -43,7 +43,7 @@ def test_win_set(game_manager):
     """Tests the logic for winning a set."""
     for _ in range(24):
         game_manager.add_game(1, 1, 25, 15, 5, False)
-    
+
     # a 24-24 score
     for _ in range(24):
         game_manager.add_game(2, 1, 25, 15, 5, False)
@@ -61,7 +61,7 @@ def test_match_finished(game_manager):
     for i in range(1, 4):
         for _ in range(25):
             game_manager.add_game(1, i, 25, 15, 5, False)
-    
+
     assert game_manager.match_finished() is True
 
 def test_add_point_again(game_manager):
@@ -133,11 +133,11 @@ def test_last_set_point_limit(game_manager):
     for i in range(3, 5):
         for _ in range(25):
             game_manager.add_game(2, i, 25, 15, 5, False)
-    
+
     # Play the last set
     for _ in range(14):
         game_manager.add_game(1, 5, 25, 15, 5, False)
-    
+
     game_manager.add_game(1, 5, 25, 15, 5, False)
     state = game_manager.get_current_state()
     assert state.get_sets(1) == 3
@@ -149,7 +149,7 @@ def test_no_points_after_match_finished(game_manager):
     for i in range(1, 4):
         for _ in range(25):
             game_manager.add_game(1, i, 25, 15, 5, False)
-    
+
     game_manager.add_game(1, 3, 25, 15, 5, False)
     state = game_manager.get_current_state()
     assert state.get_game(1, 3) == 25
@@ -160,7 +160,7 @@ def test_deuce_not_a_win(game_manager):
         game_manager.add_game(1, 1, 25, 15, 5, False)
     for _ in range(24):
         game_manager.add_game(2, 1, 25, 15, 5, False)
-    
+
     game_manager.add_game(1, 1, 25, 15, 5, False)
     state = game_manager.get_current_state()
     assert state.get_sets(1) == 0
@@ -170,10 +170,10 @@ def test_undo_winning_point(game_manager):
     """Tests undoing a point that won a set."""
     for _ in range(24):
         game_manager.add_game(1, 1, 25, 15, 5, False)
-    
+
     game_manager.add_game(1, 1, 25, 15, 5, False) # Winning point
     game_manager.add_game(1, 1, 25, 15, 5, True) # Undo winning point
-    
+
     state = game_manager.get_current_state()
     assert state.get_sets(1) == 0
 
@@ -274,7 +274,7 @@ def test_beach_volley_deuce(game_manager):
         game_manager.add_game(1, 1, 21, 15, 3, False)
     for _ in range(20):
         game_manager.add_game(2, 1, 21, 15, 3, False)
-    
+
     game_manager.add_game(1, 1, 21, 15, 3, False)
     state = game_manager.get_current_state()
     assert state.get_sets(1) == 0

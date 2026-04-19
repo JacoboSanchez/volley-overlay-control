@@ -346,8 +346,10 @@ Frontend tests use Vitest + React Testing Library and live in `frontend/src/test
 
 The GitHub Actions CI pipeline (`.github/workflows/ci.yml`) runs on `push` / `pull_request` to `main` and `dev` branches:
 
-1. **Lint** — `flake8` for syntax errors and style warnings.
-2. **Test** — Full `pytest tests/` suite.
+1. **Lint** — `ruff check .` for syntax errors and style warnings.
+2. **Type-check** — `mypy` on the strict-typed modules listed in `pyproject.toml`.
+3. **Test** — Full `pytest tests/` suite with `--cov=app --cov-fail-under=70`; coverage XML uploaded as an artifact.
+4. **Frontend** — `npm ci`, schema drift check (`scripts/generate_openapi.py` + `npm run gen:types`), `npm run typecheck`, and Vitest.
 
 ---
 
