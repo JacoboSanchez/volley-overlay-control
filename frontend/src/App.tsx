@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, FormEvent } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, FormEvent } from 'react';
 import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
@@ -297,11 +297,13 @@ export default function App() {
   const iconLogoA = settings.showIcon ? asLogo(customization?.['Team 1 Logo']) : null;
   const iconLogoB = settings.showIcon ? asLogo(customization?.['Team 2 Logo']) : null;
 
-  const fontScales = FONT_SCALES as Record<string, FontScale>;
-  const fontProps: FontScale = fontScales[settings.selectedFont] ?? fontScales.Default;
-  const fontStyle: ScoreButtonFontStyle = settings.selectedFont && settings.selectedFont !== 'Default'
-    ? { fontFamily: `'${settings.selectedFont}'`, fontScale: fontProps.scale, fontOffsetY: fontProps.offset_y }
-    : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
+  const fontStyle = useMemo<ScoreButtonFontStyle>(() => {
+    const fontScales = FONT_SCALES as Record<string, FontScale>;
+    const fontProps: FontScale = fontScales[settings.selectedFont] ?? fontScales.Default;
+    return settings.selectedFont && settings.selectedFont !== 'Default'
+      ? { fontFamily: `'${settings.selectedFont}'`, fontScale: fontProps.scale, fontOffsetY: fontProps.offset_y }
+      : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
+  }, [settings.selectedFont]);
 
   if (!oid || !state) {
     return (
