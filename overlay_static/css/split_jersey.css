@@ -22,21 +22,11 @@
     --home-gradient:  var(--home-primary);
     --away-gradient:  var(--away-primary);
 
-    /* Neumorphic palette (shared with neo_jersey) */
-    --nm-bg:          #e0e5ec;
-    --nm-shadow-dark: rgba(163, 177, 198, 0.60);
-    --nm-shadow-lite: rgba(255, 255, 255, 0.85);
-    --nm-inset-dark:  rgba(163, 177, 198, 0.50);
-    --nm-inset-lite:  rgba(255, 255, 255, 0.80);
-    --nm-text:        #31344b;
-    --nm-text-dim:    #777b96;
-
     /* Bar geometry */
     --bar-h:      62px;
     --bar-radius: 31px;   /* = bar-h / 2  → perfect semicircle on left */
 
     /* Collapse transition */
-    --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
     --collapse-dur:    0.44s;
 }
 

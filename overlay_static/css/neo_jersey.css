@@ -16,25 +16,11 @@
     --away-primary:   #0047AB;
     --away-secondary: #FFD700;
 
-    /* Neumorphic palette */
-    --nm-bg:          #e0e5ec;
-    --nm-shadow-dark: rgba(163, 177, 198, 0.60);
-    --nm-shadow-lite: rgba(255, 255, 255, 0.85);
-
-    /* Inset shadow (score block & history strip) */
-    --nm-inset-dark:  rgba(163, 177, 198, 0.50);
-    --nm-inset-lite:  rgba(255, 255, 255, 0.80);
-
-    /* Text */
-    --nm-text:        #31344b;
-    --nm-text-dim:    #777b96;
-
     /* Score area dimensions */
     --sets-w:  42px;
     --points-w: 82px;
 
     /* Compact-mode transition timing */
-    --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
     --collapse-dur:    0.48s;
 }
 
