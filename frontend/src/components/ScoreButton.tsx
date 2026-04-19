@@ -1,7 +1,11 @@
-import { useRef, useCallback, useEffect, CSSProperties, MouseEvent, TouchEvent } from 'react';
+import { memo, useRef, useCallback, useEffect, CSSProperties, MouseEvent, TouchEvent } from 'react';
 
 const LONG_PRESS_MS = 1000;
-const DOUBLE_TAP_MS = 400;
+// Window used to distinguish a single tap from a double tap. A shorter window
+// makes every single-tap score feel snappier because we wait less before
+// committing the point, while still leaving comfortable headroom above a
+// human double-tap (~150ms typical).
+const DOUBLE_TAP_MS = 280;
 
 export interface ScoreButtonFontStyle {
   fontScale?: number;
@@ -34,7 +38,7 @@ type PressEvent = MouseEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>;
  * that event fires immediately and reliably on mobile, whereas touchend
  * timing varies with how long the user keeps their finger down.
  */
-export default function ScoreButton({
+function ScoreButton({
   text,
   color,
   textColor = '#fff',
@@ -170,3 +174,5 @@ export default function ScoreButton({
     </button>
   );
 }
+
+export default memo(ScoreButton);

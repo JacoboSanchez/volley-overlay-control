@@ -1,4 +1,4 @@
-import { CSSProperties, ReactElement } from 'react';
+import { CSSProperties, ReactElement, useCallback } from 'react';
 import ScoreButton, { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import type { GameState } from '../api/client';
@@ -70,6 +70,12 @@ export default function TeamPanel({
   const timeouts = teamState?.timeouts ?? 0;
   const isServing = teamState?.serving ?? false;
 
+  const handleAddPoint = useCallback(() => onAddPoint(teamId), [onAddPoint, teamId]);
+  const handleAddTimeout = useCallback(() => onAddTimeout(teamId), [onAddTimeout, teamId]);
+  const handleChangeServe = useCallback(() => onChangeServe(teamId), [onChangeServe, teamId]);
+  const handleDoubleTap = useCallback(() => onDoubleTapScore(teamId), [onDoubleTapScore, teamId]);
+  const handleLongPress = useCallback(() => onLongPressScore(teamId), [onLongPressScore, teamId]);
+
   const scoreText = String(score).padStart(2, '0');
 
   const timeoutDots: ReactElement[] = [];
@@ -133,9 +139,9 @@ export default function TeamPanel({
           size={buttonSize}
           fontStyle={fontStyle}
           style={iconStyle}
-          onClick={() => onAddPoint(teamId)}
-          onDoubleTap={() => onDoubleTapScore(teamId)}
-          onLongPress={() => onLongPressScore(teamId)}
+          onClick={handleAddPoint}
+          onDoubleTap={handleDoubleTap}
+          onLongPress={handleLongPress}
           data-testid={`team-${teamId}-score`}
         />
         <div className={isPortrait ? 'team-side-col' : 'team-side-row'}>

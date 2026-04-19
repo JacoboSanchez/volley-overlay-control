@@ -1,9 +1,35 @@
 import { useState, useCallback, useRef, useEffect, useMemo, Dispatch, SetStateAction } from 'react';
 import * as api from '../api/client';
 import type { GameState, ActionResponse, Team } from '../api/client';
+import type { components } from '../api/schema';
 import { createWebSocket } from '../api/websocket';
 
 type Customization = Record<string, unknown>;
+type TeamState = components['schemas']['TeamState'];
+
+// Optimistic prediction of the next state after a successful addPoint. The
+// scoring team gains one point and takes the serve; the server later sends the
+// authoritative state via HTTP response and WebSocket broadcast. Undo actions
+// are not predicted — their effect on match/set boundaries is non-trivial.
+function optimisticAddPoint(prev: GameState, team: Team): GameState {
+  const setNum = prev.current_set || 1;
+  const setKey = `set_${setNum}`;
+  const updateTeam = (t: TeamState, isScorer: boolean): TeamState => {
+    const scores = (t.scores ?? {}) as Record<string, unknown>;
+    const current = typeof scores[setKey] === 'number' ? (scores[setKey] as number) : 0;
+    return {
+      ...t,
+      serving: isScorer,
+      scores: isScorer ? { ...scores, [setKey]: current + 1 } : scores,
+    };
+  };
+  return {
+    ...prev,
+    serve: team === 1 ? 'A' : 'B',
+    team_1: updateTeam(prev.team_1, team === 1),
+    team_2: updateTeam(prev.team_2, team === 2),
+  };
+}
 
 export interface GameActions {
   addPoint: (team: Team, undo?: boolean) => Promise<ActionResponse>;
@@ -119,14 +145,32 @@ export function useGameState(oid: string | null): UseGameStateResult {
     };
   }, [oid, closeWs]);
 
-  const handleAction = useCallback(async (actionFn: () => Promise<ActionResponse>): Promise<ActionResponse> => {
+  const handleAction = useCallback(async (
+    actionFn: () => Promise<ActionResponse>,
+    optimisticUpdater?: (prev: GameState) => GameState,
+  ): Promise<ActionResponse> => {
+    let snapshot: GameState | null = null;
+    let didOptimistic = false;
+    if (optimisticUpdater) {
+      setState((prev) => {
+        if (!prev) return prev;
+        snapshot = prev;
+        didOptimistic = true;
+        return optimisticUpdater(prev);
+      });
+    }
     try {
       const res = await actionFn();
       if (res.success && res.state) {
         setState(res.state);
+      } else if (!res.success && didOptimistic) {
+        setState(snapshot);
       }
       return res;
     } catch (e) {
+      if (didOptimistic) {
+        setState(snapshot);
+      }
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
       return { success: false, message };
@@ -134,7 +178,10 @@ export function useGameState(oid: string | null): UseGameStateResult {
   }, []);
 
   const actions = useMemo<GameActions>(() => ({
-    addPoint: (team, undo = false) => handleAction(() => api.addPoint(oid!, team, undo)),
+    addPoint: (team, undo = false) => handleAction(
+      () => api.addPoint(oid!, team, undo),
+      undo ? undefined : (prev) => optimisticAddPoint(prev, team),
+    ),
     addSet: (team, undo = false) => handleAction(() => api.addSet(oid!, team, undo)),
     addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid!, team, undo)),
     changeServe: (team) => handleAction(() => api.changeServe(oid!, team)),
