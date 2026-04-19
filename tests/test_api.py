@@ -1,64 +1,31 @@
-"""Tests for the REST API layer (app/api/)."""
-import pytest
+"""Tests for the REST API layer (app/api/).
+
+Shared fixtures (``mock_conf``, ``api_backend``, ``api_session``,
+``clean_sessions``) live in ``tests/conftest.py``.
+"""
 import json
-from unittest.mock import MagicMock
+import pytest
 
 from app.api.session_manager import SessionManager, GameSession
 from app.api.game_service import GameService
-from app.api.ws_hub import WSHub
 from app.api.schemas import GameStateResponse
 from app.state import State
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-def _load_fixture(name):
-    import os
-    path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
-    with open(path) as f:
-        return json.load(f)
+# Apply clean_sessions to every test in this module.
+pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
-@pytest.fixture(autouse=True)
-def clean_sessions():
-    """Ensure a clean SessionManager and WSHub for every test."""
-    SessionManager.clear()
-    WSHub.clear()
-    yield
-    SessionManager.clear()
-    WSHub.clear()
+# Local aliases so existing tests keep their short fixture names without
+# duplicating the fixture definitions.
+@pytest.fixture
+def mock_backend(api_backend):
+    return api_backend
 
 
 @pytest.fixture
-def mock_conf():
-    conf = MagicMock()
-    conf.oid = 'test-oid'
-    conf.output = None
-    conf.points = 25
-    conf.points_last_set = 15
-    conf.sets = 5
-    conf.multithread = False
-    conf.rest_user_agent = 'test'
-    conf.id = 'test-layout'
-    conf.single_overlay = True
-    return conf
-
-
-@pytest.fixture
-def mock_backend():
-    backend = MagicMock()
-    backend.get_current_model.return_value = _load_fixture('base_model')
-    backend.get_current_customization.return_value = _load_fixture('base_customization')
-    backend.is_visible.return_value = True
-    backend.is_custom_overlay.return_value = False
-    return backend
-
-
-@pytest.fixture
-def session(mock_conf, mock_backend):
-    return SessionManager.get_or_create('test-oid', mock_conf, mock_backend)
+def session(api_session):
+    return api_session
 
 
 # ---------------------------------------------------------------------------
