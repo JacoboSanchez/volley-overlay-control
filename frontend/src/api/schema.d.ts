@@ -90,6 +90,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/_log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Client Log
+         * @description Accept a frontend error report. Returns 429 (empty body) when
+         *     rate-limited so well-behaved clients back off without sendBeacon
+         *     surfacing a JSON error payload.
+         */
+        post: operations["post_client_log_api_v1__log_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/custom-overlays": {
         parameters: {
             query?: never;
@@ -690,6 +712,25 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ClientLogRecord */
+        ClientLogRecord: {
+            /** Href */
+            href?: string | null;
+            /**
+             * Level
+             * @default error
+             * @enum {string}
+             */
+            level: "error" | "warn";
+            /** Message */
+            message: string;
+            /** Oid */
+            oid?: string | null;
+            /** Stack */
+            stack?: string | null;
+            /** User Agent */
+            user_agent?: string | null;
+        };
         /** CustomOverlayCreate */
         CustomOverlayCreate: {
             /**
@@ -1123,6 +1164,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    post_client_log_api_v1__log_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientLogRecord"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

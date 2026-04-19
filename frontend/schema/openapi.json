@@ -48,6 +48,78 @@
         "title": "AppConfigResponse",
         "type": "object"
       },
+      "ClientLogRecord": {
+        "properties": {
+          "href": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Href"
+          },
+          "level": {
+            "default": "error",
+            "enum": [
+              "error",
+              "warn"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "oid": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oid"
+          },
+          "stack": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stack"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ClientLogRecord",
+        "type": "object"
+      },
       "CustomOverlayCreate": {
         "properties": {
           "copy_from": {
@@ -1068,6 +1140,41 @@
         "summary": "List Themes",
         "tags": [
           "Overlay"
+        ]
+      }
+    },
+    "/api/v1/_log": {
+      "post": {
+        "description": "Accept a frontend error report. Returns 429 (empty body) when\nrate-limited so well-behaved clients back off without sendBeacon\nsurfacing a JSON error payload.",
+        "operationId": "post_client_log_api_v1__log_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientLogRecord"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Client Log",
+        "tags": [
+          "Scoreboard API v1"
         ]
       }
     },

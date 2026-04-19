@@ -8,6 +8,7 @@ import pytest
 from app.logging_config import (
     HealthEndpointFilter,
     JsonFormatter,
+    RedactFilter,
     TextFormatter,
     build_dict_config,
 )
@@ -128,6 +129,81 @@ class TestBuildDictConfig:
     def test_uvicorn_access_has_health_filter(self):
         cfg = build_dict_config()
         assert "health" in cfg["handlers"]["access"]["filters"]
+
+    def test_handlers_have_redact_filter(self):
+        cfg = build_dict_config()
+        assert "redact" in cfg["handlers"]["default"]["filters"]
+        assert "redact" in cfg["handlers"]["access"]["filters"]
+
+    def test_file_handler_omitted_by_default(self, monkeypatch):
+        monkeypatch.delenv("LOG_FILE", raising=False)
+        cfg = build_dict_config()
+        assert "file" not in cfg["handlers"]
+        assert cfg["root"]["handlers"] == ["default"]
+
+    def test_file_handler_attached_when_log_file_set(self, tmp_path):
+        target = tmp_path / "app.log"
+        cfg = build_dict_config(log_file=str(target))
+        file_h = cfg["handlers"]["file"]
+        assert file_h["class"] == "logging.handlers.RotatingFileHandler"
+        assert file_h["filename"] == str(target)
+        assert file_h["formatter"] == "json"
+        assert "redact" in file_h["filters"]
+        assert "file" in cfg["root"]["handlers"]
+        assert "file" in cfg["loggers"]["uvicorn.access"]["handlers"]
+
+    def test_file_handler_honors_rotation_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LOG_FILE_MAX_BYTES", "2048")
+        monkeypatch.setenv("LOG_FILE_BACKUPS", "3")
+        cfg = build_dict_config(log_file=str(tmp_path / "x.log"))
+        assert cfg["handlers"]["file"]["maxBytes"] == 2048
+        assert cfg["handlers"]["file"]["backupCount"] == 3
+
+    def test_file_handler_falls_back_on_invalid_int(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LOG_FILE_MAX_BYTES", "not-a-number")
+        monkeypatch.setenv("LOG_FILE_BACKUPS", "-1")
+        cfg = build_dict_config(log_file=str(tmp_path / "x.log"))
+        assert cfg["handlers"]["file"]["maxBytes"] == 10 * 1024 * 1024
+        assert cfg["handlers"]["file"]["backupCount"] == 5
+
+    def test_file_handler_accepts_zero_for_no_rotation(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LOG_FILE_MAX_BYTES", "0")
+        monkeypatch.setenv("LOG_FILE_BACKUPS", "0")
+        cfg = build_dict_config(log_file=str(tmp_path / "x.log"))
+        assert cfg["handlers"]["file"]["maxBytes"] == 0
+        assert cfg["handlers"]["file"]["backupCount"] == 0
+
+
+class TestRedactFilter:
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("Authorization: Bearer abc.def-123", "Authorization: Bearer ***"),
+            ("token=abc123 next", "token=*** next"),
+            ("password=p@ss&keep=this", "password=***&keep=this"),
+            ("api_key=KEY123 done", "api_key=*** done"),
+            ("api-key=KEY123 done", "api-key=*** done"),
+            ("secret=s3cr3t end", "secret=*** end"),
+            ("nothing to redact here", "nothing to redact here"),
+        ],
+    )
+    def test_scrubs_known_secret_patterns(self, raw, expected):
+        record = _make_record(msg=raw)
+        RedactFilter().filter(record)
+        assert record.getMessage() == expected
+
+    def test_clears_args_after_substitution(self):
+        record = _make_record(msg="token=%s", args=("abc",))
+        RedactFilter().filter(record)
+        # After scrubbing the rendered message, args must not be re-applied.
+        assert record.args is None
+        assert record.getMessage() == "token=***"
+
+    def test_leaves_unrelated_args_alone(self):
+        record = _make_record(msg="hello %s", args=("world",))
+        RedactFilter().filter(record)
+        assert record.args == ("world",)
+        assert record.getMessage() == "hello world"
 
 
 def test_context_filter_uses_contextvar_values():
