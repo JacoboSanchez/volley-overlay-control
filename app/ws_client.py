@@ -19,6 +19,10 @@ WS_CONTROL_PROTOCOL_VERSION = 1
 _RECONNECT_BASE = 1.0      # seconds
 _RECONNECT_MAX = 30.0       # seconds
 _HEARTBEAT_INTERVAL = 25.0  # seconds (inside the server's 30s timeout)
+# If no inbound traffic (pong or otherwise) lands within this many seconds,
+# assume the socket is a zombie and force a reconnect. Must be > 2 *
+# _HEARTBEAT_INTERVAL so a single dropped pong does not churn the connection.
+_ZOMBIE_DEADLINE = 55.0
 
 
 class WSControlClient:
@@ -44,6 +48,7 @@ class WSControlClient:
         self._ws = None
         self._connected = False
         self._obs_client_count = 0
+        self._last_inbound_ts: float = 0.0
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -52,7 +57,13 @@ class WSControlClient:
 
     @property
     def is_connected(self) -> bool:
-        return self._connected
+        if not self._connected:
+            return False
+        if self._last_inbound_ts and (
+            time.monotonic() - self._last_inbound_ts > _ZOMBIE_DEADLINE
+        ):
+            return False
+        return True
 
     @property
     def obs_client_count(self) -> int:
@@ -151,6 +162,7 @@ class WSControlClient:
                 with self._lock:
                     self._ws = sock
                     self._connected = True
+                    self._last_inbound_ts = time.monotonic()
                 backoff = _RECONNECT_BASE  # reset on success
                 logger.info("WS connected to %s", self._ws_url)
 
@@ -181,6 +193,7 @@ class WSControlClient:
                 raw = sock.recv()
                 if raw is None:
                     break
+                self._last_inbound_ts = time.monotonic()
                 msg = json.loads(raw)
                 self._handle_message(msg)
             except self._ws_lib.WebSocketTimeoutException:
@@ -189,8 +202,17 @@ class WSControlClient:
                 logger.debug("WS recv error: %s", e)
                 break
 
-            # Heartbeat
+            # Zombie detection: no inbound traffic for too long → force reconnect.
             now = time.monotonic()
+            if now - self._last_inbound_ts > _ZOMBIE_DEADLINE:
+                logger.warning(
+                    "WS zombie detected on %s (%.1fs without inbound); "
+                    "reconnecting.",
+                    self._ws_url, now - self._last_inbound_ts,
+                )
+                break
+
+            # Heartbeat
             if now - last_ping >= _HEARTBEAT_INTERVAL:
                 try:
                     sock.send(json.dumps({"type": "ping"}))

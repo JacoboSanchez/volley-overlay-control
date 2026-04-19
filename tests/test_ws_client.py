@@ -3,6 +3,7 @@
 import pytest
 import sys
 import os
+import time
 from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -95,6 +96,22 @@ class TestWSControlClient:
         })
         assert client.obs_client_count == 2
         callback.assert_called_once()
+
+    def test_is_connected_detects_zombie(self):
+        """is_connected flips to False when no inbound traffic for > deadline."""
+        from app import ws_client as ws_mod
+        client = WSControlClient("test", "ws://localhost:8002/ws/control/test")
+        client._connected = True
+        # Simulate last inbound traffic older than the zombie deadline.
+        client._last_inbound_ts = time.monotonic() - (ws_mod._ZOMBIE_DEADLINE + 5)
+        assert client.is_connected is False
+
+    def test_is_connected_within_deadline(self):
+        """is_connected stays True while inbound traffic is fresh."""
+        client = WSControlClient("test", "ws://localhost:8002/ws/control/test")
+        client._connected = True
+        client._last_inbound_ts = time.monotonic()
+        assert client.is_connected is True
 
     def test_disconnect_cleans_up(self):
         """disconnect() clears connection state."""

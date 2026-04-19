@@ -181,10 +181,16 @@ def _register_system_endpoints(application: FastAPI) -> None:
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
         )
 
+    def _vite_manifest_path() -> Path | None:
+        """Return the Vite-generated manifest if the frontend was built."""
+        manifest = FRONTEND_DIR / "manifest.webmanifest"
+        return manifest if manifest.is_file() else None
+
     @application.get("/manifest.webmanifest")
     def serve_webmanifest():
-        manifest = FRONTEND_DIR / "manifest.webmanifest"
-        source = manifest if manifest.is_file() else Path("app/pwa/manifest.json")
+        source = _vite_manifest_path()
+        if source is None:
+            return JSONResponse({"error": "manifest not available"}, status_code=404)
         return JSONResponse(
             content=_render_manifest(str(source), source.stat().st_mtime, get_app_title()),
             media_type="application/manifest+json",
@@ -193,7 +199,12 @@ def _register_system_endpoints(application: FastAPI) -> None:
 
     @application.get("/manifest.json")
     def serve_manifest():
-        source = Path("app/pwa/manifest.json")
+        # Legacy alias for /manifest.webmanifest. Description omitted to avoid
+        # OpenAPI schema drift; a docstring would surface as "description" and
+        # require regenerating frontend/src/api/schema.d.ts.
+        source = _vite_manifest_path()
+        if source is None:
+            return JSONResponse({"error": "manifest not available"}, status_code=404)
         return JSONResponse(
             content=_render_manifest(str(source), source.stat().st_mtime, get_app_title()),
             media_type="application/json",

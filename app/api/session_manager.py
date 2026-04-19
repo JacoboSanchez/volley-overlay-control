@@ -81,12 +81,15 @@ class SessionManager:
 
         If *conf* or *backend* are ``None`` and the session doesn't exist yet,
         sensible defaults are constructed from environment variables.
+        The global lock is only held for dict lookups; the (potentially
+        blocking) ``GameSession`` construction happens outside it so one slow
+        OID cannot stall lookups for every other OID.
         """
+        # Fast path: already exists.
         with cls._lock:
-            if oid in cls._sessions:
-                session = cls._sessions[oid]
+            session = cls._sessions.get(oid)
+            if session is not None:
                 session.touch()
-                # Update limits if explicitly provided
                 if points_limit is not None:
                     session.points_limit = points_limit
                 if points_limit_last_set is not None:
@@ -95,20 +98,28 @@ class SessionManager:
                     session.sets_limit = sets_limit
                 return session
 
-            if conf is None:
-                conf = Conf()
-                conf.oid = oid
-            if backend is None:
-                backend = Backend(conf)
+        # Slow path: build the session outside the lock (may do HTTP I/O).
+        if conf is None:
+            conf = Conf()
+            conf.oid = oid
+        if backend is None:
+            backend = Backend(conf)
+        new_session = GameSession(
+            oid, conf, backend,
+            points_limit=points_limit,
+            points_limit_last_set=points_limit_last_set,
+            sets_limit=sets_limit,
+        )
 
-            session = GameSession(
-                oid, conf, backend,
-                points_limit=points_limit,
-                points_limit_last_set=points_limit_last_set,
-                sets_limit=sets_limit,
-            )
-            cls._sessions[oid] = session
-            return session
+        # Re-check under the lock; another caller may have won the race.
+        with cls._lock:
+            existing = cls._sessions.get(oid)
+            if existing is not None:
+                new_session.shutdown()
+                existing.touch()
+                return existing
+            cls._sessions[oid] = new_session
+            return new_session
 
     @classmethod
     def get(cls, oid):
