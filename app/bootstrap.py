@@ -22,6 +22,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
 from app.api import api_router
+from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
@@ -255,7 +256,8 @@ def create_app() -> FastAPI:
     _register_static_mounts(application)
     _register_system_endpoints(application)
     _register_spa(application)
-    # Register context middleware last so it sits outermost in the ASGI
-    # stack and populates contextvars before any route or sub-app runs.
+    # Outermost-first: RequestContextMiddleware must wrap ExceptionLoggingMiddleware
+    # so the contextvars are populated by the time we log unhandled exceptions.
+    application.add_middleware(ExceptionLoggingMiddleware)
     application.add_middleware(RequestContextMiddleware)
     return application

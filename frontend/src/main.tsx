@@ -2,7 +2,10 @@ import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nProvider } from './i18n';
 import { SettingsProvider } from './hooks/useSettings';
+import { installErrorReporter } from './utils/errorReporter';
 import './App.css';
+
+installErrorReporter();
 
 const App = lazy(() => import('./App'));
 const PreviewApp = lazy(() => import('./PreviewApp'));

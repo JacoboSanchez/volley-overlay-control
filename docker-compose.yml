@@ -20,6 +20,11 @@ services:
       - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
       - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
       - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
+      - LOG_FORMAT=${LOG_FORMAT:-text} #Optional: text|json
+      - LOG_FILE=${LOG_FILE:-} #Optional: when set, also write JSON logs to this path
+      - LOG_FILE_MAX_BYTES=${LOG_FILE_MAX_BYTES:-10485760}
+      - LOG_FILE_BACKUPS=${LOG_FILE_BACKUPS:-5}
+      - LOG_REDACT=${LOG_REDACT:-1} #Optional: 0/false to disable PII redaction in dev
       - APP_TEAMS=${APP_TEAMS:-}
       - MATCH_GAME_POINTS=${MATCH_GAME_POINTS:-25}
       - MATCH_GAME_POINTS_LAST_SET=${MATCH_GAME_POINTS_LAST_SET:-15}
@@ -41,5 +46,12 @@ services:
       start_period: 15s
     volumes:
       - overlay_data:/app/data
+    logging:
+      # Cap stdout/stderr capture so a chatty incident can't fill the host
+      # disk. Override DOCKER_LOG_MAX_SIZE / DOCKER_LOG_MAX_FILE in .env.
+      driver: json-file
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
 volumes:
   overlay_data:

@@ -16,6 +16,7 @@ don't drown the signal.
 import json
 import logging
 import logging.config
+import re
 
 
 _ANSI_COLORS = {
@@ -86,6 +87,42 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
+_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # ``Authorization: Bearer <token>`` — case-insensitive scheme.
+    re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-+/=]+"),
+    # ``password=…``, ``api_key=…``, ``token=…``, ``secret=…`` in URLs/forms.
+    re.compile(r"(?i)\b((?:password|api[_-]?key|token|secret)=)[^\s&'\"]+"),
+)
+_SECRET_PLACEHOLDER = "***"
+
+
+def _scrub_secrets(text: str) -> str:
+    """Mask common secret patterns in *text*."""
+    for pattern in _SECRET_PATTERNS:
+        text = pattern.sub(rf"\1{_SECRET_PLACEHOLDER}", text)
+    return text
+
+
+class RedactFilter(logging.Filter):
+    """Scrub Bearer tokens and ``key=value`` secrets in formatted messages.
+
+    Defence-in-depth: callers should already redact via
+    :mod:`app.logging_utils`, but a stray ``logger.info(headers)`` should not
+    leak credentials to the aggregator.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:
+            return True
+        scrubbed = _scrub_secrets(message)
+        if scrubbed != message:
+            record.msg = scrubbed
+            record.args = None
+        return True
+
+
 class HealthEndpointFilter(logging.Filter):
     """Drop noisy uvicorn.access records for periodic probes.
 
@@ -122,16 +159,68 @@ def _resolve_format() -> str:
     return "json" if raw == "json" else "text"
 
 
+def _resolve_log_file() -> str | None:
+    from app.env_vars_manager import EnvVarsManager
+
+    raw = (EnvVarsManager.get_env_var("LOG_FILE", "") or "").strip()
+    return raw or None
+
+
+def _resolve_int_env(name: str, default: int) -> int:
+    from app.env_vars_manager import EnvVarsManager
+
+    raw = (EnvVarsManager.get_env_var(name, str(default)) or "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 def build_dict_config(
-    level: str | None = None, fmt: str | None = None,
+    level: str | None = None,
+    fmt: str | None = None,
+    log_file: str | None = None,
 ) -> dict:
     """Return a fully-resolved :func:`dictConfig` payload.
 
     Exposed so tests (and ``uvicorn.run(log_config=…)``) can consume the
-    same config object the app uses.
+    same config object the app uses. Setting ``log_file`` (or env
+    ``LOG_FILE``) attaches a rotating JSON file handler alongside stdout.
     """
     level = (level or _resolve_level()).upper()
     fmt = fmt or _resolve_format()
+    log_file = log_file or _resolve_log_file()
+
+    handlers: dict = {
+        "default": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": fmt,
+            "filters": ["context", "redact"],
+        },
+        "access": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": fmt,
+            "filters": ["context", "redact", "health"],
+        },
+    }
+    extra: list[str] = []
+    if log_file:
+        handlers["file"] = {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": log_file,
+            "maxBytes": _resolve_int_env("LOG_FILE_MAX_BYTES", 10 * 1024 * 1024),
+            "backupCount": _resolve_int_env("LOG_FILE_BACKUPS", 5),
+            "encoding": "utf-8",
+            # Always JSON for files: machine-parseable, no ANSI escapes.
+            "formatter": "json",
+            "filters": ["context", "redact"],
+        }
+        extra.append("file")
+    default_handlers = ["default", *extra]
+    access_handlers = ["access", *extra]
 
     return {
         "version": 1,
@@ -142,34 +231,22 @@ def build_dict_config(
         },
         "filters": {
             "context": {"()": "app.logging_context.ContextFilter"},
+            "redact": {"()": "app.logging_config.RedactFilter"},
             "health": {"()": "app.logging_config.HealthEndpointFilter"},
         },
-        "handlers": {
-            "default": {
-                "class": "logging.StreamHandler",
-                "stream": "ext://sys.stdout",
-                "formatter": fmt,
-                "filters": ["context"],
-            },
-            "access": {
-                "class": "logging.StreamHandler",
-                "stream": "ext://sys.stdout",
-                "formatter": fmt,
-                "filters": ["context", "health"],
-            },
-        },
+        "handlers": handlers,
         "loggers": {
             "uvicorn": {
-                "handlers": ["default"], "level": level, "propagate": False,
+                "handlers": default_handlers, "level": level, "propagate": False,
             },
             "uvicorn.error": {
-                "handlers": ["default"], "level": level, "propagate": False,
+                "handlers": default_handlers, "level": level, "propagate": False,
             },
             "uvicorn.access": {
-                "handlers": ["access"], "level": "INFO", "propagate": False,
+                "handlers": access_handlers, "level": "INFO", "propagate": False,
             },
         },
-        "root": {"handlers": ["default"], "level": level},
+        "root": {"handlers": default_handlers, "level": level},
     }
 
 

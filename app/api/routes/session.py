@@ -1,5 +1,7 @@
 """POST /session/init — initialise or re-use a game session for an overlay ID."""
 
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from starlette.concurrency import run_in_threadpool
 
@@ -10,9 +12,11 @@ from app.api.session_manager import SessionManager
 from app.api.routes.lifespan import get_init_lock
 from app.backend import Backend
 from app.conf import Conf
+from app.logging_utils import redact_oid
 from app.oid_utils import UNO_OUTPUT_BASE_URL
 from app.state import State
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -48,12 +52,17 @@ async def init_session(req: InitRequest, request: Request):
             # Refresh customization from the overlay server so the React UI
             # always sees the latest team names, colors, logos, etc.
             await run_in_threadpool(GameService.refresh_customization, session)
+            logger.info("Session reused for oid=%s", redact_oid(req.oid))
             return ActionResponse(success=True, state=GameService.get_state(session))
 
         # New session: create Backend and validate OID
         backend = Backend(conf)
         status = await run_in_threadpool(backend.validate_and_store_model_for_oid, req.oid)
         if status != State.OIDStatus.VALID:
+            logger.warning(
+                "Session init rejected for oid=%s status=%s",
+                redact_oid(req.oid), status.value,
+            )
             return ActionResponse(
                 success=False,
                 state=None,
@@ -76,4 +85,5 @@ async def init_session(req: InitRequest, request: Request):
             req.oid, conf, backend,
             req.points_limit, req.points_limit_last_set, req.sets_limit,
         )
+        logger.info("Session created for oid=%s", redact_oid(req.oid))
     return ActionResponse(success=True, state=GameService.get_state(session))
