@@ -7,7 +7,7 @@ from app.backend import Backend
 from app.game_manager import GameManager
 from app.customization import Customization
 
-logger = logging.getLogger("SessionManager")
+logger = logging.getLogger(__name__)
 
 # Sessions expire after 24 hours of inactivity
 SESSION_TTL_SECONDS = 24 * 60 * 60

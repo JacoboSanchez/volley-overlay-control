@@ -394,8 +394,8 @@ class Backend:
                 show_only_current_set=show_only_current_set,
             )
             self._overlay.send_overlay_state(payload)
-        except Exception as e:
-            Backend.logger.error("Error updating local overlay: %s", e)
+        except Exception:
+            Backend.logger.exception("Error updating local overlay")
 
     # -- Uno-specific pass-through (used by legacy code paths) ----
 

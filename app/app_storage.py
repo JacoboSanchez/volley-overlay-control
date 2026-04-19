@@ -26,7 +26,7 @@ class AppStorage:
         ('LOCK_TEAM_B_COLORS', 'lock_team_b_colors'),
     ])
 
-    logger = logging.getLogger("Storage")
+    logger = logging.getLogger(__name__)
 
     def _get_storage():
         return _memory_storage
@@ -65,5 +65,5 @@ class AppStorage:
 
     def clear_user_storage():
         storage = AppStorage._get_storage()
-        logging.info('Clearing storage')
+        AppStorage.logger.info('Clearing storage')
         storage.clear()

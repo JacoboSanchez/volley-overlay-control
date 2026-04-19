@@ -3,7 +3,7 @@ from fastapi import Header, Query, HTTPException, Request
 from app.authentication import PasswordAuthenticator
 from app.api.session_manager import SessionManager, GameSession
 
-logger = logging.getLogger("APIDeps")
+logger = logging.getLogger(__name__)
 
 async def verify_api_key(authorization: str = Header(None)):
     """Validate the Bearer token when user authentication is enabled.

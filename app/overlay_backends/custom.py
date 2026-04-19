@@ -70,8 +70,8 @@ class CustomOverlayBackend(OverlayBackend):
                     json=payload, timeout=2.0,
                     headers=self._auth_headers(),
                 )
-            except Exception as e:
-                logger.error("Failed to save raw_config remote: %s", e)
+            except Exception:
+                logger.exception("Failed to save raw_config remote")
 
     # -- WebSocket lifecycle --
 
@@ -176,11 +176,11 @@ class CustomOverlayBackend(OverlayBackend):
                 if data:
                     return data
             return State().get_reset_model()
-        except requests.exceptions.RequestException as e:
-            logger.error("Network error fetching custom overlay model: %s", e)
+        except requests.exceptions.RequestException:
+            logger.exception("Network error fetching custom overlay model")
             return None
-        except Exception as e:
-            logger.error("Failed to fetch custom overlay model: %s", e)
+        except Exception:
+            logger.exception("Failed to fetch custom overlay model")
             return None
 
     def _get_default_customization(self, style, custom_id):
@@ -224,8 +224,8 @@ class CustomOverlayBackend(OverlayBackend):
                     except Exception as e:
                         logger.warning("Failed to persist preferredStyle: %s", e)
                 return data
-        except Exception as e:
-            logger.error("Failed to fetch custom overlay customization: %s", e)
+        except Exception:
+            logger.exception("Failed to fetch custom overlay customization")
 
         return self._get_default_customization(style, custom_id)
 
@@ -241,8 +241,8 @@ class CustomOverlayBackend(OverlayBackend):
             )
             if response.status_code == 200:
                 return response.json().get('availableStyles', [])
-        except Exception as e:
-            logger.error("Error fetching available styles: %s", e)
+        except Exception:
+            logger.exception("Error fetching available styles")
         return []
 
     def fetch_output_token(self, oid: str = None) -> str | None:
@@ -260,8 +260,8 @@ class CustomOverlayBackend(OverlayBackend):
                         output_path = urlparse(output_url).path
                         output_url = f"{output_base}{output_path}"
                     return output_url
-        except Exception as e:
-            logger.error("Error fetching local output token: %s", e)
+        except Exception:
+            logger.exception("Error fetching local output token")
         return None
 
     def validate_oid(self, oid: str) -> State.OIDStatus:
@@ -287,8 +287,8 @@ class CustomOverlayBackend(OverlayBackend):
                 json=payload, timeout=2.0,
                 headers=self._auth_headers(),
             )
-        except Exception as e:
-            logger.error("Error updating local overlay: %s", e)
+        except Exception:
+            logger.exception("Error updating local overlay")
 
     def send_json_model(self, to_save: dict) -> None:
         pass  # Custom overlays don't use Uno's SetOverlayContent

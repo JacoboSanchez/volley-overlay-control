@@ -2,13 +2,14 @@ import os
 import json
 import logging
 
+logger = logging.getLogger(__name__)
+
+
 def validate_config():
     """
     Validates critical environment variables on startup.
     Logs warnings and sets safe defaults in os.environ for invalid configurations.
     """
-    logger = logging.getLogger("ConfigValidator")
-
     # Positive integer validation
     int_vars = [
         ('MATCH_GAME_POINTS', '25'),
@@ -22,7 +23,7 @@ def validate_config():
             if int_val <= 0:
                 raise ValueError("Must be a positive integer")
         except ValueError:
-            logger.warning(f"Invalid {var} '{val}': must be a positive integer. Defaulting to {default}.")
+            logger.warning("Invalid %s '%s': must be a positive integer. Defaulting to %s.", var, val, default)
             os.environ[var] = default
 
     # JSON validation
@@ -33,7 +34,7 @@ def validate_config():
             try:
                 json.loads(val)
             except json.JSONDecodeError:
-                logger.warning(f"Invalid JSON in {var}. Defaulting to empty/None behavior.")
+                logger.warning("Invalid JSON in %s. Defaulting to empty/None behavior.", var)
                 # We simply remove invalid JSON from environment to prevent runtime crashes
                 del os.environ[var]
 
@@ -44,7 +45,7 @@ def validate_config():
         if not (1 <= port_int <= 65535):
             raise ValueError("Out of valid port range")
     except ValueError:
-        logger.warning(f"Invalid APP_PORT '{port_val}': must be an integer between 1 and 65535. Defaulting to 8080.")
+        logger.warning("Invalid APP_PORT '%s': must be an integer between 1 and 65535. Defaulting to 8080.", port_val)
         os.environ['APP_PORT'] = '8080'
 
     timeout_val = os.environ.get('DEFAULT_HIDE_TIMEOUT', '5')
@@ -53,16 +54,16 @@ def validate_config():
         if timeout_int <= 0:
             raise ValueError("Must be a positive integer")
     except ValueError:
-        logger.warning(f"Invalid DEFAULT_HIDE_TIMEOUT '{timeout_val}': must be a positive integer. Defaulting to 5.")
+        logger.warning("Invalid DEFAULT_HIDE_TIMEOUT '%s': must be a positive integer. Defaulting to 5.", timeout_val)
         os.environ['DEFAULT_HIDE_TIMEOUT'] = '5'
 
     # Enums validation
     dark_mode = os.environ.get('APP_DARK_MODE', 'auto').lower()
     if dark_mode not in ['on', 'off', 'auto']:
-        logger.warning(f"Invalid APP_DARK_MODE '{dark_mode}'. Must be 'on', 'off', or 'auto'. Defaulting to 'auto'.")
+        logger.warning("Invalid APP_DARK_MODE '%s'. Must be 'on', 'off', or 'auto'. Defaulting to 'auto'.", dark_mode)
         os.environ['APP_DARK_MODE'] = 'auto'
 
     log_level = os.environ.get('LOGGING_LEVEL', 'info').lower()
     if log_level not in ['debug', 'info', 'warning', 'error']:
-        logger.warning(f"Invalid LOGGING_LEVEL '{log_level}'. Must be 'debug', 'info', 'warning', or 'error'. Defaulting to 'info'.")
+        logger.warning("Invalid LOGGING_LEVEL '%s'. Must be 'debug', 'info', 'warning', or 'error'. Defaulting to 'info'.", log_level)
         os.environ['LOGGING_LEVEL'] = 'info'

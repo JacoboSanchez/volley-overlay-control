@@ -25,7 +25,7 @@ from app.api import api_router
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
 
-logger = logging.getLogger("Bootstrap")
+logger = logging.getLogger(__name__)
 
 
 FRONTEND_DIR = Path("frontend/dist")
@@ -107,7 +107,7 @@ async def _lifespan(application: FastAPI):
         from app.overlay import obs_broadcast_hub
         obs_broadcast_hub.capture_event_loop()
     except Exception:
-        pass
+        logger.exception("Failed to capture event loop for OBS broadcast hub")
     yield
 
 

@@ -15,7 +15,7 @@ from app.customization import Customization
 from app.env_vars_manager import EnvVarsManager
 from app.oid_utils import compose_output, extract_oid
 
-logger = logging.getLogger("APIRoutes")
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

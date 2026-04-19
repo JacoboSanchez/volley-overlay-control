@@ -39,8 +39,8 @@ class UnoOverlayBackend(OverlayBackend):
             if response.status_code >= 300:
                 logger.warning("response %s: '%s'", response.status_code, response.text)
             return response
-        except requests.exceptions.RequestException as e:
-            logger.error("Network error in _do_request: %s", e)
+        except requests.exceptions.RequestException:
+            logger.exception("Network error in _do_request")
             return _mock_response(500)
 
     # -- OverlayBackend interface --
@@ -98,10 +98,10 @@ class UnoOverlayBackend(OverlayBackend):
             else:
                 logger.warning("Failed to fetch output token for OID %s: %s",
                                target_oid, response.status_code)
-        except requests.exceptions.RequestException as e:
-            logger.error("Network error fetching output token: %s", e)
-        except Exception as e:
-            logger.error("Error fetching output token: %s", e)
+        except requests.exceptions.RequestException:
+            logger.exception("Network error fetching output token")
+        except Exception:
+            logger.exception("Error fetching output token")
         return None
 
     def validate_oid(self, oid: str) -> State.OIDStatus:

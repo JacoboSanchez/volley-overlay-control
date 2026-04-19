@@ -1,6 +1,10 @@
 from app.messages import Messages
 import json
+import logging
 from app.env_vars_manager import EnvVarsManager
+
+logger = logging.getLogger(__name__)
+
 
 class Customization:
 
@@ -87,7 +91,7 @@ class Customization:
             try:
                 Customization.predefined_teams = json.loads(provided_teams_json)
             except json.JSONDecodeError:
-                print(f"Error decoding TEAMS from environment variable: {provided_teams_json}")
+                logger.warning("Malformed APP_TEAMS env var; ignoring value")
                 Customization.predefined_teams = {}
 
 
@@ -97,7 +101,7 @@ class Customization:
             try:
                 Customization.THEMES = json.loads(provided_themes_json)
             except json.JSONDecodeError:
-                print(f"Error decoding THEMES from environment variable: {provided_themes_json}")
+                logger.warning("Malformed APP_THEMES env var; ignoring value")
 
 
 
