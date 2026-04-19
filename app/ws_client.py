@@ -57,11 +57,11 @@ class WSControlClient:
 
     @property
     def is_connected(self) -> bool:
-        if not self._connected:
-            return False
-        if self._last_inbound_ts and (
-            time.monotonic() - self._last_inbound_ts > _ZOMBIE_DEADLINE
-        ):
+        with self._lock:
+            if not self._connected:
+                return False
+            last_ts = self._last_inbound_ts
+        if last_ts and (time.monotonic() - last_ts > _ZOMBIE_DEADLINE):
             return False
         return True
 

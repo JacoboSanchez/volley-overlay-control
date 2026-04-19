@@ -114,6 +114,12 @@ class SessionManager:
             if existing is not None:
                 new_session.shutdown()
                 existing.touch()
+                if points_limit is not None:
+                    existing.points_limit = points_limit
+                if points_limit_last_set is not None:
+                    existing.points_limit_last_set = points_limit_last_set
+                if sets_limit is not None:
+                    existing.sets_limit = sets_limit
                 return existing
             cls._sessions[oid] = new_session
             return new_session
