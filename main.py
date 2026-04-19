@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 if "PYTEST_CURRENT_TEST" not in os.environ:
     load_dotenv()
 
-from app.logging_config import setup_logging
+from app.logging_config import get_uvicorn_log_config, setup_logging
 from app.config_validator import validate_config
 from app.env_vars_manager import EnvVarsManager
 from app.bootstrap import create_app
@@ -37,4 +37,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=reload,
+        log_config=get_uvicorn_log_config(),
     )
