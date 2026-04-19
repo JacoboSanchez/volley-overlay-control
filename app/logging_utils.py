@@ -37,9 +37,7 @@ def redact_url(url: str | None) -> str:
         parts = urlparse(url)
     except ValueError:
         return "<unparseable-url>"
-    netloc = parts.hostname or ""
-    if parts.port:
-        netloc = f"{netloc}:{parts.port}"
+    netloc = parts.netloc.rpartition("@")[-1]
     return urlunparse((parts.scheme, netloc, parts.path, "", "", ""))
 
 
