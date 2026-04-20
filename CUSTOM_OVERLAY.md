@@ -12,6 +12,18 @@ The overlay's name is used directly as the OID in the control UI.
 
 > **Backward compatibility:** the legacy `C-<id>` syntax (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer the recommended form and is omitted from the documentation and UI.
 
+### 🖼️ Style Preview Grid (`?style=mosaic`)
+
+To compare every overlay style side-by-side — useful when deciding which layout fits your broadcast — open:
+
+```
+/overlay/{id}?style=mosaic
+```
+
+The page renders every selectable style in a responsive grid of iframes, each cropped to the actual overlay bounds, so differences in layout and color are easy to spot. Live state changes propagate to every cell via the same WebSocket used by individual overlays.
+
+`mosaic` is a **meta-style**: it is never returned in `availableStyles` from `/api/config/{id}`, so it cannot be selected as an overlay's `preferredStyle` and does not appear in the style picker. It is only reachable via the explicit `?style=mosaic` query parameter.
+
 ---
 
 ## Building a Custom External Overlay Server

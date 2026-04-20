@@ -15,22 +15,13 @@
     <script>
         const OVERLAY_ID = "{{ target_id }}";
         window.OVERLAY_STYLE = "{{ style }}";
-        const EXCLUDED = new Set(["mosaic"]);
+        // Server-rendered from the overlay router's template context so the
+        // page does not need to call /api/config/ (which is gated by
+        // OVERLAY_SERVER_TOKEN).
+        const AVAILABLE_STYLES = {{ available_styles | tojson }};
 
         // Track render bounds reported by each iframe (style → bounds)
         const iframeBounds = new Map();
-
-        async function loadStyles() {
-            try {
-                const resp = await fetch(`/api/config/${OVERLAY_ID}`);
-                const data = await resp.json();
-                const styles = (data.availableStyles || []).filter(s => !EXCLUDED.has(s));
-                buildGrid(styles);
-            } catch (e) {
-                console.error("Failed to load styles:", e);
-                buildGrid(["default", "split", "esports", "diagonal", "glass", "pill", "ribbon", "shield", "vertical"]);
-            }
-        }
 
         function buildGrid(styles) {
             const grid = document.getElementById("mosaic-grid");
@@ -116,7 +107,7 @@
             });
         });
 
-        loadStyles();
+        buildGrid(AVAILABLE_STYLES);
     </script>
 </body>
 </html>

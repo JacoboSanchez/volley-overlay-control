@@ -21,6 +21,7 @@ def _reset_store(tmp_path, monkeypatch):
     overlay_state_store._overlays = {}
     overlay_state_store._output_key_cache = {}
     overlay_state_store._available_styles = None
+    overlay_state_store._renderable_styles = None
     monkeypatch.delenv("PREDEFINED_OVERLAYS", raising=False)
     monkeypatch.delenv("SCOREBOARD_USERS", raising=False)
     monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
