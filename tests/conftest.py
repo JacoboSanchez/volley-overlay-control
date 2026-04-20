@@ -47,12 +47,14 @@ def isolate_overlay_store(tmp_path_factory):
         "_overlays": overlay_state_store._overlays,
         "_output_key_cache": overlay_state_store._output_key_cache,
         "_available_styles": overlay_state_store._available_styles,
+        "_renderable_styles": overlay_state_store._renderable_styles,
         "_all_overlays_scanned": overlay_state_store._all_overlays_scanned,
     }
     overlay_state_store._data_dir = str(seed_dir)
     overlay_state_store._overlays = {}
     overlay_state_store._output_key_cache = {}
     overlay_state_store._available_styles = None
+    overlay_state_store._renderable_styles = None
     overlay_state_store._all_overlays_scanned = False
     overlay_state_store.create_overlay("test_overlay")
 
@@ -62,6 +64,7 @@ def isolate_overlay_store(tmp_path_factory):
     overlay_state_store._overlays = saved["_overlays"]
     overlay_state_store._output_key_cache = saved["_output_key_cache"]
     overlay_state_store._available_styles = saved["_available_styles"]
+    overlay_state_store._renderable_styles = saved["_renderable_styles"]
     overlay_state_store._all_overlays_scanned = saved["_all_overlays_scanned"]
 
 

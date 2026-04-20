@@ -123,6 +123,7 @@ class OverlayStateStore:
         self._lock = threading.RLock()
         self._broadcast_callback: Optional[Callable] = None
         self._available_styles: Optional[list] = None
+        self._renderable_styles: Optional[list] = None
         # Maps any accepted URL token (output_key or raw overlay_id) to the
         # real overlay id. Populated lazily by resolve_overlay_id and kept
         # in sync by create/copy/delete.
@@ -292,13 +293,18 @@ class OverlayStateStore:
 
         Extends :meth:`get_available_styles_list` with meta-styles like
         ``mosaic`` that can be rendered but should not appear in the UI
-        picker.
+        picker. Cached after first scan — the templates directory is
+        static at runtime and this is called on every overlay request.
         """
-        styles = list(self.get_available_styles_list())
-        for meta in self._META_STYLES:
-            if os.path.isfile(os.path.join(self._templates_dir, f"{meta}.html")):
-                styles.append(meta)
-        return styles
+        with self._lock:
+            if self._renderable_styles is not None:
+                return self._renderable_styles
+            styles = list(self.get_available_styles_list())
+            for meta in self._META_STYLES:
+                if os.path.isfile(os.path.join(self._templates_dir, f"{meta}.html")):
+                    styles.append(meta)
+            self._renderable_styles = styles
+            return self._renderable_styles
 
     # -- CRUD --------------------------------------------------------------
 
