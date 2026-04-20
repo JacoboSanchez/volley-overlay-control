@@ -318,6 +318,53 @@ Returns available overlay style names for the session's overlay backend.
 ["default", "esports", "glass", "compact", "ribbon", ...]
 ```
 
+The built-in engine returns the 14 selectable templates. The `mosaic` meta-style is intentionally excluded from this list — it can only be rendered via the explicit `?style=mosaic` query parameter on `/overlay/{id}`.
+
+### SPA Bootstrap
+
+#### `GET /api/v1/app-config`
+
+Runtime configuration consumed by the SPA on load. Unauthenticated.
+
+```json
+{ "title": "Volley Scoreboard" }
+```
+
+Drives the browser tab title, init-screen heading and PWA manifest name. Set `APP_TITLE` to change it.
+
+#### `POST /api/v1/_log`
+
+Accepts a single error/warn record from the SPA. Rate-limited per peer IP (30 records / 60 s); unauthenticated by design, so the body caps and PII redaction do the safety work.
+
+```json
+{
+  "level": "error",
+  "message": "TypeError: cannot read properties of null",
+  "stack": "...",
+  "href": "https://host/?oid=abc",
+  "user_agent": "Mozilla/5.0 ...",
+  "oid": "abc"
+}
+```
+
+Responses:
+- `204 No Content` — accepted.
+- `429 Too Many Requests` — rate limit hit; well-behaved clients should back off. Response body is empty so `navigator.sendBeacon` does not surface a JSON error payload.
+
+`X-Forwarded-For` is honoured for rate-limit bucketing when the app sits behind a reverse proxy. Configure uvicorn with `--proxy-headers` to also rewrite `request.client.host`.
+
+### Admin
+
+The `/api/v1/admin/*` surface backs the custom-overlay manager page at `/manage`. Gated by `OVERLAY_MANAGER_PASSWORD`.
+
+- `GET /api/v1/admin/status` — whether management is enabled (`{"enabled": true|false}`). Unauthenticated.
+- `POST /api/v1/admin/login` — validates a `Authorization: Bearer <password>` header.
+- `GET /api/v1/admin/custom-overlays` — list overlays backed by `LocalOverlayBackend`.
+- `POST /api/v1/admin/custom-overlays` — create (optionally cloning from an existing overlay via `copy_from`).
+- `DELETE /api/v1/admin/custom-overlays/{name}` — remove an overlay and its persisted state file.
+
+All mutating routes require the same Bearer header. When `OVERLAY_MANAGER_PASSWORD` is unset, every route returns `503`.
+
 ---
 
 ## WebSocket — Real-Time Updates
@@ -333,6 +380,14 @@ ws.onopen = () => {
   console.log('Connected! Initial state will arrive automatically.');
 };
 ```
+
+Browsers cannot set `Authorization` headers on `WebSocket`. When `SCOREBOARD_USERS` is configured, pass the user's password (same value used as the REST Bearer token) as a query parameter instead:
+
+```javascript
+const ws = new WebSocket(`ws://localhost:8080/api/v1/ws?oid=${OID}&token=${password}`);
+```
+
+The same `?token=<value>` escape hatch works on the built-in overlay server's `/ws/{id}` when it is gated by `OVERLAY_SERVER_TOKEN`. See [AUTHENTICATION.md](AUTHENTICATION.md) for the full dependency inventory.
 
 ### Message Format
 
@@ -379,6 +434,8 @@ ws.onclose = (event) => {
 ---
 
 ## State Model Reference
+
+This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **not** the same as the payload the server pushes to an external overlay (`POST /api/state/{id}` uses a different, human-readable schema like `"Serve": "A"`, `"Team 1 Sets": 0`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for that external contract — the translation lives inside the backend and alternate frontends never need to deal with it.
 
 ### GameStateResponse
 
@@ -603,3 +660,17 @@ Vite serves on port 3000 and proxies `/api` requests to the backend on port 8080
 - The `serve` field changes automatically when points are added.
 - Set wins are detected automatically when a team reaches the point limit with a 2-point lead.
 - Timeouts are capped at 2 per team. The backend silently ignores additional timeout requests.
+
+### UX conventions in the bundled React UI
+
+These behaviours are not part of the API contract — document them here so alternate frontends can match them intentionally.
+
+- **HUD auto-hide** — the overlay controls fade out after 5 s of pointer inactivity (`resetHideTimer` in `frontend/src/App.tsx`). Any `pointerdown` resets the timer. Useful on touch devices where an always-visible toolbar occludes the scoreboard.
+- **Score button gestures** — each side of the scoreboard uses a multi-gesture button (`frontend/src/components/ScoreButton.tsx`). Priority is **long-press > double-tap > single-tap**:
+  - *Single tap*: `POST /api/v1/game/add-point`.
+  - *Double tap*: undo the last point on that team.
+  - *Long press*: open a numeric dialog that calls `POST /api/v1/game/set-score` to pick an exact value.
+  Long-press cancels the pending single/double-tap timers so only the long-press handler fires.
+- **Set-cell long press** — long-pressing a set counter in the centre panel opens the same dialog against `POST /api/v1/game/set-sets`.
+- **WebSocket reconnect** — on close (other than `4004` "no session"), the bundled UI reconnects after 3 s. The `?token=` query param above is re-applied automatically.
+- **Client error reporting** — uncaught errors and `window.onerror` traces are posted to `/api/v1/_log`, rate-limited and PII-redacted server-side.

@@ -43,7 +43,7 @@ Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no 
 For the full endpoint reference, request/response schemas, and WebSocket protocol, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
 
 ### Built-In Overlay Engine
-*   **16 Overlay Styles**: Includes pre-built HTML overlay templates (esports, glass, compact, ribbon, shield, and more) rendered via Jinja2 and served directly to OBS/vMix browser sources.
+*   **14 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `clear_jersey`, `compact`, `diagonal`, `esports`, `glass`, `neo_jersey`, `original`, `pill`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{id}?style=mosaic`.
 *   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{overlay_id}`) and receive 50ms-debounced state pushes — no polling needed.
 *   **Manage Overlays in One Place**: Create, copy and delete overlays from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`). Overlay IDs created there can be used directly as OIDs in the control UI; state is persisted to disk and served immediately.
 *   **Preset Themes**: Apply dark, light, esports, neo_jersey, split_jersey, or clear_jersey themes with one click.
@@ -72,7 +72,7 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 ### Using the Built-In Overlay Engine
 
-The fastest way to get started is with the built-in overlay engine. Open the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`) to create an overlay — say, `mybroadcast` — then use that ID directly as the OID in the control UI. The system serves 16 style templates at `/overlay/{id}` and broadcasts state updates to OBS via WebSocket at `/ws/{id}`. No external server or account is required.
+The fastest way to get started is with the built-in overlay engine. Open the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`) to create an overlay — say, `mybroadcast` — then use that ID directly as the OID in the control UI. The system serves 14 selectable style templates at `/overlay/{id}` (plus the `mosaic` preview grid via `/overlay/{id}?style=mosaic`) and broadcasts state updates to OBS via WebSocket at `/ws/{id}`. No external server or account is required.
 
 > **Backward compatibility:** the legacy `C-<id>` prefix (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer required and is omitted from the documentation and UI from now on.
 
@@ -150,6 +150,11 @@ Configure the application using the following environment variables:
 | `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
 | `ENABLE_MULTITHREAD` | If `true`, overlay API calls run in a thread pool. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
+| `LOG_FORMAT` | Log output format: `text` (ANSI-coloured, for dev) or `json` (one JSON object per line, for log aggregators). | `text` |
+| `LOG_FILE` | *(Optional)* Path to a rotating log file. When set, a file handler is attached alongside stdout; when unset, logs go to stdout only. | |
+| `LOG_FILE_MAX_BYTES` | Rotation threshold for `LOG_FILE` in bytes. | `10485760` (10 MiB) |
+| `LOG_FILE_BACKUPS` | Number of rotated log files to retain. | `5` |
+| `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
 | `SCOREBOARD_LANGUAGE` | Language code (e.g., `es` for Spanish). | `en` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
 | `APP_TEAMS` | JSON with the list of predefined teams. | |
@@ -303,9 +308,13 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/` | Control UI (React SPA) |
 | `/manage` | Custom overlay manager page (password-protected via `OVERLAY_MANAGER_PASSWORD`). |
 | `/api/v1/...` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
+| `/api/v1/app-config` | Runtime SPA bootstrap config (currently `{ title }`). Used by the control UI on load. |
+| `/api/v1/_log` | `POST` endpoint for SPA client-side error reports. Rate-limited per peer IP; unauthenticated by design. |
 | `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend) |
+| `/api/v1/admin/status` | `GET` — whether overlay management is enabled (`OVERLAY_MANAGER_PASSWORD` set). Unauthenticated. |
+| `/api/v1/admin/login` | `POST` — validate the admin Bearer token against `OVERLAY_MANAGER_PASSWORD`. |
 | `/api/v1/admin/custom-overlays` | List/create/delete custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`). |
-| `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine) |
+| `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |
 | `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
 | `/api/config/{id}` | Overlay config (output URL, available styles) |
 | `/api/themes` | List preset overlay themes |

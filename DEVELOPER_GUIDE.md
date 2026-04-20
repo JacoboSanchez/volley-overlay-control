@@ -364,7 +364,24 @@ The app assumes it is the **primary controller**. However, `GameManager.reset()`
 
 By default, custom overlays are managed **in-process** by `LocalOverlayBackend` (an OID is treated as custom when a matching overlay file exists locally — the legacy `C-` prefix is also accepted). State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
 
-If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract and [ARCHITECTURE.md](../ARCHITECTURE.md) for the full data flow diagrams.
+If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract.
+
+### OID resolution order
+
+`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) picks a backend per request in this order:
+
+1. **Local overlay file present** → `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) with a matching `data/overlay_state_<id>.json` always resolves to the in-process engine.
+2. **Legacy `C-<id>` prefix** with no local file → treated as `CUSTOM` only when `APP_CUSTOM_OVERLAY_URL` is configured.
+3. **Otherwise** → `UnoBackend` (overlays.uno cloud).
+
+The bare ID is always preferred; the `C-` prefix is accepted for backwards compatibility but omitted from the UI.
+
+### Session lifecycle and per-OID init locks
+
+The API router installs its own lifespan (`app/api/routes/lifespan.py`):
+
+- **Background cleanup** — an hourly task calls `SessionManager.cleanup_expired()` and logs the number of evicted entries.
+- **Per-OID init locks** — `get_init_lock(oid)` returns a `WeakValueDictionary`-backed `asyncio.Lock` so concurrent `POST /api/v1/session/init` calls for the same OID serialize on the same lock; the entry is garbage-collected once no caller holds it, avoiding a race where a manual cleanup could split two waiters onto different locks.
 
 ---
 
