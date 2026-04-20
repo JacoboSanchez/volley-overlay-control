@@ -189,6 +189,26 @@ def test_strict_oid_access_off_preserves_open_default(monkeypatch):
     assert response.status_code != 403
 
 
+def test_strict_oid_access_allows_user_with_matching_control(monkeypatch):
+    """Strict mode must still let a properly-scoped user through."""
+    users = json.dumps({
+        "alice": {"password": API_USER_PASSWORD, "control": "alice-oid"},
+    })
+    monkeypatch.setenv("SCOREBOARD_USERS", users)
+    monkeypatch.setenv("STRICT_OID_ACCESS", "true")
+
+    app = FastAPI()
+    app.include_router(api_router)
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/state?oid=alice-oid",
+        headers={"Authorization": f"Bearer {API_USER_PASSWORD}"},
+    )
+    # Auth must pass; 404 (no session yet) is the expected downstream result.
+    assert response.status_code != 403
+
+
 # ---------------------------------------------------------------------------
 # Admin API (/api/v1/admin/*) — require_admin
 # ---------------------------------------------------------------------------
