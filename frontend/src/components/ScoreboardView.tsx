@@ -166,7 +166,7 @@ export default function ScoreboardView({
           title={t('ctrl.config')}
           data-testid="config-tab-button"
         >
-          <span className="material-icons">more_vert</span>
+          <span className="material-icons">settings</span>
         </button>
 
         <div className="control-buttons-wrapper">

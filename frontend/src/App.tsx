@@ -61,7 +61,7 @@ export default function App() {
 
   const resetHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setShowControls(false), 10000);
+    hideTimerRef.current = setTimeout(() => setShowControls(false), 5000);
   }, []);
 
   const [dialog, setDialog] = useState<DialogState>({
