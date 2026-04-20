@@ -409,8 +409,6 @@ def test_mosaic_style_renders_but_is_not_selectable(tmp_path):
     in ``availableStyles`` (the style picker) — otherwise users could pick
     a meta-style as their broadcast layout.
     """
-    from app.overlay.state_store import OverlayStateStore
-
     app, store = _make_overlay_app_with_real_templates(tmp_path)
     raw_id = "mosaic-preview"
     store.create_overlay(raw_id)
