@@ -23,6 +23,13 @@ The `check_oid_access` helper is a second-level check layered on top of
 `SCOREBOARD_USERS`) against the OID in the request and returns `403`
 when they differ.
 
+By default a user entry without a `control` field is allowed on every
+OID (backward-compatible "open inside authenticated" behavior). Setting
+the **opt-in** env var `STRICT_OID_ACCESS=true` flips that default so
+any authenticated user without an explicit `control` is denied
+(`403`). Use this on multi-tenant deployments where each user must be
+scoped to a specific OID.
+
 ## 2. Route inventory
 
 Legend: `Y` = authenticated when the corresponding env var is set;

@@ -125,6 +125,14 @@ class TestGameService:
         assert result.success is True
         assert result.state.team_1.scores['set_1'] == 10
 
+    def test_set_score_rejects_set_number_over_limit(self, session):
+        # Default mock_conf has sets_limit=5; 6 must be rejected.
+        result = GameService.set_score(session, team=1, set_number=6, value=10)
+        assert result.success is False
+        assert 'sets_limit' in (result.message or '')
+        # State must be unchanged.
+        assert result.state.team_1.scores['set_1'] == 0
+
     def test_set_sets_value(self, session):
         result = GameService.set_sets_value(session, team=1, value=2)
         assert result.success is True

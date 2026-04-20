@@ -161,3 +161,47 @@ class TestWSHubBroadcast:
                 msg = ws.receive_json()
                 assert msg["type"] == "state_update"
                 assert msg["data"]["team_1"]["scores"]["set_1"] == 1
+
+
+class TestWSHubResilience:
+    def test_broadcast_evicts_failing_socket(self):
+        """A send that raises is treated as stale and removed from the hub."""
+        import asyncio as _asyncio
+        from unittest.mock import AsyncMock
+
+        from app.api.ws_hub import WSHub
+
+        WSHub.clear()
+        healthy = AsyncMock()
+        broken = AsyncMock()
+        broken.send_text.side_effect = RuntimeError("peer gone")
+        WSHub._connections["oid1"] = {healthy, broken}
+
+        _asyncio.run(WSHub.broadcast("oid1", {"current_set": 1}))
+
+        assert broken not in WSHub._connections.get("oid1", set())
+        assert healthy in WSHub._connections.get("oid1", set())
+        WSHub.clear()
+
+    def test_broadcast_times_out_slow_socket(self, monkeypatch):
+        """A socket that never finishes send is dropped via the timeout."""
+        import asyncio as _asyncio
+        from unittest.mock import AsyncMock
+
+        from app.api.ws_hub import WSHub
+
+        # Shrink the timeout so the test is quick.
+        monkeypatch.setattr(WSHub, "_BROADCAST_SEND_TIMEOUT", 0.05)
+        WSHub.clear()
+
+        async def _never(_msg):
+            await _asyncio.sleep(1.0)
+
+        slow = AsyncMock()
+        slow.send_text.side_effect = _never
+        WSHub._connections["oid1"] = {slow}
+
+        _asyncio.run(WSHub.broadcast("oid1", {"current_set": 1}))
+
+        assert "oid1" not in WSHub._connections
+        WSHub.clear()

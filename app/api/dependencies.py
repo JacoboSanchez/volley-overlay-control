@@ -2,8 +2,20 @@ import logging
 from fastapi import Header, Query, HTTPException, Request
 from app.authentication import PasswordAuthenticator
 from app.api.session_manager import SessionManager, GameSession
+from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger(__name__)
+
+
+def _strict_oid_access_enabled() -> bool:
+    """Return True when ``STRICT_OID_ACCESS`` is set to a truthy value.
+
+    Opt-in hardening: when enabled, a user configured in ``SCOREBOARD_USERS``
+    without an explicit ``control`` field is denied access to every OID
+    rather than allowed everywhere. Default off for backward compatibility.
+    """
+    raw = EnvVarsManager.get_env_var('STRICT_OID_ACCESS', 'false')
+    return str(raw).strip().lower() in ('1', 'true', 't', 'yes', 'on')
 
 async def verify_api_key(authorization: str = Header(None)):
     """Validate the Bearer token when user authentication is enabled.
@@ -48,6 +60,12 @@ def check_oid_access(authorization: str, oid: str):
     if userconf:
         allowed_oid = userconf.get("control")
         if allowed_oid and allowed_oid != oid:
+            raise HTTPException(status_code=403, detail="Not authorized for this OID.")
+        if not allowed_oid and _strict_oid_access_enabled():
+            logger.warning(
+                "Strict OID access: user %s has no 'control' field; denying",
+                username,
+            )
             raise HTTPException(status_code=403, detail="Not authorized for this OID.")
 
 async def get_session(

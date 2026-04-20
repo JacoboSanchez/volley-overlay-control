@@ -138,6 +138,15 @@ class GameService:
 
     @staticmethod
     def set_score(session, team: int, set_number: int, value: int) -> ActionResponse:
+        if set_number > session.sets_limit:
+            return ActionResponse(
+                success=False,
+                state=GameService.get_state(session),
+                message=(
+                    f"set_number {set_number} exceeds sets_limit "
+                    f"{session.sets_limit}."
+                ),
+            )
         session.game_manager.set_game_value(team, value, set_number)
         set_won = session.game_manager.check_set_won(
             team, set_number,

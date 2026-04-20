@@ -34,23 +34,43 @@ class WSHub:
                 del cls._connections[oid]
         logger.info("WS client disconnected for OID=%s", oid)
 
+    # Per-socket send timeout. A slow/hung client must not stall broadcasts
+    # to the rest of the subscribers (nor the main state-update path).
+    _BROADCAST_SEND_TIMEOUT = 2.0
+
     @classmethod
     async def broadcast(cls, oid: str, data: dict):
-        """Send a JSON message to every WebSocket client subscribed to *oid*."""
+        """Send a JSON message to every WebSocket client subscribed to *oid*.
+
+        Sends run concurrently with a per-socket timeout so a single stuck
+        client cannot delay updates to the rest or leak memory by keeping
+        a dead socket in the registry.
+        """
         conns = cls._connections.get(oid)
         if not conns:
             return
 
         message = json.dumps({"type": "state_update", "data": data})
-        stale = []
-        for ws in list(conns):
-            try:
-                await ws.send_text(message)
-            except Exception:
-                stale.append(ws)
+        targets = list(conns)
 
-        for ws in stale:
-            conns.discard(ws)
+        async def _send(ws):
+            try:
+                await asyncio.wait_for(
+                    ws.send_text(message),
+                    timeout=cls._BROADCAST_SEND_TIMEOUT,
+                )
+                return None
+            except Exception:
+                return ws
+
+        results = await asyncio.gather(
+            *(_send(ws) for ws in targets),
+            return_exceptions=False,
+        )
+
+        for ws in results:
+            if ws is not None:
+                conns.discard(ws)
         if not conns:
             cls._connections.pop(oid, None)
 
