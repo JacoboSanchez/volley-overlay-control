@@ -1,16 +1,20 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
 import * as api from '../api/client';
-import TeamsSection from './config/TeamsSection';
-import OverlaySection from './config/OverlaySection';
-import PositionSection from './config/PositionSection';
-import ButtonsSection, { ButtonsSectionProps } from './config/ButtonsSection';
-import BehaviorSection, { BehaviorSectionProps } from './config/BehaviorSection';
-import LinksSection from './config/LinksSection';
+import ConfigSkeleton from './ConfigSkeleton';
 import type { ConfigModel, PredefinedTeams } from './TeamCard';
 import type { LinksSectionLinks } from './config/LinksSection';
+import type { ButtonsSectionProps } from './config/ButtonsSection';
+import type { BehaviorSectionProps } from './config/BehaviorSection';
+
+const TeamsSection = lazy(() => import('./config/TeamsSection'));
+const OverlaySection = lazy(() => import('./config/OverlaySection'));
+const PositionSection = lazy(() => import('./config/PositionSection'));
+const ButtonsSection = lazy(() => import('./config/ButtonsSection'));
+const BehaviorSection = lazy(() => import('./config/BehaviorSection'));
+const LinksSection = lazy(() => import('./config/LinksSection'));
 
 type Section = 'teams' | 'overlay' | 'position' | 'buttons' | 'behavior' | 'links';
 
@@ -194,7 +198,9 @@ export default function ConfigPanel({
                 </button>
                 {activeSection === sec && (
                   <div className="config-accordion-body">
-                    {renderSection(sec)}
+                    <Suspense fallback={<ConfigSkeleton />}>
+                      {renderSection(sec)}
+                    </Suspense>
                   </div>
                 )}
               </div>
@@ -215,7 +221,9 @@ export default function ConfigPanel({
               ))}
             </nav>
             <div className="config-section-content">
-              {renderSection(activeSection)}
+              <Suspense fallback={<ConfigSkeleton />}>
+                {renderSection(activeSection)}
+              </Suspense>
             </div>
           </>
         )}

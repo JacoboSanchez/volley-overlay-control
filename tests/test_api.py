@@ -181,6 +181,32 @@ class TestGameService:
         result = GameService.update_customization(session, new_data)
         assert result.success is True
 
+    def test_refresh_customization_caches_within_ttl(self, session):
+        """Back-to-back refreshes within the TTL must hit the backend once."""
+        session.backend.get_current_customization.reset_mock()
+        GameService.refresh_customization(session)
+        GameService.refresh_customization(session)
+        GameService.refresh_customization(session)
+        # The first call actually fetches; the next two short-circuit.
+        assert session.backend.get_current_customization.call_count == 1
+
+    def test_refresh_customization_refetches_after_ttl(self, session, monkeypatch):
+        """Once the cache window expires, refresh hits the backend again."""
+        import app.api.game_service as gs
+        # Shrink the TTL so the test is quick; existing session state wins.
+        monkeypatch.setattr(gs, "CUSTOMIZATION_CACHE_TTL_SECONDS", 0.0)
+        session.backend.get_current_customization.reset_mock()
+        GameService.refresh_customization(session)
+        GameService.refresh_customization(session)
+        assert session.backend.get_current_customization.call_count == 2
+
+    def test_update_customization_primes_cache(self, session):
+        """A write must prevent the immediate next refresh from re-fetching."""
+        GameService.update_customization(session, {"Team 1 Color": "#ff0000"})
+        session.backend.get_current_customization.reset_mock()
+        GameService.refresh_customization(session)
+        session.backend.get_current_customization.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # GameSession compute_current_set tests
