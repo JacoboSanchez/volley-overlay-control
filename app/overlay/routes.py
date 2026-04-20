@@ -207,6 +207,7 @@ def create_overlay_router(
         overlay_id = resolved
 
         available = store.get_available_styles_list()
+        renderable = store.get_renderable_styles()
 
         if not style:
             state = await store.load_persisted_state_async(overlay_id)
@@ -218,8 +219,10 @@ def create_overlay_router(
             else:
                 style = "default"
 
-        # Validate style against known templates to prevent path traversal
-        if style not in available:
+        # Validate style against known templates to prevent path traversal.
+        # `renderable` is a superset of `available` that includes meta-styles
+        # like `mosaic` (hidden from the picker but valid as a URL param).
+        if style not in renderable:
             raise HTTPException(
                 status_code=404,
                 detail=f"Overlay style '{style}' not found.",
@@ -234,6 +237,7 @@ def create_overlay_router(
                 "target_id": overlay_id,
                 "output_key": OverlayStateStore.get_output_key(overlay_id),
                 "style": style,
+                "available_styles": available,
                 "v": int(time.time()),
             },
         )

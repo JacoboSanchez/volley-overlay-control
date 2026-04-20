@@ -264,22 +264,41 @@ class OverlayStateStore:
 
     # -- Available styles --------------------------------------------------
 
+    # Meta-styles are renderable via /overlay/{id}?style=... but hidden from
+    # the style picker. `mosaic` shows every style side-by-side (a preview
+    # grid); `base` is an abstract Jinja parent and never directly served.
+    _META_STYLES = {"mosaic"}
+    _NEVER_RENDERED = {"base"}
+
     def get_available_styles_list(self) -> list:
-        """Return available overlay styles (cached after first scan)."""
+        """Return user-selectable overlay styles (cached after first scan)."""
         with self._lock:
             if self._available_styles is not None:
                 return self._available_styles
-            excluded = {"mosaic", "base"}
+            hidden = self._META_STYLES | self._NEVER_RENDERED
             styles = []
             if os.path.isdir(self._templates_dir):
                 for f in os.listdir(self._templates_dir):
                     if f.endswith(".html"):
                         name = f[:-5]
                         label = "default" if name == "index" else name
-                        if label not in excluded:
+                        if label not in hidden:
                             styles.append(label)
             self._available_styles = sorted(styles)
             return self._available_styles
+
+    def get_renderable_styles(self) -> list:
+        """Styles valid for ``/overlay/{id}?style=...``, including meta-styles.
+
+        Extends :meth:`get_available_styles_list` with meta-styles like
+        ``mosaic`` that can be rendered but should not appear in the UI
+        picker.
+        """
+        styles = list(self.get_available_styles_list())
+        for meta in self._META_STYLES:
+            if os.path.isfile(os.path.join(self._templates_dir, f"{meta}.html")):
+                styles.append(meta)
+        return styles
 
     # -- CRUD --------------------------------------------------------------
 

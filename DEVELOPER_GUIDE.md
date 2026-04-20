@@ -218,7 +218,8 @@ Three overlay backend implementations share the `OverlayBackend` abstract interf
 In-memory + JSON file persistence for overlay state.
 
 - **Responsibility**: Manages overlay state with lazy-loading from disk, deep merge, normalization, CRUD, raw config pass-through, output key generation, and style enumeration.
-- **Key Methods**: `get_state()`, `update_state()`, `set_raw_config()`, `get_raw_config()`, `create_overlay()`, `ensure_overlay()`, `get_available_styles_list()`.
+- **Key Methods**: `get_state()`, `update_state()`, `set_raw_config()`, `get_raw_config()`, `create_overlay()`, `ensure_overlay()`, `get_available_styles_list()`, `get_renderable_styles()`.
+- **Style enumeration** distinguishes two lists: `get_available_styles_list()` returns user-selectable styles (what `/api/config/{id}` exposes in `availableStyles` and what the picker UI shows); `get_renderable_styles()` is a superset that also includes meta-styles like `mosaic` — valid as a `?style=` URL parameter but hidden from the picker so users cannot accidentally adopt them as a broadcast layout. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the mosaic preview grid.
 
 #### `app/overlay/broadcast.py` — class `ObsBroadcastHub`
 

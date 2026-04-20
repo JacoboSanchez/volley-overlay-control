@@ -401,3 +401,26 @@ def test_overlay_page_accepts_raw_id(tmp_path):
     response = TestClient(app).get(f"/overlay/{raw_id}")
     assert response.status_code == 200
     assert 'OUTPUT_KEY' in response.text
+
+
+def test_mosaic_style_renders_but_is_not_selectable(tmp_path):
+    """The `mosaic` meta-style must be renderable via ``?style=mosaic`` so
+    users can preview every overlay side-by-side, but it must not appear
+    in ``availableStyles`` (the style picker) — otherwise users could pick
+    a meta-style as their broadcast layout.
+    """
+    from app.overlay.state_store import OverlayStateStore
+
+    app, store = _make_overlay_app_with_real_templates(tmp_path)
+    raw_id = "mosaic-preview"
+    store.create_overlay(raw_id)
+
+    assert "mosaic" not in store.get_available_styles_list()
+    assert "mosaic" in store.get_renderable_styles()
+
+    response = TestClient(app).get(f"/overlay/{raw_id}?style=mosaic")
+    assert response.status_code == 200, response.text
+    # Server-rendered styles list (avoids a browser fetch to the
+    # token-gated /api/config/ endpoint).
+    assert "AVAILABLE_STYLES" in response.text
+    assert "mosaic-grid" in response.text
