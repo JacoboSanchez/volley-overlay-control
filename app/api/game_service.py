@@ -76,8 +76,8 @@ class GameService:
         timestamp, so a write is immediately visible on the next read.
         """
         now = time.monotonic()
-        last = getattr(session, "_last_customization_fetch", 0.0)
-        if now - last < CUSTOMIZATION_CACHE_TTL_SECONDS:
+        last = getattr(session, "_last_customization_fetch", None)
+        if last is not None and now - last < CUSTOMIZATION_CACHE_TTL_SECONDS:
             return session.customization.get_model()
 
         fresh = session.backend.get_current_customization()
