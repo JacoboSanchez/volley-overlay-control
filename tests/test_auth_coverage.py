@@ -152,6 +152,63 @@ def test_scoreboard_api_rejects_invalid_token(api_client_with_users, method, pat
     )
 
 
+def test_strict_oid_access_denies_user_without_control(monkeypatch):
+    """With STRICT_OID_ACCESS=true, users lacking 'control' are rejected."""
+    users = json.dumps({"alice": {"password": API_USER_PASSWORD}})
+    monkeypatch.setenv("SCOREBOARD_USERS", users)
+    monkeypatch.setenv("STRICT_OID_ACCESS", "true")
+
+    app = FastAPI()
+    app.include_router(api_router)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/session/init",
+        json={"oid": "anything"},
+        headers={"Authorization": f"Bearer {API_USER_PASSWORD}"},
+    )
+    assert response.status_code == 403
+
+
+def test_strict_oid_access_off_preserves_open_default(monkeypatch):
+    """Without STRICT_OID_ACCESS, users lacking 'control' still pass auth
+    (they may still fail downstream for other reasons)."""
+    users = json.dumps({"alice": {"password": API_USER_PASSWORD}})
+    monkeypatch.setenv("SCOREBOARD_USERS", users)
+    monkeypatch.delenv("STRICT_OID_ACCESS", raising=False)
+
+    app = FastAPI()
+    app.include_router(api_router)
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/state?oid=anything",
+        headers={"Authorization": f"Bearer {API_USER_PASSWORD}"},
+    )
+    # Auth must not be the reason for rejection; 404 (no session) is expected.
+    assert response.status_code != 403
+
+
+def test_strict_oid_access_allows_user_with_matching_control(monkeypatch):
+    """Strict mode must still let a properly-scoped user through."""
+    users = json.dumps({
+        "alice": {"password": API_USER_PASSWORD, "control": "alice-oid"},
+    })
+    monkeypatch.setenv("SCOREBOARD_USERS", users)
+    monkeypatch.setenv("STRICT_OID_ACCESS", "true")
+
+    app = FastAPI()
+    app.include_router(api_router)
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/state?oid=alice-oid",
+        headers={"Authorization": f"Bearer {API_USER_PASSWORD}"},
+    )
+    # Auth must pass; 404 (no session yet) is the expected downstream result.
+    assert response.status_code != 403
+
+
 # ---------------------------------------------------------------------------
 # Admin API (/api/v1/admin/*) — require_admin
 # ---------------------------------------------------------------------------
