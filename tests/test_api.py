@@ -129,8 +129,15 @@ class TestGameService:
         # Default mock_conf has sets_limit=5; 6 must be rejected.
         result = GameService.set_score(session, team=1, set_number=6, value=10)
         assert result.success is False
-        assert 'sets_limit' in (result.message or '')
+        assert 'out of range' in (result.message or '')
         # State must be unchanged.
+        assert result.state.team_1.scores['set_1'] == 0
+
+    def test_set_score_rejects_set_number_below_one(self, session):
+        # Sets use 1-based indexing; 0 and negative values are invalid.
+        result = GameService.set_score(session, team=1, set_number=0, value=10)
+        assert result.success is False
+        assert 'out of range' in (result.message or '')
         assert result.state.team_1.scores['set_1'] == 0
 
     def test_set_sets_value(self, session):

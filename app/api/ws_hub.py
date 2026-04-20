@@ -71,7 +71,11 @@ class WSHub:
         for ws in results:
             if ws is not None:
                 conns.discard(ws)
-        if not conns:
+        # Only drop the OID entry if the registry still holds *our* set.
+        # A concurrent ``disconnect`` could have removed it and a concurrent
+        # ``connect`` could have installed a new set in the meantime; popping
+        # in that case would silently lose the new client.
+        if not conns and cls._connections.get(oid) is conns:
             cls._connections.pop(oid, None)
 
     @classmethod
