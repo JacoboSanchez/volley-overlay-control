@@ -1,9 +1,16 @@
 import logging
+import time
 from app.api.schemas import GameStateResponse, TeamState, ActionResponse, ALLOWED_CUSTOMIZATION_KEYS
 from app.api.ws_hub import WSHub
 from app.state import State
 
 logger = logging.getLogger(__name__)
+
+# Short TTL for the customization read-through cache. The overlay server is
+# authoritative, but the React UI polls this endpoint on every config panel
+# open; coalescing into a 5 s window avoids a burst of redundant round-trips
+# without letting the UI show truly stale data.
+CUSTOMIZATION_CACHE_TTL_SECONDS = 5.0
 
 
 class MatchFinishedError(Exception):
@@ -61,10 +68,22 @@ class GameService:
         For custom overlays this performs an HTTP round-trip to the overlay server
         so the React UI always sees the latest team names, colors, logos, etc.
         For Uno overlays the backend fetches from the Uno API.
+
+        A short TTL (``CUSTOMIZATION_CACHE_TTL_SECONDS``) short-circuits the
+        network call when the last successful refresh happened recently —
+        callers still receive the current session model, just without a
+        redundant HTTP round-trip. ``update_customization`` primes the
+        timestamp, so a write is immediately visible on the next read.
         """
+        now = time.monotonic()
+        last = getattr(session, "_last_customization_fetch", None)
+        if last is not None and now - last < CUSTOMIZATION_CACHE_TTL_SECONDS:
+            return session.customization.get_model()
+
         fresh = session.backend.get_current_customization()
         if fresh is not None:
             session.customization.set_model(fresh)
+        session._last_customization_fetch = now
         return session.customization.get_model()
 
     # ------------------------------------------------------------------
@@ -203,6 +222,10 @@ class GameService:
         merged = {**current, **filtered}
         session.customization.set_model(merged)
         session.backend.save_json_customization(merged)
+        # A write just made the session's view authoritative — prime the
+        # cache so the next refresh short-circuits instead of fetching
+        # the same data we just pushed.
+        session._last_customization_fetch = time.monotonic()
         GameService._broadcast(session)
         return ActionResponse(success=True, state=GameService.get_state(session))
 
