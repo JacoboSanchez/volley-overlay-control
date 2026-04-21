@@ -78,7 +78,6 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 │   ├── customization.py     # Logic for handling team names, colors, logos, and layout.
 │   ├── conf.py              # Configuration object mapping env vars to settings.
 │   ├── constants.py         # Centralized hardcoded strings, URLs, and favicon.
-│   ├── messages.py          # Internationalization (i18n) string definitions.
 │   ├── authentication.py    # PasswordAuthenticator (API key validation).
 │   ├── app_storage.py       # In-memory key-value storage.
 │   ├── oid_utils.py         # OID parsing utilities (extract_oid, compose_output).
@@ -301,10 +300,6 @@ The routers are registered in `main.py` **before** the SPA mount so that
 
 - **Responsibility**: Overlay ID parsing utilities — `extract_oid()` extracts OIDs from full overlays.uno URLs, `compose_output()` ensures output URLs are fully qualified.
 
-#### `app/messages.py`
-
-- **Responsibility**: Internationalization (i18n). Currently supports **English** (default) and **Spanish**.
-
 #### `app/config_validator.py`
 
 - **Responsibility**: Validates environment variables at startup. Logs warnings for misconfigurations.
@@ -412,11 +407,6 @@ The API router installs its own lifespan (`app/api/routes/lifespan.py`):
 
 1. Add field to `app/conf.py`.
 2. Add the env var to `docker-compose.yml` and `README.md`.
-
-### Adding a new Language
-
-1. Add a new key to the `messages` dictionary in `app/messages.py`.
-2. Set `SCOREBOARD_LANGUAGE` environment variable to the new language code.
 
 ---
 
