@@ -142,6 +142,7 @@ export default function TeamPanel({
           onClick={handleAddPoint}
           onDoubleTap={handleDoubleTap}
           onLongPress={handleLongPress}
+          aria-label={`Team ${teamId === 1 ? 'A' : 'B'} score ${score}. Tap to add point, double-tap to undo, long-press to set value.`}
           data-testid={`team-${teamId}-score`}
         />
         <div className={isPortrait ? 'team-side-col' : 'team-side-row'}>

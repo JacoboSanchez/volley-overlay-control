@@ -1,7 +1,9 @@
 import logging
-from fastapi import Header, Query, HTTPException, Request
+
+from fastapi import Header, HTTPException, Query, Request
+
+from app.api.session_manager import GameSession, SessionManager
 from app.authentication import PasswordAuthenticator
-from app.api.session_manager import SessionManager, GameSession
 from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger(__name__)

@@ -1,8 +1,10 @@
-import pytest
-import os
 import json
+import os
 from unittest.mock import MagicMock
+
+import pytest
 from dotenv import load_dotenv
+
 from app.app_storage import AppStorage
 
 os.environ['PYTEST_CURRENT_TEST'] = 'true'

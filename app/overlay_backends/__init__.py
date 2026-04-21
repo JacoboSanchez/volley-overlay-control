@@ -12,25 +12,24 @@ The public symbols below are re-exported so existing imports such as
 split into submodules.
 """
 
+# Re-exported so ``@patch('app.overlay_backends.AppStorage.<method>')`` keeps
+# working in existing tests — patching a class attribute resolves the class
+# via this namespace.
+from app.app_storage import AppStorage  # noqa: F401  (re-export)
 from app.overlay_backends.base import OverlayBackend
-from app.overlay_backends.uno import UnoOverlayBackend
 from app.overlay_backends.custom import CustomOverlayBackend
 from app.overlay_backends.local import LocalOverlayBackend
+from app.overlay_backends.uno import UnoOverlayBackend
 from app.overlay_backends.utils import (
-    _mock_response,
-    OverlayKind,
     UNO_OID_LENGTH,
+    OverlayKind,
+    _mock_response,
     is_custom_overlay,
     matches_uno_format,
     resolve_overlay_kind,
     split_custom_oid,
     strip_legacy_prefix,
 )
-
-# Re-exported so ``@patch('app.overlay_backends.AppStorage.<method>')`` keeps
-# working in existing tests — patching a class attribute resolves the class
-# via this namespace.
-from app.app_storage import AppStorage  # noqa: F401  (re-export)
 
 __all__ = [
     "OverlayBackend",

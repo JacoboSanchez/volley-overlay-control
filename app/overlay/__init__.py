@@ -9,8 +9,8 @@ and the LocalOverlayBackend.
 
 import os
 
-from app.overlay.state_store import OverlayStateStore
 from app.overlay.broadcast import ObsBroadcastHub
+from app.overlay.state_store import OverlayStateStore
 
 _base_dir = os.path.dirname(os.path.abspath(__file__))
 _data_dir = os.path.join(_base_dir, "..", "..", "data")

@@ -17,9 +17,9 @@ variable to be set and the request to include a matching
 ``Authorization: Bearer <password>`` header.
 """
 
+import logging
 import os
 import re
-import logging
 import secrets
 from typing import Optional
 

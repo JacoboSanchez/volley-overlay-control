@@ -9,15 +9,14 @@ but never auto-creates a missing overlay.
 import pytest
 
 from app.overlay_backends.utils import (
-    OverlayKind,
     UNO_OID_LENGTH,
+    OverlayKind,
     is_custom_overlay,
     matches_uno_format,
     resolve_overlay_kind,
     split_custom_oid,
     strip_legacy_prefix,
 )
-
 
 # A representative UNO OID — mixed-case alphanumeric, exactly 22 chars.
 UNO_OID = "2cIXk2IjHvMuva6Wwele8j"

@@ -63,7 +63,7 @@ async def get_overlays(authorization: str = Header(None)):
         for name, config in env_overlays.items()
         if isinstance(config, dict)
         and (config.get('allowed_users') is None
-             or (current_user and current_user in config.get('allowed_users')))
+             or (current_user and current_user in (config.get('allowed_users') or [])))
     ]
 
 

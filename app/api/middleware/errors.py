@@ -14,7 +14,6 @@ import logging
 
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-
 logger = logging.getLogger(__name__)
 
 

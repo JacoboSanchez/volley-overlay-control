@@ -1,7 +1,10 @@
 import os
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from app.config_validator import validate_config
+
 
 @pytest.fixture
 def clean_env():

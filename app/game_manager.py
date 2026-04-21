@@ -1,7 +1,8 @@
 import logging
-from app.state import State
+
 from app.backend import Backend
 from app.conf import Conf
+from app.state import State
 
 logger = logging.getLogger(__name__)
 

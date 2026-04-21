@@ -1,17 +1,17 @@
 # tests/test_ws_client.py
 """Tests for WebSocket client and Backend WS integration."""
-import pytest
-import sys
 import os
+import sys
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.backend import Backend
 from app.conf import Conf
 from app.ws_client import WSControlClient
-
 
 # --- WSControlClient unit tests ---
 

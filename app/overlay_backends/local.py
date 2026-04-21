@@ -4,10 +4,9 @@ import copy
 import logging
 
 from app.env_vars_manager import EnvVarsManager
-from app.state import State
-
 from app.overlay_backends.base import OverlayBackend
 from app.overlay_backends.utils import split_custom_oid
+from app.state import State
 
 logger = logging.getLogger(__name__)
 

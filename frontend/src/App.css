@@ -994,6 +994,38 @@ body {
   100% { background-position: -200% 0; }
 }
 
+/* ── Error boundary fallback ────────────────────────────────────────── */
+
+.error-boundary {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  color: var(--text-primary, #eee);
+}
+
+.error-boundary h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.error-boundary p {
+  margin: 0;
+  max-width: 40ch;
+  opacity: 0.85;
+}
+
+.error-boundary button {
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
 /* ── Save error banner ──────────────────────────────────────────────── */
 
 .config-save-error {
