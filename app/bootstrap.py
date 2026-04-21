@@ -16,8 +16,8 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
@@ -135,6 +135,7 @@ def _register_overlay_routes(application: FastAPI) -> None:
         return
 
     from fastapi.templating import Jinja2Templates
+
     from app.overlay import obs_broadcast_hub, overlay_state_store
     from app.overlay.routes import create_overlay_router
 

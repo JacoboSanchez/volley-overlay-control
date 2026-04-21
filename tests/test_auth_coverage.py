@@ -14,14 +14,13 @@ import os
 
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from fastapi.templating import Jinja2Templates
+from fastapi.testclient import TestClient
 
 from app.admin import admin_page_router, admin_router
 from app.api import api_router
 from app.overlay.routes import create_overlay_router
 from app.overlay.state_store import OverlayStateStore
-
 
 API_USER_PASSWORD = "user-secret"
 ADMIN_PASSWORD = "admin-secret"

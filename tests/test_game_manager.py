@@ -1,15 +1,18 @@
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.game_manager import GameManager
-from app.conf import Conf
-from app.backend import Backend
-from app.state import State
 from unittest.mock import MagicMock
+
+from app.backend import Backend
+from app.conf import Conf
+from app.game_manager import GameManager
+from app.state import State
+
 
 # Mock the Backend class to avoid actual API calls during tests
 @pytest.fixture
@@ -337,7 +340,7 @@ def test_add_game_in_different_sets(game_manager):
 
 def test_add_set_after_match_finished(game_manager):
     """Tests that a set is not added if the match is already finished."""
-    for i in range(1, 4):
+    for _ in range(1, 4):
         game_manager.add_set(1, False)
     game_manager.add_set(1, False)
     state = game_manager.get_current_state()

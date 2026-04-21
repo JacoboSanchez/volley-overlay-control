@@ -10,7 +10,6 @@ from app.admin import admin_page_router, admin_router
 from app.api import api_router
 from app.overlay import overlay_state_store
 
-
 ADMIN_PASSWORD = "s3cret"
 
 

@@ -10,7 +10,7 @@ unset or empty, the admin routes return HTTP 503 and the page shows a
 helpful error message.
 """
 
-from app.admin.routes import admin_router, admin_page_router
+from app.admin.routes import admin_page_router, admin_router
 
 __all__ = [
     "admin_router",

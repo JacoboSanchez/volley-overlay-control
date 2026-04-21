@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter
 
-from app.app_config import get_app_title
 from app.api.schemas import AppConfigResponse
+from app.app_config import get_app_title
 
 router = APIRouter()
 

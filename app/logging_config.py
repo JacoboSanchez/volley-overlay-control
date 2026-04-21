@@ -18,7 +18,6 @@ import logging
 import logging.config
 import re
 
-
 _ANSI_COLORS = {
     "DEBUG": "\033[39m",
     "INFO": "\033[1;33m",

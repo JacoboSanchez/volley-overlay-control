@@ -4,13 +4,13 @@ Shared fixtures (``mock_conf``, ``api_backend``, ``api_session``,
 ``clean_sessions``) live in ``tests/conftest.py``.
 """
 import json
+
 import pytest
 
-from app.api.session_manager import SessionManager, GameSession
 from app.api.game_service import GameService
 from app.api.schemas import GameStateResponse
+from app.api.session_manager import GameSession, SessionManager
 from app.state import State
-
 
 # Apply clean_sessions to every test in this module.
 pytestmark = pytest.mark.usefixtures("clean_sessions")

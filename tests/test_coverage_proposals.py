@@ -2,8 +2,9 @@
 Tests for WSControlClient message handling and send methods.
 """
 import json
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from app.ws_client import WSControlClient
 

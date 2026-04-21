@@ -3,17 +3,17 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from app.state import State
+import requests
+
+from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends import (
-    UnoOverlayBackend,
     CustomOverlayBackend,
     LocalOverlayBackend,
     OverlayKind,
+    UnoOverlayBackend,
     resolve_overlay_kind,
 )
-from app.env_vars_manager import EnvVarsManager
-
-import requests
+from app.state import State
 
 # TTL for the in-memory customization cache. Overlay customization (team names,
 # colors, geometry) rarely changes during a match, but if an operator edits it

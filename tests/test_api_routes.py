@@ -9,12 +9,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.bootstrap import create_app
 from app.api.session_manager import SessionManager
+from app.bootstrap import create_app
 from app.state import State
-
 from tests.conftest import load_fixture
-
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 

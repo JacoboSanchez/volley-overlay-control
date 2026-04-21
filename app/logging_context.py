@@ -12,7 +12,6 @@ import uuid
 
 from app.logging_utils import redact_oid
 
-
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
     "request_id", default="-",
 )

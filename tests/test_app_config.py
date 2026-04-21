@@ -9,12 +9,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api import api_router
+from app.app_config import DEFAULT_APP_TITLE, get_app_title
 from app.bootstrap import (
     _inject_title_into_html,
     _render_index_html,
     _render_manifest,
 )
-from app.app_config import DEFAULT_APP_TITLE, get_app_title
 
 
 @pytest.fixture

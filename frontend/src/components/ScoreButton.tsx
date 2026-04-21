@@ -24,6 +24,8 @@ export interface ScoreButtonProps {
   onLongPress?: () => void;
   className?: string;
   style?: CSSProperties;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
   'data-testid'?: string;
 }
 
@@ -49,6 +51,8 @@ function ScoreButton({
   onLongPress,
   className = '',
   style = {},
+  'aria-label': ariaLabel,
+  'aria-describedby': ariaDescribedBy,
   'data-testid': testId,
 }: ScoreButtonProps) {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -168,6 +172,9 @@ function ScoreButton({
       onTouchEnd={endPress}
       onTouchMove={cancelPress}
       onTouchCancel={cancelPress}
+      aria-label={ariaLabel}
+      aria-live={ariaLabel ? 'polite' : undefined}
+      aria-describedby={ariaDescribedBy}
       data-testid={testId}
     >
       {text}

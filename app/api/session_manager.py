@@ -2,10 +2,11 @@ import asyncio
 import logging
 import threading
 import time
-from app.conf import Conf
+
 from app.backend import Backend
-from app.game_manager import GameManager
+from app.conf import Conf
 from app.customization import Customization
+from app.game_manager import GameManager
 
 logger = logging.getLogger(__name__)
 

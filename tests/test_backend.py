@@ -1,16 +1,17 @@
 # tests/test_backend.py
-import pytest
-import sys
 import os
-from unittest.mock import patch, MagicMock
+import sys
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from app.app_storage import AppStorage
 from app.backend import Backend
 from app.conf import Conf
 from app.state import State
-from app.app_storage import AppStorage
 
 # The autouse fixture that was here has been moved to conftest.py
 # to be applied globally to all tests, ensuring UI tests are also isolated.

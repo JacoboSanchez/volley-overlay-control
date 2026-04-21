@@ -7,10 +7,9 @@ import requests
 import requests.exceptions
 
 from app.app_storage import AppStorage
-from app.state import State
-
 from app.overlay_backends.base import OverlayBackend
 from app.overlay_backends.utils import _mock_response
+from app.state import State
 
 logger = logging.getLogger(__name__)
 

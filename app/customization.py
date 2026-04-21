@@ -1,7 +1,8 @@
-from app.messages import Messages
 import json
 import logging
+
 from app.env_vars_manager import EnvVarsManager
+from app.messages import Messages
 
 logger = logging.getLogger(__name__)
 

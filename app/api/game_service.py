@@ -1,6 +1,7 @@
 import logging
 import time
-from app.api.schemas import GameStateResponse, TeamState, ActionResponse, ALLOWED_CUSTOMIZATION_KEYS
+
+from app.api.schemas import ALLOWED_CUSTOMIZATION_KEYS, ActionResponse, GameStateResponse, TeamState
 from app.api.ws_hub import WSHub
 from app.state import State
 

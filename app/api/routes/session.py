@@ -7,9 +7,9 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import check_oid_access, verify_api_key
 from app.api.game_service import GameService
+from app.api.routes.lifespan import get_init_lock
 from app.api.schemas import ActionResponse, InitRequest
 from app.api.session_manager import SessionManager
-from app.api.routes.lifespan import get_init_lock
 from app.backend import Backend
 from app.conf import Conf
 from app.logging_utils import redact_oid

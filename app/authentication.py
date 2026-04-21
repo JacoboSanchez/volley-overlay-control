@@ -1,6 +1,7 @@
-import logging
 import json
+import logging
 import secrets
+
 from app.env_vars_manager import EnvVarsManager
 from app.oid_utils import UNO_OUTPUT_BASE_URL
 

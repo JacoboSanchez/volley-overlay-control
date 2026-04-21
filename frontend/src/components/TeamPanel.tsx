@@ -78,6 +78,17 @@ export default function TeamPanel({
 
   const scoreText = String(score).padStart(2, '0');
 
+  // A concise live-region label: only the team name + current score are
+  // announced on every update. The long-form instructions live in a
+  // separate description node referenced via aria-describedby so they are
+  // read once on focus rather than every time the score changes.
+  const teamNameLabel =
+    asString(customization?.[`Team ${teamId} Name`]) ||
+    asString(customization?.[`Team ${teamId} Text Name`]) ||
+    `Team ${teamId === 1 ? 'A' : 'B'}`;
+  const scoreAriaLabel = `${teamNameLabel} score ${score}`;
+  const scoreDescId = `team-${teamId}-score-help`;
+
   const timeoutDots: ReactElement[] = [];
   for (let i = 0; i < timeouts; i++) {
     timeoutDots.push(
@@ -142,8 +153,13 @@ export default function TeamPanel({
           onClick={handleAddPoint}
           onDoubleTap={handleDoubleTap}
           onLongPress={handleLongPress}
+          aria-label={scoreAriaLabel}
+          aria-describedby={scoreDescId}
           data-testid={`team-${teamId}-score`}
         />
+        <span id={scoreDescId} className="visually-hidden">
+          Tap to add point, double-tap to undo, long-press to set value.
+        </span>
         <div className={isPortrait ? 'team-side-col' : 'team-side-row'}>
           <div className={isPortrait ? 'team-side-group-col' : 'team-side-group-row'}>
             <button

@@ -16,16 +16,48 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Close to ruff defaults (E, F) plus whitespace (W). Expand progressively.
-select = ["E", "F", "W"]
+# Close to ruff defaults (E, F) plus whitespace (W), import order (I), and
+# the bugbear ruleset (B) for likely-bug patterns. E501 stays off because long
+# URLs/fixture strings are common in tests and overlay payloads.
+select = ["E", "F", "W", "I", "B"]
 ignore = [
-    # Long strings/URLs are common in tests and overlay payloads.
     "E501",
 ]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection helpers are intentionally called in default
+# arguments — that's the framework contract, not a bug. Whitelist them so B008
+# keeps catching genuine mistakes elsewhere.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Cookie",
+    "fastapi.Body",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Security",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Empty default hooks on OverlayBackend are deliberately no-ops, not abstract.
+"app/overlay_backends/base.py" = ["B027"]
+# ``pytest.raises(Exception)`` is used in a websocket-close smoke test where
+# the exact Starlette exception is an implementation detail.
+"tests/test_api_routes.py" = ["B017"]
+
 [tool.mypy]
-# Narrow scope for Sprint 1. Expand `files` / `packages` as modules become clean.
-files = ["app/api/session_manager.py", "app/api/game_service.py", "app/api/schemas.py", "app/api/ws_hub.py"]
+# Core API + routes + middleware are now clean; keep the list explicit so we
+# stay in control of what gets type-checked and expand module-by-module.
+files = [
+    "app/api/session_manager.py",
+    "app/api/game_service.py",
+    "app/api/schemas.py",
+    "app/api/ws_hub.py",
+    "app/api/routes",
+    "app/api/middleware",
+]
 python_version = "3.11"
 follow_imports = "silent"
 ignore_missing_imports = true

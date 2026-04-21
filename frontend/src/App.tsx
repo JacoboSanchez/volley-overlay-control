@@ -9,6 +9,7 @@ import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
+import ErrorBoundary from './components/ErrorBoundary';
 import type { GameState } from './api/client';
 import type { ConfigModel } from './components/TeamCard';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
@@ -321,6 +322,7 @@ export default function App() {
   return (
     <div className="app-container">
       {activeTab === 'scoreboard' && (
+        <ErrorBoundary>
         <ScoreboardView
           state={state}
           customization={customization}
@@ -361,19 +363,22 @@ export default function App() {
           onTogglePreview={handleTogglePreview}
           onOpenConfig={() => setActiveTab('config')}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'config' && (
-        <ConfigPanel
-          oid={oid}
-          customization={customization}
-          actions={actions}
-          onBack={() => setActiveTab('scoreboard')}
-          onReset={handleReset}
-          onLogout={handleLogout}
-          onCustomizationSaved={refreshCustomization}
-          onCustomizationRefreshed={setCustomization}
-        />
+        <ErrorBoundary>
+          <ConfigPanel
+            oid={oid}
+            customization={customization}
+            actions={actions}
+            onBack={() => setActiveTab('scoreboard')}
+            onReset={handleReset}
+            onLogout={handleLogout}
+            onCustomizationSaved={refreshCustomization}
+            onCustomizationRefreshed={setCustomization}
+          />
+        </ErrorBoundary>
       )}
 
       <SetValueDialog
