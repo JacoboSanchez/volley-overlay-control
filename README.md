@@ -155,7 +155,6 @@ Configure the application using the following environment variables:
 | `LOG_FILE_MAX_BYTES` | Rotation threshold for `LOG_FILE` in bytes. | `10485760` (10 MiB) |
 | `LOG_FILE_BACKUPS` | Number of rotated log files to retain. | `5` |
 | `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
-| `SCOREBOARD_LANGUAGE` | Language code (e.g., `es` for Spanish). | `en` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
 | `APP_TEAMS` | JSON with the list of predefined teams. | |
 | `SCOREBOARD_USERS` | JSON with the list of users and passwords (also used as API keys). | |

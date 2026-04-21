@@ -2,7 +2,6 @@ import json
 import logging
 
 from app.env_vars_manager import EnvVarsManager
-from app.messages import Messages
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +35,8 @@ class Customization:
     COLOR3 = "Color 3"
     TEXT_COLOR3 = "Text Color 3"
     PREFERRED_STYLE = "preferredStyle"
-    LOCAL_NAME = Messages.get(Messages.LOCAL)
-    VISITOR_NAME = Messages.get(Messages.VISITOR)
+    LOCAL_NAME = "Local"
+    VISITOR_NAME = "Visitor"
 
     TEAM_VALUES_ICON = "icon"
     TEAM_VALUES_COLOR = "color"
