@@ -61,6 +61,8 @@ Remote-Scoreboard determines the final output URL shown in the "Links" dialog us
 
 The `custom_id` passed to your server is the bare overlay ID (the legacy `C-` prefix, when present, is stripped before forwarding).
 
+**Allowed character set:** overlay IDs must match `^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$` — ASCII letters, digits, dot, underscore, and hyphen, 1 to 64 characters, and not the special names `.` or `..`. IDs outside this set are rejected at the built-in overlay server's store boundary (`create_overlay` / `delete_overlay` return `False`), so any tool that generates IDs programmatically — including downstream code in your own overlay server that uses the same id as a filesystem key — should stay inside this allow-list.
+
 **Styling Support**
 Users can append a specific style constraint to their overlay ID using the `/` separator (e.g., `mybroadcast/line`). This specifies to the system exactly which layout template to use.
 Alternatively, users can change the current layout directly from the Remote-Scoreboard controller UI using the "Preferred Style" dropdown options fetched from your `/api/config/{custom_id}` endpoint.

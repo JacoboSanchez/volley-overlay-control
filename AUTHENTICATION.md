@@ -103,6 +103,22 @@ instance points at this server** (`APP_CUSTOM_OVERLAY_URL=…`).
 > deployments keep working unchanged; setting the env var opts in to
 > enforcement. See F-3 below.
 
+> **Note on `{overlay_id}` format:** every path parameter marked
+> `{overlay_id}` / `{id}` above is validated against the strict allow-list
+> regex enforced by `OverlayStateStore._sanitize_id`:
+>
+> ```
+> ^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$
+> ```
+>
+> Requests carrying path-separator characters (`/`, `\`), traversal
+> segments (`.`, `..`), NUL, whitespace, or non-ASCII are rejected at
+> the store boundary — `create_overlay` / `delete_overlay` return
+> `False`, `overlay_exists` returns `False`, and read/write helpers
+> raise `ValueError`. This complements `require_overlay_server_token`:
+> auth gates *who* may call the endpoints, the sanitizer gates *what*
+> ids those calls may name.
+
 ### 2.4 Static mounts and system endpoints — `app/bootstrap.py`
 
 | Method | Path | Auth | Notes |
