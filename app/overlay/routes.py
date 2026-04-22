@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict
+from starlette.concurrency import run_in_threadpool
 
 from app.admin.routes import require_admin
 from app.env_vars_manager import EnvVarsManager
@@ -201,13 +202,13 @@ def create_overlay_router(
     async def serve_overlay(
         request: Request, overlay_id: str, style: str = None
     ):
-        resolved = store.resolve_overlay_id(overlay_id)
+        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
         if resolved is None:
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
         overlay_id = resolved
 
-        available = store.get_available_styles_list()
-        renderable = store.get_renderable_styles()
+        available = await run_in_threadpool(store.get_available_styles_list)
+        renderable = await run_in_threadpool(store.get_renderable_styles)
 
         if not style:
             state = await store.load_persisted_state_async(overlay_id)
@@ -246,7 +247,7 @@ def create_overlay_router(
 
     @router.websocket("/ws/{overlay_id}")
     async def obs_websocket(websocket: WebSocket, overlay_id: str):
-        resolved = store.resolve_overlay_id(overlay_id)
+        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
         if resolved is None:
             await websocket.close(code=4004, reason="Overlay not found")
             return
@@ -256,7 +257,7 @@ def create_overlay_router(
         broadcast.add_client(overlay_id, websocket)
 
         try:
-            state = store.get_state(overlay_id)
+            state = await run_in_threadpool(store.get_state, overlay_id)
             await websocket.send_text(json.dumps(state))
             while True:
                 data = await websocket.receive_text()

@@ -82,46 +82,39 @@ class SessionManager:
 
         If *conf* or *backend* are ``None`` and the session doesn't exist yet,
         sensible defaults are constructed from environment variables.
-        The global lock is only held for dict lookups; the (potentially
-        blocking) ``GameSession`` construction happens outside it so one slow
-        OID cannot stall lookups for every other OID.
+
+        Backend and GameSession construction happen inside the global lock
+        only after a session-exists re-check: two racing callers on the
+        same OID cannot both allocate a ``Backend`` (``ThreadPoolExecutor``
+        + ``requests.Session``). Lock contention is bounded because the
+        fast path (existing session) never enters the construction block.
         """
+        def _apply_limits(session):
+            if points_limit is not None:
+                session.points_limit = points_limit
+            if points_limit_last_set is not None:
+                session.points_limit_last_set = points_limit_last_set
+            if sets_limit is not None:
+                session.sets_limit = sets_limit
+
         with cls._lock:
             session = cls._sessions.get(oid)
             if session is not None:
                 session.touch()
-                if points_limit is not None:
-                    session.points_limit = points_limit
-                if points_limit_last_set is not None:
-                    session.points_limit_last_set = points_limit_last_set
-                if sets_limit is not None:
-                    session.sets_limit = sets_limit
+                _apply_limits(session)
                 return session
 
-        if conf is None:
-            conf = Conf()
-            conf.oid = oid
-        if backend is None:
-            backend = Backend(conf)
-        new_session = GameSession(
-            oid, conf, backend,
-            points_limit=points_limit,
-            points_limit_last_set=points_limit_last_set,
-            sets_limit=sets_limit,
-        )
-
-        with cls._lock:
-            existing = cls._sessions.get(oid)
-            if existing is not None:
-                new_session.shutdown()
-                existing.touch()
-                if points_limit is not None:
-                    existing.points_limit = points_limit
-                if points_limit_last_set is not None:
-                    existing.points_limit_last_set = points_limit_last_set
-                if sets_limit is not None:
-                    existing.sets_limit = sets_limit
-                return existing
+            if conf is None:
+                conf = Conf()
+                conf.oid = oid
+            if backend is None:
+                backend = Backend(conf)
+            new_session = GameSession(
+                oid, conf, backend,
+                points_limit=points_limit,
+                points_limit_last_set=points_limit_last_set,
+                sets_limit=sets_limit,
+            )
             cls._sessions[oid] = new_session
             return new_session
 

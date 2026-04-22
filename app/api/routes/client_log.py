@@ -5,10 +5,10 @@ by anyone with the page URL, and the endpoint relies on caps + PII
 redaction (not auth) to stay safe.
 """
 
+import asyncio
 import logging
 import time
 from collections import OrderedDict, deque
-from threading import Lock
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Request, Response, status
@@ -24,7 +24,7 @@ _MAX_PER_WINDOW = 30
 _WINDOW_SECONDS = 60.0
 _MAX_CLIENTS = 4096
 _clients: "OrderedDict[str, deque[float]]" = OrderedDict()
-_clients_lock = Lock()
+_clients_lock = asyncio.Lock()
 
 
 def _client_key(request: Request) -> str:
@@ -43,10 +43,10 @@ def _client_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _rate_limited(key: str) -> bool:
+async def _rate_limited(key: str) -> bool:
     now = time.monotonic()
     cutoff = now - _WINDOW_SECONDS
-    with _clients_lock:
+    async with _clients_lock:
         bucket = _clients.get(key)
         if bucket is None:
             bucket = deque()
@@ -64,9 +64,12 @@ def _rate_limited(key: str) -> bool:
 
 
 def _reset_rate_limiter() -> None:
-    """Test-only hook to clear the bucket."""
-    with _clients_lock:
-        _clients.clear()
+    """Test-only hook to clear the bucket.
+
+    Called from sync test fixtures; the dict clear is atomic under the GIL
+    and fixtures do not race with live requests, so no lock is needed.
+    """
+    _clients.clear()
 
 
 class ClientLogRecord(BaseModel):
@@ -86,7 +89,7 @@ async def post_client_log(record: ClientLogRecord, request: Request) -> Response
     """Accept a frontend error report. Returns 429 (empty body) when
     rate-limited so well-behaved clients back off without sendBeacon
     surfacing a JSON error payload."""
-    if _rate_limited(_client_key(request)):
+    if await _rate_limited(_client_key(request)):
         return Response(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
 
     extras = {

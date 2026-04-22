@@ -36,18 +36,41 @@ OVERLAY_TEMPLATES_DIR = Path("overlay_templates")
 OVERLAY_STATIC_DIR = Path("overlay_static")
 
 
-# Matches the first ``<title>`` element, including any attributes
-# (e.g. ``<title lang="en">``).
-_TITLE_PATTERN = re.compile(
-    r"<title(?:\s+[^>]*)?>.*?</title>", re.IGNORECASE | re.DOTALL,
+_OPEN_TITLE_RE = re.compile(r"<title(?:\s[^>]*)?>", re.IGNORECASE)
+_CLOSE_TITLE_RE = re.compile(r"</title\s*>", re.IGNORECASE)
+_SKIP_BLOCK_RE = re.compile(
+    r"<!--.*?-->|<script\b[^>]*>.*?</script\s*>|<style\b[^>]*>.*?</style\s*>",
+    re.IGNORECASE | re.DOTALL,
 )
 
 
 def _inject_title_into_html(html_content: str, title: str) -> str:
-    """Replace the first ``<title>...</title>`` with the escaped *title*."""
-    return _TITLE_PATTERN.sub(
-        f"<title>{html.escape(title)}</title>", html_content, count=1,
-    )
+    """Replace the first top-level ``<title>...</title>`` with the escaped *title*.
+
+    Unlike a naïve single-regex substitution, ranges covered by HTML
+    comments, ``<script>``, or ``<style>`` blocks are ignored so a stray
+    literal ``<title>`` inside those contexts doesn't get rewritten.
+    """
+    skip_ranges = [
+        (m.start(), m.end()) for m in _SKIP_BLOCK_RE.finditer(html_content)
+    ]
+
+    def in_skip_range(offset: int) -> bool:
+        return any(start <= offset < end for start, end in skip_ranges)
+
+    for open_match in _OPEN_TITLE_RE.finditer(html_content):
+        if in_skip_range(open_match.start()):
+            continue
+        close_match = _CLOSE_TITLE_RE.search(html_content, open_match.end())
+        if close_match is None or in_skip_range(close_match.start()):
+            continue
+        replacement = f"<title>{html.escape(title)}</title>"
+        return (
+            html_content[:open_match.start()]
+            + replacement
+            + html_content[close_match.end():]
+        )
+    return html_content
 
 
 @lru_cache(maxsize=8)
