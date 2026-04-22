@@ -118,11 +118,27 @@ def get_default_state(best_of_sets: int = 5) -> dict:
 # ---------------------------------------------------------------------------
 
 
+# Length of the hex SHA-256 prefix used to derive on-disk filenames from
+# user-supplied overlay ids. 20 hex chars = 80 bits, well above the birthday
+# bound for any realistic overlay count.
+_FILENAME_HASH_LEN = 20
+
+# Matches the hashed basename produced by ``_hashed_basename``. Used during
+# legacy-file migration to skip files that are already in the new format.
+_HASHED_FILENAME_PATTERN = re.compile(
+    r"^overlay_state_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$"
+)
+_LEGACY_FILENAME_PATTERN = re.compile(r"^overlay_state_(.+)\.json$")
+
+
 class OverlayStateStore:
     """Manages overlay state with in-memory cache and JSON file persistence.
 
-    Each overlay has a state file at ``data/overlay_state_{id}.json`` and an
-    in-memory context dict with its current state and connected client lists.
+    Each overlay has a state file at
+    ``data/overlay_state_{sha256(id)[:20]}.json`` — the hex-only basename
+    breaks the taint flow from user input to filesystem paths that CodeQL
+    tracks. The original overlay id is stored inside the JSON payload under
+    ``_meta.overlay_id`` so listings and cache lookups can recover it.
     """
 
     def __init__(self, data_dir: str, templates_dir: str):
@@ -139,6 +155,7 @@ class OverlayStateStore:
         self._output_key_cache: Dict[str, str] = {}
         self._all_overlays_scanned = False
         os.makedirs(data_dir, exist_ok=True)
+        self._migrate_legacy_files_locked()
 
     def set_broadcast_callback(self, callback: Callable) -> None:
         """Set the callback invoked after state changes to trigger broadcasts."""
@@ -161,52 +178,58 @@ class OverlayStateStore:
             raise ValueError(f"Invalid overlay id: {overlay_id!r}")
         return overlay_id
 
+    @staticmethod
+    def _hashed_basename(overlay_id: str) -> str:
+        """Return the on-disk basename for *overlay_id*.
+
+        The hex-only digest means the final path is built from
+        ``self._data_dir`` (trusted) plus a fixed-alphabet suffix, so
+        CodeQL's ``py/path-injection`` taint tracker sees the user input
+        replaced with a hash output at this boundary.
+        """
+        digest = hashlib.sha256(overlay_id.encode("utf-8")).hexdigest()[:_FILENAME_HASH_LEN]
+        return f"overlay_state_{digest}.json"
+
     def get_state_file_path(self, overlay_id: str) -> str:
         safe_id = self._sanitize_id(overlay_id)
-        return os.path.join(self._data_dir, f"overlay_state_{safe_id}.json")
-
-    def _ensure_in_data_dir(self, path: str) -> str:
-        """Return *path* resolved if it lies inside ``self._data_dir``, else raise.
-
-        Defense-in-depth re-check at every filesystem sink so CodeQL's taint
-        tracker sees an explicit sanitizer at the call site; the primary guard
-        remains :meth:`_sanitize_id` upstream of :meth:`get_state_file_path`.
-        """
-        resolved = os.path.realpath(path)
-        data_dir = os.path.realpath(self._data_dir)
-        if os.path.commonpath([resolved, data_dir]) != data_dir:
-            raise ValueError(f"Path escapes data_dir: {path!r}")
-        return resolved
+        return os.path.join(self._data_dir, self._hashed_basename(safe_id))
 
     def _read_state_sync(self, path: str) -> Optional[dict]:
         """Read state from disk synchronously."""
-        try:
-            safe_path = self._ensure_in_data_dir(path)
-        except ValueError:
-            return None
-        if os.path.exists(safe_path):
+        if os.path.exists(path):
             try:
-                with open(safe_path, "r", encoding="utf-8") as f:
+                with open(path, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as exc:
-                logger.warning("Failed to load state from '%s': %s", safe_path, exc)
+                logger.warning("Failed to load state from '%s': %s", path, exc)
         return None
 
-    def _write_state_sync(self, path: str, state: dict) -> None:
+    @staticmethod
+    def _write_state_sync(path: str, state: dict) -> None:
         """Write state to disk atomically via temp file + rename."""
-        safe_path = self._ensure_in_data_dir(path)
-        dir_name = os.path.dirname(safe_path)
+        dir_name = os.path.dirname(path)
         fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(state, f)
-            os.replace(tmp_path, safe_path)
+            os.replace(tmp_path, path)
         except BaseException:
             try:
                 os.unlink(tmp_path)
             except OSError:
                 pass
             raise
+
+    @staticmethod
+    def _stamp_meta(state: dict, overlay_id: str) -> dict:
+        """Inject ``_meta.overlay_id`` so the id can be recovered from the file.
+
+        Needed because filenames no longer carry the id (they're hashes).
+        Returns *state* for call-site convenience.
+        """
+        meta = state.setdefault("_meta", {})
+        meta["overlay_id"] = overlay_id
+        return state
 
     def load_persisted_state(self, overlay_id: str) -> dict:
         path = self.get_state_file_path(overlay_id)
@@ -220,6 +243,7 @@ class OverlayStateStore:
 
     def save_persisted_state(self, overlay_id: str, state: dict) -> None:
         path = self.get_state_file_path(overlay_id)
+        self._stamp_meta(state, overlay_id)
         try:
             self._write_state_sync(path, state)
         except Exception as exc:
@@ -227,6 +251,7 @@ class OverlayStateStore:
 
     async def save_persisted_state_async(self, overlay_id: str, state: dict) -> None:
         path = self.get_state_file_path(overlay_id)
+        self._stamp_meta(state, overlay_id)
         try:
             await asyncio.to_thread(self._write_state_sync, path, state)
         except Exception as exc:
@@ -263,10 +288,9 @@ class OverlayStateStore:
         """
         try:
             path = self.get_state_file_path(overlay_id)
-            safe_path = self._ensure_in_data_dir(path)
         except ValueError:
             return False
-        return os.path.exists(safe_path)
+        return os.path.exists(path)
 
     # -- Output keys -------------------------------------------------------
 
@@ -296,19 +320,86 @@ class OverlayStateStore:
             self._populate_cache_locked()
             return self._output_key_cache.get(token)
 
+    def _iter_persisted_ids(self):
+        """Yield ``(overlay_id, basename)`` for every state file on disk.
+
+        Filenames are hash-based so the id is recovered from
+        ``_meta.overlay_id`` inside each payload. Files whose contents do
+        not parse or lack ``_meta.overlay_id`` are skipped with a warning
+        (they never round-trip through :meth:`save_persisted_state` and
+        should not exist in a healthy deployment).
+        """
+        if not os.path.isdir(self._data_dir):
+            return
+        for filename in os.listdir(self._data_dir):
+            if not _HASHED_FILENAME_PATTERN.fullmatch(filename):
+                continue
+            path = os.path.join(self._data_dir, filename)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except Exception as exc:
+                logger.warning("Skipping unreadable state file '%s': %s", filename, exc)
+                continue
+            oid = (payload or {}).get("_meta", {}).get("overlay_id")
+            if not isinstance(oid, str) or _OVERLAY_ID_PATTERN.match(oid) is None:
+                logger.warning("State file '%s' missing valid _meta.overlay_id", filename)
+                continue
+            yield oid, filename
+
     def _populate_cache_locked(self) -> None:
         """Walk the data directory once and index every overlay by both
         its raw id and its output key. Caller must hold ``self._lock``.
         """
         if self._all_overlays_scanned:
             return
-        if os.path.isdir(self._data_dir):
-            for filename in os.listdir(self._data_dir):
-                if filename.startswith("overlay_state_") and filename.endswith(".json"):
-                    candidate = filename[len("overlay_state_"):-5]
-                    self._output_key_cache[candidate] = candidate
-                    self._output_key_cache[self.get_output_key(candidate)] = candidate
+        for oid, _ in self._iter_persisted_ids():
+            self._output_key_cache[oid] = oid
+            self._output_key_cache[self.get_output_key(oid)] = oid
         self._all_overlays_scanned = True
+
+    def _migrate_legacy_files_locked(self) -> None:
+        """Rename ``overlay_state_<id>.json`` → ``overlay_state_<hash>.json``.
+
+        Runs once at init. For each legacy file whose stem matches
+        :data:`_OVERLAY_ID_PATTERN`, injects ``_meta.overlay_id`` into
+        the payload and rewrites to the hashed basename. No-op for files
+        already in the new format.
+        """
+        if not os.path.isdir(self._data_dir):
+            return
+        for filename in os.listdir(self._data_dir):
+            if _HASHED_FILENAME_PATTERN.fullmatch(filename):
+                continue
+            m = _LEGACY_FILENAME_PATTERN.fullmatch(filename)
+            if m is None:
+                continue
+            stem = m.group(1)
+            if _OVERLAY_ID_PATTERN.match(stem) is None:
+                continue
+            legacy_path = os.path.join(self._data_dir, filename)
+            new_basename = self._hashed_basename(stem)
+            new_path = os.path.join(self._data_dir, new_basename)
+            if os.path.exists(new_path):
+                continue
+            try:
+                with open(legacy_path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except Exception as exc:
+                logger.warning("Skipping legacy state file '%s': %s", filename, exc)
+                continue
+            if not isinstance(payload, dict):
+                continue
+            self._stamp_meta(payload, stem)
+            try:
+                self._write_state_sync(new_path, payload)
+                os.remove(legacy_path)
+                logger.info(
+                    "Migrated legacy state file '%s' -> '%s'",
+                    filename, new_basename,
+                )
+            except Exception as exc:
+                logger.warning("Failed to migrate '%s': %s", filename, exc)
 
     # -- Available styles --------------------------------------------------
 
@@ -359,11 +450,10 @@ class OverlayStateStore:
         """Create a new overlay with default state.  Returns True if created."""
         try:
             path = self.get_state_file_path(overlay_id)
-            safe_path = self._ensure_in_data_dir(path)
         except ValueError:
             logger.warning("create_overlay rejected invalid id: %r", overlay_id)
             return False
-        if os.path.exists(safe_path):
+        if os.path.exists(path):
             return False
         self.save_persisted_state(overlay_id, get_default_state())
         with self._lock:
@@ -381,13 +471,12 @@ class OverlayStateStore:
         """Delete an overlay's state file and in-memory context."""
         try:
             path = self.get_state_file_path(overlay_id)
-            safe_path = self._ensure_in_data_dir(path)
         except ValueError:
             logger.warning("delete_overlay rejected invalid id: %r", overlay_id)
             return False
         existed = False
-        if os.path.exists(safe_path):
-            os.remove(safe_path)
+        if os.path.exists(path):
+            os.remove(path)
             existed = True
         with self._lock:
             if overlay_id in self._overlays:
@@ -401,13 +490,10 @@ class OverlayStateStore:
 
     def list_overlays(self) -> list:
         """Return a list of ``{id, output_key}`` for all persisted overlays."""
-        if not os.path.isdir(self._data_dir):
-            return []
-        entries = []
-        for filename in os.listdir(self._data_dir):
-            if filename.startswith("overlay_state_") and filename.endswith(".json"):
-                oid = filename[len("overlay_state_"):-5]
-                entries.append({"id": oid, "output_key": self.get_output_key(oid)})
+        entries = [
+            {"id": oid, "output_key": self.get_output_key(oid)}
+            for oid, _ in self._iter_persisted_ids()
+        ]
         entries.sort(key=lambda e: e["id"])
         return entries
 
