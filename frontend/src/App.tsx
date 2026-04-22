@@ -37,8 +37,6 @@ interface FontScale {
 
 function getInitialOid(): string {
   const params = new URLSearchParams(window.location.search);
-  const controlOid = params.get('control');
-  if (controlOid) return controlOid;
   const urlOid = params.get('oid');
   if (urlOid) return urlOid;
   try {
