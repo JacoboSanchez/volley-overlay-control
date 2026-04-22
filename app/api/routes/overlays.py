@@ -105,10 +105,18 @@ async def get_links(request: Request,
         # Custom overlays use layout_id=auto so the overlay JS reports its
         # render bounds via postMessage; geometry params are ignored in that
         # branch but kept for a uniform URL shape.
+        styles: list[str] = []
         if session.backend.is_custom_overlay(oid):
             layout_id = "auto"
             x = y = 0.0
             width = height = 100.0
+            try:
+                styles = await run_in_threadpool(
+                    session.backend.get_available_styles, oid
+                ) or []
+            except Exception:
+                logger.exception("Failed to fetch available styles for preview")
+                styles = []
         else:
             layout_id = session.conf.id or ""
             cust = session.customization
@@ -118,14 +126,17 @@ async def get_links(request: Request,
             height = cust.get_height()
 
         base_url = str(request.base_url).rstrip('/')
-        preview_qs = urllib.parse.urlencode({
+        qs_params = {
             "output": overlay_url,
             "x": x,
             "y": y,
             "width": width,
             "height": height,
             "layout_id": layout_id,
-        })
+        }
+        if len(styles) > 1:
+            qs_params["styles"] = ",".join(styles)
+        preview_qs = urllib.parse.urlencode(qs_params)
         links["preview"] = f"{base_url}/preview?{preview_qs}"
 
     return links

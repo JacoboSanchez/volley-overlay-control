@@ -25,11 +25,19 @@ function PreviewPageInner() {
   const width = readNumberParam(queryParams, 'width', 100);
   const height = readNumberParam(queryParams, 'height', 100);
   const layoutId = queryParams.get('layout_id') || '';
+  const styles = (queryParams.get('styles') || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const urlStyle = queryParams.get('style') || '';
 
   const [scale, setScale] = useState<number>(1);
   const [darkBackdrop, setDarkBackdrop] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [pageWidth, setPageWidth] = useState<number>(window.innerWidth);
+  const [styleOverride, setStyleOverride] = useState<string>(
+    styles.includes(urlStyle) ? urlStyle : '',
+  );
 
   useEffect(() => {
     const onResize = () => setPageWidth(window.innerWidth);
@@ -77,6 +85,7 @@ function PreviewPageInner() {
           height={height}
           layoutId={layoutId || undefined}
           cardWidth={cardWidth}
+          styleOverride={styleOverride || undefined}
         />
       </div>
       <div className="preview-page-toolbar" data-testid="preview-toolbar">
@@ -101,6 +110,21 @@ function PreviewPageInner() {
           <span className="material-icons">add</span>
         </button>
         <div className="preview-tool-spacer" />
+        {styles.length > 1 && (
+          <select
+            className="preview-tool-select"
+            value={styleOverride}
+            onChange={(e) => setStyleOverride(e.target.value)}
+            title={t('preview.styleOverride')}
+            aria-label={t('preview.styleOverride')}
+            data-testid="preview-style-selector"
+          >
+            <option value="">{t('preview.styleDefault')}</option>
+            {styles.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        )}
         <button
           type="button"
           className="preview-tool-btn"

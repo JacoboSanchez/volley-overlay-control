@@ -19,6 +19,13 @@ once a first tagged release ships.
   `window.onerror`. Score buttons gained `aria-label` / `aria-live="polite"`
   so assistive tech announces score changes.
 - **Docs**: this `CHANGELOG.md`.
+- **Preview style override**: the standalone `/preview` page now shows a
+  discreet style selector when the overlay advertises more than one style,
+  letting a remote viewer render their preview with a different template
+  via the existing `?style=` query param on `/overlay/{id}` — without
+  touching the session's saved `preferredStyle` used for streaming. The
+  `/api/v1/links` response includes a `styles` entry in the preview URL
+  so the standalone page knows what options to offer.
 
 ### Changed
 

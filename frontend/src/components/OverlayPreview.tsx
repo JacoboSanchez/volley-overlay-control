@@ -26,6 +26,7 @@ export interface OverlayPreviewProps {
   height: number;
   layoutId?: string;
   cardWidth?: number;
+  styleOverride?: string;
 }
 
 interface Bounds {
@@ -48,6 +49,7 @@ export default function OverlayPreview({
   height,
   layoutId,
   cardWidth = 300,
+  styleOverride,
 }: OverlayPreviewProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -136,7 +138,10 @@ export default function OverlayPreview({
       >
         <div style={wrapperStyle}>
           <iframe
-            src={getBustedUrl(safeOverlayUrl)}
+            src={getBustedUrl(
+              safeOverlayUrl,
+              styleOverride ? { style: styleOverride } : {},
+            )}
             width={iframeW}
             height={iframeH}
             style={{ border: 0, background: 'transparent' }}

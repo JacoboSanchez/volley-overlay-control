@@ -533,6 +533,25 @@ body {
   font-size: 20px;
 }
 
+.preview-tool-select {
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  max-width: 160px;
+}
+
+.preview-tool-select:hover {
+  background: rgba(127, 127, 127, 0.18);
+}
+
+.preview-tool-select option {
+  color: initial;
+}
+
 /* ── Set pagination ──────────────────────────────────────────────────── */
 
 .set-pagination {
