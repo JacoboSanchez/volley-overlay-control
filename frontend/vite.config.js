@@ -68,6 +68,7 @@ export default defineConfig(async () => ({
           /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/,
           /^\/overlay/, /^\/ws\//, /^\/static/,
           /^\/create\//, /^\/delete\//, /^\/list\//,
+          /^\/manage(\/|\?|$)/,
         ],
         runtimeCaching: [
           {
