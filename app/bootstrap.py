@@ -16,6 +16,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -259,6 +260,9 @@ def create_app() -> FastAPI:
     _register_spa(application)
     # Outermost-first: RequestContextMiddleware must wrap ExceptionLoggingMiddleware
     # so the contextvars are populated by the time we log unhandled exceptions.
+    # GZip is registered last so it ends up outermost and compresses the final
+    # response body after observability middlewares have annotated it.
     application.add_middleware(ExceptionLoggingMiddleware)
     application.add_middleware(RequestContextMiddleware)
+    application.add_middleware(GZipMiddleware, minimum_size=1024)
     return application
