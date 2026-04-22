@@ -2,8 +2,11 @@ import copy
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends import (
@@ -21,6 +24,24 @@ from app.state import State
 # for the duration of the match. 60s balances freshness against the cost of
 # extra GET round-trips on every save.
 _CUSTOMIZATION_CACHE_TTL_SECONDS = 60.0
+
+# Warn when a single remote overlay call exceeds this duration. Conservative so
+# it only fires on real slowdowns, not on a cold-start connection setup.
+_REMOTE_CALL_WARN_MS = 500.0
+
+
+@contextmanager
+def _timed(label: str, logger: logging.Logger):
+    """Log perf_counter-based duration at DEBUG, or WARNING above the threshold."""
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if elapsed_ms > _REMOTE_CALL_WARN_MS:
+            logger.warning('%s slow: %.1fms', label, elapsed_ms)
+        else:
+            logger.debug('%s took %.1fms', label, elapsed_ms)
 
 
 class Backend:
@@ -40,6 +61,23 @@ class Backend:
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/plain, */*'
         })
+        # Pool sized for ThreadPoolExecutor (max_workers=5) plus the foreground
+        # request thread, with headroom. Retry covers transient 5xx/connection
+        # hiccups from the overlay server without masking real failures — the
+        # short per-call timeouts (2-5 s) keep the worst case bounded.
+        _adapter = HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=20,
+            max_retries=Retry(
+                total=2,
+                backoff_factor=0.3,
+                status_forcelist=(502, 503, 504),
+                allowed_methods=frozenset(["GET", "PUT", "POST"]),
+                raise_on_status=False,
+            ),
+        )
+        self.session.mount("http://", _adapter)
+        self.session.mount("https://", _adapter)
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._customization_cache = None
         self._customization_cache_ts = 0.0
@@ -267,9 +305,10 @@ class Backend:
     # -- Model persistence --------------------------------------------------
 
     def save_model(self, current_model, simple):
-        Backend.logger.info('saving model...')
+        Backend.logger.debug('saving model...')
         self._ensure_overlay_backend()
-        self._overlay.save_model(current_model)
+        with _timed('save_model.model', Backend.logger):
+            self._overlay.save_model(current_model)
 
         to_save = copy.copy(current_model)
         if simple:
@@ -278,28 +317,33 @@ class Backend:
         if self.conf.id == State.CHAMPIONSHIP_LAYOUT_ID:
             to_save["Sets Display"] = str(to_save.get(State.CURRENT_SET_INT, "1"))
 
+        # Wrap the push inside the callable so the timing span runs where the
+        # call actually executes — either inline (sync) or on the executor
+        # thread (multithread). Otherwise the multithread branch would only
+        # measure `executor.submit` (microseconds) and the WARNING threshold
+        # would never fire even on a genuinely slow remote save.
+        def _push():
+            with _timed('save_model.push', Backend.logger):
+                self._overlay.push_model_update(
+                    current_model, to_save, show_only_current_set=simple,
+                )
+
         if self.conf.multithread:
-            self.executor.submit(
-                self._overlay.push_model_update, current_model, to_save,
-                show_only_current_set=simple,
-            )
+            self.executor.submit(_push)
         else:
-            self._overlay.push_model_update(
-                current_model, to_save, show_only_current_set=simple,
-            )
-        Backend.logger.info('saved')
+            _push()
 
     def reduce_games_to_one(self):
         self._ensure_overlay_backend()
         self._overlay.reduce_games_to_one()
 
     def save_json_model(self, to_save):
-        Backend.logger.info('saving JSON model...')
+        Backend.logger.debug('saving JSON model...')
         self._ensure_overlay_backend()
         self._overlay.send_json_model(to_save)
 
     def save_json_customization(self, to_save):
-        Backend.logger.info('saving JSON customization...')
+        Backend.logger.debug('saving JSON customization...')
         self._ensure_overlay_backend()
         self._remember_customization(to_save)
 
@@ -326,18 +370,20 @@ class Backend:
 
     def get_current_model(self, customOid=None, saveResult=False):
         oid = customOid if customOid is not None else self.conf.oid
-        Backend.logger.info('getting state for oid %s', oid)
-        self._ensure_overlay_backend(oid)
-        return self._overlay.get_model(oid=oid, save_result=saveResult)
+        Backend.logger.debug('getting state for oid %s', oid)
+        with _timed('get_current_model', Backend.logger):
+            self._ensure_overlay_backend(oid)
+            return self._overlay.get_model(oid=oid, save_result=saveResult)
 
     def get_current_customization(self, customOid=None):
-        Backend.logger.info('getting customization')
-        oid = customOid if customOid is not None else self.conf.oid
-        self._ensure_overlay_backend(oid)
-        data = self._overlay.get_customization(oid=oid)
-        if data is not None:
-            self._remember_customization(data)
-        return data
+        Backend.logger.debug('getting customization')
+        with _timed('get_current_customization', Backend.logger):
+            oid = customOid if customOid is not None else self.conf.oid
+            self._ensure_overlay_backend(oid)
+            data = self._overlay.get_customization(oid=oid)
+            if data is not None:
+                self._remember_customization(data)
+            return data
 
     def is_visible(self):
         self._ensure_overlay_backend()

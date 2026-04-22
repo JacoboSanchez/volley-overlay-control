@@ -140,4 +140,45 @@ describe('OverlayPreview', () => {
     expect(iframe.getAttribute('width')).toBe('1920');
     expect(iframe.getAttribute('height')).toBe('1080');
   });
+
+  // Scheme validation: the iframe src is derived from overlayUrl, so any
+  // non-http(s) scheme must be rejected before it reaches the DOM.
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,<script>1</script>',
+    'file:///etc/passwd',
+    'vbscript:msgbox(1)',
+  ])('renders nothing for unsafe overlayUrl: %s', (unsafe) => {
+    const { container } = renderWithI18n(
+      <OverlayPreview
+        overlayUrl={unsafe}
+        x={0}
+        y={0}
+        width={30}
+        height={10}
+        layoutId=""
+        cardWidth={300}
+      />
+    );
+    expect(container.innerHTML).toBe('');
+  });
+
+  // Domain-spoof guard: a hostname that merely ends with 'overlays.uno'
+  // (e.g. 'evil-overlays.uno') must not be treated as the real Uno overlay.
+  it('treats evil-overlays.uno as a custom overlay, not Uno', () => {
+    renderWithI18n(
+      <OverlayPreview
+        overlayUrl="https://evil-overlays.uno/output/abc"
+        x={0}
+        y={0}
+        width={30}
+        height={10}
+        layoutId=""
+        cardWidth={300}
+      />
+    );
+    const iframe = screen.getByTestId('overlay-preview');
+    // Custom path renders at 1920x1080; Uno path would be 600x...
+    expect(iframe.getAttribute('width')).toBe('1920');
+  });
 });
