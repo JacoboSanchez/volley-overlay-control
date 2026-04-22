@@ -11,11 +11,20 @@ import hashlib
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 from typing import Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# Strict allow-list for overlay ids that flow into filesystem paths.
+# Accepts alphanumerics, dot, underscore, and hyphen; 1-64 chars; rejects
+# the special dir names "." and ".." via the negative lookahead. Anything
+# else (path separators, NUL, whitespace, non-ASCII, …) fails closed, so
+# an untrusted id can never flow into ``open``/``unlink``/``rename``.
+_OVERLAY_ID_PATTERN = re.compile(r"^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$")
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +148,18 @@ class OverlayStateStore:
 
     @staticmethod
     def _sanitize_id(overlay_id: str) -> str:
-        """Strip path separators to prevent path traversal."""
-        return os.path.basename(overlay_id)
+        """Validate *overlay_id* as a filesystem-safe identifier.
+
+        Returns *overlay_id* unchanged when it matches the strict allow-list
+        (``_OVERLAY_ID_PATTERN``). Raises ``ValueError`` otherwise — this is
+        the single choke point between user-provided ids and the on-disk
+        ``overlay_state_<id>.json`` paths, so rejecting here guarantees no
+        path-traversal or arbitrary-filename value reaches ``open``,
+        ``unlink``, or ``rename``.
+        """
+        if not isinstance(overlay_id, str) or _OVERLAY_ID_PATTERN.match(overlay_id) is None:
+            raise ValueError(f"Invalid overlay id: {overlay_id!r}")
+        return overlay_id
 
     def get_state_file_path(self, overlay_id: str) -> str:
         safe_id = self._sanitize_id(overlay_id)
@@ -218,8 +237,18 @@ class OverlayStateStore:
             return copy.deepcopy(self.get_overlay_context(overlay_id)["state"])
 
     def overlay_exists(self, overlay_id: str) -> bool:
-        """Check whether a state file exists on disk for *overlay_id*."""
-        return os.path.exists(self.get_state_file_path(overlay_id))
+        """Check whether a state file exists on disk for *overlay_id*.
+
+        Returns False for ids that fail the sanitizer so the public contract
+        (a bool) is preserved — callers probing with arbitrary user input
+        get the same "no such overlay" answer they'd get for a well-formed
+        id that happens to not exist.
+        """
+        try:
+            path = self.get_state_file_path(overlay_id)
+        except ValueError:
+            return False
+        return os.path.exists(path)
 
     # -- Output keys -------------------------------------------------------
 
@@ -310,7 +339,11 @@ class OverlayStateStore:
 
     def create_overlay(self, overlay_id: str) -> bool:
         """Create a new overlay with default state.  Returns True if created."""
-        path = self.get_state_file_path(overlay_id)
+        try:
+            path = self.get_state_file_path(overlay_id)
+        except ValueError:
+            logger.warning("create_overlay rejected invalid id: %r", overlay_id)
+            return False
         if os.path.exists(path):
             return False
         self.save_persisted_state(overlay_id, get_default_state())
@@ -327,7 +360,11 @@ class OverlayStateStore:
 
     def delete_overlay(self, overlay_id: str) -> bool:
         """Delete an overlay's state file and in-memory context."""
-        path = self.get_state_file_path(overlay_id)
+        try:
+            path = self.get_state_file_path(overlay_id)
+        except ValueError:
+            logger.warning("delete_overlay rejected invalid id: %r", overlay_id)
+            return False
         existed = False
         if os.path.exists(path):
             os.remove(path)
