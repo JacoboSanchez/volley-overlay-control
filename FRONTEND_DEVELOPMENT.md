@@ -672,6 +672,6 @@ These behaviours are not part of the API contract — document them here so alte
   - *Long press*: open a numeric dialog that calls `POST /api/v1/game/set-score` to pick an exact value.
   Long-press cancels the pending single/double-tap timers so only the long-press handler fires.
 - **Set-cell long press** — long-pressing a set counter in the centre panel opens the same dialog against `POST /api/v1/game/set-sets`.
-- **Pre-select OID via URL** — the bundled UI resolves the initial OID from `?oid=<oid>` first, falling back to `localStorage.volley_oid`. A `?oid=` value auto-connects the session (skipping the picker) and replaces any previously stored OID, so external links can force-switch which overlay this tab is controlling.
+- **Pre-select OID via URL** — the bundled UI resolves the initial OID from `?oid=<OID>` first, falling back to the `volley_oid` key in `localStorage`. Providing a `?oid=` value auto-connects the session (skipping the picker) and replaces any previously stored OID, so external links can force-switch which overlay this tab is controlling.
 - **WebSocket reconnect** — on close (other than `4004` "no session"), the bundled UI reconnects after 3 s. The `?token=` query param above is re-applied automatically.
 - **Client error reporting** — uncaught errors and `window.onerror` traces are posted to `/api/v1/_log`, rate-limited and PII-redacted server-side.
