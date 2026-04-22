@@ -66,8 +66,8 @@ export default defineConfig(async () => ({
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [
           /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/,
-          /^\/overlay/, /^\/ws\//, /^\/static/,
-          /^\/create\//, /^\/delete\//, /^\/list\//,
+          /^\/overlay/, /^\/ws(\/|\?|$)/, /^\/static/,
+          /^\/(create|delete|list|manage)(\/|\?|$)/,
         ],
         runtimeCaching: [
           {
