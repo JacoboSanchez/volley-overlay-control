@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends import (
@@ -59,6 +61,23 @@ class Backend:
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/plain, */*'
         })
+        # Pool sized for ThreadPoolExecutor (max_workers=5) plus the foreground
+        # request thread, with headroom. Retry covers transient 5xx/connection
+        # hiccups from the overlay server without masking real failures — the
+        # short per-call timeouts (2-5 s) keep the worst case bounded.
+        _adapter = HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=20,
+            max_retries=Retry(
+                total=2,
+                backoff_factor=0.3,
+                status_forcelist=(502, 503, 504),
+                allowed_methods=frozenset(["GET", "PUT", "POST"]),
+                raise_on_status=False,
+            ),
+        )
+        self.session.mount("http://", _adapter)
+        self.session.mount("https://", _adapter)
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._customization_cache = None
         self._customization_cache_ts = 0.0
