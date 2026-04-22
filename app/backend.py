@@ -306,26 +306,32 @@ class Backend:
 
     def save_model(self, current_model, simple):
         Backend.logger.debug('saving model...')
-        with _timed('save_model', Backend.logger):
-            self._ensure_overlay_backend()
+        self._ensure_overlay_backend()
+        with _timed('save_model.model', Backend.logger):
             self._overlay.save_model(current_model)
 
-            to_save = copy.copy(current_model)
-            if simple:
-                to_save = State.simplify_model(to_save)
+        to_save = copy.copy(current_model)
+        if simple:
+            to_save = State.simplify_model(to_save)
 
-            if self.conf.id == State.CHAMPIONSHIP_LAYOUT_ID:
-                to_save["Sets Display"] = str(to_save.get(State.CURRENT_SET_INT, "1"))
+        if self.conf.id == State.CHAMPIONSHIP_LAYOUT_ID:
+            to_save["Sets Display"] = str(to_save.get(State.CURRENT_SET_INT, "1"))
 
-            if self.conf.multithread:
-                self.executor.submit(
-                    self._overlay.push_model_update, current_model, to_save,
-                    show_only_current_set=simple,
-                )
-            else:
+        # Wrap the push inside the callable so the timing span runs where the
+        # call actually executes — either inline (sync) or on the executor
+        # thread (multithread). Otherwise the multithread branch would only
+        # measure `executor.submit` (microseconds) and the WARNING threshold
+        # would never fire even on a genuinely slow remote save.
+        def _push():
+            with _timed('save_model.push', Backend.logger):
                 self._overlay.push_model_update(
                     current_model, to_save, show_only_current_set=simple,
                 )
+
+        if self.conf.multithread:
+            self.executor.submit(_push)
+        else:
+            _push()
 
     def reduce_games_to_one(self):
         self._ensure_overlay_backend()

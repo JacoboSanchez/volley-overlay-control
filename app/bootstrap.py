@@ -122,7 +122,10 @@ class CachedStaticFiles(StaticFiles):
 
     async def get_response(self, path, scope):
         response = await super().get_response(path, scope)
-        if response.status_code == 200:
+        # 200 (full), 206 (range — common for fonts), 304 (revalidation) all
+        # represent successful delivery of the resource and should carry the
+        # caching policy so the browser updates its TTL / immutability flag.
+        if response.status_code in (200, 206, 304):
             response.headers.setdefault("Cache-Control", self._cache_control)
         return response
 
