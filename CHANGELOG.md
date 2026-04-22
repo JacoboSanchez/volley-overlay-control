@@ -174,9 +174,9 @@ once a first tagged release ships.
 - Authentication audit: `AUTHENTICATION.md` documents full route/mount coverage
   with findings F-1–F-5. `/list/overlay` now requires `OVERLAY_MANAGER_PASSWORD`
   (F-4) — previously unauthenticated (`#148`).
-- Capability URL hardening: `resolve_overlay_id` accepts the SHA-256 output key
-  only — not the raw overlay id — so `/overlay/{…}` and `/ws/{…}` are true
-  capability URLs. Dead pass-through `AuthMiddleware` removed (`#149`).
+- Capability URL hardening: `resolve_overlay_id` now supports SHA-256 output
+  keys for `/overlay/{…}` and `/ws/{…}` capability URLs, enabling unguessable
+  public links. Dead pass-through `AuthMiddleware` removed (`#149`).
 - Overlay-id sanitizer: `OverlayStateStore._sanitize_id` replaced the prior
   `os.path.basename` stripping with a strict allow-list regex
   (`^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$`). Invalid IDs raise `ValueError` at the
