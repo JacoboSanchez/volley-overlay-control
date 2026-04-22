@@ -37,9 +37,13 @@ OVERLAY_STATIC_DIR = Path("overlay_static")
 
 
 _OPEN_TITLE_RE = re.compile(r"<title(?:\s[^>]*)?>", re.IGNORECASE)
-_CLOSE_TITLE_RE = re.compile(r"</title\s*>", re.IGNORECASE)
+_CLOSE_TITLE_RE = re.compile(r"</title\b[^>]*>", re.IGNORECASE)
+# Each alternative matches a region whose content should be skipped when
+# locating the first top-level <title>…</title>. End-tag patterns use
+# ``\b[^>]*>`` rather than ``\s*>`` so that HTML-spec end tags like
+# ``</script foo>`` or ``</script\n bar>`` are still matched.
 _SKIP_BLOCK_RE = re.compile(
-    r"<!--.*?-->|<script\b[^>]*>.*?</script\s*>|<style\b[^>]*>.*?</style\s*>",
+    r"<!--.*?-->|<script\b[^>]*>.*?</script\b[^>]*>|<style\b[^>]*>.*?</style\b[^>]*>",
     re.IGNORECASE | re.DOTALL,
 )
 
