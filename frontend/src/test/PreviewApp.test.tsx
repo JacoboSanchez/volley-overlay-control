@@ -53,4 +53,40 @@ describe('PreviewApp', () => {
     await userEvent.click(themeBtn);
     expect(page.classList.contains('preview-page--light')).toBe(true);
   });
+
+  it('hides the style selector when styles param is absent', () => {
+    setLocation(
+      '?output=https%3A%2F%2Fcustom.example.com%2Foverlay&x=0&y=0&width=100&height=100&layout_id=auto',
+    );
+    render(<PreviewApp />);
+    expect(screen.queryByTestId('preview-style-selector')).toBeNull();
+  });
+
+  it('hides the style selector when only one style is available', () => {
+    setLocation(
+      '?output=https%3A%2F%2Fcustom.example.com%2Foverlay&x=0&y=0&width=100&height=100&layout_id=auto&styles=only',
+    );
+    render(<PreviewApp />);
+    expect(screen.queryByTestId('preview-style-selector')).toBeNull();
+  });
+
+  it('shows the style selector and applies the override to the iframe URL', async () => {
+    setLocation(
+      '?output=https%3A%2F%2Fcustom.example.com%2Foverlay&x=0&y=0&width=100&height=100&layout_id=auto&styles=pill,glass,default',
+    );
+    render(<PreviewApp />);
+    const select = screen.getByTestId('preview-style-selector') as HTMLSelectElement;
+    expect(select).toBeInTheDocument();
+
+    const optionValues = Array.from(select.querySelectorAll('option')).map(
+      (o) => (o as HTMLOptionElement).value,
+    );
+    expect(optionValues).toEqual(['', 'pill', 'glass', 'default']);
+
+    const iframe = screen.getByTestId('overlay-preview');
+    expect(iframe.getAttribute('src')).not.toMatch(/[?&]style=/);
+
+    await userEvent.selectOptions(select, 'glass');
+    expect(iframe.getAttribute('src')).toMatch(/[?&]style=glass\b/);
+  });
 });

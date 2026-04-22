@@ -116,6 +116,8 @@ const translations: Record<string, TranslationDict> = {
     'preview.zoomIn': 'Zoom in',
     'preview.zoomOut': 'Zoom out',
     'preview.missingOutput': 'No overlay output URL provided.',
+    'preview.styleOverride': 'Preview style (does not change the overlay)',
+    'preview.styleDefault': 'Default style',
 
     // Color picker
     'colorPicker.presets': 'Presets',
@@ -237,6 +239,8 @@ const translations: Record<string, TranslationDict> = {
     'preview.zoomIn': 'Acercar',
     'preview.zoomOut': 'Alejar',
     'preview.missingOutput': 'No se ha proporcionado URL de salida del overlay.',
+    'preview.styleOverride': 'Estilo de la vista previa (no cambia el overlay)',
+    'preview.styleDefault': 'Estilo por defecto',
 
     // Color picker
     'colorPicker.presets': 'Predefinidos',
