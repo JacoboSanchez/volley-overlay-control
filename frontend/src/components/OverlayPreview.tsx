@@ -1,5 +1,20 @@
-import { useRef, useEffect, useState, CSSProperties } from 'react';
+import { useRef, useEffect, useState, useMemo, CSSProperties } from 'react';
 import { useI18n } from '../i18n';
+
+// Allow only http(s) iframe sources. Rejects javascript:, data:, file:, and
+// similar schemes that would let a malicious overlayUrl execute script or
+// navigate the iframe off-origin when rendered. Returns the parsed URL on
+// success or null on any failure (malformed, wrong scheme, non-string).
+function validateHttpUrl(candidate: unknown): URL | null {
+  if (typeof candidate !== 'string' || candidate === '') return null;
+  try {
+    const url = new URL(candidate, window.location.href);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
 
 const CHAMPIONSHIP_LAYOUT_ID = '446a382f-25c0-4d1d-ae25-48373334e06b';
 
@@ -44,31 +59,33 @@ export default function OverlayPreview({
   // ensuring the overlay page re-establishes its WebSocket connection immediately.
   const [cacheBust] = useState<number>(() => Date.now());
 
-  const getBustedUrl = (urlStr: string, params: Record<string, string> = {}): string => {
-    try {
-      const url = new URL(urlStr, window.location.href);
-      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-      url.searchParams.set('_t', String(cacheBust));
-      return url.toString();
-    } catch {
-      return urlStr;
-    }
+  // Parse + scheme-check once; every iframe src downstream derives from this
+  // validated URL, so an untrusted overlayUrl (javascript:, data:, …) can
+  // never reach the iframe.
+  const safeOverlayUrl = useMemo(() => validateHttpUrl(overlayUrl), [overlayUrl]);
+
+  const getBustedUrl = (url: URL, params: Record<string, string> = {}): string => {
+    const busted = new URL(url.toString());
+    Object.entries(params).forEach(([k, v]) => busted.searchParams.set(k, v));
+    busted.searchParams.set('_t', String(cacheBust));
+    return busted.toString();
   };
 
+  const isUnoOverlay = !!(
+    safeOverlayUrl
+    && (safeOverlayUrl.hostname === 'overlays.uno'
+        || safeOverlayUrl.hostname.endsWith('.overlays.uno'))
+  );
   const isCustomOverlay = !!(
     (layoutId && (layoutId.startsWith('C-') || layoutId === 'auto'))
-    || (overlayUrl && !overlayUrl.includes('overlays.uno'))
+    || (safeOverlayUrl && !isUnoOverlay)
   );
 
   useEffect(() => {
-    if (!isCustomOverlay) return;
+    if (!isCustomOverlay || !safeOverlayUrl) return;
+    const allowedOrigin = safeOverlayUrl.origin;
     function onMessage(event: MessageEvent) {
-      try {
-        const allowedOrigin = new URL(overlayUrl).origin;
-        if (event.origin !== allowedOrigin) return;
-      } catch {
-        return;
-      }
+      if (event.origin !== allowedOrigin) return;
       const data = event.data as { type?: string; bounds?: Bounds } | undefined;
       if (data?.type === 'overlayRenderArea' && data.bounds) {
         setCustomBounds(data.bounds);
@@ -76,9 +93,9 @@ export default function OverlayPreview({
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [isCustomOverlay, overlayUrl]);
+  }, [isCustomOverlay, safeOverlayUrl]);
 
-  if (!overlayUrl) return null;
+  if (!safeOverlayUrl) return null;
 
   if (isCustomOverlay) {
     const cardHeight = cardWidth * 9 / 16;
@@ -122,7 +139,7 @@ export default function OverlayPreview({
         <div style={wrapperStyle}>
           <iframe
             src={getBustedUrl(
-              overlayUrl,
+              safeOverlayUrl,
               styleOverride ? { style: styleOverride } : {},
             )}
             width={iframeW}
@@ -159,7 +176,7 @@ export default function OverlayPreview({
     ? Math.min(cardWidth / regionW, (cardHeight / 2) / regionH)
     : 1;
 
-  const src = getBustedUrl(overlayUrl, { aspect: '16:9' });
+  const src = getBustedUrl(safeOverlayUrl, { aspect: '16:9' });
 
   return (
     <div

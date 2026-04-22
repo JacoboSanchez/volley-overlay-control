@@ -16,6 +16,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -99,7 +100,34 @@ class SPAStaticFiles(StaticFiles):
         rewritten = _render_index_html(
             str(index_path), index_path.stat().st_mtime, get_app_title(),
         )
-        return HTMLResponse(rewritten)
+        # index.html is the SPA shell — must always be revalidated so clients
+        # pick up new hashed asset URLs after a frontend rebuild.
+        return HTMLResponse(
+            rewritten,
+            headers={"Cache-Control": "no-cache, must-revalidate"},
+        )
+
+
+class CachedStaticFiles(StaticFiles):
+    """StaticFiles subclass that sets a shared Cache-Control on 200 responses.
+
+    Used for fingerprinted asset mounts (``/assets``) and content-addressable
+    resources (``/fonts``) where the URL changes whenever the file does, so
+    a long ``immutable`` TTL is safe.
+    """
+
+    def __init__(self, *args, cache_control: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cache_control = cache_control
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        # 200 (full), 206 (range — common for fonts), 304 (revalidation) all
+        # represent successful delivery of the resource and should carry the
+        # caching policy so the browser updates its TTL / immutability flag.
+        if response.status_code in (200, 206, 304):
+            response.headers.setdefault("Cache-Control", self._cache_control)
+        return response
 
 
 @asynccontextmanager
@@ -155,7 +183,16 @@ def _register_overlay_routes(application: FastAPI) -> None:
 
 
 def _register_static_mounts(application: FastAPI) -> None:
-    application.mount("/fonts", StaticFiles(directory="font"), name="fonts")
+    # Fonts are content-addressable (filename is the version); a year of
+    # browser caching with ``immutable`` removes revalidation round-trips.
+    application.mount(
+        "/fonts",
+        CachedStaticFiles(
+            directory="font",
+            cache_control="public, max-age=31536000, immutable",
+        ),
+        name="fonts",
+    )
     if OVERLAY_STATIC_DIR.is_dir():
         application.mount(
             "/static",
@@ -231,9 +268,15 @@ def _register_spa(application: FastAPI) -> None:
         return
 
     if (FRONTEND_DIR / "assets").is_dir():
+        # Vite-built assets are fingerprinted (e.g. ``index.abc123.js``);
+        # rebuilds produce new filenames, so long-lived immutable caching
+        # is safe.
         application.mount(
             "/assets",
-            StaticFiles(directory=FRONTEND_DIR / "assets"),
+            CachedStaticFiles(
+                directory=FRONTEND_DIR / "assets",
+                cache_control="public, max-age=31536000, immutable",
+            ),
             name="spa-assets",
         )
     application.mount(
@@ -259,6 +302,9 @@ def create_app() -> FastAPI:
     _register_spa(application)
     # Outermost-first: RequestContextMiddleware must wrap ExceptionLoggingMiddleware
     # so the contextvars are populated by the time we log unhandled exceptions.
+    # GZip is registered last so it ends up outermost and compresses the final
+    # response body after observability middlewares have annotated it.
     application.add_middleware(ExceptionLoggingMiddleware)
     application.add_middleware(RequestContextMiddleware)
+    application.add_middleware(GZipMiddleware, minimum_size=1024)
     return application

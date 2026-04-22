@@ -29,6 +29,7 @@ class GameService:
     @staticmethod
     def get_state(session) -> GameStateResponse:
         """Build a ``GameStateResponse`` from the current session state."""
+        t0 = time.perf_counter()
         state = session.game_manager.get_current_state()
         serve = state.get_current_serve()
 
@@ -43,7 +44,7 @@ class GameService:
                 serving=(serve == State.SERVE_1 if team == 1 else serve == State.SERVE_2),
             )
 
-        return GameStateResponse(
+        response = GameStateResponse(
             current_set=session.current_set,
             visible=session.visible,
             simple_mode=session.simple,
@@ -57,6 +58,16 @@ class GameService:
                 "sets_limit": session.sets_limit,
             },
         )
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if elapsed_ms > 50:
+            logger.warning(
+                'get_state slow: %.1fms sets_limit=%s', elapsed_ms, session.sets_limit,
+            )
+        else:
+            logger.debug(
+                'get_state took %.1fms sets_limit=%s', elapsed_ms, session.sets_limit,
+            )
+        return response
 
     @staticmethod
     def get_customization(session) -> dict:
