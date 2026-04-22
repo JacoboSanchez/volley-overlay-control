@@ -29,12 +29,15 @@ function PreviewPageInner() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  const urlStyle = queryParams.get('style') || '';
 
   const [scale, setScale] = useState<number>(1);
   const [darkBackdrop, setDarkBackdrop] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [pageWidth, setPageWidth] = useState<number>(window.innerWidth);
-  const [styleOverride, setStyleOverride] = useState<string>('');
+  const [styleOverride, setStyleOverride] = useState<string>(
+    styles.includes(urlStyle) ? urlStyle : '',
+  );
 
   useEffect(() => {
     const onResize = () => setPageWidth(window.innerWidth);

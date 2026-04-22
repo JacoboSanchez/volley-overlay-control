@@ -89,4 +89,26 @@ describe('PreviewApp', () => {
     await userEvent.selectOptions(select, 'glass');
     expect(iframe.getAttribute('src')).toMatch(/[?&]style=glass\b/);
   });
+
+  it('initializes the style override from the style query param when valid', () => {
+    setLocation(
+      '?output=https%3A%2F%2Fcustom.example.com%2Foverlay&x=0&y=0&width=100&height=100&layout_id=auto&styles=pill,glass,default&style=glass',
+    );
+    render(<PreviewApp />);
+    const select = screen.getByTestId('preview-style-selector') as HTMLSelectElement;
+    expect(select.value).toBe('glass');
+    const iframe = screen.getByTestId('overlay-preview');
+    expect(iframe.getAttribute('src')).toMatch(/[?&]style=glass\b/);
+  });
+
+  it('ignores style query param when not in the advertised list', () => {
+    setLocation(
+      '?output=https%3A%2F%2Fcustom.example.com%2Foverlay&x=0&y=0&width=100&height=100&layout_id=auto&styles=pill,glass,default&style=bogus',
+    );
+    render(<PreviewApp />);
+    const select = screen.getByTestId('preview-style-selector') as HTMLSelectElement;
+    expect(select.value).toBe('');
+    const iframe = screen.getByTestId('overlay-preview');
+    expect(iframe.getAttribute('src')).not.toMatch(/[?&]style=/);
+  });
 });
