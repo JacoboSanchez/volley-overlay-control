@@ -309,6 +309,9 @@ Returns overlay-related URLs for the session.
 - `control` — Only present for overlays.uno cloud overlays.
 - `overlay` — The URL to paste into OBS/vMix as a browser source.
 - `preview` — Only present for custom overlays (`C-` prefix). Used by the frontend to render a live preview card.
+  For custom overlays, the query string also carries a `styles=<comma-separated>` list when the backend advertises more
+  than one style, so the standalone `/preview` page can offer a per-viewer style selector (applied via `?style=` on
+  the overlay iframe) without mutating the session's saved `preferredStyle`.
 
 #### `GET /api/v1/styles?oid=<OID>`
 
