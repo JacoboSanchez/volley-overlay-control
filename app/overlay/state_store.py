@@ -165,25 +165,42 @@ class OverlayStateStore:
         safe_id = self._sanitize_id(overlay_id)
         return os.path.join(self._data_dir, f"overlay_state_{safe_id}.json")
 
+    def _ensure_in_data_dir(self, path: str) -> str:
+        """Return *path* resolved if it lies inside ``self._data_dir``, else raise.
+
+        Defense-in-depth re-check at every filesystem sink so CodeQL's taint
+        tracker sees an explicit sanitizer at the call site; the primary guard
+        remains :meth:`_sanitize_id` upstream of :meth:`get_state_file_path`.
+        """
+        resolved = os.path.realpath(path)
+        data_dir = os.path.realpath(self._data_dir)
+        if os.path.commonpath([resolved, data_dir]) != data_dir:
+            raise ValueError(f"Path escapes data_dir: {path!r}")
+        return resolved
+
     def _read_state_sync(self, path: str) -> Optional[dict]:
         """Read state from disk synchronously."""
-        if os.path.exists(path):
+        try:
+            safe_path = self._ensure_in_data_dir(path)
+        except ValueError:
+            return None
+        if os.path.exists(safe_path):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(safe_path, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as exc:
-                logger.warning("Failed to load state from '%s': %s", path, exc)
+                logger.warning("Failed to load state from '%s': %s", safe_path, exc)
         return None
 
-    @staticmethod
-    def _write_state_sync(path: str, state: dict) -> None:
+    def _write_state_sync(self, path: str, state: dict) -> None:
         """Write state to disk atomically via temp file + rename."""
-        dir_name = os.path.dirname(path)
+        safe_path = self._ensure_in_data_dir(path)
+        dir_name = os.path.dirname(safe_path)
         fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(state, f)
-            os.replace(tmp_path, path)
+            os.replace(tmp_path, safe_path)
         except BaseException:
             try:
                 os.unlink(tmp_path)
@@ -246,9 +263,10 @@ class OverlayStateStore:
         """
         try:
             path = self.get_state_file_path(overlay_id)
+            safe_path = self._ensure_in_data_dir(path)
         except ValueError:
             return False
-        return os.path.exists(path)
+        return os.path.exists(safe_path)
 
     # -- Output keys -------------------------------------------------------
 
@@ -341,10 +359,11 @@ class OverlayStateStore:
         """Create a new overlay with default state.  Returns True if created."""
         try:
             path = self.get_state_file_path(overlay_id)
+            safe_path = self._ensure_in_data_dir(path)
         except ValueError:
             logger.warning("create_overlay rejected invalid id: %r", overlay_id)
             return False
-        if os.path.exists(path):
+        if os.path.exists(safe_path):
             return False
         self.save_persisted_state(overlay_id, get_default_state())
         with self._lock:
@@ -362,12 +381,13 @@ class OverlayStateStore:
         """Delete an overlay's state file and in-memory context."""
         try:
             path = self.get_state_file_path(overlay_id)
+            safe_path = self._ensure_in_data_dir(path)
         except ValueError:
             logger.warning("delete_overlay rejected invalid id: %r", overlay_id)
             return False
         existed = False
-        if os.path.exists(path):
-            os.remove(path)
+        if os.path.exists(safe_path):
+            os.remove(safe_path)
             existed = True
         with self._lock:
             if overlay_id in self._overlays:
