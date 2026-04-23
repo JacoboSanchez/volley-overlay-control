@@ -249,6 +249,13 @@ function renderFullState(state) {
     withEl("away-name", el => { el.textContent = state.team_away.name; });
     equalizeNamePanels();
 
+    // 4b. Logo visibility toggle (from remote-scoreboard "Logos" setting).
+    // Run before the per-logo URL branches so those have the final say on
+    // `display` — otherwise updateLogoVisibility clears our `display:'none'`
+    // when a team has no logo_url and we end up rendering a broken image.
+    const showLogos = state.overlay_control.show_logos !== false;
+    updateLogoVisibility(showLogos);
+
     withEl("home-logo", logo => {
         const url = sanitizeImageUrl(state.team_home.logo_url);
         if (url) {
@@ -268,10 +275,6 @@ function renderFullState(state) {
             logo.style.display = 'none';
         }
     });
-
-    // 4b. Logo visibility toggle (from remote-scoreboard "Logos" setting)
-    const showLogos = state.overlay_control.show_logos !== false;
-    updateLogoVisibility(showLogos);
 
     // 5. Points & Sets
     withEl("home-points", el => { el.textContent = state.team_home.points; });
@@ -364,6 +367,14 @@ function updateStateDiff(oldState, newState) {
         equalizeNamePanels();
     }
 
+    // Logo visibility toggle (runs before per-logo URL updates so the
+    // per-logo `display:'none'` branch below isn't cleared by
+    // updateLogoVisibility's `removeProperty('display')`, matching the
+    // ordering in renderFullState).
+    if (oldState.overlay_control.show_logos !== newState.overlay_control.show_logos) {
+        updateLogoVisibility(newState.overlay_control.show_logos !== false);
+    }
+
     // Logos
     if (oldState.team_home.logo_url !== newState.team_home.logo_url) {
         withEl("home-logo", logo => {
@@ -386,11 +397,6 @@ function updateStateDiff(oldState, newState) {
                 logo.style.display = 'none';
             }
         });
-    }
-
-    // Logo visibility toggle
-    if (oldState.overlay_control.show_logos !== newState.overlay_control.show_logos) {
-        updateLogoVisibility(newState.overlay_control.show_logos !== false);
     }
 
     // Points
