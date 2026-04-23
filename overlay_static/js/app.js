@@ -17,6 +17,15 @@ function sanitizeImageUrl(url) {
     return '';
 }
 
+// Look up an element by id and invoke fn only if it exists. Overlay templates
+// (compact, pill, ribbon, …) don't all render the same DOM, so bare
+// `getElementById(id).prop = …` throws on the missing nodes and aborts the
+// render. Funnel every optional write through this helper.
+function withEl(id, fn) {
+    const el = document.getElementById(id);
+    if (el) fn(el);
+}
+
 // Send a "ping" to the server every 30 s so long-lived connections don't
 // silently drop without triggering the onclose reconnect logic.
 function startHeartbeat() {
@@ -216,19 +225,19 @@ function updateLogoVisibility(showLogos) {
 
 function renderFullState(state) {
     // 1. Overlay Visibility & Geometry
-    const container = document.getElementById("scoreboard-container");
     if (state.overlay_control.geometry) {
         updateGeometry(state.overlay_control.geometry);
     }
 
-    if (state.overlay_control.show_main_scoreboard) {
-        gsap.to(container, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-    } else {
-        gsap.to(container, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
-    }
-
-    // Compact mode toggle (used by compact overlay to hide name/history)
-    container.classList.toggle("compact-mode", !!state.match_info.show_only_current_set);
+    withEl("scoreboard-container", container => {
+        if (state.overlay_control.show_main_scoreboard) {
+            gsap.to(container, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+        } else {
+            gsap.to(container, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
+        }
+        // Compact mode toggle (used by compact overlay to hide name/history)
+        container.classList.toggle("compact-mode", !!state.match_info.show_only_current_set);
+    });
 
     // 2. Colors
     updateCSSVariables(state.team_home, state.team_away, state.overlay_control.colors);
@@ -236,39 +245,43 @@ function renderFullState(state) {
     // 3. Match Info Removed
 
     // 4. Team Names & Logos
-    document.getElementById("home-name").textContent = state.team_home.name;
-    document.getElementById("away-name").textContent = state.team_away.name;
+    withEl("home-name", el => { el.textContent = state.team_home.name; });
+    withEl("away-name", el => { el.textContent = state.team_away.name; });
     equalizeNamePanels();
 
-    const homeLogoUrl = sanitizeImageUrl(state.team_home.logo_url);
-    if (homeLogoUrl) {
-        document.getElementById("home-logo").src = homeLogoUrl;
-        document.getElementById("home-logo").style.display = 'block';
-    } else {
-        document.getElementById("home-logo").style.display = 'none';
-    }
+    withEl("home-logo", logo => {
+        const url = sanitizeImageUrl(state.team_home.logo_url);
+        if (url) {
+            logo.src = url;
+            logo.style.display = 'block';
+        } else {
+            logo.style.display = 'none';
+        }
+    });
 
-    const awayLogoUrl = sanitizeImageUrl(state.team_away.logo_url);
-    if (awayLogoUrl) {
-        document.getElementById("away-logo").src = awayLogoUrl;
-        document.getElementById("away-logo").style.display = 'block';
-    } else {
-        document.getElementById("away-logo").style.display = 'none';
-    }
+    withEl("away-logo", logo => {
+        const url = sanitizeImageUrl(state.team_away.logo_url);
+        if (url) {
+            logo.src = url;
+            logo.style.display = 'block';
+        } else {
+            logo.style.display = 'none';
+        }
+    });
 
     // 4b. Logo visibility toggle (from remote-scoreboard "Logos" setting)
     const showLogos = state.overlay_control.show_logos !== false;
     updateLogoVisibility(showLogos);
 
     // 5. Points & Sets
-    document.getElementById("home-points").textContent = state.team_home.points;
-    document.getElementById("away-points").textContent = state.team_away.points;
-    document.getElementById("home-sets").textContent = state.team_home.sets_won;
-    document.getElementById("away-sets").textContent = state.team_away.sets_won;
+    withEl("home-points", el => { el.textContent = state.team_home.points; });
+    withEl("away-points", el => { el.textContent = state.team_away.points; });
+    withEl("home-sets", el => { el.textContent = state.team_home.sets_won; });
+    withEl("away-sets", el => { el.textContent = state.team_away.sets_won; });
 
     // 6. Serving Indicator
-    document.getElementById("home-serving").classList.toggle("active", state.team_home.serving);
-    document.getElementById("away-serving").classList.toggle("active", state.team_away.serving);
+    withEl("home-serving", el => el.classList.toggle("active", state.team_home.serving));
+    withEl("away-serving", el => el.classList.toggle("active", state.team_away.serving));
 
     // 7. Timeouts & Set History
     updateTimeouts('home', state.team_home.timeouts_taken);
@@ -276,27 +289,27 @@ function renderFullState(state) {
     renderSetHistory(state, true);
 
     // 7b. Current Set Label
-    const setLabel = document.getElementById("current-set-label");
-    if (setLabel) setLabel.textContent = "SET " + state.match_info.current_set;
+    withEl("current-set-label", el => { el.textContent = "SET " + state.match_info.current_set; });
 
     // 8. Bottom Ticker
-    const tickerContainer = document.getElementById("ticker-container");
-    const tickerMessage = document.getElementById("ticker-message");
-    tickerMessage.textContent = state.overlay_control.ticker_message || "";
-    if (state.overlay_control.show_bottom_ticker) {
-        gsap.to(tickerContainer, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-    } else {
-        gsap.set(tickerContainer, { y: 100, opacity: 0 });
-    }
+    withEl("ticker-message", el => { el.textContent = state.overlay_control.ticker_message || ""; });
+    withEl("ticker-container", tickerContainer => {
+        if (state.overlay_control.show_bottom_ticker) {
+            gsap.to(tickerContainer, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+        } else {
+            gsap.set(tickerContainer, { y: 100, opacity: 0 });
+        }
+    });
 
     // 9. Player Stats
-    const statsContainer = document.getElementById("player-stats-container");
     renderPlayerStats(state.overlay_control.player_stats_data);
-    if (state.overlay_control.show_player_stats) {
-        gsap.to(statsContainer, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-    } else {
-        gsap.set(statsContainer, { x: -100, opacity: 0 });
-    }
+    withEl("player-stats-container", statsContainer => {
+        if (state.overlay_control.show_player_stats) {
+            gsap.to(statsContainer, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+        } else {
+            gsap.set(statsContainer, { x: -100, opacity: 0 });
+        }
+    });
 }
 
 function updateStateDiff(oldState, newState) {
@@ -316,12 +329,13 @@ function updateStateDiff(oldState, newState) {
 
     // Visibility
     if (oldState.overlay_control.show_main_scoreboard !== newState.overlay_control.show_main_scoreboard) {
-        const container = document.getElementById("scoreboard-container");
-        if (newState.overlay_control.show_main_scoreboard) {
-            gsap.to(container, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-        } else {
-            gsap.to(container, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
-        }
+        withEl("scoreboard-container", container => {
+            if (newState.overlay_control.show_main_scoreboard) {
+                gsap.to(container, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+            } else {
+                gsap.to(container, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
+            }
+        });
     }
 
     // Geometry
@@ -340,10 +354,10 @@ function updateStateDiff(oldState, newState) {
 
     // Team Names
     if (oldState.team_home.name !== newState.team_home.name) {
-        document.getElementById("home-name").textContent = newState.team_home.name;
+        withEl("home-name", el => { el.textContent = newState.team_home.name; });
     }
     if (oldState.team_away.name !== newState.team_away.name) {
-        document.getElementById("away-name").textContent = newState.team_away.name;
+        withEl("away-name", el => { el.textContent = newState.team_away.name; });
     }
     if (oldState.team_home.name !== newState.team_home.name ||
         oldState.team_away.name !== newState.team_away.name) {
@@ -352,22 +366,26 @@ function updateStateDiff(oldState, newState) {
 
     // Logos
     if (oldState.team_home.logo_url !== newState.team_home.logo_url) {
-        const safeUrl = sanitizeImageUrl(newState.team_home.logo_url);
-        if (safeUrl) {
-            document.getElementById("home-logo").src = safeUrl;
-            document.getElementById("home-logo").style.display = 'block';
-        } else {
-            document.getElementById("home-logo").style.display = 'none';
-        }
+        withEl("home-logo", logo => {
+            const safeUrl = sanitizeImageUrl(newState.team_home.logo_url);
+            if (safeUrl) {
+                logo.src = safeUrl;
+                logo.style.display = 'block';
+            } else {
+                logo.style.display = 'none';
+            }
+        });
     }
     if (oldState.team_away.logo_url !== newState.team_away.logo_url) {
-        const safeUrl = sanitizeImageUrl(newState.team_away.logo_url);
-        if (safeUrl) {
-            document.getElementById("away-logo").src = safeUrl;
-            document.getElementById("away-logo").style.display = 'block';
-        } else {
-            document.getElementById("away-logo").style.display = 'none';
-        }
+        withEl("away-logo", logo => {
+            const safeUrl = sanitizeImageUrl(newState.team_away.logo_url);
+            if (safeUrl) {
+                logo.src = safeUrl;
+                logo.style.display = 'block';
+            } else {
+                logo.style.display = 'none';
+            }
+        });
     }
 
     // Logo visibility toggle
@@ -385,22 +403,24 @@ function updateStateDiff(oldState, newState) {
 
     // Sets
     if (oldState.team_home.sets_won !== newState.team_home.sets_won) {
-        const el = document.getElementById("home-sets");
-        gsap.to(el, { scale: 1.2, duration: 0.2, yoyo: true, repeat: 1 });
-        el.textContent = newState.team_home.sets_won;
+        withEl("home-sets", el => {
+            gsap.to(el, { scale: 1.2, duration: 0.2, yoyo: true, repeat: 1 });
+            el.textContent = newState.team_home.sets_won;
+        });
     }
     if (oldState.team_away.sets_won !== newState.team_away.sets_won) {
-        const el = document.getElementById("away-sets");
-        gsap.to(el, { scale: 1.2, duration: 0.2, yoyo: true, repeat: 1 });
-        el.textContent = newState.team_away.sets_won;
+        withEl("away-sets", el => {
+            gsap.to(el, { scale: 1.2, duration: 0.2, yoyo: true, repeat: 1 });
+            el.textContent = newState.team_away.sets_won;
+        });
     }
 
     // Serving
     if (oldState.team_home.serving !== newState.team_home.serving) {
-        document.getElementById("home-serving").classList.toggle("active", newState.team_home.serving);
+        withEl("home-serving", el => el.classList.toggle("active", newState.team_home.serving));
     }
     if (oldState.team_away.serving !== newState.team_away.serving) {
-        document.getElementById("away-serving").classList.toggle("active", newState.team_away.serving);
+        withEl("away-serving", el => el.classList.toggle("active", newState.team_away.serving));
     }
 
     // Timeouts
@@ -421,43 +441,46 @@ function updateStateDiff(oldState, newState) {
 
     // Current Set Label
     if (oldState.match_info.current_set !== newState.match_info.current_set) {
-        const setLabel = document.getElementById("current-set-label");
-        if (setLabel) setLabel.textContent = "SET " + newState.match_info.current_set;
+        withEl("current-set-label", el => { el.textContent = "SET " + newState.match_info.current_set; });
     }
 
     // Compact mode toggle
     if (oldState.match_info.show_only_current_set !== newState.match_info.show_only_current_set) {
-        const container = document.getElementById("scoreboard-container");
-        container.classList.toggle("compact-mode", !!newState.match_info.show_only_current_set);
+        withEl("scoreboard-container", container => {
+            container.classList.toggle("compact-mode", !!newState.match_info.show_only_current_set);
+        });
     }
 
     // 8. Ticker
     if (oldState.overlay_control.show_bottom_ticker !== newState.overlay_control.show_bottom_ticker) {
-        const tickerContainer = document.getElementById("ticker-container");
-        if (newState.overlay_control.show_bottom_ticker) {
-            gsap.to(tickerContainer, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-        } else {
-            gsap.to(tickerContainer, { y: 100, opacity: 0, duration: 0.5, ease: "power2.in" });
-        }
+        withEl("ticker-container", tickerContainer => {
+            if (newState.overlay_control.show_bottom_ticker) {
+                gsap.to(tickerContainer, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+            } else {
+                gsap.to(tickerContainer, { y: 100, opacity: 0, duration: 0.5, ease: "power2.in" });
+            }
+        });
     }
     if (oldState.overlay_control.ticker_message !== newState.overlay_control.ticker_message) {
-        const tickerMessage = document.getElementById("ticker-message");
-        gsap.to(tickerMessage, {
-            opacity: 0, y: -20, duration: 0.3, onComplete: () => {
-                tickerMessage.textContent = newState.overlay_control.ticker_message || "";
-                gsap.fromTo(tickerMessage, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.3 });
-            }
+        withEl("ticker-message", tickerMessage => {
+            gsap.to(tickerMessage, {
+                opacity: 0, y: -20, duration: 0.3, onComplete: () => {
+                    tickerMessage.textContent = newState.overlay_control.ticker_message || "";
+                    gsap.fromTo(tickerMessage, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.3 });
+                }
+            });
         });
     }
 
     // 9. Player Stats
     if (oldState.overlay_control.show_player_stats !== newState.overlay_control.show_player_stats) {
-        const statsContainer = document.getElementById("player-stats-container");
-        if (newState.overlay_control.show_player_stats) {
-            gsap.to(statsContainer, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-        } else {
-            gsap.to(statsContainer, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
-        }
+        withEl("player-stats-container", statsContainer => {
+            if (newState.overlay_control.show_player_stats) {
+                gsap.to(statsContainer, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+            } else {
+                gsap.to(statsContainer, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
+            }
+        });
     }
     if (JSON.stringify(oldState.overlay_control.player_stats_data) !== JSON.stringify(newState.overlay_control.player_stats_data)) {
         renderPlayerStats(newState.overlay_control.player_stats_data);
@@ -539,6 +562,8 @@ function updateTimeouts(team, takenCount) {
 function renderSetHistory(state, isInitial = false) {
     const homeContainer = document.getElementById("home-history");
     const awayContainer = document.getElementById("away-history");
+    // Compact and other minimal templates omit history containers entirely.
+    if (!homeContainer || !awayContainer) return;
 
     const currentSet = state.match_info.current_set;
     const bestOfSets = state.match_info.best_of_sets || 5;
@@ -669,6 +694,7 @@ function updateSetHistoryContainer(container, myHistory, theirHistory, currentSe
 
 function renderPlayerStats(data) {
     const container = document.getElementById("player-stats-data");
+    if (!container) return;
     container.textContent = "";
     if (!data) return;
 
