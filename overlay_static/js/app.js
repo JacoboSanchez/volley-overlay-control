@@ -2,6 +2,21 @@ let previousState = null;
 let socket = null;
 let heartbeatInterval = null;
 
+// Restrict <img src> values coming from remote state to http(s) so a
+// malicious logo_url (javascript:, data:, vbscript:, …) cannot turn into XSS.
+function sanitizeImageUrl(url) {
+    if (typeof url !== 'string' || url === '') return '';
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            return parsed.href;
+        }
+    } catch (_e) {
+        // Malformed URL — fall through and reject.
+    }
+    return '';
+}
+
 // Send a "ping" to the server every 30 s so long-lived connections don't
 // silently drop without triggering the onclose reconnect logic.
 function startHeartbeat() {
@@ -225,15 +240,17 @@ function renderFullState(state) {
     document.getElementById("away-name").textContent = state.team_away.name;
     equalizeNamePanels();
 
-    if (state.team_home.logo_url) {
-        document.getElementById("home-logo").src = state.team_home.logo_url;
+    const homeLogoUrl = sanitizeImageUrl(state.team_home.logo_url);
+    if (homeLogoUrl) {
+        document.getElementById("home-logo").src = homeLogoUrl;
         document.getElementById("home-logo").style.display = 'block';
     } else {
         document.getElementById("home-logo").style.display = 'none';
     }
 
-    if (state.team_away.logo_url) {
-        document.getElementById("away-logo").src = state.team_away.logo_url;
+    const awayLogoUrl = sanitizeImageUrl(state.team_away.logo_url);
+    if (awayLogoUrl) {
+        document.getElementById("away-logo").src = awayLogoUrl;
         document.getElementById("away-logo").style.display = 'block';
     } else {
         document.getElementById("away-logo").style.display = 'none';
@@ -335,16 +352,18 @@ function updateStateDiff(oldState, newState) {
 
     // Logos
     if (oldState.team_home.logo_url !== newState.team_home.logo_url) {
-        if (newState.team_home.logo_url) {
-            document.getElementById("home-logo").src = newState.team_home.logo_url;
+        const safeUrl = sanitizeImageUrl(newState.team_home.logo_url);
+        if (safeUrl) {
+            document.getElementById("home-logo").src = safeUrl;
             document.getElementById("home-logo").style.display = 'block';
         } else {
             document.getElementById("home-logo").style.display = 'none';
         }
     }
     if (oldState.team_away.logo_url !== newState.team_away.logo_url) {
-        if (newState.team_away.logo_url) {
-            document.getElementById("away-logo").src = newState.team_away.logo_url;
+        const safeUrl = sanitizeImageUrl(newState.team_away.logo_url);
+        if (safeUrl) {
+            document.getElementById("away-logo").src = safeUrl;
             document.getElementById("away-logo").style.display = 'block';
         } else {
             document.getElementById("away-logo").style.display = 'none';
