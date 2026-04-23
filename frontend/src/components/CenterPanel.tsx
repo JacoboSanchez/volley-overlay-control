@@ -56,6 +56,7 @@ export default function CenterPanel({
           color="#424242"
           textColor="#fff"
           className="set-button"
+          size={48}
           fontStyle={fontStyle}
           onClick={() => onAddSet(1)}
           onLongPress={() => onLongPressSet(1)}
@@ -94,6 +95,7 @@ export default function CenterPanel({
           color="#424242"
           textColor="#fff"
           className="set-button"
+          size={48}
           fontStyle={fontStyle}
           onClick={() => onAddSet(2)}
           onLongPress={() => onLongPressSet(2)}
