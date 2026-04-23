@@ -130,6 +130,7 @@ export default function ScoreboardView({
           setsLimit={setsLimit}
           isPortrait={isPortrait}
           previewData={showPreview ? previewData : null}
+          fontStyle={fontStyle}
           onAddSet={onAddSet}
           onLongPressSet={onLongPressSet}
           onSetChange={onSetChange}
