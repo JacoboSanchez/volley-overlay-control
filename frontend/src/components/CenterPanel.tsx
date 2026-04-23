@@ -1,4 +1,5 @@
 import ScoreButton from './ScoreButton';
+import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
 import type { GameState } from '../api/client';
@@ -21,6 +22,7 @@ export interface CenterPanelProps {
   setsLimit: number;
   isPortrait: boolean;
   previewData: PreviewData | null | undefined;
+  fontStyle?: ScoreButtonFontStyle;
   onAddSet: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
   onSetChange: (set: number) => void;
@@ -33,6 +35,7 @@ export default function CenterPanel({
   setsLimit,
   isPortrait,
   previewData,
+  fontStyle,
   onAddSet,
   onLongPressSet,
   onSetChange,
@@ -53,6 +56,7 @@ export default function CenterPanel({
           color="#424242"
           textColor="#fff"
           className="set-button"
+          fontStyle={fontStyle}
           onClick={() => onAddSet(1)}
           onLongPress={() => onLongPressSet(1)}
           data-testid="team-1-sets"
@@ -90,6 +94,7 @@ export default function CenterPanel({
           color="#424242"
           textColor="#fff"
           className="set-button"
+          fontStyle={fontStyle}
           onClick={() => onAddSet(2)}
           onLongPress={() => onLongPressSet(2)}
           data-testid="team-2-sets"

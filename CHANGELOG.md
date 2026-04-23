@@ -146,6 +146,11 @@ once a first tagged release ships.
   `SCOREBOARD_LANGUAGE` env var dropped. The Spanish placeholder defaults (`Local` /
   `Visitante`) are replaced with empty strings; users set team names via `APP_TEAMS`
   or the runtime Teams config panel (`#177`).
+- Set buttons respect the button font: the center-panel set counters now
+  render in the same `fontFamily` selected for the score buttons (via
+  `FontSelector` / `settings.selectedFont`), instead of the browser default.
+  `CenterPanel` gained an optional `fontStyle` prop that `ScoreboardView`
+  forwards through; the `.set-button` CSS `font-size` is unchanged.
 
 ### Fixed
 
