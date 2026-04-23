@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block head_meta %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% endblock %}
+
+{% block title %}Esports Overlay - {{ target_id }}{% endblock %}
+
+{% block head_fonts %}
+    <!-- Premium Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;600;700;800;900&family=Oswald:wght@500;700&family=Rubik:wght@500;700;800&display=swap"
+        rel="stylesheet">
+{% endblock %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/style.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/css/esports.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    <div id="scoreboard-container" class="scoreboard">
+        <div class="p55-board">
+            <!-- Team Home -->
+            <div class="p55-row h">
+                <div class="p55-serve-block" id="home-serving"></div>
+                <div class="p55-logo">
+                    <img id="home-logo" src="" alt="" onerror="this.style.display='none'">
+                </div>
+                <div class="p55-info">
+                    <div class="p55-name" id="home-name">HOME</div>
+                    <div class="p55-to-area" id="home-timeouts">
+                        <div class="p55-to-hex timeout-dot"></div>
+                        <div class="p55-to-hex timeout-dot"></div>
+                    </div>
+                </div>
+                <div class="p55-sets" id="home-sets">0</div>
+                <div class="p55-hist" id="home-history"></div>
+                <div class="points-container">
+                    <div class="p55-score points" id="home-points">0</div>
+                </div>
+            </div>
+
+            <!-- Team Away -->
+            <div class="p55-row a">
+                <div class="p55-serve-block" id="away-serving"></div>
+                <div class="p55-logo">
+                    <img id="away-logo" src="" alt="" onerror="this.style.display='none'">
+                </div>
+                <div class="p55-info">
+                    <div class="p55-name" id="away-name">AWAY</div>
+                    <div class="p55-to-area" id="away-timeouts">
+                        <div class="p55-to-hex timeout-dot"></div>
+                        <div class="p55-to-hex timeout-dot"></div>
+                    </div>
+                </div>
+                <div class="p55-sets" id="away-sets">0</div>
+                <div class="p55-hist" id="away-history"></div>
+                <div class="points-container">
+                    <div class="p55-score points" id="away-points">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

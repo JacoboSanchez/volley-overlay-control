@@ -1,0 +1,245 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap');
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --set-bg: rgba(255,255,255,0.08);
+    --set-text: #FFFFFF;
+    --game-bg: #0a0a0a;
+    --game-text: #FFFFFF;
+}
+
+body {
+    margin: 0; padding: 0;
+    background: transparent;
+    width: 1920px; height: 1080px;
+    overflow: hidden;
+    font-family: 'Barlow Condensed', sans-serif;
+}
+
+/* ── Container ── */
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Team rows with diagonal clip-path ── */
+.team {
+    display: flex;
+    align-items: center;
+    height: 56px;
+    clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+/* ── Team stripe (colored portion) ── */
+.team-stripe {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 24px 0 20px;
+    min-width: 280px;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+.team-home .team-stripe { background: var(--home-primary); }
+.team-away .team-stripe { background: var(--away-primary); }
+
+/* ── Serving indicator (ball icon) ── */
+.serving-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: transparent !important;
+    flex-shrink: 0;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: none !important;
+}
+
+.team-home .serving-indicator.active {
+    background-color: var(--home-secondary) !important;
+    box-shadow: 0 0 6px var(--home-secondary) !important;
+}
+
+.team-away .serving-indicator.active {
+    background-color: var(--away-secondary) !important;
+    box-shadow: 0 0 6px var(--away-secondary) !important;
+}
+
+/* ── Logo hidden ── */
+.logo-container {
+    display: none;
+}
+
+/* ── Timeouts (vertical bars) ── */
+.timeout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.timeout-dot {
+    width: 4px;
+    height: 16px;
+    border-radius: 0;
+    background: rgba(255,255,255,0.2);
+    transition: background 0.3s ease;
+}
+
+.team-home .timeout-dot.active { background: var(--home-secondary); }
+.team-away .timeout-dot.active { background: var(--away-secondary); }
+
+/* ── Team name ── */
+.team-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.team-name {
+    font-size: 22px;
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.team-home .team-name { color: var(--home-secondary); }
+.team-away .team-name { color: var(--away-secondary); }
+
+/* ── Set history ── */
+.set-history-container {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 14px;
+    background: rgba(0,0,0,0.75);
+    gap: 0;
+    overflow: hidden;
+}
+
+.set-score {
+    width: 42px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #e0e0e0;
+    white-space: nowrap;
+}
+
+/* ── Sets won ── */
+.sets {
+    width: 48px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: #ffffff;
+    background: rgba(0,0,0,0.85);
+    flex-shrink: 0;
+}
+
+/* ── Points ── */
+.points-container {
+    background: var(--game-bg);
+    width: 72px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.points {
+    font-size: 42px;
+    font-weight: 800;
+    position: absolute;
+    color: var(--game-text);
+}
+
+/* ── Ticker ── */
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 56px;
+    background: linear-gradient(90deg, transparent, rgba(8,8,20,0.92) 10%, rgba(8,8,20,0.92) 90%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    border-radius: 8px;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-size: 26px;
+    font-weight: 700;
+    color: #f0f0f0;
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}
+
+/* ── Player stats ── */
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: rgba(8,8,20,0.92);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    padding: 18px;
+    min-width: 280px;
+    opacity: 0;
+    border-left: 5px solid var(--home-primary);
+}
+
+.player-stats-title {
+    font-size: 18px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 22px;
+    margin-top: 8px;
+    font-weight: bold;
+}
+
+.player-stats-label { color: #aaa; }
+.player-stats-value { color: #fff; }

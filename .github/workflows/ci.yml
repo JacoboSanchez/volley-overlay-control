@@ -25,25 +25,84 @@ jobs:
         
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        # We install requirements and dev/test dependencies
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
-        pip install flake8 playwright pytest-playwright
-        # Install playwright browsers for NiceGUI UI tests
-        playwright install chromium
-        
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings.
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-        
+        python -m pip install --upgrade pip uv
+        # Install pinned runtime + dev dependencies from lockfiles for reproducible builds.
+        uv pip install --system -r requirements.lock -r requirements-dev.lock
+        uv pip install --system ruff mypy
+
+    - name: Lint with ruff
+      run: ruff check .
+
+    - name: Type-check with mypy
+      run: mypy
+
     - name: Run Test Suite
       # Ensure tests have access to a clean environment
       env:
         APP_PORT: 8080
         UNO_OVERLAY_OID: dummy_token_for_tests
       run: |
-        pytest tests/ -m "not mobile_browser" --cov=app --cov-report=term-missing
+        pytest tests/ \
+          --cov=app \
+          --cov-report=term-missing \
+          --cov-report=xml \
+          --cov-fail-under=70
+
+    - name: Upload coverage artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-xml
+        path: coverage.xml
+        if-no-files-found: ignore
+
+  frontend:
+    name: Frontend typecheck, tests and schema drift
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip uv
+        uv pip install --system -r requirements.lock
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+        cache: "npm"
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm ci
+
+    - name: Regenerate OpenAPI schema and TypeScript types
+      run: |
+        python scripts/generate_openapi.py
+        cd frontend && npm run gen:types
+
+    - name: Fail if generated schema files drift from committed copies
+      run: |
+        if ! git diff --exit-code -- frontend/schema/openapi.json frontend/src/api/schema.d.ts; then
+          echo ""
+          echo "::error::Generated schema is out of date."
+          echo "Run 'python scripts/generate_openapi.py && (cd frontend && npm run gen:types)' and commit the result."
+          exit 1
+        fi
+
+    - name: Typecheck
+      working-directory: frontend
+      run: npm run typecheck
+
+    - name: Run Vitest
+      working-directory: frontend
+      run: npm test

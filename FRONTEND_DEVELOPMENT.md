@@ -1,36 +1,42 @@
 # Frontend Development Guide
 
-This guide provides everything you need to build a custom frontend for Volley Overlay Control using any JavaScript framework (React, Vue, Svelte, vanilla JS, etc.) or any HTTP-capable client.
+This guide covers the REST + WebSocket API exposed by Volley Overlay Control. Use it to build a custom frontend using any JavaScript framework (React, Vue, Svelte, vanilla JS, etc.) or any HTTP-capable client.
+
+The bundled React control UI (`frontend/`) is a reference implementation that uses this API. You can also build a completely independent frontend.
 
 ## Architecture Overview
 
 ```
-┌──────────────────────────┐     ┌──────────────────────────┐
-│   NiceGUI Frontend       │     │  Your JS Frontend        │
-│   (built-in)             │     │  (React, Vue, etc.)      │
-└──────────┬───────────────┘     └──────────┬───────────────┘
-           │ Python calls                   │ HTTP + WebSocket
-           ▼                                ▼
-┌──────────────────────────────────────────────────────────┐
-│              Game Service Layer (app/api/)                │
-│  ┌──────────────────┐  ┌──────────┐  ┌───────────────┐  │
-│  │  REST API         │  │  WS Hub  │  │ Session Mgr   │  │
-│  │  /api/v1/*        │  │  /api/v1 │  │               │  │
-│  │                   │  │  /ws     │  │               │  │
-│  └──────────────────┘  └──────────┘  └───────────────┘  │
-└──────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────────────────────────────────┐
-│         Core Business Logic (unchanged)                   │
-│   GameManager  │  State  │  Backend  │  Customization    │
-└──────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────────────────────────────────┐
-│         External Overlay APIs                             │
-│   overlays.uno (cloud)  │  Custom overlay (self-hosted)  │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│  Volley Overlay Control (single process, port 8080)               │
+│                                                                   │
+│  ┌──────────────────────────────┐                                 │
+│  │  React Control UI (SPA)      │  served at /                    │
+│  │  frontend/dist/              │                                 │
+│  └──────────────────────────────┘                                 │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────┐         │
+│  │          Game Service Layer (app/api/)                │         │
+│  │  REST API  /api/v1/*  │  WS Hub  │  Session Manager  │         │
+│  └──────────────────────────────────────────────────────┘         │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────┐         │
+│  │       Core Business Logic                             │         │
+│  │  GameManager  │  State  │  Backend  │  Customization  │         │
+│  └──────────────────────────────────────────────────────┘         │
+│                        │                                          │
+│           ┌────────────┼────────────┐                             │
+│           ▼                         ▼                             │
+│  ┌─────────────────────┐   ┌──────────────────┐                  │
+│  │  Built-in Overlay    │   │  overlays.uno    │                  │
+│  │  Engine (app/overlay)│   │  (cloud API)     │                  │
+│  │  /overlay/* /ws/*    │   └──────────────────┘                  │
+│  └─────────────────────┘            │ (optional)                  │
+│           │                ┌──────────────────┐                   │
+│           ▼                │  External overlay │                   │
+│     OBS browser sources    │  server (HTTP/WS) │                   │
+│                            └──────────────────┘                   │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Getting Started
@@ -42,14 +48,17 @@ This guide provides everything you need to build a custom frontend for Volley Ov
 git clone <repo-url>
 pip install -r requirements.txt
 
+# Build the frontend (optional — backend works without it)
+cd frontend && npm ci && npm run build && cd ..
+
 # Configure (minimal)
-export UNO_OVERLAY_OID=C-my-overlay   # or a cloud overlay OID
+export UNO_OVERLAY_OID=my-overlay   # or a cloud overlay OID
 
 # Start the server
 python main.py
 ```
 
-The server starts on port `8080` by default (`APP_PORT` env var).
+The server starts on port `8080` by default (`APP_PORT` env var). The control UI is at `http://localhost:8080/`.
 
 ### 2. Initialize a Session
 
@@ -58,7 +67,7 @@ Before using any game endpoint, you must initialise a session:
 ```bash
 curl -X POST http://localhost:8080/api/v1/session/init \
   -H "Content-Type: application/json" \
-  -d '{"oid": "C-my-overlay"}'
+  -d '{"oid": "my-overlay"}'
 ```
 
 Response:
@@ -97,7 +106,7 @@ You can also override match rules when initialising:
 
 ```json
 {
-  "oid": "C-my-overlay",
+  "oid": "my-overlay",
   "points_limit": 21,
   "points_limit_last_set": 15,
   "sets_limit": 3
@@ -111,7 +120,7 @@ You can also override match rules when initialising:
 If the server has `SCOREBOARD_USERS` configured, all API endpoints (except the WebSocket handshake) require a Bearer token:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/game/add-point?oid=C-my-overlay \
+curl -X POST http://localhost:8080/api/v1/game/add-point?oid=my-overlay \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <password>" \
   -d '{"team": 1}'
@@ -283,6 +292,82 @@ Update overlay customization. Send the full customization object:
 > formats. When reading the customization model, check for both keys (the old key
 > takes precedence when present).
 
+### Overlay Info
+
+#### `GET /api/v1/links?oid=<OID>`
+
+Returns overlay-related URLs for the session.
+
+```json
+{
+  "control": "https://app.overlays.uno/control/<OID>",
+  "overlay": "http://localhost:8080/overlay/<output_key>",
+  "preview": "http://localhost:8080/overlay/<output_key>?layout_id=auto"
+}
+```
+
+- `control` — Only present for overlays.uno cloud overlays.
+- `overlay` — The URL to paste into OBS/vMix as a browser source.
+- `preview` — Only present for custom overlays (`C-` prefix). Used by the frontend to render a live preview card.
+  For custom overlays, the query string also carries a `styles=<comma-separated>` list when the backend advertises more
+  than one style, so the standalone `/preview` page can offer a per-viewer style selector (applied via `?style=` on
+  the overlay iframe) without mutating the session's saved `preferredStyle`.
+
+#### `GET /api/v1/styles?oid=<OID>`
+
+Returns available overlay style names for the session's overlay backend.
+
+```json
+["default", "esports", "glass", "compact", "ribbon", ...]
+```
+
+The built-in engine returns the 14 selectable templates. The `mosaic` meta-style is intentionally excluded from this list — it can only be rendered via the explicit `?style=mosaic` query parameter on `/overlay/{id}`.
+
+### SPA Bootstrap
+
+#### `GET /api/v1/app-config`
+
+Runtime configuration consumed by the SPA on load. Unauthenticated.
+
+```json
+{ "title": "Volley Scoreboard" }
+```
+
+Drives the browser tab title, init-screen heading and PWA manifest name. Set `APP_TITLE` to change it.
+
+#### `POST /api/v1/_log`
+
+Accepts a single error/warn record from the SPA. Rate-limited per peer IP (30 records / 60 s); unauthenticated by design, so the body caps and PII redaction do the safety work.
+
+```json
+{
+  "level": "error",
+  "message": "TypeError: cannot read properties of null",
+  "stack": "...",
+  "href": "https://host/?oid=abc",
+  "user_agent": "Mozilla/5.0 ...",
+  "oid": "abc"
+}
+```
+
+Responses:
+- `204 No Content` — accepted.
+- `429 Too Many Requests` — rate limit hit; well-behaved clients should back off. Response body is empty so `navigator.sendBeacon` does not surface a JSON error payload.
+
+`X-Forwarded-For` is honoured for rate-limit bucketing when the app sits behind a reverse proxy. Configure uvicorn with `--proxy-headers` to also rewrite `request.client.host`.
+
+### Admin
+
+The `/api/v1/admin/*` surface backs the custom-overlay manager page at `/manage`. Gated by `OVERLAY_MANAGER_PASSWORD`.
+
+- `GET /api/v1/admin/status` — whether management is enabled (`{"enabled": true|false}`). Unauthenticated.
+- `POST /api/v1/admin/login` — validates a `Authorization: Bearer <password>` header.
+- `GET /api/v1/admin/custom-overlays` — list overlays backed by `LocalOverlayBackend`.
+- `POST /api/v1/admin/custom-overlays` — create (optionally cloning from an existing overlay via `copy_from`).
+- `DELETE /api/v1/admin/custom-overlays/{name}` — remove an overlay and its persisted state file.
+
+All mutating routes require the same Bearer header. When `OVERLAY_MANAGER_PASSWORD` is unset, every route returns `503`.
+
 ---
 
 ## WebSocket — Real-Time Updates
@@ -292,12 +377,20 @@ Connect to `ws://localhost:8080/api/v1/ws?oid=<OID>` to receive live state updat
 ### Connection
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/api/v1/ws?oid=C-my-overlay');
+const ws = new WebSocket('ws://localhost:8080/api/v1/ws?oid=my-overlay');
 
 ws.onopen = () => {
   console.log('Connected! Initial state will arrive automatically.');
 };
 ```
+
+Browsers cannot set `Authorization` headers on `WebSocket`. When `SCOREBOARD_USERS` is configured, pass the user's password (same value used as the REST Bearer token) as a query parameter instead:
+
+```javascript
+const ws = new WebSocket(`ws://localhost:8080/api/v1/ws?oid=${OID}&token=${password}`);
+```
+
+The same `?token=<value>` escape hatch works on the built-in overlay server's `/ws/{id}` when it is gated by `OVERLAY_SERVER_TOKEN`. See [AUTHENTICATION.md](AUTHENTICATION.md) for the full dependency inventory.
 
 ### Message Format
 
@@ -344,6 +437,8 @@ ws.onclose = (event) => {
 ---
 
 ## State Model Reference
+
+This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **not** the same as the payload the server pushes to an external overlay (`POST /api/state/{id}` uses a different, human-readable schema like `"Serve": "A"`, `"Team 1 Sets": 0`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for that external contract — the translation lives inside the backend and alternate frontends never need to deal with it.
 
 ### GameStateResponse
 
@@ -438,7 +533,7 @@ ws.onclose = (event) => {
 
   <script>
     const BASE = 'http://localhost:8080';
-    const OID = 'C-my-overlay';
+    const OID = 'my-overlay';
     // Set this if authentication is enabled:
     const API_KEY = null; // e.g. 'my-password'
 
@@ -534,17 +629,25 @@ ws.onclose = (event) => {
 
 ## CORS Considerations
 
-If your JavaScript frontend is served from a different origin (e.g., `http://localhost:3000` during development), you need to configure CORS. Add to your environment:
-
-```bash
-export APP_CORS_ORIGINS="http://localhost:3000"
-```
-
-Or configure directly in your deployment. The API endpoints are standard FastAPI routes, so standard FastAPI CORS middleware applies.
+The bundled React frontend is served from the same origin, so CORS is not needed. If you build an external frontend served from a different origin (e.g., `http://localhost:3000`), configure CORS via standard FastAPI middleware.
 
 ---
 
 ## Development Workflow
+
+### Using the bundled React frontend
+
+```bash
+# Terminal 1: Start the backend
+python main.py
+
+# Terminal 2: Start the Vite dev server (hot-reload)
+cd frontend && npm run dev
+```
+
+Vite serves on port 3000 and proxies `/api` requests to the backend on port 8080.
+
+### Building a custom frontend
 
 1. **Start the backend** on port 8080
 2. **Initialise a session** via `POST /api/v1/session/init`
@@ -560,3 +663,18 @@ Or configure directly in your deployment. The API endpoints are standard FastAPI
 - The `serve` field changes automatically when points are added.
 - Set wins are detected automatically when a team reaches the point limit with a 2-point lead.
 - Timeouts are capped at 2 per team. The backend silently ignores additional timeout requests.
+
+### UX conventions in the bundled React UI
+
+These behaviours are not part of the API contract — document them here so alternate frontends can match them intentionally.
+
+- **HUD auto-hide** — the overlay controls fade out after 5 s of pointer inactivity (`resetHideTimer` in `frontend/src/App.tsx`). Any `pointerdown` resets the timer. Useful on touch devices where an always-visible toolbar occludes the scoreboard.
+- **Score button gestures** — each side of the scoreboard uses a multi-gesture button (`frontend/src/components/ScoreButton.tsx`). Priority is **long-press > double-tap > single-tap**:
+  - *Single tap*: `POST /api/v1/game/add-point`.
+  - *Double tap*: undo the last point on that team.
+  - *Long press*: open a numeric dialog that calls `POST /api/v1/game/set-score` to pick an exact value.
+  Long-press cancels the pending single/double-tap timers so only the long-press handler fires.
+- **Set-cell long press** — long-pressing a set counter in the centre panel opens the same dialog against `POST /api/v1/game/set-sets`.
+- **Pre-select OID via URL** — the bundled UI resolves the initial OID from `?oid=<OID>` first, falling back to the `volley_oid` key in `localStorage`. Providing a `?oid=` value auto-connects the session (skipping the picker) and replaces any previously stored OID, so external links can force-switch which overlay this tab is controlling.
+- **WebSocket reconnect** — on close (other than `4004` "no session"), the bundled UI reconnects after 3 s. The `?token=` query param above is re-applied automatically.
+- **Client error reporting** — uncaught errors and `window.onerror` traces are posted to `/api/v1/_log`, rate-limited and PII-redacted server-side.

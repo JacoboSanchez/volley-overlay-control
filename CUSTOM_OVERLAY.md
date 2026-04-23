@@ -1,25 +1,55 @@
-# Building a Custom Overlay for Remote-Scoreboard
+# Custom Overlays
 
-The **Remote-Scoreboard** system is capable of driving completely custom, third-party overlay engines instead of relying on the default `overlays.uno` cloud system. This allows developers to build high-performance, strictly local, or highly customized broadcast graphics (e.g., in React, Vue, Vanilla HTML/JS, or Godot).
+## Built-In Overlay Engine
 
-This document outlines the API contract that your custom overlay must implement to be fully compatible with Remote-Scoreboard.
+Remote-Scoreboard includes a **built-in overlay engine** that serves custom overlays in-process — no external server is needed. Overlays must be created up-front from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`); the system never auto-creates overlays from the control UI. Once an overlay named e.g. `mybroadcast` exists, the system:
+
+1. Persists state to `data/overlay_state_mybroadcast.json`
+2. Serves 16 overlay style templates at `/overlay/{id}` (for OBS browser sources)
+3. Broadcasts real-time updates to OBS via WebSocket at `/ws/{id}`
+
+The overlay's name is used directly as the OID in the control UI.
+
+> **Backward compatibility:** the legacy `C-<id>` syntax (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer the recommended form and is omitted from the documentation and UI.
+
+### 🖼️ Style Preview Grid (`?style=mosaic`)
+
+To compare every overlay style side-by-side — useful when deciding which layout fits your broadcast — open:
+
+```
+/overlay/{id}?style=mosaic
+```
+
+The page renders every selectable style in a responsive grid of iframes, each cropped to the actual overlay bounds, so differences in layout and color are easy to spot. Live state changes propagate to every cell via the same WebSocket used by individual overlays.
+
+`mosaic` is a **meta-style**: it is never returned in `availableStyles` from `/api/config/{id}`, so it cannot be selected as an overlay's `preferredStyle` and does not appear in the style picker. It is only reachable via the explicit `?style=mosaic` query parameter.
+
+---
+
+## Building a Custom External Overlay Server
+
+If you need a fully custom overlay engine (e.g., built in React, Vue, Godot, or another framework), you can point Remote-Scoreboard at an **external overlay server** by setting `APP_CUSTOM_OVERLAY_URL`. This disables the built-in engine for custom overlays and instead communicates with your server via HTTP/WebSocket.
+
+This document outlines the API contract that your external custom overlay must implement.
 
 > [!TIP]
 > **Quick Start Checklist** — Your custom overlay server must:
 > 1. Implement `GET /api/config/{id}` returning `{ "outputUrl": "...", "availableStyles": [...] }`
 > 2. Implement `POST /api/state/{id}` accepting the full match state JSON
 > 3. Implement `GET /api/raw_config/{id}` and `POST /api/raw_config/{id}` for state persistence
-> 4. Use overlay IDs prefixed with `C-` (e.g., `C-mybroadcast`)
-> 5. Return `200 OK` within 2 seconds on POST requests
-> 6. *(Optional)* Implement `/ws/control/{id}` WebSocket endpoint and return `controlWebSocketUrl` in `/api/config` for low-latency persistent connections
+> 4. Return `200 OK` within 2 seconds on POST requests
+> 5. *(Optional)* Implement `/ws/control/{id}` WebSocket endpoint and return `controlWebSocketUrl` in `/api/config` for low-latency persistent connections
 
 ---
 
 ## 🔗 The Connection Protocol
 
-When the user configures an overlay ID starting with `C-` (e.g., `C-mybroadcast`), Remote-Scoreboard identifies this as a **Custom Overlay**.
+When the user enters an overlay ID that resolves to a custom overlay **and** `APP_CUSTOM_OVERLAY_URL` is set, Remote-Scoreboard identifies this as a **Custom External Overlay**.
 
-It will then communicate directly with your custom overlay server using the Base URL defined in the `APP_CUSTOM_OVERLAY_URL` environment variable (which defaults to `http://127.0.0.1:8000`).
+It will then communicate directly with your custom overlay server using the Base URL defined in the `APP_CUSTOM_OVERLAY_URL` environment variable.
+
+> [!NOTE]
+> If `APP_CUSTOM_OVERLAY_URL` is **not** set, custom overlays use the built-in overlay engine (see above) and none of the endpoints described below need to be implemented.
 
 **Output URL resolution**
 
@@ -29,10 +59,12 @@ Remote-Scoreboard determines the final output URL shown in the "Links" dialog us
 2.  If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is set, Remote-Scoreboard replaces the host and port of the fetched `outputUrl` with the value from this environment variable, but preserves the path (which should contain the `outputKey`). This is useful when the overlay server is behind a proxy or on a different network.
 3.  If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is **not** set, Remote-Scoreboard uses the `outputUrl` from your server as-is. Ensure your overlay server returns a publicly accessible URL in this case (e.g., by configuring its own `OVERLAY_PUBLIC_URL`).
 
-The `custom_id` passed to your server will be the user's overlay ID **without** the `C-` prefix. For `C-mybroadcast`, the `custom_id` passed in URLs is `mybroadcast`.
+The `custom_id` passed to your server is the bare overlay ID (the legacy `C-` prefix, when present, is stripped before forwarding).
+
+**Allowed character set:** overlay IDs must match `^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$` — ASCII letters, digits, dot, underscore, and hyphen, 1 to 64 characters, and not the special names `.` or `..`. IDs outside this set are rejected at the built-in overlay server's store boundary (`create_overlay` / `delete_overlay` return `False`), so any tool that generates IDs programmatically — including downstream code in your own overlay server that uses the same id as a filesystem key — should stay inside this allow-list.
 
 **Styling Support**
-Users can append a specific style constraint to their overlay ID using the `/` separator (e.g., `C-mybroadcast/line`). This specifies to the system exactly which layout template to use.
+Users can append a specific style constraint to their overlay ID using the `/` separator (e.g., `mybroadcast/line`). This specifies to the system exactly which layout template to use.
 Alternatively, users can change the current layout directly from the Remote-Scoreboard controller UI using the "Preferred Style" dropdown options fetched from your `/api/config/{custom_id}` endpoint.
 Remote-Scoreboard will send `preferredStyle` inside the `overlay_control` block of the JSON payload, and custom overlays can default to this style when the output URL has no explicit `?style` query constraint.
 
@@ -252,7 +284,7 @@ window.parent.postMessage({
 
 ## 📎 Reference Implementation
 
-The `.web/` directory in the Remote-Scoreboard repository contains a React-Router based local overlay frontend that implements this API contract. You can use it as a starting point for your own custom overlay.
+The built-in overlay engine (`app/overlay/`) implements the same API contract described above and can serve as a reference for building your own external overlay server. The overlay templates in `overlay_templates/` and the frontend JavaScript in `overlay_static/js/app.js` demonstrate the OBS browser source side of the protocol.
 
 A machine-readable **OpenAPI 3.0 specification** for the full contract is available at [CUSTOM_OVERLAY_API.yaml](CUSTOM_OVERLAY_API.yaml). It can be imported into tools like Swagger UI, Postman, or Insomnia for interactive exploration and automatic mock generation.
 

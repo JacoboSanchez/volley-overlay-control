@@ -6,56 +6,82 @@
 
 ## 1. Project Overview
 
-Volley Overlay Control is a web-based application built with Python and NiceGUI. It serves as a remote control for updating volleyball scoreboards (overlays) in real-time. The application manages game logic (score, sets, serving, timeouts), handles user authentication, and synchronizes state with an external backend (the overlays.uno system or a custom overlay server).
+Volley Overlay Control is a self-contained application that bundles a React frontend, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages game logic (score, sets, serving, timeouts), handles user authentication, serves the touch-friendly control UI, renders overlay templates for OBS browser sources, and synchronizes state with overlay backends (the overlays.uno cloud service or in-process custom overlays with optional external overlay server support).
+
+The React frontend lives in the `frontend/` directory and is built with Vite. In production, FastAPI serves the built SPA as static files. During development, Vite's dev server provides hot-reload and proxies API calls to the backend.
 
 ### Tech Stack
 
 | Layer | Technology |
 | :--- | :--- |
-| **Frontend/UI** | [NiceGUI](https://nicegui.io) (Vue/Quasar rendered via Python) — or any JS framework via REST API |
+| **Frontend** | React 19, Vite, PWA (vite-plugin-pwa) |
 | **REST API** | FastAPI router at `/api/v1/` with WebSocket real-time updates |
+| **HTTP Server** | Uvicorn (ASGI) — serves both the API and the frontend SPA |
 | **Backend Logic** | Python 3.x |
-| **Styling** | Tailwind CSS (via NiceGUI utility classes) and `app/theme.py` |
-| **State Management** | In-memory Python objects synchronized with an external API |
-| **Containerization** | Docker (using `uv` for package management) |
+| **State Management** | In-memory Python objects + JSON file persistence for overlay state |
+| **Overlay Templates** | Jinja2 HTML templates for OBS browser sources (16 styles) |
+| **Containerization** | Docker (multi-stage: Node.js + Python) |
 | **CI/CD** | GitHub Actions pipelines (`.github/workflows/`) for automated testing and linting |
 
 ### Key Dependencies
 
+**Backend (Python):**
+
 | Package | Purpose |
 | :--- | :--- |
-| `nicegui` | Full-stack web UI framework |
+| `fastapi` | REST API framework + static file serving |
+| `uvicorn` | ASGI server |
 | `requests` | HTTP communication with overlay APIs |
-| `websocket-client` | Persistent WebSocket connection to custom overlay servers |
+| `jinja2` | Overlay HTML template rendering for OBS browser sources |
+| `websocket-client` | Persistent WebSocket connection to external overlay servers (optional) |
 | `python-dotenv` | `.env` file loading |
 | `pytest` / `pytest-asyncio` | Test suite |
-| `playwright` | Browser-based UI tests (CI only) |
+
+**Frontend (Node.js):**
+
+| Package | Purpose |
+| :--- | :--- |
+| `react` / `react-dom` | UI framework |
+| `react-colorful` | Color picker component |
+| `vite` | Build tool and dev server |
+| `vite-plugin-pwa` | PWA support (service worker, manifest) |
+| `vitest` / `@testing-library/react` | Test suite |
 
 ---
 
 ## 2. Directory Structure & Key Files
 
 ```
-├── main.py                  # Entry point. Sets up the NiceGUI app, middleware, and env vars.
-├── .github/                 # GitHub specific files.
-│   └── workflows/           # CI/CD pipelines (ci.yml, docker-publish.yml, docker-publish-dev.yml).
+├── main.py                  # Entry point. Creates FastAPI app, mounts routes + SPA, starts uvicorn.
+├── Dockerfile               # Multi-stage build (Node.js + Python).
+├── docker-compose.yml       # Docker Compose configuration.
+├── frontend/                # React control UI (built with Vite).
+│   ├── package.json         # Frontend dependencies and scripts.
+│   ├── vite.config.js       # Vite config (PWA, dev proxy, test setup).
+│   ├── index.html           # SPA entry point.
+│   ├── src/                 # React source code.
+│   │   ├── App.jsx          # Main application component.
+│   │   ├── api/client.js    # REST API client (relative paths: /api/v1/).
+│   │   ├── api/websocket.js # WebSocket client (relative URLs).
+│   │   ├── components/      # UI components (TeamPanel, ConfigPanel, etc.).
+│   │   ├── hooks/           # React hooks (useGameState, useSettings, etc.).
+│   │   ├── i18n.jsx         # Internationalization.
+│   │   ├── theme.js         # Theme constants.
+│   │   └── test/            # Vitest test suite.
+│   └── public/              # Static assets (icons, fonts).
 ├── app/
-│   ├── backend.py           # Handles communication with the external Overlay API & local overlay.
-│   ├── ws_client.py         # Persistent WebSocket client for custom overlay control channel.
+│   ├── backend.py           # Coordinator — delegates to overlay backend strategies.
+│   ├── overlay_backends.py  # Strategy pattern: UnoOverlayBackend, LocalOverlayBackend, CustomOverlayBackend.
+│   ├── ws_client.py         # Persistent WebSocket client for external overlay servers (optional).
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
-│   ├── state.py             # Data model definition. Holds the raw state dictionary.
-│   ├── gui.py               # Main UI logic orchestrator.
-│   ├── components/          # Reusable NiceGUI UI components (ScoreButton, TeamPanel, etc.).
-│   ├── startup.py           # Route definitions, page loading logic, and lifecycle hooks.
+│   ├── state.py             # Data model definition. Holds the match state.
 │   ├── customization.py     # Logic for handling team names, colors, logos, and layout.
-│   ├── customization_page.py # UI page for customization options.
-│   ├── theme.py             # UI constants (colors, CSS classes, font scales).
 │   ├── conf.py              # Configuration object mapping env vars to settings.
 │   ├── constants.py         # Centralized hardcoded strings, URLs, and favicon.
-│   ├── messages.py          # Internationalization (i18n) string definitions.
-│   ├── authentication.py    # User login/logout logic and AuthMiddleware.
-│   ├── app_storage.py       # Wrapper for NiceGUI's browser-local storage.
-│   ├── api/                 # REST API + WebSocket layer for external frontends.
+│   ├── authentication.py    # PasswordAuthenticator (API key validation).
+│   ├── app_storage.py       # In-memory key-value storage.
+│   ├── oid_utils.py         # OID parsing utilities (extract_oid, compose_output).
+│   ├── api/                 # REST API + WebSocket layer for frontends.
 │   │   ├── __init__.py      # Exports api_router.
 │   │   ├── routes.py        # FastAPI endpoints under /api/v1/.
 │   │   ├── schemas.py       # Pydantic request/response models.
@@ -63,72 +89,58 @@ Volley Overlay Control is a web-based application built with Python and NiceGUI.
 │   │   ├── session_manager.py # Thread-safe game session management by OID.
 │   │   ├── ws_hub.py        # WebSocket notification hub for real-time state push.
 │   │   └── dependencies.py  # Auth + session FastAPI dependencies.
+│   ├── overlay/             # In-process overlay serving (absorbed from volleyball-scoreboard-overlay).
+│   │   ├── __init__.py      # Package init — creates singleton OverlayStateStore & ObsBroadcastHub.
+│   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
+│   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
+│   │   └── routes.py        # HTTP/WS routes: /overlay/, /ws/, /api/config/, CRUD, themes.
+│   ├── admin/               # Custom overlay management page + CRUD API (password-protected).
+│   │   ├── __init__.py      # Exports admin_router, admin_page_router.
+│   │   ├── routes.py        # /manage HTML page + /api/v1/admin/custom-overlays CRUD endpoints.
+│   │   └── static/overlays.html # Standalone management page (vanilla JS, no React).
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
 │   ├── logging_config.py    # Logging level configuration.
-│   ├── options_dialog.py    # Settings/configuration dialog UI.
-│   ├── oid_dialog.py        # Overlay ID entry dialog UI.
-│   ├── preview.py           # Preview logic.
-│   ├── preview_page.py      # Preview page UI.
-│   ├── gui_update_mixin.py  # Mixin with UI refresh helper methods for GUI.
 │   ├── config_validator.py  # Startup configuration validation (env var checks).
-│   └── pwa/                 # Progressive Web App assets (Service Worker, Manifest, Icons).
-├── .web/                    # Optional local overlay frontend (React-Router based).
-├── font/                    # Custom font files for the UI/Overlay (10 fonts).
-├── storage/                 # Local data and temp storage directories.
-├── tests/                   # Pytest suite.
-│   ├── conftest.py          # Test fixtures and configuration.
-│   ├── test_backend.py      # Backend API communication tests.
-│   ├── test_customization.py # Customization logic tests.
-│   ├── test_env_vars_manager.py # Environment variable manager tests.
-│   ├── test_game_manager.py     # Game rules and scoring tests.
-│   ├── test_state.py            # State model tests.
-│   ├── test_config_validator.py # Startup configuration validation tests.
-│   ├── test_ws_client.py        # WebSocket client and Backend WS integration tests.
-│   ├── test_mobile_viewport.py  # Mobile viewport/PWA browser tests (Playwright).
-│   └── test_ui.py               # Full UI interaction tests (Playwright/NiceGUI).
-└── docker-compose.yml           # Docker Compose configuration.
+│   └── pwa/                 # Legacy PWA assets (icons).
+├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
+├── overlay_static/          # Static assets for overlays (JS, CSS, images).
+├── data/                    # Persisted custom overlay state files (overlay_state_{id}.json).
+├── font/                    # Custom font files for the overlay.
+└── tests/                   # Pytest suite.
+    ├── conftest.py          # Test fixtures and configuration.
+    ├── test_api.py          # API layer tests (SessionManager, GameService, auth).
+    ├── test_backend.py      # Backend API communication tests.
+    ├── test_customization.py # Customization logic tests.
+    ├── test_env_vars_manager.py # Environment variable manager tests.
+    ├── test_game_manager.py     # Game rules and scoring tests.
+    ├── test_state.py            # State model tests.
+    ├── test_config_validator.py # Startup configuration validation tests.
+    ├── test_ws_client.py        # WebSocket client and Backend WS integration tests.
+    ├── test_admin.py            # Overlay manager page + CRUD + auth tests.
+    └── test_coverage_proposals.py # Additional WSControlClient coverage tests.
 ```
 
 ---
 
 ## 3. Core Architecture & Data Flow
 
-The application follows a **Model-View-Controller (MVC)** hybrid pattern:
+The application follows a service-oriented architecture:
 
 | Role | Component | Description |
 | :--- | :--- | :--- |
 | **Model** | `State` | Snapshot of the game (scores, timeouts, serve status) |
 | **Controller** | `GameManager` | Manipulates the Model based on volleyball rules |
-| **Service** | `GameService` | Single entry point for all game actions (used by GUI and REST API) |
-| **View** | `GUI` | NiceGUI display — captures user input |
-| **API** | `api/routes.py` | REST + WebSocket endpoints for external frontends |
-| **Sync** | `Backend` | Pushes Model changes to the external overlay server |
+| **Service** | `GameService` | Single entry point for all game actions |
+| **API** | `api/routes.py` | REST + WebSocket endpoints for frontends |
+| **Sync** | `Backend` | Pushes Model changes to overlay backends (in-process or cloud) |
+| **Overlay** | `OverlayStateStore` | In-memory + JSON persistence for custom overlay state |
+| **Overlay** | `ObsBroadcastHub` | Debounced WebSocket broadcasts to OBS browser sources |
 
-### Typical Data Flow (e.g., Adding a Point)
-
-```mermaid
-sequenceDiagram
-    participant User as 🖱️ User
-    participant GUI as GUI
-    participant GM as GameManager
-    participant State as State
-    participant Backend as Backend
-    participant API as Overlay API
-
-    User->>GUI: Click "Team 1 Score" button
-    GUI->>GM: add_game(team=1)
-    GM->>State: Validate & increment score
-    GM->>GM: Check set-win conditions, auto-switch serve
-    GM->>Backend: save()
-    Backend->>API: Push new state to cloud/local overlay
-    GUI->>GUI: update_ui() — refresh all visual elements
-```
-
-### REST API Flow (e.g., Adding a Point from a JS Frontend)
+### Data Flow (e.g., Adding a Point from a JS Frontend)
 
 ```mermaid
 sequenceDiagram
-    participant JS as 🌐 JS Frontend
+    participant JS as JS Frontend
     participant API as REST API
     participant GS as GameService
     participant GM as GameManager
@@ -146,7 +158,7 @@ sequenceDiagram
     API-->>JS: HTTP 200 ActionResponse
 ```
 
-> **Note:** Both the NiceGUI frontend and external JS frontends use the same `GameService` layer, ensuring identical business logic and state management. See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the complete API reference.
+See [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md) for the complete API reference.
 
 ---
 
@@ -159,9 +171,6 @@ sequenceDiagram
 Represents the data structure of the match.
 
 - **Responsibility**: Holds the "Single Source of Truth" dictionary (`current_model`) that maps keys (e.g., `'Team 1 Sets'`) to values.
-- **Key Attributes**:
-  - `reset_model` — Default/zero state dictionary.
-  - `current_model` — Active state dictionary.
 - **Key Methods**:
   - `get_game(team, set)` / `set_game(...)` — Get/Set points for a specific set.
   - `get_sets(team)` / `set_sets(...)` — Get/Set sets won.
@@ -176,135 +185,124 @@ The "Brain" of the application. Enforces volleyball rules.
   - `add_game(team, ...)` — Increments score. Handles "Winning by 2", point limits, and match completion.
   - `add_set(team)` — Increments set count. Resets timeouts and serve for the next set.
   - `change_serve(team)` — Updates the serving indicator.
-  - `undo` — (Boolean flag passed to methods) Reverses the last action.
   - `match_finished()` — Returns `True` if a team has reached the set limit.
   - `save(simple, current_set)` — Persists state via `Backend`.
 
 #### `app/backend.py` — class `Backend`
 
-The "Bridge" to the outside world.
+The "Bridge" to overlay systems.
 
-- **Responsibility**: Communication with the Overlay API — WebSocket-first for custom overlays, HTTP fallback, HTTP-only for cloud overlays.
+- **Responsibility**: Coordinates overlay communication using the strategy pattern. Delegates to `LocalOverlayBackend` (in-process, default for custom overlays), `CustomOverlayBackend` (external server, when `APP_CUSTOM_OVERLAY_URL` is set), or `UnoOverlayBackend` (cloud).
 - **Key Internals**:
-  - Uses a shared `requests.Session` for all HTTP calls to enable TCP connection reuse (lower latency on repeated posts).
-  - `_ws_client` — `WSControlClient` instance for the active custom overlay WebSocket connection (or `None`).
-  - `_customization_cache` — In-memory cache for the last fetched customization state, preventing redundant GET requests on every score update.
+  - Uses a shared `requests.Session` for all HTTP calls to enable TCP connection reuse.
   - A `ThreadPoolExecutor` (5 workers) handles overlay updates asynchronously when `ENABLE_MULTITHREAD=true`.
+  - `_customization_cache` — In-memory cache for the last fetched customization state.
+  - `_build_overlay_payload()` — Constructs the standardized overlay state JSON from game model + customization.
 - **Key Methods**:
-  - `init_ws_client()` — Discovers `controlWebSocketUrl` from `/api/config/{id}` and creates a `WSControlClient` with auto-connect. Called once during startup for custom overlays.
-  - `close_ws_client()` — Disconnects the WebSocket client and clears the reference.
-  - `get_current_model()` — Fetches the last known state from the remote API. For Custom Overlays, hits `/api/raw_config/{id}` to bypass local caching.
-  - `get_current_customization()` — Fetches team/color/layout settings. Result is cached in `_customization_cache`.
-  - `save(state, simple)` — Pushes local state changes to the cloud and proxies to the local overlay engine via `update_local_overlay()`. For custom overlays, also syncs raw state JSON via WebSocket `raw_config` or `POST /api/raw_config/{id}`.
-  - `update_local_overlay(current_model, force_visibility, customization_state)` — Builds a standardized JSON payload (`match_info`, `team_home`/`team_away`, `overlay_control`) via `_build_overlay_payload()`. Sends via `WSControlClient.send_state()` if connected, otherwise falls back to HTTP `POST /api/state/{custom_id}`.
-  - `change_overlay_visibility(show)` — Sends visibility toggle via WebSocket `send_visibility()` for custom overlays when connected, otherwise uses the HTTP path.
-  - `fetch_and_update_overlay_id(oid)` — Translates a user's Control Token (OID) into the specific backend layout ID via `GetOverlays`.
-  - `fetch_output_token(oid)` — Retrieves the URL/Token required to display the overlay iframe. Called automatically during `POST /api/v1/session/init` when no explicit `output_url` is provided, so the session's `conf.output` is always populated.
-- **Properties**: `ws_connected` (bool), `obs_client_count` (int from WS handshake/ack messages).
+  - `get_current_model()` — Fetches the last known state from the overlay backend.
+  - `get_current_customization()` — Fetches team/color/layout settings.
+  - `save_model(current_model, simple)` — Pushes local state changes to the overlay.
+  - `change_overlay_visibility(show)` — Toggles overlay show/hide.
+
+#### `app/overlay_backends.py` — Overlay Backend Strategies
+
+Three overlay backend implementations share the `OverlayBackend` abstract interface:
+
+- **`LocalOverlayBackend`** — Default for custom overlays (selected when the OID maps to a locally-existing overlay; the legacy `C-` prefix is also accepted for backward compatibility). Manages state in-process via `OverlayStateStore`, broadcasts to OBS via `ObsBroadcastHub`. No external server needed.
+- **`CustomOverlayBackend`** — Optional external server mode (activated when `APP_CUSTOM_OVERLAY_URL` is set). Communicates via WebSocket + HTTP fallback.
+- **`UnoOverlayBackend`** — Cloud overlays. Communicates with the overlays.uno REST API.
+
+#### `app/overlay/state_store.py` — class `OverlayStateStore`
+
+In-memory + JSON file persistence for overlay state.
+
+- **Responsibility**: Manages overlay state with lazy-loading from disk, deep merge, normalization, CRUD, raw config pass-through, output key generation, and style enumeration.
+- **Key Methods**: `get_state()`, `update_state()`, `set_raw_config()`, `get_raw_config()`, `create_overlay()`, `ensure_overlay()`, `get_available_styles_list()`, `get_renderable_styles()`.
+- **Style enumeration** distinguishes two lists: `get_available_styles_list()` returns user-selectable styles (what `/api/config/{id}` exposes in `availableStyles` and what the picker UI shows); `get_renderable_styles()` is a superset that also includes meta-styles like `mosaic` — valid as a `?style=` URL parameter but hidden from the picker so users cannot accidentally adopt them as a broadcast layout. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the mosaic preview grid.
+
+#### `app/overlay/broadcast.py` — class `ObsBroadcastHub`
+
+Debounced WebSocket broadcasts to OBS browser sources.
+
+- **Responsibility**: Tracks OBS browser source WebSocket connections per overlay and broadcasts state updates with 50ms debouncing.
+- **Key Methods**: `add_client()`, `remove_client()`, `schedule_broadcast()`, `get_client_count()`.
 
 #### `app/ws_client.py` — class `WSControlClient`
 
-Persistent WebSocket connection to a custom overlay server's `/ws/control/{overlay_id}` endpoint.
+Persistent WebSocket connection to an external custom overlay server's `/ws/control/{overlay_id}` endpoint. Only used when `APP_CUSTOM_OVERLAY_URL` is set.
 
-- **Responsibility**: Maintains a background daemon thread with auto-reconnect and heartbeat for low-latency state pushes.
-- **Key Internals**:
-  - Background thread runs `_run_loop()` → `_listen()` with exponential backoff reconnect (1s → 30s max).
-  - Thread-safe sends via `threading.Lock`.
-  - Heartbeat pings every 25 seconds (inside the server's 30s timeout).
-  - Lazy imports `websocket-client` to avoid import errors when the package isn't installed.
-- **Key Methods**:
-  - `connect()` / `disconnect()` — Start/stop the background thread.
-  - `send_state(payload)` — Send a `state_update` message.
-  - `send_visibility(show)` — Send a `visibility` toggle.
-  - `send_raw_config(payload)` — Send a `raw_config` message (model and/or customization).
-  - `send_get_state()` — Request current state from the server.
-- **Properties**: `is_connected` (bool), `obs_client_count` (int — updated from server messages).
+- **Responsibility**: Maintains a background daemon thread with auto-reconnect and heartbeat.
+- **Key Methods**: `connect()`, `disconnect()`, `send_state()`, `send_visibility()`, `send_raw_config()`.
 
-### B. User Interface
+### B. API Layer
 
-#### `app/components/`
+#### `app/api/game_service.py` — class `GameService`
 
-Modular UI components to prevent `gui.py` from becoming a monolith:
+Stateless service that operates on `GameSession` instances.
 
-| File | Purpose |
-| :--- | :--- |
-| `score_button.py` | Wraps `ui.button` with long-press and tap detection logic |
-| `team_panel.py` | Renders a team column (Scores, Timeouts, Serve Indicator) |
-| `center_panel.py` | Manages the middle column (Score table, set pagination, Preview iframe) |
-| `control_buttons.py` | Manages action bars (Visibility toggle, Simple Mode, Undo, Config) |
-| `button_interaction.py` | Long-press (1s) vs tap (0.4s) vs double-tap detection logic |
-| `button_style.py` | Button appearance utilities (colors, fonts, opacity) |
+- **Key Methods**: `add_point()`, `add_set()`, `add_timeout()`, `change_serve()`, `set_score()`, `reset()`, `set_visibility()`, `set_simple_mode()`, `update_customization()`.
 
-#### `app/gui.py` — class `GUI`
+#### `app/api/session_manager.py` — class `SessionManager`
 
-The NiceGUI presentation layer orchestrator.
+Thread-safe singleton managing `GameSession` instances by OID.
 
-- **Responsibility**: Instantiate modular components, listen for state changes from `GameManager`, and trigger updates.
-- **Key Internals**:
-  - `_instances` — Class-level `weakref.WeakSet` of all active `GUI` instances across connected browser tabs.
-  - `_client` — Reference to the NiceGUI `Client` for this instance, used by `_broadcast_to_others` to skip stale/deleted clients.
-- **Key Methods**:
-  - `init(...)` — Builds the initial layout by instantiating `TeamPanel`, `CenterPanel`, and `ControlButtons`.
-  - `update_ui(load_from_backend)` — Refreshes all visual elements (scores, colors, logos).
-  - `handle_button_press/release` — Processes "Long Press", "Tap", and "Double Tap" (undo) logic.
-  - `switch_simple_mode()` — Toggles between full detail and simplified view.
-  - `_broadcast_to_others()` — Notifies all other connected GUI instances to refresh after a state change. Checks `Client.instances` before syncing state. To avoid performance bottlenecks, state is deep-copied directly between instances instead of requesting a full backend reload for every client.
+- **Key Methods**: `get_or_create()`, `get()`, `remove()`, `clear()`, `cleanup_expired()`.
 
-#### `app/gui_update_mixin.py` — `GUIUpdateMixin`
+#### `app/api/ws_hub.py` — class `WSHub`
 
-Mixin class providing UI refresh helper methods used by `GUI`.
+WebSocket notification hub for broadcasting state updates to connected frontend clients.
 
-- **Responsibility**: Extracts common UI update patterns out of the main `GUI` class to reduce its size.
-- **Usage**: `GUI` inherits from this mixin. Do not instantiate it directly.
+#### `app/admin/` — custom overlay management
 
-#### `app/startup.py` — `startup()`
+Standalone surface for managing **custom** overlays (those backed by the
+in-process overlay engine) at runtime, independent of the React scoreboard
+UI. Overlays must be created here before they can be used as OIDs in the
+control UI — the system never auto-creates overlays from the control flow.
 
-- **Responsibility**: Defines application routing (`/`, `/indoor`, `/beach`, `/login`, `/preview`, `/health`) and startup sequence.
-- **Logic**:
-  - Checks for `oid` (Overlay ID) in URL → Storage → Environment.
-  - If missing, launches `OidDialog`.
-  - Initializes `GUI` and `Backend`.
-  - Serves PWA assets (`/sw.js`, `/manifest.json`, `/pwa/*`), registers the Service Worker, and implements Screen Wake Lock API logic.
+- **`app/admin/routes.py`** — Two FastAPI routers:
+  - `admin_page_router` → `GET /manage` serves the standalone HTML page.
+  - `admin_router` → `GET /api/v1/admin/custom-overlays`,
+    `POST /api/v1/admin/custom-overlays` (optional `copy_from` to clone an
+    existing overlay's configuration), `DELETE /api/v1/admin/custom-overlays/{id}`,
+    `POST /api/v1/admin/login`, `GET /api/v1/admin/status`. All endpoints
+    (except `/status`) require `Authorization: Bearer $OVERLAY_MANAGER_PASSWORD`.
+  - Handlers operate directly on the singleton `overlay_state_store`
+    (`app/overlay/__init__.py`); there is no separate admin-side persistence
+    file.
+- **`app/admin/static/overlays.html`** — Self-contained page (no React,
+  just vanilla JS + `fetch`). Keeps the password in a JS closure variable
+  only (no `sessionStorage`/`localStorage`).
 
-#### `app/theme.py`
+The routers are registered in `main.py` **before** the SPA mount so that
+`/manage` is served by FastAPI rather than falling through to `index.html`.
 
-- **Responsibility**: Centralized configuration for UI colors (Tailwind classes) and button styles.
-- **Key Constants**:
-  - `GAME_BUTTON_CLASSES` — Shape, shadow, and text alignment for score buttons.
-  - `TACOLOR` / `TBCOLOR` — Team colors.
-  - `FONT_SCALES` — Per-font `scale` multiplier and vertical `offset_y` for consistent rendering.
+> For the full per-route authentication matrix (scoreboard API, admin
+> API, overlay server, static mounts) and known gaps, see
+> [AUTHENTICATION.md](AUTHENTICATION.md). When adding a new route,
+> classify it there and add a matching entry in
+> `tests/test_auth_coverage.py`.
 
 ### C. Configuration & Extras
 
-#### `app/customization.py` & `app/customization_page.py`
+#### `app/customization.py`
 
 - **Responsibility**: Manages cosmetic data (Team Names, Logos, Colors, Overlay geometry).
-- **Logic**: Abstracts payload keys to support multiple layout templates. Falls back from `Team 1 Text Name` to `Team 1 Name` if needed. `customization_page.py` hides components unsupported by the active layout.
 
 #### `app/app_storage.py` — class `AppStorage`
 
-- **Responsibility**: Unified wrapper around NiceGUI's browser-local user storage (`app.storage.user`) with an in-memory fallback for test environments.
-- **Key Methods**:
-  - `save(tag, value, oid=None)` — Persists a value under a `Category` enum key, optionally scoped to an OID.
-  - `load(tag, default, oid=None)` — Loads a persisted value, returning `default` if not found.
-  - `refresh_state(oid, preserve_keys)` — Clears or partially resets the OID-scoped storage bucket.
-- **Notes**: Catches both `RuntimeError` and `AssertionError` when accessing `app.storage.user` so early startup calls (before the NiceGUI session is fully initialized) fall back to in-memory storage gracefully.
+- **Responsibility**: In-memory key-value storage for session state.
 
 #### `app/conf.py`
 
-- **Responsibility**: Loads environment variables (e.g., `APP_PORT`, `UNO_OVERLAY_URL`) into a structured `Conf` object. Some values (e.g., `lock_teamA_icons`, `auto_hide`) are `@property` accessors that read from `AppStorage` first, falling back to the env var default.
+- **Responsibility**: Loads environment variables into a structured `Conf` object.
 
-#### `app/messages.py`
+#### `app/oid_utils.py`
 
-- **Responsibility**: Internationalization (i18n). Defines all user-facing strings with translations. Currently supports **English** (default) and **Spanish**.
-
-#### `app/constants.py`
-
-- **Responsibility**: Centralized hardcoded strings, the SVG favicon, and the `API_BASE_URL` for overlays.uno.
+- **Responsibility**: Overlay ID parsing utilities — `extract_oid()` extracts OIDs from full overlays.uno URLs, `compose_output()` ensures output URLs are fully qualified.
 
 #### `app/config_validator.py`
 
-- **Responsibility**: Validates environment variables and configuration at startup. Checks for required values, valid JSON formatting, and compatible option combinations. Logs warnings or raises errors for misconfigurations before the app fully initializes.
+- **Responsibility**: Validates environment variables at startup. Logs warnings for misconfigurations.
 
 ---
 
@@ -313,80 +311,72 @@ Mixin class providing UI refresh helper methods used by `GUI`.
 ### Running Tests Locally
 
 ```bash
-# Install runtime and dev/test dependencies
+# Backend tests
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
-
-# For browser-based tests (optional)
-pip install playwright pytest-playwright
-playwright install chromium
-
-# Run the full test suite
 pytest tests/
 
-# Run a specific test file
-pytest tests/test_game_manager.py -v
-
-# Run with log output
-pytest tests/ --log-cli-level=debug
+# Frontend tests
+cd frontend && npm ci && npm test
 ```
 
-### Test Organization
+### Backend Test Organization
 
 | File | Coverage Area |
 | :--- | :--- |
 | `test_state.py` | `State` model operations |
 | `test_game_manager.py` | Scoring rules, set logic, undo functionality |
 | `test_backend.py` | API communication, custom overlay integration |
+| `test_api.py` | SessionManager, GameService, API key auth |
 | `test_customization.py` | Team/color customization logic |
 | `test_env_vars_manager.py` | Environment variable loading |
 | `test_config_validator.py` | Startup environment variable validation |
-| `test_ws_client.py` | WebSocket client unit tests and Backend WS integration tests |
-| `test_mobile_viewport.py` | Mobile viewport/PWA rendering (Playwright + Chromium, marked `mobile_browser`) |
-| `test_ui.py` | Full end-to-end UI tests via NiceGUI's test client |
+| `test_ws_client.py` | WebSocket client unit tests and Backend WS integration |
+| `test_coverage_proposals.py` | Additional WSControlClient message format tests |
+
+### Frontend Tests
+
+Frontend tests use Vitest + React Testing Library and live in `frontend/src/test/`. They cover API client, WebSocket client, all UI components, hooks, i18n, and theming.
 
 ### CI Pipeline
 
 The GitHub Actions CI pipeline (`.github/workflows/ci.yml`) runs on `push` / `pull_request` to `main` and `dev` branches:
 
-1. **Lint** — `flake8` for syntax errors and style warnings.
-2. **Test** — Full `pytest tests/` suite with Playwright (Chromium).
+1. **Lint** — `ruff check .` for syntax errors and style warnings.
+2. **Type-check** — `mypy` on the strict-typed modules listed in `pyproject.toml`.
+3. **Test** — Full `pytest tests/` suite with `--cov=app --cov-fail-under=70`; coverage XML uploaded as an artifact.
+4. **Frontend** — `npm ci`, schema drift check (`scripts/generate_openapi.py` + `npm run gen:types`), `npm run typecheck`, and Vitest.
 
 ---
 
 ## 6. Important Logic Flows for Developers
 
-When modifying the code, keep these dependencies in mind:
-
-### UI Updates
-
-NiceGUI is reactive but often requires manual calls to `element.update()` or `set_text()`.
-
-> [!IMPORTANT]
-> If you modify `State` in `GameManager`, you **must** ensure `GUI.update_ui()` is triggered so the user sees the change.
-
-### Long Press Logic
-
-The buttons in `GUI` use a timer-based system to distinguish between a **tap** (Add Point) and a **hold** (Open Edit Dialog). Do not remove the `touchstart`/`mousedown` event listeners without preserving this logic.
-
-### Multi-User Broadcast
-
-When multiple browser tabs are open, `GUI._broadcast_to_others()` notifies all other registered instances after a state change. Before pushing state to a foreign instance it checks `client.id in Client.instances` — if the tab was closed and NiceGUI deleted its client, the broadcast skips that instance silently. Any new `GUI` instance stores `self._client = ui.context.client` during `__init__` for this check. To ensure fast synchronization without hammering the overlay backend with HTTP requests, the originating instance deep-copies its current `GameManager` and `Customization` state to the targeted instances directly in-memory before triggering their UI updates.
-
 ### State Synchronization
 
 The app assumes it is the **primary controller**. However, `GameManager.reset()` reloads data from `Backend` to ensure it syncs with any external resets.
 
-### Responsive Design
+### Custom Overlay State Flow
 
-`GUI` detects orientation (`is_portrait`). Layouts switch between `ui.row()` (Landscape) and `ui.column()` (Portrait). Any new UI elements must handle both contexts.
+By default, custom overlays are managed **in-process** by `LocalOverlayBackend` (an OID is treated as custom when a matching overlay file exists locally — the legacy `C-` prefix is also accepted). State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
 
-### Custom Fonts
+If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract.
 
-The app loads custom fonts from the `font/` directory. These are applied via CSS injection in `startup.py` and used in `theme.py` / `gui.py`.
+### OID resolution order
 
-> [!NOTE]
-> Custom fonts are normalized via `FONT_SCALES` in `theme.py`. These values were generated by rendering each font in a flex container and mathematically measuring painted pixels. New font additions should be measured and added to `FONT_SCALES`.
+`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) picks a backend per request in this order:
+
+1. **Local overlay file present** → `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) with a matching `data/overlay_state_<id>.json` always resolves to the in-process engine.
+2. **Legacy `C-<id>` prefix** with no local file → treated as `CUSTOM` only when `APP_CUSTOM_OVERLAY_URL` is configured.
+3. **Otherwise** → `UnoBackend` (overlays.uno cloud).
+
+The bare ID is always preferred; the `C-` prefix is accepted for backwards compatibility but omitted from the UI.
+
+### Session lifecycle and per-OID init locks
+
+The API router installs its own lifespan (`app/api/routes/lifespan.py`):
+
+- **Background cleanup** — an hourly task calls `SessionManager.cleanup_expired()` and logs the number of evicted entries.
+- **Per-OID init locks** — `get_init_lock(oid)` returns a `WeakValueDictionary`-backed `asyncio.Lock` so concurrent `POST /api/v1/session/init` calls for the same OID serialize on the same lock; the entry is garbage-collected once no caller holds it, avoiding a race where a manual cleanup could split two waiters onto different locks.
 
 ---
 
@@ -394,25 +384,29 @@ The app loads custom fonts from the `font/` directory. These are applied via CSS
 
 ### Adding a new Rule (e.g., Golden Set)
 
-1. Modify `app/game_manager.py` → `add_game` to check for the new condition.
+1. Modify `app/game_manager.py` -> `add_game` to check for the new condition.
 2. Update `app/state.py` if new counters are needed.
 
-### Changing Button Styles
+### Adding a new API Endpoint
 
-1. Edit `app/theme.py` constants.
-2. If logic-based (e.g., color changes on win), edit `app/gui.py` → `update_button_style`.
+1. Add the route in `app/api/routes.py`.
+2. Add request/response schemas in `app/api/schemas.py`.
+3. Add the business logic in `app/api/game_service.py`.
+
+### Extending the custom overlay manager page
+
+1. Add the new operation to `OverlayStateStore` in
+   `app/overlay/state_store.py` if it needs a new storage primitive
+   (e.g. rename, bulk export). Keep mutations under `self._lock`.
+2. Add or update the matching FastAPI route in `app/admin/routes.py` and
+   keep it behind `Depends(require_admin)`.
+3. Update the UI in `app/admin/static/overlays.html` — it is a single
+   self-contained file with vanilla JS, so no bundler step is needed.
 
 ### Adding a new Setting
 
-1. Add field to `app/conf.py` (or `app/env_vars_manager.py` for dynamic env vars).
-2. Add UI control to `app/options_dialog.py`.
-3. Pass the config to `GameManager` if it affects rules.
-
-### Adding a new Language
-
-1. Add a new key to the `messages` dictionary in `app/messages.py`.
-2. Translate all existing string constants to the new language.
-3. Set `SCOREBOARD_LANGUAGE` environment variable to the new language code.
+1. Add field to `app/conf.py`.
+2. Add the env var to `docker-compose.yml` and `README.md`.
 
 ---
 
@@ -421,26 +415,41 @@ The app loads custom fonts from the `font/` directory. These are applied via CSS
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
-cd remote-scoreboard
+cd volley-overlay-control
 
 # 2. Create a virtual environment (recommended)
 python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# 3. Install dependencies
+# 3. Install backend dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment
+# 4. Build the frontend
+cd frontend && npm ci && npm run build && cd ..
+
+# 5. Configure environment
 # Create a .env file with your settings, for example:
 # UNO_OVERLAY_OID=your_token_here
 # SCOREBOARD_USERS={"admin": {"password": "secret"}}
 
-# 5. Run the application
+# 6. Run the application (serves both API and UI on port 8080)
 python main.py
 
-# 6. Run the test suite
-pytest tests/ -v
+# 7. Run the test suites
+pytest tests/ -v           # Backend tests
+cd frontend && npm test    # Frontend tests
 ```
+
+### Frontend Development with Hot-Reload
+
+For active frontend work, use Vite's dev server instead of the built static files:
+
+```bash
+# Terminal 1: Start the backend
+python main.py
+
+# Terminal 2: Start the Vite dev server (hot-reload on port 3000)
+cd frontend && npm run dev
+```
+
+Vite proxies all `/api` requests to `http://localhost:8080`. Open `http://localhost:3000` for development.

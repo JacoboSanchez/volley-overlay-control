@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import Literal, Optional
 import re
+from typing import Literal, Optional
 
+from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Request models
@@ -91,3 +91,7 @@ class ActionResponse(BaseModel):
     success: bool
     state: Optional[GameStateResponse] = None
     message: Optional[str] = None
+
+
+class AppConfigResponse(BaseModel):
+    title: str

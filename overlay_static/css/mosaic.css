@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+body {
+    margin: 0;
+    padding: 20px;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.mosaic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(580px, 1fr));
+    gap: 20px;
+    max-width: 1920px;
+    margin: 0 auto;
+}
+
+.mosaic-cell {
+    position: relative;
+    overflow: hidden;
+}
+
+.mosaic-label {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    z-index: 10;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.72);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+}
+
+.mosaic-label::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: #444;
+    flex-shrink: 0;
+}
+
+.mosaic-cell:nth-child(8n+1) .mosaic-label::before { background: #E21836; }
+.mosaic-cell:nth-child(8n+2) .mosaic-label::before { background: #0047AB; }
+.mosaic-cell:nth-child(8n+3) .mosaic-label::before { background: #00C853; }
+.mosaic-cell:nth-child(8n+4) .mosaic-label::before { background: #FF6D00; }
+.mosaic-cell:nth-child(8n+5) .mosaic-label::before { background: #AA00FF; }
+.mosaic-cell:nth-child(8n+6) .mosaic-label::before { background: #FFD700; }
+.mosaic-cell:nth-child(8n+7) .mosaic-label::before { background: #00BCD4; }
+.mosaic-cell:nth-child(8n+8) .mosaic-label::before { background: #FF4081; }
+
+.mosaic-iframe-wrapper {
+    position: relative;
+    width: 100%;
+    /* Initial height — JS will resize once overlay bounds are reported */
+    height: 120px;
+    overflow: hidden;
+    transition: height 0.4s ease;
+}
+
+.mosaic-iframe-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    border: none;
+    transform-origin: top left;
+    /* Scale down to fit the cell; JS will calculate exact scale */
+}

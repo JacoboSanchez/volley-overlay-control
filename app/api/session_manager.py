@@ -2,12 +2,13 @@ import asyncio
 import logging
 import threading
 import time
-from app.conf import Conf
-from app.backend import Backend
-from app.game_manager import GameManager
-from app.customization import Customization
 
-logger = logging.getLogger("SessionManager")
+from app.backend import Backend
+from app.conf import Conf
+from app.customization import Customization
+from app.game_manager import GameManager
+
+logger = logging.getLogger(__name__)
 
 # Sessions expire after 24 hours of inactivity
 SESSION_TTL_SECONDS = 24 * 60 * 60
@@ -81,18 +82,26 @@ class SessionManager:
 
         If *conf* or *backend* are ``None`` and the session doesn't exist yet,
         sensible defaults are constructed from environment variables.
+
+        Backend and GameSession construction happen inside the global lock
+        only after a session-exists re-check: two racing callers on the
+        same OID cannot both allocate a ``Backend`` (``ThreadPoolExecutor``
+        + ``requests.Session``). Lock contention is bounded because the
+        fast path (existing session) never enters the construction block.
         """
+        def _apply_limits(session):
+            if points_limit is not None:
+                session.points_limit = points_limit
+            if points_limit_last_set is not None:
+                session.points_limit_last_set = points_limit_last_set
+            if sets_limit is not None:
+                session.sets_limit = sets_limit
+
         with cls._lock:
-            if oid in cls._sessions:
-                session = cls._sessions[oid]
+            session = cls._sessions.get(oid)
+            if session is not None:
                 session.touch()
-                # Update limits if explicitly provided
-                if points_limit is not None:
-                    session.points_limit = points_limit
-                if points_limit_last_set is not None:
-                    session.points_limit_last_set = points_limit_last_set
-                if sets_limit is not None:
-                    session.sets_limit = sets_limit
+                _apply_limits(session)
                 return session
 
             if conf is None:
@@ -100,15 +109,14 @@ class SessionManager:
                 conf.oid = oid
             if backend is None:
                 backend = Backend(conf)
-
-            session = GameSession(
+            new_session = GameSession(
                 oid, conf, backend,
                 points_limit=points_limit,
                 points_limit_last_set=points_limit_last_set,
                 sets_limit=sets_limit,
             )
-            cls._sessions[oid] = session
-            return session
+            cls._sessions[oid] = new_session
+            return new_session
 
     @classmethod
     def get(cls, oid):

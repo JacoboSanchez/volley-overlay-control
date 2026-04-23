@@ -13,36 +13,44 @@ services:
       - APP_TITLE=${APP_TITLE:-Scoreboard} #Optional
       - UNO_OVERLAY_OID=${UNO_OVERLAY_OID:-}
       - UNO_OVERLAY_OUTPUT=${UNO_OVERLAY_OUTPUT:-} #Optional (https://app.overlays.uno/output/<code>)
-      - UNO_OVERLAY_AIR_ID=${UNO_OVERLAY_AIR_ID:-} #Optional
-      - APP_CUSTOM_OVERLAY_URL=${APP_CUSTOM_OVERLAY_URL:-http://localhost:8000}
+      - APP_CUSTOM_OVERLAY_URL=${APP_CUSTOM_OVERLAY_URL:-} #Optional (external overlay server)
       - APP_CUSTOM_OVERLAY_OUTPUT_URL=${APP_CUSTOM_OVERLAY_OUTPUT_URL:-} #Optional
-      - APP_DARK_MODE=${APP_DARK_MODE:-auto}
+      - OVERLAY_PUBLIC_URL=${OVERLAY_PUBLIC_URL:-} #Optional (public URL for overlay links behind a reverse proxy)
       - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
       - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
       - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
       - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
+      - LOG_FORMAT=${LOG_FORMAT:-text} #Optional: text|json
+      - LOG_FILE=${LOG_FILE:-} #Optional: when set, also write JSON logs to this path
+      - LOG_FILE_MAX_BYTES=${LOG_FILE_MAX_BYTES:-10485760}
+      - LOG_FILE_BACKUPS=${LOG_FILE_BACKUPS:-5}
+      - LOG_REDACT=${LOG_REDACT:-1} #Optional: 0/false to disable PII redaction in dev
       - APP_TEAMS=${APP_TEAMS:-}
       - MATCH_GAME_POINTS=${MATCH_GAME_POINTS:-25}
       - MATCH_GAME_POINTS_LAST_SET=${MATCH_GAME_POINTS_LAST_SET:-15}
       - MATCH_SETS=${MATCH_SETS:-5}
       - PREDEFINED_OVERLAYS=${PREDEFINED_OVERLAYS:-}
       - HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=${HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED:-}
+      - OVERLAY_MANAGER_PASSWORD=${OVERLAY_MANAGER_PASSWORD:-} #Optional: unlocks the /manage admin page
       - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
-      - SCOREBOARD_LANGUAGE=${SCOREBOARD_LANGUAGE:-}
       - REST_USER_AGENT=${REST_USER_AGENT:-}
       - APP_THEMES=${APP_THEMES:-}
-      - APP_RELOAD=${APP_RELOAD:-false}
-      - APP_SHOW=${APP_SHOW:-false}
-      - AUTO_HIDE_ENABLED=${AUTO_HIDE_ENABLED:-false}
-      - DEFAULT_HIDE_TIMEOUT=${DEFAULT_HIDE_TIMEOUT:-5}
-      - AUTO_SIMPLE_MODE=${AUTO_SIMPLE_MODE:-false}
-      - AUTO_SIMPLE_MODE_TIMEOUT=${AUTO_SIMPLE_MODE_TIMEOUT:-false}
-      - SHOW_PREVIEW=${SHOW_PREVIEW:-false}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      # python:3.12-slim does not ship with curl; use urllib instead of
+      # installing an extra binary just for the probe.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health', timeout=5).status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
     volumes:
-      - ./:/app/
+      - overlay_data:/app/data
+    logging:
+      # Cap stdout/stderr capture so a chatty incident can't fill the host
+      # disk. Override DOCKER_LOG_MAX_SIZE / DOCKER_LOG_MAX_FILE in .env.
+      driver: json-file
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+volumes:
+  overlay_data:

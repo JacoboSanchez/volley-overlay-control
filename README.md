@@ -1,95 +1,88 @@
-# 🏐 Volley Overlay Control
+# Volley Overlay Control
 
 ![License](https://img.shields.io/badge/license-Apache%202-blue)
 ![Python](https://img.shields.io/badge/python-3.x-blue.svg)
-![NiceGUI](https://img.shields.io/badge/built%20with-NiceGUI-5898d4.svg)
+![FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)
 
-**Volley Overlay Control** is a powerful, self-hostable web application for controlling volleyball scoreboards. It works with *overlays.uno* cloud overlays and with fully custom, self-hosted overlay engines.
+**Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend, a FastAPI backend, and a **built-in overlay engine** into a single deployable service.
 
-It offers a user-friendly interface to manage every aspect of a volleyball match—scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes, making it the perfect solution for managing scoreboards across various events.
+It includes 16 overlay style templates served directly to OBS browser sources — no external overlay server required. It also works with *overlays.uno* cloud overlays and with fully custom, external overlay engines. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes.
 
 ---
 
-## ✨ Features
+## Features
 
-### 🎮 Complete Match Control
-*   **Score Management**: Easily manage points, sets, and timeouts for both teams.
-*   **Service Indicator**: Clearly indicate the serving team.
-*   **Undo Capability**: Mistake-proof your scoring with an undo button or a quick **double-tap** on any score/set button.
+### Complete Match Control
+*   **Score Management**: Manage points, sets, and timeouts for both teams via REST API.
+*   **Service Indicator**: Track the serving team.
+*   **Undo Capability**: Reverse any scoring action.
 *   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets).
-*   **Quick Edits**: Long press (1 second) to manually adjust set or point counters.
 
-### 🎨 Advanced Customization
-*   **Team Identity**: Customize team names, logos, and colors to match the teams playing.
+### Advanced Customization
+*   **Team Identity**: Customize team names, logos, and colors.
 *   **Scoreboard Layout**: Adjust dimensions (height, width) and position (horizontal, vertical).
-*   **Visual Effects**: Apply glossy/gradient effects for a premium look.
-*   **Logo Control**: Toggle team logos on or off.
-*   **Lock Settings**: Lock team colors and icons to prevent accidental changes during a match.
-*   **Themes**: Create, save, and load custom themes to switch styles instantly.
-*   **Adaptive Layout Options**: Customization dynamically adapts based on the loaded layout (e.g., hiding unnecessary color pickers or adjusting terminology for specific Championship overlays).
+*   **Visual Effects**: Apply glossy/gradient effects.
+*   **Themes**: Create, save, and load custom themes.
 
-### 👥 User and Overlay Management
-*   **Multi-User Support**: Secure access with password protection for multiple users.
-*   **Multi-Overlay Control**: Manage multiple overlays from a single application instance.
-*   **Overlay Library**: Select from a list of predefined overlays for quick setup.
+### User and Overlay Management
+*   **Multi-User Support**: Secure access with password-based API key authentication.
+*   **Multi-Overlay Control**: Manage multiple overlays from a single instance.
+*   **Overlay Library**: Select from predefined overlays for quick setup.
+*   **Custom Overlay Manager Page**: Dedicated, password-protected page at `/manage` to create, delete and clone custom (built-in engine) overlays at runtime — no need to use the `/create/overlay`, `/list/overlay` or `/delete/overlay` endpoints directly.
 
-### 🖥️ User-Friendly Interface
-*   **Progressive Web App (PWA)**: Install the scoreboard on mobile devices for a native, full-screen standalone experience.
-*   **Screen Wake Lock**: Automatically prevents the device screen from sleeping or turning off during an active match.
-*   **Dark Mode**: Native support for dark mode (Auto, On, Off).
-*   **Auto-Hide**: Automatically hide the scoreboard after a configurable timeout.
-*   **Simple Mode**: Automatically switch to a simplified view showing only the current set during gameplay, with smooth overlay animations for hiding previous set data.
-*   **Smart Timeout**: Option to switch back to full mode when a timeout is called.
-*   **Live Preview**: Toggle a real-time preview of the overlay directly in the control panel.
+### REST + WebSocket API
+*   **Session management** — initialise and manage game sessions
+*   **Game actions** — add points, sets, timeouts, change serve, reset matches
+*   **Display controls** — toggle overlay visibility and simple mode
+*   **Customization** — read and update team names, colors, logos
+*   **Real-time WebSocket** — receive instant state updates at `ws://<host>/api/v1/ws?oid=<OID>`
 *   **Internationalization**: Available in **English** and **Spanish**.
-*   **Local Overlay Output**: Feeds directly into a high-performance local web graphic engine (run via FastAPI) for low-latency TV-style graphics.
 
-### 🚀 Flexible Deployment
-*   **Local Execution**: Run locally as a standard Python application.
-*   **Docker Support**: Deploy easily using Docker containers.
-*   **Remote Access**: Expose to the internet using tunneling services (like ngrok).
+Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no users are configured, the API is open.
+
+For the full endpoint reference, request/response schemas, and WebSocket protocol, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
+
+### Built-In Overlay Engine
+*   **14 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `clear_jersey`, `compact`, `diagonal`, `esports`, `glass`, `neo_jersey`, `original`, `pill`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{id}?style=mosaic`.
+*   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{overlay_id}`) and receive 50ms-debounced state pushes — no polling needed.
+*   **Manage Overlays in One Place**: Create, copy and delete overlays from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`). Overlay IDs created there can be used directly as OIDs in the control UI; state is persisted to disk and served immediately.
+*   **Preset Themes**: Apply dark, light, esports, neo_jersey, split_jersey, or clear_jersey themes with one click.
+
+### Single-App Deployment
+*   **All-in-one**: The React control UI, Python backend, and overlay engine run as a single process from a single Docker image.
+*   **Local Execution**: Run locally as a standard Python application (with optional Vite dev server for frontend hot-reload).
+*   **Docker Support**: Deploy easily using a single Docker container — no nginx or reverse proxy required.
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 *   **Python 3.x**
-*   An account on **[overlays.uno](https://overlays.uno)**
-*   A volleyball scoreboard overlay added to your account from the *overlays.uno* library.
+*   **Node.js 20+** and **npm** (for building the frontend)
+*   *(Optional)* An account on **[overlays.uno](https://overlays.uno)** for cloud overlays. Not needed when using the built-in overlay engine.
 
-### 🛠️ Creating an Overlay
+### Creating an Overlay
 
 1.  **Login** to your *overlays.uno* account.
 2.  Navigate to [this overlay](https://overlays.uno/library/437-Volleyball-Scorebug---Standard) and click **Add to My Overlays**.
 3.  **Open your overlay** to get the necessary tokens:
     *   **Control URL**: Copy the URL. The part after `https://app.overlays.uno/control/` is your **`UNO_OVERLAY_OID`**.
-    *   _Note_: The application natively supports this `Standard` template alongside newer `Volleyball` layouts.
-4.  *(Optional)* For local-only setups, use the [NiceGUI On Air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air) feature. Get your token and use it as `UNO_OVERLAY_AIR_ID`.
 
-### ✨ Building a Custom Overlay
+### Using the Built-In Overlay Engine
 
-If you want to build and host your own completely custom graphical overlay (instead of using overlays.uno), please refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for details on the required HTTP API contract.
+The fastest way to get started is with the built-in overlay engine. Open the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`) to create an overlay — say, `mybroadcast` — then use that ID directly as the OID in the control UI. The system serves 14 selectable style templates at `/overlay/{id}` (plus the `mosaic` preview grid via `/overlay/{id}?style=mosaic`) and broadcasts state updates to OBS via WebSocket at `/ws/{id}`. No external server or account is required.
 
-### 🔌 REST API for Custom Frontends
+> **Backward compatibility:** the legacy `C-<id>` prefix (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer required and is omitted from the documentation and UI from now on.
 
-Volley Overlay Control exposes a REST + WebSocket API at `/api/v1/` that allows you to build alternative frontends using any JavaScript framework (React, Vue, Svelte, vanilla JS) or any HTTP client.
+### Building a Custom External Overlay
 
-The API provides:
-- **Session management** — initialise and manage game sessions
-- **Game actions** — add points, sets, timeouts, change serve, reset matches
-- **Display controls** — toggle overlay visibility and simple mode
-- **Customization** — read and update team names, colors, logos
-- **Real-time WebSocket** — receive instant state updates at `ws://<host>/api/v1/ws?oid=<OID>`
-
-Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no users are configured, the API is open.
-
-For the full endpoint reference, request/response schemas, WebSocket protocol, and a complete working JavaScript example, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
+If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot), you can point Remote-Scoreboard at an **external overlay server** by setting `APP_CUSTOM_OVERLAY_URL`. Refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for the API contract.
 
 ---
 
-## 📖 Usage
+## Usage
 
 ### Running Locally
 
@@ -97,40 +90,34 @@ For the full endpoint reference, request/response schemas, WebSocket protocol, a
     ```bash
     pip install -r requirements.txt
     ```
-2.  **Configure Environment Variables**:
-    Create a `.env` file in the root directory or export variables in your terminal. `UNO_OVERLAY_OID` is required.
 
-    **Option A: Using a `.env` file**
+2.  **Build the frontend**:
+    ```bash
+    cd frontend && npm ci && npm run build && cd ..
+    ```
+
+3.  **Configure Environment Variables**:
+    Create a `.env` file in the root directory or export variables in your terminal. `UNO_OVERLAY_OID` is required when using overlays.uno.
+
     ```env
     # .env file
     UNO_OVERLAY_OID=XXXXXXXX
     SCOREBOARD_USERS={"user1": {"password": "password1"}}
     ```
 
-    **Option B: Exporting Variables**
-    *Windows (CMD):*
-    ```cmd
-    set UNO_OVERLAY_OID=XXXXXXXX
-    python main.py
-    ```
-    *Linux/macOS:*
-    ```bash
-    export UNO_OVERLAY_OID=XXXXXXXX
-    python main.py
-    ```
-
-3.  **Start the Application**:
+4.  **Start the Application**:
     ```bash
     python main.py
     ```
-    NiceGUI will automatically open the scoreboard in your browser.
+    The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The control UI is available at `http://localhost:8080/`.
 
-4.  **Use a Custom Overlay Engine (Optional)**:
-    If using a self-hosted overlay instead of *overlays.uno*, set the `APP_CUSTOM_OVERLAY_URL` environment variable to your server's base URL and configure your overlay ID with the `C-` prefix (e.g., `C-mybroadcast`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the full API contract and a reference implementation.
+5.  **Use a Custom Overlay** — Create an overlay from the `/manage` page (set `OVERLAY_MANAGER_PASSWORD` first) and use its ID as the OID in the control UI. The overlay is accessible at `http://localhost:8080/overlay/{id}` for OBS browser sources. If you want to use an *external* overlay server instead, additionally set `APP_CUSTOM_OVERLAY_URL`. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for details.
 
-### Running with Docker 🐳
+> **Tip:** For frontend development with hot-reload, run `cd frontend && npm run dev` alongside `python main.py`. Vite serves on port 3000 and proxies API calls to the backend on port 8080.
 
-Use the provided `docker-compose.yml`.
+### Running with Docker
+
+The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then the result is copied into the Python image. No separate frontend container or nginx is needed.
 
 1.  Create a `.env` file:
     ```env
@@ -145,44 +132,40 @@ Use the provided `docker-compose.yml`.
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Configure the application using the following environment variables:
 
 | Variable | Description | Default Value |
 | :--- | :--- | :--- |
-| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. Required when using overlays.uno; a dialog will prompt if not set. Not needed when using a custom overlay (`C-` prefix). | |
+| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
-| `APP_CUSTOM_OVERLAY_URL` | The API URL for communicating with self-hosted custom overlays. | `http://localhost:8000` |
-| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | The external output URL for user-facing links. Falls back to `APP_CUSTOM_OVERLAY_URL`. | |
-| `APP_TITLE` | The title of the web page. | `Scoreboard` |
-| `APP_DARK_MODE` | Dark mode setting. Options: `on`, `off`, `auto`. | `auto` |
-| `APP_DEFAULT_LOGO` | URL of an image for teams without a predefined logo. | `https://...` |
+| `APP_TITLE` | Application title shown in the browser tab, the init screen heading and the PWA manifest. | `Volley Scoreboard` |
+| `APP_CUSTOM_OVERLAY_URL` | *(Optional)* Base URL of an external custom overlay server. When set, custom overlays use the external server instead of the built-in engine. | *(unset — built-in engine)* |
+| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | *(Optional)* Public-facing base URL for overlay links. Used to replace the host in output URLs when the overlay server is behind a proxy. | |
+| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
-| `MATCH_SETS` | Total sets in the match (best of N). First team to win `N/2 + 1` sets wins. | `5` |
+| `MATCH_SETS` | Total sets in the match (best of N). | `5` |
 | `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
-| `ENABLE_MULTITHREAD` | If `true`, API calls will not block the UI. | `true` |
+| `ENABLE_MULTITHREAD` | If `true`, overlay API calls run in a thread pool. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
-| `STORAGE_SECRET` | Secret key to encrypt user data in the browser. | |
-| `SCOREBOARD_LANGUAGE` | Language code (e.g., `es` for Spanish). | `en` |
+| `LOG_FORMAT` | Log output format: `text` (ANSI-coloured, for dev) or `json` (one JSON object per line, for log aggregators). | `text` |
+| `LOG_FILE` | *(Optional)* Path to a rotating log file. When set, a file handler is attached alongside stdout; when unset, logs go to stdout only. | |
+| `LOG_FILE_MAX_BYTES` | Rotation threshold for `LOG_FILE` in bytes. | `10485760` (10 MiB) |
+| `LOG_FILE_BACKUPS` | Number of rotated log files to retain. | `5` |
+| `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
 | `APP_TEAMS` | JSON with the list of predefined teams. | |
-| `SCOREBOARD_USERS` | JSON with the list of users and passwords. | |
+| `SCOREBOARD_USERS` | JSON with the list of users and passwords (also used as API keys). | |
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
+| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page. | |
+| `OVERLAY_SERVER_TOKEN` | *(Recommended)* Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). When unset the endpoints stay open and a warning is logged at startup. If you also run the control app against an **external** overlay server via `APP_CUSTOM_OVERLAY_URL`, set the same value on both sides. See [AUTHENTICATION.md](AUTHENTICATION.md) (F-3, F-5). | |
 | `APP_THEMES` | JSON with a list of customization themes. | |
-| `APP_RELOAD` | If `true`, automatically reload on code changes. | `false` |
-| `APP_SHOW` | If `true`, automatically opens the app in a new tab on startup. | `false` |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
-| `AUTO_HIDE_ENABLED` | If `true`, scoreboard hides after inactivity. | `false` |
-| `DEFAULT_HIDE_TIMEOUT` | Seconds to wait before hiding the scoreboard. | `5` |
-| `AUTO_SIMPLE_MODE` | If `true`, auto-switch to simplified view during gameplay. | `false` |
-| `AUTO_SIMPLE_MODE_TIMEOUT` | If `true`, switch back to full view on timeout. | `false` |
-| `SHOW_PREVIEW` | If `true`, shows a preview of the overlay on the control page. | `true` |
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
 | `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
-| `UNO_OVERLAY_AIR_ID` | NiceGUI On Air token for local-only setups (see [NiceGUI On Air](https://nicegui.io/documentation/section_configuration_deployment#nicegui_on_air)). | |
 | `UNO_OVERLAY_OUTPUT` | Custom output URL override for the overlay display link. | |
 
 <br>
@@ -207,7 +190,7 @@ List of predefined teams.
 ```
 
 #### `SCOREBOARD_USERS`
-List of allowed users.
+List of allowed users. Passwords double as API Bearer tokens.
 ```json
 {
     "user1": {"password": "password1"},
@@ -248,71 +231,120 @@ List of themes.
 }
 ```
 
+### Custom Overlay Manager Page
+
+Navigate to **`/manage`** (e.g. `http://localhost:8080/manage`) to open the
+custom overlay manager. It is independent from the scoreboard UI: it has
+its own URL and its own password prompt.
+
+From this page you can:
+
+*   **Create** a new custom overlay by name — the overlay's OID is
+    automatically `C-<name>`, and the built-in overlay engine persists its
+    state to `data/overlay_state_<name>.json`.
+*   **Clone** an existing custom overlay into a new one — the clone inherits
+    the source's colors, layout, preferred style and current state.
+*   **Delete** custom overlays no longer needed.
+
+You no longer need to call the `/create/overlay`, `/list/overlay` or
+`/delete/overlay` endpoints by hand for day-to-day management.
+
+Predefined overlay catalogues (for populating the scoreboard UI's overlay
+picker) are still configured exclusively through the `PREDEFINED_OVERLAYS`
+environment variable or the remote configurator (`REMOTE_CONFIG_URL`).
+
+#### Enabling the page
+
+Set the `OVERLAY_MANAGER_PASSWORD` environment variable to any non-empty
+value. When the variable is unset or empty, the page shows a "management
+disabled" notice and every admin endpoint returns HTTP 503.
+
+```env
+OVERLAY_MANAGER_PASSWORD=change-me
+```
+
+> **Security note**: `OVERLAY_MANAGER_PASSWORD` is a single shared password.
+> Treat it the same way you treat `SCOREBOARD_USERS` — do not expose the
+> service directly to the public internet without additional protection.
+
+### Overlay server token (`OVERLAY_SERVER_TOKEN`)
+
+When the built-in overlay server is mounted (i.e. the `overlay_templates/`
+directory is present), its mutation and config endpoints can be gated behind
+a Bearer token. Set `OVERLAY_SERVER_TOKEN` to any non-empty value and every
+request to the following routes must include
+`Authorization: Bearer <token>`:
+
+- `POST /api/state/{id}`
+- `GET` / `POST /create/overlay/{id}`
+- `GET` / `POST` / `DELETE /delete/overlay/{id}`
+- `GET` / `POST /api/raw_config/{id}`
+- `GET /api/config/{id}`
+- `POST /api/theme/{id}/{name}`
+
+When the variable is unset the routes stay open and a warning is logged at
+startup — existing deployments keep working unchanged.
+
+If the control app is pointed at an **external** overlay server via
+`APP_CUSTOM_OVERLAY_URL`, set `OVERLAY_SERVER_TOKEN` to the same value on
+both sides. The control app's `CustomOverlayBackend` forwards the token in
+every request it makes to the overlay server.
+
+The OBS capability URLs (`/overlay/{output_key}` and `/ws/{output_key}`) are
+intentionally **not** gated by this token — they are the public-by-design
+entry points that OBS loads.
+
+See [AUTHENTICATION.md](AUTHENTICATION.md) for the full route inventory.
+
 ### Remote Configuration
 Import configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup. Useful for centralized management.
 *   **Example Source**: [volleyball-scoreboard-configurator](https://github.com/JacoboSanchez/volleyball-scoreboard-configurator/)
 
-### Available Routes
+### Available Endpoints
 
-| Route | Description |
+| Endpoint | Description |
 | :--- | :--- |
-| `/` | Main control panel (default indoor mode). |
-| `/indoor` | Indoor volleyball mode (25 points/set, best of 5). |
-| `/beach` | Beach volleyball mode (21 points/set, best of 3). |
-| `/login` | Login page (only active when `SCOREBOARD_USERS` is configured). |
-| `/preview` | Full-page overlay preview (no authentication required). |
+| `/` | Control UI (React SPA) |
+| `/manage` | Custom overlay manager page (password-protected via `OVERLAY_MANAGER_PASSWORD`). |
+| `/api/v1/...` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
+| `/api/v1/app-config` | Runtime SPA bootstrap config (currently `{ title }`). Used by the control UI on load. |
+| `/api/v1/_log` | `POST` endpoint for SPA client-side error reports. Rate-limited per peer IP; unauthenticated by design. |
+| `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend) |
+| `/api/v1/admin/status` | `GET` — whether overlay management is enabled (`OVERLAY_MANAGER_PASSWORD` set). Unauthenticated. |
+| `/api/v1/admin/login` | `POST` — validate the admin Bearer token against `OVERLAY_MANAGER_PASSWORD`. |
+| `/api/v1/admin/custom-overlays` | List/create/delete custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`). |
+| `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |
+| `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
+| `/api/config/{id}` | Overlay config (output URL, available styles) |
+| `/api/themes` | List preset overlay themes |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
-### Overlay Loading Priority
-1.  **URL Parameter**: `?control=<your_oid>` (Highest priority)
-2.  **Saved Session**: Last valid overlay used.
-3.  **Environment Variable**: `UNO_OVERLAY_OID`
-4.  **Interactive Dialog**: Prompt user if no other source is found.
+For a full audit of every route and its authentication requirements
+(including the overlay server endpoints consumed by OBS and
+`CustomOverlayBackend`), see [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
 
-## 📸 Screenshots
-
-### Main Control Panel
-<p align="center">
-  <img width="909" height="389" alt="image" src="https://github.com/user-attachments/assets/3585b1ab-7611-4473-80b3-44f8e29b9ada" />
-</p>
-
-### Setup & Preview
-| Setup Panel | Preview Page |
-| :---: | :---: |
-| <img width="945" height="383" alt="image" src="https://github.com/user-attachments/assets/63c0c546-fe9b-446a-b69a-461df43abb34" /> | <img src="https://github.com/user-attachments/assets/a1abbfa8-4e01-4f3f-a128-07bf71f8b5e4" width="100%" /> |
-
-### Dialogs
-| Configuration Dialog | Links Dialog |
-| :---: | :---: |
-| <img width="904" height="293" alt="image" src="https://github.com/user-attachments/assets/3930da7f-ed6e-4198-9789-e20761bddeea" /> | <img src="https://github.com/user-attachments/assets/2ca28187-ee74-436f-acfa-ca09605b82ed" width="100%" /> |
-
-### Example Overlay
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/152a586c-1aaa-4c30-b969-c15884097d04" width="100%" />
-</p>
-
----
-
-## 🔧 Troubleshooting
+## Troubleshooting
 
 | Issue | Solution |
 | :--- | :--- |
-| App won't start / blank page | Verify `UNO_OVERLAY_OID` is set correctly. Check the browser console for errors. |
-| Overlay not updating | Ensure the overlay control token is valid and matches the correct layout. Try clicking "Reload data" in the control panel. |
+| App won't start | Verify `UNO_OVERLAY_OID` is set correctly. Check logs for errors. |
+| Overlay not updating | Ensure the overlay control token is valid. Try calling `POST /api/v1/session/init` again. |
 | Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
 | "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
-| Custom overlay not receiving updates | Verify `APP_CUSTOM_OVERLAY_URL` is reachable. Overlay IDs must start with `C-`. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+| Custom overlay not receiving updates | Overlay IDs must start with `C-`. For built-in overlays, check that `overlay_templates/` exists. For external overlays, verify `APP_CUSTOM_OVERLAY_URL` is reachable. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Here's how to get started:
 
 1.  **Fork** the repository and create a feature branch.
-2.  **Install dependencies** and ensure tests pass (`pytest tests/`).
+2.  **Install dependencies** and ensure tests pass:
+    - Backend: `pip install -r requirements.txt && pytest tests/`
+    - Frontend: `cd frontend && npm ci && npm test`
 3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
 4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.
 
@@ -320,13 +352,13 @@ For custom overlay development, see [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md).
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 This software was developed as a personal project and is provided **as-is**. It was built iteratively and may lack comprehensive error handling.
 

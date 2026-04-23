@@ -1,15 +1,47 @@
 import copy
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
-
-from app.state import State
-from app.overlay_backends import (
-    UnoOverlayBackend,
-    CustomOverlayBackend,
-    is_custom_overlay,
-)
+from contextlib import contextmanager
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from app.env_vars_manager import EnvVarsManager
+from app.overlay_backends import (
+    CustomOverlayBackend,
+    LocalOverlayBackend,
+    OverlayKind,
+    UnoOverlayBackend,
+    resolve_overlay_kind,
+)
+from app.state import State
+
+# TTL for the in-memory customization cache. Overlay customization (team names,
+# colors, geometry) rarely changes during a match, but if an operator edits it
+# in another tab or via the admin panel a stale cache would delay propagation
+# for the duration of the match. 60s balances freshness against the cost of
+# extra GET round-trips on every save.
+_CUSTOMIZATION_CACHE_TTL_SECONDS = 60.0
+
+# Warn when a single remote overlay call exceeds this duration. Conservative so
+# it only fires on real slowdowns, not on a cold-start connection setup.
+_REMOTE_CALL_WARN_MS = 500.0
+
+
+@contextmanager
+def _timed(label: str, logger: logging.Logger):
+    """Log perf_counter-based duration at DEBUG, or WARNING above the threshold."""
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if elapsed_ms > _REMOTE_CALL_WARN_MS:
+            logger.warning('%s slow: %.1fms', label, elapsed_ms)
+        else:
+            logger.debug('%s took %.1fms', label, elapsed_ms)
 
 
 class Backend:
@@ -29,44 +61,96 @@ class Backend:
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/plain, */*'
         })
+        # Pool sized for ThreadPoolExecutor (max_workers=5) plus the foreground
+        # request thread, with headroom. Retry covers transient 5xx/connection
+        # hiccups from the overlay server without masking real failures — the
+        # short per-call timeouts (2-5 s) keep the worst case bounded.
+        _adapter = HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=20,
+            max_retries=Retry(
+                total=2,
+                backoff_factor=0.3,
+                status_forcelist=(502, 503, 504),
+                allowed_methods=frozenset(["GET", "PUT", "POST"]),
+                raise_on_status=False,
+            ),
+        )
+        self.session.mount("http://", _adapter)
+        self.session.mount("https://", _adapter)
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._customization_cache = None
+        self._customization_cache_ts = 0.0
         self._overlay = self._create_overlay_backend()
 
-    def _create_overlay_backend(self, oid=None):
-        """Instantiate the right overlay backend for the given OID."""
+    def _remember_customization(self, data):
+        """Store a copy of *data* in the cache so callers can't mutate it."""
+        self._customization_cache = data.copy() if data is not None else None
+        self._customization_cache_ts = time.monotonic()
+
+    def _fresh_customization_cache(self):
+        """Return a fresh copy of the cached customization, or None if stale."""
+        if self._customization_cache is None:
+            return None
+        if (time.monotonic() - self._customization_cache_ts) > _CUSTOMIZATION_CACHE_TTL_SECONDS:
+            return None
+        return self._customization_cache.copy()
+
+    @staticmethod
+    def _local_overlay_exists(overlay_id: str) -> bool:
+        from app.overlay import overlay_state_store
+        return bool(overlay_id) and overlay_state_store.overlay_exists(overlay_id)
+
+    def _resolve_kind(self, oid=None) -> OverlayKind:
         check_oid = oid if oid is not None else self.conf.oid
-        if is_custom_overlay(check_oid):
-            backend = CustomOverlayBackend(self.conf, self.session)
+        return resolve_overlay_kind(check_oid, self._local_overlay_exists)
+
+    def _create_overlay_backend(self, oid=None):
+        """Instantiate the right overlay backend for the given OID.
+
+        Custom overlays use ``LocalOverlayBackend`` (in-process) by default;
+        when ``APP_CUSTOM_OVERLAY_URL`` is set, ``CustomOverlayBackend``
+        (external server) is used instead. Anything else (including OIDs
+        that fail to resolve) falls back to ``UnoOverlayBackend`` so that
+        validation can later report INVALID via the cloud REST API.
+        """
+        if self._resolve_kind(oid) == OverlayKind.CUSTOM:
+            external_url = EnvVarsManager.get_env_var(
+                'APP_CUSTOM_OVERLAY_URL', None
+            )
+            if external_url:
+                backend = CustomOverlayBackend(self.conf, self.session)
+            else:
+                backend = LocalOverlayBackend(self.conf)
             backend._build_payload = self._build_overlay_payload
             return backend
         return UnoOverlayBackend(self.conf, self.session)
 
     def _ensure_overlay_backend(self, oid=None):
         """Re-create the overlay backend if the OID type changed."""
-        check_oid = oid if oid is not None else self.conf.oid
-        is_custom = is_custom_overlay(check_oid)
+        is_custom = self._resolve_kind(oid) == OverlayKind.CUSTOM
         if is_custom != self._overlay.is_custom:
             self._overlay.close_ws_client()
-            self._overlay = self._create_overlay_backend(check_oid)
+            self._overlay = self._create_overlay_backend(oid)
 
     # -- Public interface (used by GameManager, GameSession, routes, GUI) ----
 
     def is_custom_overlay(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
-        return is_custom_overlay(check_oid)
+        return self._resolve_kind(oid) == OverlayKind.CUSTOM
 
     def get_custom_overlay_id(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
-        if is_custom_overlay(check_oid):
-            return CustomOverlayBackend.get_overlay_id(check_oid)
+        if self._resolve_kind(check_oid) == OverlayKind.CUSTOM:
+            # Both LocalOverlayBackend and CustomOverlayBackend share
+            # the same static get_overlay_id parser.
+            return LocalOverlayBackend.get_overlay_id(check_oid)
         return check_oid, None
 
     # -- WebSocket lifecycle (delegated) ------------------------------------
 
     def init_ws_client(self, oid=None):
         check_oid = oid if oid is not None else self.conf.oid
-        if not is_custom_overlay(check_oid):
+        if self._resolve_kind(check_oid) != OverlayKind.CUSTOM:
             return
         self._ensure_overlay_backend(check_oid)
         self._overlay.init_ws_client(check_oid)
@@ -75,9 +159,16 @@ class Backend:
         self._overlay.close_ws_client()
 
     def shutdown(self):
+        # Close the WebSocket first so no new tasks are submitted that would
+        # race with the executor drain below.
         self._overlay.shutdown()
-        if hasattr(self, 'executor') and self.executor:
-            self.executor.shutdown(wait=False)
+        executor = getattr(self, 'executor', None)
+        if executor is None:
+            return
+        # wait=True so in-flight overlay saves aren't abandoned mid-request.
+        # cancel_futures=False preserves the queued tasks (queued saves will
+        # run before the executor finally exits).
+        executor.shutdown(wait=True, cancel_futures=False)
 
     @property
     def ws_connected(self):
@@ -99,9 +190,9 @@ class Backend:
         from app.customization import Customization
 
         if customization_state is None:
+            cached = self._fresh_customization_cache()
             customization_state = (
-                self._customization_cache
-                if self._customization_cache is not None
+                cached if cached is not None
                 else (self.get_current_customization() or {})
             )
         cust = Customization(customization_state)
@@ -214,9 +305,10 @@ class Backend:
     # -- Model persistence --------------------------------------------------
 
     def save_model(self, current_model, simple):
-        Backend.logger.info('saving model...')
+        Backend.logger.debug('saving model...')
         self._ensure_overlay_backend()
-        self._overlay.save_model(current_model)
+        with _timed('save_model.model', Backend.logger):
+            self._overlay.save_model(current_model)
 
         to_save = copy.copy(current_model)
         if simple:
@@ -225,34 +317,41 @@ class Backend:
         if self.conf.id == State.CHAMPIONSHIP_LAYOUT_ID:
             to_save["Sets Display"] = str(to_save.get(State.CURRENT_SET_INT, "1"))
 
+        # Wrap the push inside the callable so the timing span runs where the
+        # call actually executes — either inline (sync) or on the executor
+        # thread (multithread). Otherwise the multithread branch would only
+        # measure `executor.submit` (microseconds) and the WARNING threshold
+        # would never fire even on a genuinely slow remote save.
+        def _push():
+            with _timed('save_model.push', Backend.logger):
+                self._overlay.push_model_update(
+                    current_model, to_save, show_only_current_set=simple,
+                )
+
         if self.conf.multithread:
-            self.executor.submit(
-                self._overlay.push_model_update, current_model, to_save,
-                show_only_current_set=simple,
-            )
+            self.executor.submit(_push)
         else:
-            self._overlay.push_model_update(
-                current_model, to_save, show_only_current_set=simple,
-            )
-        Backend.logger.info('saved')
+            _push()
 
     def reduce_games_to_one(self):
         self._ensure_overlay_backend()
         self._overlay.reduce_games_to_one()
 
     def save_json_model(self, to_save):
-        Backend.logger.info('saving JSON model...')
+        Backend.logger.debug('saving JSON model...')
         self._ensure_overlay_backend()
         self._overlay.send_json_model(to_save)
 
     def save_json_customization(self, to_save):
-        Backend.logger.info('saving JSON customization...')
+        Backend.logger.debug('saving JSON customization...')
         self._ensure_overlay_backend()
-        self._customization_cache = to_save
+        self._remember_customization(to_save)
 
         self._overlay.save_customization(to_save)
 
-        get_model = lambda: self.get_current_model(self.conf.oid)
+        def get_model():
+            return self.get_current_model(self.conf.oid)
+
         if self.conf.multithread:
             self.executor.submit(
                 self._overlay.on_customization_saved, get_model, to_save,
@@ -271,18 +370,20 @@ class Backend:
 
     def get_current_model(self, customOid=None, saveResult=False):
         oid = customOid if customOid is not None else self.conf.oid
-        Backend.logger.info('getting state for oid %s', oid)
-        self._ensure_overlay_backend(oid)
-        return self._overlay.get_model(oid=oid, save_result=saveResult)
+        Backend.logger.debug('getting state for oid %s', oid)
+        with _timed('get_current_model', Backend.logger):
+            self._ensure_overlay_backend(oid)
+            return self._overlay.get_model(oid=oid, save_result=saveResult)
 
     def get_current_customization(self, customOid=None):
-        Backend.logger.info('getting customization')
-        oid = customOid if customOid is not None else self.conf.oid
-        self._ensure_overlay_backend(oid)
-        data = self._overlay.get_customization(oid=oid)
-        if data is not None:
-            self._customization_cache = data
-        return data
+        Backend.logger.debug('getting customization')
+        with _timed('get_current_customization', Backend.logger):
+            oid = customOid if customOid is not None else self.conf.oid
+            self._ensure_overlay_backend(oid)
+            data = self._overlay.get_customization(oid=oid)
+            if data is not None:
+                self._remember_customization(data)
+            return data
 
     def is_visible(self):
         self._ensure_overlay_backend()
@@ -339,8 +440,8 @@ class Backend:
                 show_only_current_set=show_only_current_set,
             )
             self._overlay.send_overlay_state(payload)
-        except Exception as e:
-            Backend.logger.error("Error updating local overlay: %s", e)
+        except Exception:
+            Backend.logger.exception("Error updating local overlay")
 
     # -- Uno-specific pass-through (used by legacy code paths) ----
 
@@ -358,12 +459,11 @@ class Backend:
 
     def do_send_request(self, oid, jsonin):
         """Direct request to the Uno API (legacy compatibility)."""
-        if is_custom_overlay(oid):
-            from app.overlay_backends import _mock_response
+        from app.overlay_backends import _mock_response
+        if self._resolve_kind(oid) != OverlayKind.UNO:
             return _mock_response(200)
 
         if isinstance(self._overlay, UnoOverlayBackend):
             return self._overlay._do_request(oid, jsonin)
 
-        from app.overlay_backends import _mock_response
         return _mock_response(200)

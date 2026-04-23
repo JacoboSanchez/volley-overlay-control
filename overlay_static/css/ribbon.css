@@ -1,0 +1,310 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap');
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --set-bg: rgba(255,255,255,0.08);
+    --set-text: #FFFFFF;
+    --game-bg: #111111;
+    --game-text: #FFFFFF;
+}
+
+body {
+    margin: 0; padding: 0;
+    background: transparent;
+    width: 1920px; height: 1080px;
+    overflow: hidden;
+    font-family: 'Oswald', sans-serif;
+}
+
+/* ── Container — single horizontal ribbon ── */
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: row;
+    height: 58px;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Hidden: history ── */
+.set-history-container {
+    display: none;
+}
+
+/* ── Logo container (always visible) ── */
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.team-logo {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+    border-radius: 50%;
+}
+
+/* ── Team sides ── */
+.team {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    height: 100%;
+}
+
+/* Home: content pushed toward center (flex-end) */
+.team-home {
+    background: var(--home-primary);
+    padding: 0 18px 0 12px;
+    justify-content: flex-end;
+}
+
+/* Away: content flows left from center */
+.team-away {
+    background: var(--away-primary);
+    padding: 0 12px 0 18px;
+    justify-content: flex-start;
+}
+
+/* ── Serving indicator — hidden; serve is shown by the center triangle ── */
+.serving-indicator {
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+/* ── Timeouts (vertical bars) ── */
+.timeout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.timeout-dot {
+    width: 4px;
+    height: 14px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.2);
+    transition: background 0.3s ease;
+}
+
+.team-home .timeout-dot.active { background: var(--home-secondary); }
+.team-away .timeout-dot.active { background: var(--away-secondary); }
+
+/* ── Team name ── */
+/*
+    flex: 1 lets the panel grow to fill the team side naturally so
+    the name is never clipped by a hard pixel cap. app.js's
+    equalizeNamePanels() then makes both sides the same width via
+    CSS Grid + shadow elements, regardless of which name is longer.
+*/
+.team-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.team-name {
+    font-size: 22px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+
+.team-home .team-name { color: var(--home-secondary); }
+.team-away .team-name { color: var(--away-secondary); }
+
+/* ── Center block (sets + points + vs) ── */
+.center-block {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    background: var(--game-bg);
+    flex-shrink: 0;
+}
+
+/* ── Sets won (inside center-block) ── */
+.sets {
+    width: 42px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+    color: #999999;
+    background: #1a1a1a;
+    flex-shrink: 0;
+}
+
+#home-sets { border-right: 2px solid #000000; }
+#away-sets  { border-left:  2px solid #000000; }
+
+/* ── Serve triangles (replace VS text) ── */
+/*
+    ::before  ◄  points left  — lights up when home serves
+    ::after   ►  points right — lights up when away serves
+    Both are always visible; the inactive one is barely visible,
+    the active one is bright. No shape change, only brightness.
+*/
+.vs-divider {
+    width: 40px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+
+.vs-divider::before,
+.vs-divider::after {
+    content: '';
+    display: block;
+    width: 12px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.15);  /* dim default */
+    transition: background 0.30s ease;
+}
+
+/* ◄ left triangle — home team indicator */
+.vs-divider::before {
+    clip-path: polygon(100% 0%, 0% 50%, 100% 100%);
+}
+
+/* ► right triangle — away team indicator */
+.vs-divider::after {
+    clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+}
+
+/* Home serves → left triangle bright */
+.scoreboard:has(#home-serving.active) .vs-divider::before {
+    background: rgba(255, 255, 255, 0.90);
+}
+
+/* Away serves → right triangle bright */
+.scoreboard:has(#away-serving.active) .vs-divider::after {
+    background: rgba(255, 255, 255, 0.90);
+}
+
+/* ── Points ── */
+.points-container {
+    background: var(--game-bg);
+    width: 60px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.points {
+    font-size: 38px;
+    font-weight: 700;
+    position: absolute;
+    color: var(--game-text);
+}
+
+/* ========================================================================
+   COMPACT MODE — show_only_current_set = true
+   Collapses team names and reveals team icons.
+   The .compact-mode class is toggled by app.js.
+   ======================================================================== */
+
+.compact-mode .team-info {
+    flex: 0;
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+
+/* ── Ticker ── */
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 56px;
+    background: linear-gradient(90deg, transparent, rgba(8,8,20,0.92) 10%, rgba(8,8,20,0.92) 90%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    border-radius: 8px;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-size: 26px;
+    font-weight: 700;
+    color: #f0f0f0;
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}
+
+/* ── Player stats ── */
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: rgba(8,8,20,0.92);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    padding: 18px;
+    min-width: 280px;
+    opacity: 0;
+    border-left: 5px solid var(--home-primary);
+}
+
+.player-stats-title {
+    font-size: 18px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 22px;
+    margin-top: 8px;
+    font-weight: bold;
+}
+
+.player-stats-label { color: #aaa; }
+.player-stats-value { color: #fff; }

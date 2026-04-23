@@ -1,9 +1,12 @@
-import unittest
-from unittest.mock import patch, Mock
-import os
 import json
+import os
+import unittest
+from unittest.mock import Mock, patch
+
 import requests
+
 from app.env_vars_manager import EnvVarsManager
+
 
 class TestEnvVarsManager(unittest.TestCase):
 

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/vertical.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    <div id="scoreboard-container" class="scoreboard">
+
+        <!-- Home team block (top) -->
+        <div class="team team-home">
+            <div class="logo-container">
+                <img class="team-logo" id="home-logo" src="" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="team-info">
+                <div class="team-name" id="home-name">HOME</div>
+            </div>
+            <div class="timeout-container" id="home-timeouts">
+                <div class="timeout-dot"></div>
+                <div class="timeout-dot"></div>
+            </div>
+            <div class="set-history-container" id="home-history"></div>
+        </div>
+
+        <!-- Score block (center) -->
+        <div class="score-block">
+            <div class="points-container">
+                <div class="points" id="home-points">0</div>
+            </div>
+            <span class="score-dash">–</span>
+            <div class="points-container">
+                <div class="points" id="away-points">0</div>
+            </div>
+        </div>
+
+        <!-- Sets row -->
+        <div class="sets-row">
+            <div class="sets" id="home-sets">0</div>
+            <div class="serving-indicator-container">
+                <div class="serving-indicator home-serving" id="home-serving"></div>
+                <div class="serving-indicator away-serving" id="away-serving"></div>
+            </div>
+            <div class="sets" id="away-sets">0</div>
+        </div>
+
+        <!-- Away team block (bottom) -->
+        <div class="team team-away">
+            <div class="logo-container">
+                <img class="team-logo" id="away-logo" src="" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="team-info">
+                <div class="team-name" id="away-name">AWAY</div>
+            </div>
+            <div class="timeout-container" id="away-timeouts">
+                <div class="timeout-dot"></div>
+                <div class="timeout-dot"></div>
+            </div>
+            <div class="set-history-container" id="away-history"></div>
+        </div>
+
+    </div>
+{% endblock %}

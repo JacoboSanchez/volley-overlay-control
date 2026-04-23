@@ -1,12 +1,14 @@
-import pytest
-import sys
-import os
 import json
+import os
+import sys
+
+import pytest
 
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.customization import Customization
+
 
 @pytest.fixture
 def customization():
@@ -75,7 +77,7 @@ def test_geometry_setters(customization):
 
     customization.set_v_pos(10.0)
     assert customization.get_v_pos() == 10.0
-    
+
     # Test that it handles string inputs correctly
     customization.set_width("42.7")
     assert customization.get_width() == 42.7
@@ -113,10 +115,10 @@ def test_set_nonexistent_theme(customization, monkeypatch):
     """Tests that applying a nonexistent theme does not change the model."""
     themes = {"Real Theme": {"Width": 99.0}}
     monkeypatch.setattr(Customization, "THEMES", themes)
-    
+
     initial_model = customization.get_model().copy()
     customization.set_theme("Fake Theme")
-    
+
     assert customization.get_model() == initial_model
 
 def test_direct_model_manipulation(customization):
@@ -151,10 +153,11 @@ def test_predefined_teams_loading(monkeypatch):
         "Sharks": {"icon": "shark.png", "color": "#CCCCCC", "text_color": "#000000"}
     })
     monkeypatch.setenv("APP_TEAMS", teams_json)
-    
+
     # The teams are loaded at class level, so we need to reload the module
     # to see the change. This is an advanced technique.
     import importlib
+
     import app.customization as cust_module
     importlib.reload(cust_module)
     cust_module.Customization.refresh()
@@ -171,6 +174,7 @@ def test_predefined_themes_loading(monkeypatch):
     monkeypatch.setenv("APP_THEMES", themes_json)
 
     import importlib
+
     import app.customization as cust_module
     importlib.reload(cust_module)
     cust_module.Customization.refresh()

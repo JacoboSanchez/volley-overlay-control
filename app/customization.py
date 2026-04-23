@@ -1,6 +1,10 @@
-from app.messages import Messages
 import json
+import logging
+
 from app.env_vars_manager import EnvVarsManager
+
+logger = logging.getLogger(__name__)
+
 
 class Customization:
 
@@ -31,8 +35,8 @@ class Customization:
     COLOR3 = "Color 3"
     TEXT_COLOR3 = "Text Color 3"
     PREFERRED_STYLE = "preferredStyle"
-    LOCAL_NAME = Messages.get(Messages.LOCAL)
-    VISITOR_NAME = Messages.get(Messages.VISITOR)
+    LOCAL_NAME = "Local"
+    VISITOR_NAME = "Visitor"
 
     TEAM_VALUES_ICON = "icon"
     TEAM_VALUES_COLOR = "color"
@@ -40,14 +44,14 @@ class Customization:
     DEFAULT_IMAGE= EnvVarsManager.get_env_var('APP_DEFAULT_LOGO', 'https://cdn-icons-png.flaticon.com/512/7788/7788863.png')
 
 
-    RESET_COLORS = { 
+    RESET_COLORS = {
         SET_COLOR: "#2a2f35",
         GAME_COLOR: "#ffffff",
         COLOR3: "0055ff",
         SET_TEXT_COLOR: "#ffffff",
         GAME_TEXT_COLOR: "#2a2f35",
         TEXT_COLOR3: "FFFFFF"
-    }   
+    }
 
 
     reset_state = {
@@ -78,26 +82,26 @@ class Customization:
     def refresh():
         provided_teams_json = EnvVarsManager.get_env_var('APP_TEAMS', None)
 
-        if provided_teams_json == None or provided_teams_json == '':
+        if provided_teams_json is None or provided_teams_json == '':
             Customization.predefined_teams = {
                 Customization.LOCAL_NAME: {Customization.TEAM_VALUES_ICON:Customization.DEFAULT_IMAGE, Customization.TEAM_VALUES_COLOR:"#060f8a", Customization.TEAM_VALUES_TEXT_COLOR:"#ffffff"},
                 Customization.VISITOR_NAME: {Customization.TEAM_VALUES_ICON:Customization.DEFAULT_IMAGE, Customization.TEAM_VALUES_COLOR:"#ffffff", Customization.TEAM_VALUES_TEXT_COLOR:"#000000"},
             }
-        else: 
+        else:
             try:
                 Customization.predefined_teams = json.loads(provided_teams_json)
             except json.JSONDecodeError:
-                print(f"Error decoding TEAMS from environment variable: {provided_teams_json}")
+                logger.warning("Malformed APP_TEAMS env var; ignoring value")
                 Customization.predefined_teams = {}
-        
-        
+
+
         provided_themes_json = EnvVarsManager.get_env_var('APP_THEMES', None)
         Customization.THEMES = {}
         if provided_themes_json:
             try:
                 Customization.THEMES = json.loads(provided_themes_json)
             except json.JSONDecodeError:
-                print(f"Error decoding THEMES from environment variable: {provided_themes_json}")
+                logger.warning("Malformed APP_THEMES env var; ignoring value")
 
 
 
@@ -107,7 +111,7 @@ class Customization:
 
     def get_model(self):
         return self.customization_model
-    
+
     def set_model(self, new_model):
         self.customization_model = new_model
 
@@ -116,19 +120,19 @@ class Customization:
             return self.customization_model.get(Customization.T1_COLOR, "#060f8a")
         else:
             return self.customization_model.get(Customization.T2_COLOR, "#ffffff")
-    
+
     def get_team_text_color(self, team):
         if team == 1:
             return self.customization_model.get(Customization.T1_TEXT_COLOR, "#ffffff")
         else:
             return self.customization_model.get(Customization.T2_TEXT_COLOR, "#000000")
-        
+
     def get_team_logo(self, team):
         if team == 1:
             return Customization.fix_icon(self.customization_model.get(Customization.T1_LOGO, Customization.DEFAULT_IMAGE))
         else:
             return Customization.fix_icon(self.customization_model.get(Customization.T2_LOGO, Customization.DEFAULT_IMAGE))
-        
+
     def set_team_text_color(self, team, color):
         if team == 1:
             self.customization_model[Customization.T1_TEXT_COLOR] = color
@@ -139,8 +143,8 @@ class Customization:
         if team == 1:
             self.customization_model[Customization.T1_COLOR] = color
         else:
-            self.customization_model[Customization.T2_COLOR] = color            
-        
+            self.customization_model[Customization.T2_COLOR] = color
+
     def set_team_logo(self, team, logo):
         if team == 1:
             self.customization_model[Customization.T1_LOGO] = logo
@@ -160,21 +164,21 @@ class Customization:
     def get_set_color(self):
         return self.customization_model[Customization.SET_COLOR]
 
-    
+
     def get_game_color(self):
         return self.customization_model[Customization.GAME_COLOR]
 
     def get_set_text_color(self):
         return self.customization_model[Customization.SET_TEXT_COLOR]
 
-    
+
     def get_game_text_color(self):
         return self.customization_model[Customization.GAME_TEXT_COLOR]
 
     def set_set_color(self, color):
         self.customization_model[Customization.SET_COLOR] = color
 
-    
+
     def set_game_color(self, color):
         self.customization_model[Customization.GAME_COLOR] = color
 
@@ -184,11 +188,11 @@ class Customization:
     def get_team_name(self, team):
         old_key = Customization.A_TEAM if team == 1 else Customization.B_TEAM
         new_key = "Team 1 Name" if team == 1 else "Team 2 Name"
-        
+
         if old_key in self.customization_model:
             return self.customization_model[old_key]
         return self.customization_model.get(new_key, "")
-    
+
     def set_team_name(self, team, name):
         old_key = Customization.A_TEAM if team == 1 else Customization.B_TEAM
         new_key = "Team 1 Name" if team == 1 else "Team 2 Name"
@@ -197,10 +201,10 @@ class Customization:
             self.customization_model[old_key] = name
         else:
             self.customization_model[new_key] = name
-    
+
     def is_show_logos(self):
         return self.customization_model.get(Customization.LOGOS_BOOL, "true")
-    
+
     def set_show_logos(self, value):
         self.customization_model[Customization.LOGOS_BOOL] = value
 
@@ -212,7 +216,7 @@ class Customization:
         return self.customization_model.get(Customization.GLOSS_EFFECT_BOOL, False)
 
     def set_glossy(self, value):
-        self.customization_model[Customization.GLOSS_EFFECT_BOOL] = value                    
+        self.customization_model[Customization.GLOSS_EFFECT_BOOL] = value
 
     def get_preferred_style(self):
         return self.customization_model.get(Customization.PREFERRED_STYLE, None)

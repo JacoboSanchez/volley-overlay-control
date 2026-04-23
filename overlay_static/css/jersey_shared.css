@@ -1,0 +1,47 @@
+/* ── Shared jersey tokens and icon styles ────────────────────
+   Imported by jersey-family themes; override via each theme's :root.
+──────────────────────────────────────────────────────────── */
+:root {
+    --nm-bg:          #e0e5ec;
+    --nm-shadow-dark: rgba(163, 177, 198, 0.60);
+    --nm-shadow-lite: rgba(255, 255, 255, 0.85);
+    --nm-inset-dark:  rgba(163, 177, 198, 0.50);
+    --nm-inset-lite:  rgba(255, 255, 255, 0.80);
+    --nm-text:        #31344b;
+    --nm-text-dim:    #777b96;
+    --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jersey-icon {
+    flex-shrink: 0;
+    /* T-shirt silhouette */
+    clip-path: polygon(
+        25%   0%,
+        75%   0%,
+        100%  25%,
+        85%   35%,
+        85%   100%,
+        15%   100%,
+        15%   35%,
+        0%    25%
+    );
+    /* Full shirt with diagonal secondary-color band (one third) */
+    background: linear-gradient(
+        135deg,
+        var(--home-primary)   42%,
+        var(--home-secondary) 42%,
+        var(--home-secondary) 58%,
+        var(--home-primary)   58%
+    );
+    transition: background 0.3s ease;
+}
+
+.team-away .jersey-icon {
+    background: linear-gradient(
+        135deg,
+        var(--away-primary)   42%,
+        var(--away-secondary) 42%,
+        var(--away-secondary) 58%,
+        var(--away-primary)   58%
+    );
+}

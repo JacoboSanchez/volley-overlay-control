@@ -1,64 +1,31 @@
-"""Tests for the REST API layer (app/api/)."""
-import pytest
-import json
-from unittest.mock import patch, MagicMock
+"""Tests for the REST API layer (app/api/).
 
-from app.api.session_manager import SessionManager, GameSession
+Shared fixtures (``mock_conf``, ``api_backend``, ``api_session``,
+``clean_sessions``) live in ``tests/conftest.py``.
+"""
+import json
+
+import pytest
+
 from app.api.game_service import GameService
-from app.api.ws_hub import WSHub
 from app.api.schemas import GameStateResponse
+from app.api.session_manager import GameSession, SessionManager
 from app.state import State
 
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-def _load_fixture(name):
-    import os
-    path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
-    with open(path) as f:
-        return json.load(f)
+# Apply clean_sessions to every test in this module.
+pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
-@pytest.fixture(autouse=True)
-def clean_sessions():
-    """Ensure a clean SessionManager and WSHub for every test."""
-    SessionManager.clear()
-    WSHub.clear()
-    yield
-    SessionManager.clear()
-    WSHub.clear()
+# Local aliases so existing tests keep their short fixture names without
+# duplicating the fixture definitions.
+@pytest.fixture
+def mock_backend(api_backend):
+    return api_backend
 
 
 @pytest.fixture
-def mock_conf():
-    conf = MagicMock()
-    conf.oid = 'test-oid'
-    conf.output = None
-    conf.points = 25
-    conf.points_last_set = 15
-    conf.sets = 5
-    conf.multithread = False
-    conf.rest_user_agent = 'test'
-    conf.id = 'test-layout'
-    conf.single_overlay = True
-    return conf
-
-
-@pytest.fixture
-def mock_backend():
-    backend = MagicMock()
-    backend.get_current_model.return_value = _load_fixture('base_model')
-    backend.get_current_customization.return_value = _load_fixture('base_customization')
-    backend.is_visible.return_value = True
-    backend.is_custom_overlay.return_value = False
-    return backend
-
-
-@pytest.fixture
-def session(mock_conf, mock_backend):
-    return SessionManager.get_or_create('test-oid', mock_conf, mock_backend)
+def session(api_session):
+    return api_session
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +125,21 @@ class TestGameService:
         assert result.success is True
         assert result.state.team_1.scores['set_1'] == 10
 
+    def test_set_score_rejects_set_number_over_limit(self, session):
+        # Default mock_conf has sets_limit=5; 6 must be rejected.
+        result = GameService.set_score(session, team=1, set_number=6, value=10)
+        assert result.success is False
+        assert 'out of range' in (result.message or '')
+        # State must be unchanged.
+        assert result.state.team_1.scores['set_1'] == 0
+
+    def test_set_score_rejects_set_number_below_one(self, session):
+        # Sets use 1-based indexing; 0 and negative values are invalid.
+        result = GameService.set_score(session, team=1, set_number=0, value=10)
+        assert result.success is False
+        assert 'out of range' in (result.message or '')
+        assert result.state.team_1.scores['set_1'] == 0
+
     def test_set_sets_value(self, session):
         result = GameService.set_sets_value(session, team=1, value=2)
         assert result.success is True
@@ -198,6 +180,46 @@ class TestGameService:
         new_data = {"Team 1 Color": "#ff0000"}
         result = GameService.update_customization(session, new_data)
         assert result.success is True
+
+    def test_refresh_customization_caches_within_ttl(self, session):
+        """Back-to-back refreshes within the TTL must hit the backend once."""
+        session.backend.get_current_customization.reset_mock()
+        GameService.refresh_customization(session)
+        GameService.refresh_customization(session)
+        GameService.refresh_customization(session)
+        # The first call actually fetches; the next two short-circuit.
+        assert session.backend.get_current_customization.call_count == 1
+
+    def test_refresh_customization_first_call_always_fetches(self, session):
+        """First refresh on a fresh session must hit the backend even when
+        ``time.monotonic()`` returns a small value (e.g. right after boot).
+
+        A sentinel-``None`` default prevents the ``now - last < TTL``
+        comparison from accidentally short-circuiting on the very first call.
+        """
+        # Explicitly ensure the timestamp has never been set.
+        assert not hasattr(session, "_last_customization_fetch") or \
+            session._last_customization_fetch is None
+        session.backend.get_current_customization.reset_mock()
+        GameService.refresh_customization(session)
+        assert session.backend.get_current_customization.call_count == 1
+
+    def test_refresh_customization_refetches_after_ttl(self, session, monkeypatch):
+        """Once the cache window expires, refresh hits the backend again."""
+        import app.api.game_service as gs
+        # Shrink the TTL so the test is quick; existing session state wins.
+        monkeypatch.setattr(gs, "CUSTOMIZATION_CACHE_TTL_SECONDS", 0.0)
+        session.backend.get_current_customization.reset_mock()
+        GameService.refresh_customization(session)
+        GameService.refresh_customization(session)
+        assert session.backend.get_current_customization.call_count == 2
+
+    def test_update_customization_primes_cache(self, session):
+        """A write must prevent the immediate next refresh from re-fetching."""
+        GameService.update_customization(session, {"Team 1 Color": "#ff0000"})
+        session.backend.get_current_customization.reset_mock()
+        GameService.refresh_customization(session)
+        session.backend.get_current_customization.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

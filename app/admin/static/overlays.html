@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Custom Overlay Manager</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-alt: #fafafa;
+    --border: #d0d0d8;
+    --text: #1a1a2e;
+    --muted: #666;
+    --accent: #1976d2;
+    --accent-hover: #125aa3;
+    --danger: #c62828;
+    --danger-hover: #8e1e1e;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a2e;
+      --surface: #24243a;
+      --surface-alt: #2b2b44;
+      --border: #3a3a55;
+      --text: #e6e6ef;
+      --muted: #a0a0b0;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 1rem 2rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow);
+  }
+  header h1 { margin: 0; font-size: 1.3rem; }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+  }
+  .card h2 { margin-top: 0; font-size: 1.1rem; }
+  label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; color: var(--muted); }
+  input[type="text"], input[type="password"], select {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-alt);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+  .field { margin-bottom: 0.9rem; }
+  button {
+    padding: 0.55rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  button.secondary:hover { background: var(--surface-alt); }
+  button.danger { background: var(--danger); }
+  button.danger:hover { background: var(--danger-hover); }
+  .toolbar { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+  .status {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+  }
+  .status.error { background: rgba(198, 40, 40, 0.12); color: var(--danger); }
+  .status.success { background: rgba(56, 142, 60, 0.12); color: #2e7d32; }
+  .status.info { background: rgba(25, 118, 210, 0.12); color: var(--accent); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+  }
+  th, td {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    word-break: break-word;
+  }
+  th { font-weight: 600; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  td code {
+    background: var(--surface-alt);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+  }
+  .actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
+  .actions button { padding: 0.35rem 0.7rem; font-size: 0.85rem; }
+  .empty { text-align: center; color: var(--muted); padding: 2rem 0; font-style: italic; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem; z-index: 10;
+  }
+  .modal {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 1.5rem;
+    width: 100%; max-width: 520px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
+  .modal h2 { margin-top: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Custom Overlay Manager</h1>
+  <div>
+    <span id="loggedInHint" class="muted hidden">Authenticated</span>
+    <button id="logoutBtn" class="secondary hidden">Log out</button>
+  </div>
+</header>
+<main>
+  <div id="disabledView" class="card hidden">
+    <h2>Overlay management disabled</h2>
+    <p class="muted">
+      Set the <code>OVERLAY_MANAGER_PASSWORD</code> environment variable and
+      restart the server to enable this page.
+    </p>
+  </div>
+
+  <div id="loginView" class="card hidden">
+    <h2>Enter admin password</h2>
+    <p class="muted">This page is protected. Enter the password configured in
+      <code>OVERLAY_MANAGER_PASSWORD</code> to continue.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required />
+      </div>
+      <div id="loginError" class="status error hidden"></div>
+      <div class="toolbar">
+        <button type="submit" id="loginBtn">Unlock</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="adminView" class="hidden">
+    <div id="statusMsg" class="status hidden"></div>
+
+    <div class="card">
+      <h2>Custom overlays</h2>
+      <p class="muted">
+        Custom overlays are served by the built-in overlay engine and live at
+        <code>/overlay/&lt;output_key&gt;</code>. Use the OID shown below when
+        pointing the scoreboard controller at an overlay.
+      </p>
+      <div class="toolbar" style="justify-content: flex-start;">
+        <button id="newBtn">+ New overlay</button>
+        <button id="refreshBtn" class="secondary">Refresh</button>
+      </div>
+      <div id="overlayList"></div>
+    </div>
+  </div>
+
+  <!-- Create modal -->
+  <div id="createModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h2>New custom overlay</h2>
+      <form id="createForm">
+        <div class="field">
+          <label for="field-name">Name *</label>
+          <input type="text" id="field-name" required
+                 pattern="[A-Za-z0-9_.\-]+"
+                 placeholder="mybroadcast" />
+          <small class="muted">
+            Letters, digits, '-', '_' and '.' only. The name is used directly as the OID.
+          </small>
+        </div>
+        <div class="field">
+          <label for="field-copy">Copy configuration from (optional)</label>
+          <select id="field-copy">
+            <option value="">— Start from defaults —</option>
+          </select>
+          <small class="muted">
+            Clones the selected overlay's colors, layout and current state.
+          </small>
+        </div>
+        <div id="createError" class="status error hidden"></div>
+        <div class="toolbar">
+          <button type="button" id="cancelBtn" class="secondary">Cancel</button>
+          <button type="submit" id="saveBtn">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  // Admin password lives only in this closure variable so it is not
+  // persisted to localStorage/sessionStorage. A page refresh re-prompts
+  // the operator; this avoids clear-text storage of sensitive data.
+  const API = '/api/v1/admin';
+  let password = '';
+  let cachedOverlays = [];
+
+  const $ = (id) => document.getElementById(id);
+
+  const disabledView = $('disabledView');
+  const loginView = $('loginView');
+  const adminView = $('adminView');
+  const loginForm = $('loginForm');
+  const loginBtn = $('loginBtn');
+  const loginError = $('loginError');
+  const passwordInput = $('password');
+  const logoutBtn = $('logoutBtn');
+  const loggedInHint = $('loggedInHint');
+  const overlayList = $('overlayList');
+  const newBtn = $('newBtn');
+  const refreshBtn = $('refreshBtn');
+  const statusMsg = $('statusMsg');
+  const createModal = $('createModal');
+  const createForm = $('createForm');
+  const createError = $('createError');
+  const cancelBtn = $('cancelBtn');
+  const fieldName = $('field-name');
+  const fieldCopy = $('field-copy');
+
+  function showStatus(text, kind) {
+    statusMsg.textContent = text;
+    statusMsg.className = 'status ' + (kind || 'info');
+    if (!text) statusMsg.classList.add('hidden');
+    else {
+      statusMsg.classList.remove('hidden');
+      setTimeout(() => { statusMsg.classList.add('hidden'); }, 4000);
+    }
+  }
+
+  function setPassword(pw) { password = pw || ''; }
+
+  function showError(el, message) {
+    el.textContent = message;
+    el.classList.remove('hidden');
+  }
+  function clearError(el) {
+    el.textContent = '';
+    el.classList.add('hidden');
+  }
+
+  async function apiCall(method, path, body) {
+    const opts = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + password,
+      },
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const res = await fetch(API + path, opts);
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        const data = await res.json();
+        if (data && data.detail) detail = data.detail;
+      } catch (_) { /* ignore */ }
+      const err = new Error(detail);
+      err.status = res.status;
+      throw err;
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  function showView(which) {
+    disabledView.classList.toggle('hidden', which !== 'disabled');
+    loginView.classList.toggle('hidden', which !== 'login');
+    adminView.classList.toggle('hidden', which !== 'admin');
+    logoutBtn.classList.toggle('hidden', which !== 'admin');
+    loggedInHint.classList.toggle('hidden', which !== 'admin');
+  }
+
+  async function bootstrap() {
+    let statusInfo;
+    try {
+      const res = await fetch(API + '/status');
+      statusInfo = await res.json();
+    } catch (err) {
+      showView('login');
+      showError(loginError, 'Could not reach the server: ' + err.message);
+      return;
+    }
+    if (!statusInfo || !statusInfo.enabled) {
+      showView('disabled');
+      return;
+    }
+    showView('login');
+    passwordInput.focus();
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError(loginError);
+    const pw = passwordInput.value;
+    if (!pw) return;
+    setPassword(pw);
+    loginBtn.disabled = true;
+    try {
+      await apiCall('POST', '/login');
+      showView('admin');
+      passwordInput.value = '';
+      await loadOverlays();
+    } catch (err) {
+      setPassword('');
+      showError(loginError, err.status === 503
+        ? 'Overlay management is disabled on the server.'
+        : 'Invalid password.');
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
+
+  logoutBtn.addEventListener('click', () => {
+    setPassword('');
+    showView('login');
+    passwordInput.value = '';
+    passwordInput.focus();
+  });
+
+  async function loadOverlays() {
+    overlayList.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const overlays = await apiCall('GET', '/custom-overlays');
+      cachedOverlays = Array.isArray(overlays) ? overlays : [];
+      renderOverlays(cachedOverlays);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403) {
+        setPassword('');
+        showView('login');
+        return;
+      }
+      overlayList.innerHTML = '<p class="status error">' + escapeHtml(err.message) + '</p>';
+    }
+  }
+
+  function renderOverlays(overlays) {
+    if (!overlays || overlays.length === 0) {
+      overlayList.innerHTML = '<p class="empty">No custom overlays yet. Click “New overlay” to add one.</p>';
+      return;
+    }
+    const rows = overlays.map((o) => `
+        <tr data-id="${escapeAttr(o.id)}">
+          <td><strong>${escapeHtml(o.id)}</strong></td>
+          <td><code>${escapeHtml(o.oid)}</code></td>
+          <td><code>${escapeHtml(o.output_key)}</code></td>
+          <td class="actions">
+            <button class="secondary" data-action="copy">Copy</button>
+            <button class="danger" data-action="delete">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    overlayList.innerHTML = `
+      <table>
+        <thead>
+          <tr><th>Name</th><th>OID</th><th>Output key</th><th></th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+    overlayList.querySelectorAll('button[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tr = btn.closest('tr');
+        const id = tr.getAttribute('data-id');
+        if (btn.dataset.action === 'copy') openCreate(id);
+        if (btn.dataset.action === 'delete') confirmDelete(id);
+      });
+    });
+  }
+
+  newBtn.addEventListener('click', () => openCreate(null));
+  refreshBtn.addEventListener('click', loadOverlays);
+  cancelBtn.addEventListener('click', closeCreate);
+  createModal.addEventListener('click', (e) => {
+    if (e.target === createModal) closeCreate();
+  });
+
+  function openCreate(copyFromId) {
+    clearError(createError);
+    fieldName.value = '';
+    // Rebuild the copy-from dropdown from the current list.
+    fieldCopy.innerHTML = '<option value="">— Start from defaults —</option>';
+    cachedOverlays.forEach((o) => {
+      const opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = o.id;
+      fieldCopy.appendChild(opt);
+    });
+    fieldCopy.value = copyFromId || '';
+    createModal.classList.remove('hidden');
+    setTimeout(() => fieldName.focus(), 50);
+  }
+
+  function closeCreate() {
+    createModal.classList.add('hidden');
+  }
+
+  createForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError(createError);
+    const body = {
+      name: fieldName.value.trim(),
+      copy_from: fieldCopy.value || null,
+    };
+    if (!body.name) {
+      showError(createError, 'Name is required.');
+      return;
+    }
+    try {
+      await apiCall('POST', '/custom-overlays', body);
+      showStatus('Overlay created.', 'success');
+      closeCreate();
+      await loadOverlays();
+    } catch (err) {
+      showError(createError, err.message || 'Could not create overlay.');
+    }
+  });
+
+  async function confirmDelete(id) {
+    if (!window.confirm(`Delete overlay “${id}”? This removes its persisted state.`)) return;
+    try {
+      await apiCall('DELETE', '/custom-overlays/' + encodeURIComponent(id));
+      showStatus('Overlay deleted.', 'success');
+      await loadOverlays();
+    } catch (err) {
+      showStatus(err.message || 'Could not delete overlay.', 'error');
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

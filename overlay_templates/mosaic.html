@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overlay Mosaic — {{ target_id }}</title>
+    <link rel="stylesheet" href="/static/css/mosaic.css?v={{ v }}">
+</head>
+<body>
+
+    <div class="mosaic-grid" id="mosaic-grid">
+        <!-- Populated by JS -->
+    </div>
+
+    <script>
+        const OVERLAY_ID = "{{ target_id }}";
+        window.OVERLAY_STYLE = "{{ style }}";
+        // Server-rendered from the overlay router's template context so the
+        // page does not need to call /api/config/ (which is gated by
+        // OVERLAY_SERVER_TOKEN).
+        const AVAILABLE_STYLES = {{ available_styles | tojson }};
+
+        // Track render bounds reported by each iframe (style → bounds)
+        const iframeBounds = new Map();
+
+        function buildGrid(styles) {
+            const grid = document.getElementById("mosaic-grid");
+            grid.innerHTML = "";
+
+            styles.forEach(style => {
+                const cell = document.createElement("div");
+                cell.className = "mosaic-cell";
+
+                const label = document.createElement("div");
+                label.className = "mosaic-label";
+                label.textContent = style;
+
+                const wrapper = document.createElement("div");
+                wrapper.className = "mosaic-iframe-wrapper";
+
+                const iframe = document.createElement("iframe");
+                iframe.src = `/overlay/${OVERLAY_ID}?style=${style}`;
+                iframe.loading = "lazy";
+                iframe.dataset.style = style;
+                iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+
+                wrapper.appendChild(iframe);
+                cell.appendChild(label);
+                cell.appendChild(wrapper);
+                grid.appendChild(cell);
+            });
+        }
+
+        // Max cell height in px — tall overlays (e.g. vertical) are scaled down to stay within this
+        const MAX_CELL_HEIGHT = 200;
+
+        function cropToOverlay(iframe, bounds) {
+            const wrapper = iframe.parentElement;
+            if (!wrapper) return;
+
+            // Padding around the overlay area
+            const pad = 15;
+            const ox = Math.max(0, bounds.x - pad);
+            const oy = Math.max(0, bounds.y - pad);
+            const ow = Math.min(1920 - ox, bounds.width + pad * 2);
+            const oh = Math.min(1080 - oy, bounds.height + pad * 2);
+
+            if (ow <= 0 || oh <= 0) return;
+
+            // Scale to fit width, but also cap by MAX_CELL_HEIGHT so tall overlays
+            // don't dominate the grid — use whichever scale is smaller.
+            const cellWidth = wrapper.clientWidth;
+            const scaleW = cellWidth / ow;
+            const scaleH = MAX_CELL_HEIGHT / oh;
+            const scale = Math.min(scaleW, scaleH);
+
+            // Set wrapper height to match the cropped aspect ratio
+            wrapper.style.height = Math.round(oh * scale) + "px";
+
+            // Transform: first translate the overlay to (0,0), then scale down.
+            // CSS transforms apply right-to-left, so translate runs first.
+            iframe.style.transformOrigin = "0 0";
+            iframe.style.transform = `scale(${scale}) translate(${-ox}px, ${-oy}px)`;
+        }
+
+        // Listen for render-area reports from overlay iframes (sent by app.js reportRenderArea)
+        window.addEventListener("message", (event) => {
+            if (!event.data || event.data.type !== "overlayRenderArea") return;
+            const bounds = event.data.bounds;
+            if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
+
+            const iframes = document.querySelectorAll(".mosaic-iframe-wrapper iframe");
+            for (const iframe of iframes) {
+                if (iframe.contentWindow === event.source) {
+                    iframeBounds.set(iframe.dataset.style, bounds);
+                    cropToOverlay(iframe, bounds);
+                    break;
+                }
+            }
+        });
+
+        // Recalculate on resize
+        window.addEventListener("resize", () => {
+            document.querySelectorAll(".mosaic-iframe-wrapper iframe").forEach(iframe => {
+                const bounds = iframeBounds.get(iframe.dataset.style);
+                if (bounds) cropToOverlay(iframe, bounds);
+            });
+        });
+
+        buildGrid(AVAILABLE_STYLES);
+    </script>
+</body>
+</html>

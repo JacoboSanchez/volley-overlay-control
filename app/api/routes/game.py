@@ -1,0 +1,92 @@
+"""POST /game/* — game actions (points, sets, timeouts, serve, reset)."""
+
+from fastapi import APIRouter, Depends
+
+from app.api.dependencies import get_session, verify_api_key
+from app.api.game_service import GameService
+from app.api.schemas import (
+    ActionResponse,
+    ServeRequest,
+    SetScoreRequest,
+    SetSetsRequest,
+    TeamActionRequest,
+)
+from app.api.session_manager import GameSession
+
+router = APIRouter()
+
+
+@router.post(
+    "/game/add-point",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def add_point(req: TeamActionRequest,
+                    session: GameSession = Depends(get_session)):
+    async with session.lock:
+        return GameService.add_point(session, req.team, req.undo)
+
+
+@router.post(
+    "/game/add-set",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def add_set(req: TeamActionRequest,
+                  session: GameSession = Depends(get_session)):
+    async with session.lock:
+        return GameService.add_set(session, req.team, req.undo)
+
+
+@router.post(
+    "/game/add-timeout",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def add_timeout(req: TeamActionRequest,
+                      session: GameSession = Depends(get_session)):
+    async with session.lock:
+        return GameService.add_timeout(session, req.team, req.undo)
+
+
+@router.post(
+    "/game/change-serve",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def change_serve(req: ServeRequest,
+                       session: GameSession = Depends(get_session)):
+    async with session.lock:
+        return GameService.change_serve(session, req.team)
+
+
+@router.post(
+    "/game/set-score",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def set_score(req: SetScoreRequest,
+                    session: GameSession = Depends(get_session)):
+    async with session.lock:
+        return GameService.set_score(session, req.team, req.set_number, req.value)
+
+
+@router.post(
+    "/game/set-sets",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def set_sets(req: SetSetsRequest,
+                   session: GameSession = Depends(get_session)):
+    async with session.lock:
+        return GameService.set_sets_value(session, req.team, req.value)
+
+
+@router.post(
+    "/game/reset",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def reset_game(session: GameSession = Depends(get_session)):
+    async with session.lock:
+        return GameService.reset(session)

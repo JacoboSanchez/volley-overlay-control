@@ -1,16 +1,17 @@
 # tests/test_ws_client.py
 """Tests for WebSocket client and Backend WS integration."""
-import pytest
-import sys
 import os
-from unittest.mock import patch, MagicMock
+import sys
+import time
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.backend import Backend
 from app.conf import Conf
 from app.ws_client import WSControlClient
-
 
 # --- WSControlClient unit tests ---
 
@@ -96,6 +97,22 @@ class TestWSControlClient:
         assert client.obs_client_count == 2
         callback.assert_called_once()
 
+    def test_is_connected_detects_zombie(self):
+        """is_connected flips to False when no inbound traffic for > deadline."""
+        from app import ws_client as ws_mod
+        client = WSControlClient("test", "ws://localhost:8002/ws/control/test")
+        client._connected = True
+        # Simulate last inbound traffic older than the zombie deadline.
+        client._last_inbound_ts = time.monotonic() - (ws_mod._ZOMBIE_DEADLINE + 5)
+        assert client.is_connected is False
+
+    def test_is_connected_within_deadline(self):
+        """is_connected stays True while inbound traffic is fresh."""
+        client = WSControlClient("test", "ws://localhost:8002/ws/control/test")
+        client._connected = True
+        client._last_inbound_ts = time.monotonic()
+        assert client.is_connected is True
+
     def test_disconnect_cleans_up(self):
         """disconnect() clears connection state."""
         client = WSControlClient("test", "ws://localhost:8002/ws/control/test")
@@ -137,8 +154,14 @@ def backend(conf, mock_requests_session):
     return Backend(conf)
 
 
+@patch.dict(os.environ, {"APP_CUSTOM_OVERLAY_URL": "http://localhost:8000"})
 class TestBackendWSIntegration:
-    """Tests for Backend's WebSocket-first behavior."""
+    """Tests for Backend's WebSocket-first behavior with external overlay server.
+
+    These tests verify CustomOverlayBackend (HTTP/WebSocket to external server).
+    APP_CUSTOM_OVERLAY_URL is set to force Backend to select CustomOverlayBackend
+    instead of LocalOverlayBackend.
+    """
 
     def _ensure_custom_overlay(self, backend, conf):
         """Helper: switch backend to CustomOverlayBackend for C- OID."""

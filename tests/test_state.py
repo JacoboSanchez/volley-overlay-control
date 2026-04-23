@@ -1,12 +1,14 @@
-import pytest
-import sys
-import os
 import copy
+import os
+import sys
+
+import pytest
 
 # Add the project's root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.state import State
+
 
 @pytest.fixture
 def state():
@@ -54,7 +56,7 @@ def test_reset_model_is_immutable(state):
     """Tests that modifying the retrieved reset_model doesn't affect the class's original."""
     my_reset = state.get_reset_model()
     my_reset[State.T1SETS_INT] = '99'
-    
+
     fresh_reset = state.get_reset_model()
     assert fresh_reset[State.T1SETS_INT] == '0'
 
@@ -83,11 +85,11 @@ def test_get_and_set_sets(state):
 
 def test_get_and_set_game(state):
     """Tests the getter and setter for game scores across all possible sets."""
-    state.set_game(set=1, team=1, value=15)
+    state.set_game(set_num=1, team=1, value=15)
     assert state.get_game(1, 1) == 15
     assert state.get_current_model()[State.T1SET1_INT] == '15'
 
-    state.set_game(set=5, team=2, value=10)
+    state.set_game(set_num=5, team=2, value=10)
     assert state.get_game(2, 5) == 10
     assert state.get_current_model()[State.T2SET5_INT] == '10'
 
@@ -101,7 +103,7 @@ def test_get_and_set_current_serve(state):
 def test_set_current_set(state):
     """Tests setting the current set number."""
     state.set_current_set(4)
-    assert state.get_current_model()[State.CURRENT_SET_INT] == 4
+    assert state.get_current_model()[State.CURRENT_SET_INT] == '4'
 
 # --- simplify_model Scenarios ---
 
@@ -142,7 +144,7 @@ def test_simplify_model_when_current_set_is_one(state):
     model[State.T1SET1_INT] = '5'
     model[State.T2SET1_INT] = '7'
     model[State.T1SET2_INT] = '2' # Some leftover score
-    
+
     simplified = State.simplify_model(copy.copy(model))
 
     # Scores for set 1 should remain
@@ -184,7 +186,6 @@ def test_getters_with_invalid_keys(state):
         state.get_game(1, 6)
 
 def test_setters_with_invalid_values(state):
-    """Tests that setters handle non-integer values gracefully, and getters might fail."""
-    state.set_timeout(1, "invalid")
+    """Tests that setters reject non-integer values with a ValueError."""
     with pytest.raises(ValueError):
-        state.get_timeout(1)
+        state.set_timeout(1, "invalid")
