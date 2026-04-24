@@ -249,6 +249,498 @@ const translations: Record<string, TranslationDict> = {
     // Language
     'lang.label': 'Idioma',
   },
+  pt: {
+    // Init screen
+    'app.title': 'Placar de Vôlei',
+    'app.oidLabel': 'ID de Controle do Overlay (OID)',
+    'app.oidPlaceholder': 'meu-overlay',
+    'app.connect': 'Conectar',
+    'app.selectOverlay': 'Selecionar Overlay',
+    'app.selectOverlayPlaceholder': '— Selecionar —',
+    'app.orManualOid': 'ou inserir o OID manualmente',
+
+    // Dialog
+    'dialog.ok': 'OK',
+    'dialog.cancel': 'Cancelar',
+    'dialog.setScore': 'Pontuação — Equipe {team}',
+    'dialog.setSets': 'Sets vencidos — Equipe {team}',
+
+    // Control buttons
+    'ctrl.hideOverlay': 'Ocultar overlay',
+    'ctrl.showOverlay': 'Mostrar overlay',
+    'ctrl.hidePreview': 'Ocultar prévia',
+    'ctrl.showPreview': 'Mostrar prévia',
+    'ctrl.fullScoreboard': 'Placar completo',
+    'ctrl.simpleScoreboard': 'Placar simples',
+    'ctrl.undoOn': 'Modo desfazer ATIVO',
+    'ctrl.undoOff': 'Modo desfazer INATIVO',
+    'ctrl.fullscreen': 'Tela cheia',
+    'ctrl.exitFullscreen': 'Sair da tela cheia',
+    'ctrl.lightMode': 'Modo claro',
+    'ctrl.darkMode': 'Modo escuro',
+    'ctrl.config': 'Configuração',
+
+    // Config panel
+    'config.title': 'Config',
+    'config.backToScoreboard': 'Voltar ao placar',
+    'config.save': 'Salvar',
+    'config.saveCustomization': 'Salvar personalização',
+    'config.failedToSave': 'Erro ao salvar personalização',
+    'config.reloadFromServer': 'Recarregar do servidor',
+    'config.reloadConfirm': 'Recarregar personalização do servidor?',
+    'config.resetMatch': 'Reiniciar partida',
+    'config.resetConfirm': 'Reiniciar a partida?',
+    'config.logout': 'Sair',
+    'config.logoutConfirm': 'Desconectar e voltar à entrada do OID?',
+
+    // Config sections
+    'section.teams': 'Equipes',
+    'section.overlay': 'Estilo do Overlay',
+    'section.position': 'Posição e Tamanho',
+    'section.buttons': 'Aparência dos Botões',
+    'section.behavior': 'Comportamento',
+    'section.links': 'Links',
+
+    // Teams section
+    'teams.select': '— Selecionar —',
+    'teams.customPlaceholder': 'Nome personalizado da equipe...',
+    'teams.backToList': 'Voltar à lista',
+    'teams.customName': 'Nome personalizado',
+    'teams.color': 'Cor',
+    'teams.text': 'Texto',
+
+    // Overlay section
+    'overlay.logos': 'Logos',
+    'overlay.gradient': 'Degradê',
+    'overlay.setColor': 'Cor do Set',
+    'overlay.setText': 'Texto do Set',
+    'overlay.gameColor': 'Cor do Jogo',
+    'overlay.gameText': 'Texto do Jogo',
+    'overlay.styleLabel': 'Estilo do Overlay',
+    'overlay.style': '— Estilo —',
+    'overlay.preloadedConfigLabel': 'Config. Predefinida',
+    'overlay.selectAndLoad': '— Selecionar e Carregar —',
+
+    // Position section
+    'position.height': 'Altura',
+    'position.width': 'Largura',
+    'position.hPos': 'Pos H',
+    'position.vPos': 'Pos V',
+    'position.decrease': 'Diminuir',
+    'position.increase': 'Aumentar',
+    'position.links': 'Links',
+
+    // Links dialog
+    'links.title': 'Links',
+    'links.control': 'Controle',
+    'links.overlay': 'Overlay',
+    'links.preview': 'Prévia',
+    'links.copyToClipboard': 'Copiar para área de transferência',
+    'links.close': 'Fechar',
+    'links.noLinks': 'Não há links disponíveis para esta sessão.',
+
+    // Buttons section
+    'buttons.followTeamColors': 'Seguir cores da equipe',
+    'buttons.t1Btn': 'Btn E1',
+    'buttons.t1Text': 'Texto E1',
+    'buttons.t2Btn': 'Btn E2',
+    'buttons.t2Text': 'Texto E2',
+    'buttons.resetColors': 'Redefinir cores',
+    'buttons.showTeamIcon': 'Mostrar ícone da equipe',
+    'buttons.opacity': 'Opacidade: {value}%',
+    'buttons.buttonFont': 'Fonte dos botões',
+
+    // Behavior section
+    'behavior.autoHide': 'Ocultar placar automaticamente',
+    'behavior.hideAfter': 'Ocultar após {value}s',
+    'behavior.autoSimple': 'Modo simples automático',
+    'behavior.fullOnTimeout': 'Modo completo no pedido de tempo',
+    'behavior.showPreview': 'Mostrar prévia do overlay',
+
+    // Preview
+    'preview.title': 'Prévia do overlay',
+    'preview.zoomIn': 'Ampliar',
+    'preview.zoomOut': 'Reduzir',
+    'preview.missingOutput': 'Nenhuma URL de saída do overlay foi fornecida.',
+    'preview.styleOverride': 'Estilo da prévia (não altera o overlay)',
+    'preview.styleDefault': 'Estilo padrão',
+
+    // Color picker
+    'colorPicker.presets': 'Predefinidos',
+    'colorPicker.recent': 'Recentes',
+
+    // Language
+    'lang.label': 'Idioma',
+  },
+  it: {
+    // Init screen
+    'app.title': 'Tabellone Volley',
+    'app.oidLabel': 'ID Controllo Overlay (OID)',
+    'app.oidPlaceholder': 'mio-overlay',
+    'app.connect': 'Connetti',
+    'app.selectOverlay': 'Seleziona Overlay',
+    'app.selectOverlayPlaceholder': '— Seleziona —',
+    'app.orManualOid': 'o inserisci l’OID manualmente',
+
+    // Dialog
+    'dialog.ok': 'OK',
+    'dialog.cancel': 'Annulla',
+    'dialog.setScore': 'Punteggio — Squadra {team}',
+    'dialog.setSets': 'Set vinti — Squadra {team}',
+
+    // Control buttons
+    'ctrl.hideOverlay': 'Nascondi overlay',
+    'ctrl.showOverlay': 'Mostra overlay',
+    'ctrl.hidePreview': 'Nascondi anteprima',
+    'ctrl.showPreview': 'Mostra anteprima',
+    'ctrl.fullScoreboard': 'Tabellone completo',
+    'ctrl.simpleScoreboard': 'Tabellone semplice',
+    'ctrl.undoOn': 'Modalità annulla ATTIVA',
+    'ctrl.undoOff': 'Modalità annulla DISATTIVA',
+    'ctrl.fullscreen': 'Schermo intero',
+    'ctrl.exitFullscreen': 'Esci da schermo intero',
+    'ctrl.lightMode': 'Modalità chiara',
+    'ctrl.darkMode': 'Modalità scura',
+    'ctrl.config': 'Configurazione',
+
+    // Config panel
+    'config.title': 'Config',
+    'config.backToScoreboard': 'Torna al tabellone',
+    'config.save': 'Salva',
+    'config.saveCustomization': 'Salva personalizzazione',
+    'config.failedToSave': 'Errore nel salvataggio della personalizzazione',
+    'config.reloadFromServer': 'Ricarica dal server',
+    'config.reloadConfirm': 'Ricaricare la personalizzazione dal server?',
+    'config.resetMatch': 'Reimposta partita',
+    'config.resetConfirm': 'Reimpostare la partita?',
+    'config.logout': 'Esci',
+    'config.logoutConfirm': 'Disconnettersi e tornare all’inserimento OID?',
+
+    // Config sections
+    'section.teams': 'Squadre',
+    'section.overlay': 'Stile Overlay',
+    'section.position': 'Posizione e Dimensione',
+    'section.buttons': 'Aspetto dei Pulsanti',
+    'section.behavior': 'Comportamento',
+    'section.links': 'Link',
+
+    // Teams section
+    'teams.select': '— Seleziona —',
+    'teams.customPlaceholder': 'Nome squadra personalizzato...',
+    'teams.backToList': 'Torna alla lista',
+    'teams.customName': 'Nome personalizzato',
+    'teams.color': 'Colore',
+    'teams.text': 'Testo',
+
+    // Overlay section
+    'overlay.logos': 'Loghi',
+    'overlay.gradient': 'Gradiente',
+    'overlay.setColor': 'Colore Set',
+    'overlay.setText': 'Testo Set',
+    'overlay.gameColor': 'Colore Gioco',
+    'overlay.gameText': 'Testo Gioco',
+    'overlay.styleLabel': 'Stile Overlay',
+    'overlay.style': '— Stile —',
+    'overlay.preloadedConfigLabel': 'Config. Preimpostata',
+    'overlay.selectAndLoad': '— Seleziona e Carica —',
+
+    // Position section
+    'position.height': 'Altezza',
+    'position.width': 'Larghezza',
+    'position.hPos': 'Pos O',
+    'position.vPos': 'Pos V',
+    'position.decrease': 'Diminuisci',
+    'position.increase': 'Aumenta',
+    'position.links': 'Link',
+
+    // Links dialog
+    'links.title': 'Link',
+    'links.control': 'Controllo',
+    'links.overlay': 'Overlay',
+    'links.preview': 'Anteprima',
+    'links.copyToClipboard': 'Copia negli appunti',
+    'links.close': 'Chiudi',
+    'links.noLinks': 'Nessun link disponibile per questa sessione.',
+
+    // Buttons section
+    'buttons.followTeamColors': 'Segui i colori della squadra',
+    'buttons.t1Btn': 'Btn S1',
+    'buttons.t1Text': 'Testo S1',
+    'buttons.t2Btn': 'Btn S2',
+    'buttons.t2Text': 'Testo S2',
+    'buttons.resetColors': 'Ripristina colori',
+    'buttons.showTeamIcon': 'Mostra icona squadra',
+    'buttons.opacity': 'Opacità: {value}%',
+    'buttons.buttonFont': 'Font dei pulsanti',
+
+    // Behavior section
+    'behavior.autoHide': 'Nascondi tabellone automaticamente',
+    'behavior.hideAfter': 'Nascondi dopo {value}s',
+    'behavior.autoSimple': 'Modalità semplice automatica',
+    'behavior.fullOnTimeout': 'Modalità completa al time-out',
+    'behavior.showPreview': 'Mostra anteprima overlay',
+
+    // Preview
+    'preview.title': 'Anteprima overlay',
+    'preview.zoomIn': 'Ingrandisci',
+    'preview.zoomOut': 'Riduci',
+    'preview.missingOutput': 'Nessun URL di output overlay fornito.',
+    'preview.styleOverride': 'Stile anteprima (non modifica l’overlay)',
+    'preview.styleDefault': 'Stile predefinito',
+
+    // Color picker
+    'colorPicker.presets': 'Preimpostati',
+    'colorPicker.recent': 'Recenti',
+
+    // Language
+    'lang.label': 'Lingua',
+  },
+  fr: {
+    // Init screen
+    'app.title': 'Tableau de score Volley',
+    'app.oidLabel': 'ID de contrôle de l’overlay (OID)',
+    'app.oidPlaceholder': 'mon-overlay',
+    'app.connect': 'Connecter',
+    'app.selectOverlay': 'Sélectionner l’overlay',
+    'app.selectOverlayPlaceholder': '— Sélectionner —',
+    'app.orManualOid': 'ou saisir l’OID manuellement',
+
+    // Dialog
+    'dialog.ok': 'OK',
+    'dialog.cancel': 'Annuler',
+    'dialog.setScore': 'Score — Équipe {team}',
+    'dialog.setSets': 'Sets gagnés — Équipe {team}',
+
+    // Control buttons
+    'ctrl.hideOverlay': 'Masquer l’overlay',
+    'ctrl.showOverlay': 'Afficher l’overlay',
+    'ctrl.hidePreview': 'Masquer l’aperçu',
+    'ctrl.showPreview': 'Afficher l’aperçu',
+    'ctrl.fullScoreboard': 'Tableau complet',
+    'ctrl.simpleScoreboard': 'Tableau simple',
+    'ctrl.undoOn': 'Mode annuler ACTIVÉ',
+    'ctrl.undoOff': 'Mode annuler DÉSACTIVÉ',
+    'ctrl.fullscreen': 'Plein écran',
+    'ctrl.exitFullscreen': 'Quitter le plein écran',
+    'ctrl.lightMode': 'Mode clair',
+    'ctrl.darkMode': 'Mode sombre',
+    'ctrl.config': 'Configuration',
+
+    // Config panel
+    'config.title': 'Config',
+    'config.backToScoreboard': 'Retour au tableau',
+    'config.save': 'Enregistrer',
+    'config.saveCustomization': 'Enregistrer la personnalisation',
+    'config.failedToSave': 'Échec de l’enregistrement de la personnalisation',
+    'config.reloadFromServer': 'Recharger depuis le serveur',
+    'config.reloadConfirm': 'Recharger la personnalisation depuis le serveur ?',
+    'config.resetMatch': 'Réinitialiser le match',
+    'config.resetConfirm': 'Réinitialiser le match ?',
+    'config.logout': 'Déconnexion',
+    'config.logoutConfirm': 'Se déconnecter et revenir à la saisie de l’OID ?',
+
+    // Config sections
+    'section.teams': 'Équipes',
+    'section.overlay': 'Style de l’overlay',
+    'section.position': 'Position et taille',
+    'section.buttons': 'Apparence des boutons',
+    'section.behavior': 'Comportement',
+    'section.links': 'Liens',
+
+    // Teams section
+    'teams.select': '— Sélectionner —',
+    'teams.customPlaceholder': 'Nom d’équipe personnalisé...',
+    'teams.backToList': 'Retour à la liste',
+    'teams.customName': 'Nom personnalisé',
+    'teams.color': 'Couleur',
+    'teams.text': 'Texte',
+
+    // Overlay section
+    'overlay.logos': 'Logos',
+    'overlay.gradient': 'Dégradé',
+    'overlay.setColor': 'Couleur du set',
+    'overlay.setText': 'Texte du set',
+    'overlay.gameColor': 'Couleur du jeu',
+    'overlay.gameText': 'Texte du jeu',
+    'overlay.styleLabel': 'Style de l’overlay',
+    'overlay.style': '— Style —',
+    'overlay.preloadedConfigLabel': 'Config. préchargée',
+    'overlay.selectAndLoad': '— Sélectionner et charger —',
+
+    // Position section
+    'position.height': 'Hauteur',
+    'position.width': 'Largeur',
+    'position.hPos': 'Pos H',
+    'position.vPos': 'Pos V',
+    'position.decrease': 'Diminuer',
+    'position.increase': 'Augmenter',
+    'position.links': 'Liens',
+
+    // Links dialog
+    'links.title': 'Liens',
+    'links.control': 'Contrôle',
+    'links.overlay': 'Overlay',
+    'links.preview': 'Aperçu',
+    'links.copyToClipboard': 'Copier dans le presse-papiers',
+    'links.close': 'Fermer',
+    'links.noLinks': 'Aucun lien disponible pour cette session.',
+
+    // Buttons section
+    'buttons.followTeamColors': 'Suivre les couleurs d’équipe',
+    'buttons.t1Btn': 'Btn É1',
+    'buttons.t1Text': 'Texte É1',
+    'buttons.t2Btn': 'Btn É2',
+    'buttons.t2Text': 'Texte É2',
+    'buttons.resetColors': 'Réinitialiser les couleurs',
+    'buttons.showTeamIcon': 'Afficher l’icône d’équipe',
+    'buttons.opacity': 'Opacité : {value}%',
+    'buttons.buttonFont': 'Police des boutons',
+
+    // Behavior section
+    'behavior.autoHide': 'Masquer le tableau automatiquement',
+    'behavior.hideAfter': 'Masquer après {value}s',
+    'behavior.autoSimple': 'Mode simple automatique',
+    'behavior.fullOnTimeout': 'Mode complet au temps mort',
+    'behavior.showPreview': 'Afficher l’aperçu de l’overlay',
+
+    // Preview
+    'preview.title': 'Aperçu de l’overlay',
+    'preview.zoomIn': 'Zoom avant',
+    'preview.zoomOut': 'Zoom arrière',
+    'preview.missingOutput': 'Aucune URL de sortie d’overlay fournie.',
+    'preview.styleOverride': 'Style de l’aperçu (ne modifie pas l’overlay)',
+    'preview.styleDefault': 'Style par défaut',
+
+    // Color picker
+    'colorPicker.presets': 'Préréglages',
+    'colorPicker.recent': 'Récents',
+
+    // Language
+    'lang.label': 'Langue',
+  },
+  de: {
+    // Init screen
+    'app.title': 'Volleyball-Anzeigetafel',
+    'app.oidLabel': 'Overlay-Steuer-ID (OID)',
+    'app.oidPlaceholder': 'mein-overlay',
+    'app.connect': 'Verbinden',
+    'app.selectOverlay': 'Overlay auswählen',
+    'app.selectOverlayPlaceholder': '— Auswählen —',
+    'app.orManualOid': 'oder OID manuell eingeben',
+
+    // Dialog
+    'dialog.ok': 'OK',
+    'dialog.cancel': 'Abbrechen',
+    'dialog.setScore': 'Punktestand — Team {team}',
+    'dialog.setSets': 'Gewonnene Sätze — Team {team}',
+
+    // Control buttons
+    'ctrl.hideOverlay': 'Overlay ausblenden',
+    'ctrl.showOverlay': 'Overlay einblenden',
+    'ctrl.hidePreview': 'Vorschau ausblenden',
+    'ctrl.showPreview': 'Vorschau einblenden',
+    'ctrl.fullScoreboard': 'Volle Anzeigetafel',
+    'ctrl.simpleScoreboard': 'Einfache Anzeigetafel',
+    'ctrl.undoOn': 'Rückgängig-Modus EIN',
+    'ctrl.undoOff': 'Rückgängig-Modus AUS',
+    'ctrl.fullscreen': 'Vollbild',
+    'ctrl.exitFullscreen': 'Vollbild beenden',
+    'ctrl.lightMode': 'Heller Modus',
+    'ctrl.darkMode': 'Dunkler Modus',
+    'ctrl.config': 'Einstellungen',
+
+    // Config panel
+    'config.title': 'Config',
+    'config.backToScoreboard': 'Zurück zur Anzeigetafel',
+    'config.save': 'Speichern',
+    'config.saveCustomization': 'Anpassung speichern',
+    'config.failedToSave': 'Anpassung konnte nicht gespeichert werden',
+    'config.reloadFromServer': 'Vom Server neu laden',
+    'config.reloadConfirm': 'Anpassung vom Server neu laden?',
+    'config.resetMatch': 'Spiel zurücksetzen',
+    'config.resetConfirm': 'Das Spiel zurücksetzen?',
+    'config.logout': 'Abmelden',
+    'config.logoutConfirm': 'Abmelden und zur OID-Eingabe zurückkehren?',
+
+    // Config sections
+    'section.teams': 'Teams',
+    'section.overlay': 'Overlay-Stil',
+    'section.position': 'Position und Größe',
+    'section.buttons': 'Button-Aussehen',
+    'section.behavior': 'Verhalten',
+    'section.links': 'Links',
+
+    // Teams section
+    'teams.select': '— Auswählen —',
+    'teams.customPlaceholder': 'Eigener Teamname...',
+    'teams.backToList': 'Zurück zur Liste',
+    'teams.customName': 'Eigener Name',
+    'teams.color': 'Farbe',
+    'teams.text': 'Text',
+
+    // Overlay section
+    'overlay.logos': 'Logos',
+    'overlay.gradient': 'Verlauf',
+    'overlay.setColor': 'Satz-Farbe',
+    'overlay.setText': 'Satz-Text',
+    'overlay.gameColor': 'Spiel-Farbe',
+    'overlay.gameText': 'Spiel-Text',
+    'overlay.styleLabel': 'Overlay-Stil',
+    'overlay.style': '— Stil —',
+    'overlay.preloadedConfigLabel': 'Vorkonfig.',
+    'overlay.selectAndLoad': '— Auswählen und Laden —',
+
+    // Position section
+    'position.height': 'Höhe',
+    'position.width': 'Breite',
+    'position.hPos': 'Pos H',
+    'position.vPos': 'Pos V',
+    'position.decrease': 'Verringern',
+    'position.increase': 'Erhöhen',
+    'position.links': 'Links',
+
+    // Links dialog
+    'links.title': 'Links',
+    'links.control': 'Steuerung',
+    'links.overlay': 'Overlay',
+    'links.preview': 'Vorschau',
+    'links.copyToClipboard': 'In Zwischenablage kopieren',
+    'links.close': 'Schließen',
+    'links.noLinks': 'Keine Links für diese Sitzung verfügbar.',
+
+    // Buttons section
+    'buttons.followTeamColors': 'Teamfarben übernehmen',
+    'buttons.t1Btn': 'Btn T1',
+    'buttons.t1Text': 'Text T1',
+    'buttons.t2Btn': 'Btn T2',
+    'buttons.t2Text': 'Text T2',
+    'buttons.resetColors': 'Farben zurücksetzen',
+    'buttons.showTeamIcon': 'Teamsymbol anzeigen',
+    'buttons.opacity': 'Deckkraft: {value}%',
+    'buttons.buttonFont': 'Button-Schriftart',
+
+    // Behavior section
+    'behavior.autoHide': 'Anzeigetafel automatisch ausblenden',
+    'behavior.hideAfter': 'Nach {value}s ausblenden',
+    'behavior.autoSimple': 'Automatischer Einfachmodus',
+    'behavior.fullOnTimeout': 'Vollmodus bei Auszeit',
+    'behavior.showPreview': 'Overlay-Vorschau anzeigen',
+
+    // Preview
+    'preview.title': 'Overlay-Vorschau',
+    'preview.zoomIn': 'Vergrößern',
+    'preview.zoomOut': 'Verkleinern',
+    'preview.missingOutput': 'Keine Overlay-Ausgabe-URL angegeben.',
+    'preview.styleOverride': 'Vorschaustil (ändert das Overlay nicht)',
+    'preview.styleDefault': 'Standardstil',
+
+    // Color picker
+    'colorPicker.presets': 'Voreinstellungen',
+    'colorPicker.recent': 'Zuletzt verwendet',
+
+    // Language
+    'lang.label': 'Sprache',
+  },
 };
 
 export type TranslateParams = Record<string, string | number>;

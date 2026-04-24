@@ -12,6 +12,15 @@ export interface BehaviorSectionProps {
   setSetting: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
 }
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English',
+  es: 'Español',
+  pt: 'Português',
+  it: 'Italiano',
+  fr: 'Français',
+  de: 'Deutsch',
+};
+
 export default function BehaviorSection({ settings, setSetting }: BehaviorSectionProps) {
   const { t, lang, setLanguage, languages } = useI18n();
   return (
@@ -52,7 +61,7 @@ export default function BehaviorSection({ settings, setSetting }: BehaviorSectio
         <label className="config-label">{t('lang.label')}</label>
         <select className="config-select" value={lang} onChange={(e) => setLanguage(e.target.value)}>
           {(languages as string[]).map((l) => (
-            <option key={l} value={l}>{l === 'en' ? 'English' : l === 'es' ? 'Español' : l}</option>
+            <option key={l} value={l}>{LANGUAGE_NAMES[l] ?? l}</option>
           ))}
         </select>
       </div>
