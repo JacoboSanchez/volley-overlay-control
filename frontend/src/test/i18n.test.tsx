@@ -54,7 +54,7 @@ describe('i18n', () => {
 
   it('provides available languages', () => {
     render(<I18nProvider><TestConsumer /></I18nProvider>);
-    expect(screen.getByTestId('languages')).toHaveTextContent('en,es');
+    expect(screen.getByTestId('languages')).toHaveTextContent('en,es,pt,it,fr,de');
   });
 
   it('falls back to key for unknown translation', () => {
