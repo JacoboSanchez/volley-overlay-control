@@ -83,6 +83,11 @@ once a first tagged release ships.
 - `?oid=` URL param: documented in `FRONTEND_DEVELOPMENT.md` — passing `?oid=`
   in the control URL pre-selects an overlay and persists it, replacing any previously
   stored value (`#178`).
+- Additional UI languages: Portuguese, Italian, French and German translations
+  for the React frontend, using volleyball-specific terminology per locale
+  (e.g. `pedido de tempo` PT, `time-out` IT, `temps mort` FR, `Auszeit` DE for the
+  volleyball timeout; `placar` / `tabellone` / `tableau de score` / `Anzeigetafel`
+  for the scoreboard). Language picker labels each option with its native name.
 
 ### Changed
 
