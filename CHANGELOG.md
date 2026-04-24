@@ -8,6 +8,10 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+---
+
+## [5.0.0] - 2026-04-24
+
 ### Added
 
 - In-process overlay engine: `LocalOverlayBackend` serves Jinja2 overlay
