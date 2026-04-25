@@ -440,11 +440,12 @@ body {
   align-items: center;
 }
 
-/* The preview is purely visual and a sandboxed iframe swallows touch events
- * before they bubble to the parent document, which would block the
- * scoreboard ↔ config swipe gesture. Make it pointer-transparent so swipes
- * starting on the preview reach `.app-container`. */
-.preview-container iframe {
+/* A sandboxed iframe swallows touch events before they bubble to the parent
+ * document, which would block the scoreboard ↔ config swipe gesture handler
+ * attached to .app-container. Scope this to the control UI only — the
+ * standalone /preview page has no swipe handler and keeps its iframe
+ * interactive. */
+.app-container .preview-container iframe {
   pointer-events: none;
 }
 
