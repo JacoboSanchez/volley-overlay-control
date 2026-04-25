@@ -37,7 +37,7 @@ interface FontScale {
 
 function getInitialOid(): string {
   const params = new URLSearchParams(window.location.search);
-  const urlOid = params.get('oid');
+  const urlOid = params.get('oid') || params.get('control');
   if (urlOid) return urlOid;
   try {
     return localStorage.getItem('volley_oid') || '';

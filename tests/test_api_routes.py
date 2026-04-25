@@ -109,6 +109,20 @@ class TestGameRoutes:
         assert r.status_code == 200
         assert r.json()["state"]["team_1"]["sets"] == 1
 
+    def test_add_point_accepts_control_alias(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        r = client.post(
+            "/api/v1/game/add-point?control=abc",
+            json={"team": 1},
+        )
+        assert r.status_code == 200
+        assert r.json()["state"]["team_1"]["scores"]["set_1"] == 1
+
+    def test_missing_oid_and_control_returns_422(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        r = client.post("/api/v1/game/add-point", json={"team": 1})
+        assert r.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # WebSocket /ws
@@ -133,6 +147,13 @@ class TestWebSocketRoute:
             ws.receive_json()  # initial state_update
             ws.send_text("ping")
             assert ws.receive_text() == "pong"
+
+    def test_ws_accepts_control_alias(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        with client.websocket_connect("/api/v1/ws?control=abc") as ws:
+            msg = ws.receive_json()
+            assert msg["type"] == "state_update"
+            assert msg["data"]["current_set"] == 1
 
 
 # ---------------------------------------------------------------------------
