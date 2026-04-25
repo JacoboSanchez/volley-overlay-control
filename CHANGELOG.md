@@ -10,6 +10,12 @@ once a first tagged release ships.
 
 ### Added
 
+- Swipe navigation between scoreboard and configuration in the React control
+  UI: a horizontal left-swipe on the scoreboard opens the config panel and a
+  right-swipe returns to the scoreboard. The gesture is suppressed when the
+  touch starts on an interactive element (buttons, inputs, sliders, switches,
+  links, contenteditable) so taps, long-presses, and slider drags keep their
+  default behavior. Implemented in `frontend/src/hooks/useSwipeNavigation.ts`.
 - `?control=<id>` is now accepted as a backward-compatible alias for `?oid=<id>`
   on every API endpoint that takes the OID via query string (REST routes, the
   `/ws` WebSocket, and the request-logging middleware) and on the React
