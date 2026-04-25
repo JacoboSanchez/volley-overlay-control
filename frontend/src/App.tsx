@@ -5,6 +5,7 @@ import { useGameState } from './hooks/useGameState';
 import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
+import { useSwipeNavigation } from './hooks/useSwipeNavigation';
 import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ConfigPanel from './components/ConfigPanel';
@@ -56,6 +57,10 @@ export default function App() {
   const [oidInput, setOidInput] = useState<string>(oid);
   const [undoMode, setUndoMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
+  const swipeHandlers = useSwipeNavigation({
+    onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
+    onSwipeRight: activeTab === 'config' ? () => setActiveTab('scoreboard') : undefined,
+  });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(!!document.fullscreenElement);
   const [showControls, setShowControls] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -320,7 +325,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className="app-container" {...swipeHandlers}>
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
         <ScoreboardView
