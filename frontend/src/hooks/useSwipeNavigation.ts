@@ -1,4 +1,4 @@
-import { useCallback, useRef, TouchEvent as ReactTouchEvent } from 'react';
+import { useRef, TouchEvent as ReactTouchEvent } from 'react';
 
 export interface SwipeHandlers {
   onTouchStart: (e: ReactTouchEvent<HTMLElement>) => void;
@@ -25,7 +25,7 @@ export interface UseSwipeNavigationOptions {
   ignoreSelector?: string;
 }
 
-const DEFAULT_IGNORE_SELECTOR = [
+export const DEFAULT_IGNORE_SELECTORS = [
   'button',
   'input',
   'select',
@@ -39,7 +39,9 @@ const DEFAULT_IGNORE_SELECTOR = [
   '[role="tab"]',
   '[role="menuitem"]',
   '[contenteditable="true"]',
-].join(',');
+];
+
+const DEFAULT_IGNORE_SELECTOR = DEFAULT_IGNORE_SELECTORS.join(',');
 
 interface SwipeStart {
   x: number;
@@ -51,12 +53,12 @@ export function useSwipeNavigation({
   onSwipeLeft,
   onSwipeRight,
   threshold = 80,
-  maxVerticalRatio = 0.7,
+  maxVerticalRatio = 0.5,
   ignoreSelector = DEFAULT_IGNORE_SELECTOR,
 }: UseSwipeNavigationOptions): SwipeHandlers {
   const startRef = useRef<SwipeStart | null>(null);
 
-  const onTouchStart = useCallback((e: ReactTouchEvent<HTMLElement>) => {
+  const onTouchStart = (e: ReactTouchEvent<HTMLElement>) => {
     if (e.touches.length !== 1) {
       startRef.current = null;
       return;
@@ -65,13 +67,13 @@ export function useSwipeNavigation({
     const target = e.target as Element | null;
     const ignored = !!(target && typeof target.closest === 'function' && target.closest(ignoreSelector));
     startRef.current = { x: touch.clientX, y: touch.clientY, ignored };
-  }, [ignoreSelector]);
+  };
 
-  const onTouchMove = useCallback((e: ReactTouchEvent<HTMLElement>) => {
+  const onTouchMove = (e: ReactTouchEvent<HTMLElement>) => {
     if (e.touches.length > 1) startRef.current = null;
-  }, []);
+  };
 
-  const onTouchEnd = useCallback((e: ReactTouchEvent<HTMLElement>) => {
+  const onTouchEnd = (e: ReactTouchEvent<HTMLElement>) => {
     const start = startRef.current;
     startRef.current = null;
     if (!start || start.ignored) return;
@@ -83,11 +85,11 @@ export function useSwipeNavigation({
     if (Math.abs(dy) > Math.abs(dx) * maxVerticalRatio) return;
     if (dx < 0) onSwipeLeft?.();
     else onSwipeRight?.();
-  }, [onSwipeLeft, onSwipeRight, threshold, maxVerticalRatio]);
+  };
 
-  const onTouchCancel = useCallback(() => {
+  const onTouchCancel = () => {
     startRef.current = null;
-  }, []);
+  };
 
   return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel };
 }
