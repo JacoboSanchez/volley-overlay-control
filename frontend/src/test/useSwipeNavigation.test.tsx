@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, renderHook } from '@testing-library/react';
 import { DEFAULT_IGNORE_SELECTORS, useSwipeNavigation } from '../hooks/useSwipeNavigation';
 
 interface HarnessProps {
@@ -132,6 +132,38 @@ describe('useSwipeNavigation', () => {
 
     expect(onSwipeLeft).not.toHaveBeenCalled();
     expect(onSwipeRight).not.toHaveBeenCalled();
+  });
+
+  it('returns the same handlers object across renders even when callbacks change', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ cb }: { cb: () => void }) => useSwipeNavigation({ onSwipeLeft: cb }),
+      { initialProps: { cb: first } },
+    );
+    const initial = result.current;
+    rerender({ cb: second });
+    expect(result.current).toBe(initial);
+    expect(result.current.onTouchStart).toBe(initial.onTouchStart);
+    expect(result.current.onTouchEnd).toBe(initial.onTouchEnd);
+  });
+
+  it('uses the latest callback on each gesture without recreating handlers', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const Surface = ({ cb }: { cb: () => void }) => {
+      const handlers = useSwipeNavigation({ onSwipeLeft: cb });
+      return <div data-testid="surface" {...handlers} />;
+    };
+    const { rerender, getByTestId } = render(<Surface cb={first} />);
+    rerender(<Surface cb={second} />);
+    const surface = getByTestId('surface');
+
+    fireEvent.touchStart(surface, { touches: [touch(surface, 300, 200)] });
+    fireEvent.touchEnd(surface, { changedTouches: [touch(surface, 100, 200)] });
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
   });
 
   it('clears pending gesture on touchcancel so a later end does not fire', () => {

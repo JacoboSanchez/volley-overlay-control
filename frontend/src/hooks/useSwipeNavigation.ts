@@ -1,4 +1,4 @@
-import { useRef, TouchEvent as ReactTouchEvent } from 'react';
+import { useMemo, useRef, TouchEvent as ReactTouchEvent } from 'react';
 
 export interface SwipeHandlers {
   onTouchStart: (e: ReactTouchEvent<HTMLElement>) => void;
@@ -49,6 +49,14 @@ interface SwipeStart {
   ignored: boolean;
 }
 
+interface ResolvedOptions {
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
+  threshold: number;
+  maxVerticalRatio: number;
+  ignoreSelector: string;
+}
+
 export function useSwipeNavigation({
   onSwipeLeft,
   onSwipeRight,
@@ -57,39 +65,42 @@ export function useSwipeNavigation({
   ignoreSelector = DEFAULT_IGNORE_SELECTOR,
 }: UseSwipeNavigationOptions): SwipeHandlers {
   const startRef = useRef<SwipeStart | null>(null);
+  // "Latest ref" pattern: handlers read from optionsRef.current so the
+  // returned SwipeHandlers object can stay identity-stable across renders.
+  const optionsRef = useRef<ResolvedOptions>({ onSwipeLeft, onSwipeRight, threshold, maxVerticalRatio, ignoreSelector });
+  optionsRef.current = { onSwipeLeft, onSwipeRight, threshold, maxVerticalRatio, ignoreSelector };
 
-  const onTouchStart = (e: ReactTouchEvent<HTMLElement>) => {
-    if (e.touches.length !== 1) {
+  return useMemo<SwipeHandlers>(() => ({
+    onTouchStart: (e) => {
+      if (e.touches.length !== 1) {
+        startRef.current = null;
+        return;
+      }
+      const touch = e.touches[0];
+      const target = e.target as Element | null;
+      const { ignoreSelector: sel } = optionsRef.current;
+      const ignored = !!(target && typeof target.closest === 'function' && target.closest(sel));
+      startRef.current = { x: touch.clientX, y: touch.clientY, ignored };
+    },
+    onTouchMove: (e) => {
+      if (e.touches.length > 1) startRef.current = null;
+    },
+    onTouchEnd: (e) => {
+      const start = startRef.current;
       startRef.current = null;
-      return;
-    }
-    const touch = e.touches[0];
-    const target = e.target as Element | null;
-    const ignored = !!(target && typeof target.closest === 'function' && target.closest(ignoreSelector));
-    startRef.current = { x: touch.clientX, y: touch.clientY, ignored };
-  };
-
-  const onTouchMove = (e: ReactTouchEvent<HTMLElement>) => {
-    if (e.touches.length > 1) startRef.current = null;
-  };
-
-  const onTouchEnd = (e: ReactTouchEvent<HTMLElement>) => {
-    const start = startRef.current;
-    startRef.current = null;
-    if (!start || start.ignored) return;
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < threshold) return;
-    if (Math.abs(dy) > Math.abs(dx) * maxVerticalRatio) return;
-    if (dx < 0) onSwipeLeft?.();
-    else onSwipeRight?.();
-  };
-
-  const onTouchCancel = () => {
-    startRef.current = null;
-  };
-
-  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel };
+      if (!start || start.ignored) return;
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const { threshold: th, maxVerticalRatio: ratio, onSwipeLeft: left, onSwipeRight: right } = optionsRef.current;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      if (Math.abs(dx) < th) return;
+      if (Math.abs(dy) > Math.abs(dx) * ratio) return;
+      if (dx < 0) left?.();
+      else right?.();
+    },
+    onTouchCancel: () => {
+      startRef.current = null;
+    },
+  }), []);
 }
