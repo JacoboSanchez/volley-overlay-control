@@ -18,8 +18,8 @@ router = APIRouter()
 @router.websocket("/ws")
 async def websocket_endpoint(
     ws: WebSocket,
-    oid: str | None = Query(None),
-    control: str | None = Query(None),
+    oid: str | None = Query(None, description="Overlay ID"),
+    control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
 ):
     resolved = oid or control
     if not resolved:
