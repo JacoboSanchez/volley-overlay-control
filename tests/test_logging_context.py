@@ -52,6 +52,11 @@ class TestRequestContextMiddleware:
         response = client.get("/probe", params={"oid": "test_oid_valid"})
         assert response.json()["oid"] == "test_oid_valid"
 
+    def test_extracts_oid_from_control_alias(self):
+        client = TestClient(_build_app())
+        response = client.get("/probe", params={"control": "test_oid_valid"})
+        assert response.json()["oid"] == "test_oid_valid"
+
     def test_absent_oid_defaults_to_dash(self):
         client = TestClient(_build_app())
         response = client.get("/probe")

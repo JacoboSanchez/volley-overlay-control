@@ -8,6 +8,14 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- `?control=<id>` is now accepted as a backward-compatible alias for `?oid=<id>`
+  on every API endpoint that takes the OID via query string (REST routes, the
+  `/ws` WebSocket, and the request-logging middleware) and on the React
+  control UI's initial-OID lookup. Either parameter resolves to the same
+  overlay; passing both prefers `oid`.
+
 ---
 
 ## [5.0.0] - 2026-04-24
