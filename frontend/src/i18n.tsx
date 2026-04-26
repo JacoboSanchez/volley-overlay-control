@@ -46,6 +46,7 @@ const translations: Record<string, TranslationDict> = {
     'config.resetConfirm': 'Reset the match?',
     'config.logout': 'Logout',
     'config.logoutConfirm': 'Disconnect and return to OID entry?',
+    'config.unsavedChangesConfirm': 'You have unsaved changes that will be lost. Leave anyway?',
 
     // Config sections
     'section.teams': 'Teams',
@@ -169,6 +170,7 @@ const translations: Record<string, TranslationDict> = {
     'config.resetConfirm': '¿Reiniciar el partido?',
     'config.logout': 'Cerrar sesión',
     'config.logoutConfirm': '¿Desconectar y volver a la entrada de OID?',
+    'config.unsavedChangesConfirm': 'Hay cambios sin guardar que se perderán. ¿Salir de todas formas?',
 
     // Config sections
     'section.teams': 'Equipos',
@@ -292,6 +294,7 @@ const translations: Record<string, TranslationDict> = {
     'config.resetConfirm': 'Reiniciar o jogo?',
     'config.logout': 'Terminar sessão',
     'config.logoutConfirm': 'Desligar e voltar à introdução do OID?',
+    'config.unsavedChangesConfirm': 'Há alterações não guardadas que serão perdidas. Sair mesmo assim?',
 
     // Config sections
     'section.teams': 'Equipas',
@@ -415,6 +418,7 @@ const translations: Record<string, TranslationDict> = {
     'config.resetConfirm': 'Reimpostare la partita?',
     'config.logout': 'Esci',
     'config.logoutConfirm': 'Disconnettersi e tornare all’inserimento OID?',
+    'config.unsavedChangesConfirm': 'Ci sono modifiche non salvate che andranno perse. Uscire comunque?',
 
     // Config sections
     'section.teams': 'Squadre',
@@ -538,6 +542,7 @@ const translations: Record<string, TranslationDict> = {
     'config.resetConfirm': 'Réinitialiser le match ?',
     'config.logout': 'Déconnexion',
     'config.logoutConfirm': 'Se déconnecter et revenir à la saisie de l’OID ?',
+    'config.unsavedChangesConfirm': 'Des modifications non enregistrées seront perdues. Quitter quand même ?',
 
     // Config sections
     'section.teams': 'Équipes',
@@ -661,6 +666,7 @@ const translations: Record<string, TranslationDict> = {
     'config.resetConfirm': 'Das Spiel zurücksetzen?',
     'config.logout': 'Abmelden',
     'config.logoutConfirm': 'Abmelden und zur OID-Eingabe zurückkehren?',
+    'config.unsavedChangesConfirm': 'Es gibt ungespeicherte Änderungen, die verloren gehen. Trotzdem verlassen?',
 
     // Config sections
     'section.teams': 'Teams',

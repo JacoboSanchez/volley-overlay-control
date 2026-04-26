@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
@@ -73,6 +73,13 @@ export default function ConfigPanel({
     }
   }, [customization]);
 
+  const isDirty = useMemo(
+    () => JSON.stringify(model) !== JSON.stringify(customization ?? {}),
+    [model, customization],
+  );
+  const isDirtyRef = useRef(isDirty);
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+
   const [refreshing, setRefreshing] = useState(false);
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [themes, setThemes] = useState<Themes>({});
@@ -98,6 +105,7 @@ export default function ConfigPanel({
     try {
       await api.updateCustomization(oid, model);
       if (onCustomizationSaved) await onCustomizationSaved();
+      isDirtyRef.current = false;
       onBack();
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('config.failedToSave');
@@ -106,6 +114,31 @@ export default function ConfigPanel({
       setSaving(false);
     }
   }, [oid, model, onBack, onCustomizationSaved, t]);
+
+  const confirmExitIfDirty = useCallback(
+    () => !isDirtyRef.current || window.confirm(t('config.unsavedChangesConfirm')),
+    [t],
+  );
+
+  const handleBack = useCallback(() => {
+    if (!confirmExitIfDirty()) return;
+    onBack();
+  }, [confirmExitIfDirty, onBack]);
+
+  useEffect(() => {
+    window.history.pushState({ configOpen: true }, '');
+    const handlePopState = () => {
+      if (!confirmExitIfDirty()) {
+        window.history.pushState({ configOpen: true }, '');
+        return;
+      }
+      onBack();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [confirmExitIfDirty, onBack]);
 
   const handleRefresh = useCallback(async () => {
     if (!window.confirm(t('config.reloadConfirm'))) return;
@@ -173,7 +206,7 @@ export default function ConfigPanel({
   return (
     <div className="config-panel">
       <div className="config-top-bar">
-        <button className="config-top-btn" onClick={onBack} title={t('config.backToScoreboard')}
+        <button className="config-top-btn" onClick={handleBack} title={t('config.backToScoreboard')}
           data-testid="scoreboard-tab-button">
           <span className="material-icons">arrow_back</span>
         </button>
@@ -230,11 +263,13 @@ export default function ConfigPanel({
       </div>
 
       <div className="config-bottom-bar">
-        <button className="config-bottom-btn config-bottom-btn-save"
-          onClick={handleSave} disabled={saving} title={t('config.saveCustomization')} data-testid="save-button">
-          <span className="material-icons">save</span>
-          <span>{saving ? '...' : t('config.save')}</span>
-        </button>
+        {isDirty && (
+          <button className="config-bottom-btn config-bottom-btn-save"
+            onClick={handleSave} disabled={saving} title={t('config.saveCustomization')} data-testid="save-button">
+            <span className="material-icons">save</span>
+            <span>{saving ? '...' : t('config.save')}</span>
+          </button>
+        )}
         <div className="spacer" />
         <button className="config-bottom-btn config-bottom-btn-refresh" onClick={handleRefresh}
           disabled={refreshing} title={t('config.reloadFromServer')} data-testid="refresh-button">
