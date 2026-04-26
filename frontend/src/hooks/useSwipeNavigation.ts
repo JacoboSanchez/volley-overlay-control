@@ -77,9 +77,10 @@ export function useSwipeNavigation({
         return;
       }
       const touch = e.touches[0];
-      const target = e.target as Element | null;
+      const target = e.target as Node | null;
+      const element = target instanceof Element ? target : target?.parentElement ?? null;
       const { ignoreSelector: sel } = optionsRef.current;
-      const ignored = !!(target && typeof target.closest === 'function' && target.closest(sel));
+      const ignored = !!(element && typeof element.closest === 'function' && element.closest(sel));
       startRef.current = { x: touch.clientX, y: touch.clientY, ignored };
     },
     onTouchMove: (e) => {

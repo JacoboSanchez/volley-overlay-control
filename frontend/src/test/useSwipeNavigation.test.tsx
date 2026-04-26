@@ -99,6 +99,19 @@ describe('useSwipeNavigation', () => {
     expect(onSwipeLeft).not.toHaveBeenCalled();
   });
 
+  it('does not trigger when the gesture starts on a Text node inside an interactive element', () => {
+    const onSwipeLeft = vi.fn();
+    const { getByTestId } = render(<Harness onSwipeLeft={onSwipeLeft} />);
+    const button = getByTestId('inner-button');
+    const textNode = button.firstChild as Node;
+    expect(textNode.nodeType).toBe(3);
+
+    fireEvent.touchStart(button, { touches: [touch(textNode as unknown as Element, 300, 200)] });
+    fireEvent.touchEnd(button, { changedTouches: [touch(button, 50, 200)] });
+
+    expect(onSwipeLeft).not.toHaveBeenCalled();
+  });
+
   it('cancels gesture detection when a second touch begins', () => {
     const onSwipeLeft = vi.fn();
     const { getByTestId } = render(<Harness onSwipeLeft={onSwipeLeft} />);
