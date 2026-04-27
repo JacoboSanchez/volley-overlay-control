@@ -854,8 +854,11 @@ body {
 }
 
 .config-bottom-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+  filter: grayscale(1);
 }
 
 .config-bottom-btn:disabled:hover {
