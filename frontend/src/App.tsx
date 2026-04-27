@@ -95,13 +95,20 @@ export default function App() {
   // initSession has created the session.
   const previewData = usePreview(oid, settings.showPreview, !!state);
 
+  // Reveal the bar when the viewport gains room for it (e.g. phone→tablet
+  // resize). Kept in its own effect so the manual hide toggle still works
+  // on tablets — the auto-hide effect below would otherwise re-show it on
+  // every showControls change.
+  useEffect(() => {
+    if (hasRoomForPersistentControls) {
+      setShowControls(true);
+    }
+  }, [hasRoomForPersistentControls]);
+
   useEffect(() => {
     // On tablets/desktops the control bar fits without covering scoreboard
-    // elements, so keep it pinned and skip the inactivity timer.
-    if (hasRoomForPersistentControls) {
-      if (!showControls) setShowControls(true);
-      return;
-    }
+    // elements, so skip the inactivity timer entirely.
+    if (hasRoomForPersistentControls) return;
     if (showControls && activeTab === 'scoreboard' && state) {
       resetHideTimer();
       window.addEventListener('pointerdown', resetHideTimer, { passive: true });
