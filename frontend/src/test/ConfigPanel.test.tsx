@@ -39,10 +39,12 @@ describe('ConfigPanel', () => {
     expect(screen.getByTestId('scoreboard-tab-button')).toBeInTheDocument();
   });
 
-  it('calls onBack when back button clicked with no unsaved changes', () => {
+  it('calls onBack when back button clicked with no unsaved changes', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
-    expect(defaultProps.onBack).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(defaultProps.onBack).toHaveBeenCalledOnce();
+    });
   });
 
   it('hides the save button when there are no unsaved changes', () => {
@@ -69,7 +71,9 @@ describe('ConfigPanel', () => {
       expect(screen.getByTestId('save-button')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
-    expect(window.confirm).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(window.confirm).toHaveBeenCalled();
+    });
     expect(defaultProps.onBack).not.toHaveBeenCalled();
   });
 

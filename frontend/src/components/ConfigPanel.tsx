@@ -99,21 +99,8 @@ export default function ConfigPanel({
     setModel((m) => ({ ...m, [key]: value }));
   }, []);
 
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      await api.updateCustomization(oid, model);
-      if (onCustomizationSaved) await onCustomizationSaved();
-      isDirtyRef.current = false;
-      onBack();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : t('config.failedToSave');
-      setSaveError(msg);
-    } finally {
-      setSaving(false);
-    }
-  }, [oid, model, onBack, onCustomizationSaved, t]);
+  const bypassConfirmRef = useRef(false);
+  const ignoreNextPopRef = useRef(false);
 
   const confirmExitIfDirty = useCallback(
     () => !isDirtyRef.current || window.confirm(t('config.unsavedChangesConfirm')),
@@ -125,16 +112,47 @@ export default function ConfigPanel({
   const onBackRef = useRef(onBack);
   useEffect(() => { onBackRef.current = onBack; }, [onBack]);
 
+  // Funnel both the explicit back button and a successful save through
+  // history.back() so the popstate listener is the single exit point. That
+  // keeps the pushed history entry consistently cleaned up regardless of
+  // whether the user leaves via the UI or a swipe-back gesture.
   const handleBack = useCallback(() => {
-    if (!confirmExitIfDirty()) return;
-    onBack();
-  }, [confirmExitIfDirty, onBack]);
+    window.history.back();
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.updateCustomization(oid, model);
+      if (onCustomizationSaved) await onCustomizationSaved();
+      bypassConfirmRef.current = true;
+      window.history.back();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : t('config.failedToSave');
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
+  }, [oid, model, onCustomizationSaved, t]);
 
   useEffect(() => {
     window.history.pushState({ configOpen: true }, '');
     const handlePopState = () => {
+      if (ignoreNextPopRef.current) {
+        ignoreNextPopRef.current = false;
+        return;
+      }
+      if (bypassConfirmRef.current) {
+        bypassConfirmRef.current = false;
+        onBackRef.current();
+        return;
+      }
       if (!confirmExitIfDirtyRef.current()) {
-        window.history.pushState({ configOpen: true }, '');
+        // Restore the configOpen entry by going forward instead of pushing
+        // a new one, so repeated cancels don't grow the history stack.
+        ignoreNextPopRef.current = true;
+        window.history.go(1);
         return;
       }
       onBackRef.current();
