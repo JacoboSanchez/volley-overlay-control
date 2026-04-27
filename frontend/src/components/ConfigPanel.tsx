@@ -119,6 +119,11 @@ export default function ConfigPanel({
     () => !isDirtyRef.current || window.confirm(t('config.unsavedChangesConfirm')),
     [t],
   );
+  const confirmExitIfDirtyRef = useRef(confirmExitIfDirty);
+  useEffect(() => { confirmExitIfDirtyRef.current = confirmExitIfDirty; }, [confirmExitIfDirty]);
+
+  const onBackRef = useRef(onBack);
+  useEffect(() => { onBackRef.current = onBack; }, [onBack]);
 
   const handleBack = useCallback(() => {
     if (!confirmExitIfDirty()) return;
@@ -128,17 +133,17 @@ export default function ConfigPanel({
   useEffect(() => {
     window.history.pushState({ configOpen: true }, '');
     const handlePopState = () => {
-      if (!confirmExitIfDirty()) {
+      if (!confirmExitIfDirtyRef.current()) {
         window.history.pushState({ configOpen: true }, '');
         return;
       }
-      onBack();
+      onBackRef.current();
     };
     window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [confirmExitIfDirty, onBack]);
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     if (!window.confirm(t('config.reloadConfirm'))) return;

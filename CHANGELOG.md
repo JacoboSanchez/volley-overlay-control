@@ -8,6 +8,15 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- Config panel save UX: the "Save" button is now hidden until a setting that
+  needs to be persisted to the overlay actually changes, making it visually
+  obvious which controls apply directly versus which require an explicit save.
+  Leaving the panel via the back arrow or a browser back/swipe gesture while
+  there are unsaved changes prompts the user before discarding them
+  (`config.unsavedChangesConfirm` translated for EN/ES/PT/IT/FR/DE).
+
 ---
 
 ## [5.0.0] - 2026-04-24

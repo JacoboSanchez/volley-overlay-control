@@ -73,6 +73,27 @@ describe('ConfigPanel', () => {
     expect(defaultProps.onBack).not.toHaveBeenCalled();
   });
 
+  it('confirms when popstate fires (swipe back) with unsaved changes', async () => {
+    window.confirm = vi.fn().mockReturnValue(false);
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('save-button')).toBeInTheDocument();
+    });
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(defaultProps.onBack).not.toHaveBeenCalled();
+  });
+
+  it('exits via popstate without prompting when nothing is dirty', () => {
+    window.confirm = vi.fn();
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(defaultProps.onBack).toHaveBeenCalledOnce();
+  });
+
   it('exits without prompting after a successful save', async () => {
     vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
     window.confirm = vi.fn();
