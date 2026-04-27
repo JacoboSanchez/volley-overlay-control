@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
@@ -73,6 +73,13 @@ export default function ConfigPanel({
     }
   }, [customization]);
 
+  const isDirty = useMemo(
+    () => JSON.stringify(model) !== JSON.stringify(customization ?? {}),
+    [model, customization],
+  );
+  const isDirtyRef = useRef(isDirty);
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+
   const [refreshing, setRefreshing] = useState(false);
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [themes, setThemes] = useState<Themes>({});
@@ -92,20 +99,69 @@ export default function ConfigPanel({
     setModel((m) => ({ ...m, [key]: value }));
   }, []);
 
+  const bypassConfirmRef = useRef(false);
+  const ignoreNextPopRef = useRef(false);
+
+  const confirmExitIfDirty = useCallback(
+    () => !isDirtyRef.current || window.confirm(t('config.unsavedChangesConfirm')),
+    [t],
+  );
+  const confirmExitIfDirtyRef = useRef(confirmExitIfDirty);
+  useEffect(() => { confirmExitIfDirtyRef.current = confirmExitIfDirty; }, [confirmExitIfDirty]);
+
+  const onBackRef = useRef(onBack);
+  useEffect(() => { onBackRef.current = onBack; }, [onBack]);
+
+  // Funnel both the explicit back button and a successful save through
+  // history.back() so the popstate listener is the single exit point. That
+  // keeps the pushed history entry consistently cleaned up regardless of
+  // whether the user leaves via the UI or a swipe-back gesture.
+  const handleBack = useCallback(() => {
+    window.history.back();
+  }, []);
+
   const handleSave = useCallback(async () => {
     setSaving(true);
     setSaveError(null);
     try {
       await api.updateCustomization(oid, model);
       if (onCustomizationSaved) await onCustomizationSaved();
-      onBack();
+      bypassConfirmRef.current = true;
+      window.history.back();
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('config.failedToSave');
       setSaveError(msg);
     } finally {
       setSaving(false);
     }
-  }, [oid, model, onBack, onCustomizationSaved, t]);
+  }, [oid, model, onCustomizationSaved, t]);
+
+  useEffect(() => {
+    window.history.pushState({ configOpen: true }, '');
+    const handlePopState = () => {
+      if (ignoreNextPopRef.current) {
+        ignoreNextPopRef.current = false;
+        return;
+      }
+      if (bypassConfirmRef.current) {
+        bypassConfirmRef.current = false;
+        onBackRef.current();
+        return;
+      }
+      if (!confirmExitIfDirtyRef.current()) {
+        // Restore the configOpen entry by going forward instead of pushing
+        // a new one, so repeated cancels don't grow the history stack.
+        ignoreNextPopRef.current = true;
+        window.history.go(1);
+        return;
+      }
+      onBackRef.current();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     if (!window.confirm(t('config.reloadConfirm'))) return;
@@ -173,7 +229,7 @@ export default function ConfigPanel({
   return (
     <div className="config-panel">
       <div className="config-top-bar">
-        <button className="config-top-btn" onClick={onBack} title={t('config.backToScoreboard')}
+        <button className="config-top-btn" onClick={handleBack} title={t('config.backToScoreboard')}
           data-testid="scoreboard-tab-button">
           <span className="material-icons">arrow_back</span>
         </button>
@@ -230,11 +286,13 @@ export default function ConfigPanel({
       </div>
 
       <div className="config-bottom-bar">
-        <button className="config-bottom-btn config-bottom-btn-save"
-          onClick={handleSave} disabled={saving} title={t('config.saveCustomization')} data-testid="save-button">
-          <span className="material-icons">save</span>
-          <span>{saving ? '...' : t('config.save')}</span>
-        </button>
+        {isDirty && (
+          <button className="config-bottom-btn config-bottom-btn-save"
+            onClick={handleSave} disabled={saving} title={t('config.saveCustomization')} data-testid="save-button">
+            <span className="material-icons">save</span>
+            <span>{saving ? '...' : t('config.save')}</span>
+          </button>
+        )}
         <div className="spacer" />
         <button className="config-bottom-btn config-bottom-btn-refresh" onClick={handleRefresh}
           disabled={refreshing} title={t('config.reloadFromServer')} data-testid="refresh-button">

@@ -59,7 +59,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
-    onSwipeRight: activeTab === 'config' ? () => setActiveTab('scoreboard') : undefined,
+    // Route through history.back() so ConfigPanel's popstate listener can
+    // run the unsaved-changes confirmation before tearing down.
+    onSwipeRight: activeTab === 'config' ? () => window.history.back() : undefined,
   });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(!!document.fullscreenElement);
   const [showControls, setShowControls] = useState(true);

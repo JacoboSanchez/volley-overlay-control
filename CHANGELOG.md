@@ -22,6 +22,15 @@ once a first tagged release ships.
   control UI's initial-OID lookup. Either parameter resolves to the same
   overlay; passing both prefers `oid`.
 
+### Changed
+
+- Config panel save UX: the "Save" button is now hidden until a setting that
+  needs to be persisted to the overlay actually changes, making it visually
+  obvious which controls apply directly versus which require an explicit save.
+  Leaving the panel via the back arrow, a browser back/edge-swipe gesture, or
+  the in-app right-swipe now prompts the user before discarding pending edits
+  (`config.unsavedChangesConfirm` translated for EN/ES/PT/IT/FR/DE).
+
 ---
 
 ## [5.0.0] - 2026-04-24
