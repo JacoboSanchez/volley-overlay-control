@@ -51,7 +51,7 @@ export default function App() {
   const { t } = useI18n();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
-  const { isPortrait, buttonSize } = useOrientation();
+  const { isPortrait, buttonSize, hasRoomForPersistentControls } = useOrientation();
 
   const [oid, setOid] = useState<string>(getInitialOid);
   const [oidInput, setOidInput] = useState<string>(oid);
@@ -96,6 +96,12 @@ export default function App() {
   const previewData = usePreview(oid, settings.showPreview, !!state);
 
   useEffect(() => {
+    // On tablets/desktops the control bar fits without covering scoreboard
+    // elements, so keep it pinned and skip the inactivity timer.
+    if (hasRoomForPersistentControls) {
+      if (!showControls) setShowControls(true);
+      return;
+    }
     if (showControls && activeTab === 'scoreboard' && state) {
       resetHideTimer();
       window.addEventListener('pointerdown', resetHideTimer, { passive: true });
@@ -104,7 +110,7 @@ export default function App() {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       window.removeEventListener('pointerdown', resetHideTimer);
     };
-  }, [showControls, activeTab, state, resetHideTimer]);
+  }, [showControls, activeTab, state, resetHideTimer, hasRoomForPersistentControls]);
 
   const setsLimit = (state?.config?.sets_limit as number | undefined) ?? 5;
   const matchFinished = state?.match_finished ?? false;
