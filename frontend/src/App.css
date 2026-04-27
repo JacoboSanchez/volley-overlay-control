@@ -853,6 +853,19 @@ body {
   background: var(--hover-bg);
 }
 
+.config-bottom-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.config-bottom-btn:disabled:hover {
+  background: transparent;
+}
+
+.config-bottom-btn:disabled:active {
+  transform: none;
+}
+
 .config-bottom-btn .material-icons {
   font-size: 1.2rem;
 }
