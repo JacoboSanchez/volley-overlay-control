@@ -286,13 +286,11 @@ export default function ConfigPanel({
       </div>
 
       <div className="config-bottom-bar">
-        {isDirty && (
-          <button className="config-bottom-btn config-bottom-btn-save"
-            onClick={handleSave} disabled={saving} title={t('config.saveCustomization')} data-testid="save-button">
-            <span className="material-icons">save</span>
-            <span>{saving ? '...' : t('config.save')}</span>
-          </button>
-        )}
+        <button className="config-bottom-btn config-bottom-btn-save"
+          onClick={handleSave} disabled={saving || !isDirty} title={t('config.saveCustomization')} data-testid="save-button">
+          <span className="material-icons">save</span>
+          <span>{saving ? '...' : t('config.save')}</span>
+        </button>
         <div className="spacer" />
         <button className="config-bottom-btn config-bottom-btn-refresh" onClick={handleRefresh}
           disabled={refreshing} title={t('config.reloadFromServer')} data-testid="refresh-button">
