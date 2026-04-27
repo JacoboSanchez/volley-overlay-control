@@ -196,6 +196,7 @@ body {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 
@@ -437,6 +438,15 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+/* A sandboxed iframe swallows touch events before they bubble to the parent
+ * document, which would block the scoreboard ↔ config swipe gesture handler
+ * attached to .app-container. Scope this to the control UI only — the
+ * standalone /preview page has no swipe handler and keeps its iframe
+ * interactive. */
+.app-container .preview-container iframe {
+  pointer-events: none;
 }
 
 /* ── Standalone preview page (/preview) ─────────────────────────────── */

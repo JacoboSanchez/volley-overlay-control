@@ -8,13 +8,27 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- Swipe navigation between scoreboard and configuration in the React control
+  UI: a horizontal left-swipe on the scoreboard opens the config panel and a
+  right-swipe returns to the scoreboard. The gesture is suppressed when the
+  touch starts on an interactive element (buttons, inputs, sliders, switches,
+  links, contenteditable) so taps, long-presses, and slider drags keep their
+  default behavior. Implemented in `frontend/src/hooks/useSwipeNavigation.ts`.
+- `?control=<id>` is now accepted as a backward-compatible alias for `?oid=<id>`
+  on every API endpoint that takes the OID via query string (REST routes, the
+  `/ws` WebSocket, and the request-logging middleware) and on the React
+  control UI's initial-OID lookup. Either parameter resolves to the same
+  overlay; passing both prefers `oid`.
+
 ### Changed
 
 - Config panel save UX: the "Save" button is now hidden until a setting that
   needs to be persisted to the overlay actually changes, making it visually
   obvious which controls apply directly versus which require an explicit save.
-  Leaving the panel via the back arrow or a browser back/swipe gesture while
-  there are unsaved changes prompts the user before discarding them
+  Leaving the panel via the back arrow, a browser back/edge-swipe gesture, or
+  the in-app right-swipe now prompts the user before discarding pending edits
   (`config.unsavedChangesConfirm` translated for EN/ES/PT/IT/FR/DE).
 
 ---

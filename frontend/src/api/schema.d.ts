@@ -1371,9 +1371,11 @@ export interface operations {
     };
     get_config_api_v1_config_get: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1405,9 +1407,11 @@ export interface operations {
     };
     get_customization_api_v1_customization_get: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1439,9 +1443,11 @@ export interface operations {
     };
     update_customization_api_v1_customization_put: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1479,9 +1485,11 @@ export interface operations {
     };
     set_simple_mode_api_v1_display_simple_mode_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1517,9 +1525,11 @@ export interface operations {
     };
     set_visibility_api_v1_display_visibility_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1555,9 +1565,11 @@ export interface operations {
     };
     add_point_api_v1_game_add_point_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1593,9 +1605,11 @@ export interface operations {
     };
     add_set_api_v1_game_add_set_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1631,9 +1645,11 @@ export interface operations {
     };
     add_timeout_api_v1_game_add_timeout_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1669,9 +1685,11 @@ export interface operations {
     };
     change_serve_api_v1_game_change_serve_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1707,9 +1725,11 @@ export interface operations {
     };
     reset_game_api_v1_game_reset_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1741,9 +1761,11 @@ export interface operations {
     };
     set_score_api_v1_game_set_score_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1779,9 +1801,11 @@ export interface operations {
     };
     set_sets_api_v1_game_set_sets_post: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1817,9 +1841,11 @@ export interface operations {
     };
     get_links_api_v1_links_get: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1917,9 +1943,11 @@ export interface operations {
     };
     get_state_api_v1_state_get: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
@@ -1951,9 +1979,11 @@ export interface operations {
     };
     get_styles_api_v1_styles_get: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Overlay ID */
-                oid: string;
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
             };
             header?: {
                 authorization?: string;
