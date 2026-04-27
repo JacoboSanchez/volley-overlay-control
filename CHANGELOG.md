@@ -24,11 +24,12 @@ once a first tagged release ships.
 
 ### Changed
 
-- Config panel save UX: the "Save" button is now hidden until a setting that
-  needs to be persisted to the overlay actually changes, making it visually
-  obvious which controls apply directly versus which require an explicit save.
-  Leaving the panel via the back arrow, a browser back/edge-swipe gesture, or
-  the in-app right-swipe now prompts the user before discarding pending edits
+- Config panel save UX: the "Save" button is now disabled (kept visible)
+  until a setting that needs to be persisted to the overlay actually changes,
+  making it visually obvious which controls apply directly versus which
+  require an explicit save without the bottom bar reflowing. Leaving the
+  panel via the back arrow, a browser back/edge-swipe gesture, or the in-app
+  right-swipe now prompts the user before discarding pending edits
   (`config.unsavedChangesConfirm` translated for EN/ES/PT/IT/FR/DE).
 
 ---

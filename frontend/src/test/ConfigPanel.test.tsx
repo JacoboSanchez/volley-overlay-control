@@ -47,19 +47,21 @@ describe('ConfigPanel', () => {
     });
   });
 
-  it('hides the save button when there are no unsaved changes', () => {
+  it('disables the save button when there are no unsaved changes', () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    expect(screen.queryByTestId('save-button')).not.toBeInTheDocument();
+    const saveBtn = screen.getByTestId('save-button');
+    expect(saveBtn).toBeInTheDocument();
+    expect(saveBtn).toBeDisabled();
+    expect(saveBtn).toHaveTextContent('Save');
   });
 
-  it('shows the save button after a customization change', async () => {
+  it('enables the save button after a customization change', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
-      expect(screen.getByTestId('save-button')).toBeInTheDocument();
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
     });
-    expect(screen.getByTestId('save-button')).toHaveTextContent('Save');
   });
 
   it('confirms before leaving when there are unsaved changes', async () => {
@@ -68,7 +70,7 @@ describe('ConfigPanel', () => {
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
-      expect(screen.getByTestId('save-button')).toBeInTheDocument();
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
     });
     fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
     await waitFor(() => {
@@ -83,7 +85,7 @@ describe('ConfigPanel', () => {
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
-      expect(screen.getByTestId('save-button')).toBeInTheDocument();
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
     });
     window.dispatchEvent(new PopStateEvent('popstate'));
     expect(window.confirm).toHaveBeenCalled();
@@ -104,7 +106,10 @@ describe('ConfigPanel', () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
-    const saveBtn = await screen.findByTestId('save-button');
+    const saveBtn = screen.getByTestId('save-button');
+    await waitFor(() => {
+      expect(saveBtn).not.toBeDisabled();
+    });
     fireEvent.click(saveBtn);
     await waitFor(() => {
       expect(api.updateCustomization).toHaveBeenCalled();
