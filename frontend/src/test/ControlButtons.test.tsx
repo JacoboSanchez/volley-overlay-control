@@ -12,7 +12,6 @@ const defaultProps = {
   canUndo: true,
   darkMode: true,
   isFullscreen: false,
-  matchFinished: false,
   onToggleVisibility: vi.fn(),
   onToggleSimpleMode: vi.fn(),
   onUndoLast: vi.fn(),

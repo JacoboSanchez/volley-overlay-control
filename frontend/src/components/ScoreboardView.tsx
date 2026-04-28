@@ -27,7 +27,6 @@ export interface ScoreboardViewProps {
   setShowControls: Dispatch<SetStateAction<boolean>>;
   canUndo: boolean;
   simpleMode: boolean;
-  matchFinished: boolean;
   isFullscreen: boolean;
   darkMode: boolean;
   btnColorA: string;
@@ -69,7 +68,6 @@ export default function ScoreboardView({
   setShowControls,
   canUndo,
   simpleMode,
-  matchFinished,
   isFullscreen,
   darkMode,
   btnColorA,
@@ -188,7 +186,6 @@ export default function ScoreboardView({
             canUndo={canUndo}
             darkMode={darkMode}
             isFullscreen={isFullscreen}
-            matchFinished={matchFinished}
             showPreview={showPreview}
             onToggleVisibility={onToggleVisibility}
             onToggleSimpleMode={onToggleSimpleMode}

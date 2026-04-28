@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, MouseEvent, TouchEvent } from 'react';
-
-const DEFAULT_LONG_PRESS_MS = 1000;
-// Window used to distinguish a single tap from a double tap. A shorter window
-// makes single-taps feel snappier while still leaving comfortable headroom
-// above a human double-tap (~150 ms typical).
-const DEFAULT_DOUBLE_TAP_MS = 280;
+import { DOUBLE_TAP_MS, LONG_PRESS_MS } from '../constants';
 
 export interface UseDoubleTapOptions {
   onClick?: () => void;
@@ -44,8 +39,8 @@ export function useDoubleTap({
   onClick,
   onDoubleTap,
   onLongPress,
-  longPressMs = DEFAULT_LONG_PRESS_MS,
-  doubleTapMs = DEFAULT_DOUBLE_TAP_MS,
+  longPressMs = LONG_PRESS_MS,
+  doubleTapMs = DOUBLE_TAP_MS,
 }: UseDoubleTapOptions): PressHandlers {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);

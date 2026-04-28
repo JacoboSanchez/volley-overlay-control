@@ -19,14 +19,11 @@ import {
   TEAM_B_COLOR,
   FONT_SCALES,
 } from './theme';
+import { ACTION_HISTORY_LIMIT, HUD_AUTO_HIDE_MS } from './constants';
 
 type Team = 1 | 2;
 
 type ActionEntry = { type: 'point' | 'set' | 'timeout'; team: Team };
-
-// Bounds the undo history. A typical 5-set match maxes out around 250-300
-// scoring events; 200 leaves comfortable headroom while keeping memory tiny.
-const ACTION_HISTORY_LIMIT = 200;
 
 interface DialogState {
   open: boolean;
@@ -75,7 +72,7 @@ export default function App() {
 
   const resetHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setShowControls(false), 5000);
+    hideTimerRef.current = setTimeout(() => setShowControls(false), HUD_AUTO_HIDE_MS);
   }, []);
 
   const [dialog, setDialog] = useState<DialogState>({
@@ -401,7 +398,6 @@ export default function App() {
           setShowControls={setShowControls}
           canUndo={actionHistory.length > 0}
           simpleMode={simpleMode}
-          matchFinished={matchFinished}
           isFullscreen={isFullscreen}
           darkMode={settings.darkMode}
           btnColorA={btnColorA}
