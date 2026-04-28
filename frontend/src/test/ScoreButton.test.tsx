@@ -89,4 +89,65 @@ describe('ScoreButton', () => {
     );
     expect(screen.getByTestId('btn').style.fontFamily).toContain('Digital Dismay');
   });
+
+  it('keyboard: Enter key activates onClick (single tap)', () => {
+    const onClick = vi.fn();
+    const onDoubleTap = vi.fn();
+    render(<ScoreButton text="00" color="#000" onClick={onClick} onDoubleTap={onDoubleTap} data-testid="btn" />);
+    const btn = screen.getByTestId('btn');
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    fireEvent.keyUp(btn, { key: 'Enter' });
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(onDoubleTap).not.toHaveBeenCalled();
+  });
+
+  it('keyboard: Space key activates onClick (single tap)', () => {
+    const onClick = vi.fn();
+    render(<ScoreButton text="00" color="#000" onClick={onClick} data-testid="btn" />);
+    const btn = screen.getByTestId('btn');
+    fireEvent.keyDown(btn, { key: ' ' });
+    fireEvent.keyUp(btn, { key: ' ' });
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it('keyboard: rapid double-Enter triggers onDoubleTap', () => {
+    const onClick = vi.fn();
+    const onDoubleTap = vi.fn();
+    render(<ScoreButton text="00" color="#000" onClick={onClick} onDoubleTap={onDoubleTap} data-testid="btn" />);
+    const btn = screen.getByTestId('btn');
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    fireEvent.keyUp(btn, { key: 'Enter' });
+    act(() => { vi.advanceTimersByTime(100); });
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    fireEvent.keyUp(btn, { key: 'Enter' });
+    expect(onDoubleTap).toHaveBeenCalledOnce();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('keyboard: Tab key (and other non-activation keys) is ignored', () => {
+    const onClick = vi.fn();
+    render(<ScoreButton text="00" color="#000" onClick={onClick} data-testid="btn" />);
+    const btn = screen.getByTestId('btn');
+    fireEvent.keyDown(btn, { key: 'Tab' });
+    fireEvent.keyUp(btn, { key: 'Tab' });
+    fireEvent.keyDown(btn, { key: 'a' });
+    fireEvent.keyUp(btn, { key: 'a' });
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('keyboard: held Enter (repeat=true) does not stack the long-press timer', () => {
+    const onClick = vi.fn();
+    const onLongPress = vi.fn();
+    render(<ScoreButton text="00" color="#000" onClick={onClick} onLongPress={onLongPress} data-testid="btn" />);
+    const btn = screen.getByTestId('btn');
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    // Browser repeats keydown while held; these shouldn't reset the timer.
+    fireEvent.keyDown(btn, { key: 'Enter', repeat: true });
+    fireEvent.keyDown(btn, { key: 'Enter', repeat: true });
+    act(() => { vi.advanceTimersByTime(1100); });
+    fireEvent.keyUp(btn, { key: 'Enter' });
+    expect(onLongPress).toHaveBeenCalledOnce();
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

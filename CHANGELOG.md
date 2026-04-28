@@ -8,6 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- Keyboard activation on the score and timeout buttons in the React
+  control UI: Enter and Space now trigger the same single-tap / rapid
+  double-tap / long-press gestures previously only reachable by mouse
+  or touch, closing a WCAG 2.1.1 (Keyboard) gap. Implemented in the
+  shared `useDoubleTap` hook and covered by new keyboard test cases.
+- Frontend coverage gate in CI. `vitest run --coverage` is now enforced
+  on every PR via `npm run test:coverage`; thresholds are pinned tightly
+  below current coverage to act as a regression floor and the lcov
+  report is uploaded as a CI artifact alongside the existing backend
+  coverage artifact.
+
 ### Changed
 
 - Centralised frontend timing and capacity tunables into a new
@@ -18,6 +31,13 @@ once a first tagged release ships.
   call sites now import from one place so future tuning is discoverable.
 - Bumped the client-side undo history cap from 200 to 300 so a 5-set
   match with extended deuces is fully covered without truncation.
+- Refactored the client-side undo state out of `App.tsx` into a
+  dedicated `useActionHistory` hook (`frontend/src/hooks/useActionHistory.ts`).
+  The hook owns the bounded stack, exposes a small testable API
+  (`push`, `undoLast`, `popMatching`, `clear`) and uses a ref-mirrored
+  state so rapid undo dispatches see the latest history even between
+  React batches. Behaviour is unchanged; the hook now has dedicated
+  unit tests covering the truncation path and the rapid-undo case.
 - Internationalization is now correctly described in `README.md` as the
   React control UI being available in six locales (English, Spanish,
   Portuguese, Italian, French, German), and the bullet has been moved

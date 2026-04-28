@@ -117,6 +117,36 @@ describe('TeamPanel', () => {
     expect(onAddTimeout).not.toHaveBeenCalled();
   });
 
+  it('keyboard: Enter on timeout button activates onAddTimeout', () => {
+    const onAddTimeout = vi.fn();
+    render(<TeamPanel {...defaultProps} onAddTimeout={onAddTimeout} />);
+    const btn = screen.getByTestId('team-1-timeout');
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    fireEvent.keyUp(btn, { key: 'Enter' });
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(onAddTimeout).toHaveBeenCalledWith(1);
+  });
+
+  it('keyboard: rapid double-Enter on timeout button triggers onDoubleTapTimeout', () => {
+    const onAddTimeout = vi.fn();
+    const onDoubleTapTimeout = vi.fn();
+    render(
+      <TeamPanel
+        {...defaultProps}
+        onAddTimeout={onAddTimeout}
+        onDoubleTapTimeout={onDoubleTapTimeout}
+      />
+    );
+    const btn = screen.getByTestId('team-1-timeout');
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    fireEvent.keyUp(btn, { key: 'Enter' });
+    act(() => { vi.advanceTimersByTime(100); });
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    fireEvent.keyUp(btn, { key: 'Enter' });
+    expect(onDoubleTapTimeout).toHaveBeenCalledWith(1);
+    expect(onAddTimeout).not.toHaveBeenCalled();
+  });
+
   it('calls onChangeServe when serve icon clicked', () => {
     render(<TeamPanel {...defaultProps} />);
     fireEvent.click(screen.getByTestId('team-1-serve'));
