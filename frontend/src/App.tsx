@@ -168,7 +168,10 @@ export default function App() {
         actions.setSimpleMode(true);
       }
     },
-    [actions, matchFinished, undoHistory, settings.autoSimple, simpleMode]
+    // Depend on the stable individual functions rather than the wrapper
+    // object so callbacks don't re-build on every history push (which
+    // would propagate fresh prop identities into memoised ScoreButtons).
+    [actions, matchFinished, undoHistory.push, settings.autoSimple, simpleMode]
   );
 
   const handleAddSet = useCallback(
@@ -177,7 +180,7 @@ export default function App() {
       actions.addSet(team, false);
       undoHistory.push({ type: 'set', team });
     },
-    [actions, matchFinished, undoHistory]
+    [actions, matchFinished, undoHistory.push]
   );
 
   const handleAddTimeout = useCallback(
@@ -189,7 +192,7 @@ export default function App() {
         actions.setSimpleMode(false);
       }
     },
-    [actions, matchFinished, undoHistory, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
+    [actions, matchFinished, undoHistory.push, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
   );
 
   const handleChangeServe = useCallback(
@@ -211,7 +214,7 @@ export default function App() {
     if (popped.type === 'point') actions.addPoint(popped.team, true);
     else if (popped.type === 'set') actions.addSet(popped.team, true);
     else actions.addTimeout(popped.team, true);
-  }, [actions, undoHistory]);
+  }, [actions, undoHistory.undoLast]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -233,7 +236,7 @@ export default function App() {
       actions.reset();
       undoHistory.clear();
     }
-  }, [actions, t, undoHistory]);
+  }, [actions, t, undoHistory.clear]);
 
   const handleLogout = useCallback(() => {
     try { localStorage.removeItem('volley_oid'); } catch (e) { console.warn('Failed to remove OID:', e); }
@@ -241,7 +244,7 @@ export default function App() {
     setOidInput('');
     undoHistory.clear();
     setActiveTab('scoreboard');
-  }, [undoHistory]);
+  }, [undoHistory.clear]);
 
   const handleSetChange = useCallback(
     (set: number) => {
@@ -256,7 +259,7 @@ export default function App() {
       actions.addPoint(team, true);
       undoHistory.popMatching('point', team);
     },
-    [actions, undoHistory]
+    [actions, undoHistory.popMatching]
   );
 
   const handleDoubleTapTimeout = useCallback(
@@ -264,7 +267,7 @@ export default function App() {
       actions.addTimeout(team, true);
       undoHistory.popMatching('timeout', team);
     },
-    [actions, undoHistory]
+    [actions, undoHistory.popMatching]
   );
 
   const handleLongPressScore = useCallback(

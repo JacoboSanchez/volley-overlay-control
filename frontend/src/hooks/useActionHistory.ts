@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ACTION_HISTORY_LIMIT } from '../constants';
 
 export type Team = 1 | 2;
@@ -76,12 +76,19 @@ export function useActionHistory(): UseActionHistory {
     setHistory([]);
   }, []);
 
-  return {
-    history,
-    canUndo: history.length > 0,
-    push,
-    undoLast,
-    popMatching,
-    clear,
-  };
+  // Memoise the returned object so consumers that depend on the whole
+  // hook value (rather than individual functions) only see a new
+  // identity when `history` actually changes — the action callbacks
+  // themselves are already stable via useCallback([]).
+  return useMemo(
+    () => ({
+      history,
+      canUndo: history.length > 0,
+      push,
+      undoLast,
+      popMatching,
+      clear,
+    }),
+    [history, push, undoLast, popMatching, clear],
+  );
 }

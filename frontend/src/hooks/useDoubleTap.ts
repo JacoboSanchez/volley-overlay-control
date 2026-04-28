@@ -76,6 +76,13 @@ export function useDoubleTap({
 
   // Core press-start logic, shared by mouse / touch / keyboard.
   const beginPress = useCallback(() => {
+    // Defensive: a concurrent input path (e.g. finger held + keyboard
+    // press) could otherwise overwrite an in-flight long-press timer
+    // and leak it, firing onLongPress later out of context.
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
     isLongPress.current = false;
 
     const now = Date.now();
