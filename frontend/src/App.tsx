@@ -19,11 +19,10 @@ import {
   TEAM_B_COLOR,
   FONT_SCALES,
 } from './theme';
-import { ACTION_HISTORY_LIMIT, HUD_AUTO_HIDE_MS } from './constants';
+import { HUD_AUTO_HIDE_MS } from './constants';
+import { useActionHistory } from './hooks/useActionHistory';
 
 type Team = 1 | 2;
-
-type ActionEntry = { type: 'point' | 'set' | 'timeout'; team: Team };
 
 interface DialogState {
   open: boolean;
@@ -58,7 +57,7 @@ export default function App() {
 
   const [oid, setOid] = useState<string>(getInitialOid);
   const [oidInput, setOidInput] = useState<string>(oid);
-  const [actionHistory, setActionHistory] = useState<ActionEntry[]>([]);
+  const undoHistory = useActionHistory();
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
@@ -160,44 +159,40 @@ export default function App() {
     }
   }, [oid, initialize]);
 
-  const pushAction = useCallback((entry: ActionEntry) => {
-    setActionHistory((h) => {
-      const next = h.length >= ACTION_HISTORY_LIMIT ? h.slice(-ACTION_HISTORY_LIMIT + 1) : h;
-      return [...next, entry];
-    });
-  }, []);
-
   const handleAddPoint = useCallback(
     (team: Team) => {
       if (matchFinished) return;
       actions.addPoint(team, false);
-      pushAction({ type: 'point', team });
+      undoHistory.push({ type: 'point', team });
       if (settings.autoSimple && !simpleMode) {
         actions.setSimpleMode(true);
       }
     },
-    [actions, matchFinished, pushAction, settings.autoSimple, simpleMode]
+    // Depend on the stable individual functions rather than the wrapper
+    // object so callbacks don't re-build on every history push (which
+    // would propagate fresh prop identities into memoised ScoreButtons).
+    [actions, matchFinished, undoHistory.push, settings.autoSimple, simpleMode]
   );
 
   const handleAddSet = useCallback(
     (team: Team) => {
       if (matchFinished) return;
       actions.addSet(team, false);
-      pushAction({ type: 'set', team });
+      undoHistory.push({ type: 'set', team });
     },
-    [actions, matchFinished, pushAction]
+    [actions, matchFinished, undoHistory.push]
   );
 
   const handleAddTimeout = useCallback(
     (team: Team) => {
       if (matchFinished) return;
       actions.addTimeout(team, false);
-      pushAction({ type: 'timeout', team });
+      undoHistory.push({ type: 'timeout', team });
       if (settings.autoSimple && settings.autoSimpleOnTimeout && simpleMode) {
         actions.setSimpleMode(false);
       }
     },
-    [actions, matchFinished, pushAction, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
+    [actions, matchFinished, undoHistory.push, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
   );
 
   const handleChangeServe = useCallback(
@@ -214,29 +209,12 @@ export default function App() {
   }, [actions, simpleMode]);
 
   const handleUndoLast = useCallback(() => {
-    // Side effects belong outside the state updater (React contract +
-    // StrictMode dev double-invokes updaters). Read history synchronously
-    // here and dispatch the API call before mutating state.
-    if (actionHistory.length === 0) return;
-    const last = actionHistory[actionHistory.length - 1];
-    if (last.type === 'point') actions.addPoint(last.team, true);
-    else if (last.type === 'set') actions.addSet(last.team, true);
-    else actions.addTimeout(last.team, true);
-    setActionHistory((h) => h.slice(0, -1));
-  }, [actions, actionHistory]);
-
-  // Pops the most recent matching entry off the history. Used by double-tap
-  // gestures, which are themselves an undo of the corresponding action.
-  const popMatchingAction = useCallback((type: ActionEntry['type'], team: Team) => {
-    setActionHistory((h) => {
-      for (let i = h.length - 1; i >= 0; i--) {
-        if (h[i].type === type && h[i].team === team) {
-          return [...h.slice(0, i), ...h.slice(i + 1)];
-        }
-      }
-      return h;
-    });
-  }, []);
+    const popped = undoHistory.undoLast();
+    if (!popped) return;
+    if (popped.type === 'point') actions.addPoint(popped.team, true);
+    else if (popped.type === 'set') actions.addSet(popped.team, true);
+    else actions.addTimeout(popped.team, true);
+  }, [actions, undoHistory.undoLast]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -256,17 +234,17 @@ export default function App() {
   const handleReset = useCallback(() => {
     if (window.confirm(t('config.resetConfirm'))) {
       actions.reset();
-      setActionHistory([]);
+      undoHistory.clear();
     }
-  }, [actions, t]);
+  }, [actions, t, undoHistory.clear]);
 
   const handleLogout = useCallback(() => {
     try { localStorage.removeItem('volley_oid'); } catch (e) { console.warn('Failed to remove OID:', e); }
     setOid('');
     setOidInput('');
-    setActionHistory([]);
+    undoHistory.clear();
     setActiveTab('scoreboard');
-  }, []);
+  }, [undoHistory.clear]);
 
   const handleSetChange = useCallback(
     (set: number) => {
@@ -279,17 +257,17 @@ export default function App() {
   const handleDoubleTapScore = useCallback(
     (team: Team) => {
       actions.addPoint(team, true);
-      popMatchingAction('point', team);
+      undoHistory.popMatching('point', team);
     },
-    [actions, popMatchingAction]
+    [actions, undoHistory.popMatching]
   );
 
   const handleDoubleTapTimeout = useCallback(
     (team: Team) => {
       actions.addTimeout(team, true);
-      popMatchingAction('timeout', team);
+      undoHistory.popMatching('timeout', team);
     },
-    [actions, popMatchingAction]
+    [actions, undoHistory.popMatching]
   );
 
   const handleLongPressScore = useCallback(
@@ -396,7 +374,7 @@ export default function App() {
           showPreview={settings.showPreview}
           showControls={showControls}
           setShowControls={setShowControls}
-          canUndo={actionHistory.length > 0}
+          canUndo={undoHistory.canUndo}
           simpleMode={simpleMode}
           isFullscreen={isFullscreen}
           darkMode={settings.darkMode}
