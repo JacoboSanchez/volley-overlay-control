@@ -8,6 +8,10 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+---
+
+## [5.0.1] - 2026-04-28
+
 ### Added
 
 - Swipe navigation between scoreboard and configuration in the React control
@@ -15,12 +19,13 @@ once a first tagged release ships.
   right-swipe returns to the scoreboard. The gesture is suppressed when the
   touch starts on an interactive element (buttons, inputs, sliders, switches,
   links, contenteditable) so taps, long-presses, and slider drags keep their
-  default behavior. Implemented in `frontend/src/hooks/useSwipeNavigation.ts`.
+  default behavior. Implemented in `frontend/src/hooks/useSwipeNavigation.ts`
+  (`#197`, `#198`).
 - `?control=<id>` is now accepted as a backward-compatible alias for `?oid=<id>`
   on every API endpoint that takes the OID via query string (REST routes, the
   `/ws` WebSocket, and the request-logging middleware) and on the React
   control UI's initial-OID lookup. Either parameter resolves to the same
-  overlay; passing both prefers `oid`.
+  overlay; passing both prefers `oid` (`#196`).
 
 ### Changed
 
@@ -30,7 +35,20 @@ once a first tagged release ships.
   require an explicit save without the bottom bar reflowing. Leaving the
   panel via the back arrow, a browser back/edge-swipe gesture, or the in-app
   right-swipe now prompts the user before discarding pending edits
-  (`config.unsavedChangesConfirm` translated for EN/ES/PT/IT/FR/DE).
+  (`config.unsavedChangesConfirm` translated for EN/ES/PT/IT/FR/DE)
+  (`#200`, `#201`).
+
+### Fixed
+
+- Disabled config-panel bottom buttons now render with a clearly greyed-out
+  style so it is obvious when an action is unavailable (`#202`, `#203`).
+- Scoreboard control bar stays pinned on tablets and desktops; the auto-hide
+  effect was split so the manual toggle keeps working on tablet form factors
+  (`#204`).
+
+### Dependencies
+
+- Bump `postcss` from 8.5.8 to 8.5.12 in `frontend/` (`#206`).
 
 ---
 
