@@ -32,6 +32,7 @@ const defaultProps: TeamPanelProps = {
   onAddTimeout: vi.fn(),
   onChangeServe: vi.fn(),
   onDoubleTapScore: vi.fn(),
+  onDoubleTapTimeout: vi.fn(),
   onLongPressScore: vi.fn(),
 };
 
@@ -86,10 +87,34 @@ describe('TeamPanel', () => {
     expect(onAddPoint).not.toHaveBeenCalled();
   });
 
-  it('calls onAddTimeout when timeout button clicked', () => {
-    render(<TeamPanel {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('team-1-timeout'));
-    expect(defaultProps.onAddTimeout).toHaveBeenCalledWith(1);
+  it('calls onAddTimeout when timeout button tapped once', () => {
+    const onAddTimeout = vi.fn();
+    render(<TeamPanel {...defaultProps} onAddTimeout={onAddTimeout} />);
+    const btn = screen.getByTestId('team-1-timeout');
+    fireEvent.mouseDown(btn);
+    fireEvent.mouseUp(btn);
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(onAddTimeout).toHaveBeenCalledWith(1);
+  });
+
+  it('calls onDoubleTapTimeout on rapid double-tap of timeout button', () => {
+    const onDoubleTapTimeout = vi.fn();
+    const onAddTimeout = vi.fn();
+    render(
+      <TeamPanel
+        {...defaultProps}
+        onAddTimeout={onAddTimeout}
+        onDoubleTapTimeout={onDoubleTapTimeout}
+      />
+    );
+    const btn = screen.getByTestId('team-1-timeout');
+    fireEvent.mouseDown(btn);
+    fireEvent.mouseUp(btn);
+    act(() => { vi.advanceTimersByTime(100); });
+    fireEvent.mouseDown(btn);
+    fireEvent.mouseUp(btn);
+    expect(onDoubleTapTimeout).toHaveBeenCalledWith(1);
+    expect(onAddTimeout).not.toHaveBeenCalled();
   });
 
   it('calls onChangeServe when serve icon clicked', () => {
