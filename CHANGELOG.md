@@ -8,6 +8,32 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- Centralised frontend timing and capacity tunables into a new
+  `frontend/src/constants.ts` (`ACTION_HISTORY_LIMIT`, `DOUBLE_TAP_MS`,
+  `LONG_PRESS_MS`, `HUD_AUTO_HIDE_MS`, `WS_PING_INTERVAL_MS`,
+  `WS_RECONNECT_MS`). Previously these magic numbers lived inline in
+  `App.tsx`, `useDoubleTap.ts`, `api/websocket.ts` and `useGameState.ts`;
+  call sites now import from one place so future tuning is discoverable.
+- Internationalization is now correctly described in `README.md` as the
+  React control UI being available in six locales (English, Spanish,
+  Portuguese, Italian, French, German), and the bullet has been moved
+  from the REST API section to "User and Overlay Management" where it
+  belongs.
+
+### Fixed
+
+- Doc drift: directory-tree blocks in `AGENTS.md` and `DEVELOPER_GUIDE.md`
+  still referenced pre-TypeScript-migration filenames (`App.jsx`,
+  `i18n.jsx`, `theme.js`, `api/client.js`). Updated to the actual `.tsx`
+  / `.ts` files and added the generated `api/schema.d.ts` entry.
+- `ControlButtons` declared a `matchFinished` prop that no consumer ever
+  read; it was forwarded `App.tsx` → `ScoreboardView` → `ControlButtons`
+  for no effect. Removed across all three layers (and from the test
+  fixture). Docstring also refreshed to match the current button set
+  (visibility, preview, simple-mode, undo, fullscreen, dark-mode).
+
 ---
 
 ## [5.0.2] - 2026-04-28
