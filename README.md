@@ -15,7 +15,7 @@ It includes 16 overlay style templates served directly to OBS browser sources â€
 ### Complete Match Control
 *   **Score Management**: Manage points, sets, and timeouts for both teams via REST API.
 *   **Service Indicator**: Track the serving team.
-*   **Undo Capability**: Reverse any scoring action.
+*   **Undo Capability**: Step back through recent scoring actions one at a time, including set-winning points. Double-tap a score or timeout button on the React UI for an instant team-specific undo.
 *   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets).
 
 ### Advanced Customization

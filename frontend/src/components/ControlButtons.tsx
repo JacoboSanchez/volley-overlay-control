@@ -5,7 +5,6 @@ import {
   FULL_SCOREBOARD_COLOR,
   SIMPLE_SCOREBOARD_COLOR,
   UNDO_COLOR,
-  DO_COLOR,
   PREVIEW_ON_COLOR,
   PREVIEW_OFF_COLOR,
 } from '../theme';
@@ -13,13 +12,13 @@ import {
 export interface ControlButtonsProps {
   visible: boolean;
   simpleMode: boolean;
-  undoMode: boolean;
+  canUndo: boolean;
   darkMode: boolean;
   isFullscreen: boolean;
   matchFinished?: boolean;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
-  onToggleUndo: () => void;
+  onUndoLast: () => void;
   onToggleDarkMode: () => void;
   onToggleFullscreen: () => void;
   showPreview: boolean;
@@ -32,12 +31,12 @@ export interface ControlButtonsProps {
 export default function ControlButtons({
   visible,
   simpleMode,
-  undoMode,
+  canUndo,
   darkMode,
   isFullscreen,
   onToggleVisibility,
   onToggleSimpleMode,
-  onToggleUndo,
+  onUndoLast,
   onToggleDarkMode,
   onToggleFullscreen,
   showPreview,
@@ -95,16 +94,16 @@ export default function ControlButtons({
       <button
         className="control-btn"
         style={{
-          borderColor: undoMode ? DO_COLOR : UNDO_COLOR,
-          color: undoMode ? DO_COLOR : UNDO_COLOR,
+          borderColor: UNDO_COLOR,
+          color: UNDO_COLOR,
+          opacity: canUndo ? 1 : 0.4,
         }}
-        onClick={onToggleUndo}
-        title={undoMode ? t('ctrl.undoOn') : t('ctrl.undoOff')}
+        onClick={onUndoLast}
+        disabled={!canUndo}
+        title={t('ctrl.undoLast')}
         data-testid="undo-button"
       >
-        <span className="material-icons">
-          {undoMode ? 'redo' : 'undo'}
-        </span>
+        <span className="material-icons">undo</span>
       </button>
 
       <div className="spacer" />

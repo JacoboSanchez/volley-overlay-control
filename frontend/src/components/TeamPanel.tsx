@@ -5,6 +5,7 @@ import type { GameState } from '../api/client';
 import type { components } from '../api/schema';
 import type { ConfigModel } from './TeamCard';
 import { toNumber, asString } from '../utils/coerce';
+import { useDoubleTap } from '../hooks/useDoubleTap';
 
 type TeamState = components['schemas']['TeamState'];
 
@@ -28,6 +29,7 @@ export interface TeamPanelProps {
   onAddTimeout: (teamId: 1 | 2) => void;
   onChangeServe: (teamId: 1 | 2) => void;
   onDoubleTapScore: (teamId: 1 | 2) => void;
+  onDoubleTapTimeout: (teamId: 1 | 2) => void;
   onLongPressScore: (teamId: 1 | 2) => void;
 }
 
@@ -64,6 +66,7 @@ export default function TeamPanel({
   onAddTimeout,
   onChangeServe,
   onDoubleTapScore,
+  onDoubleTapTimeout,
   onLongPressScore,
 }: TeamPanelProps) {
   const score = toNumber(teamState?.scores?.[`set_${currentSet}`]);
@@ -74,7 +77,16 @@ export default function TeamPanel({
   const handleAddTimeout = useCallback(() => onAddTimeout(teamId), [onAddTimeout, teamId]);
   const handleChangeServe = useCallback(() => onChangeServe(teamId), [onChangeServe, teamId]);
   const handleDoubleTap = useCallback(() => onDoubleTapScore(teamId), [onDoubleTapScore, teamId]);
+  const handleDoubleTapTimeoutCb = useCallback(
+    () => onDoubleTapTimeout(teamId),
+    [onDoubleTapTimeout, teamId]
+  );
   const handleLongPress = useCallback(() => onLongPressScore(teamId), [onLongPressScore, teamId]);
+
+  const timeoutHandlers = useDoubleTap({
+    onClick: handleAddTimeout,
+    onDoubleTap: handleDoubleTapTimeoutCb,
+  });
 
   const scoreText = String(score).padStart(2, '0');
 
@@ -165,11 +177,16 @@ export default function TeamPanel({
             <button
               className="timeout-button"
               style={{ borderColor: timeoutColor, color: timeoutColor }}
-              onClick={() => onAddTimeout(teamId)}
+              {...timeoutHandlers}
+              aria-label={`Team ${teamId} timeout`}
+              aria-describedby={`team-${teamId}-timeout-help`}
               data-testid={`team-${teamId}-timeout`}
             >
               <span className="material-icons">timer</span>
             </button>
+            <span id={`team-${teamId}-timeout-help`} className="visually-hidden">
+              Tap to add timeout, double-tap to undo.
+            </span>
             <div className={`timeout-dots ${isPortrait ? 'timeout-dots-col' : 'timeout-dots-row'}`}
                  data-testid={`team-${teamId}-timeouts-display`}>
               {timeoutDots}

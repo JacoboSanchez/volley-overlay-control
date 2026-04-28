@@ -20,7 +20,6 @@ export const VISIBLE_OFF_COLOR = '#f44336'; // Bright red for better contrast
 export const FULL_SCOREBOARD_COLOR = '#ff9800'; // orange-500
 export const SIMPLE_SCOREBOARD_COLOR = '#e65100'; // orange-700
 export const UNDO_COLOR = '#5c6bc0'; // indigo-400
-export const DO_COLOR = '#303f9f'; // indigo-700
 export const PREVIEW_ON_COLOR = '#9c27b0'; // purple-500
 export const PREVIEW_OFF_COLOR = '#7b1fa2'; // purple-700
 

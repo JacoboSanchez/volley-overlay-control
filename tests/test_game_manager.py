@@ -180,6 +180,29 @@ def test_undo_winning_point(game_manager):
     state = game_manager.get_current_state()
     assert state.get_sets(1) == 0
 
+def test_undo_winning_point_after_session_advanced(game_manager):
+    """Undo of a set-winning point must work even after the session has
+    advanced ``current_set`` to the next (empty) set — the real GameService
+    flow always passes the new current_set."""
+    for _ in range(15):
+        game_manager.add_game(2, 1, 25, 15, 5, False)
+    for _ in range(24):
+        game_manager.add_game(1, 1, 25, 15, 5, False)
+    game_manager.add_game(1, 1, 25, 15, 5, False)  # Winning point — set 1 ends 25-15
+
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 1
+    assert state.get_game(1, 1) == 25
+
+    # Mirrors GameService behaviour: current_set has already advanced to 2.
+    game_manager.add_game(1, 2, 25, 15, 5, True)
+
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 0
+    assert state.get_game(1, 1) == 24
+    assert state.get_game(1, 2) == 0
+    assert state.get_game(2, 1) == 15
+
 def test_max_timeouts(game_manager):
     """Tests that a team cannot exceed the maximum number of timeouts."""
     game_manager.add_timeout(1, False)

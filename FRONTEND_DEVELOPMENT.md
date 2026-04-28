@@ -197,6 +197,7 @@ Add or undo a point.
 - Automatically handles set wins (when a team reaches the point limit with 2+ point lead)
 - Automatically advances the serve
 - Returns `success: false` when match is already finished (unless `undo: true`)
+- With `undo: true`, when the current set has no score for the requested team (typically right after a set-winning point advanced the session to the next set), the undo falls back to the prior set so that the score *and* the set win are reverted together
 
 #### `POST /api/v1/game/add-set?oid=<OID>`
 
@@ -669,11 +670,13 @@ Vite serves on port 3000 and proxies `/api` requests to the backend on port 8080
 These behaviours are not part of the API contract — document them here so alternate frontends can match them intentionally.
 
 - **HUD auto-hide** — the overlay controls fade out after 5 s of pointer inactivity (`resetHideTimer` in `frontend/src/App.tsx`). Any `pointerdown` resets the timer. Useful on touch devices where an always-visible toolbar occludes the scoreboard.
-- **Score button gestures** — each side of the scoreboard uses a multi-gesture button (`frontend/src/components/ScoreButton.tsx`). Priority is **long-press > double-tap > single-tap**:
+- **Score button gestures** — each side of the scoreboard uses a multi-gesture button (`frontend/src/components/ScoreButton.tsx`, backed by the shared `frontend/src/hooks/useDoubleTap.ts` hook). Priority is **long-press > double-tap > single-tap**:
   - *Single tap*: `POST /api/v1/game/add-point`.
-  - *Double tap*: undo the last point on that team.
+  - *Double tap*: undo the last point on that team (`add-point` with `undo: true`).
   - *Long press*: open a numeric dialog that calls `POST /api/v1/game/set-score` to pick an exact value.
   Long-press cancels the pending single/double-tap timers so only the long-press handler fires.
+- **Timeout button gestures** — the timeout button on each side of the scoreboard uses the same `useDoubleTap` hook. Single tap calls `POST /api/v1/game/add-timeout`; double tap calls it with `undo: true` to revert the most recent timeout for that team.
+- **Undo button** — the bottom-bar undo button maintains a bounded action history (200 entries) of points, sets, and timeouts the user has performed in this browser session. Each click pops the most recent entry and dispatches the matching `add-*` call with `undo: true`; the button is disabled when the history is empty. Reset and logout clear the history. The history is local to the React UI and is not synced across clients.
 - **Set-cell long press** — long-pressing a set counter in the centre panel opens the same dialog against `POST /api/v1/game/set-sets`.
 - **Swipe between scoreboard and config** — `frontend/src/hooks/useSwipeNavigation.ts` attaches touch handlers to `.app-container`. A horizontal swipe of ≥80 px with `|dy|/|dx| ≤ 0.5` switches tabs: left-swipe goes scoreboard → config, right-swipe goes config → scoreboard. Gestures whose `touchstart` target matches `DEFAULT_IGNORE_SELECTORS` (`button`, `input`, `select`, `textarea`, `a`, `label`, ARIA `button|slider|checkbox|switch|tab|menuitem`, `[contenteditable="true"]`) are skipped so taps, long-presses on `ScoreButton`, and slider drags work unchanged. `.app-container` declares `touch-action: pan-y` so the browser keeps native vertical scrolling and yields horizontal motion to us. When the overlay preview is rendered inside `.app-container`, `pointer-events: none` is applied to the iframe via `.app-container .preview-container iframe` because cross-document touch events do not bubble out of an iframe — without it, swipes that begin over the preview never reach the parent handler. The standalone `/preview` page is unaffected and keeps its iframe interactive.
 - **Pre-select OID via URL** — the bundled UI resolves the initial OID from `?oid=<OID>` first, falling back to the `volley_oid` key in `localStorage`. Providing a `?oid=` value auto-connects the session (skipping the picker) and replaces any previously stored OID, so external links can force-switch which overlay this tab is controlling.
