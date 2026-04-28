@@ -41,7 +41,8 @@ function dedupe(signature: string): boolean {
 }
 
 function readOidFromUrl(): string | undefined {
-  return new URLSearchParams(window.location.search).get('oid') ?? undefined;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('oid') || params.get('control') || undefined;
 }
 
 function safeStringify(value: unknown): string {

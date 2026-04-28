@@ -5,6 +5,7 @@ import { useGameState } from './hooks/useGameState';
 import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
+import { useSwipeNavigation } from './hooks/useSwipeNavigation';
 import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ConfigPanel from './components/ConfigPanel';
@@ -37,7 +38,7 @@ interface FontScale {
 
 function getInitialOid(): string {
   const params = new URLSearchParams(window.location.search);
-  const urlOid = params.get('oid');
+  const urlOid = params.get('oid') || params.get('control');
   if (urlOid) return urlOid;
   try {
     return localStorage.getItem('volley_oid') || '';
@@ -50,12 +51,18 @@ export default function App() {
   const { t } = useI18n();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
-  const { isPortrait, buttonSize } = useOrientation();
+  const { isPortrait, buttonSize, hasRoomForPersistentControls } = useOrientation();
 
   const [oid, setOid] = useState<string>(getInitialOid);
   const [oidInput, setOidInput] = useState<string>(oid);
   const [undoMode, setUndoMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
+  const swipeHandlers = useSwipeNavigation({
+    onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
+    // Route through history.back() so ConfigPanel's popstate listener can
+    // run the unsaved-changes confirmation before tearing down.
+    onSwipeRight: activeTab === 'config' ? () => window.history.back() : undefined,
+  });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(!!document.fullscreenElement);
   const [showControls, setShowControls] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,7 +95,20 @@ export default function App() {
   // initSession has created the session.
   const previewData = usePreview(oid, settings.showPreview, !!state);
 
+  // Reveal the bar when the viewport gains room for it (e.g. phone→tablet
+  // resize). Kept in its own effect so the manual hide toggle still works
+  // on tablets — the auto-hide effect below would otherwise re-show it on
+  // every showControls change.
   useEffect(() => {
+    if (hasRoomForPersistentControls) {
+      setShowControls(true);
+    }
+  }, [hasRoomForPersistentControls]);
+
+  useEffect(() => {
+    // On tablets/desktops the control bar fits without covering scoreboard
+    // elements, so skip the inactivity timer entirely.
+    if (hasRoomForPersistentControls) return;
     if (showControls && activeTab === 'scoreboard' && state) {
       resetHideTimer();
       window.addEventListener('pointerdown', resetHideTimer, { passive: true });
@@ -97,7 +117,7 @@ export default function App() {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       window.removeEventListener('pointerdown', resetHideTimer);
     };
-  }, [showControls, activeTab, state, resetHideTimer]);
+  }, [showControls, activeTab, state, resetHideTimer, hasRoomForPersistentControls]);
 
   const setsLimit = (state?.config?.sets_limit as number | undefined) ?? 5;
   const matchFinished = state?.match_finished ?? false;
@@ -320,7 +340,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className="app-container" {...swipeHandlers}>
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
         <ScoreboardView

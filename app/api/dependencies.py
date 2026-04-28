@@ -72,20 +72,29 @@ def check_oid_access(authorization: str, oid: str):
 
 async def get_session(
     request: Request,
-    oid: str = Query(..., description="Overlay ID")
+    oid: str | None = Query(None, description="Overlay ID"),
+    control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
 ) -> GameSession:
     """Retrieve a previously initialised ``GameSession``.
 
-    Returns HTTP 404 if no session exists for the given OID — callers
-    should call ``POST /api/v1/session/init`` first.
+    Accepts either ``?oid=`` or ``?control=`` (alias). Returns HTTP 404 if
+    no session exists for the given OID — callers should call
+    ``POST /api/v1/session/init`` first.
     """
-    authorization = request.headers.get("authorization", "")
-    check_oid_access(authorization, oid)
+    resolved = oid or control
+    if not resolved:
+        raise HTTPException(
+            status_code=422,
+            detail="Missing required query parameter: 'oid' (or alias 'control').",
+        )
 
-    session = SessionManager.get(oid)
+    authorization = request.headers.get("authorization", "")
+    check_oid_access(authorization, resolved)
+
+    session = SessionManager.get(resolved)
     if session is None:
         raise HTTPException(
             status_code=404,
-            detail=f"No active session for OID '{oid}'. Call POST /api/v1/session/init first.",
+            detail=f"No active session for OID '{resolved}'. Call POST /api/v1/session/init first.",
         )
     return session

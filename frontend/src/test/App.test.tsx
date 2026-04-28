@@ -146,4 +146,19 @@ describe('App', () => {
       expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'persist-oid');
     });
   });
+
+  it('seeds initial OID from ?control= query alias', () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        protocol: 'https:',
+        host: 'localhost',
+        search: '?control=alias-oid',
+        href: 'https://localhost/?control=alias-oid',
+      },
+      writable: true,
+    });
+    renderWithI18n(<App />);
+    const input = screen.getByPlaceholderText('my-overlay') as HTMLInputElement;
+    expect(input.value).toBe('alias-oid');
+  });
 });

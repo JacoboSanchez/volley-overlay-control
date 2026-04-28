@@ -66,5 +66,5 @@ def _extract_oid(scope) -> str | None:
     # latin-1 is total over bytes (never raises) and matches Starlette's
     # own handling of raw ASGI byte strings.
     params = parse_qs(qs.decode("latin-1"), keep_blank_values=False)
-    values = params.get("oid")
+    values = params.get("oid") or params.get("control")
     return values[0] if values else None

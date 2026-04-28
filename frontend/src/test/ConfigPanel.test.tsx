@@ -39,17 +39,83 @@ describe('ConfigPanel', () => {
     expect(screen.getByTestId('scoreboard-tab-button')).toBeInTheDocument();
   });
 
-  it('calls onBack when back button clicked', () => {
+  it('calls onBack when back button clicked with no unsaved changes', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
-    expect(defaultProps.onBack).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(defaultProps.onBack).toHaveBeenCalledOnce();
+    });
   });
 
-  it('renders save button with text', () => {
+  it('disables the save button when there are no unsaved changes', () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const saveBtn = screen.getByTestId('save-button');
     expect(saveBtn).toBeInTheDocument();
+    expect(saveBtn).toBeDisabled();
     expect(saveBtn).toHaveTextContent('Save');
+  });
+
+  it('enables the save button after a customization change', async () => {
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
+    });
+  });
+
+  it('confirms before leaving when there are unsaved changes', async () => {
+    window.confirm = vi.fn().mockReturnValue(false);
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByTestId('scoreboard-tab-button'));
+    await waitFor(() => {
+      expect(window.confirm).toHaveBeenCalled();
+    });
+    expect(defaultProps.onBack).not.toHaveBeenCalled();
+  });
+
+  it('confirms when popstate fires (swipe back) with unsaved changes', async () => {
+    window.confirm = vi.fn().mockReturnValue(false);
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
+    });
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(defaultProps.onBack).not.toHaveBeenCalled();
+  });
+
+  it('exits via popstate without prompting when nothing is dirty', () => {
+    window.confirm = vi.fn();
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(defaultProps.onBack).toHaveBeenCalledOnce();
+  });
+
+  it('exits without prompting after a successful save', async () => {
+    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+    window.confirm = vi.fn();
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    const saveBtn = screen.getByTestId('save-button');
+    await waitFor(() => {
+      expect(saveBtn).not.toBeDisabled();
+    });
+    fireEvent.click(saveBtn);
+    await waitFor(() => {
+      expect(api.updateCustomization).toHaveBeenCalled();
+      expect(defaultProps.onBack).toHaveBeenCalled();
+    });
+    expect(window.confirm).not.toHaveBeenCalled();
   });
 
   it('renders bottom bar action buttons', () => {
