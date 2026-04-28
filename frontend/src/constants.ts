@@ -19,9 +19,9 @@ export const LONG_PRESS_MS = 1000;
 // --- Undo history -------------------------------------------------------
 
 /** Maximum number of forward actions retained on the client-side undo stack.
- *  A 5-set match maxes out around 250-300 scoring events; 200 is comfortable
- *  headroom while keeping memory tiny. */
-export const ACTION_HISTORY_LIMIT = 200;
+ *  A 5-set match with deuces can break 300 scoring events; 300 covers the
+ *  realistic worst case while keeping memory negligible (~30 KB). */
+export const ACTION_HISTORY_LIMIT = 300;
 
 // --- HUD chrome ---------------------------------------------------------
 

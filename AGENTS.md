@@ -40,6 +40,7 @@ volley-overlay-control/
 │   │   ├── api/websocket.ts   # WebSocket client (uses window.location.host)
 │   │   ├── api/schema.d.ts    # Generated OpenAPI type definitions
 │   │   ├── components/        # UI components (TeamPanel, ConfigPanel, ScoreButton, etc.)
+│   │   ├── constants.ts       # Centralised tunable constants (timing, history cap)
 │   │   ├── hooks/             # React hooks (useGameState, useSettings, useDoubleTap, etc.)
 │   │   ├── i18n.tsx           # Internationalization
 │   │   ├── theme.ts           # Theme constants and font scales

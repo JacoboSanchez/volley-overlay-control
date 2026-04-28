@@ -16,6 +16,8 @@ once a first tagged release ships.
   `WS_RECONNECT_MS`). Previously these magic numbers lived inline in
   `App.tsx`, `useDoubleTap.ts`, `api/websocket.ts` and `useGameState.ts`;
   call sites now import from one place so future tuning is discoverable.
+- Bumped the client-side undo history cap from 200 to 300 so a 5-set
+  match with extended deuces is fully covered without truncation.
 - Internationalization is now correctly described in `README.md` as the
   React control UI being available in six locales (English, Spanish,
   Portuguese, Italian, French, German), and the bullet has been moved
