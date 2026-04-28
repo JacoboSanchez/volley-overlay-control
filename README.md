@@ -29,6 +29,7 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 *   **Multi-Overlay Control**: Manage multiple overlays from a single instance.
 *   **Overlay Library**: Select from predefined overlays for quick setup.
 *   **Custom Overlay Manager Page**: Dedicated, password-protected page at `/manage` to create, delete and clone custom (built-in engine) overlays at runtime — no need to use the `/create/overlay`, `/list/overlay` or `/delete/overlay` endpoints directly.
+*   **Internationalization**: Control UI available in **English**, **Spanish**, **Portuguese**, **Italian**, **French** and **German**, with volleyball-specific terminology per locale.
 
 ### REST + WebSocket API
 *   **Session management** — initialise and manage game sessions
@@ -36,7 +37,6 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 *   **Display controls** — toggle overlay visibility and simple mode
 *   **Customization** — read and update team names, colors, logos
 *   **Real-time WebSocket** — receive instant state updates at `ws://<host>/api/v1/ws?oid=<OID>`
-*   **Internationalization**: Available in **English** and **Spanish**.
 
 Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no users are configured, the API is open.
 

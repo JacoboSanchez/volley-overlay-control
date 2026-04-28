@@ -15,7 +15,6 @@ export interface ControlButtonsProps {
   canUndo: boolean;
   darkMode: boolean;
   isFullscreen: boolean;
-  matchFinished?: boolean;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
@@ -26,7 +25,8 @@ export interface ControlButtonsProps {
 }
 
 /**
- * Bottom control bar with visibility, simple mode, undo, and config navigation.
+ * Bottom HUD control bar: visibility, preview, simple-mode, undo,
+ * fullscreen, and dark-mode toggles.
  */
 export default function ControlButtons({
   visible,

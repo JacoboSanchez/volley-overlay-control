@@ -3,6 +3,7 @@ import * as api from '../api/client';
 import type { GameState, ActionResponse, Team } from '../api/client';
 import type { components } from '../api/schema';
 import { createWebSocket } from '../api/websocket';
+import { WS_RECONNECT_MS } from '../constants';
 
 type Customization = Record<string, unknown>;
 type TeamState = components['schemas']['TeamState'];
@@ -103,7 +104,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
       onClose: (event) => {
         setConnected(false);
         if (event.code !== 4004) {
-          reconnectTimer.current = setTimeout(connectWs, 3000);
+          reconnectTimer.current = setTimeout(connectWs, WS_RECONNECT_MS);
         }
       },
       onError: () => setConnected(false),

@@ -34,15 +34,16 @@ volley-overlay-control/
 │   ├── package.json           # Frontend dependencies and scripts
 │   ├── vite.config.js         # Vite config (PWA, dev proxy to :8080, test setup)
 │   ├── index.html             # SPA entry point
-│   ├── src/                   # React source code
-│   │   ├── App.jsx            # Main app component
-│   │   ├── api/client.js      # REST API client (relative paths: /api/v1/)
-│   │   ├── api/websocket.js   # WebSocket client (uses window.location.host)
+│   ├── src/                   # React source code (TypeScript)
+│   │   ├── App.tsx            # Main app component
+│   │   ├── api/client.ts      # REST API client (relative paths: /api/v1/)
+│   │   ├── api/websocket.ts   # WebSocket client (uses window.location.host)
+│   │   ├── api/schema.d.ts    # Generated OpenAPI type definitions
 │   │   ├── components/        # UI components (TeamPanel, ConfigPanel, ScoreButton, etc.)
-│   │   ├── hooks/             # React hooks (useGameState, useSettings, usePreview, etc.)
-│   │   ├── i18n.jsx           # Internationalization
-│   │   ├── theme.js           # Theme constants and font scales
-│   │   └── test/              # Vitest test suite (158 tests)
+│   │   ├── hooks/             # React hooks (useGameState, useSettings, useDoubleTap, etc.)
+│   │   ├── i18n.tsx           # Internationalization
+│   │   ├── theme.ts           # Theme constants and font scales
+│   │   └── test/              # Vitest test suite
 │   └── public/                # Static assets (icons, fonts)
 │
 ├── app/                       # Backend source code
