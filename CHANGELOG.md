@@ -8,12 +8,16 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+---
+
+## [5.0.2] - 2026-04-28
+
 ### Added
 
 - Double-tap to undo on the timeout button in the React control UI, mirroring
   the existing double-tap-to-undo gesture on the score button. The shared
   press-gesture detector has been extracted into a `useDoubleTap` hook so both
-  buttons stay in sync (`frontend/src/hooks/useDoubleTap.ts`).
+  buttons stay in sync (`frontend/src/hooks/useDoubleTap.ts`) (`#208`).
 
 ### Changed
 
@@ -23,7 +27,7 @@ once a first tagged release ships.
   through a bounded history (200 entries) of points, sets, and timeouts. The
   button is disabled when the history is empty. Reset and logout clear the
   history. Translations updated across all six locales (`ctrl.undoOn` /
-  `ctrl.undoOff` replaced with `ctrl.undoLast`).
+  `ctrl.undoOff` replaced with `ctrl.undoLast`) (`#208`).
 
 ### Fixed
 
@@ -34,7 +38,8 @@ once a first tagged release ships.
   the prior set when the current one has no score for the requested team,
   allowing the existing un-win cascade to fire as intended. Note: timeouts are
   a single per-team counter (not historical per-set), so undoing a set-winning
-  point cannot restore the prior set's timeouts — the limitation is unchanged.
+  point cannot restore the prior set's timeouts — the limitation is unchanged
+  (`#208`).
 
 ---
 
