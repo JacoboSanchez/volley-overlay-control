@@ -24,33 +24,60 @@ const ADMIN_PW = process.env.SCREENSHOT_ADMIN_PASSWORD || 'demo';
 const DEMO_OID = process.env.SCREENSHOT_DEMO_OID || 'centercourt';
 
 // Invented match data — deliberately not the operator's real teams.
+//
+// The overlay engine's <img> sanitizer (overlay_static/js/app.js,
+// `sanitizeImageUrl`) intentionally rejects everything except http(s)
+// to defend against javascript:/data:/vbscript: XSS, so the logos must
+// be served as http URLs. We use a synthetic localhost-style host and
+// intercept the request inside Playwright (see `installLogoRouter`)
+// so no actual network call is made.
+const LOGO_HOST = 'http://volley-screenshot-logos.local';
 const TEAM_1 = {
   name: 'Thunder Wolves',
   color: '#1e3a8a',
   textColor: '#ffffff',
-  // Inline SVG so the screenshot does not depend on any CDN.
-  logo:
-    'data:image/svg+xml;utf8,' +
-    encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
-        '<circle cx="50" cy="50" r="48" fill="#1e3a8a" stroke="#ffffff" stroke-width="3"/>' +
-        '<text x="50" y="63" font-family="Arial Black,Arial,sans-serif" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle">TW</text>' +
-        '</svg>',
-    ),
+  logo: `${LOGO_HOST}/team-thunder-wolves.svg`,
+  logoSvg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<circle cx="50" cy="50" r="48" fill="#1e3a8a" stroke="#ffffff" stroke-width="3"/>' +
+      '<text x="50" y="63" font-family="Arial Black,Arial,sans-serif" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle">TW</text>' +
+    '</svg>',
 };
 const TEAM_2 = {
   name: 'Solar Hawks',
   color: '#f59e0b',
   textColor: '#1f2937',
-  logo:
-    'data:image/svg+xml;utf8,' +
-    encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
-        '<circle cx="50" cy="50" r="48" fill="#f59e0b" stroke="#1f2937" stroke-width="3"/>' +
-        '<text x="50" y="63" font-family="Arial Black,Arial,sans-serif" font-size="34" font-weight="900" fill="#1f2937" text-anchor="middle">SH</text>' +
-        '</svg>',
-    ),
+  logo: `${LOGO_HOST}/team-solar-hawks.svg`,
+  logoSvg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<circle cx="50" cy="50" r="48" fill="#f59e0b" stroke="#1f2937" stroke-width="3"/>' +
+      '<text x="50" y="63" font-family="Arial Black,Arial,sans-serif" font-size="34" font-weight="900" fill="#1f2937" text-anchor="middle">SH</text>' +
+    '</svg>',
 };
+
+async function installLogoRouter(context) {
+  // Intercept every request to the synthetic logo host and return the
+  // matching SVG inline. Both the React control UI and the overlay
+  // browser pages live in this context, so a single handler covers both.
+  await context.route(`${LOGO_HOST}/**`, (route) => {
+    const url = route.request().url();
+    if (url.endsWith('team-thunder-wolves.svg')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: TEAM_1.logoSvg,
+      });
+    }
+    if (url.endsWith('team-solar-hawks.svg')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'image/svg+xml',
+        body: TEAM_2.logoSvg,
+      });
+    }
+    return route.fulfill({ status: 404, body: '' });
+  });
+}
 
 const SCOREBOARD_VIEWPORT = { width: 1280, height: 800 };
 const OVERLAY_VIEWPORT = { width: 1280, height: 720 };
@@ -299,6 +326,7 @@ async function main() {
     deviceScaleFactor: 2,
     colorScheme: 'dark',
   });
+  await installLogoRouter(context);
   const page = await context.newPage();
 
   try {
