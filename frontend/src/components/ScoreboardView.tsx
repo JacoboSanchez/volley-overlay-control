@@ -25,9 +25,8 @@ export interface ScoreboardViewProps {
   showPreview: boolean;
   showControls: boolean;
   setShowControls: Dispatch<SetStateAction<boolean>>;
-  undoMode: boolean;
+  canUndo: boolean;
   simpleMode: boolean;
-  matchFinished: boolean;
   isFullscreen: boolean;
   darkMode: boolean;
   btnColorA: string;
@@ -43,12 +42,13 @@ export interface ScoreboardViewProps {
   onAddTimeout: (teamId: 1 | 2) => void;
   onChangeServe: (teamId: 1 | 2) => void;
   onDoubleTapScore: (teamId: 1 | 2) => void;
+  onDoubleTapTimeout: (teamId: 1 | 2) => void;
   onLongPressScore: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
   onSetChange: (set: number) => void;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
-  onToggleUndo: () => void;
+  onUndoLast: () => void;
   onToggleDarkMode: () => void;
   onToggleFullscreen: () => void;
   onTogglePreview: () => void;
@@ -66,9 +66,8 @@ export default function ScoreboardView({
   showPreview,
   showControls,
   setShowControls,
-  undoMode,
+  canUndo,
   simpleMode,
-  matchFinished,
   isFullscreen,
   darkMode,
   btnColorA,
@@ -84,12 +83,13 @@ export default function ScoreboardView({
   onAddTimeout,
   onChangeServe,
   onDoubleTapScore,
+  onDoubleTapTimeout,
   onLongPressScore,
   onLongPressSet,
   onSetChange,
   onToggleVisibility,
   onToggleSimpleMode,
-  onToggleUndo,
+  onUndoLast,
   onToggleDarkMode,
   onToggleFullscreen,
   onTogglePreview,
@@ -120,6 +120,7 @@ export default function ScoreboardView({
           onAddTimeout={onAddTimeout}
           onChangeServe={onChangeServe}
           onDoubleTapScore={onDoubleTapScore}
+          onDoubleTapTimeout={onDoubleTapTimeout}
           onLongPressScore={onLongPressScore}
         />
 
@@ -156,6 +157,7 @@ export default function ScoreboardView({
           onAddTimeout={onAddTimeout}
           onChangeServe={onChangeServe}
           onDoubleTapScore={onDoubleTapScore}
+          onDoubleTapTimeout={onDoubleTapTimeout}
           onLongPressScore={onLongPressScore}
         />
       </div>
@@ -181,14 +183,13 @@ export default function ScoreboardView({
           <ControlButtons
             visible={state.visible}
             simpleMode={simpleMode}
-            undoMode={undoMode}
+            canUndo={canUndo}
             darkMode={darkMode}
             isFullscreen={isFullscreen}
-            matchFinished={matchFinished}
             showPreview={showPreview}
             onToggleVisibility={onToggleVisibility}
             onToggleSimpleMode={onToggleSimpleMode}
-            onToggleUndo={onToggleUndo}
+            onUndoLast={onUndoLast}
             onToggleDarkMode={onToggleDarkMode}
             onToggleFullscreen={onToggleFullscreen}
             onTogglePreview={onTogglePreview}

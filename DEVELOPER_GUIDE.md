@@ -55,18 +55,20 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 ├── main.py                  # Entry point. Creates FastAPI app, mounts routes + SPA, starts uvicorn.
 ├── Dockerfile               # Multi-stage build (Node.js + Python).
 ├── docker-compose.yml       # Docker Compose configuration.
-├── frontend/                # React control UI (built with Vite).
+├── frontend/                # React control UI (built with Vite, TypeScript).
 │   ├── package.json         # Frontend dependencies and scripts.
 │   ├── vite.config.js       # Vite config (PWA, dev proxy, test setup).
 │   ├── index.html           # SPA entry point.
 │   ├── src/                 # React source code.
-│   │   ├── App.jsx          # Main application component.
-│   │   ├── api/client.js    # REST API client (relative paths: /api/v1/).
-│   │   ├── api/websocket.js # WebSocket client (relative URLs).
+│   │   ├── App.tsx          # Main application component.
+│   │   ├── api/client.ts    # REST API client (relative paths: /api/v1/).
+│   │   ├── api/websocket.ts # WebSocket client (relative URLs).
+│   │   ├── api/schema.d.ts  # Generated OpenAPI type definitions.
 │   │   ├── components/      # UI components (TeamPanel, ConfigPanel, etc.).
-│   │   ├── hooks/           # React hooks (useGameState, useSettings, etc.).
-│   │   ├── i18n.jsx         # Internationalization.
-│   │   ├── theme.js         # Theme constants.
+│   │   ├── constants.ts     # Centralised tunable constants (timing, history cap).
+│   │   ├── hooks/           # React hooks (useGameState, useSettings, useDoubleTap, etc.).
+│   │   ├── i18n.tsx         # Internationalization.
+│   │   ├── theme.ts         # Theme constants.
 │   │   └── test/            # Vitest test suite.
 │   └── public/              # Static assets (icons, fonts).
 ├── app/

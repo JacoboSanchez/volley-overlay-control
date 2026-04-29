@@ -3,6 +3,7 @@
  */
 
 import type { GameState } from './client';
+import { WS_PING_INTERVAL_MS } from '../constants';
 
 export interface StateUpdateMessage {
   type: 'state_update';
@@ -46,7 +47,7 @@ export function createWebSocket(
       if (ws.readyState === WebSocket.OPEN) {
         ws.send('ping');
       }
-    }, 25000);
+    }, WS_PING_INTERVAL_MS);
     onOpen?.();
   };
 

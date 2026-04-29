@@ -19,6 +19,8 @@ import {
   TEAM_B_COLOR,
   FONT_SCALES,
 } from './theme';
+import { HUD_AUTO_HIDE_MS } from './constants';
+import { useActionHistory } from './hooks/useActionHistory';
 
 type Team = 1 | 2;
 
@@ -55,7 +57,7 @@ export default function App() {
 
   const [oid, setOid] = useState<string>(getInitialOid);
   const [oidInput, setOidInput] = useState<string>(oid);
-  const [undoMode, setUndoMode] = useState(false);
+  const undoHistory = useActionHistory();
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
@@ -69,7 +71,7 @@ export default function App() {
 
   const resetHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setShowControls(false), 5000);
+    hideTimerRef.current = setTimeout(() => setShowControls(false), HUD_AUTO_HIDE_MS);
   }, []);
 
   const [dialog, setDialog] = useState<DialogState>({
@@ -159,35 +161,38 @@ export default function App() {
 
   const handleAddPoint = useCallback(
     (team: Team) => {
-      if (!undoMode && matchFinished) return;
-      actions.addPoint(team, undoMode);
-      if (undoMode) setUndoMode(false);
-      if (settings.autoSimple && !simpleMode && !undoMode) {
+      if (matchFinished) return;
+      actions.addPoint(team, false);
+      undoHistory.push({ type: 'point', team });
+      if (settings.autoSimple && !simpleMode) {
         actions.setSimpleMode(true);
       }
     },
-    [actions, undoMode, matchFinished, settings.autoSimple, simpleMode]
+    // Depend on the stable individual functions rather than the wrapper
+    // object so callbacks don't re-build on every history push (which
+    // would propagate fresh prop identities into memoised ScoreButtons).
+    [actions, matchFinished, undoHistory.push, settings.autoSimple, simpleMode]
   );
 
   const handleAddSet = useCallback(
     (team: Team) => {
-      if (!undoMode && matchFinished) return;
-      actions.addSet(team, undoMode);
-      if (undoMode) setUndoMode(false);
+      if (matchFinished) return;
+      actions.addSet(team, false);
+      undoHistory.push({ type: 'set', team });
     },
-    [actions, undoMode, matchFinished]
+    [actions, matchFinished, undoHistory.push]
   );
 
   const handleAddTimeout = useCallback(
     (team: Team) => {
-      if (!undoMode && matchFinished) return;
-      actions.addTimeout(team, undoMode);
-      if (undoMode) setUndoMode(false);
-      if (settings.autoSimple && settings.autoSimpleOnTimeout && simpleMode && !undoMode) {
+      if (matchFinished) return;
+      actions.addTimeout(team, false);
+      undoHistory.push({ type: 'timeout', team });
+      if (settings.autoSimple && settings.autoSimpleOnTimeout && simpleMode) {
         actions.setSimpleMode(false);
       }
     },
-    [actions, undoMode, matchFinished, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
+    [actions, matchFinished, undoHistory.push, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
   );
 
   const handleChangeServe = useCallback(
@@ -203,9 +208,13 @@ export default function App() {
     actions.setSimpleMode(!simpleMode);
   }, [actions, simpleMode]);
 
-  const handleToggleUndo = useCallback(() => {
-    setUndoMode((u) => !u);
-  }, []);
+  const handleUndoLast = useCallback(() => {
+    const popped = undoHistory.undoLast();
+    if (!popped) return;
+    if (popped.type === 'point') actions.addPoint(popped.team, true);
+    else if (popped.type === 'set') actions.addSet(popped.team, true);
+    else actions.addTimeout(popped.team, true);
+  }, [actions, undoHistory.undoLast]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -225,17 +234,17 @@ export default function App() {
   const handleReset = useCallback(() => {
     if (window.confirm(t('config.resetConfirm'))) {
       actions.reset();
-      setUndoMode(false);
+      undoHistory.clear();
     }
-  }, [actions, t]);
+  }, [actions, t, undoHistory.clear]);
 
   const handleLogout = useCallback(() => {
     try { localStorage.removeItem('volley_oid'); } catch (e) { console.warn('Failed to remove OID:', e); }
     setOid('');
     setOidInput('');
-    setUndoMode(false);
+    undoHistory.clear();
     setActiveTab('scoreboard');
-  }, []);
+  }, [undoHistory.clear]);
 
   const handleSetChange = useCallback(
     (set: number) => {
@@ -246,8 +255,19 @@ export default function App() {
   );
 
   const handleDoubleTapScore = useCallback(
-    (team: Team) => { actions.addPoint(team, true); },
-    [actions]
+    (team: Team) => {
+      actions.addPoint(team, true);
+      undoHistory.popMatching('point', team);
+    },
+    [actions, undoHistory.popMatching]
+  );
+
+  const handleDoubleTapTimeout = useCallback(
+    (team: Team) => {
+      actions.addTimeout(team, true);
+      undoHistory.popMatching('timeout', team);
+    },
+    [actions, undoHistory.popMatching]
   );
 
   const handleLongPressScore = useCallback(
@@ -354,9 +374,8 @@ export default function App() {
           showPreview={settings.showPreview}
           showControls={showControls}
           setShowControls={setShowControls}
-          undoMode={undoMode}
+          canUndo={undoHistory.canUndo}
           simpleMode={simpleMode}
-          matchFinished={matchFinished}
           isFullscreen={isFullscreen}
           darkMode={settings.darkMode}
           btnColorA={btnColorA}
@@ -372,12 +391,13 @@ export default function App() {
           onAddTimeout={handleAddTimeout}
           onChangeServe={handleChangeServe}
           onDoubleTapScore={handleDoubleTapScore}
+          onDoubleTapTimeout={handleDoubleTapTimeout}
           onLongPressScore={handleLongPressScore}
           onLongPressSet={handleLongPressSet}
           onSetChange={handleSetChange}
           onToggleVisibility={handleToggleVisibility}
           onToggleSimpleMode={handleToggleSimpleMode}
-          onToggleUndo={handleToggleUndo}
+          onUndoLast={handleUndoLast}
           onToggleDarkMode={() => setSetting('darkMode', !settings.darkMode)}
           onToggleFullscreen={handleToggleFullscreen}
           onTogglePreview={handleTogglePreview}

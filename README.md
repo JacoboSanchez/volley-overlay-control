@@ -40,7 +40,7 @@ It includes 16 overlay style templates served directly to OBS browser sources â€
 ### Complete Match Control
 *   **Score Management**: Manage points, sets, and timeouts for both teams via REST API.
 *   **Service Indicator**: Track the serving team.
-*   **Undo Capability**: Reverse any scoring action.
+*   **Undo Capability**: Step back through recent scoring actions one at a time, including set-winning points. Double-tap a score or timeout button on the React UI for an instant team-specific undo.
 *   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets).
 
 ### Advanced Customization
@@ -54,6 +54,7 @@ It includes 16 overlay style templates served directly to OBS browser sources â€
 *   **Multi-Overlay Control**: Manage multiple overlays from a single instance.
 *   **Overlay Library**: Select from predefined overlays for quick setup.
 *   **Custom Overlay Manager Page**: Dedicated, password-protected page at `/manage` to create, delete and clone custom (built-in engine) overlays at runtime â€” no need to use the `/create/overlay`, `/list/overlay` or `/delete/overlay` endpoints directly.
+*   **Internationalization**: Control UI available in **English**, **Spanish**, **Portuguese**, **Italian**, **French** and **German**, with volleyball-specific terminology per locale.
 
 ### REST + WebSocket API
 *   **Session management** â€” initialise and manage game sessions
@@ -61,7 +62,6 @@ It includes 16 overlay style templates served directly to OBS browser sources â€
 *   **Display controls** â€” toggle overlay visibility and simple mode
 *   **Customization** â€” read and update team names, colors, logos
 *   **Real-time WebSocket** â€” receive instant state updates at `ws://<host>/api/v1/ws?oid=<OID>`
-*   **Internationalization**: Available in **English** and **Spanish**.
 
 Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no users are configured, the API is open.
 

@@ -105,5 +105,28 @@ export default defineConfig(async () => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/test/setup.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      // Exclude generated types, the test harness itself, and entry shims
+      // that are exercised by integration paths but not by unit tests.
+      exclude: [
+        'src/api/schema.d.ts',
+        'src/test/**',
+        'src/main.tsx',
+        'src/PreviewApp.tsx',
+      ],
+      // Thresholds act as a regression floor — pinned tightly below
+      // current coverage at the time of introduction so a drop fails CI
+      // and a recovery pass can ratchet them upward. Bump these whenever
+      // you raise coverage; do not lower them to make CI green.
+      thresholds: {
+        lines: 72,
+        statements: 70,
+        functions: 57,
+        branches: 60,
+      },
+    },
   },
 }));

@@ -8,8 +8,41 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- Keyboard activation on the score and timeout buttons in the React
+  control UI: Enter and Space now trigger the same single-tap / rapid
+  double-tap / long-press gestures previously only reachable by mouse
+  or touch, closing a WCAG 2.1.1 (Keyboard) gap. Implemented in the
+  shared `useDoubleTap` hook and covered by new keyboard test cases.
+- Frontend coverage gate in CI. `vitest run --coverage` is now enforced
+  on every PR via `npm run test:coverage`; thresholds are pinned tightly
+  below current coverage to act as a regression floor and the lcov
+  report is uploaded as a CI artifact alongside the existing backend
+  coverage artifact.
+
 ### Changed
 
+- Centralised frontend timing and capacity tunables into a new
+  `frontend/src/constants.ts` (`ACTION_HISTORY_LIMIT`, `DOUBLE_TAP_MS`,
+  `LONG_PRESS_MS`, `HUD_AUTO_HIDE_MS`, `WS_PING_INTERVAL_MS`,
+  `WS_RECONNECT_MS`). Previously these magic numbers lived inline in
+  `App.tsx`, `useDoubleTap.ts`, `api/websocket.ts` and `useGameState.ts`;
+  call sites now import from one place so future tuning is discoverable.
+- Bumped the client-side undo history cap from 200 to 300 so a 5-set
+  match with extended deuces is fully covered without truncation.
+- Refactored the client-side undo state out of `App.tsx` into a
+  dedicated `useActionHistory` hook (`frontend/src/hooks/useActionHistory.ts`).
+  The hook owns the bounded stack, exposes a small testable API
+  (`push`, `undoLast`, `popMatching`, `clear`) and uses a ref-mirrored
+  state so rapid undo dispatches see the latest history even between
+  React batches. Behaviour is unchanged; the hook now has dedicated
+  unit tests covering the truncation path and the rapid-undo case.
+- Internationalization is now correctly described in `README.md` as the
+  React control UI being available in six locales (English, Spanish,
+  Portuguese, Italian, French, German), and the bullet has been moved
+  from the REST API section to "User and Overlay Management" where it
+  belongs.
 - README screenshots are now captured at `deviceScaleFactor: 1` instead
   of `2`, cutting the in-tree screenshot bundle from ~2.9 MB to ~1.1 MB
   with no loss of legibility. Regenerated every PNG under
@@ -23,6 +56,51 @@ once a first tagged release ships.
   (`bash scripts/screenshots/run.sh`) on any change that affects the
   look of an operator-facing surface, and mandates a `CHANGELOG.md`
   entry on every user-visible change.
+
+### Fixed
+
+- Doc drift: directory-tree blocks in `AGENTS.md` and `DEVELOPER_GUIDE.md`
+  still referenced pre-TypeScript-migration filenames (`App.jsx`,
+  `i18n.jsx`, `theme.js`, `api/client.js`). Updated to the actual `.tsx`
+  / `.ts` files and added the generated `api/schema.d.ts` entry.
+- `ControlButtons` declared a `matchFinished` prop that no consumer ever
+  read; it was forwarded `App.tsx` → `ScoreboardView` → `ControlButtons`
+  for no effect. Removed across all three layers (and from the test
+  fixture). Docstring also refreshed to match the current button set
+  (visibility, preview, simple-mode, undo, fullscreen, dark-mode).
+
+---
+
+## [5.0.2] - 2026-04-28
+
+### Added
+
+- Double-tap to undo on the timeout button in the React control UI, mirroring
+  the existing double-tap-to-undo gesture on the score button. The shared
+  press-gesture detector has been extracted into a `useDoubleTap` hook so both
+  buttons stay in sync (`frontend/src/hooks/useDoubleTap.ts`) (`#208`).
+
+### Changed
+
+- Undo behaviour in the React control UI: the bottom-bar undo button no longer
+  toggles an "undo mode" — clicking it immediately reverts the most recent
+  action, and clicking it again reverts the action before that, walking back
+  through a bounded history (200 entries) of points, sets, and timeouts. The
+  button is disabled when the history is empty. Reset and logout clear the
+  history. Translations updated across all six locales (`ctrl.undoOn` /
+  `ctrl.undoOff` replaced with `ctrl.undoLast`) (`#208`).
+
+### Fixed
+
+- Undoing a set-winning point now works correctly. Previously, after a winning
+  point advanced the session to the next set, both the score-button double-tap
+  and the undo button silently no-opped because the backend was looking at the
+  new (empty) set's score. `GameManager.add_game(undo=True)` now falls back to
+  the prior set when the current one has no score for the requested team,
+  allowing the existing un-win cascade to fire as intended. Note: timeouts are
+  a single per-team counter (not historical per-set), so undoing a set-winning
+  point cannot restore the prior set's timeouts — the limitation is unchanged
+  (`#208`).
 
 ---
 

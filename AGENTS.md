@@ -34,15 +34,17 @@ volley-overlay-control/
 │   ├── package.json           # Frontend dependencies and scripts
 │   ├── vite.config.js         # Vite config (PWA, dev proxy to :8080, test setup)
 │   ├── index.html             # SPA entry point
-│   ├── src/                   # React source code
-│   │   ├── App.jsx            # Main app component
-│   │   ├── api/client.js      # REST API client (relative paths: /api/v1/)
-│   │   ├── api/websocket.js   # WebSocket client (uses window.location.host)
+│   ├── src/                   # React source code (TypeScript)
+│   │   ├── App.tsx            # Main app component
+│   │   ├── api/client.ts      # REST API client (relative paths: /api/v1/)
+│   │   ├── api/websocket.ts   # WebSocket client (uses window.location.host)
+│   │   ├── api/schema.d.ts    # Generated OpenAPI type definitions
 │   │   ├── components/        # UI components (TeamPanel, ConfigPanel, ScoreButton, etc.)
-│   │   ├── hooks/             # React hooks (useGameState, useSettings, usePreview, etc.)
-│   │   ├── i18n.jsx           # Internationalization
-│   │   ├── theme.js           # Theme constants and font scales
-│   │   └── test/              # Vitest test suite (158 tests)
+│   │   ├── constants.ts       # Centralised tunable constants (timing, history cap)
+│   │   ├── hooks/             # React hooks (useGameState, useSettings, useDoubleTap, etc.)
+│   │   ├── i18n.tsx           # Internationalization
+│   │   ├── theme.ts           # Theme constants and font scales
+│   │   └── test/              # Vitest test suite
 │   └── public/                # Static assets (icons, fonts)
 │
 ├── app/                       # Backend source code
@@ -275,7 +277,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 - **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`.
 - **Do not skip `GameManager.save()`** — after any mutation, save must be called.
 - **Custom overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
-- **Undo is a flag, not a stack** — reverses only the most recent action of that type.
+- **Undo is a per-call flag, not a stack** — `add_game`, `add_set`, and `add_timeout` reverse only the most recent action of that type. `add_game(undo=True)` additionally falls back to `current_set - 1` when the current set has no score for the requested team, so a set-winning point can be undone after the session has advanced. The bundled React UI tracks its own short history of forward actions in `App.tsx` to drive the bottom-bar undo button — that stack is client-side only and does not survive page reloads or other clients.
 
 ---
 

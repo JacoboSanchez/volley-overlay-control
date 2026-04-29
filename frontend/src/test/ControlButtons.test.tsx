@@ -9,13 +9,12 @@ import { renderWithI18n } from './helpers';
 const defaultProps = {
   visible: true,
   simpleMode: false,
-  undoMode: false,
+  canUndo: true,
   darkMode: true,
   isFullscreen: false,
-  matchFinished: false,
   onToggleVisibility: vi.fn(),
   onToggleSimpleMode: vi.fn(),
-  onToggleUndo: vi.fn(),
+  onUndoLast: vi.fn(),
   onToggleDarkMode: vi.fn(),
   onToggleFullscreen: vi.fn(),
   showPreview: false,
@@ -45,10 +44,26 @@ describe('ControlButtons', () => {
     expect(defaultProps.onToggleSimpleMode).toHaveBeenCalledOnce();
   });
 
-  it('calls onToggleUndo when undo button clicked', () => {
+  it('calls onUndoLast when undo button clicked and canUndo', () => {
     renderWithI18n(<ControlButtons {...defaultProps} />);
     fireEvent.click(screen.getByTestId('undo-button'));
-    expect(defaultProps.onToggleUndo).toHaveBeenCalledOnce();
+    expect(defaultProps.onUndoLast).toHaveBeenCalledOnce();
+  });
+
+  it('disables undo button when canUndo is false', () => {
+    const onUndoLast = vi.fn();
+    renderWithI18n(
+      <ControlButtons {...defaultProps} canUndo={false} onUndoLast={onUndoLast} />
+    );
+    const btn = screen.getByTestId('undo-button') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    fireEvent.click(btn);
+    expect(onUndoLast).not.toHaveBeenCalled();
+  });
+
+  it('always renders the undo icon (no redo toggle)', () => {
+    renderWithI18n(<ControlButtons {...defaultProps} canUndo={true} />);
+    expect(screen.getByTestId('undo-button')).toHaveTextContent('undo');
   });
 
   it('calls onToggleDarkMode when dark mode button clicked', () => {

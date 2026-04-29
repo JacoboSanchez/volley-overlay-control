@@ -82,27 +82,36 @@ class GameManager:
 
         self.change_serve(team, True)
 
-        current_score = self.main_state.get_game(team, current_set)
         rival_team = 2 if team == 1 else 1
-        rival_score = self.main_state.get_game(rival_team, current_set)
-        game_limit = points_limit_last_set if current_set == sets_limit else points_limit
 
         if undo:
+            # When the most recent point was set-winning, the session has already
+            # advanced to the next set, leaving its score at 0-0. Fall back to
+            # the prior set so the cascade in this branch can un-win it.
+            target_set = current_set
+            if self.main_state.get_game(team, target_set) == 0 and target_set > 1:
+                target_set -= 1
+
+            current_score = self.main_state.get_game(team, target_set)
             if current_score > 0:
-                # Check if the score before undoing was a winning score
+                rival_score = self.main_state.get_game(rival_team, target_set)
+                game_limit = points_limit_last_set if target_set == sets_limit else points_limit
                 was_a_win = self._is_winning_score(current_score, rival_score, game_limit)
 
-                self.main_state.set_game(current_set, team, current_score - 1)
+                self.main_state.set_game(target_set, team, current_score - 1)
                 new_score = current_score - 1
 
-                # Check if the new score is no longer a winning score
                 is_still_a_win = self._is_winning_score(new_score, rival_score, game_limit)
 
                 if was_a_win and not is_still_a_win:
-                    logger.debug("Team %s 'un-won' set %s due to undo.", team, current_set)
+                    logger.debug("Team %s 'un-won' set %s due to undo.", team, target_set)
                     self.add_set(team, undo=True)
-                    return True # Signal that the set state changed
+                    return True
         else:
+            current_score = self.main_state.get_game(team, current_set)
+            rival_score = self.main_state.get_game(rival_team, current_set)
+            game_limit = points_limit_last_set if current_set == sets_limit else points_limit
+
             self.main_state.set_game(current_set, team, current_score + 1)
             current_score += 1
 
