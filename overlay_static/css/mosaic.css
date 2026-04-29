@@ -1,25 +1,36 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
+html,
 body {
     margin: 0;
-    padding: 20px;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
     background: transparent;
     font-family: 'Inter', sans-serif;
-    min-height: 100vh;
+    overflow: hidden;
     box-sizing: border-box;
 }
 
 .mosaic-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(580px, 1fr));
-    gap: 20px;
-    max-width: 1920px;
-    margin: 0 auto;
+    gap: 8px;
+    padding: 8px;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    /* grid-template-columns / -rows are set by JS to fit the viewport */
 }
 
 .mosaic-cell {
     position: relative;
     overflow: hidden;
+    /* Allow grid tracks to shrink below intrinsic content size */
+    min-width: 0;
+    min-height: 0;
 }
 
 .mosaic-label {
@@ -64,10 +75,8 @@ body {
 .mosaic-iframe-wrapper {
     position: relative;
     width: 100%;
-    /* Initial height — JS will resize once overlay bounds are reported */
-    height: 120px;
+    height: 100%;
     overflow: hidden;
-    transition: height 0.4s ease;
 }
 
 .mosaic-iframe-wrapper iframe {
@@ -77,6 +86,6 @@ body {
     width: 1920px;
     height: 1080px;
     border: none;
-    transform-origin: top left;
-    /* Scale down to fit the cell; JS will calculate exact scale */
+    transform-origin: 0 0;
+    /* JS sets the transform to crop + scale + centre into the cell. */
 }
