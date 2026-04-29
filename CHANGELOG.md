@@ -8,6 +8,10 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+---
+
+## [5.0.3] - 2026-04-30
+
 ### Added
 
 - Keyboard activation on the score and timeout buttons in the React
