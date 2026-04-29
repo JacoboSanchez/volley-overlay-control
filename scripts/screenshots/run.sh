@@ -21,28 +21,41 @@ BASE_URL="http://localhost:${PORT}"
 # the operator's working overlays. The backend reads its data dir from
 # ``app/overlay/__init__.py`` which resolves relative to the repo root,
 # so we redirect by temporarily symlinking ``./data`` to a tmpfs path.
-SCRATCH_DATA="$(mktemp -d /tmp/volley-screenshots.XXXXXX)"
+#
+# Declare the cleanup state up front and install the trap *before* the
+# filesystem manipulations below, so a Ctrl+C in between cannot strand
+# the operator's real data/ directory in a /tmp backup. Each cleanup
+# branch is guarded so it is a no-op when the corresponding setup step
+# has not run yet.
+SCRATCH_DATA=""
 ORIGINAL_DATA_BACKUP=""
-if [ -e "$REPO_ROOT/data" ] || [ -L "$REPO_ROOT/data" ]; then
-  ORIGINAL_DATA_BACKUP="$(mktemp -d /tmp/volley-screenshots-data.XXXXXX)/orig"
-  mv "$REPO_ROOT/data" "$ORIGINAL_DATA_BACKUP"
-fi
-ln -s "$SCRATCH_DATA" "$REPO_ROOT/data"
+SERVER_PID=""
 
 cleanup() {
   set +e
-  if [ -n "${SERVER_PID:-}" ]; then
+  if [ -n "$SERVER_PID" ]; then
     kill "$SERVER_PID" 2>/dev/null
     wait "$SERVER_PID" 2>/dev/null
   fi
-  rm -f "$REPO_ROOT/data"
-  rm -rf "$SCRATCH_DATA"
+  if [ -L "$REPO_ROOT/data" ]; then
+    rm -f "$REPO_ROOT/data"
+  fi
+  if [ -n "$SCRATCH_DATA" ] && [ -d "$SCRATCH_DATA" ]; then
+    rm -rf "$SCRATCH_DATA"
+  fi
   if [ -n "$ORIGINAL_DATA_BACKUP" ] && [ -e "$ORIGINAL_DATA_BACKUP" ]; then
     mv "$ORIGINAL_DATA_BACKUP" "$REPO_ROOT/data"
     rmdir "$(dirname "$ORIGINAL_DATA_BACKUP")" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT INT TERM
+
+SCRATCH_DATA="$(mktemp -d /tmp/volley-screenshots.XXXXXX)"
+if [ -e "$REPO_ROOT/data" ] || [ -L "$REPO_ROOT/data" ]; then
+  ORIGINAL_DATA_BACKUP="$(mktemp -d /tmp/volley-screenshots-data.XXXXXX)/orig"
+  mv "$REPO_ROOT/data" "$ORIGINAL_DATA_BACKUP"
+fi
+ln -s "$SCRATCH_DATA" "$REPO_ROOT/data"
 
 # Skip dotenv loading inside main.py; provide everything we need explicitly.
 export PYTEST_CURRENT_TEST=1
