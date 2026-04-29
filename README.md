@@ -28,9 +28,13 @@ It includes 16 overlay style templates served directly to OBS browser sources â€
 
 **Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{id}`:
 
-| `default` | `neo_jersey` | `split_jersey` |
-|---|---|---|
-| ![Default overlay style](docs/screenshots/06-overlay-default.png) | ![neo_jersey overlay style](docs/screenshots/07-overlay-neo-jersey.png) | ![split_jersey overlay style](docs/screenshots/08-overlay-split-jersey.png) |
+| `default` | `clear_jersey` |
+|---|---|
+| ![Default overlay style](docs/screenshots/06-overlay-default.png) | ![clear_jersey overlay style](docs/screenshots/07-overlay-clear-jersey.png) |
+
+All 14 selectable styles laid out side-by-side in a single preview grid via `/overlay/{id}?style=mosaic`:
+
+![Mosaic preview grid showing every overlay style at once](docs/screenshots/08-overlay-mosaic.png)
 
 ---
 

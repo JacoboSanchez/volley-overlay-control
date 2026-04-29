@@ -38,5 +38,5 @@ Output PNGs are written to `docs/screenshots/`. The orchestrator:
 | `04-config-panel.png` | Customization tab inside the React control UI. |
 | `05-manage-page.png` | Custom overlay manager at `/manage`. |
 | `06-overlay-default.png` | OBS overlay rendered with the `default` style. |
-| `07-overlay-neo-jersey.png` | OBS overlay rendered with `neo_jersey`. |
-| `08-overlay-split-jersey.png` | OBS overlay rendered with `split_jersey`. |
+| `07-overlay-clear-jersey.png` | OBS overlay rendered with `clear_jersey`. |
+| `08-overlay-mosaic.png` | `?style=mosaic` preview grid showing every selectable style. |

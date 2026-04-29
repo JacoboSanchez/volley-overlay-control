@@ -264,8 +264,8 @@ async function captureManagePage(page) {
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
 }
 
-async function captureOverlayOutput(page, style, filename) {
-  await page.setViewportSize(OVERLAY_VIEWPORT);
+async function captureOverlayOutput(page, style, filename, viewport = OVERLAY_VIEWPORT) {
+  await page.setViewportSize(viewport);
   const url = style
     ? `${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?style=${encodeURIComponent(style)}`
     : `${BASE}/overlay/${encodeURIComponent(DEMO_OID)}`;
@@ -314,6 +314,49 @@ async function captureOverlayOutput(page, style, filename) {
   await page.setViewportSize(SCOREBOARD_VIEWPORT);
 }
 
+async function captureOverlayMosaic(page, filename) {
+  // Mosaic is a full-page grid of every selectable style; needs a wider
+  // viewport and enough vertical room to fit every cell, plus extra
+  // wait time so each iframe finishes its postMessage handshake and
+  // shrinks to its overlay-only bounds.
+  const MOSAIC_VIEWPORT = { width: 1600, height: 1800 };
+  await page.setViewportSize(MOSAIC_VIEWPORT);
+  await page.goto(`${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?style=mosaic`, {
+    waitUntil: 'networkidle',
+  });
+  // Each iframe asynchronously reports its render bounds; give the grid
+  // time to lay them out before snapping.
+  await page.waitForFunction(() => {
+    const iframes = document.querySelectorAll('.mosaic-iframe-wrapper iframe');
+    if (iframes.length === 0) return false;
+    return Array.from(iframes).every((f) => {
+      const h = f.parentElement && f.parentElement.clientHeight;
+      return h && h > 20;
+    });
+  }, null, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+  // Clip to the full grid (no viewport-height clamp, so we don't cut
+  // the last rows off when the grid is taller than the viewport).
+  const clip = await page.evaluate(() => {
+    const grid = document.getElementById('mosaic-grid');
+    if (!grid) return null;
+    const r = grid.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.floor(r.left)),
+      y: Math.max(0, Math.floor(r.top)),
+      width: Math.ceil(r.width),
+      height: Math.ceil(r.height),
+    };
+  });
+  await page.screenshot({
+    path: resolve(OUT_DIR, filename),
+    // fullPage: true so the clip can extend below the visible viewport.
+    fullPage: true,
+    ...(clip ? { clip } : {}),
+  });
+  await page.setViewportSize(SCOREBOARD_VIEWPORT);
+}
+
 async function main() {
   await mkdir(OUT_DIR, { recursive: true });
   console.log(`Capturing screenshots into ${OUT_DIR}`);
@@ -342,8 +385,8 @@ async function main() {
     await captureConfigPanel(page);
     await captureManagePage(page);
     await captureOverlayOutput(page, '', '06-overlay-default.png');
-    await captureOverlayOutput(page, 'neo_jersey', '07-overlay-neo-jersey.png');
-    await captureOverlayOutput(page, 'split_jersey', '08-overlay-split-jersey.png');
+    await captureOverlayOutput(page, 'clear_jersey', '07-overlay-clear-jersey.png');
+    await captureOverlayMosaic(page, '08-overlay-mosaic.png');
   } finally {
     await context.close();
     await browser.close();
