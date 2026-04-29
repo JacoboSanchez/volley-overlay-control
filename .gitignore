@@ -12,3 +12,4 @@ htmlcov/
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+scripts/screenshots/node_modules/

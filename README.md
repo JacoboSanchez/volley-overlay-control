@@ -10,6 +10,30 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 
 ---
 
+## Screenshots
+
+> Captured with invented "Thunder Wolves" / "Solar Hawks" demo data — see [scripts/screenshots/](scripts/screenshots/) to regenerate.
+
+| Control UI (desktop) | Control UI (phone) |
+|---|---|
+| ![Scoreboard control UI](docs/screenshots/02-scoreboard.png) | ![Scoreboard control UI on phone](docs/screenshots/03-scoreboard-phone.png) |
+
+| Configuration panel | Initial connect screen |
+|---|---|
+| ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) | ![Connect screen](docs/screenshots/01-init-screen.png) |
+
+| Custom overlay manager (`/manage`) |
+|---|
+| ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) |
+
+**Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{id}`:
+
+| `default` | `neo_jersey` | `split_jersey` |
+|---|---|---|
+| ![Default overlay style](docs/screenshots/06-overlay-default.png) | ![neo_jersey overlay style](docs/screenshots/07-overlay-neo-jersey.png) | ![split_jersey overlay style](docs/screenshots/08-overlay-split-jersey.png) |
+
+---
+
 ## Features
 
 ### Complete Match Control
