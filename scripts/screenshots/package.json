@@ -1,0 +1,13 @@
+{
+  "name": "volley-screenshots",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless capture of README screenshots for volley-overlay-control",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
