@@ -12,29 +12,26 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 
 ## Screenshots
 
-> Captured with invented "Thunder Wolves" / "Solar Hawks" demo data — see [scripts/screenshots/](scripts/screenshots/) to regenerate.
-
 | Control UI (desktop) | Control UI (phone) |
 |---|---|
 | ![Scoreboard control UI](docs/screenshots/02-scoreboard.png) | ![Scoreboard control UI on phone](docs/screenshots/03-scoreboard-phone.png) |
 
-| Configuration panel | Initial connect screen |
+| Custom overlay manager (`/manage`) | Initial connect screen |
 |---|---|
-| ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) | ![Connect screen](docs/screenshots/01-init-screen.png) |
+| ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) | ![Connect screen](docs/screenshots/01-init-screen.png) |
 
-| Custom overlay manager (`/manage`) |
+| Configuration panel |
 |---|
-| ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) |
+| ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) |
 
-**Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{id}`:
+**Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{id}`. All 14 selectable styles laid out side-by-side in a single preview grid via `/overlay/{id}?style=mosaic`:
 
-| `default` | `clear_jersey` |
+| Full match data | Simple mode (current set only) |
 |---|---|
-| ![Default overlay style](docs/screenshots/06-overlay-default.png) | ![clear_jersey overlay style](docs/screenshots/07-overlay-clear-jersey.png) |
+| ![Mosaic preview grid showing every overlay style with full match data](docs/screenshots/06-overlay-mosaic-full.png) | ![Mosaic preview grid showing every overlay style in simple mode](docs/screenshots/07-overlay-mosaic-simple.png) |
 
-All 14 selectable styles laid out side-by-side in a single preview grid via `/overlay/{id}?style=mosaic`:
 
-![Mosaic preview grid showing every overlay style at once](docs/screenshots/08-overlay-mosaic.png)
+> Captured with invented "Thunder Wolves" / "Solar Hawks" demo data — see [scripts/screenshots/](scripts/screenshots/) to regenerate.
 
 ---
 

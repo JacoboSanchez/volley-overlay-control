@@ -37,6 +37,10 @@ Output PNGs are written to `docs/screenshots/`. The orchestrator:
 | `03-scoreboard-phone.png` | Main control UI (portrait phone, 390×844). |
 | `04-config-panel.png` | Customization tab inside the React control UI. |
 | `05-manage-page.png` | Custom overlay manager at `/manage`. |
-| `06-overlay-default.png` | OBS overlay rendered with the `default` style. |
-| `07-overlay-clear-jersey.png` | OBS overlay rendered with `clear_jersey`. |
-| `08-overlay-mosaic.png` | `?style=mosaic` preview grid showing every selectable style. |
+| `06-overlay-mosaic-full.png` | `?style=mosaic` preview grid showing every selectable style with full match data. |
+| `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). |
+
+PNGs are rendered at `deviceScaleFactor: 1` so they stay small enough to
+ship in-tree alongside the README. Bump the factor in `capture.mjs` only
+if a future change needs retina-quality assets — at 2× the mosaic alone
+weighs more than 1 MB.

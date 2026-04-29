@@ -8,6 +8,22 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- README screenshots are now captured at `deviceScaleFactor: 1` instead
+  of `2`, cutting the in-tree screenshot bundle from ~2.9 MB to ~1.1 MB
+  with no loss of legibility. Regenerated every PNG under
+  `docs/screenshots/` against the new setting.
+- README screenshot section refreshed to reference the current mosaic
+  outputs (`06-overlay-mosaic-full.png`, `07-overlay-mosaic-simple.png`)
+  produced by `scripts/screenshots/capture.mjs`, replacing the stale
+  `06-overlay-default.png` / `07-overlay-clear-jersey.png` /
+  `08-overlay-mosaic.png` entries.
+- `AGENTS.md` now mandates regenerating screenshots
+  (`bash scripts/screenshots/run.sh`) on any change that affects the
+  look of an operator-facing surface, and mandates a `CHANGELOG.md`
+  entry on every user-visible change.
+
 ---
 
 ## [5.0.1] - 2026-04-28

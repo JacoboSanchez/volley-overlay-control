@@ -302,4 +302,50 @@ The SPA mount uses a custom `SPAStaticFiles` class that falls back to `index.htm
 | `FRONTEND_DEVELOPMENT.md` | REST API reference + guide for building JS frontends |
 | `CUSTOM_OVERLAY.md` | Guide for building a custom overlay server |
 | `CUSTOM_OVERLAY_API.yaml` | OpenAPI 3.0 spec for the custom overlay REST contract |
+| `CHANGELOG.md` | User-facing change log (Keep a Changelog format) |
 | `AGENTS.md` | This file — AI agent guide |
+
+---
+
+## Mandatory Maintenance Tasks
+
+Two things must happen on **every** PR — not just when you remember to:
+
+### 1. Update the Changelog
+
+Any change that is observable to operators, integrators, or other agents
+must land with a `CHANGELOG.md` entry under `## [Unreleased]`. This
+includes new features, behaviour changes, bug fixes, dependency bumps,
+and visible documentation updates (e.g. screenshot refreshes). Put the
+entry under the matching subsection (`Added`, `Changed`, `Fixed`,
+`Removed`, `Deprecated`, `Security`, `Dependencies`) and link any
+relevant issue/PR numbers. Pure internal refactors with no user-visible
+effect can be skipped — when in doubt, add the entry.
+
+### 2. Regenerate Screenshots on Visual Changes
+
+Whenever you touch anything that alters the look of an operator-facing
+surface — the React control UI (`frontend/src/`), the customization
+panel, the `/manage` page, or any overlay template/static asset
+(`overlay_templates/`, `overlay_static/`) — regenerate the README
+screenshots so the docs do not drift from the running app.
+
+```bash
+# One-time: build the frontend so it can be served by the screenshot run.
+(cd frontend && npm ci && npm run build)
+
+# Capture (boots an isolated backend on port 8181, applies invented
+# "Thunder Wolves" / "Solar Hawks" demo data, writes PNGs under
+# docs/screenshots/, then tears the backend down).
+bash scripts/screenshots/run.sh
+```
+
+The orchestrator (`scripts/screenshots/run.sh`) symlinks `data/` to a
+scratch dir, skips dotenv loading, and unsets every operator env var, so
+it never touches real overlay state. The capture script itself
+(`scripts/screenshots/capture.mjs`) renders at `deviceScaleFactor: 1`
+on purpose to keep PNGs small enough to ship in-tree — do not raise it
+without a concrete reason. See `scripts/screenshots/README.md` for the
+file inventory and what each PNG covers. Commit any regenerated PNGs
+together with the visual change in the same PR, and call out the
+refresh in the changelog under `Changed`.

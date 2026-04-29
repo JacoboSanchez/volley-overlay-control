@@ -80,7 +80,6 @@ async function installLogoRouter(context) {
 }
 
 const SCOREBOARD_VIEWPORT = { width: 1280, height: 800 };
-const OVERLAY_VIEWPORT = { width: 1280, height: 720 };
 const PHONE_VIEWPORT = { width: 390, height: 844 };
 
 async function ensureDemoOverlay() {
@@ -124,7 +123,11 @@ async function ensureDemoOverlay() {
     throw new Error(`session/init failed: ${initRes.status} ${txt}`);
   }
 
-  // Apply invented team customization.
+  // Apply invented team customization. Pin preferredStyle to "glass" so
+  // the React control UI surfaces (init / scoreboard / config / phone /
+  // manage page embedded previews) all show the same overlay treatment;
+  // the standalone overlay-output screenshots below override this with
+  // an explicit ?style= query when they need a different look.
   const customization = {
     'Team 1 Text Name': TEAM_1.name,
     'Team 2 Text Name': TEAM_2.name,
@@ -135,6 +138,7 @@ async function ensureDemoOverlay() {
     'Team 1 Logo': TEAM_1.logo,
     'Team 2 Logo': TEAM_2.logo,
     Logos: 'true',
+    preferredStyle: 'glass',
   };
   const custRes = await fetch(
     `${BASE}/api/v1/customization?oid=${encodeURIComponent(DEMO_OID)}`,
@@ -154,6 +158,21 @@ async function ensureDemoOverlay() {
   await driveMatchState();
 }
 
+async function setSimpleMode(enabled) {
+  const res = await fetch(
+    `${BASE}/api/v1/display/simple-mode?oid=${encodeURIComponent(DEMO_OID)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    },
+  );
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`simple-mode toggle failed: ${res.status} ${txt}`);
+  }
+}
+
 async function driveMatchState() {
   const post = (path, body) =>
     fetch(`${BASE}${path}?oid=${encodeURIComponent(DEMO_OID)}`, {
@@ -162,9 +181,22 @@ async function driveMatchState() {
       body: body == null ? undefined : JSON.stringify(body),
     });
 
-  // 12 - 8 in the current set, with team 1 serving.
-  await post('/api/v1/game/set-score', { team: 1, set_number: 1, value: 12 });
-  await post('/api/v1/game/set-score', { team: 2, set_number: 1, value: 8 });
+  // Drive a realistic mid-match state: tied 1-1 going into set 3 with the
+  // current set in progress. Always set the loser's value first so
+  // set-score's auto-set-win check doesn't promote the wrong team
+  // (current_score - rival_score > 1 trips at 25-0 otherwise).
+
+  // Set 1 — Thunder Wolves 25, Solar Hawks 23. TW takes the set.
+  await post('/api/v1/game/set-score', { team: 2, set_number: 1, value: 23 });
+  await post('/api/v1/game/set-score', { team: 1, set_number: 1, value: 25 });
+
+  // Set 2 — Thunder Wolves 22, Solar Hawks 25. SH levels 1-1.
+  await post('/api/v1/game/set-score', { team: 1, set_number: 2, value: 22 });
+  await post('/api/v1/game/set-score', { team: 2, set_number: 2, value: 25 });
+
+  // Set 3 (current) — mid-rally, 18-15 with TW serving.
+  await post('/api/v1/game/set-score', { team: 1, set_number: 3, value: 18 });
+  await post('/api/v1/game/set-score', { team: 2, set_number: 3, value: 15 });
   await post('/api/v1/game/change-serve', { team: 1 });
 }
 
@@ -264,56 +296,6 @@ async function captureManagePage(page) {
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
 }
 
-async function captureOverlayOutput(page, style, filename, viewport = OVERLAY_VIEWPORT) {
-  await page.setViewportSize(viewport);
-  const url = style
-    ? `${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?style=${encodeURIComponent(style)}`
-    : `${BASE}/overlay/${encodeURIComponent(DEMO_OID)}`;
-  await page.goto(url, { waitUntil: 'networkidle' });
-  // OBS browser sources are transparent — render against a subtle dark
-  // backdrop so the overlay graphic is visible on the README page.
-  await page.addStyleTag({
-    content: `
-      html, body { background: #1a1a2e !important; }
-      body::before {
-        content: "";
-        position: fixed; inset: 0;
-        background-image:
-          linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%),
-          linear-gradient(-45deg, rgba(255,255,255,0.04) 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.04) 75%),
-          linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.04) 75%);
-        background-size: 24px 24px;
-        background-position: 0 0, 0 12px, 12px -12px, -12px 0;
-        z-index: -1;
-      }
-    `,
-  });
-  await page.waitForTimeout(1500);
-  // Clip to the actual scoreboard root with a little breathing room so the
-  // resulting image is dominated by the overlay graphic rather than a sea
-  // of background.
-  const clip = await page.evaluate(() => {
-    const root =
-      document.getElementById('scoreboard-container') ||
-      document.querySelector('.scoreboard');
-    if (!root) return null;
-    const r = root.getBoundingClientRect();
-    const pad = 48;
-    const x = Math.max(0, Math.floor(r.left - pad));
-    const y = Math.max(0, Math.floor(r.top - pad));
-    const width = Math.min(window.innerWidth - x, Math.ceil(r.width + pad * 2));
-    const height = Math.min(window.innerHeight - y, Math.ceil(r.height + pad * 2));
-    return { x, y, width, height };
-  });
-  await page.screenshot({
-    path: resolve(OUT_DIR, filename),
-    fullPage: false,
-    ...(clip ? { clip } : {}),
-  });
-  await page.setViewportSize(SCOREBOARD_VIEWPORT);
-}
-
 async function captureOverlayMosaic(page, filename) {
   // Mosaic is a full-page grid of every selectable style; needs a wider
   // viewport and enough vertical room to fit every cell, plus extra
@@ -366,7 +348,10 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: SCOREBOARD_VIEWPORT,
-    deviceScaleFactor: 2,
+    // Render at 1× to keep PNGs lightweight for the README. The captured
+    // surfaces are documentation-resolution, not retina assets — going
+    // higher quadruples file size for no practical benefit.
+    deviceScaleFactor: 1,
     colorScheme: 'dark',
     // Force English so the React i18n provider doesn't latch onto the
     // host's locale (which is what made the README screenshots come out
@@ -384,9 +369,14 @@ async function main() {
     await captureScoreboardPhone(page);
     await captureConfigPanel(page);
     await captureManagePage(page);
-    await captureOverlayOutput(page, '', '06-overlay-default.png');
-    await captureOverlayOutput(page, 'clear_jersey', '07-overlay-clear-jersey.png');
-    await captureOverlayMosaic(page, '08-overlay-mosaic.png');
+    // Mosaic captured twice — once with the full match data, once with
+    // simple mode toggled on so the "show only current set" treatment
+    // is visible across every style.
+    await setSimpleMode(false);
+    await captureOverlayMosaic(page, '06-overlay-mosaic-full.png');
+    await setSimpleMode(true);
+    await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png');
+    await setSimpleMode(false);
   } finally {
     await context.close();
     await browser.close();
