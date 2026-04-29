@@ -325,6 +325,12 @@ async function main() {
     viewport: SCOREBOARD_VIEWPORT,
     deviceScaleFactor: 2,
     colorScheme: 'dark',
+    // Force English so the React i18n provider doesn't latch onto the
+    // host's locale (which is what made the README screenshots come out
+    // half in Spanish on a Spanish workstation). The /manage page is a
+    // static HTML doc that is always English; aligning the SPA pins
+    // every captured surface to one language.
+    locale: 'en-US',
   });
   await installLogoRouter(context);
   const page = await context.newPage();
