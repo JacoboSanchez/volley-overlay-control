@@ -16,13 +16,6 @@ export const DOUBLE_TAP_MS = 280;
 /** Hold duration before a long-press fires (ms). */
 export const LONG_PRESS_MS = 1000;
 
-// --- Undo history -------------------------------------------------------
-
-/** Maximum number of forward actions retained on the client-side undo stack.
- *  A 5-set match with deuces can break 300 scoring events; 300 covers the
- *  realistic worst case while keeping memory negligible (~30 KB). */
-export const ACTION_HISTORY_LIMIT = 300;
-
 // --- HUD chrome ---------------------------------------------------------
 
 /** Pointer-inactivity window before the bottom HUD auto-hides on phones (ms). */

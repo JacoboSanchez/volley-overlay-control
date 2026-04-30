@@ -48,6 +48,40 @@
         "title": "AppConfigResponse",
         "type": "object"
       },
+      "BeachSideSwitch": {
+        "description": "Beach volleyball side-switch indicator (only set when mode='beach').\n\nSides switch every 7 combined points in non-tiebreak sets and\nevery 5 in the tiebreak. ``is_switch_pending`` is true the moment\na point crosses a boundary \u2014 operators should swap teams now.",
+        "properties": {
+          "interval": {
+            "title": "Interval",
+            "type": "integer"
+          },
+          "is_switch_pending": {
+            "title": "Is Switch Pending",
+            "type": "boolean"
+          },
+          "next_switch_at": {
+            "title": "Next Switch At",
+            "type": "integer"
+          },
+          "points_in_set": {
+            "title": "Points In Set",
+            "type": "integer"
+          },
+          "points_until_switch": {
+            "title": "Points Until Switch",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "interval",
+          "points_in_set",
+          "next_switch_at",
+          "points_until_switch",
+          "is_switch_pending"
+        ],
+        "title": "BeachSideSwitch",
+        "type": "object"
+      },
       "ClientLogRecord": {
         "properties": {
           "href": {
@@ -149,6 +183,21 @@
       },
       "GameStateResponse": {
         "properties": {
+          "beach_side_switch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BeachSideSwitch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_undo": {
+            "default": false,
+            "title": "Can Undo",
+            "type": "boolean"
+          },
           "config": {
             "additionalProperties": true,
             "title": "Config",
@@ -551,6 +600,72 @@
           "team"
         ],
         "title": "ServeRequest",
+        "type": "object"
+      },
+      "SetRulesRequest": {
+        "description": "Body for ``POST /api/v1/session/rules``.\n\nAll fields are optional. ``mode`` switches between ``\"indoor\"``\nand ``\"beach\"``; ``reset_to_defaults`` replaces every limit with\nthe canonical preset for the resulting mode (per-field overrides\nin the same call still win).",
+        "properties": {
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "indoor",
+                  "beach"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "points_limit": {
+            "anyOf": [
+              {
+                "maximum": 99.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Limit"
+          },
+          "points_limit_last_set": {
+            "anyOf": [
+              {
+                "maximum": 99.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Limit Last Set"
+          },
+          "reset_to_defaults": {
+            "default": false,
+            "title": "Reset To Defaults",
+            "type": "boolean"
+          },
+          "sets_limit": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sets Limit"
+          }
+        },
+        "title": "SetRulesRequest",
         "type": "object"
       },
       "SetScoreRequest": {
@@ -1396,6 +1511,95 @@
           }
         },
         "summary": "App Config",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "description": "Return up to *limit* most-recent records from the action log.\n\nRecords are ordered chronologically (oldest first within the\nreturned window). Each entry has the shape::\n\n    {\"ts\": 1714508400.123,\n     \"action\": \"add_point\",\n     \"params\": {\"team\": 1, \"undo\": false},\n     \"result\": {\"current_set\": 2, \"team_1\": {...}, ...}}",
+        "operationId": "get_audit_log_api_v1_audit_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recent action audit log",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -2423,6 +2627,85 @@
         ]
       }
     },
+    "/api/v1/game/undo": {
+      "post": {
+        "description": "Pops the most recent forward ``add_point`` / ``add_set`` /\n``add_timeout`` from the audit log and applies the inverse via\n``undo=True``. Returns ``success=false`` with message\n``\"Nothing to undo.\"`` when the log has no eligible entry.",
+        "operationId": "undo_last_api_v1_game_undo_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverse the most recent undoable action",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
     "/api/v1/links": {
       "get": {
         "description": "Return control, overlay, and preview links for the session.",
@@ -2495,6 +2778,114 @@
           }
         },
         "summary": "Get Links",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/matches": {
+      "get": {
+        "description": "Return summaries of archived matches, newest first.\n\nEach entry is enough to render a list view: ``match_id``, ``oid``,\n``ended_at``, ``duration_s``, ``winning_team``, plus the team-level\nsets-won and ``current_set``. Use ``GET /matches/{match_id}`` for\nthe full snapshot including the audit log and customization.",
+        "operationId": "list_matches_api_v1_matches_get",
+        "parameters": [
+          {
+            "description": "Filter to a single OID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter to a single OID",
+              "title": "Oid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List archived matches",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/matches/{match_id}": {
+      "get": {
+        "operationId": "get_match_api_v1_matches__match_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Full archived match snapshot",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -2595,6 +2986,95 @@
           }
         },
         "summary": "Init Session",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/session/rules": {
+      "post": {
+        "description": "Update match-rule preset for the session.\n\nAll fields are optional. ``mode`` accepts ``\"indoor\"`` or\n``\"beach\"`` and drives the beach side-switch indicator. The\n``reset_to_defaults`` flag replaces every limit with the\ncanonical preset for the resulting mode. Per-field overrides\nin the same call still win, so the UI can switch modes and\nkeep one custom limit in a single request.",
+        "operationId": "set_rules_api_v1_session_rules_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRulesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update match rules (mode, points, sets) for the session",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -3163,6 +3643,79 @@
           }
         },
         "summary": "Serve Webmanifest"
+      }
+    },
+    "/match/{match_id}/report": {
+      "get": {
+        "operationId": "match_report_match__match_id__report_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
+              "title": "Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Print-friendly HTML report for an archived match"
       }
     },
     "/overlay/{overlay_id}": {

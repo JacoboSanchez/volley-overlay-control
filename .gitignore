@@ -1,5 +1,6 @@
 __pycache__/
 /.env
+/ROADMAP.md
 /screenshots*
 /.nicegui
 /data

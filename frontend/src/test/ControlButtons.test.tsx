@@ -105,6 +105,11 @@ describe('ControlButtons', () => {
     expect(screen.getByTestId('dark-mode-button')).toHaveTextContent('dark_mode');
   });
 
+  it('shows brightness_auto icon when theme is auto', () => {
+    renderWithI18n(<ControlButtons {...defaultProps} darkMode="auto" />);
+    expect(screen.getByTestId('dark-mode-button')).toHaveTextContent('brightness_auto');
+  });
+
   it('shows fullscreen_exit icon when fullscreen', () => {
     renderWithI18n(<ControlButtons {...defaultProps} isFullscreen={true} />);
     expect(screen.getByTestId('fullscreen-button')).toHaveTextContent('fullscreen_exit');

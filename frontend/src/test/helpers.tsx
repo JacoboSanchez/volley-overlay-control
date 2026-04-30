@@ -34,6 +34,7 @@ export const mockGameState: GameState = {
   current_set: 1,
   serve: '1',
   config: { sets_limit: 5, points_limit: 25 },
+  can_undo: false,
 };
 
 export const mockCustomization = {

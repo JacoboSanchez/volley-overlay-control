@@ -3,6 +3,12 @@ import logging
 import threading
 import time
 
+from app.api import action_log
+from app.api.match_rules import is_valid_mode
+from app.api.session_persistence import (
+    load_session_meta,
+    save_session_meta,
+)
 from app.backend import Backend
 from app.conf import Conf
 from app.customization import Customization
@@ -29,6 +35,20 @@ class GameSession:
         self.simple = False
         self.current_set = 1
         self.undo = False
+        # Wall-clock seconds at which the current match started. Persisted
+        # in session_meta so it survives restarts; reset by GameService.reset
+        # and bumped automatically after a match is archived.
+        self.match_started_at = time.time()
+        # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
+        # session_meta. Drives the beach side-switch indicator and the
+        # "reset to defaults" affordance in the new MatchRulesSection.
+        self.mode: str = "indoor"
+        # Cached count of undoable forward records in the audit log.
+        # Updated by GameService._audit on every undoable mutation so
+        # ``get_state`` can answer ``can_undo`` in O(1) without re-reading
+        # the log. Rehydrated from disk here so a restart picks up
+        # whatever forwards survived from a previous process.
+        self.undoable_forward_count: int = action_log.count_undoable_forwards(oid)
         self.points_limit = points_limit if points_limit is not None else conf.points
         self.points_limit_last_set = (
             points_limit_last_set if points_limit_last_set is not None
@@ -61,6 +81,56 @@ class GameSession:
         """Update last access time."""
         self.last_accessed = time.monotonic()
 
+    def to_meta_dict(self) -> dict:
+        """Return the session-level fields that should survive restart.
+
+        Match-state fields (scores, sets, current_set, serve, timeouts)
+        are persisted via the overlay backend (raw_remote_model in the
+        local store, the cloud for uno overlays) and are not included
+        here.
+        """
+        return {
+            "simple": bool(self.simple),
+            "points_limit": int(self.points_limit),
+            "points_limit_last_set": int(self.points_limit_last_set),
+            "sets_limit": int(self.sets_limit),
+            "match_started_at": float(self.match_started_at),
+            "mode": str(self.mode),
+        }
+
+    def apply_meta(self, meta: dict) -> None:
+        """Restore session-level fields from a previously persisted dict.
+
+        Silently ignores missing or malformed keys so a stale meta file
+        cannot break session creation.
+        """
+        if not isinstance(meta, dict):
+            return
+        if "simple" in meta:
+            self.simple = bool(meta["simple"])
+        for key in ("points_limit", "points_limit_last_set", "sets_limit"):
+            value = meta.get(key)
+            if value is None:
+                continue
+            try:
+                setattr(self, key, int(value))
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Ignoring invalid %s=%r in persisted meta for OID=%s",
+                    key, value, self.oid,
+                )
+        if "match_started_at" in meta:
+            try:
+                self.match_started_at = float(meta["match_started_at"])
+            except (TypeError, ValueError):
+                pass
+        if "mode" in meta and is_valid_mode(meta["mode"]):
+            self.mode = meta["mode"]
+
+    def persist_meta(self) -> None:
+        """Best-effort save of :meth:`to_meta_dict` to disk."""
+        save_session_meta(self.oid, self.to_meta_dict())
+
     def shutdown(self):
         """Clean up background resources to prevent leaks."""
         if hasattr(self.backend, 'shutdown'):
@@ -90,12 +160,19 @@ class SessionManager:
         fast path (existing session) never enters the construction block.
         """
         def _apply_limits(session):
-            if points_limit is not None:
+            changed = False
+            if points_limit is not None and session.points_limit != points_limit:
                 session.points_limit = points_limit
-            if points_limit_last_set is not None:
+                changed = True
+            if (points_limit_last_set is not None
+                    and session.points_limit_last_set != points_limit_last_set):
                 session.points_limit_last_set = points_limit_last_set
-            if sets_limit is not None:
+                changed = True
+            if sets_limit is not None and session.sets_limit != sets_limit:
                 session.sets_limit = sets_limit
+                changed = True
+            if changed:
+                session.persist_meta()
 
         with cls._lock:
             session = cls._sessions.get(oid)
@@ -115,6 +192,25 @@ class SessionManager:
                 points_limit_last_set=points_limit_last_set,
                 sets_limit=sets_limit,
             )
+            # Restore persisted session metadata before any explicit
+            # caller overrides take effect — the kwargs above already
+            # won at construction time, so apply_meta only fills in
+            # fields the caller did not specify.
+            persisted = load_session_meta(oid)
+            if persisted is not None:
+                fields_to_restore = {
+                    k: v for k, v in persisted.items()
+                    if not (k == "points_limit" and points_limit is not None)
+                    and not (k == "points_limit_last_set" and points_limit_last_set is not None)
+                    and not (k == "sets_limit" and sets_limit is not None)
+                }
+                new_session.apply_meta(fields_to_restore)
+                # current_set is derived from the (already-restored)
+                # match state and the freshly-restored sets_limit.
+                new_session.current_set = new_session._compute_current_set()
+            # Persist the resulting meta so a future restart can
+            # rehydrate without requiring any mutation in between.
+            new_session.persist_meta()
             cls._sessions[oid] = new_session
             return new_session
 

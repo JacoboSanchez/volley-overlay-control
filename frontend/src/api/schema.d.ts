@@ -219,6 +219,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent action audit log
+         * @description Return up to *limit* most-recent records from the action log.
+         *
+         *     Records are ordered chronologically (oldest first within the
+         *     returned window). Each entry has the shape::
+         *
+         *         {"ts": 1714508400.123,
+         *          "action": "add_point",
+         *          "params": {"team": 1, "undo": false},
+         *          "result": {"current_set": 2, "team_1": {...}, ...}}
+         */
+        get: operations["get_audit_log_api_v1_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/config": {
         parameters: {
             query?: never;
@@ -407,6 +435,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/game/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reverse the most recent undoable action
+         * @description Pops the most recent forward ``add_point`` / ``add_set`` /
+         *     ``add_timeout`` from the audit log and applies the inverse via
+         *     ``undo=True``. Returns ``success=false`` with message
+         *     ``"Nothing to undo."`` when the log has no eligible entry.
+         */
+        post: operations["undo_last_api_v1_game_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/links": {
         parameters: {
             query?: never;
@@ -419,6 +470,48 @@ export interface paths {
          * @description Return control, overlay, and preview links for the session.
          */
         get: operations["get_links_api_v1_links_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List archived matches
+         * @description Return summaries of archived matches, newest first.
+         *
+         *     Each entry is enough to render a list view: ``match_id``, ``oid``,
+         *     ``ended_at``, ``duration_s``, ``winning_team``, plus the team-level
+         *     sets-won and ``current_set``. Use ``GET /matches/{match_id}`` for
+         *     the full snapshot including the audit log and customization.
+         */
+        get: operations["list_matches_api_v1_matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{match_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Full archived match snapshot */
+        get: operations["get_match_api_v1_matches__match_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -466,6 +559,33 @@ export interface paths {
          * @description Initialise (or re-use) a game session for the given overlay ID.
          */
         post: operations["init_session_api_v1_session_init_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update match rules (mode, points, sets) for the session
+         * @description Update match-rule preset for the session.
+         *
+         *     All fields are optional. ``mode`` accepts ``"indoor"`` or
+         *     ``"beach"`` and drives the beach side-switch indicator. The
+         *     ``reset_to_defaults`` flag replaces every limit with the
+         *     canonical preset for the resulting mode. Per-field overrides
+         *     in the same call still win, so the UI can switch modes and
+         *     keep one custom limit in a single request.
+         */
+        post: operations["set_rules_api_v1_session_rules_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -661,6 +781,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/match/{match_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Print-friendly HTML report for an archived match */
+        get: operations["match_report_match__match_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/overlay/{overlay_id}": {
         parameters: {
             query?: never;
@@ -712,6 +849,26 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * BeachSideSwitch
+         * @description Beach volleyball side-switch indicator (only set when mode='beach').
+         *
+         *     Sides switch every 7 combined points in non-tiebreak sets and
+         *     every 5 in the tiebreak. ``is_switch_pending`` is true the moment
+         *     a point crosses a boundary — operators should swap teams now.
+         */
+        BeachSideSwitch: {
+            /** Interval */
+            interval: number;
+            /** Is Switch Pending */
+            is_switch_pending: boolean;
+            /** Next Switch At */
+            next_switch_at: number;
+            /** Points In Set */
+            points_in_set: number;
+            /** Points Until Switch */
+            points_until_switch: number;
+        };
         /** ClientLogRecord */
         ClientLogRecord: {
             /** Href */
@@ -746,6 +903,12 @@ export interface components {
         };
         /** GameStateResponse */
         GameStateResponse: {
+            beach_side_switch?: components["schemas"]["BeachSideSwitch"] | null;
+            /**
+             * Can Undo
+             * @default false
+             */
+            can_undo: boolean;
             /** Config */
             config: {
                 [key: string]: unknown;
@@ -866,6 +1029,30 @@ export interface components {
              * @enum {integer}
              */
             team: 1 | 2;
+        };
+        /**
+         * SetRulesRequest
+         * @description Body for ``POST /api/v1/session/rules``.
+         *
+         *     All fields are optional. ``mode`` switches between ``"indoor"``
+         *     and ``"beach"``; ``reset_to_defaults`` replaces every limit with
+         *     the canonical preset for the resulting mode (per-field overrides
+         *     in the same call still win).
+         */
+        SetRulesRequest: {
+            /** Mode */
+            mode?: ("indoor" | "beach") | null;
+            /** Points Limit */
+            points_limit?: number | null;
+            /** Points Limit Last Set */
+            points_limit_last_set?: number | null;
+            /**
+             * Reset To Defaults
+             * @default false
+             */
+            reset_to_defaults: boolean;
+            /** Sets Limit */
+            sets_limit?: number | null;
         };
         /** SetScoreRequest */
         SetScoreRequest: {
@@ -1369,6 +1556,43 @@ export interface operations {
             };
         };
     };
+    get_audit_log_api_v1_audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_config_api_v1_config_get: {
         parameters: {
             query?: {
@@ -1839,6 +2063,42 @@ export interface operations {
             };
         };
     };
+    undo_last_api_v1_game_undo_post: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_links_api_v1_links_get: {
         parameters: {
             query?: {
@@ -1851,6 +2111,73 @@ export interface operations {
                 authorization?: string;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_matches_api_v1_matches_get: {
+        parameters: {
+            query?: {
+                /** @description Filter to a single OID */
+                oid?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_match_api_v1_matches__match_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                match_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1918,6 +2245,46 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["InitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_rules_api_v1_session_rules_post: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRulesRequest"];
             };
         };
         responses: {
@@ -2327,6 +2694,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    match_report_match__match_id__report_get: {
+        parameters: {
+            query?: {
+                /** @description OVERLAY_MANAGER_PASSWORD; alternative to Bearer header. */
+                token?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

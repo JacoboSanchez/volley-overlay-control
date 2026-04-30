@@ -201,4 +201,14 @@ async def delete_custom_overlay(name: str):
         await obs_broadcast_hub.cleanup_overlay(name)
     except Exception:
         pass
+    try:
+        from app.api import action_log, match_archive
+        from app.api.session_manager import SessionManager
+        from app.api.session_persistence import delete_session_meta
+        SessionManager.remove(name)
+        delete_session_meta(name)
+        action_log.delete(name)
+        match_archive.delete_for_oid(name)
+    except Exception:
+        pass
     return {"ok": True}

@@ -125,6 +125,10 @@ export function setSets(oid: string, team: Team, value: number): Promise<ActionR
   );
 }
 
+export function undoLast(oid: string): Promise<ActionResponse> {
+  return request<ActionResponse>('POST', `/game/undo?oid=${encodeURIComponent(oid)}`);
+}
+
 export function resetGame(oid: string): Promise<ActionResponse> {
   return request<ActionResponse>('POST', `/game/reset?oid=${encodeURIComponent(oid)}`);
 }
@@ -143,6 +147,24 @@ export function setSimpleMode(oid: string, enabled: boolean): Promise<ActionResp
     'POST',
     `/display/simple-mode?oid=${encodeURIComponent(oid)}`,
     { enabled },
+  );
+}
+
+export type MatchMode = 'indoor' | 'beach';
+
+export interface SetRulesPayload {
+  mode?: MatchMode;
+  points_limit?: number;
+  points_limit_last_set?: number;
+  sets_limit?: number;
+  reset_to_defaults?: boolean;
+}
+
+export function setRules(oid: string, payload: SetRulesPayload): Promise<ActionResponse> {
+  return request<ActionResponse>(
+    'POST',
+    `/session/rules?oid=${encodeURIComponent(oid)}`,
+    payload,
   );
 }
 

@@ -7,6 +7,7 @@ import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import type { PreviewData } from './CenterPanel';
 import type { ScoreButtonFontStyle } from './ScoreButton';
+import type { ThemePreference } from '../hooks/useSettings';
 import {
   TEAM_A_SERVE_ACTIVE,
   TEAM_B_SERVE_ACTIVE,
@@ -28,7 +29,7 @@ export interface ScoreboardViewProps {
   canUndo: boolean;
   simpleMode: boolean;
   isFullscreen: boolean;
-  darkMode: boolean;
+  darkMode: ThemePreference;
   btnColorA: string;
   btnTextA: string;
   btnColorB: string;

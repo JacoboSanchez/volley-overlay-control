@@ -5,13 +5,16 @@ export interface LinksSectionLinks {
   control?: string;
   overlay?: string;
   preview?: string;
+  latest_match_report?: string;
 }
 
 export interface LinksSectionProps {
   links: LinksSectionLinks | null | undefined;
 }
 
-const LINK_KEYS: Array<keyof LinksSectionLinks> = ['control', 'overlay', 'preview'];
+const LINK_KEYS: Array<keyof LinksSectionLinks> = [
+  'control', 'overlay', 'preview', 'latest_match_report',
+];
 
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text).catch(() => {

@@ -1534,6 +1534,82 @@ body {
   flex-wrap: wrap;
 }
 
+/* ── Match-rules section ────────────────────────────────────────────── */
+
+.config-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.config-mode-toggle-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 64px;
+  padding: 0.5rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.config-mode-toggle-btn:hover:not(:disabled) {
+  background: var(--surface-light);
+}
+
+.config-mode-toggle-btn-active {
+  border-color: var(--blue);
+  color: var(--text);
+  background: var(--surface-light);
+}
+
+.config-mode-toggle-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.config-mode-toggle-btn .material-icons {
+  font-size: 1.5rem;
+}
+
+/* Side-switch indicator pinned to the centre panel during beach matches. */
+.side-switch-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-light);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+.side-switch-indicator-pending {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+  animation: side-switch-pulse 1.2s ease-in-out infinite;
+}
+
+.side-switch-indicator .material-icons {
+  font-size: 0.95rem;
+}
+
+@keyframes side-switch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .config-theme-inline .config-select {
   flex: 1;
   min-width: 0;

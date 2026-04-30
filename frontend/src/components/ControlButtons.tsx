@@ -1,4 +1,5 @@
 import { useI18n } from '../i18n';
+import { ThemePreference } from '../hooks/useSettings';
 import {
   VISIBLE_ON_COLOR,
   VISIBLE_OFF_COLOR,
@@ -13,7 +14,11 @@ export interface ControlButtonsProps {
   visible: boolean;
   simpleMode: boolean;
   canUndo: boolean;
-  darkMode: boolean;
+  /**
+   * Theme preference. ``'auto'`` follows the OS, ``true`` forces dark,
+   * ``false`` forces light. Click cycles auto → dark → light → auto.
+   */
+  darkMode: ThemePreference;
   isFullscreen: boolean;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
@@ -22,6 +27,17 @@ export interface ControlButtonsProps {
   onToggleFullscreen: () => void;
   showPreview: boolean;
   onTogglePreview: () => void;
+}
+
+function themeIcon(pref: ThemePreference): string {
+  if (pref === 'auto') return 'brightness_auto';
+  // pref boolean: icon represents the *next* state (matches existing UX).
+  return pref ? 'light_mode' : 'dark_mode';
+}
+
+function themeTitle(pref: ThemePreference, t: (k: string) => string): string {
+  if (pref === 'auto') return t('ctrl.themeAuto');
+  return pref ? t('ctrl.lightMode') : t('ctrl.darkMode');
 }
 
 /**
@@ -122,12 +138,10 @@ export default function ControlButtons({
       <button
         className="control-btn control-btn-theme"
         onClick={onToggleDarkMode}
-        title={darkMode ? t('ctrl.lightMode') : t('ctrl.darkMode')}
+        title={themeTitle(darkMode, t)}
         data-testid="dark-mode-button"
       >
-        <span className="material-icons">
-          {darkMode ? 'light_mode' : 'dark_mode'}
-        </span>
+        <span className="material-icons">{themeIcon(darkMode)}</span>
       </button>
     </div>
   );

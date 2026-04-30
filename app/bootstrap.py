@@ -27,6 +27,7 @@ from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
+from app.match_report import match_report_router
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,9 @@ def _register_api_routes(application: FastAPI) -> None:
     # Registered before the SPA mount so ``/manage`` is served by FastAPI.
     application.include_router(admin_page_router)
     application.include_router(admin_router)
+    # Print-friendly per-match HTML report. Mounted before the SPA
+    # catch-all so /match/{id}/report is served by FastAPI.
+    application.include_router(match_report_router)
 
 
 def _register_overlay_routes(application: FastAPI) -> None:
