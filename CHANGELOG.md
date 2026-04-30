@@ -32,6 +32,11 @@ once a first tagged release ships.
 - `app/api/action_log` per-OID lock map is bounded by a 256-entry
   LRU; previously it grew unboundedly as new OIDs flowed through the
   process. `delete()` also evicts the lock entry now.
+- The cached `GameSession.undoable_forward_count` (source of truth
+  for `GameStateResponse.can_undo`) now updates *only* after the
+  audit-log append succeeds. A filesystem error during `_audit`
+  used to leave the counter overstating the on-disk truth; now
+  the counter and `count_undoable_forwards` always agree.
 
 ### Changed
 
@@ -102,11 +107,6 @@ once a first tagged release ships.
   locales). The token is intentionally never embedded in the URL,
   so gated deployments can keep their match reports private without
   the link section ever leaking the admin token.
-- README: endpoint table now lists `/api/v1/audit`,
-  `/api/v1/matches`, `/api/v1/matches/{id}`, `/api/v1/game/undo`,
-  and `/match/{id}/report`. Configuration table documents the new
-  `MATCH_REPORT_PUBLIC` env var.
-
 - Session-level state survives process restarts. Per-OID flags
   (`simple` mode, custom `points_limit`, `points_limit_last_set`,
   `sets_limit`) used to live only in memory and were silently dropped
@@ -145,22 +145,25 @@ once a first tagged release ships.
   so durations are accurate.
 - Server-side undo stack. New `POST /api/v1/game/undo` pops the most
   recent forward `add_point` / `add_set` / `add_timeout` from the
-  audit log and applies the inverse via the existing per-type
-  `undo=True` flag. Non-undoable forward records (e.g.
-  `change_serve`, `set_score`, `reset`) stay in the log so the
-  timeline is preserved; undo just walks past them. Returns
+  audit log and applies the inverse. Non-undoable forward records
+  (e.g. `change_serve`, `set_score`, `reset`) stay in the log so
+  the timeline is preserved; undo just walks past them. Returns
   `success=false, message="Nothing to undo."` when no eligible
-  record exists. Complements the existing per-type
-  `undo=True` API which still works unchanged.
+  record exists. The per-type `undo=True` flag continues to work
+  and now shares the same stack — see the **Changed** section
+  above for the unification details.
 - Print-friendly match report at `GET /match/{match_id}/report`.
   Server-rendered self-contained HTML page with hero scoreboard
   (team names, sets won, winner badge, team colours from the
   archived customization), set-by-set scores table, match facts
   (start/end timestamps, format, audit count), and an action
   timeline. A `@media print` block makes the page render cleanly
-  via the browser's built-in "Save as PDF" workflow. Unauthenticated
-  by design — `match_id` is a hash-prefixed token consistent with
-  the existing public `/overlay/{output_key}` addressability model.
+  via the browser's built-in "Save as PDF" workflow. Auth model:
+  by default the route requires `OVERLAY_MANAGER_PASSWORD`
+  (Bearer header or `?token=` query); set
+  `MATCH_REPORT_PUBLIC=true` to make it openly addressable by
+  hash-prefixed `match_id` instead — see the **Security** section
+  above.
 - OS-aware light/dark theme for the React control UI. The
   `darkMode` setting now accepts `'auto'` (default) in addition to
   `true` / `false` — when `'auto'`, the UI follows the OS
@@ -169,6 +172,33 @@ once a first tagged release ships.
   through `auto → dark → light → auto`, with a `brightness_auto`
   icon and a localised "Theme: follow system" tooltip in the auto
   state. Existing localStorage values continue to work unchanged.
+
+### Removed
+
+- Deleted the orphan `frontend/src/hooks/useActionHistory.ts` hook
+  and its tests, plus the `ACTION_HISTORY_LIMIT` constant in
+  `frontend/src/constants.ts`. The bundled React UI now drives the
+  global Undo button straight off `state.can_undo` and
+  `actions.undoLast()`, so the client-side LIFO stack the hook
+  used to maintain is no longer needed. Pure cleanup — no
+  externally visible behaviour change.
+
+### Documentation
+
+- README endpoint table lists `/api/v1/audit`, `/api/v1/matches`,
+  `/api/v1/matches/{id}`, `/api/v1/game/undo`,
+  `/api/v1/session/rules`, and `/match/{id}/report`. Configuration
+  table documents the new `MATCH_REPORT_PUBLIC` env var.
+- `FRONTEND_DEVELOPMENT.md` gains a dedicated section for
+  `POST /api/v1/game/undo` plus a "Two undo APIs, one stack" note
+  explaining that `add_*(undo=true)` and the new generic endpoint
+  consume from the same audit-log stack and can be mixed safely;
+  also flags the deliberate footgun that `state.can_undo` reflects
+  audit-log truth (not raw scoreboard state).
+- `AGENTS.md` source-tree reflects the new modules
+  (`app/api/match_rules.py`, `app/api/action_log.py`,
+  `app/api/match_archive.py`, `app/api/webhooks.py`,
+  `app/api/session_persistence.py`, `app/match_report.py`).
 
 ---
 
