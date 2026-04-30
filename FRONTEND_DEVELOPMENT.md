@@ -247,6 +247,47 @@ Set exact sets won.
 {"team": 1, "value": 2}
 ```
 
+#### `POST /api/v1/game/undo?oid=<OID>`
+
+Reverse the most recent undoable forward action (`add_point`,
+`add_set`, or `add_timeout`) on the server-side LIFO stack. No
+body required.
+
+```json
+{"success": true, "state": { /* GameStateResponse */ }}
+```
+
+- Returns `success: false` with `message: "Nothing to undo."` when
+  no undoable forward record exists for this OID.
+- The stack is sourced from the per-OID audit log
+  (`data/audit_<hash>.jsonl`), so it survives reload, is shared
+  between concurrent clients, and skips past non-undoable actions
+  (`change_serve`, `set_score`, `set_sets_value`, `reset`) that
+  remain in the log untouched.
+
+##### Two undo APIs, one stack
+
+Both `POST /game/undo` and the per-type `add_*(undo=true)` flag
+share the same audit-log stack:
+
+* `POST /game/undo` pops the most recent undoable forward,
+  regardless of action type or team.
+* `POST /game/add-point` (or `add-set` / `add-timeout`) with
+  `undo: true` pops the most recent forward of *that specific
+  action and team*. Useful for team-scoped undo gestures
+  (e.g. a Stream Deck button that says "undo last point for
+  Team 1").
+
+Pick whichever ergonomics fit your client; mixing them is safe
+because both code paths consume from the same log.
+
+`GameStateResponse.can_undo` reflects the audit-log truth (any
+pending undoable forward in the log), not the raw scoreboard
+state. So if you mutate state via `set-score` without a matching
+`add-point` history, `can_undo` will not flip — but
+`add-point(undo=true)` still falls through to the state-level
+inverse for backward compatibility.
+
 #### `POST /api/v1/game/reset?oid=<OID>`
 
 Reset the match to initial state. No body required.

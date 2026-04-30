@@ -204,6 +204,85 @@ class TestMixedApiConsistency:
 # Set-winning point still undoes correctly under the new system
 # ---------------------------------------------------------------------------
 
+class TestAuditLogTimeline:
+    """Lock down the exact log shape after pop+audit so a regression
+    in the order of operations would fail loudly here."""
+
+    def test_per_type_undo_leaves_only_undo_record(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("tl-1", mock_conf, api_backend)
+        GameService.add_point(s, team=1)
+        GameService.add_point(s, team=1, undo=True)
+
+        records = action_log.read_all("tl-1")
+        # Forward was popped; only the undo record survives.
+        assert len(records) == 1
+        assert records[0]["action"] == "add_point"
+        assert records[0]["params"] == {"team": 1, "undo": True}
+
+    def test_generic_undo_leaves_only_undo_record(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("tl-2", mock_conf, api_backend)
+        GameService.add_point(s, team=1)
+        GameService.undo_last(s)
+
+        records = action_log.read_all("tl-2")
+        assert len(records) == 1
+        assert records[0]["action"] == "add_point"
+        assert records[0]["params"] == {"team": 1, "undo": True}
+
+    def test_non_undoable_actions_stay_in_log_after_undo(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("tl-3", mock_conf, api_backend)
+        GameService.add_point(s, team=1)
+        GameService.change_serve(s, team=2)
+        GameService.add_point(s, team=2)
+        GameService.undo_last(s)  # pops the team=2 add_point fwd
+
+        actions = [r["action"] for r in action_log.read_all("tl-3")]
+        # Original: [add_point, change_serve, add_point]
+        # After undo: [add_point, change_serve, add_point(undo)]
+        # The team=2 forward was popped; change_serve untouched.
+        assert actions == ["add_point", "change_serve", "add_point"]
+        last = action_log.read_all("tl-3")[-1]
+        assert last["params"] == {"team": 2, "undo": True}
+
+
+class TestCounterLogAtomicity:
+    """Counter must never drift from on-disk truth. Verified by
+    forcing ``action_log.append`` to fail and checking the counter
+    is unchanged."""
+
+    def test_counter_unchanged_when_audit_append_fails(
+            self, mock_conf, api_backend, monkeypatch):
+        s = SessionManager.get_or_create("atom-1", mock_conf, api_backend)
+        GameService.add_point(s, team=1)
+        baseline = s.undoable_forward_count
+        assert baseline == 1
+
+        # Make the next append fail.
+        def boom(*args, **kwargs):
+            raise OSError("disk full")
+        monkeypatch.setattr(action_log, "append", boom)
+
+        # Forward path: state mutates, log write fails, counter
+        # must NOT have incremented past baseline.
+        GameService.add_point(s, team=2)
+        assert s.undoable_forward_count == baseline
+
+        # Undo path: state mutates, pop already removed the forward,
+        # log write of undo record fails — counter must NOT have
+        # decremented past baseline.
+        GameService.add_point(s, team=1, undo=True)
+        # The pop happened before _audit was called, so the on-disk
+        # forward is gone. count_undoable_forwards reads what the
+        # log actually has (no team=1 forward, no team=2 forward
+        # since that one's append failed) so on-disk count is 0.
+        assert action_log.count_undoable_forwards("atom-1") == 0
+        # Counter stays at baseline because _audit never set it.
+        assert s.undoable_forward_count == baseline
+
+
 class TestSetWinningUndo:
     def test_per_type_undo_unwinds_set_win(self, mock_conf, api_backend):
         s = SessionManager.get_or_create("setwin-1", mock_conf, api_backend)

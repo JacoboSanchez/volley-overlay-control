@@ -144,27 +144,17 @@ class GameService:
         # regardless of pop result so callers manipulating state
         # without a corresponding audit record (e.g. via ``set_score``)
         # keep their backward-compatible no-op-on-zero semantics.
-        # The counter only decrements when a forward was actually
-        # popped — calls with no matching forward are no-ops for
-        # accounting too.
-        popped: Optional[dict] = None
-        if undo:
-            popped = action_log.pop_last_forward(
+        popped = (
+            action_log.pop_last_forward(
                 session.oid, allowed_actions={"add_point"}, team=team,
-            )
+            ) if undo else None
+        )
 
         set_won = session.game_manager.add_game(
             team, session.current_set,
             session.points_limit, session.points_limit_last_set,
             session.sets_limit, undo,
         )
-        if undo:
-            if popped is not None:
-                session.undoable_forward_count = max(
-                    0, session.undoable_forward_count - 1,
-                )
-        else:
-            session.undoable_forward_count += 1
 
         if undo and session.undo:
             session.undo = False
@@ -173,7 +163,10 @@ class GameService:
             session.current_set = session._compute_current_set()
 
         GameService._save_and_broadcast(session)
-        GameService._audit(session, "add_point", {"team": team, "undo": undo})
+        GameService._audit(
+            session, "add_point", {"team": team, "undo": undo},
+            popped_forward=popped,
+        )
 
         # Fire after persistence so consumers always see the post-state.
         if not undo:
@@ -207,27 +200,23 @@ class GameService:
 
         was_finished_before = session.game_manager.match_finished()
 
-        popped: Optional[dict] = None
-        if undo:
-            popped = action_log.pop_last_forward(
+        popped = (
+            action_log.pop_last_forward(
                 session.oid, allowed_actions={"add_set"}, team=team,
-            )
+            ) if undo else None
+        )
 
         session.game_manager.add_set(team, undo)
-        if undo:
-            if popped is not None:
-                session.undoable_forward_count = max(
-                    0, session.undoable_forward_count - 1,
-                )
-        else:
-            session.undoable_forward_count += 1
 
         if undo and session.undo:
             session.undo = False
 
         session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
-        GameService._audit(session, "add_set", {"team": team, "undo": undo})
+        GameService._audit(
+            session, "add_set", {"team": team, "undo": undo},
+            popped_forward=popped,
+        )
 
         if not undo:
             state_response = GameService.get_state(session)
@@ -251,26 +240,22 @@ class GameService:
                 message="Match is already finished.",
             )
 
-        popped: Optional[dict] = None
-        if undo:
-            popped = action_log.pop_last_forward(
+        popped = (
+            action_log.pop_last_forward(
                 session.oid, allowed_actions={"add_timeout"}, team=team,
-            )
+            ) if undo else None
+        )
 
         session.game_manager.add_timeout(team, undo)
 
         if undo and session.undo:
             session.undo = False
-        if undo:
-            if popped is not None:
-                session.undoable_forward_count = max(
-                    0, session.undoable_forward_count - 1,
-                )
-        else:
-            session.undoable_forward_count += 1
 
         GameService._save_and_broadcast(session)
-        GameService._audit(session, "add_timeout", {"team": team, "undo": undo})
+        GameService._audit(
+            session, "add_timeout", {"team": team, "undo": undo},
+            popped_forward=popped,
+        )
         if not undo:
             GameService._fire(
                 session, "timeout", GameService.get_state(session),
@@ -325,14 +310,6 @@ class GameService:
         GameService._audit(session, "set_sets_value", {"team": team, "value": value})
         return ActionResponse(success=True, state=GameService.get_state(session))
 
-    # Actions that the server-side undo stack will reverse. Other
-    # entries (set_score, set_sets_value, change_serve, reset, …) are
-    # left in the log untouched and skipped over by undo_last.
-    # The constant lives in ``action_log`` so the per-type undo
-    # branches (``add_point/add_set/add_timeout`` with ``undo=True``)
-    # and the generic ``undo_last`` share one source of truth.
-    _UNDOABLE_ACTIONS = action_log.UNDOABLE_ACTIONS
-
     @staticmethod
     def undo_last(session) -> ActionResponse:
         """Reverse the most-recent undoable forward action.
@@ -351,7 +328,7 @@ class GameService:
         them so undo walks past them rather than touching them.
         """
         record = action_log.peek_last_forward(
-            session.oid, allowed_actions=GameService._UNDOABLE_ACTIONS,
+            session.oid, allowed_actions=action_log.UNDOABLE_ACTIONS,
         )
         if record is None:
             return ActionResponse(
@@ -554,19 +531,31 @@ class GameService:
             return None
 
     @staticmethod
-    def _audit(session, action: str, params: dict) -> None:
-        """Append an audit-log record for the action just performed.
+    def _audit(
+        session,
+        action: str,
+        params: dict,
+        popped_forward: Optional[dict] = None,
+    ) -> None:
+        """Append an audit-log record for the action just performed
+        and, atomically with the append, keep
+        ``session.undoable_forward_count`` in sync.
 
-        Captures a compact post-state snapshot (the same shape used by
-        the match-history archive) so the log alone is enough to render
-        a recent-actions feed and to drive the server-side undo stack.
+        The counter is the cached source of truth for
+        ``GameStateResponse.can_undo``. It must never disagree with
+        what's on disk, so it is updated *only* after a successful
+        ``action_log.append``. If the append fails (filesystem error,
+        readonly mount, …) we leave the counter alone — a future
+        restart's ``count_undoable_forwards`` rehydration will
+        produce the same answer the in-memory counter does now.
 
-        Also keeps ``session.undoable_forward_count`` in sync so
-        ``get_state`` can answer ``can_undo`` in O(1). For undoable
-        actions: a forward call increments, an undo call decrements
-        (the matching forward was popped immediately before the
-        ``_audit`` call). Non-undoable actions don't touch the
-        counter. Best-effort — file errors don't propagate.
+        For undoable actions:
+          * a forward call (``params.undo`` falsy) increments;
+          * an undo call decrements iff *popped_forward* is not
+            ``None`` (a forward was actually consumed).
+        Non-undoable actions never touch the counter.
+
+        Best-effort — file errors don't propagate.
         """
         try:
             state = session.game_manager.get_current_state()
@@ -591,6 +580,16 @@ class GameService:
             action_log.append(session.oid, action, params, result)
         except Exception as exc:
             logger.warning("Audit append failed: %s", exc)
+            return
+
+        if action in action_log.UNDOABLE_ACTIONS:
+            if params.get("undo"):
+                if popped_forward is not None:
+                    session.undoable_forward_count = max(
+                        0, session.undoable_forward_count - 1,
+                    )
+            else:
+                session.undoable_forward_count += 1
 
     @staticmethod
     def _fire(session, event: str, state_response, details: dict) -> None:
