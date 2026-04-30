@@ -93,8 +93,10 @@
             });
 
             applyLayout();
-            // After the grid lays out, fit each iframe into its cell.
-            requestAnimationFrame(scaleAllToCells);
+            // fitIframeToCell reads clientWidth/Height, which flushes layout
+            // synchronously — no rAF needed, and skipping it avoids a paint
+            // where cells are sized but iframes are still at their old scale.
+            scaleAllToCells();
         }
 
         function fitIframeToCell(iframe) {
@@ -154,7 +156,7 @@
             if (resizeRaf) cancelAnimationFrame(resizeRaf);
             resizeRaf = requestAnimationFrame(() => {
                 applyLayout();
-                requestAnimationFrame(scaleAllToCells);
+                scaleAllToCells();
             });
         });
 
