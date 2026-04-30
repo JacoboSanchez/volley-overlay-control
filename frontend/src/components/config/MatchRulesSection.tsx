@@ -143,40 +143,79 @@ export default function MatchRulesSection({
         ))}
       </select>
 
-      <div className="config-stepper-grid">
-        <div className="config-stepper-group">
-          <label className="config-label" htmlFor="rules-points">{t('rules.pointsLimit')}</label>
-          <input
-            id="rules-points"
-            type="number"
-            className="config-stepper-input"
-            min={1}
-            max={99}
-            value={pointsDraft ?? ''}
-            onChange={(e) => setPointsDraft(parseInt(e.target.value, 10))}
-            onBlur={() => pointsDraft !== null
-              && handlePointsCommit('points_limit', pointsDraft)}
-            disabled={pending}
-            data-testid="rules-points-input"
-          />
+      {setsLimit === 1 ? (
+        // Best-of-1: the only set IS also the deciding set, so two
+        // separate "Points / set" and "Points / final set" inputs
+        // would be confusing. We show a single input and on commit
+        // dispatch both fields so the server stays consistent —
+        // ``GameManager.add_game`` uses ``points_limit_last_set``
+        // when ``current_set == sets_limit``, but mirroring the
+        // value to ``points_limit`` too means switching back to a
+        // best-of-3/5 later starts from sensible matching defaults.
+        <div className="config-stepper-grid">
+          <div className="config-stepper-group">
+            <label className="config-label" htmlFor="rules-points">{t('rules.pointsLimit')}</label>
+            <input
+              id="rules-points"
+              type="number"
+              className="config-stepper-input"
+              min={1}
+              max={99}
+              value={pointsLastDraft ?? ''}
+              onChange={(e) => setPointsLastDraft(parseInt(e.target.value, 10))}
+              onBlur={() => {
+                if (pointsLastDraft !== null
+                    && !Number.isNaN(pointsLastDraft)
+                    && pointsLastDraft > 0
+                    && (pointsLastDraft !== pointsLimitLastSet
+                        || pointsLastDraft !== pointsLimit)) {
+                  void call({
+                    points_limit: pointsLastDraft,
+                    points_limit_last_set: pointsLastDraft,
+                  });
+                }
+              }}
+              disabled={pending}
+              data-testid="rules-points-input"
+            />
+          </div>
         </div>
-        <div className="config-stepper-group">
-          <label className="config-label" htmlFor="rules-points-last">{t('rules.pointsLimitLastSet')}</label>
-          <input
-            id="rules-points-last"
-            type="number"
-            className="config-stepper-input"
-            min={1}
-            max={99}
-            value={pointsLastDraft ?? ''}
-            onChange={(e) => setPointsLastDraft(parseInt(e.target.value, 10))}
-            onBlur={() => pointsLastDraft !== null
-              && handlePointsCommit('points_limit_last_set', pointsLastDraft)}
-            disabled={pending}
-            data-testid="rules-points-last-input"
-          />
+      ) : (
+        <div className="config-stepper-grid">
+          <div className="config-stepper-group">
+            <label className="config-label" htmlFor="rules-points">{t('rules.pointsLimit')}</label>
+            <input
+              id="rules-points"
+              type="number"
+              className="config-stepper-input"
+              min={1}
+              max={99}
+              value={pointsDraft ?? ''}
+              onChange={(e) => setPointsDraft(parseInt(e.target.value, 10))}
+              onBlur={() => pointsDraft !== null
+                && handlePointsCommit('points_limit', pointsDraft)}
+              disabled={pending}
+              data-testid="rules-points-input"
+            />
+          </div>
+          <div className="config-stepper-group">
+            <label className="config-label" htmlFor="rules-points-last">{t('rules.pointsLimitLastSet')}</label>
+            <input
+              id="rules-points-last"
+              type="number"
+              className="config-stepper-input"
+              min={1}
+              max={99}
+              value={pointsLastDraft ?? ''}
+              onChange={(e) => setPointsLastDraft(parseInt(e.target.value, 10))}
+              onBlur={() => pointsLastDraft !== null
+                && handlePointsCommit('points_limit_last_set', pointsLastDraft)}
+              disabled={pending}
+              data-testid="rules-points-last-input"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <button
         type="button"

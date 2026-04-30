@@ -87,6 +87,47 @@ describe('MatchRulesSection', () => {
     expect(btn.disabled).toBe(true);
   });
 
+  it('hides the "Points / final set" input when best-of-1', () => {
+    renderWithI18n(
+      <MatchRulesSection oid="my-oid" mode="indoor"
+        pointsLimit={15} pointsLimitLastSet={15} setsLimit={1} />,
+    );
+    // Single set: only the unified "Points" input remains. The
+    // separate "final set" input would be confusing because the
+    // single set IS also the deciding set.
+    expect(screen.queryByTestId('rules-points-last-input')).toBeNull();
+    expect(screen.getByTestId('rules-points-input')).toBeInTheDocument();
+  });
+
+  it('best-of-1: input edits dispatch BOTH points_limit and points_limit_last_set', async () => {
+    renderWithI18n(
+      <MatchRulesSection oid="my-oid" mode="indoor"
+        pointsLimit={15} pointsLimitLastSet={15} setsLimit={1} />,
+    );
+    const input = screen.getByTestId('rules-points-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '21' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
+    // Mirror the value to both fields so the backend stays
+    // consistent regardless of which one the rule engine reads.
+    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', {
+      points_limit: 21,
+      points_limit_last_set: 21,
+    });
+  });
+
+  it('best-of-1: shows the active value (points_limit_last_set), not points_limit', () => {
+    renderWithI18n(
+      <MatchRulesSection oid="my-oid" mode="indoor"
+        pointsLimit={25} pointsLimitLastSet={11} setsLimit={1} />,
+    );
+    // GameManager.add_game uses points_limit_last_set when
+    // current_set == sets_limit; for best-of-1 that's always the
+    // case, so the displayed value must be 11 (the one in play).
+    const input = screen.getByTestId('rules-points-input') as HTMLInputElement;
+    expect(input.value).toBe('11');
+  });
+
   it('reset-to-defaults posts mode + reset flag when limits diverge', async () => {
     renderWithI18n(
       <MatchRulesSection oid="my-oid" mode="indoor"
