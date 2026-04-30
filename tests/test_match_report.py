@@ -225,3 +225,85 @@ class TestMatchReportAuth:
         match_id = self._seed_match("auth-public")
         response = c.get(f"/match/{match_id}/report")
         assert response.status_code == 200
+
+
+class TestMatchesIndex:
+    """Coverage for the new /matches/index.html browseable list."""
+
+    def _archive(self, oid: str, winner: int) -> str:
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 3 if winner == 1 else 1},
+                "team_2": {"sets": 1 if winner == 1 else 3},
+            },
+            customization={"Team 1 Name": "Home", "Team 2 Name": "Away"},
+            winning_team=winner,
+            sets_limit=5,
+        )
+        assert match_id is not None
+        return match_id
+
+    def test_index_lists_archived_matches(self, client):
+        a = self._archive("idx-1", winner=1)
+        b = self._archive("idx-1", winner=2)
+        response = client.get("/matches/index.html?oid=idx-1")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        # Both match_ids should appear as links to their reports.
+        assert f"/match/{a}/report" in response.text
+        assert f"/match/{b}/report" in response.text
+        # Header shows the OID and a count of 2.
+        assert "idx-1" in response.text
+        assert "2 matches" in response.text
+
+    def test_index_filters_by_oid(self, client):
+        own = self._archive("idx-mine", winner=1)
+        self._archive("idx-other", winner=2)  # different OID
+        response = client.get("/matches/index.html?oid=idx-mine")
+        assert f"/match/{own}/report" in response.text
+        # The "other" OID's match must NOT leak in.
+        assert "idx-other" not in response.text
+
+    def test_index_empty_state(self, client):
+        response = client.get("/matches/index.html?oid=idx-empty")
+        assert response.status_code == 200
+        assert "0 match" in response.text
+        assert "No matches archived yet" in response.text
+
+    def test_index_requires_oid(self, client):
+        response = client.get("/matches/index.html")
+        assert response.status_code == 422
+
+    def test_index_503_when_no_auth_configured(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        response = c.get("/matches/index.html?oid=anything")
+        assert response.status_code == 503
+
+    def test_index_401_without_token_when_gated(self, gated_client):
+        response = gated_client.get("/matches/index.html?oid=anything")
+        assert response.status_code == 401
+
+    def test_index_token_propagates_to_report_links(self, gated_client):
+        """When the operator opens the gated index with ``?token=…``,
+        the per-match report links should carry the same token so a
+        click-through doesn't re-prompt for credentials."""
+        match_id = self._archive("idx-token", winner=1)
+        response = gated_client.get(
+            "/matches/index.html?oid=idx-token&token=s3cret",
+        )
+        assert response.status_code == 200
+        assert f"/match/{match_id}/report?token=s3cret" in response.text
+
+    def test_index_oid_is_html_escaped(self, client):
+        # OID containing HTML metacharacters must not break the page.
+        # ``match_archive`` only accepts a strict regex so this is
+        # belt-and-braces — but the index template must still escape.
+        response = client.get("/matches/index.html?oid=%3Cscript%3E")
+        # OID failed regex → no archives → empty page rendered cleanly.
+        assert response.status_code == 200
+        assert "<script>" not in response.text
