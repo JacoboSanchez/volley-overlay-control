@@ -153,13 +153,19 @@
 
         // Outer rAF debounces a burst of resize events into one relayout.
         let resizeRaf = 0;
-        window.addEventListener("resize", () => {
+        function scheduleRelayout() {
             if (resizeRaf) cancelAnimationFrame(resizeRaf);
             resizeRaf = requestAnimationFrame(() => {
                 applyLayout();
                 scaleAllToCells();
             });
-        });
+        }
+        window.addEventListener("resize", scheduleRelayout);
+        // visualViewport fires on mobile URL-bar collapse; window.resize
+        // doesn't always fire for that on iOS Safari, so listen to both.
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", scheduleRelayout);
+        }
 
         buildGrid(AVAILABLE_STYLES);
     </script>

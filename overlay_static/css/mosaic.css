@@ -6,12 +6,14 @@ body {
     padding: 0;
     height: 100%;
     width: 100%;
+    /* overflow: hidden on html as well — some mobile browsers don't
+       propagate body overflow to the viewport. */
+    overflow: hidden;
 }
 
 body {
     background: transparent;
     font-family: 'Inter', sans-serif;
-    overflow: hidden;
     box-sizing: border-box;
 }
 
@@ -19,9 +21,17 @@ body {
     display: grid;
     gap: 8px;
     padding: 8px;
+    box-sizing: border-box;
+    /* Anchor to the visible viewport. position:fixed + inset:0 keeps the
+       grid pinned even if html/body sizing is wonky on mobile. dvh/dvw
+       track the dynamic viewport (URL bar collapse) so the grid resizes
+       with the visible area instead of overflowing under the chrome. */
+    position: fixed;
+    inset: 0;
     width: 100vw;
     height: 100vh;
-    box-sizing: border-box;
+    width: 100dvw;
+    height: 100dvh;
     /* grid-template-columns / -rows are set by JS to fit the viewport */
 }
 
