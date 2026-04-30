@@ -6,6 +6,7 @@ export interface LinksSectionLinks {
   overlay?: string;
   preview?: string;
   latest_match_report?: string;
+  match_history?: string;
 }
 
 export interface LinksSectionProps {
@@ -13,7 +14,7 @@ export interface LinksSectionProps {
 }
 
 const LINK_KEYS: Array<keyof LinksSectionLinks> = [
-  'control', 'overlay', 'preview', 'latest_match_report',
+  'control', 'overlay', 'preview', 'latest_match_report', 'match_history',
 ];
 
 function copyToClipboard(text: string) {

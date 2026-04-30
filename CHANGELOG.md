@@ -125,6 +125,18 @@ once a first tagged release ships.
   locales). The token is intentionally never embedded in the URL,
   so gated deployments can keep their match reports private without
   the link section ever leaking the admin token.
+- New browseable HTML match-history index at
+  `GET /matches/index.html?oid=<OID>`. Lists every archived match
+  for the OID with sets, duration, end-date, and a per-row link to
+  the full report. Same auth gate as `/match/{id}/report`
+  (`OVERLAY_MANAGER_PASSWORD` Bearer header / `?token=`, or open
+  via `MATCH_REPORT_PUBLIC=true`). The page propagates the token
+  to the per-match report links so a click-through doesn't
+  re-prompt for credentials. `GET /api/v1/links` surfaces it as
+  `match_history` (only when `MATCH_REPORT_PUBLIC=true` and the
+  session has at least one archive), and the React control UI's
+  Links section renders it alongside `latest_match_report` in 6
+  locales ("Match history" / "Historial de partidos" / …).
 - Session-level state survives process restarts. Per-OID flags
   (`simple` mode, custom `points_limit`, `points_limit_last_set`,
   `sets_limit`) used to live only in memory and were silently dropped

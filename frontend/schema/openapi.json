@@ -3718,6 +3718,81 @@
         "summary": "Print-friendly HTML report for an archived match"
       }
     },
+    "/matches/index.html": {
+      "get": {
+        "operationId": "matches_index_matches_index_html_get",
+        "parameters": [
+          {
+            "description": "Overlay ID to list matches for.",
+            "in": "query",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "description": "Overlay ID to list matches for.",
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
+              "title": "Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Browseable HTML list of archived matches for an OID"
+      }
+    },
     "/overlay/{overlay_id}": {
       "get": {
         "operationId": "serve_overlay_overlay__overlay_id__get",

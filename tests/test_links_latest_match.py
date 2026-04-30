@@ -109,5 +109,41 @@ class TestLatestMatchReportLink:
         _init_session(client, oid="links-oid")
         response = client.get("/api/v1/links?oid=links-oid")
         assert "latest_match_report" not in response.json()
+        assert "match_history" not in response.json()
         # SessionManager cleanup is handled by the autouse clean_sessions fixture.
         SessionManager.remove("someone-else")
+
+    def test_match_history_link_present_when_public_and_archived(
+            self, client, fake_backend_cls, monkeypatch):
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        _init_session(client, oid="links-history")
+        match_archive.archive_match(
+            oid="links-history", final_state={}, winning_team=1,
+        )
+        response = client.get("/api/v1/links?oid=links-history")
+        body = response.json()
+        url = body.get("match_history")
+        assert url is not None
+        assert url.endswith("/matches/index.html?oid=links-history")
+
+    def test_match_history_link_omitted_when_no_archives(
+            self, client, fake_backend_cls, monkeypatch):
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        _init_session(client, oid="links-no-history")
+        response = client.get("/api/v1/links?oid=links-no-history")
+        # No archived matches → omit the index link too. ``latest_match_report``
+        # is also gated on having at least one archive.
+        body = response.json()
+        assert "match_history" not in body
+
+    def test_match_history_link_omitted_when_public_disabled(
+            self, client, fake_backend_cls, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        match_archive.archive_match(
+            oid="links-private", final_state={}, winning_team=1,
+        )
+        _init_session(client, oid="links-private")
+        response = client.get("/api/v1/links?oid=links-private")
+        # Same auth concern as ``latest_match_report``: don't surface
+        # a token-bearing URL the control UI can't construct safely.
+        assert "match_history" not in response.json()
