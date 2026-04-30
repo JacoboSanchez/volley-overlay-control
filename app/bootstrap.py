@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
+from app.match_report import match_report_router
 from app.api import api_router
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
@@ -179,6 +180,9 @@ def _register_api_routes(application: FastAPI) -> None:
     # Registered before the SPA mount so ``/manage`` is served by FastAPI.
     application.include_router(admin_page_router)
     application.include_router(admin_router)
+    # Print-friendly per-match HTML report. Mounted before the SPA
+    # catch-all so /match/{id}/report is served by FastAPI.
+    application.include_router(match_report_router)
 
 
 def _register_overlay_routes(application: FastAPI) -> None:
