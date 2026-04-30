@@ -40,8 +40,15 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 ### Complete Match Control
 *   **Score Management**: Manage points, sets, and timeouts for both teams via REST API.
 *   **Service Indicator**: Track the serving team.
-*   **Undo Capability**: Step back through recent scoring actions one at a time, including set-winning points. Double-tap a score or timeout button on the React UI for an instant team-specific undo.
-*   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets).
+*   **Undo Capability**: Step back through recent scoring actions one at a time, including set-winning points. The bottom-bar Undo button uses the server-side LIFO stack (`POST /api/v1/game/undo`) so it survives reload and is shared between concurrent clients. Double-tap a score or timeout button on the React UI for an instant team-specific undo — both paths share the same audit-log stack.
+*   **Game Modes**: Support for both **Indoor** (25 points, 5 sets) and **Beach Volleyball** (21 points, 3 sets), switchable per-session from a dedicated "Match rules" config-panel section. Beach matches surface a side-switch indicator below the set pagination ("Switch sides now" pulse on the boundary point).
+*   **Match Rules Editor**: Per-session, persisted across restarts. Pick best-of-1/3/5, set custom points-per-set and points-per-final-set (best-of-1 collapses both into a single input), or reset to the indoor/beach preset.
+
+### Match History
+*   **Auto-archive on match end**: Every finished match is snapshotted to `data/matches/match_<sha256(oid)[:20]>_<UTC-ISO8601>.json` with the final state, customization, audit log, and config — frozen so cosmetic edits made afterwards do not retroactively rewrite history.
+*   **Browseable HTML index** at `/matches/index.html?oid=<OID>` listing every archived match with date, sets, duration, and a link to a print-friendly per-match report at `/match/{match_id}/report` (designed for the browser's "Save as PDF" workflow). Both pages are gated by `OVERLAY_MANAGER_PASSWORD` (Bearer header *or* `?token=` query); set `MATCH_REPORT_PUBLIC=true` for open access.
+*   **Per-OID action audit log** at `data/audit_<sha256(oid)[:20]>.jsonl` capturing every state mutation with a compact post-state snapshot. Exposed read-only via `GET /api/v1/audit?oid=...`.
+*   **Outbound webhooks** on `set_end`, `match_end`, `timeout`, and `serve_change` events. Configure via `WEBHOOKS_URL` (single endpoint) or `WEBHOOKS_JSON` (multi-target with per-event filtering); bodies are HMAC-SHA256-signed when a secret is set.
 
 ### Advanced Customization
 *   **Team Identity**: Customize team names, logos, and colors.
@@ -57,10 +64,11 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 *   **Internationalization**: Control UI available in **English**, **Spanish**, **Portuguese**, **Italian**, **French** and **German**, with volleyball-specific terminology per locale.
 
 ### REST + WebSocket API
-*   **Session management** — initialise and manage game sessions
-*   **Game actions** — add points, sets, timeouts, change serve, reset matches
+*   **Session management** — initialise sessions, update match rules (`POST /api/v1/session/rules`)
+*   **Game actions** — add points, sets, timeouts, change serve, reset matches; server-side undo stack (`POST /api/v1/game/undo`)
 *   **Display controls** — toggle overlay visibility and simple mode
 *   **Customization** — read and update team names, colors, logos
+*   **History** — `GET /api/v1/matches[/{id}]` for archived match snapshots; `GET /api/v1/audit?oid=...` for the action log
 *   **Real-time WebSocket** — receive instant state updates at `ws://<host>/api/v1/ws?oid=<OID>`
 
 Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no users are configured, the API is open.
@@ -350,6 +358,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/api/v1/matches/{match_id}` | `GET` — full archived match snapshot (final state, customization, audit log, config). |
 | `/api/v1/game/undo` | `POST` — pop the last forward `add_point`/`add_set`/`add_timeout` from the audit log and reverse it. Returns 200 with `success=false` and `message="Nothing to undo."` when the log is empty. |
 | `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` (Bearer header or `?token=`) unless `MATCH_REPORT_PUBLIC=true`. Returns 503 when neither is configured. |
+| `/matches/index.html?oid=X` | `GET` — browseable HTML list of every archived match for the OID (date, sets, duration, link to each report). Same auth gate as `/match/{id}/report`; the `?token=` query is propagated to the per-match report links. |
 | `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |
 | `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
 | `/api/config/{id}` | Overlay config (output URL, available styles) |
