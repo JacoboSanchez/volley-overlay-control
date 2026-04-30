@@ -139,13 +139,18 @@ class TestGameServiceWritesAudit:
         assert records[0]["result"]["team_1"]["score"] == 1
         assert records[0]["result"]["match_finished"] is False
 
-    def test_undo_records_undo_flag(self, mock_conf, api_backend):
+    def test_per_type_undo_pops_matching_forward_and_records_undo(
+            self, mock_conf, api_backend):
+        """Per-type undo (``add_point(undo=True)`` etc.) now shares the
+        audit-log stack with ``POST /game/undo``: the matching forward
+        record is popped, an undo record is appended, so a follow-up
+        generic undo cannot double-revert the same action."""
         session = SessionManager.get_or_create("audit-2", mock_conf, api_backend)
         GameService.add_point(session, team=1)
         GameService.add_point(session, team=1, undo=True)
         records = action_log.read_all("audit-2")
-        assert len(records) == 2
-        assert records[1]["params"]["undo"] is True
+        assert len(records) == 1
+        assert records[0]["params"]["undo"] is True
 
     def test_add_set_writes_record(self, mock_conf, api_backend):
         session = SessionManager.get_or_create("audit-3", mock_conf, api_backend)

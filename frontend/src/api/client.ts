@@ -125,6 +125,10 @@ export function setSets(oid: string, team: Team, value: number): Promise<ActionR
   );
 }
 
+export function undoLast(oid: string): Promise<ActionResponse> {
+  return request<ActionResponse>('POST', `/game/undo?oid=${encodeURIComponent(oid)}`);
+}
+
 export function resetGame(oid: string): Promise<ActionResponse> {
   return request<ActionResponse>('POST', `/game/reset?oid=${encodeURIComponent(oid)}`);
 }

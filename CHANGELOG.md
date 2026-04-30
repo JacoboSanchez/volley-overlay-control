@@ -33,6 +33,40 @@ once a first tagged release ships.
   LRU; previously it grew unboundedly as new OIDs flowed through the
   process. `delete()` also evicts the lock entry now.
 
+### Changed
+
+- Unified the two undo entry points behind one audit-log stack.
+  Previously ``add_*(undo=True)`` and ``POST /game/undo`` had
+  divergent stack semantics: the per-type flag only reverted state
+  and appended an undo record, leaving the original forward record
+  in the log. A follow-up generic undo would then pop the fantasma
+  forward and double-revert. Now both paths pop the matching
+  forward before applying the state-level inverse, so the two
+  cannot drift.
+  - ``action_log.pop_last_forward`` accepts a new ``team`` filter
+    used by the per-type branches; ``action_log.peek_last_forward``
+    is the read-only sibling used by ``GameService.undo_last`` to
+    locate the next undoable record without consuming it (the
+    dispatched per-type call performs the actual pop).
+  - ``GameStateResponse.can_undo`` is a new boolean derived from a
+    cached ``GameSession.undoable_forward_count``. Lets frontends
+    drive the global Undo button from the server-side stack
+    instead of maintaining their own LIFO. The counter is
+    rehydrated from the audit log on session creation.
+  - The bundled React control UI now calls
+    ``actions.undoLast()`` (POST ``/game/undo``) for the bottom-bar
+    Undo button and consumes ``state.can_undo`` for the disabled
+    flag. Per-team double-tap gestures continue to use the per-type
+    flag — the unification means they pop from the same stack.
+    ``useActionHistory`` is no longer wired into ``App.tsx``.
+  - Behaviour change for callers of the per-type
+    ``add_*(undo=True)`` API: when no matching forward record
+    exists in the log, the call still falls through to the
+    state-level undo (preserving backward compatibility for
+    callers manipulating state via ``set_score``/etc.), but it
+    will not bump the undo counter — so ``can_undo`` only flips
+    based on real audit-log activity.
+
 ### Added
 
 - Match-rules configuration is now editable per-session. New

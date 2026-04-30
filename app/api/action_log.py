@@ -36,12 +36,19 @@ import re
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Set as AbstractSet
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 _OID_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
 _FILENAME_HASH_LEN = 20
+
+# Actions whose forward records can be reversed by an undo (either
+# the per-type ``add_X(undo=True)`` flag or the generic
+# ``POST /game/undo``). Both code paths now pop from the same audit
+# log so the two undo APIs stay consistent.
+UNDOABLE_ACTIONS = frozenset({"add_point", "add_set", "add_timeout"})
 
 # Per-OID locks coordinate concurrent writers within the same process.
 # A bounded LRU keeps the dict from growing unboundedly when an
@@ -181,16 +188,21 @@ def delete(oid: str) -> bool:
 
 
 def pop_last_forward(
-    oid: str, allowed_actions: Optional[set[str]] = None,
+    oid: str,
+    allowed_actions: Optional[AbstractSet[str]] = None,
+    team: Optional[int] = None,
 ) -> Optional[dict]:
     """Remove and return the most recent non-undo, allowed record.
 
     * Undo records (``params.undo`` truthy) are always skipped.
     * If *allowed_actions* is provided, records whose ``action`` is
       not in the set are also skipped — they stay in the log.
+    * If *team* is provided, records whose ``params.team`` does not
+      match are also skipped. Used by the per-type undo path
+      (``add_point(undo=True)`` etc.) to pop only the matching team.
     * The popped entry is NOT re-appended as an undo record; callers
-      (typically ``GameService.undo_last``) write a fresh record via
-      :func:`append` after performing the inverse mutation.
+      write a fresh record via :func:`append` after performing the
+      inverse mutation.
 
     Returns ``None`` when no matching forward record exists.
     """
@@ -211,10 +223,13 @@ def pop_last_forward(
                     record = json.loads(stripped)
                 except json.JSONDecodeError:
                     continue
-                if record.get("params", {}).get("undo"):
+                params = record.get("params") or {}
+                if params.get("undo"):
                     continue
                 if (allowed_actions is not None
                         and record.get("action") not in allowed_actions):
+                    continue
+                if team is not None and params.get("team") != team:
                     continue
                 target_idx = idx
                 target_record = record
@@ -228,3 +243,60 @@ def pop_last_forward(
     except Exception as exc:
         logger.warning("Failed to pop last forward record for %r: %s", oid, exc)
         return None
+
+
+def peek_last_forward(
+    oid: str,
+    allowed_actions: Optional[AbstractSet[str]] = None,
+    team: Optional[int] = None,
+) -> Optional[dict]:
+    """Return the most recent matching forward record without removing it.
+
+    Same filtering rules as :func:`pop_last_forward`. Used by
+    ``GameService.undo_last`` to identify *which* per-type undo to
+    dispatch — the dispatched call performs the actual pop.
+    """
+    path = _path(oid)
+    if path is None or not os.path.exists(path):
+        return None
+    try:
+        with _lock_for(oid):
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        for stripped in (line.strip() for line in reversed(lines)):
+            if not stripped:
+                continue
+            try:
+                record = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            params = record.get("params") or {}
+            if params.get("undo"):
+                continue
+            if (allowed_actions is not None
+                    and record.get("action") not in allowed_actions):
+                continue
+            if team is not None and params.get("team") != team:
+                continue
+            return record
+    except Exception as exc:
+        logger.warning("Failed to peek last forward record for %r: %s", oid, exc)
+    return None
+
+
+def count_undoable_forwards(oid: str) -> int:
+    """Return the count of pending undoable forward records.
+
+    Forward records that haven't been popped by a subsequent undo
+    (per-type or generic) are still in the log; popped ones are
+    gone. So this is just "how many undoable forward records exist
+    in the log right now".
+
+    Used by ``GameSession`` to maintain a cached ``can_undo`` flag
+    without re-reading the file on every state response.
+    """
+    return sum(
+        1 for r in read_all(oid)
+        if r.get("action") in UNDOABLE_ACTIONS
+        and not (r.get("params") or {}).get("undo")
+    )

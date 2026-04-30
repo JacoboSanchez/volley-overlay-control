@@ -2248,7 +2248,7 @@
       }
     },
     "/create/overlay/{overlay_id}": {
-      "post": {
+      "get": {
         "tags": [
           "Overlay"
         ],
@@ -2295,7 +2295,7 @@
           }
         }
       },
-      "get": {
+      "post": {
         "tags": [
           "Overlay"
         ],
@@ -3048,6 +3048,11 @@
                 "type": "null"
               }
             ]
+          },
+          "can_undo": {
+            "type": "boolean",
+            "title": "Can Undo",
+            "default": false
           }
         },
         "type": "object",

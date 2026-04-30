@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 
+from app.api import action_log
 from app.api.match_rules import is_valid_mode
 from app.api.session_persistence import (
     load_session_meta,
@@ -42,6 +43,12 @@ class GameSession:
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.
         self.mode: str = "indoor"
+        # Cached count of undoable forward records in the audit log.
+        # Updated by GameService._audit on every undoable mutation so
+        # ``get_state`` can answer ``can_undo`` in O(1) without re-reading
+        # the log. Rehydrated from disk here so a restart picks up
+        # whatever forwards survived from a previous process.
+        self.undoable_forward_count: int = action_log.count_undoable_forwards(oid)
         self.points_limit = points_limit if points_limit is not None else conf.points
         self.points_limit_last_set = (
             points_limit_last_set if points_limit_last_set is not None

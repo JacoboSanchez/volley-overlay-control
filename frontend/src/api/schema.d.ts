@@ -920,6 +920,11 @@ export interface components {
                 [key: string]: unknown;
             };
             beach_side_switch?: components["schemas"]["BeachSideSwitch"] | null;
+            /**
+             * Can Undo
+             * @default false
+             */
+            can_undo: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

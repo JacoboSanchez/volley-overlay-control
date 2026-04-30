@@ -115,6 +115,11 @@ class GameStateResponse(BaseModel):
     serve: str
     config: dict  # points_limit, sets_limit, mode, etc.
     beach_side_switch: Optional[BeachSideSwitch] = None
+    # True when the audit log has at least one pending undoable
+    # forward record (any of add_point/add_set/add_timeout). Lets
+    # frontends drive the global Undo button from the server-side
+    # stack instead of maintaining their own LIFO.
+    can_undo: bool = False
 
 
 class ActionResponse(BaseModel):
