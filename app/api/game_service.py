@@ -256,6 +256,57 @@ class GameService:
         GameService._audit(session, "set_sets_value", {"team": team, "value": value})
         return ActionResponse(success=True, state=GameService.get_state(session))
 
+    # Actions that the server-side undo stack will reverse. Other
+    # entries (set_score, set_sets_value, change_serve, reset, …) are
+    # left in the log untouched and skipped over by undo_last.
+    _UNDOABLE_ACTIONS = {"add_point", "add_set", "add_timeout"}
+
+    @staticmethod
+    def undo_last(session) -> ActionResponse:
+        """Pop the most-recent undoable forward action and reverse it.
+
+        The audit log is the source of truth: the most recent record
+        whose ``action`` is in ``_UNDOABLE_ACTIONS`` and whose
+        ``params.undo`` is falsy is removed from the log, then the
+        corresponding inverse mutation is applied via the existing
+        per-type ``add_*(undo=True)`` flag.
+
+        Non-undoable forward actions stay in the log so the timeline
+        is preserved. The reverse mutation itself writes a fresh
+        ``undo=True`` audit entry, so re-running undo_last walks
+        further back rather than oscillating.
+        """
+        record = action_log.pop_last_forward(
+            session.oid, allowed_actions=GameService._UNDOABLE_ACTIONS,
+        )
+        if record is None:
+            return ActionResponse(
+                success=False,
+                state=GameService.get_state(session),
+                message="Nothing to undo.",
+            )
+        action = record.get("action")
+        params = record.get("params") or {}
+        team = params.get("team")
+        if not isinstance(team, int) or team not in (1, 2):
+            return ActionResponse(
+                success=False,
+                state=GameService.get_state(session),
+                message=f"Refusing to undo malformed audit record: {record!r}",
+            )
+        if action == "add_point":
+            return GameService.add_point(session, team=team, undo=True)
+        if action == "add_set":
+            return GameService.add_set(session, team=team, undo=True)
+        if action == "add_timeout":
+            return GameService.add_timeout(session, team=team, undo=True)
+        # Should be unreachable given the allow-list filter above.
+        return ActionResponse(
+            success=False,
+            state=GameService.get_state(session),
+            message=f"Unsupported undo action: {action!r}",
+        )
+
     @staticmethod
     def reset(session) -> ActionResponse:
         session.game_manager.reset()

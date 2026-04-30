@@ -90,3 +90,19 @@ async def set_sets(req: SetSetsRequest,
 async def reset_game(session: GameSession = Depends(get_session)):
     async with session.lock:
         return GameService.reset(session)
+
+
+@router.post(
+    "/game/undo",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+    summary="Reverse the most recent undoable action",
+)
+async def undo_last(session: GameSession = Depends(get_session)):
+    """Pops the most recent forward ``add_point`` / ``add_set`` /
+    ``add_timeout`` from the audit log and applies the inverse via
+    ``undo=True``. Returns ``success=false`` with message
+    ``"Nothing to undo."`` when the log has no eligible entry.
+    """
+    async with session.lock:
+        return GameService.undo_last(session)

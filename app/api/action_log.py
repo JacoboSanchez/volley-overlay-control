@@ -152,16 +152,19 @@ def delete(oid: str) -> bool:
         return False
 
 
-def pop_last_forward(oid: str) -> Optional[dict]:
-    """Remove and return the most recent non-undo record, if any.
+def pop_last_forward(
+    oid: str, allowed_actions: Optional[set[str]] = None,
+) -> Optional[dict]:
+    """Remove and return the most recent non-undo, allowed record.
 
-    Records whose ``params.undo`` is truthy are skipped — they are
-    themselves undo entries and shouldn't be re-undone. This is the
-    primitive that powers the server-side undo stack (§1.4).
+    * Undo records (``params.undo`` truthy) are always skipped.
+    * If *allowed_actions* is provided, records whose ``action`` is
+      not in the set are also skipped — they stay in the log.
+    * The popped entry is NOT re-appended as an undo record; callers
+      (typically ``GameService.undo_last``) write a fresh record via
+      :func:`append` after performing the inverse mutation.
 
-    Note: the popped entry is NOT re-appended as an undo record;
-    callers (typically GameService.undo_last) write a fresh record
-    via :func:`append` after performing the inverse mutation.
+    Returns ``None`` when no matching forward record exists.
     """
     path = _path(oid)
     if path is None or not os.path.exists(path):
@@ -170,8 +173,8 @@ def pop_last_forward(oid: str) -> Optional[dict]:
         with _lock_for(oid):
             with open(path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-            # Walk backward to find the most recent forward record.
             target_idx = None
+            target_record = None
             for idx in range(len(lines) - 1, -1, -1):
                 stripped = lines[idx].strip()
                 if not stripped:
@@ -182,12 +185,14 @@ def pop_last_forward(oid: str) -> Optional[dict]:
                     continue
                 if record.get("params", {}).get("undo"):
                     continue
+                if (allowed_actions is not None
+                        and record.get("action") not in allowed_actions):
+                    continue
                 target_idx = idx
                 target_record = record
                 break
             if target_idx is None:
                 return None
-            # Rewrite the file without the popped line.
             del lines[target_idx]
             with open(path, "w", encoding="utf-8") as f:
                 f.writelines(lines)
