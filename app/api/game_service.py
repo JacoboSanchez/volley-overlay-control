@@ -1,7 +1,8 @@
 import logging
 import time
+from typing import Optional
 
-from app.api import action_log
+from app.api import action_log, match_archive
 from app.api.schemas import ALLOWED_CUSTOMIZATION_KEYS, ActionResponse, GameStateResponse, TeamState
 from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
@@ -140,6 +141,7 @@ class GameService:
                     "set_number": session.current_set if not session.game_manager.match_finished() else session.current_set,
                 })
             if session.game_manager.match_finished() and not was_finished_before:
+                GameService._archive_if_finished(session, was_finished_before, team)
                 GameService._fire(session, "match_end", state_response, {
                     "winning_team": team,
                 })
@@ -178,6 +180,7 @@ class GameService:
                 "set_number": session.current_set,
             })
             if session.game_manager.match_finished() and not was_finished_before:
+                GameService._archive_if_finished(session, was_finished_before, team)
                 GameService._fire(session, "match_end", state_response, {
                     "winning_team": team,
                 })
@@ -257,6 +260,9 @@ class GameService:
     def reset(session) -> ActionResponse:
         session.game_manager.reset()
         session.current_set = session._compute_current_set()
+        # Reset starts a new match — bump the start clock so duration_s
+        # in the next archived snapshot is correct.
+        session.match_started_at = time.time()
         GameService._save_and_broadcast(session)
         # Reset wipes the match — start the audit log fresh too so the
         # archive boundaries align with operator intent.
@@ -318,6 +324,39 @@ class GameService:
         """Notify all WebSocket frontend clients about the new state."""
         state_data = GameService.get_state(session).model_dump()
         WSHub.broadcast_sync(session.oid, state_data)
+
+    @staticmethod
+    def _archive_if_finished(session, was_finished_before: bool,
+                             winning_team: int) -> Optional[str]:
+        """Archive the match when it transitions to finished.
+
+        Called from add_point and add_set after the mutation completes.
+        Returns the new ``match_id`` (or ``None`` if no archive happened).
+        After a successful archive the session's ``match_started_at`` is
+        bumped to ``now`` so a follow-up ``reset`` does not retroactively
+        backdate the next match.
+        """
+        if was_finished_before or not session.game_manager.match_finished():
+            return None
+        try:
+            final_state = GameService.get_state(session).model_dump()
+            customization = session.customization.get_model()
+            match_id = match_archive.archive_match(
+                oid=session.oid,
+                final_state=final_state,
+                customization=customization,
+                started_at=getattr(session, "match_started_at", None),
+                winning_team=winning_team,
+                points_limit=session.points_limit,
+                points_limit_last_set=session.points_limit_last_set,
+                sets_limit=session.sets_limit,
+            )
+            session.match_started_at = time.time()
+            session.persist_meta()
+            return match_id
+        except Exception as exc:
+            logger.warning("Match archive failed: %s", exc)
+            return None
 
     @staticmethod
     def _audit(session, action: str, params: dict) -> None:
