@@ -70,6 +70,21 @@ def isolate_overlay_store(tmp_path_factory):
     overlay_state_store._all_overlays_scanned = saved["_all_overlays_scanned"]
 
 
+@pytest.fixture(autouse=True)
+def isolate_session_meta(tmp_path_factory, monkeypatch):
+    """Redirect session-meta persistence to a per-test temp dir.
+
+    SessionManager.get_or_create persists a small JSON file per OID to
+    survive process restarts. Without isolation those files would leak
+    between tests via the real ``data/`` directory and rehydrate
+    sessions with stale limits/simple-mode flags.
+    """
+    from app.api import session_persistence
+
+    seed_dir = tmp_path_factory.mktemp("session_meta")
+    monkeypatch.setattr(session_persistence, "_data_dir", lambda: str(seed_dir))
+
+
 def load_fixture(name):
     """Auxiliary function to load a JSON file from the fixtures folder."""
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')

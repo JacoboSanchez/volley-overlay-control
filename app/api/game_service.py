@@ -249,6 +249,7 @@ class GameService:
     def _save_and_broadcast(session):
         """Persist state to the overlay backend and notify WS clients."""
         session.game_manager.save(session.simple, session.current_set)
+        session.persist_meta()
         GameService._broadcast(session)
 
     @staticmethod
