@@ -37,6 +37,24 @@ once a first tagged release ships.
   audit-log append succeeds. A filesystem error during `_audit`
   used to leave the counter overstating the on-disk truth; now
   the counter and `count_undoable_forwards` always agree.
+- `action_log.pop_last_forward` rewrites the audit file atomically
+  via mkstemp + `os.replace` (matching `match_archive`'s pattern).
+  Previously a crash mid-write would truncate the file and lose
+  every preceding record.
+- The `set_end` webhook now reports the set that just ended, not
+  the set the session has advanced to. Both `add_point`'s
+  set-winning point and `add_set` were reading
+  `session.current_set` *after* it was incremented, so consumers
+  saw `set_number=2` when set 1 just ended (or `set_number=4`
+  after set 3 ended, etc.). The match-winning case is unchanged
+  because `current_set` doesn't advance past the deciding set.
+- The audit log now records the *final* score of the set the
+  action operated on. Previously, set-winning add_point and
+  add_set entries showed `team_1.score=0, team_2.score=0` because
+  the snapshot was taken after `current_set` advanced to the new,
+  empty set. Each entry gains a `score_set` field so a reader can
+  see the set the score belongs to (usually equal to
+  `current_set`, but lower on set-winning actions).
 
 ### Changed
 

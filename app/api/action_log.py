@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 import threading
 import time
 from collections import OrderedDict
@@ -237,8 +238,21 @@ def pop_last_forward(
             if target_idx is None:
                 return None
             del lines[target_idx]
-            with open(path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
+            # Atomic rewrite: a crash mid-write would otherwise truncate
+            # the audit file and lose every preceding record. Use the
+            # same mkstemp + os.replace pattern as match_archive.
+            dir_name = os.path.dirname(path)
+            fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.writelines(lines)
+                os.replace(tmp_path, path)
+            except BaseException:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
             return target_record
     except Exception as exc:
         logger.warning("Failed to pop last forward record for %r: %s", oid, exc)

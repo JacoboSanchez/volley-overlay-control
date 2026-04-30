@@ -137,6 +137,11 @@ class GameService:
 
         was_finished_before = session.game_manager.match_finished()
         serve_before = session.game_manager.get_current_state().get_current_serve()
+        # Capture the set the action operates on *before* a potential
+        # set-win advances ``current_set`` — needed so the audit log
+        # records the final score (e.g. 25-23) of the set that just
+        # ended rather than the next set's empty 0-0.
+        target_set_before_advance = session.current_set
 
         # Per-type undo shares the audit-log stack with POST /game/undo:
         # pop the matching forward record so a follow-up generic undo
@@ -166,15 +171,27 @@ class GameService:
         GameService._audit(
             session, "add_point", {"team": team, "undo": undo},
             popped_forward=popped,
+            target_set=target_set_before_advance,
         )
 
         # Fire after persistence so consumers always see the post-state.
         if not undo:
             state_response = GameService.get_state(session)
             if set_won:
+                # ``session.current_set`` was already advanced above
+                # (when set_won and not match_finished), so the set
+                # that just *ended* is one less than the current
+                # one. When the match is finished, current_set is
+                # not advanced and is itself the set that just
+                # ended.
+                ended_set = (
+                    session.current_set
+                    if session.game_manager.match_finished()
+                    else session.current_set - 1
+                )
                 GameService._fire(session, "set_end", state_response, {
                     "team": team,
-                    "set_number": session.current_set if not session.game_manager.match_finished() else session.current_set,
+                    "set_number": ended_set,
                 })
             if session.game_manager.match_finished() and not was_finished_before:
                 GameService._archive_if_finished(session, was_finished_before, team)
@@ -199,6 +216,9 @@ class GameService:
             )
 
         was_finished_before = session.game_manager.match_finished()
+        # Same reasoning as add_point: capture before advance so the
+        # audit log records the final score of the set that ended.
+        target_set_before_advance = session.current_set
 
         popped = (
             action_log.pop_last_forward(
@@ -216,13 +236,22 @@ class GameService:
         GameService._audit(
             session, "add_set", {"team": team, "undo": undo},
             popped_forward=popped,
+            target_set=target_set_before_advance,
         )
 
         if not undo:
             state_response = GameService.get_state(session)
+            # Same reasoning as in add_point: ``current_set`` may
+            # have advanced inside ``add_set`` when the match isn't
+            # finished, so the set that just ended is one less.
+            ended_set = (
+                session.current_set
+                if session.game_manager.match_finished()
+                else session.current_set - 1
+            )
             GameService._fire(session, "set_end", state_response, {
                 "team": team,
-                "set_number": session.current_set,
+                "set_number": ended_set,
             })
             if session.game_manager.match_finished() and not was_finished_before:
                 GameService._archive_if_finished(session, was_finished_before, team)
@@ -536,6 +565,7 @@ class GameService:
         action: str,
         params: dict,
         popped_forward: Optional[dict] = None,
+        target_set: Optional[int] = None,
     ) -> None:
         """Append an audit-log record for the action just performed
         and, atomically with the append, keep
@@ -555,15 +585,33 @@ class GameService:
             ``None`` (a forward was actually consumed).
         Non-undoable actions never touch the counter.
 
+        *target_set* names the set that the action operated on.
+        For most actions this is ``session.current_set``; for
+        set-winning ``add_point``/``add_set`` calls the caller
+        passes the *previous* set so the audit log records the
+        final scores (e.g. 25-23) instead of the next set's empty
+        0-0. The ``current_set`` field in the result still reports
+        the post-action value so a reader can see the advance.
+
         Best-effort — file errors don't propagate.
         """
         try:
             state = session.game_manager.get_current_state()
-            t1_score = state.get_game(1, session.current_set)
-            t2_score = state.get_game(2, session.current_set)
+            score_set = (
+                target_set if target_set is not None else session.current_set
+            )
+            t1_score = state.get_game(1, score_set)
+            t2_score = state.get_game(2, score_set)
             serve = state.get_current_serve()
             result = {
                 "current_set": session.current_set,
+                # ``score_set`` tags which set the team scores below
+                # correspond to. Usually identical to ``current_set``;
+                # diverges for set-winning add_point/add_set calls
+                # where ``current_set`` advances to the next set but
+                # the meaningful scores belong to the one that just
+                # ended.
+                "score_set": score_set,
                 "match_finished": session.game_manager.match_finished(),
                 "team_1": {
                     "sets": state.get_sets(1),
