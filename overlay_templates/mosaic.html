@@ -26,13 +26,12 @@
         // reported overlay bounds so the cropped slice has a small margin.
         const BOUNDS_PAD = 15;
 
-        // Track render bounds reported by each iframe (style → bounds)
+        // style → bounds reported by each iframe via postMessage
         const iframeBounds = new Map();
 
-        // Choose (cols, rows) so all N cells fit the viewport while
-        // maximising the rendered overlay area. We optimise for the
-        // 16:9 native overlay aspect; per-cell cropping then refits each
-        // iframe once its true bounds arrive.
+        // Pick (cols, rows) optimised for 16:9, the native overlay surface.
+        // Per-cell cropping then refits each iframe once its true bounds
+        // arrive, so the 16:9 bias only affects the grid split, not fidelity.
         function chooseLayout(n, vw, vh) {
             const aspect = OVERLAY_W / OVERLAY_H;
             let best = { cols: 1, rows: n, score: -1 };
@@ -51,15 +50,18 @@
         }
 
         function applyLayout() {
+            const n = AVAILABLE_STYLES.length;
+            if (n === 0) return;
             const grid = document.getElementById("mosaic-grid");
-            const styles = grid.dataset.styles
-                ? JSON.parse(grid.dataset.styles)
-                : AVAILABLE_STYLES;
-            const rect = grid.getBoundingClientRect();
-            // Fall back to viewport if the grid has not laid out yet.
-            const vw = rect.width || window.innerWidth;
-            const vh = rect.height || window.innerHeight;
-            const { cols, rows } = chooseLayout(styles.length, vw, vh);
+            // clientWidth/Height already exclude borders/scrollbars; subtract
+            // the grid's own padding to get the content box (where 1fr tracks
+            // are sized). Fall back to the viewport before first layout.
+            const cs = getComputedStyle(grid);
+            const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+            const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+            const vw = (grid.clientWidth || window.innerWidth) - padX;
+            const vh = (grid.clientHeight || window.innerHeight) - padY;
+            const { cols, rows } = chooseLayout(n, vw, vh);
             grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
             grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
         }
@@ -67,7 +69,6 @@
         function buildGrid(styles) {
             const grid = document.getElementById("mosaic-grid");
             grid.innerHTML = "";
-            grid.dataset.styles = JSON.stringify(styles);
 
             styles.forEach(style => {
                 const cell = document.createElement("div");
@@ -120,10 +121,10 @@
             if (ow <= 0 || oh <= 0) return;
 
             const scale = Math.min(cw / ow, ch / oh);
-            // Centre the cropped slice inside the cell.
             const tx = (cw - ow * scale) / 2;
             const ty = (ch - oh * scale) / 2;
-            // Right-to-left: translate(-ox,-oy) → scale → translate(tx,ty).
+            // CSS transforms apply right-to-left, so the translate(-ox,-oy)
+            // shifts the cropped region to the origin before scaling.
             iframe.style.transform =
                 `translate(${tx}px, ${ty}px) scale(${scale}) translate(${-ox}px, ${-oy}px)`;
         }
@@ -150,7 +151,7 @@
             }
         });
 
-        // Recalculate layout + scaling on viewport changes.
+        // Outer rAF debounces a burst of resize events into one relayout.
         let resizeRaf = 0;
         window.addEventListener("resize", () => {
             if (resizeRaf) cancelAnimationFrame(resizeRaf);
