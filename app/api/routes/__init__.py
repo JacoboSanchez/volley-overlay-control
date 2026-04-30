@@ -10,6 +10,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     app_config,
+    audit,
     client_log,
     customization,
     display,
@@ -36,5 +37,6 @@ api_router.include_router(customization.router)
 api_router.include_router(overlays.router)
 api_router.include_router(websocket.router)
 api_router.include_router(client_log.router)
+api_router.include_router(audit.router)
 
 __all__ = ["api_router", "router_lifespan"]

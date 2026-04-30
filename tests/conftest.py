@@ -85,6 +85,15 @@ def isolate_session_meta(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(session_persistence, "_data_dir", lambda: str(seed_dir))
 
 
+@pytest.fixture(autouse=True)
+def isolate_action_log(tmp_path_factory, monkeypatch):
+    """Redirect the per-OID audit log to a per-test temp dir."""
+    from app.api import action_log
+
+    seed_dir = tmp_path_factory.mktemp("action_log")
+    monkeypatch.setattr(action_log, "_data_dir", lambda: str(seed_dir))
+
+
 def load_fixture(name):
     """Auxiliary function to load a JSON file from the fixtures folder."""
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')

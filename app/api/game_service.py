@@ -1,6 +1,7 @@
 import logging
 import time
 
+from app.api import action_log
 from app.api.schemas import ALLOWED_CUSTOMIZATION_KEYS, ActionResponse, GameStateResponse, TeamState
 from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
@@ -128,6 +129,7 @@ class GameService:
             session.current_set = session._compute_current_set()
 
         GameService._save_and_broadcast(session)
+        GameService._audit(session, "add_point", {"team": team, "undo": undo})
 
         # Fire after persistence so consumers always see the post-state.
         if not undo:
@@ -167,6 +169,7 @@ class GameService:
 
         session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
+        GameService._audit(session, "add_set", {"team": team, "undo": undo})
 
         if not undo:
             state_response = GameService.get_state(session)
@@ -195,6 +198,7 @@ class GameService:
             session.undo = False
 
         GameService._save_and_broadcast(session)
+        GameService._audit(session, "add_timeout", {"team": team, "undo": undo})
         if not undo:
             GameService._fire(
                 session, "timeout", GameService.get_state(session),
@@ -207,6 +211,7 @@ class GameService:
         serve_before = session.game_manager.get_current_state().get_current_serve()
         session.game_manager.change_serve(team)
         GameService._save_and_broadcast(session)
+        GameService._audit(session, "change_serve", {"team": team})
         serve_after = session.game_manager.get_current_state().get_current_serve()
         if serve_before != serve_after:
             GameService._fire(
@@ -235,6 +240,9 @@ class GameService:
         if set_won and not session.game_manager.match_finished():
             session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
+        GameService._audit(session, "set_score", {
+            "team": team, "set_number": set_number, "value": value,
+        })
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
@@ -242,6 +250,7 @@ class GameService:
         session.game_manager.set_sets_value(team, value)
         session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
+        GameService._audit(session, "set_sets_value", {"team": team, "value": value})
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
@@ -249,6 +258,10 @@ class GameService:
         session.game_manager.reset()
         session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
+        # Reset wipes the match — start the audit log fresh too so the
+        # archive boundaries align with operator intent.
+        action_log.clear(session.oid)
+        GameService._audit(session, "reset", {})
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
@@ -305,6 +318,39 @@ class GameService:
         """Notify all WebSocket frontend clients about the new state."""
         state_data = GameService.get_state(session).model_dump()
         WSHub.broadcast_sync(session.oid, state_data)
+
+    @staticmethod
+    def _audit(session, action: str, params: dict) -> None:
+        """Append an audit-log record for the action just performed.
+
+        Captures a compact post-state snapshot (the same shape used by
+        the match-history archive) so the log alone is enough to render
+        a recent-actions feed and to drive the server-side undo stack.
+        Best-effort: failures are swallowed.
+        """
+        try:
+            state = session.game_manager.get_current_state()
+            t1_score = state.get_game(1, session.current_set)
+            t2_score = state.get_game(2, session.current_set)
+            serve = state.get_current_serve()
+            result = {
+                "current_set": session.current_set,
+                "match_finished": session.game_manager.match_finished(),
+                "team_1": {
+                    "sets": state.get_sets(1),
+                    "score": t1_score,
+                    "timeouts": state.get_timeout(1),
+                },
+                "team_2": {
+                    "sets": state.get_sets(2),
+                    "score": t2_score,
+                    "timeouts": state.get_timeout(2),
+                },
+                "serve": serve.value if hasattr(serve, "value") else str(serve),
+            }
+            action_log.append(session.oid, action, params, result)
+        except Exception as exc:
+            logger.warning("Audit append failed: %s", exc)
 
     @staticmethod
     def _fire(session, event: str, state_response, details: dict) -> None:
