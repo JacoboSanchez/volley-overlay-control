@@ -19,6 +19,19 @@ once a first tagged release ships.
   a 200px height cap, producing a vertically scrolling list once more
   than a few styles were available.
 
+### Dependencies
+
+- Bump `fastapi` floor from `>=0.115.0` to `>=0.136.1` (`#218`).
+- Bump `uvicorn` floor from `>=0.32.0` to `>=0.46.0` (`#216`).
+- Bump `httpx` (dev) floor from `>=0.27.0` to `>=0.28.1` (`#214`).
+- Bump `pytest` (dev) floor from `>=9.0.2` to `>=9.0.3` (`#219`).
+- Bump `pytest-asyncio` (dev) floor from `>=0.23.0` to `>=1.3.0` (`#213`).
+- Bump base Docker image `python` from `3.12-slim` to `3.14-slim` (`#220`).
+- Bump base Docker image `node` from `20-alpine` to `25-alpine` (`#221`).
+- Bump `actions/setup-node` from 4 to 6 (`#217`).
+- Bump `actions/upload-artifact` from 4 to 7 (`#212`).
+- Bump `docker/setup-buildx-action` from 3 to 4 (`#215`).
+
 ---
 
 ## [5.0.3] - 2026-04-30
