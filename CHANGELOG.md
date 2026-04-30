@@ -28,9 +28,9 @@ once a first tagged release ships.
 - Bump `pytest-asyncio` (dev) floor from `>=0.23.0` to `>=1.3.0` (`#213`).
 - Bump base Docker image `python` from `3.12-slim` to `3.14-slim` (`#220`).
 - Bump base Docker image `node` from `20-alpine` to `25-alpine` (`#221`).
-- Bump `actions/setup-node` from 4 to 6 (`#217`).
-- Bump `actions/upload-artifact` from 4 to 7 (`#212`).
-- Bump `docker/setup-buildx-action` from 3 to 4 (`#215`).
+- Bump `actions/setup-node` from `4` to `6` (`#217`).
+- Bump `actions/upload-artifact` from `4` to `7` (`#212`).
+- Bump `docker/setup-buildx-action` from `3` to `4` (`#215`).
 
 ---
 
