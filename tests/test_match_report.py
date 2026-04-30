@@ -12,7 +12,23 @@ pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    """Default client: report endpoint open via MATCH_REPORT_PUBLIC.
+
+    Tests that exercise the auth gate use ``gated_client`` instead.
+    """
+    monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+    monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
+    app = FastAPI()
+    app.include_router(match_report_router)
+    return TestClient(app)
+
+
+@pytest.fixture
+def gated_client(monkeypatch):
+    """Client where access requires OVERLAY_MANAGER_PASSWORD."""
+    monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
     app = FastAPI()
     app.include_router(match_report_router)
     return TestClient(app)
@@ -116,3 +132,96 @@ class TestMatchReport:
         assert response.status_code == 200
         assert "<script>alert(1)</script>" not in response.text
         assert "&lt;script&gt;" in response.text
+
+    def test_color_injection_falls_back_to_default(self, client):
+        """Malformed customization colours must not flow into CSS verbatim.
+
+        ``_HEX_COLOR_RE`` only accepts ``#RGB`` / ``#RRGGBB``. Anything
+        else (right length, wrong characters; CSS-breaking content) is
+        replaced by the team's default.
+        """
+        match_id = match_archive.archive_match(
+            oid="rep-css",
+            final_state={"team_1": {"sets": 0}, "team_2": {"sets": 0}},
+            customization={
+                "Color 1": "#a;}b",          # length 5 — rejected
+                "Color 2": "#zzz",           # length 4, non-hex — rejected
+                "Text Color 1": "red; }",    # not a hex string — rejected
+            },
+            winning_team=1,
+            sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert response.status_code == 200
+        # Defaults (team 1 background) appear in the CSS.
+        assert "#0047AB" in response.text
+        assert "#E21836" in response.text
+        # Malformed values do not.
+        assert "#a;}b" not in response.text
+        assert "#zzz" not in response.text
+        assert "red; }" not in response.text
+
+
+class TestMatchReportAuth:
+    """Coverage for the auth gate added under MATCH_REPORT_PUBLIC=false."""
+
+    def _seed_match(self, oid: str = "auth-1") -> str:
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"sets": 3}, "team_2": {"sets": 0}},
+            customization={"Team 1 Name": "Home", "Team 2 Name": "Away"},
+            winning_team=1,
+            sets_limit=3,
+        )
+        assert match_id is not None
+        return match_id
+
+    def test_503_when_no_env_var_configured(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = self._seed_match("auth-503")
+        response = c.get(f"/match/{match_id}/report")
+        assert response.status_code == 503
+
+    def test_401_without_credentials(self, gated_client):
+        match_id = self._seed_match("auth-401")
+        response = gated_client.get(f"/match/{match_id}/report")
+        assert response.status_code == 401
+
+    def test_403_with_wrong_credentials(self, gated_client):
+        match_id = self._seed_match("auth-403-bearer")
+        bearer = gated_client.get(
+            f"/match/{match_id}/report",
+            headers={"Authorization": "Bearer wrong"},
+        )
+        assert bearer.status_code == 403
+        query = gated_client.get(f"/match/{match_id}/report?token=wrong")
+        assert query.status_code == 403
+
+    def test_200_with_bearer_header(self, gated_client):
+        match_id = self._seed_match("auth-bearer-ok")
+        response = gated_client.get(
+            f"/match/{match_id}/report",
+            headers={"Authorization": "Bearer s3cret"},
+        )
+        assert response.status_code == 200
+
+    def test_200_with_query_token(self, gated_client):
+        match_id = self._seed_match("auth-query-ok")
+        response = gated_client.get(
+            f"/match/{match_id}/report?token=s3cret",
+        )
+        assert response.status_code == 200
+
+    def test_public_mode_overrides_password(self, monkeypatch):
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = self._seed_match("auth-public")
+        response = c.get(f"/match/{match_id}/report")
+        assert response.status_code == 200

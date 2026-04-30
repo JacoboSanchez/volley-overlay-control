@@ -42,9 +42,11 @@ logger = logging.getLogger(__name__)
 _OID_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
 _FILENAME_HASH_LEN = 20
 
-# Match basename: ``match_<20-hex>_<14-digit-utc-iso>.json``
+# Match basename: ``match_<20-hex>_<UTC-ISO>.json`` where the timestamp
+# is ``YYYYMMDDTHHMMSS_microseconds_Z``. Microsecond precision avoids
+# silent overwrites when two matches archive in the same second.
 _MATCH_FILENAME_RE = re.compile(
-    r"^match_(?P<oid_hash>[0-9a-f]{20})_(?P<ts>\d{8}T\d{6}Z)\.json$"
+    r"^match_(?P<oid_hash>[0-9a-f]{20})_(?P<ts>\d{8}T\d{6}_\d{6}Z)\.json$"
 )
 
 
@@ -64,7 +66,8 @@ def _is_valid_oid(oid: str) -> bool:
 
 
 def _ts_for_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return now.strftime("%Y%m%dT%H%M%S") + f"_{now.microsecond:06d}Z"
 
 
 def _path_for(oid: str, ts: str) -> str:

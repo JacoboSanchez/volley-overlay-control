@@ -8,7 +8,45 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Security
+
+- `/match/{match_id}/report` is no longer unauthenticated by default.
+  Match snapshots bundle the audit log and full team customization,
+  which is strictly more sensitive than live overlay state. The route
+  now requires `OVERLAY_MANAGER_PASSWORD` (Bearer header *or*
+  `?token=` query string) unless the operator explicitly opts in to
+  open access via `MATCH_REPORT_PUBLIC=true`. When neither is
+  configured the route returns 503.
+- `app/match_report._team_color` validates customization-supplied
+  hex colours against a strict `^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`
+  regex before interpolating into the CSS template, closing a CSS
+  injection vector where a malformed value (e.g. `#a;}b`) could
+  inject styles or break the page.
+
+### Fixed
+
+- `app/api/match_archive` filenames now include microseconds
+  (`%Y%m%dT%H%M%S_<μs>Z`), so two archives in the same wall-clock
+  second produce distinct `match_id` values instead of silently
+  overwriting. Tests no longer need `time.sleep` workarounds.
+- `app/api/action_log` per-OID lock map is bounded by a 256-entry
+  LRU; previously it grew unboundedly as new OIDs flowed through the
+  process. `delete()` also evicts the lock entry now.
+
 ### Added
+
+- `GET /api/v1/links` returns a `latest_match_report` URL pointing
+  at the most recent archived match snapshot for the session — but
+  only when `MATCH_REPORT_PUBLIC=true`. The control UI's "Links"
+  configuration section surfaces it as a clickable / copyable entry
+  ("Latest match report" / "Último informe de partido" in 6
+  locales). The token is intentionally never embedded in the URL,
+  so gated deployments can keep their match reports private without
+  the link section ever leaking the admin token.
+- README: endpoint table now lists `/api/v1/audit`,
+  `/api/v1/matches`, `/api/v1/matches/{id}`, `/api/v1/game/undo`,
+  and `/match/{id}/report`. Configuration table documents the new
+  `MATCH_REPORT_PUBLIC` env var.
 
 - Session-level state survives process restarts. Per-OID flags
   (`simple` mode, custom `points_limit`, `points_limit_last_set`,

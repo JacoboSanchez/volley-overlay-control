@@ -59,16 +59,14 @@ class TestMatchArchive:
         all_matches = match_archive.list_matches()
         assert len(all_matches) == 2
 
-    def test_list_matches_orders_newest_first(self, monkeypatch):
-        # First archive (older).
+    def test_list_matches_orders_newest_first(self):
+        # Microsecond-resolution timestamps mean two back-to-back
+        # archives produce distinct ``match_id`` values without sleeps.
         match_archive.archive_match(
             oid="oid-ord",
             final_state={"team_1": {"sets": 0}, "team_2": {"sets": 3}},
             winning_team=2,
         )
-        # Bump the clock so the second archive has a later timestamp
-        # both in basename and in ended_at.
-        time.sleep(1.1)
         match_archive.archive_match(
             oid="oid-ord",
             final_state={"team_1": {"sets": 3}, "team_2": {"sets": 1}},
@@ -83,12 +81,21 @@ class TestMatchArchive:
         assert match_archive.load_match("nope") is None
         assert match_archive.load_match("match_zzzz_invalid") is None
 
+    def test_back_to_back_archives_get_distinct_ids(self):
+        ids = {
+            match_archive.archive_match(
+                oid="oid-back2back", final_state={}, winning_team=1,
+            )
+            for _ in range(5)
+        }
+        assert None not in ids
+        assert len(ids) == 5
+
     def test_delete_for_oid_removes_files(self):
         for _ in range(3):
             match_archive.archive_match(
                 oid="oid-del", final_state={}, winning_team=1,
             )
-            time.sleep(1.05)
         assert len(match_archive.list_matches(oid="oid-del")) == 3
         removed = match_archive.delete_for_oid("oid-del")
         assert removed == 3

@@ -197,6 +197,7 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_EVENTS` | *(Optional)* CSV subset of events the single-URL webhook should receive. | *(all events)* |
 | `WEBHOOKS_TIMEOUT_S` | *(Optional)* Per-target POST timeout in seconds. | `5` |
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
+| `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable without a token (matches the `/overlay/{output_key}` model). When unset, the route requires `OVERLAY_MANAGER_PASSWORD` via Bearer header or `?token=`. Returns 503 if neither is configured. | `false` |
 
 <br>
 
@@ -343,6 +344,11 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/api/v1/admin/status` | `GET` — whether overlay management is enabled (`OVERLAY_MANAGER_PASSWORD` set). Unauthenticated. |
 | `/api/v1/admin/login` | `POST` — validate the admin Bearer token against `OVERLAY_MANAGER_PASSWORD`. |
 | `/api/v1/admin/custom-overlays` | List/create/delete custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`). |
+| `/api/v1/audit?oid=X[&limit=N]` | `GET` — recent records from the per-OID action audit log (default `limit=100`, max `1000`). |
+| `/api/v1/matches[?oid=X]` | `GET` — list summaries of archived matches, newest first (optional OID filter). |
+| `/api/v1/matches/{match_id}` | `GET` — full archived match snapshot (final state, customization, audit log, config). |
+| `/api/v1/game/undo` | `POST` — pop the last forward `add_point`/`add_set`/`add_timeout` from the audit log and reverse it. Returns 200 with `success=false` and `message="Nothing to undo."` when the log is empty. |
+| `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` (Bearer header or `?token=`) unless `MATCH_REPORT_PUBLIC=true`. Returns 503 when neither is configured. |
 | `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |
 | `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
 | `/api/config/{id}` | Overlay config (output URL, available styles) |

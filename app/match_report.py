@@ -7,12 +7,22 @@ built-in "Save as PDF" workflow.
 Authentication
 --------------
 
-The route is unauthenticated by design. ``match_id`` is a
-hash-prefixed ISO-8601 token (e.g.
-``match_a1b2c3d4e5f6a7b8c9d0_20260430T204530Z``); it is non-guessable
-without already having archived the match, so the addressability
-model matches ``/overlay/{output_key}`` (also unauthenticated and
-hash-based).
+By default the route is **gated**: the snapshot bundles the audit log
+and full team customization (logos, names, colors) and is strictly
+more sensitive than live overlay state. Access requires either:
+
+* ``Authorization: Bearer <OVERLAY_MANAGER_PASSWORD>`` — same admin
+  token used by ``/api/v1/admin/*`` and ``/manage``;
+* a ``token=<OVERLAY_MANAGER_PASSWORD>`` query parameter — necessary
+  when opening the URL in a plain browser tab (no header API);
+* setting ``MATCH_REPORT_PUBLIC=true``, in which case any caller with
+  the (non-guessable, hash-prefixed) ``match_id`` can read the
+  report. This matches the ``/overlay/{output_key}`` model and is
+  appropriate for deployments that already share output URLs widely.
+
+When ``OVERLAY_MANAGER_PASSWORD`` is unset and ``MATCH_REPORT_PUBLIC``
+is not enabled, the route returns 503 — operators must explicitly
+opt in to one mode or the other.
 """
 
 from __future__ import annotations
@@ -20,16 +30,72 @@ from __future__ import annotations
 import datetime
 import html
 import logging
+import re
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 
 from app.api import match_archive
+from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger(__name__)
 
 match_report_router = APIRouter()
+
+
+def _public_mode_enabled() -> bool:
+    raw = EnvVarsManager.get_env_var("MATCH_REPORT_PUBLIC", "false")
+    return str(raw).strip().lower() in ("1", "true", "t", "yes", "on")
+
+
+def _admin_password() -> Optional[str]:
+    raw = EnvVarsManager.get_env_var("OVERLAY_MANAGER_PASSWORD", None)
+    if raw is None:
+        return None
+    raw = str(raw).strip()
+    return raw or None
+
+
+def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
+    """Raise an ``HTTPException`` unless the caller is allowed to read.
+
+    Order of precedence:
+      1. ``MATCH_REPORT_PUBLIC=true`` — open access (matches the
+         existing ``/overlay/{output_key}`` model);
+      2. otherwise, ``OVERLAY_MANAGER_PASSWORD`` must be set and
+         provided via Bearer header or ``?token=`` query;
+      3. when neither is configured, return 503 to make
+         misconfiguration loud rather than silently public.
+    """
+    if _public_mode_enabled():
+        return
+    expected = _admin_password()
+    if expected is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Match reports are disabled. Set OVERLAY_MANAGER_PASSWORD "
+                "for gated access or MATCH_REPORT_PUBLIC=true for open "
+                "access."
+            ),
+        )
+    provided: Optional[str] = None
+    if authorization and authorization.startswith("Bearer "):
+        provided = authorization.removeprefix("Bearer ").strip() or None
+    if provided is None and token:
+        provided = token.strip() or None
+    if provided is None:
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Authentication required. Pass Authorization: Bearer "
+                "<token> or ?token=<token> matching "
+                "OVERLAY_MANAGER_PASSWORD."
+            ),
+        )
+    if provided != expected:
+        raise HTTPException(status_code=403, detail="Invalid token.")
 
 
 _REPORT_TEMPLATE = """<!doctype html>
@@ -196,10 +262,16 @@ def _fmt_ts(ts: Optional[float]) -> str:
     return dt.strftime("%Y-%m-%d %H:%M UTC")
 
 
-def _team_color(customization: dict, team: int, primary: bool) -> str:
-    """Resolve a hex colour from the customization dict.
+_HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
-    Falls back to a sensible default when the key is missing.
+
+def _team_color(customization: dict, team: int, primary: bool) -> str:
+    """Resolve a strict hex colour from the customization dict.
+
+    Falls back to a sensible default when the key is missing or the
+    stored value is anything but ``#RGB`` / ``#RRGGBB``. Strictness is
+    load-bearing: this value is interpolated into a CSS custom
+    property, so a malformed input could otherwise inject CSS.
     """
     fallback_bg = ("#0047AB", "#E21836")[team - 1]
     fallback_fg = "#FFFFFF"
@@ -214,7 +286,7 @@ def _team_color(customization: dict, team: int, primary: bool) -> str:
     keys = bg_keys[team] if primary else fg_keys[team]
     for key in keys:
         value = customization.get(key)
-        if isinstance(value, str) and value.startswith("#") and len(value) in (4, 7):
+        if isinstance(value, str) and _HEX_COLOR_RE.match(value):
             return value
     return fallback_bg if primary else fallback_fg
 
@@ -255,7 +327,14 @@ def _action_label(record: dict) -> str:
     response_class=HTMLResponse,
     summary="Print-friendly HTML report for an archived match",
 )
-async def match_report(match_id: str):
+async def match_report(
+    match_id: str,
+    authorization: Optional[str] = Header(default=None),
+    token: Optional[str] = Query(default=None,
+                                 description="OVERLAY_MANAGER_PASSWORD; "
+                                             "alternative to Bearer header."),
+):
+    _check_access(authorization, token)
     payload = match_archive.load_match(match_id)
     if payload is None:
         raise HTTPException(status_code=404, detail="Match not found.")

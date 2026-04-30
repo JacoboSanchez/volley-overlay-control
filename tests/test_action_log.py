@@ -79,6 +79,38 @@ class TestActionLog:
         action_log.append("oid-allundo", "add_point", {"undo": True}, {})
         assert action_log.pop_last_forward("oid-allundo") is None
 
+    def test_lock_dict_is_bounded(self, monkeypatch):
+        """The per-OID lock dict must not grow without bound.
+
+        Drives more distinct OIDs through ``_lock_for`` than the cap and
+        asserts that the LRU evicts the oldest entries.
+        """
+        monkeypatch.setattr(action_log, "_LOCKS_MAX", 4)
+        # Reset the module-level dict for an isolated assertion window.
+        with action_log._locks_lock:
+            action_log._locks.clear()
+
+        for i in range(6):
+            action_log._lock_for(f"oid-{i}")
+
+        with action_log._locks_lock:
+            keys = list(action_log._locks.keys())
+        # Cap of 4 → only the last four OIDs remain; oldest two evicted.
+        assert keys == ["oid-2", "oid-3", "oid-4", "oid-5"]
+
+    def test_delete_drops_lock_entry(self, monkeypatch):
+        """``delete()`` should also evict the lock so a deleted OID does
+        not keep occupying an LRU slot."""
+        with action_log._locks_lock:
+            action_log._locks.clear()
+        action_log.append("oid-drop", "add_point", {}, {})
+        # The append warmed the lock cache.
+        with action_log._locks_lock:
+            assert "oid-drop" in action_log._locks
+        action_log.delete("oid-drop")
+        with action_log._locks_lock:
+            assert "oid-drop" not in action_log._locks
+
     def test_skips_malformed_lines(self):
         path = action_log._path("oid-bad")
         os.makedirs(os.path.dirname(path), exist_ok=True)

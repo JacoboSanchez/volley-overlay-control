@@ -35,7 +35,7 @@ import os
 import re
 import threading
 import time
-from collections import defaultdict
+from collections import OrderedDict
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,19 @@ _OID_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
 _FILENAME_HASH_LEN = 20
 
 # Per-OID locks coordinate concurrent writers within the same process.
+# A bounded LRU keeps the dict from growing unboundedly when an
+# instance sees many short-lived OIDs (e.g. test runs, churn from
+# created-and-deleted custom overlays). The cap is well above the
+# expected number of concurrently active overlays — once exceeded,
+# the least-recently-used lock is evicted. Eviction is safe because
+# the lock is only held for the duration of a single read/append/pop
+# inside this module; if a lock is evicted while no caller holds it,
+# the next caller for that OID gets a fresh one with identical
+# semantics. (No file-level lock is in play, so eviction does not
+# create a race.)
+_LOCKS_MAX = 256
 _locks_lock = threading.Lock()
-_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
+_locks: "OrderedDict[str, threading.Lock]" = OrderedDict()
 
 
 def _data_dir() -> str:
@@ -66,7 +77,22 @@ def _path(oid: str) -> Optional[str]:
 
 def _lock_for(oid: str) -> threading.Lock:
     with _locks_lock:
-        return _locks[oid]
+        lock = _locks.get(oid)
+        if lock is None:
+            lock = threading.Lock()
+            _locks[oid] = lock
+            # Evict least-recently-used once we exceed the cap.
+            while len(_locks) > _LOCKS_MAX:
+                _locks.popitem(last=False)
+        else:
+            _locks.move_to_end(oid)
+        return lock
+
+
+def _drop_lock(oid: str) -> None:
+    """Drop the lock for *oid* (called when its file is deleted)."""
+    with _locks_lock:
+        _locks.pop(oid, None)
 
 
 def append(oid: str, action: str, params: dict, result: dict) -> None:
@@ -144,8 +170,10 @@ def delete(oid: str) -> bool:
     try:
         with _lock_for(oid):
             os.remove(path)
+        _drop_lock(oid)
         return True
     except FileNotFoundError:
+        _drop_lock(oid)
         return False
     except OSError as exc:
         logger.warning("Failed to delete audit log for %r: %s", oid, exc)
