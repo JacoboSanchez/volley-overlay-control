@@ -31,6 +31,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.exitFullscreen': 'Exit fullscreen',
     'ctrl.lightMode': 'Light mode',
     'ctrl.darkMode': 'Dark mode',
+    'ctrl.themeAuto': 'Theme: follow system',
     'ctrl.config': 'Configuration',
 
     // Config panel
@@ -154,6 +155,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.exitFullscreen': 'Salir de pantalla completa',
     'ctrl.lightMode': 'Modo claro',
     'ctrl.darkMode': 'Modo oscuro',
+    'ctrl.themeAuto': 'Tema: seguir al sistema',
     'ctrl.config': 'Configuración',
 
     // Config panel
@@ -277,6 +279,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.exitFullscreen': 'Sair do ecrã inteiro',
     'ctrl.lightMode': 'Modo claro',
     'ctrl.darkMode': 'Modo escuro',
+    'ctrl.themeAuto': 'Tema: seguir o sistema',
     'ctrl.config': 'Configuração',
 
     // Config panel
@@ -400,6 +403,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.exitFullscreen': 'Esci da schermo intero',
     'ctrl.lightMode': 'Modalità chiara',
     'ctrl.darkMode': 'Modalità scura',
+    'ctrl.themeAuto': 'Tema: segui il sistema',
     'ctrl.config': 'Configurazione',
 
     // Config panel
@@ -523,6 +527,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.exitFullscreen': 'Quitter le plein écran',
     'ctrl.lightMode': 'Mode clair',
     'ctrl.darkMode': 'Mode sombre',
+    'ctrl.themeAuto': 'Thème : suivre le système',
     'ctrl.config': 'Configuration',
 
     // Config panel
@@ -646,6 +651,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.exitFullscreen': 'Vollbild beenden',
     'ctrl.lightMode': 'Heller Modus',
     'ctrl.darkMode': 'Dunkler Modus',
+    'ctrl.themeAuto': 'Theme: System folgen',
     'ctrl.config': 'Einstellungen',
 
     // Config panel

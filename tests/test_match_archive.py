@@ -7,7 +7,6 @@ from app.api import action_log, match_archive
 from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 
-
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
@@ -108,7 +107,7 @@ class TestArchiveTrigger:
                 GameService.add_set(session, team=1)
         else:
             # Score 25-0 three times.
-            for set_num in range(1, 4):
+            for _set_num in range(1, 4):
                 # Each iteration: 25 points to team 1
                 for _ in range(25):
                     GameService.add_point(session, team=1)

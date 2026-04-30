@@ -8,7 +8,6 @@ from app.api import action_log
 from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 
-
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 

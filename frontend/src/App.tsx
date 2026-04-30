@@ -398,7 +398,12 @@ export default function App() {
           onToggleVisibility={handleToggleVisibility}
           onToggleSimpleMode={handleToggleSimpleMode}
           onUndoLast={handleUndoLast}
-          onToggleDarkMode={() => setSetting('darkMode', !settings.darkMode)}
+          onToggleDarkMode={() => {
+            // Cycle: auto → dark → light → auto
+            const current = settings.darkMode;
+            const next = current === 'auto' ? true : current === true ? false : 'auto';
+            setSetting('darkMode', next);
+          }}
           onToggleFullscreen={handleToggleFullscreen}
           onTogglePreview={handleTogglePreview}
           onOpenConfig={() => setActiveTab('config')}

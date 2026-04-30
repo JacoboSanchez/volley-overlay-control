@@ -31,6 +31,47 @@ once a first tagged release ships.
   configured. Delivery is fire-and-forget on a small thread pool with
   a configurable timeout — failures are logged but never break the
   triggering action.
+- Per-OID action audit log at
+  `data/audit_<sha256[:20]>.jsonl`. Every state-mutating
+  `GameService` call appends `{ts, action, params, result}` where
+  `result` is a compact post-state snapshot. Exposed read-only via
+  `GET /api/v1/audit?oid=...&limit=100`. Cleared on `reset()` and
+  bundled into per-match snapshots on match end (see below).
+- Match history archive. When a session transitions to
+  `match_finished`, the final state, customization, audit log, and
+  match config are bundled into a snapshot at
+  `data/matches/match_<sha256(oid)[:20]>_<UTC-ISO8601>.json`.
+  Two new read endpoints: `GET /api/v1/matches[?oid=…]` returns
+  summaries newest-first, `GET /api/v1/matches/{match_id}` returns
+  the full snapshot. `GameSession` now tracks `match_started_at`
+  (persisted, reset on `reset()` and after every successful archive)
+  so durations are accurate.
+- Server-side undo stack. New `POST /api/v1/game/undo` pops the most
+  recent forward `add_point` / `add_set` / `add_timeout` from the
+  audit log and applies the inverse via the existing per-type
+  `undo=True` flag. Non-undoable forward records (e.g.
+  `change_serve`, `set_score`, `reset`) stay in the log so the
+  timeline is preserved; undo just walks past them. Returns
+  `success=false, message="Nothing to undo."` when no eligible
+  record exists. Complements the existing per-type
+  `undo=True` API which still works unchanged.
+- Print-friendly match report at `GET /match/{match_id}/report`.
+  Server-rendered self-contained HTML page with hero scoreboard
+  (team names, sets won, winner badge, team colours from the
+  archived customization), set-by-set scores table, match facts
+  (start/end timestamps, format, audit count), and an action
+  timeline. A `@media print` block makes the page render cleanly
+  via the browser's built-in "Save as PDF" workflow. Unauthenticated
+  by design — `match_id` is a hash-prefixed token consistent with
+  the existing public `/overlay/{output_key}` addressability model.
+- OS-aware light/dark theme for the React control UI. The
+  `darkMode` setting now accepts `'auto'` (default) in addition to
+  `true` / `false` — when `'auto'`, the UI follows the OS
+  `prefers-color-scheme` media query and updates live as the
+  preference changes. The theme button in the bottom HUD now cycles
+  through `auto → dark → light → auto`, with a `brightness_auto`
+  icon and a localised "Theme: follow system" tooltip in the auto
+  state. Existing localStorage values continue to work unchanged.
 
 ---
 

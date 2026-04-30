@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from app.api import action_log, match_archive
 from app.match_report import match_report_router
 
-
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 

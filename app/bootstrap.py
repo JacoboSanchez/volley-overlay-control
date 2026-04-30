@@ -22,12 +22,12 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
-from app.match_report import match_report_router
 from app.api import api_router
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
+from app.match_report import match_report_router
 
 logger = logging.getLogger(__name__)
 
