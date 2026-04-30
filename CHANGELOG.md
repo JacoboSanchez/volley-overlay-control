@@ -35,6 +35,31 @@ once a first tagged release ships.
 
 ### Added
 
+- Match-rules configuration is now editable per-session. New
+  config-panel section "Match rules" exposes:
+  * Indoor / Beach mode toggle (defaults: 25/15/5 indoor, 21/15/3
+    beach). Switching mode applies the canonical preset; per-field
+    overrides in the same call still win.
+  * Sets selector (1 / 3 / 5).
+  * Points-per-set and points-per-final-set inputs.
+  * "Reset defaults for mode" button.
+
+  Backend additions: ``app/api/match_rules.py`` (presets +
+  side-switch helpers), ``GameSession.mode`` (persisted via
+  ``session_meta``), new ``POST /api/v1/session/rules`` endpoint
+  with ``mode``/``points_limit``/``points_limit_last_set``/
+  ``sets_limit``/``reset_to_defaults`` body. ``GameStateResponse``
+  carries ``config.mode`` so frontends can render the active
+  preset.
+- Beach side-switch tracker (§2.3). Beach matches switch sides
+  every 7 combined points in non-tiebreak sets and every 5 in the
+  tiebreak. ``GameStateResponse.beach_side_switch`` now surfaces
+  ``{interval, points_in_set, next_switch_at, points_until_switch,
+  is_switch_pending}`` for consumers; the field is ``null`` for
+  indoor matches so existing payloads are unaffected. The control
+  UI renders an inline indicator below the set pagination ("Side
+  switch in N" → orange "Switch sides now" pulse on the boundary
+  point), with i18n strings in all six locales.
 - `GET /api/v1/links` returns a `latest_match_report` URL pointing
   at the most recent archived match snapshot for the session — but
   only when `MATCH_REPORT_PUBLIC=true`. The control UI's "Links"

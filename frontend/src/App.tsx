@@ -417,6 +417,7 @@ export default function App() {
             oid={oid}
             customization={customization}
             actions={actions}
+            gameConfig={state?.config ?? null}
             onBack={() => setActiveTab('scoreboard')}
             onReset={handleReset}
             onLogout={handleLogout}

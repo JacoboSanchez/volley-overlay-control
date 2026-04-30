@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 
+from app.api.match_rules import is_valid_mode
 from app.api.session_persistence import (
     load_session_meta,
     save_session_meta,
@@ -37,6 +38,10 @@ class GameSession:
         # in session_meta so it survives restarts; reset by GameService.reset
         # and bumped automatically after a match is archived.
         self.match_started_at = time.time()
+        # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
+        # session_meta. Drives the beach side-switch indicator and the
+        # "reset to defaults" affordance in the new MatchRulesSection.
+        self.mode: str = "indoor"
         self.points_limit = points_limit if points_limit is not None else conf.points
         self.points_limit_last_set = (
             points_limit_last_set if points_limit_last_set is not None
@@ -83,6 +88,7 @@ class GameSession:
             "points_limit_last_set": int(self.points_limit_last_set),
             "sets_limit": int(self.sets_limit),
             "match_started_at": float(self.match_started_at),
+            "mode": str(self.mode),
         }
 
     def apply_meta(self, meta: dict) -> None:
@@ -111,6 +117,8 @@ class GameSession:
                 self.match_started_at = float(meta["match_started_at"])
             except (TypeError, ValueError):
                 pass
+        if "mode" in meta and is_valid_mode(meta["mode"]):
+            self.mode = meta["mode"]
 
     def persist_meta(self) -> None:
         """Best-effort save of :meth:`to_meta_dict` to disk."""

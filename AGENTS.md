@@ -72,6 +72,7 @@ volley-overlay-control/
 │   │   ├── session_persistence.py  # Per-OID JSON file persistence for session-level flags
 │   │   ├── action_log.py      # Append-only per-OID audit log (data/audit_<hash>.jsonl)
 │   │   ├── match_archive.py   # Per-match snapshot writer (data/matches/match_<hash>_<UTC>.json)
+│   │   ├── match_rules.py     # Indoor/beach presets + beach side-switch helpers
 │   │   ├── webhooks.py        # Outbound HTTP webhooks fired on game events (set_end, match_end, timeout, serve_change)
 │   │   ├── ws_hub.py          # WebSocket notification hub for real-time state push
 │   │   └── dependencies.py    # Auth + session FastAPI dependencies
@@ -222,6 +223,7 @@ Full list in [README.md](README.md).
 | `/api/v1/*` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
 | `/api/v1/admin/custom-overlays` | List / create (optionally clone) / delete custom overlays (`Authorization: Bearer $OVERLAY_MANAGER_PASSWORD`) |
 | `/api/v1/admin/login`, `/api/v1/admin/status` | Admin auth check + feature-enabled probe |
+| `/api/v1/session/rules?oid=X` | `POST` — update match rules (mode, points, sets) for the session. |
 | `/api/v1/audit?oid=X[&limit=N]` | Most-recent records from the per-OID action audit log |
 | `/api/v1/matches[?oid=X]` | List archived match snapshots (newest first) |
 | `/api/v1/matches/{match_id}` | Full archived snapshot (final_state, customization, audit_log, config) |

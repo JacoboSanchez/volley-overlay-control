@@ -1,0 +1,209 @@
+"""Tests for app/api/match_rules.py and the GameService.set_rules path."""
+import pytest
+
+from app.api.game_service import GameService
+from app.api.match_rules import (
+    PRESETS,
+    compute_side_switch,
+    defaults_for,
+    is_valid_mode,
+    side_switch_interval,
+)
+from app.api.session_manager import SessionManager
+
+pytestmark = pytest.mark.usefixtures("clean_sessions")
+
+
+# ---------------------------------------------------------------------------
+# match_rules helpers
+# ---------------------------------------------------------------------------
+
+class TestRulesHelpers:
+    def test_known_modes(self):
+        assert is_valid_mode("indoor") is True
+        assert is_valid_mode("beach") is True
+        assert is_valid_mode("BEACH") is False
+        assert is_valid_mode(None) is False
+        assert is_valid_mode(42) is False
+
+    def test_indoor_preset_values(self):
+        p = PRESETS["indoor"]
+        assert (p.points_limit, p.points_limit_last_set, p.sets_limit) == (25, 15, 5)
+
+    def test_beach_preset_values(self):
+        p = PRESETS["beach"]
+        assert (p.points_limit, p.points_limit_last_set, p.sets_limit) == (21, 15, 3)
+
+    def test_defaults_for_unknown_falls_back_to_indoor(self):
+        assert defaults_for("xyz").points_limit == 25
+
+
+# ---------------------------------------------------------------------------
+# Beach side-switch tracker (§2.3)
+# ---------------------------------------------------------------------------
+
+class TestSideSwitchInterval:
+    def test_non_tiebreak_uses_seven(self):
+        assert side_switch_interval(current_set=1, sets_limit=3) == 7
+        assert side_switch_interval(current_set=2, sets_limit=3) == 7
+
+    def test_tiebreak_uses_five(self):
+        # Beach: 3-set match → set 3 is the tiebreak.
+        assert side_switch_interval(current_set=3, sets_limit=3) == 5
+        # Indoor 5-set match → set 5 is the tiebreak.
+        assert side_switch_interval(current_set=5, sets_limit=5) == 5
+
+
+class TestComputeSideSwitch:
+    def test_returns_none_for_indoor(self):
+        result = compute_side_switch(
+            mode="indoor", current_set=1, sets_limit=5,
+            team1_score=5, team2_score=3,
+        )
+        assert result is None
+
+    def test_initial_state_points_to_first_switch(self):
+        result = compute_side_switch(
+            mode="beach", current_set=1, sets_limit=3,
+            team1_score=0, team2_score=0,
+        )
+        assert result == {
+            "interval": 7,
+            "points_in_set": 0,
+            "next_switch_at": 7,
+            "points_until_switch": 7,
+            "is_switch_pending": False,
+        }
+
+    def test_pending_when_total_hits_interval(self):
+        # 4-3 → total=7 → switch is pending right now.
+        result = compute_side_switch(
+            mode="beach", current_set=1, sets_limit=3,
+            team1_score=4, team2_score=3,
+        )
+        assert result["points_in_set"] == 7
+        assert result["is_switch_pending"] is True
+        assert result["next_switch_at"] == 14
+        assert result["points_until_switch"] == 7
+
+    def test_advances_after_boundary(self):
+        # 5-3 → total=8 → next switch at 14.
+        result = compute_side_switch(
+            mode="beach", current_set=1, sets_limit=3,
+            team1_score=5, team2_score=3,
+        )
+        assert result["next_switch_at"] == 14
+        assert result["points_until_switch"] == 6
+        assert result["is_switch_pending"] is False
+
+    def test_tiebreak_uses_five(self):
+        # Beach tiebreak: 3-2 → total=5 → switch pending.
+        result = compute_side_switch(
+            mode="beach", current_set=3, sets_limit=3,
+            team1_score=3, team2_score=2,
+        )
+        assert result["interval"] == 5
+        assert result["is_switch_pending"] is True
+
+    def test_tolerates_negative_inputs(self):
+        result = compute_side_switch(
+            mode="beach", current_set=1, sets_limit=3,
+            team1_score=-3, team2_score=-1,
+        )
+        assert result["points_in_set"] == 0
+
+
+# ---------------------------------------------------------------------------
+# GameService.set_rules
+# ---------------------------------------------------------------------------
+
+class TestSetRules:
+    def test_switch_to_beach_resets_defaults(self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-1", mock_conf, api_backend)
+        # Default conf is indoor (25/15/5).
+        assert s.mode == "indoor"
+        response = GameService.set_rules(
+            s, mode="beach", reset_to_defaults=True,
+        )
+        assert response.success is True
+        assert s.mode == "beach"
+        assert s.points_limit == 21
+        assert s.points_limit_last_set == 15
+        assert s.sets_limit == 3
+
+    def test_switch_to_beach_without_reset_keeps_limits(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-2", mock_conf, api_backend)
+        # Operator-customised limits — flipping mode without reset
+        # should not silently overwrite them.
+        s.points_limit = 27
+        s.sets_limit = 5
+        GameService.set_rules(s, mode="beach")
+        assert s.mode == "beach"
+        assert s.points_limit == 27
+        assert s.sets_limit == 5
+
+    def test_per_field_override_wins_over_reset(self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-3", mock_conf, api_backend)
+        GameService.set_rules(
+            s, mode="beach", reset_to_defaults=True, points_limit=27,
+        )
+        assert s.points_limit == 27               # override wins
+        assert s.points_limit_last_set == 15      # reset applied
+        assert s.sets_limit == 3                  # reset applied
+
+    def test_invalid_mode_is_rejected(self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-4", mock_conf, api_backend)
+        prior = s.mode
+        response = GameService.set_rules(s, mode="ultimate")
+        assert response.success is False
+        assert s.mode == prior
+
+    def test_clamps_sets_limit_to_supported_range(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-5", mock_conf, api_backend)
+        GameService.set_rules(s, sets_limit=99)
+        assert s.sets_limit == 5
+        GameService.set_rules(s, sets_limit=0)
+        assert s.sets_limit == 1
+
+    def test_persists_across_session_clear(self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-6", mock_conf, api_backend)
+        GameService.set_rules(s, mode="beach", reset_to_defaults=True)
+        SessionManager.clear()
+
+        restored = SessionManager.get_or_create("rules-6", mock_conf, api_backend)
+        assert restored.mode == "beach"
+        assert restored.points_limit == 21
+        assert restored.sets_limit == 3
+
+    def test_state_response_includes_mode_in_config(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-7", mock_conf, api_backend)
+        GameService.set_rules(s, mode="beach", reset_to_defaults=True)
+        state = GameService.get_state(s)
+        assert state.config["mode"] == "beach"
+        assert state.config["points_limit"] == 21
+
+    def test_state_response_includes_side_switch_for_beach(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-8", mock_conf, api_backend)
+        GameService.set_rules(s, mode="beach", reset_to_defaults=True)
+        state = GameService.get_state(s)
+        assert state.beach_side_switch is not None
+        assert state.beach_side_switch.interval == 7
+
+    def test_state_response_omits_side_switch_for_indoor(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-9", mock_conf, api_backend)
+        # mock_conf default is indoor.
+        state = GameService.get_state(s)
+        assert state.beach_side_switch is None
+
+    def test_smaller_sets_limit_clamps_current_set(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("rules-10", mock_conf, api_backend)
+        # Force current_set above the new limit before tightening.
+        s.current_set = 5
+        GameService.set_rules(s, sets_limit=3)
+        assert s.current_set <= 3

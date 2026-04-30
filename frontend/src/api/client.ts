@@ -146,6 +146,24 @@ export function setSimpleMode(oid: string, enabled: boolean): Promise<ActionResp
   );
 }
 
+export type MatchMode = 'indoor' | 'beach';
+
+export interface SetRulesPayload {
+  mode?: MatchMode;
+  points_limit?: number;
+  points_limit_last_set?: number;
+  sets_limit?: number;
+  reset_to_defaults?: boolean;
+}
+
+export function setRules(oid: string, payload: SetRulesPayload): Promise<ActionResponse> {
+  return request<ActionResponse>(
+    'POST',
+    `/session/rules?oid=${encodeURIComponent(oid)}`,
+    payload,
+  );
+}
+
 // Customization
 export function updateCustomization(
   oid: string,

@@ -3,7 +3,14 @@ import time
 from typing import Optional
 
 from app.api import action_log, match_archive
-from app.api.schemas import ALLOWED_CUSTOMIZATION_KEYS, ActionResponse, GameStateResponse, TeamState
+from app.api.match_rules import compute_side_switch, defaults_for, is_valid_mode
+from app.api.schemas import (
+    ALLOWED_CUSTOMIZATION_KEYS,
+    ActionResponse,
+    BeachSideSwitch,
+    GameStateResponse,
+    TeamState,
+)
 from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
 from app.state import State
@@ -47,6 +54,17 @@ class GameService:
                 serving=(serve == State.SERVE_1 if team == 1 else serve == State.SERVE_2),
             )
 
+        side_switch_data = compute_side_switch(
+            mode=session.mode,
+            current_set=session.current_set,
+            sets_limit=session.sets_limit,
+            team1_score=state.get_game(1, session.current_set),
+            team2_score=state.get_game(2, session.current_set),
+        )
+        side_switch = (
+            BeachSideSwitch(**side_switch_data) if side_switch_data is not None
+            else None
+        )
         response = GameStateResponse(
             current_set=session.current_set,
             visible=session.visible,
@@ -56,10 +74,12 @@ class GameService:
             team_2=team_state(2),
             serve=serve,
             config={
+                "mode": session.mode,
                 "points_limit": session.points_limit,
                 "points_limit_last_set": session.points_limit_last_set,
                 "sets_limit": session.sets_limit,
             },
+            beach_side_switch=side_switch,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         if elapsed_ms > 50:
@@ -306,6 +326,74 @@ class GameService:
             state=GameService.get_state(session),
             message=f"Unsupported undo action: {action!r}",
         )
+
+    @staticmethod
+    def set_rules(
+        session,
+        mode: Optional[str] = None,
+        points_limit: Optional[int] = None,
+        points_limit_last_set: Optional[int] = None,
+        sets_limit: Optional[int] = None,
+        reset_to_defaults: bool = False,
+    ) -> ActionResponse:
+        """Update the match-rule preset for *session*.
+
+        Behaviour:
+
+        * When *mode* is provided, it is stored on the session.
+        * When *reset_to_defaults* is true, every limit is replaced
+          with the canonical preset for the resulting mode (the
+          new *mode* if provided, else the existing one). Any
+          per-field overrides in the same call still win — so the
+          UI can ask "switch to beach but keep my custom 25 pts/set"
+          by passing ``mode='beach', points_limit=25,
+          reset_to_defaults=True``.
+        * Otherwise only the fields the caller passed are updated;
+          the rest stay as they are.
+
+        After the update, ``current_set`` is recomputed because a
+        smaller ``sets_limit`` may need to clamp it. Audit log gets
+        a ``set_rules`` entry, and the meta file is re-persisted so
+        the change survives restart.
+        """
+        if mode is not None:
+            if not is_valid_mode(mode):
+                return ActionResponse(
+                    success=False,
+                    state=GameService.get_state(session),
+                    message=f"Unknown mode: {mode!r}",
+                )
+            session.mode = mode
+
+        if reset_to_defaults:
+            preset = defaults_for(session.mode)
+            session.points_limit = preset.points_limit
+            session.points_limit_last_set = preset.points_limit_last_set
+            session.sets_limit = preset.sets_limit
+
+        # Per-field overrides win over the reset block above.
+        if points_limit is not None:
+            session.points_limit = max(1, int(points_limit))
+        if points_limit_last_set is not None:
+            session.points_limit_last_set = max(1, int(points_limit_last_set))
+        if sets_limit is not None:
+            cleaned = max(1, int(sets_limit))
+            # Whilst the rules allow odd numbers in general, the rest of
+            # the codebase (State, get_game) hard-codes 1..5. Clamp.
+            session.sets_limit = min(cleaned, 5)
+
+        # A smaller sets_limit may invalidate the current set.
+        session.current_set = session._compute_current_set()
+        session.persist_meta()
+        GameService._broadcast(session)
+        GameService._audit(session, "set_rules", {
+            "mode": session.mode,
+            "points_limit": session.points_limit,
+            "points_limit_last_set": session.points_limit_last_set,
+            "sets_limit": session.sets_limit,
+            "reset_to_defaults": reset_to_defaults,
+        })
+        return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
     def reset(session) -> ActionResponse:

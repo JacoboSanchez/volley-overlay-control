@@ -84,6 +84,7 @@ class TestGameSessionMeta:
             "points_limit_last_set": session.points_limit_last_set,
             "sets_limit": session.sets_limit,
             "match_started_at": session.match_started_at,
+            "mode": session.mode,
         }
 
     def test_apply_meta_restores_fields(self, mock_conf):

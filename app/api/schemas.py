@@ -50,6 +50,21 @@ class SimpleModeRequest(BaseModel):
     enabled: bool
 
 
+class SetRulesRequest(BaseModel):
+    """Body for ``POST /api/v1/session/rules``.
+
+    All fields are optional. ``mode`` switches between ``"indoor"``
+    and ``"beach"``; ``reset_to_defaults`` replaces every limit with
+    the canonical preset for the resulting mode (per-field overrides
+    in the same call still win).
+    """
+    mode: Optional[Literal["indoor", "beach"]] = None
+    points_limit: Optional[int] = Field(default=None, ge=1, le=99)
+    points_limit_last_set: Optional[int] = Field(default=None, ge=1, le=99)
+    sets_limit: Optional[int] = Field(default=None, ge=1, le=5)
+    reset_to_defaults: bool = False
+
+
 # ---------------------------------------------------------------------------
 # Customization validation
 # ---------------------------------------------------------------------------
@@ -76,6 +91,20 @@ class TeamState(BaseModel):
     serving: bool
 
 
+class BeachSideSwitch(BaseModel):
+    """Beach volleyball side-switch indicator (only set when mode='beach').
+
+    Sides switch every 7 combined points in non-tiebreak sets and
+    every 5 in the tiebreak. ``is_switch_pending`` is true the moment
+    a point crosses a boundary — operators should swap teams now.
+    """
+    interval: int
+    points_in_set: int
+    next_switch_at: int
+    points_until_switch: int
+    is_switch_pending: bool
+
+
 class GameStateResponse(BaseModel):
     current_set: int
     visible: bool
@@ -84,7 +113,8 @@ class GameStateResponse(BaseModel):
     team_1: TeamState
     team_2: TeamState
     serve: str
-    config: dict  # points_limit, sets_limit, etc.
+    config: dict  # points_limit, sets_limit, mode, etc.
+    beach_side_switch: Optional[BeachSideSwitch] = None
 
 
 class ActionResponse(BaseModel):

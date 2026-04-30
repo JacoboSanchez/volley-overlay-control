@@ -2,6 +2,7 @@ import ScoreButton from './ScoreButton';
 import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
+import SideSwitchIndicator from './SideSwitchIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import { asString } from '../utils/coerce';
@@ -128,6 +129,8 @@ export default function CenterPanel({
           <span className="material-icons">chevron_right</span>
         </button>
       </div>
+
+      <SideSwitchIndicator info={state.beach_side_switch} />
 
       {previewData && (
         <OverlayPreview

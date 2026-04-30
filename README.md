@@ -344,6 +344,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/api/v1/admin/status` | `GET` — whether overlay management is enabled (`OVERLAY_MANAGER_PASSWORD` set). Unauthenticated. |
 | `/api/v1/admin/login` | `POST` — validate the admin Bearer token against `OVERLAY_MANAGER_PASSWORD`. |
 | `/api/v1/admin/custom-overlays` | List/create/delete custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`). |
+| `/api/v1/session/rules?oid=X` | `POST` — update match rules (`mode` indoor/beach, `points_limit`, `points_limit_last_set`, `sets_limit`, `reset_to_defaults`). Backs the React config panel's new "Match rules" section. |
 | `/api/v1/audit?oid=X[&limit=N]` | `GET` — recent records from the per-OID action audit log (default `limit=100`, max `1000`). |
 | `/api/v1/matches[?oid=X]` | `GET` — list summaries of archived matches, newest first (optional OID filter). |
 | `/api/v1/matches/{match_id}` | `GET` — full archived match snapshot (final state, customization, audit log, config). |

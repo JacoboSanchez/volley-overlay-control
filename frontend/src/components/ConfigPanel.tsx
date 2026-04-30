@@ -15,15 +15,19 @@ const PositionSection = lazy(() => import('./config/PositionSection'));
 const ButtonsSection = lazy(() => import('./config/ButtonsSection'));
 const BehaviorSection = lazy(() => import('./config/BehaviorSection'));
 const LinksSection = lazy(() => import('./config/LinksSection'));
+const MatchRulesSection = lazy(() => import('./config/MatchRulesSection'));
 
-type Section = 'teams' | 'overlay' | 'position' | 'buttons' | 'behavior' | 'links';
+type Section = 'teams' | 'overlay' | 'position' | 'buttons' | 'rules' | 'behavior' | 'links';
 
-const SECTIONS: readonly Section[] = ['teams', 'overlay', 'position', 'buttons', 'behavior', 'links'];
+const SECTIONS: readonly Section[] = [
+  'teams', 'overlay', 'position', 'buttons', 'rules', 'behavior', 'links',
+];
 const SECTION_KEYS: Record<Section, string> = {
   teams: 'section.teams',
   overlay: 'section.overlay',
   position: 'section.position',
   buttons: 'section.buttons',
+  rules: 'section.rules',
   behavior: 'section.behavior',
   links: 'section.links',
 };
@@ -32,6 +36,7 @@ const SECTION_ICONS: Record<Section, string> = {
   overlay: 'palette',
   position: 'open_with',
   buttons: 'touch_app',
+  rules: 'rule',
   behavior: 'tune',
   links: 'link',
 };
@@ -43,6 +48,12 @@ export interface ConfigPanelProps {
   oid: string;
   customization: ConfigModel | null | undefined;
   actions?: unknown;
+  /**
+   * Live ``state.config`` from useGameState. Used by the
+   * MatchRulesSection; ``null`` while the WebSocket is still
+   * connecting.
+   */
+  gameConfig?: Record<string, unknown> | null;
   onBack: () => void;
   onReset: () => void;
   onLogout: () => void;
@@ -53,6 +64,7 @@ export interface ConfigPanelProps {
 export default function ConfigPanel({
   oid,
   customization,
+  gameConfig,
   onBack,
   onReset,
   onLogout,
@@ -217,6 +229,16 @@ export default function ConfigPanel({
           <BehaviorSection
             settings={settings}
             setSetting={setSetting as BehaviorSectionProps['setSetting']}
+          />
+        );
+      case 'rules':
+        return (
+          <MatchRulesSection
+            oid={oid}
+            mode={(gameConfig?.mode as api.MatchMode | undefined) ?? null}
+            pointsLimit={(gameConfig?.points_limit as number | undefined) ?? null}
+            pointsLimitLastSet={(gameConfig?.points_limit_last_set as number | undefined) ?? null}
+            setsLimit={(gameConfig?.sets_limit as number | undefined) ?? null}
           />
         );
       case 'links':
