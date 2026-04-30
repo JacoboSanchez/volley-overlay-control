@@ -69,6 +69,8 @@ volley-overlay-control/
 │   │   ├── schemas.py         # Pydantic request/response models
 │   │   ├── game_service.py    # Service layer — single entry point for all game actions
 │   │   ├── session_manager.py # Thread-safe game session management by OID
+│   │   ├── session_persistence.py  # Per-OID JSON file persistence for session-level flags
+│   │   ├── webhooks.py        # Outbound HTTP webhooks fired on game events (set_end, match_end, timeout, serve_change)
 │   │   ├── ws_hub.py          # WebSocket notification hub for real-time state push
 │   │   └── dependencies.py    # Auth + session FastAPI dependencies
 │   │

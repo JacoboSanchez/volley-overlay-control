@@ -4,7 +4,6 @@ import threading
 import time
 
 from app.api.session_persistence import (
-    delete_session_meta,
     load_session_meta,
     save_session_meta,
 )

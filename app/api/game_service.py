@@ -2,6 +2,7 @@ import logging
 import time
 
 from app.api.schemas import ALLOWED_CUSTOMIZATION_KEYS, ActionResponse, GameStateResponse, TeamState
+from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
 from app.state import State
 
@@ -111,6 +112,9 @@ class GameService:
                 message="Match is already finished.",
             )
 
+        was_finished_before = session.game_manager.match_finished()
+        serve_before = session.game_manager.get_current_state().get_current_serve()
+
         set_won = session.game_manager.add_game(
             team, session.current_set,
             session.points_limit, session.points_limit_last_set,
@@ -124,6 +128,25 @@ class GameService:
             session.current_set = session._compute_current_set()
 
         GameService._save_and_broadcast(session)
+
+        # Fire after persistence so consumers always see the post-state.
+        if not undo:
+            state_response = GameService.get_state(session)
+            if set_won:
+                GameService._fire(session, "set_end", state_response, {
+                    "team": team,
+                    "set_number": session.current_set if not session.game_manager.match_finished() else session.current_set,
+                })
+            if session.game_manager.match_finished() and not was_finished_before:
+                GameService._fire(session, "match_end", state_response, {
+                    "winning_team": team,
+                })
+            serve_after = session.game_manager.get_current_state().get_current_serve()
+            if serve_before != serve_after:
+                GameService._fire(session, "serve_change", state_response, {
+                    "serve": str(serve_after.value if hasattr(serve_after, "value") else serve_after),
+                })
+
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
@@ -135,6 +158,8 @@ class GameService:
                 message="Match is already finished.",
             )
 
+        was_finished_before = session.game_manager.match_finished()
+
         session.game_manager.add_set(team, undo)
 
         if undo and session.undo:
@@ -142,6 +167,17 @@ class GameService:
 
         session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
+
+        if not undo:
+            state_response = GameService.get_state(session)
+            GameService._fire(session, "set_end", state_response, {
+                "team": team,
+                "set_number": session.current_set,
+            })
+            if session.game_manager.match_finished() and not was_finished_before:
+                GameService._fire(session, "match_end", state_response, {
+                    "winning_team": team,
+                })
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
@@ -159,12 +195,24 @@ class GameService:
             session.undo = False
 
         GameService._save_and_broadcast(session)
+        if not undo:
+            GameService._fire(
+                session, "timeout", GameService.get_state(session),
+                {"team": team},
+            )
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
     def change_serve(session, team: int) -> ActionResponse:
+        serve_before = session.game_manager.get_current_state().get_current_serve()
         session.game_manager.change_serve(team)
         GameService._save_and_broadcast(session)
+        serve_after = session.game_manager.get_current_state().get_current_serve()
+        if serve_before != serve_after:
+            GameService._fire(
+                session, "serve_change", GameService.get_state(session),
+                {"serve": str(serve_after.value if hasattr(serve_after, "value") else serve_after)},
+            )
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
@@ -257,3 +305,20 @@ class GameService:
         """Notify all WebSocket frontend clients about the new state."""
         state_data = GameService.get_state(session).model_dump()
         WSHub.broadcast_sync(session.oid, state_data)
+
+    @staticmethod
+    def _fire(session, event: str, state_response, details: dict) -> None:
+        """Fire a webhook event for the current session.
+
+        Caller is responsible for choosing when to fire (e.g. only on
+        non-undo mutations). The dispatcher handles env-var
+        configuration, target filtering, and async delivery.
+        """
+        try:
+            payload = {
+                "state": state_response.model_dump(),
+                "details": details,
+            }
+            webhook_dispatcher.dispatch(event, session.oid, payload)
+        except Exception as exc:
+            logger.warning("Webhook dispatch for %s failed: %s", event, exc)

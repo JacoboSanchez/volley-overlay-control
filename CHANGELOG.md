@@ -8,6 +8,38 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- Session-level state survives process restarts. Per-OID flags
+  (`simple` mode, custom `points_limit`, `points_limit_last_set`,
+  `sets_limit`) used to live only in memory and were silently dropped
+  on deploy/crash. They are now persisted to
+  `data/session_meta_<sha256[:20]>.json` on every state mutation and
+  rehydrated by `SessionManager.get_or_create` before any caller-supplied
+  override is applied. Match data (scores, sets, current set, serve,
+  timeouts) was already round-tripped through the overlay state store
+  for local overlays and through the cloud for `overlays.uno`, so this
+  closes the last in-memory gap. Deleting a custom overlay from
+  `/manage` now also removes the session and the meta file. See
+  [ROADMAP.md](ROADMAP.md) §1.1.
+- Outbound webhooks fired on game events. The new
+  `WebhookDispatcher` reads
+  `WEBHOOKS_URL`/`WEBHOOKS_SECRET`/`WEBHOOKS_EVENTS` (single endpoint)
+  or `WEBHOOKS_JSON` (list of endpoints, optionally per-event-filtered)
+  and POSTs `{event, oid, ts, state, details}` payloads on `set_end`,
+  `match_end`, `timeout`, and `serve_change`. Bodies are signed with
+  HMAC-SHA256 (`X-Webhook-Signature: sha256=<hex>`) when a secret is
+  configured. Delivery is fire-and-forget on a small thread pool with
+  a configurable timeout — failures are logged but never break the
+  triggering action. See [ROADMAP.md](ROADMAP.md) §4.1.
+
+### Documentation
+
+- New top-level `ROADMAP.md` collects 19 feature proposals grouped into
+  five themes (match data & history, volleyball-specific in-game
+  features, operator UX, integrations, stats), each with a sizing flag,
+  links to relevant source files, and an explicit out-of-scope section.
+
 ---
 
 ## [5.0.4] - 2026-04-30

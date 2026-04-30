@@ -192,6 +192,11 @@ Configure the application using the following environment variables:
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
 | `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
 | `UNO_OVERLAY_OUTPUT` | Custom output URL override for the overlay display link. | |
+| `WEBHOOKS_URL` | *(Optional)* Single outbound webhook endpoint. POSTed JSON `{event, oid, ts, state, details}` on `set_end`, `match_end`, `timeout`, `serve_change`. | |
+| `WEBHOOKS_SECRET` | *(Optional)* Shared secret for HMAC-SHA256 signing of single-URL webhook bodies. Sent as `X-Webhook-Signature: sha256=<hex>`. | |
+| `WEBHOOKS_EVENTS` | *(Optional)* CSV subset of events the single-URL webhook should receive. | *(all events)* |
+| `WEBHOOKS_TIMEOUT_S` | *(Optional)* Per-target POST timeout in seconds. | `5` |
+| `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
 
 <br>
 

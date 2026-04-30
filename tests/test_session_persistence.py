@@ -8,7 +8,6 @@ import pytest
 from app.api import session_persistence
 from app.api.session_manager import GameSession, SessionManager
 
-
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
