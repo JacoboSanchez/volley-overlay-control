@@ -20,8 +20,51 @@
         // OVERLAY_SERVER_TOKEN).
         const AVAILABLE_STYLES = {{ available_styles | tojson }};
 
-        // Track render bounds reported by each iframe (style → bounds)
+        const OVERLAY_W = 1920;
+        const OVERLAY_H = 1080;
+        // Padding inside the 1920×1080 viewport that we add around the
+        // reported overlay bounds so the cropped slice has a small margin.
+        const BOUNDS_PAD = 15;
+
+        // style → bounds reported by each iframe via postMessage
         const iframeBounds = new Map();
+
+        // Pick (cols, rows) optimised for 16:9, the native overlay surface.
+        // Per-cell cropping then refits each iframe once its true bounds
+        // arrive, so the 16:9 bias only affects the grid split, not fidelity.
+        function chooseLayout(n, vw, vh) {
+            const aspect = OVERLAY_W / OVERLAY_H;
+            let best = { cols: 1, rows: n, score: -1 };
+            for (let cols = 1; cols <= n; cols++) {
+                const rows = Math.ceil(n / cols);
+                const cellW = vw / cols;
+                const cellH = vh / rows;
+                if (cellW <= 0 || cellH <= 0) continue;
+                // Largest 16:9 box that fits the cell — taller is better.
+                const renderedH = Math.min(cellH, cellW / aspect);
+                if (renderedH > best.score) {
+                    best = { cols, rows, score: renderedH };
+                }
+            }
+            return best;
+        }
+
+        function applyLayout() {
+            const n = AVAILABLE_STYLES.length;
+            if (n === 0) return;
+            const grid = document.getElementById("mosaic-grid");
+            // clientWidth/Height already exclude borders/scrollbars; subtract
+            // the grid's own padding to get the content box (where 1fr tracks
+            // are sized). Fall back to the viewport before first layout.
+            const cs = getComputedStyle(grid);
+            const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+            const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+            const vw = (grid.clientWidth || window.innerWidth) - padX;
+            const vh = (grid.clientHeight || window.innerHeight) - padY;
+            const { cols, rows } = chooseLayout(n, vw, vh);
+            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+        }
 
         function buildGrid(styles) {
             const grid = document.getElementById("mosaic-grid");
@@ -49,38 +92,47 @@
                 cell.appendChild(wrapper);
                 grid.appendChild(cell);
             });
+
+            applyLayout();
+            // fitIframeToCell reads clientWidth/Height, which flushes layout
+            // synchronously — no rAF needed, and skipping it avoids a paint
+            // where cells are sized but iframes are still at their old scale.
+            scaleAllToCells();
         }
 
-        // Max cell height in px — tall overlays (e.g. vertical) are scaled down to stay within this
-        const MAX_CELL_HEIGHT = 200;
-
-        function cropToOverlay(iframe, bounds) {
+        function fitIframeToCell(iframe) {
             const wrapper = iframe.parentElement;
             if (!wrapper) return;
+            const cw = wrapper.clientWidth;
+            const ch = wrapper.clientHeight;
+            if (cw <= 0 || ch <= 0) return;
 
-            // Padding around the overlay area
-            const pad = 15;
-            const ox = Math.max(0, bounds.x - pad);
-            const oy = Math.max(0, bounds.y - pad);
-            const ow = Math.min(1920 - ox, bounds.width + pad * 2);
-            const oh = Math.min(1080 - oy, bounds.height + pad * 2);
-
+            const bounds = iframeBounds.get(iframe.dataset.style);
+            let ox = 0;
+            let oy = 0;
+            let ow = OVERLAY_W;
+            let oh = OVERLAY_H;
+            if (bounds && bounds.width > 0 && bounds.height > 0) {
+                ox = Math.max(0, bounds.x - BOUNDS_PAD);
+                oy = Math.max(0, bounds.y - BOUNDS_PAD);
+                ow = Math.min(OVERLAY_W - ox, bounds.width + BOUNDS_PAD * 2);
+                oh = Math.min(OVERLAY_H - oy, bounds.height + BOUNDS_PAD * 2);
+            }
             if (ow <= 0 || oh <= 0) return;
 
-            // Scale to fit width, but also cap by MAX_CELL_HEIGHT so tall overlays
-            // don't dominate the grid — use whichever scale is smaller.
-            const cellWidth = wrapper.clientWidth;
-            const scaleW = cellWidth / ow;
-            const scaleH = MAX_CELL_HEIGHT / oh;
-            const scale = Math.min(scaleW, scaleH);
+            const scale = Math.min(cw / ow, ch / oh);
+            const tx = (cw - ow * scale) / 2;
+            const ty = (ch - oh * scale) / 2;
+            // CSS transforms apply right-to-left, so the translate(-ox,-oy)
+            // shifts the cropped region to the origin before scaling.
+            iframe.style.transform =
+                `translate(${tx}px, ${ty}px) scale(${scale}) translate(${-ox}px, ${-oy}px)`;
+        }
 
-            // Set wrapper height to match the cropped aspect ratio
-            wrapper.style.height = Math.round(oh * scale) + "px";
-
-            // Transform: first translate the overlay to (0,0), then scale down.
-            // CSS transforms apply right-to-left, so translate runs first.
-            iframe.style.transformOrigin = "0 0";
-            iframe.style.transform = `scale(${scale}) translate(${-ox}px, ${-oy}px)`;
+        function scaleAllToCells() {
+            document
+                .querySelectorAll(".mosaic-iframe-wrapper iframe")
+                .forEach(fitIframeToCell);
         }
 
         // Listen for render-area reports from overlay iframes (sent by app.js reportRenderArea)
@@ -93,19 +145,27 @@
             for (const iframe of iframes) {
                 if (iframe.contentWindow === event.source) {
                     iframeBounds.set(iframe.dataset.style, bounds);
-                    cropToOverlay(iframe, bounds);
+                    fitIframeToCell(iframe);
                     break;
                 }
             }
         });
 
-        // Recalculate on resize
-        window.addEventListener("resize", () => {
-            document.querySelectorAll(".mosaic-iframe-wrapper iframe").forEach(iframe => {
-                const bounds = iframeBounds.get(iframe.dataset.style);
-                if (bounds) cropToOverlay(iframe, bounds);
+        // Outer rAF debounces a burst of resize events into one relayout.
+        let resizeRaf = 0;
+        function scheduleRelayout() {
+            if (resizeRaf) cancelAnimationFrame(resizeRaf);
+            resizeRaf = requestAnimationFrame(() => {
+                applyLayout();
+                scaleAllToCells();
             });
-        });
+        }
+        window.addEventListener("resize", scheduleRelayout);
+        // visualViewport fires on mobile URL-bar collapse; window.resize
+        // doesn't always fire for that on iOS Safari, so listen to both.
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", scheduleRelayout);
+        }
 
         buildGrid(AVAILABLE_STYLES);
     </script>

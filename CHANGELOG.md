@@ -8,6 +8,17 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- The `mosaic` overlay style (`/overlay/{id}?style=mosaic`) now scales to
+  fit the current viewport without scrolling. The grid picks the best
+  cols × rows split for the number of available styles, and each
+  preview iframe is cropped to its reported render bounds and centred
+  inside its cell, so all styles are visible at once and re-fit on
+  window resize. Previously the page used a fixed 580px-min column with
+  a 200px height cap, producing a vertically scrolling list once more
+  than a few styles were available.
+
 ---
 
 ## [5.0.3] - 2026-04-30
