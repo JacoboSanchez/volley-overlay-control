@@ -8,6 +8,10 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+---
+
+## [5.0.4] - 2026-04-30
+
 ### Changed
 
 - The `mosaic` overlay style (`/overlay/{id}?style=mosaic`) now scales to
@@ -17,7 +21,12 @@ once a first tagged release ships.
   inside its cell, so all styles are visible at once and re-fit on
   window resize. Previously the page used a fixed 580px-min column with
   a 200px height cap, producing a vertically scrolling list once more
-  than a few styles were available.
+  than a few styles were available. Mobile viewports are pinned to
+  `100dvh` so the grid stays inside the visible area when browser
+  chrome shrinks/expands, and the iframe sizing handshake was
+  rewritten around the resize observer's content-box plus a single
+  `requestAnimationFrame` to remove the brief flicker on first paint
+  and on resize (`#222`).
 
 ### Dependencies
 
