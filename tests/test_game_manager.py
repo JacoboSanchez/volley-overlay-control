@@ -368,3 +368,35 @@ def test_add_set_after_match_finished(game_manager):
     game_manager.add_set(1, False)
     state = game_manager.get_current_state()
     assert state.get_sets(1) == 3
+
+
+def test_best_of_1_match_finished_after_one_set(game_manager):
+    """Best-of-1: ``conf.sets`` defaults to 5, but the per-session
+    ``sets_limit`` of 1 must drive ``match_finished``."""
+    game_manager.add_set(1, False, sets_limit=1)
+    assert game_manager.match_finished(sets_limit=1) is True
+    # The conf-default code path keeps reporting "not finished" so the
+    # session-aware overload is what fixes the bug.
+    assert game_manager.match_finished() is False
+
+
+def test_best_of_1_add_game_finishes_match(game_manager):
+    """Winning the only set of a best-of-1 must flip ``match_finished``."""
+    for _ in range(14):
+        game_manager.add_game(1, 1, 25, 15, 1, False)
+    # 15-0 with a 2-point margin: this is the match-winning point.
+    game_manager.add_game(1, 1, 25, 15, 1, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 1
+    assert game_manager.match_finished(sets_limit=1) is True
+
+
+def test_best_of_1_no_more_points_after_finished(game_manager):
+    """No further points can be scored once the only set is decided."""
+    for _ in range(14):
+        game_manager.add_game(1, 1, 25, 15, 1, False)
+    game_manager.add_game(1, 1, 25, 15, 1, False)  # 15th point — match over
+    game_manager.add_game(1, 1, 25, 15, 1, False)  # blocked
+    state = game_manager.get_current_state()
+    assert state.get_game(1, 1) == 15
+    assert state.get_sets(1) == 1
