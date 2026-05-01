@@ -24,14 +24,6 @@ export interface ScoreboardViewProps {
   buttonSize?: number;
   previewData: PreviewData | null | undefined;
   showPreview: boolean;
-  /**
-   * When true, the per-team score history is rendered next to each
-   * team's score button (on the side closest to centre) instead of in
-   * CenterPanel. Used for landscape phones with the preview enabled,
-   * where CenterPanel doesn't have room for both the tables and the
-   * alert pills.
-   */
-  inlineScoreHistory: boolean;
   showControls: boolean;
   setShowControls: Dispatch<SetStateAction<boolean>>;
   canUndo: boolean;
@@ -73,7 +65,6 @@ export default function ScoreboardView({
   buttonSize,
   previewData,
   showPreview,
-  inlineScoreHistory,
   showControls,
   setShowControls,
   canUndo,
@@ -120,7 +111,6 @@ export default function ScoreboardView({
           timeoutColor={TEAM_A_LIGHT}
           buttonSize={buttonSize}
           isPortrait={isPortrait}
-          inlineScoreHistory={inlineScoreHistory}
           iconLogo={iconLogoA}
           iconOpacity={iconOpacity}
           fontStyle={fontStyle}
@@ -141,7 +131,6 @@ export default function ScoreboardView({
           currentSet={currentSet}
           setsLimit={setsLimit}
           isPortrait={isPortrait}
-          inlineScoreHistory={inlineScoreHistory}
           previewData={showPreview ? previewData : null}
           fontStyle={fontStyle}
           onAddSet={onAddSet}
@@ -159,7 +148,6 @@ export default function ScoreboardView({
           timeoutColor={TEAM_B_LIGHT}
           buttonSize={buttonSize}
           isPortrait={isPortrait}
-          inlineScoreHistory={inlineScoreHistory}
           iconLogo={iconLogoB}
           iconOpacity={iconOpacity}
           fontStyle={fontStyle}

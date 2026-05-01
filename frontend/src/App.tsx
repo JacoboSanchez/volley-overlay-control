@@ -365,13 +365,6 @@ export default function App() {
           buttonSize={buttonSize}
           previewData={previewData}
           showPreview={settings.showPreview}
-          // Landscape compact: phones in landscape with the preview enabled
-          // don't have room in CenterPanel for both score tables AND the new
-          // alert pills. Move the per-team score history into the team panels
-          // (matching portrait's layout) and free CenterPanel for the alerts.
-          inlineScoreHistory={
-            !isPortrait && !hasRoomForPersistentControls && settings.showPreview
-          }
           showControls={showControls}
           setShowControls={setShowControls}
           canUndo={state?.can_undo ?? false}
