@@ -91,4 +91,45 @@ describe('MatchAlertIndicator', () => {
     expect(el.dataset.alertKind).toBe('set-point');
     expect(el.dataset.alertTeam).toBe('2');
   });
+
+  it('omits the team from the visible label (icon position is the cue)', () => {
+    renderWithI18n(
+      <MatchAlertIndicator state={withInfo({}, { team_1_set_point: true })} />,
+    );
+    const el = screen.getByTestId('match-alert-indicator');
+    expect(el.textContent).not.toMatch(/team|equipo|equipa|squadra|équipe/i);
+  });
+
+  it('places the icon before the label for team 1', () => {
+    renderWithI18n(
+      <MatchAlertIndicator state={withInfo({}, { team_1_match_point: true })} />,
+    );
+    const el = screen.getByTestId('match-alert-indicator');
+    const children = Array.from(el.children) as HTMLElement[];
+    const iconIdx = children.findIndex((c) => c.classList.contains('material-icons'));
+    const labelIdx = children.findIndex((c) => !c.classList.contains('material-icons'));
+    expect(iconIdx).toBeGreaterThanOrEqual(0);
+    expect(iconIdx).toBeLessThan(labelIdx);
+  });
+
+  it('places the icon after the label for team 2', () => {
+    renderWithI18n(
+      <MatchAlertIndicator state={withInfo({}, { team_2_match_point: true })} />,
+    );
+    const el = screen.getByTestId('match-alert-indicator');
+    const children = Array.from(el.children) as HTMLElement[];
+    const iconIdx = children.findIndex((c) => c.classList.contains('material-icons'));
+    const labelIdx = children.findIndex((c) => !c.classList.contains('material-icons'));
+    expect(iconIdx).toBeGreaterThanOrEqual(0);
+    expect(iconIdx).toBeGreaterThan(labelIdx);
+  });
+
+  it('exposes the team in the aria-label for screen readers', () => {
+    renderWithI18n(
+      <MatchAlertIndicator state={withInfo({}, { team_2_set_point: true })} />,
+    );
+    const el = screen.getByTestId('match-alert-indicator');
+    // The visible text drops the team, but assistive tech still gets it.
+    expect(el.getAttribute('aria-label')).toMatch(/2/);
+  });
 });

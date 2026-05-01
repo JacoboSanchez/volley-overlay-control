@@ -70,8 +70,9 @@ const translations: Record<string, TranslationDict> = {
     'rules.sideSwitchPending': 'Switch sides now',
     'rules.sideSwitchInN': 'Side switch in {n}',
     'alerts.matchFinished': 'Match finished',
-    'alerts.matchPointTeam': 'Match point — Team {team}',
-    'alerts.setPointTeam': 'Set point — Team {team}',
+    'alerts.matchPoint': 'Match point',
+    'alerts.setPoint': 'Set point',
+    'alerts.team': 'Team {team}',
 
     // Teams section
     'teams.select': '— Select —',
@@ -213,8 +214,9 @@ const translations: Record<string, TranslationDict> = {
     'rules.sideSwitchPending': 'Cambiar de lado',
     'rules.sideSwitchInN': 'Cambio de lado en {n}',
     'alerts.matchFinished': 'Partido finalizado',
-    'alerts.matchPointTeam': 'Punto de partido — Equipo {team}',
-    'alerts.setPointTeam': 'Punto de set — Equipo {team}',
+    'alerts.matchPoint': 'Punto de partido',
+    'alerts.setPoint': 'Punto de set',
+    'alerts.team': 'Equipo {team}',
 
     // Teams section
     'teams.select': '— Elegir —',
@@ -356,8 +358,9 @@ const translations: Record<string, TranslationDict> = {
     'rules.sideSwitchPending': 'Trocar de lado',
     'rules.sideSwitchInN': 'Troca de lado em {n}',
     'alerts.matchFinished': 'Jogo terminado',
-    'alerts.matchPointTeam': 'Match point — Equipa {team}',
-    'alerts.setPointTeam': 'Set point — Equipa {team}',
+    'alerts.matchPoint': 'Match point',
+    'alerts.setPoint': 'Set point',
+    'alerts.team': 'Equipa {team}',
 
     // Teams section
     'teams.select': '— Selecionar —',
@@ -499,8 +502,9 @@ const translations: Record<string, TranslationDict> = {
     'rules.sideSwitchPending': 'Cambio campo',
     'rules.sideSwitchInN': 'Cambio campo tra {n}',
     'alerts.matchFinished': 'Partita terminata',
-    'alerts.matchPointTeam': 'Match point — Squadra {team}',
-    'alerts.setPointTeam': 'Set point — Squadra {team}',
+    'alerts.matchPoint': 'Match point',
+    'alerts.setPoint': 'Set point',
+    'alerts.team': 'Squadra {team}',
 
     // Teams section
     'teams.select': '— Seleziona —',
@@ -642,8 +646,9 @@ const translations: Record<string, TranslationDict> = {
     'rules.sideSwitchPending': 'Changement de côté',
     'rules.sideSwitchInN': 'Changement de côté dans {n}',
     'alerts.matchFinished': 'Match terminé',
-    'alerts.matchPointTeam': 'Balle de match — Équipe {team}',
-    'alerts.setPointTeam': 'Balle de set — Équipe {team}',
+    'alerts.matchPoint': 'Balle de match',
+    'alerts.setPoint': 'Balle de set',
+    'alerts.team': 'Équipe {team}',
 
     // Teams section
     'teams.select': '— Sélectionner —',
@@ -785,8 +790,9 @@ const translations: Record<string, TranslationDict> = {
     'rules.sideSwitchPending': 'Seitenwechsel',
     'rules.sideSwitchInN': 'Seitenwechsel in {n}',
     'alerts.matchFinished': 'Spiel beendet',
-    'alerts.matchPointTeam': 'Matchball — Team {team}',
-    'alerts.setPointTeam': 'Satzball — Team {team}',
+    'alerts.matchPoint': 'Matchball',
+    'alerts.setPoint': 'Satzball',
+    'alerts.team': 'Team {team}',
 
     // Teams section
     'teams.select': '— Auswählen —',
