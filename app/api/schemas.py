@@ -105,6 +105,20 @@ class BeachSideSwitch(BaseModel):
     is_switch_pending: bool
 
 
+class MatchPointInfo(BaseModel):
+    """Per-team flags signalling that the next point would close out the
+    current set or the entire match.
+
+    Match point implies set point. The renderer is expected to show only
+    the more specific label (match point) when both apply. All flags
+    collapse to ``False`` once ``match_finished`` is true.
+    """
+    team_1_set_point: bool
+    team_2_set_point: bool
+    team_1_match_point: bool
+    team_2_match_point: bool
+
+
 class GameStateResponse(BaseModel):
     current_set: int
     visible: bool
@@ -115,6 +129,7 @@ class GameStateResponse(BaseModel):
     serve: str
     config: dict  # points_limit, sets_limit, mode, etc.
     beach_side_switch: Optional[BeachSideSwitch] = None
+    match_point_info: Optional[MatchPointInfo] = None
     # True when the audit log has at least one pending undoable
     # forward record (any of add_point/add_set/add_timeout). Lets
     # frontends drive the global Undo button from the server-side

@@ -3,12 +3,18 @@ import time
 from typing import Optional
 
 from app.api import action_log, match_archive
-from app.api.match_rules import compute_side_switch, defaults_for, is_valid_mode
+from app.api.match_rules import (
+    compute_match_point_info,
+    compute_side_switch,
+    defaults_for,
+    is_valid_mode,
+)
 from app.api.schemas import (
     ALLOWED_CUSTOMIZATION_KEYS,
     ActionResponse,
     BeachSideSwitch,
     GameStateResponse,
+    MatchPointInfo,
     TeamState,
 )
 from app.api.webhooks import webhook_dispatcher
@@ -54,22 +60,36 @@ class GameService:
                 serving=(serve == State.SERVE_1 if team == 1 else serve == State.SERVE_2),
             )
 
+        team1_score = state.get_game(1, session.current_set)
+        team2_score = state.get_game(2, session.current_set)
         side_switch_data = compute_side_switch(
             mode=session.mode,
             current_set=session.current_set,
             sets_limit=session.sets_limit,
-            team1_score=state.get_game(1, session.current_set),
-            team2_score=state.get_game(2, session.current_set),
+            team1_score=team1_score,
+            team2_score=team2_score,
         )
         side_switch = (
             BeachSideSwitch(**side_switch_data) if side_switch_data is not None
             else None
         )
+        match_finished = session.game_manager.match_finished(session.sets_limit)
+        match_point_info = MatchPointInfo(**compute_match_point_info(
+            current_set=session.current_set,
+            sets_limit=session.sets_limit,
+            team1_sets=state.get_sets(1),
+            team2_sets=state.get_sets(2),
+            team1_score=team1_score,
+            team2_score=team2_score,
+            points_limit=session.points_limit,
+            points_limit_last_set=session.points_limit_last_set,
+            match_finished=match_finished,
+        ))
         response = GameStateResponse(
             current_set=session.current_set,
             visible=session.visible,
             simple_mode=session.simple,
-            match_finished=session.game_manager.match_finished(session.sets_limit),
+            match_finished=match_finished,
             team_1=team_state(1),
             team_2=team_state(2),
             serve=serve,
@@ -80,6 +100,7 @@ class GameService:
                 "sets_limit": session.sets_limit,
             },
             beach_side_switch=side_switch,
+            match_point_info=match_point_info,
             can_undo=session.undoable_forward_count > 0,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000

@@ -934,6 +934,7 @@ export interface components {
             current_set: number;
             /** Match Finished */
             match_finished: boolean;
+            match_point_info?: components["schemas"]["MatchPointInfo"] | null;
             /** Serve */
             serve: string;
             /** Simple Mode */
@@ -975,6 +976,25 @@ export interface components {
             tournament?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * MatchPointInfo
+         * @description Per-team flags signalling that the next point would close out the
+         *     current set or the entire match.
+         *
+         *     Match point implies set point. The renderer is expected to show only
+         *     the more specific label (match point) when both apply. All flags
+         *     collapse to ``False`` once ``match_finished`` is true.
+         */
+        MatchPointInfo: {
+            /** Team 1 Match Point */
+            team_1_match_point: boolean;
+            /** Team 1 Set Point */
+            team_1_set_point: boolean;
+            /** Team 2 Match Point */
+            team_2_match_point: boolean;
+            /** Team 2 Set Point */
+            team_2_set_point: boolean;
         };
         /** OverlayControlModel */
         OverlayControlModel: {

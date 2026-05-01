@@ -4,6 +4,7 @@ import pytest
 from app.api.game_service import GameService
 from app.api.match_rules import (
     PRESETS,
+    compute_match_point_info,
     compute_side_switch,
     defaults_for,
     is_valid_mode,
@@ -111,6 +112,133 @@ class TestComputeSideSwitch:
             team1_score=-3, team2_score=-1,
         )
         assert result["points_in_set"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Set-point / match-point helpers
+# ---------------------------------------------------------------------------
+
+def _mp_kwargs(**overrides):
+    """Default-filled kwargs for ``compute_match_point_info`` so tests
+    only need to mention the fields that vary."""
+    base = dict(
+        current_set=1,
+        sets_limit=5,
+        team1_sets=0,
+        team2_sets=0,
+        team1_score=0,
+        team2_score=0,
+        points_limit=25,
+        points_limit_last_set=15,
+        match_finished=False,
+    )
+    base.update(overrides)
+    return base
+
+
+class TestComputeMatchPointInfo:
+    def test_no_flags_at_start(self):
+        info = compute_match_point_info(**_mp_kwargs())
+        assert info == {
+            "team_1_set_point": False,
+            "team_2_set_point": False,
+            "team_1_match_point": False,
+            "team_2_match_point": False,
+        }
+
+    def test_set_point_at_24_22(self):
+        # 24-22 → next point makes it 25-22 (margin 3 > 1, hits 25). Set point.
+        info = compute_match_point_info(
+            **_mp_kwargs(team1_score=24, team2_score=22),
+        )
+        assert info["team_1_set_point"] is True
+        assert info["team_2_set_point"] is False
+        # Best-of-5, sets won 0-0 → not a match point yet.
+        assert info["team_1_match_point"] is False
+
+    def test_no_set_point_at_24_24_deuce(self):
+        # 24-24 → next point makes it 25-24 (margin 1, NOT a win). Neither side.
+        info = compute_match_point_info(
+            **_mp_kwargs(team1_score=24, team2_score=24),
+        )
+        assert info["team_1_set_point"] is False
+        assert info["team_2_set_point"] is False
+
+    def test_set_point_after_deuce_at_26_24(self):
+        info = compute_match_point_info(
+            **_mp_kwargs(team1_score=26, team2_score=24),
+        )
+        # 26 already wins, but state isn't transitioned yet — score+1=27,
+        # margin=3, hits 25. Treat as still set point so the indicator
+        # remains visible until the set actually closes.
+        assert info["team_1_set_point"] is True
+
+    def test_match_point_when_one_set_from_clinch(self):
+        # Best of 5, 2-0 lead, 24-10 → next point wins set #3 and the match.
+        info = compute_match_point_info(
+            **_mp_kwargs(
+                current_set=3, team1_sets=2, team2_sets=0,
+                team1_score=24, team2_score=10,
+            ),
+        )
+        assert info["team_1_set_point"] is True
+        assert info["team_1_match_point"] is True
+        assert info["team_2_match_point"] is False
+
+    def test_set_point_but_not_match_point_with_only_one_set_won(self):
+        info = compute_match_point_info(
+            **_mp_kwargs(
+                current_set=2, team1_sets=1, team2_sets=0,
+                team1_score=24, team2_score=10,
+            ),
+        )
+        assert info["team_1_set_point"] is True
+        # Team 1 would only reach 2 sets — best-of-5 needs 3.
+        assert info["team_1_match_point"] is False
+
+    def test_last_set_uses_short_target(self):
+        # Indoor 5th set: target 15, not 25.
+        info = compute_match_point_info(
+            **_mp_kwargs(
+                current_set=5, sets_limit=5,
+                team1_sets=2, team2_sets=2,
+                team1_score=14, team2_score=10,
+            ),
+        )
+        assert info["team_1_set_point"] is True
+        assert info["team_1_match_point"] is True
+
+    def test_best_of_1_first_set_wins_match(self):
+        # Single set: any set point IS a match point.
+        info = compute_match_point_info(
+            **_mp_kwargs(
+                current_set=1, sets_limit=1,
+                team1_sets=0, team2_sets=0,
+                team1_score=14, team2_score=12,
+                points_limit=25, points_limit_last_set=15,
+            ),
+        )
+        assert info["team_1_set_point"] is True
+        assert info["team_1_match_point"] is True
+
+    def test_match_finished_clears_all_flags(self):
+        info = compute_match_point_info(
+            **_mp_kwargs(
+                team1_score=24, team2_score=22, match_finished=True,
+            ),
+        )
+        assert all(v is False for v in info.values())
+
+    def test_at_most_one_team_holds_set_point(self):
+        # Mathematically impossible for both due to win-by-2 rule, but
+        # exercise a near-boundary input to confirm.
+        for s1 in range(0, 30):
+            for s2 in range(0, 30):
+                info = compute_match_point_info(
+                    **_mp_kwargs(team1_score=s1, team2_score=s2),
+                )
+                both = info["team_1_set_point"] and info["team_2_set_point"]
+                assert both is False, f"both holding set point at {s1}-{s2}"
 
 
 # ---------------------------------------------------------------------------

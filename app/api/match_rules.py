@@ -118,3 +118,71 @@ def compute_side_switch(
             points_in_set > 0 and points_in_set % interval == 0
         ),
     }
+
+
+# -----------------------------------------------------------------------------
+# Set-point / match-point derivation
+# -----------------------------------------------------------------------------
+
+def _team_has_set_point(
+    team_score: int, rival_score: int, points_limit: int,
+) -> bool:
+    """Return ``True`` if scoring one more point would close out the set.
+
+    Mirrors :meth:`GameManager._is_winning_score` applied to
+    ``team_score + 1``: a point is set-winning when the team reaches
+    ``points_limit`` *and* leads by more than 1. The ``> 1`` margin
+    rule is what guarantees that, even on the boundary, at most one
+    side can hold set point at any instant (a 24-24 deuce gives
+    neither side set point).
+    """
+    return team_score + 1 >= points_limit and (team_score + 1) - rival_score > 1
+
+
+def compute_match_point_info(
+    *, current_set: int, sets_limit: int,
+    team1_sets: int, team2_sets: int,
+    team1_score: int, team2_score: int,
+    points_limit: int, points_limit_last_set: int,
+    match_finished: bool,
+) -> dict:
+    """Per-team flags signalling that the next point would close out the
+    current set or the entire match.
+
+    Returns a dict with four boolean fields. When the match is already
+    finished, every flag is ``False`` — the caller's
+    ``match_finished`` flag takes visual precedence anyway, and clamping
+    here keeps the indicator from briefly flashing during the
+    set-end → match-end transition.
+
+    Match point implies set point, but the renderer is expected to show
+    only the more specific label (match point) when both apply.
+    """
+    if match_finished:
+        return {
+            "team_1_set_point": False,
+            "team_2_set_point": False,
+            "team_1_match_point": False,
+            "team_2_match_point": False,
+        }
+
+    # The deciding set has its own point cap (e.g. 15 in the tiebreak);
+    # any earlier set uses ``points_limit``.
+    is_last_set = current_set >= sets_limit
+    set_target = points_limit_last_set if is_last_set else points_limit
+
+    t1_set = _team_has_set_point(team1_score, team2_score, set_target)
+    t2_set = _team_has_set_point(team2_score, team1_score, set_target)
+
+    # Match point: holding set point AND winning the current set would
+    # clinch the match. ``soft_limit`` mirrors GameManager.match_finished.
+    soft_limit = sets_limit // 2 + 1
+    t1_match = t1_set and (team1_sets + 1) >= soft_limit
+    t2_match = t2_set and (team2_sets + 1) >= soft_limit
+
+    return {
+        "team_1_set_point": t1_set,
+        "team_2_set_point": t2_set,
+        "team_1_match_point": t1_match,
+        "team_2_match_point": t2_match,
+    }

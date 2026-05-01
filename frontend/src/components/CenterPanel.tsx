@@ -3,6 +3,7 @@ import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
 import SideSwitchIndicator from './SideSwitchIndicator';
+import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import { asString } from '../utils/coerce';
@@ -130,7 +131,12 @@ export default function CenterPanel({
         </button>
       </div>
 
-      <SideSwitchIndicator info={state.beach_side_switch} />
+      <div className="match-alerts-row" data-testid="match-alerts-row">
+        <MatchAlertIndicator state={state} />
+        {!state.match_finished && (
+          <SideSwitchIndicator info={state.beach_side_switch} />
+        )}
+      </div>
 
       {previewData && (
         <OverlayPreview

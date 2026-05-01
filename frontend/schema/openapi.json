@@ -211,6 +211,16 @@
             "title": "Match Finished",
             "type": "boolean"
           },
+          "match_point_info": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchPointInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "serve": {
             "title": "Serve",
             "type": "string"
@@ -375,6 +385,35 @@
           }
         },
         "title": "MatchInfoModel",
+        "type": "object"
+      },
+      "MatchPointInfo": {
+        "description": "Per-team flags signalling that the next point would close out the\ncurrent set or the entire match.\n\nMatch point implies set point. The renderer is expected to show only\nthe more specific label (match point) when both apply. All flags\ncollapse to ``False`` once ``match_finished`` is true.",
+        "properties": {
+          "team_1_match_point": {
+            "title": "Team 1 Match Point",
+            "type": "boolean"
+          },
+          "team_1_set_point": {
+            "title": "Team 1 Set Point",
+            "type": "boolean"
+          },
+          "team_2_match_point": {
+            "title": "Team 2 Match Point",
+            "type": "boolean"
+          },
+          "team_2_set_point": {
+            "title": "Team 2 Set Point",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "team_1_set_point",
+          "team_2_set_point",
+          "team_1_match_point",
+          "team_2_match_point"
+        ],
+        "title": "MatchPointInfo",
         "type": "object"
       },
       "OverlayControlModel": {
