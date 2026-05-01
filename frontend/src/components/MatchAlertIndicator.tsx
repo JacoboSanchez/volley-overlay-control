@@ -9,6 +9,13 @@ export interface MatchAlertIndicatorProps {
    * matches the empty/loading state from the rest of the app.
    */
   state: GameState | null | undefined;
+  /**
+   * Layout orientation, used to pick the direction of the team-pointing
+   * triangle: left/right in landscape (where team panels sit on either
+   * side of the centre column), up/down in portrait (where they stack).
+   * Defaults to landscape — the icon still encodes the team correctly.
+   */
+  isPortrait?: boolean;
 }
 
 type AlertKind = 'finished' | 'match-point' | 'set-point';
@@ -17,6 +24,14 @@ interface AlertSpec {
   kind: AlertKind;
   team?: 1 | 2;
 }
+
+// Per-team triangle that points toward the team's panel: left/up for
+// team 1 (top-left of the layout), right/down for team 2 — picking
+// the orientation that matches the current viewport.
+const TEAM_TRIANGLE = {
+  1: { portrait: 'arrow_drop_up', landscape: 'arrow_left' },
+  2: { portrait: 'arrow_drop_down', landscape: 'arrow_right' },
+} as const;
 
 function pickAlert(state: GameState): AlertSpec | null {
   // Match end is the loudest event — render it on its own and skip
@@ -34,7 +49,10 @@ function pickAlert(state: GameState): AlertSpec | null {
   return null;
 }
 
-export default function MatchAlertIndicator({ state }: MatchAlertIndicatorProps) {
+export default function MatchAlertIndicator({
+  state,
+  isPortrait = false,
+}: MatchAlertIndicatorProps) {
   const { t } = useI18n();
   if (!state) return null;
   const alert = pickAlert(state);
@@ -46,15 +64,17 @@ export default function MatchAlertIndicator({ state }: MatchAlertIndicatorProps)
     : 'alerts.setPoint';
   const label = t(labelKey);
 
-  const icon =
-    alert.kind === 'finished' ? 'emoji_events'
-    : alert.kind === 'match-point' ? 'sports_score'
-    : 'flag';
+  // For team-bearing alerts (set / match point) the icon is a filled
+  // triangle pointing toward the team that can win. Match-finished
+  // has no team, so it keeps the trophy.
+  const icon = alert.team
+    ? TEAM_TRIANGLE[alert.team][isPortrait ? 'portrait' : 'landscape']
+    : 'emoji_events';
 
-  // The icon's position is the only cue for which team is on point —
-  // left for team 1, right for team 2 — mirroring the team panels'
-  // physical position on the layout. Match-finished has no team and
-  // keeps the icon on the left like every other "lead" pill.
+  // The icon also sits on the side closest to the team — left for
+  // team 1, right for team 2 — so the triangle's tip and its
+  // position both reinforce the team identity. Match-finished pins
+  // to the left like every other "lead" pill.
   const iconLeft = alert.team !== 2;
   const iconEl = <span className="material-icons">{icon}</span>;
 

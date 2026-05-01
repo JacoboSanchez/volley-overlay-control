@@ -148,7 +148,7 @@ export default function CenterPanel({
       </div>
 
       <div className="match-alerts-row" data-testid="match-alerts-row">
-        <MatchAlertIndicator state={state} />
+        <MatchAlertIndicator state={state} isPortrait={isPortrait} />
         {!state.match_finished && (
           <SideSwitchIndicator
             info={state.beach_side_switch}

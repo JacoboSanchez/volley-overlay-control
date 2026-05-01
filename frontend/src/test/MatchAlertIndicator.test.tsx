@@ -132,4 +132,69 @@ describe('MatchAlertIndicator', () => {
     // The visible text drops the team, but assistive tech still gets it.
     expect(el.getAttribute('aria-label')).toMatch(/2/);
   });
+
+  // ── Team-pointing triangle icon ────────────────────────────────────
+
+  it('uses a left-pointing triangle for team 1 in landscape', () => {
+    renderWithI18n(
+      <MatchAlertIndicator
+        state={withInfo({}, { team_1_set_point: true })}
+        isPortrait={false}
+      />,
+    );
+    const icon = screen.getByTestId('match-alert-indicator')
+      .querySelector('.material-icons');
+    expect(icon?.textContent).toBe('arrow_left');
+  });
+
+  it('uses a right-pointing triangle for team 2 in landscape', () => {
+    renderWithI18n(
+      <MatchAlertIndicator
+        state={withInfo({}, { team_2_match_point: true })}
+        isPortrait={false}
+      />,
+    );
+    const icon = screen.getByTestId('match-alert-indicator')
+      .querySelector('.material-icons');
+    expect(icon?.textContent).toBe('arrow_right');
+  });
+
+  it('uses an up-pointing triangle for team 1 in portrait', () => {
+    renderWithI18n(
+      <MatchAlertIndicator
+        state={withInfo({}, { team_1_set_point: true })}
+        isPortrait={true}
+      />,
+    );
+    const icon = screen.getByTestId('match-alert-indicator')
+      .querySelector('.material-icons');
+    expect(icon?.textContent).toBe('arrow_drop_up');
+  });
+
+  it('uses a down-pointing triangle for team 2 in portrait', () => {
+    renderWithI18n(
+      <MatchAlertIndicator
+        state={withInfo({}, { team_2_match_point: true })}
+        isPortrait={true}
+      />,
+    );
+    const icon = screen.getByTestId('match-alert-indicator')
+      .querySelector('.material-icons');
+    expect(icon?.textContent).toBe('arrow_drop_down');
+  });
+
+  it('keeps the trophy icon for match-finished regardless of orientation', () => {
+    for (const isPortrait of [true, false]) {
+      const { unmount } = renderWithI18n(
+        <MatchAlertIndicator
+          state={withInfo({ match_finished: true })}
+          isPortrait={isPortrait}
+        />,
+      );
+      const icon = screen.getByTestId('match-alert-indicator')
+        .querySelector('.material-icons');
+      expect(icon?.textContent).toBe('emoji_events');
+      unmount();
+    }
+  });
 });
