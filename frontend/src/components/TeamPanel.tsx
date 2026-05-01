@@ -180,15 +180,17 @@ export default function TeamPanel({
 
   // In landscape compact mode, the history rides next to the button on
   // the side closest to the centre — right of team 1, left of team 2.
-  const renderInlineLandscapeHistory = !isPortrait && inlineScoreHistory && historyBlock;
+  // ``state`` may be null on first load; fall back to the bare button.
+  const showInlineLandscapeHistory =
+    !isPortrait && inlineScoreHistory && historyBlock !== null;
 
   return (
     <div className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}>
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
         {isPortrait && historyBlock}
-        {renderInlineLandscapeHistory ? (
+        {showInlineLandscapeHistory ? (
           <div
-            className={`team-score-row team-score-row-team-${teamId}`}
+            className="team-score-row"
             data-testid={`team-${teamId}-score-row`}
           >
             {teamId === 2 && historyBlock}

@@ -232,5 +232,20 @@ describe('TeamPanel', () => {
       // History-col is still rendered (portrait has always shown it).
       expect(container.querySelector('.team-history-col')).not.toBeNull();
     });
+
+    it('falls back to the bare score button when state is null in compact mode', () => {
+      const { container } = render(
+        <TeamPanel
+          {...defaultProps}
+          isPortrait={false}
+          inlineScoreHistory={true}
+          state={null}
+        />,
+      );
+      // No history-col to render → no inline wrapper, just the button.
+      expect(container.querySelector('.team-score-row')).toBeNull();
+      expect(container.querySelector('.team-history-col')).toBeNull();
+      expect(screen.getByTestId('team-1-score')).toBeInTheDocument();
+    });
   });
 });
