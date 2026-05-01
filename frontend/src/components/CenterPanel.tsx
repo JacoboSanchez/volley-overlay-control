@@ -23,6 +23,14 @@ export interface CenterPanelProps {
   currentSet: number;
   setsLimit: number;
   isPortrait: boolean;
+  /**
+   * When true (landscape compact), the per-team score tables are
+   * rendered inside each TeamPanel instead of here, so the alert pills
+   * have room to breathe in the centre. Independent of ``isPortrait``
+   * because portrait already routes the tables to TeamPanel via a
+   * different code path.
+   */
+  inlineScoreHistory?: boolean;
   previewData: PreviewData | null | undefined;
   fontStyle?: ScoreButtonFontStyle;
   onAddSet: (teamId: 1 | 2) => void;
@@ -36,6 +44,7 @@ export default function CenterPanel({
   currentSet,
   setsLimit,
   isPortrait,
+  inlineScoreHistory = false,
   previewData,
   fontStyle,
   onAddSet,
@@ -65,7 +74,7 @@ export default function CenterPanel({
           data-testid="team-1-sets"
         />
 
-        {!isPortrait && (
+        {!isPortrait && !inlineScoreHistory && (
           <div className="logos-scores-section">
             <div className="team-score-column">
               {logo1 && (
