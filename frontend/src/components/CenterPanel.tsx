@@ -6,6 +6,7 @@ import SideSwitchIndicator from './SideSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
+import { useIndoorMidpointAlert } from '../hooks/useIndoorMidpointAlert';
 import { asString } from '../utils/coerce';
 
 export interface PreviewData {
@@ -53,6 +54,10 @@ export default function CenterPanel({
   onLongPressSet,
   onSetChange,
 }: CenterPanelProps) {
+  // Hooks must run before any early return — the hook itself handles
+  // a null/undefined state by returning ``false``.
+  const indoorMidpointPending = useIndoorMidpointAlert(state, currentSet, setsLimit);
+
   if (!state) return null;
 
   const t1Sets = state.team_1.sets;
@@ -145,7 +150,10 @@ export default function CenterPanel({
       <div className="match-alerts-row" data-testid="match-alerts-row">
         <MatchAlertIndicator state={state} />
         {!state.match_finished && (
-          <SideSwitchIndicator info={state.beach_side_switch} />
+          <SideSwitchIndicator
+            info={state.beach_side_switch}
+            forcePending={indoorMidpointPending}
+          />
         )}
       </div>
 
