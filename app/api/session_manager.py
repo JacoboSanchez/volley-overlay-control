@@ -73,7 +73,7 @@ class GameSession:
         t1sets = state.get_sets(1)
         t2sets = state.get_sets(2)
         current = t1sets + t2sets
-        if not self.game_manager.match_finished():
+        if not self.game_manager.match_finished(self.sets_limit):
             current += 1
         return max(1, min(current, self.sets_limit))
 

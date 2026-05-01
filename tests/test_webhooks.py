@@ -252,6 +252,19 @@ class TestGameServiceFires:
             assert "match_end" in events
             assert "set_end" in events
 
+    def test_match_end_fires_in_best_of_1(
+            self, mock_conf, api_backend, sync_dispatcher):
+        """Best-of-1 sessions must finish (and fire ``match_end``) after the
+        first set even though ``conf.sets`` defaults to 5."""
+        session = SessionManager.get_or_create(
+            "fire-test-bo1", mock_conf, api_backend, sets_limit=1,
+        )
+        with patch.object(sync_dispatcher, "dispatch") as dispatch:
+            GameService.add_set(session, team=1)
+            events = [c.args[0] for c in dispatch.call_args_list]
+            assert "match_end" in events
+            assert session.game_manager.match_finished(session.sets_limit) is True
+
     def test_add_timeout_fires(
             self, mock_conf, api_backend, sync_dispatcher):
         session = SessionManager.get_or_create(

@@ -3,12 +3,18 @@ import time
 from typing import Optional
 
 from app.api import action_log, match_archive
-from app.api.match_rules import compute_side_switch, defaults_for, is_valid_mode
+from app.api.match_rules import (
+    compute_match_point_info,
+    compute_side_switch,
+    defaults_for,
+    is_valid_mode,
+)
 from app.api.schemas import (
     ALLOWED_CUSTOMIZATION_KEYS,
     ActionResponse,
     BeachSideSwitch,
     GameStateResponse,
+    MatchPointInfo,
     TeamState,
 )
 from app.api.webhooks import webhook_dispatcher
@@ -54,22 +60,36 @@ class GameService:
                 serving=(serve == State.SERVE_1 if team == 1 else serve == State.SERVE_2),
             )
 
+        team1_score = state.get_game(1, session.current_set)
+        team2_score = state.get_game(2, session.current_set)
         side_switch_data = compute_side_switch(
             mode=session.mode,
             current_set=session.current_set,
             sets_limit=session.sets_limit,
-            team1_score=state.get_game(1, session.current_set),
-            team2_score=state.get_game(2, session.current_set),
+            team1_score=team1_score,
+            team2_score=team2_score,
         )
         side_switch = (
             BeachSideSwitch(**side_switch_data) if side_switch_data is not None
             else None
         )
+        match_finished = session.game_manager.match_finished(session.sets_limit)
+        match_point_info = MatchPointInfo(**compute_match_point_info(
+            current_set=session.current_set,
+            sets_limit=session.sets_limit,
+            team1_sets=state.get_sets(1),
+            team2_sets=state.get_sets(2),
+            team1_score=team1_score,
+            team2_score=team2_score,
+            points_limit=session.points_limit,
+            points_limit_last_set=session.points_limit_last_set,
+            match_finished=match_finished,
+        ))
         response = GameStateResponse(
             current_set=session.current_set,
             visible=session.visible,
             simple_mode=session.simple,
-            match_finished=session.game_manager.match_finished(),
+            match_finished=match_finished,
             team_1=team_state(1),
             team_2=team_state(2),
             serve=serve,
@@ -80,6 +100,7 @@ class GameService:
                 "sets_limit": session.sets_limit,
             },
             beach_side_switch=side_switch,
+            match_point_info=match_point_info,
             can_undo=session.undoable_forward_count > 0,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
@@ -128,14 +149,14 @@ class GameService:
 
     @staticmethod
     def add_point(session, team: int, undo: bool = False) -> ActionResponse:
-        if not undo and session.game_manager.match_finished():
+        if not undo and session.game_manager.match_finished(session.sets_limit):
             return ActionResponse(
                 success=False,
                 state=GameService.get_state(session),
                 message="Match is already finished.",
             )
 
-        was_finished_before = session.game_manager.match_finished()
+        was_finished_before = session.game_manager.match_finished(session.sets_limit)
         serve_before = session.game_manager.get_current_state().get_current_serve()
         # Capture the set the action operates on *before* a potential
         # set-win advances ``current_set`` — needed so the audit log
@@ -164,7 +185,10 @@ class GameService:
         if undo and session.undo:
             session.undo = False
 
-        if set_won and not session.game_manager.match_finished():
+        # ``_compute_current_set`` already handles the match-finished
+        # case (returns t1+t2 without a +1 advance), so an extra
+        # match_finished guard here is redundant.
+        if set_won:
             session.current_set = session._compute_current_set()
 
         GameService._save_and_broadcast(session)
@@ -186,14 +210,14 @@ class GameService:
                 # ended.
                 ended_set = (
                     session.current_set
-                    if session.game_manager.match_finished()
+                    if session.game_manager.match_finished(session.sets_limit)
                     else session.current_set - 1
                 )
                 GameService._fire(session, "set_end", state_response, {
                     "team": team,
                     "set_number": ended_set,
                 })
-            if session.game_manager.match_finished() and not was_finished_before:
+            if session.game_manager.match_finished(session.sets_limit) and not was_finished_before:
                 GameService._archive_if_finished(session, was_finished_before, team)
                 GameService._fire(session, "match_end", state_response, {
                     "winning_team": team,
@@ -208,14 +232,14 @@ class GameService:
 
     @staticmethod
     def add_set(session, team: int, undo: bool = False) -> ActionResponse:
-        if not undo and session.game_manager.match_finished():
+        if not undo and session.game_manager.match_finished(session.sets_limit):
             return ActionResponse(
                 success=False,
                 state=GameService.get_state(session),
                 message="Match is already finished.",
             )
 
-        was_finished_before = session.game_manager.match_finished()
+        was_finished_before = session.game_manager.match_finished(session.sets_limit)
         # Same reasoning as add_point: capture before advance so the
         # audit log records the final score of the set that ended.
         target_set_before_advance = session.current_set
@@ -226,7 +250,7 @@ class GameService:
             ) if undo else None
         )
 
-        session.game_manager.add_set(team, undo)
+        session.game_manager.add_set(team, undo, session.sets_limit)
 
         if undo and session.undo:
             session.undo = False
@@ -246,14 +270,14 @@ class GameService:
             # finished, so the set that just ended is one less.
             ended_set = (
                 session.current_set
-                if session.game_manager.match_finished()
+                if session.game_manager.match_finished(session.sets_limit)
                 else session.current_set - 1
             )
             GameService._fire(session, "set_end", state_response, {
                 "team": team,
                 "set_number": ended_set,
             })
-            if session.game_manager.match_finished() and not was_finished_before:
+            if session.game_manager.match_finished(session.sets_limit) and not was_finished_before:
                 GameService._archive_if_finished(session, was_finished_before, team)
                 GameService._fire(session, "match_end", state_response, {
                     "winning_team": team,
@@ -262,7 +286,7 @@ class GameService:
 
     @staticmethod
     def add_timeout(session, team: int, undo: bool = False) -> ActionResponse:
-        if not undo and session.game_manager.match_finished():
+        if not undo and session.game_manager.match_finished(session.sets_limit):
             return ActionResponse(
                 success=False,
                 state=GameService.get_state(session),
@@ -323,7 +347,10 @@ class GameService:
             session.points_limit, session.points_limit_last_set,
             session.sets_limit,
         )
-        if set_won and not session.game_manager.match_finished():
+        # ``_compute_current_set`` already handles the match-finished
+        # case (returns t1+t2 without a +1 advance), so an extra
+        # match_finished guard here is redundant.
+        if set_won:
             session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
         GameService._audit(session, "set_score", {
@@ -537,7 +564,7 @@ class GameService:
         bumped to ``now`` so a follow-up ``reset`` does not retroactively
         backdate the next match.
         """
-        if was_finished_before or not session.game_manager.match_finished():
+        if was_finished_before or not session.game_manager.match_finished(session.sets_limit):
             return None
         try:
             final_state = GameService.get_state(session).model_dump()
@@ -612,7 +639,7 @@ class GameService:
                 # the meaningful scores belong to the one that just
                 # ended.
                 "score_set": score_set,
-                "match_finished": session.game_manager.match_finished(),
+                "match_finished": session.game_manager.match_finished(session.sets_limit),
                 "team_1": {
                     "sets": state.get_sets(1),
                     "score": t1_score,

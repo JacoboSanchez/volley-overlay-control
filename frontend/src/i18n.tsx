@@ -68,7 +68,10 @@ const translations: Record<string, TranslationDict> = {
     'rules.pointsLimitLastSet': 'Points / final set',
     'rules.resetDefaults': 'Reset defaults for mode',
     'rules.sideSwitchPending': 'Switch sides now',
-    'rules.sideSwitchInN': 'Side switch in {{n}}',
+    'rules.sideSwitchInN': 'Side switch in {n}',
+    'alerts.matchFinished': 'Match finished',
+    'alerts.matchPointTeam': 'Match point — Team {team}',
+    'alerts.setPointTeam': 'Set point — Team {team}',
 
     // Teams section
     'teams.select': '— Select —',
@@ -208,7 +211,10 @@ const translations: Record<string, TranslationDict> = {
     'rules.pointsLimitLastSet': 'Puntos / último set',
     'rules.resetDefaults': 'Restaurar valores de la modalidad',
     'rules.sideSwitchPending': 'Cambiar de lado',
-    'rules.sideSwitchInN': 'Cambio de lado en {{n}}',
+    'rules.sideSwitchInN': 'Cambio de lado en {n}',
+    'alerts.matchFinished': 'Partido finalizado',
+    'alerts.matchPointTeam': 'Punto de partido — Equipo {team}',
+    'alerts.setPointTeam': 'Punto de set — Equipo {team}',
 
     // Teams section
     'teams.select': '— Elegir —',
@@ -348,7 +354,10 @@ const translations: Record<string, TranslationDict> = {
     'rules.pointsLimitLastSet': 'Pontos / set decisivo',
     'rules.resetDefaults': 'Repor valores da modalidade',
     'rules.sideSwitchPending': 'Trocar de lado',
-    'rules.sideSwitchInN': 'Troca de lado em {{n}}',
+    'rules.sideSwitchInN': 'Troca de lado em {n}',
+    'alerts.matchFinished': 'Jogo terminado',
+    'alerts.matchPointTeam': 'Match point — Equipa {team}',
+    'alerts.setPointTeam': 'Set point — Equipa {team}',
 
     // Teams section
     'teams.select': '— Selecionar —',
@@ -488,7 +497,10 @@ const translations: Record<string, TranslationDict> = {
     'rules.pointsLimitLastSet': 'Punti / set decisivo',
     'rules.resetDefaults': 'Ripristina valori della modalità',
     'rules.sideSwitchPending': 'Cambio campo',
-    'rules.sideSwitchInN': 'Cambio campo tra {{n}}',
+    'rules.sideSwitchInN': 'Cambio campo tra {n}',
+    'alerts.matchFinished': 'Partita terminata',
+    'alerts.matchPointTeam': 'Match point — Squadra {team}',
+    'alerts.setPointTeam': 'Set point — Squadra {team}',
 
     // Teams section
     'teams.select': '— Seleziona —',
@@ -628,7 +640,10 @@ const translations: Record<string, TranslationDict> = {
     'rules.pointsLimitLastSet': 'Points / set décisif',
     'rules.resetDefaults': 'Réinitialiser le mode',
     'rules.sideSwitchPending': 'Changement de côté',
-    'rules.sideSwitchInN': 'Changement de côté dans {{n}}',
+    'rules.sideSwitchInN': 'Changement de côté dans {n}',
+    'alerts.matchFinished': 'Match terminé',
+    'alerts.matchPointTeam': 'Balle de match — Équipe {team}',
+    'alerts.setPointTeam': 'Balle de set — Équipe {team}',
 
     // Teams section
     'teams.select': '— Sélectionner —',
@@ -768,7 +783,10 @@ const translations: Record<string, TranslationDict> = {
     'rules.pointsLimitLastSet': 'Punkte / Entscheidungssatz',
     'rules.resetDefaults': 'Standardwerte zurücksetzen',
     'rules.sideSwitchPending': 'Seitenwechsel',
-    'rules.sideSwitchInN': 'Seitenwechsel in {{n}}',
+    'rules.sideSwitchInN': 'Seitenwechsel in {n}',
+    'alerts.matchFinished': 'Spiel beendet',
+    'alerts.matchPointTeam': 'Matchball — Team {team}',
+    'alerts.setPointTeam': 'Satzball — Team {team}',
 
     // Teams section
     'teams.select': '— Auswählen —',
