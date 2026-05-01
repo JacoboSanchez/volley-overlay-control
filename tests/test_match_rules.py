@@ -43,31 +43,70 @@ class TestRulesHelpers:
 # Beach side-switch tracker (§2.3)
 # ---------------------------------------------------------------------------
 
-class TestSideSwitchInterval:
-    def test_non_tiebreak_uses_seven(self):
-        assert side_switch_interval(current_set=1, sets_limit=3) == 7
-        assert side_switch_interval(current_set=2, sets_limit=3) == 7
+def _ss_kwargs(**overrides):
+    """Default-filled kwargs for ``compute_side_switch`` so tests only
+    need to mention the fields that vary. Defaults to a beach preset:
+    21 / 15 / 3, set 1, 0-0."""
+    base = dict(
+        mode="beach",
+        current_set=1,
+        sets_limit=3,
+        team1_score=0,
+        team2_score=0,
+        points_limit=21,
+        points_limit_last_set=15,
+    )
+    base.update(overrides)
+    return base
 
-    def test_tiebreak_uses_five(self):
-        # Beach: 3-set match → set 3 is the tiebreak.
-        assert side_switch_interval(current_set=3, sets_limit=3) == 5
-        # Indoor 5-set match → set 5 is the tiebreak.
-        assert side_switch_interval(current_set=5, sets_limit=5) == 5
+
+def _interval_kwargs(**overrides):
+    base = dict(
+        current_set=1, sets_limit=3,
+        points_limit=21, points_limit_last_set=15,
+    )
+    base.update(overrides)
+    return base
+
+
+class TestSideSwitchInterval:
+    def test_long_set_uses_seven(self):
+        # Standard beach (21-point) regular sets.
+        assert side_switch_interval(**_interval_kwargs()) == 7
+
+    def test_short_set_uses_five(self):
+        # Standard beach (15-point) deciding set.
+        assert side_switch_interval(
+            **_interval_kwargs(current_set=3, sets_limit=3),
+        ) == 5
+
+    def test_threshold_is_at_15(self):
+        # Custom limit exactly 15 → still the short cadence.
+        assert side_switch_interval(
+            **_interval_kwargs(points_limit=15),
+        ) == 5
+        # 16 trips into the long cadence.
+        assert side_switch_interval(
+            **_interval_kwargs(points_limit=16),
+        ) == 7
+
+    def test_uses_last_set_target_in_deciding_set(self):
+        # Even a long deciding-set target should follow target-driven
+        # selection — 21-point deciding set still picks 7.
+        assert side_switch_interval(
+            **_interval_kwargs(
+                current_set=3, sets_limit=3, points_limit_last_set=21,
+            ),
+        ) == 7
 
 
 class TestComputeSideSwitch:
     def test_returns_none_for_indoor(self):
-        result = compute_side_switch(
-            mode="indoor", current_set=1, sets_limit=5,
-            team1_score=5, team2_score=3,
-        )
+        result = compute_side_switch(**_ss_kwargs(mode="indoor", team1_score=5, team2_score=3))
         assert result is None
 
     def test_initial_state_points_to_first_switch(self):
-        result = compute_side_switch(
-            mode="beach", current_set=1, sets_limit=3,
-            team1_score=0, team2_score=0,
-        )
+        result = compute_side_switch(**_ss_kwargs())
         assert result == {
             "interval": 7,
             "points_in_set": 0,
@@ -79,8 +118,7 @@ class TestComputeSideSwitch:
     def test_pending_when_total_hits_interval(self):
         # 4-3 → total=7 → switch is pending right now.
         result = compute_side_switch(
-            mode="beach", current_set=1, sets_limit=3,
-            team1_score=4, team2_score=3,
+            **_ss_kwargs(team1_score=4, team2_score=3),
         )
         assert result["points_in_set"] == 7
         assert result["is_switch_pending"] is True
@@ -90,28 +128,97 @@ class TestComputeSideSwitch:
     def test_advances_after_boundary(self):
         # 5-3 → total=8 → next switch at 14.
         result = compute_side_switch(
-            mode="beach", current_set=1, sets_limit=3,
-            team1_score=5, team2_score=3,
+            **_ss_kwargs(team1_score=5, team2_score=3),
         )
         assert result["next_switch_at"] == 14
         assert result["points_until_switch"] == 6
         assert result["is_switch_pending"] is False
 
     def test_tiebreak_uses_five(self):
-        # Beach tiebreak: 3-2 → total=5 → switch pending.
+        # Beach tiebreak: 3-2 → total=5 → switch pending (cadence rule).
         result = compute_side_switch(
-            mode="beach", current_set=3, sets_limit=3,
-            team1_score=3, team2_score=2,
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                team1_score=3, team2_score=2,
+            ),
         )
         assert result["interval"] == 5
         assert result["is_switch_pending"] is True
 
     def test_tolerates_negative_inputs(self):
         result = compute_side_switch(
-            mode="beach", current_set=1, sets_limit=3,
-            team1_score=-3, team2_score=-1,
+            **_ss_kwargs(team1_score=-3, team2_score=-1),
         )
         assert result["points_in_set"] == 0
+
+    def test_midpoint_pending_when_leader_first_reaches_eight(self):
+        # Deciding set (15), leader at 8, opponent below: indoor
+        # 5th-set rule fires — switch pending even though combined=10
+        # also happens to be a cadence boundary (consistent overlap).
+        result = compute_side_switch(
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                team1_score=8, team2_score=2,
+            ),
+        )
+        assert result["is_switch_pending"] is True
+
+    def test_midpoint_pending_off_boundary_still_fires(self):
+        # 8-3 (combined=11, NOT a cadence boundary). The midpoint rule
+        # alone keeps the alert on while exactly one team sits on 8.
+        result = compute_side_switch(
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                team1_score=8, team2_score=3,
+            ),
+        )
+        assert result["points_in_set"] == 11
+        # Cadence next is 15 (15 % 5 == 0); 11 is not pending by cadence.
+        assert result["is_switch_pending"] is True
+
+    def test_midpoint_clears_once_both_reach_it(self):
+        # 8-8: leader is no longer alone at the midpoint, alert clears.
+        # (Combined=16 also misses the 5-cadence.)
+        result = compute_side_switch(
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                team1_score=8, team2_score=8,
+            ),
+        )
+        assert result["is_switch_pending"] is False
+
+    def test_midpoint_only_fires_in_last_set(self):
+        # 8-2 in set 1 (regular 21-point set) → no midpoint rule.
+        # Combined=10 isn't a 7-cadence boundary either, so nothing fires.
+        result = compute_side_switch(
+            **_ss_kwargs(team1_score=8, team2_score=2),
+        )
+        assert result["is_switch_pending"] is False
+
+    def test_midpoint_rounds_up_for_odd_targets(self):
+        # 13-point deciding set → midpoint = ceil(13/2) = 7.
+        result = compute_side_switch(
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                points_limit_last_set=13,
+                team1_score=7, team2_score=2,
+            ),
+        )
+        assert result["is_switch_pending"] is True
+
+    def test_midpoint_for_even_target(self):
+        # 16-point deciding set → midpoint = 8.
+        result = compute_side_switch(
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                points_limit_last_set=16,
+                team1_score=8, team2_score=4,
+            ),
+        )
+        # 16 > 15 → cadence is 7, combined=12 is not a 7 boundary.
+        # The midpoint rule supplies the pending flag on its own.
+        assert result["interval"] == 7
+        assert result["is_switch_pending"] is True
 
 
 # ---------------------------------------------------------------------------

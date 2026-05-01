@@ -68,6 +68,8 @@ class GameService:
             sets_limit=session.sets_limit,
             team1_score=team1_score,
             team2_score=team2_score,
+            points_limit=session.points_limit,
+            points_limit_last_set=session.points_limit_last_set,
         )
         side_switch = (
             BeachSideSwitch(**side_switch_data) if side_switch_data is not None
