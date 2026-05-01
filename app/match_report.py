@@ -57,6 +57,40 @@ def _admin_password() -> Optional[str]:
     return raw or None
 
 
+def _require_admin_token(
+    authorization: Optional[str],
+    token: Optional[str],
+    *,
+    missing_password_detail: str,
+) -> None:
+    """Raise unless the caller presents the admin token.
+
+    Shared between :func:`_check_access` and :func:`_check_admin_access`.
+    Both flows need the same Bearer-or-``?token=`` resolution and the
+    same 503/401/403 ladder; only the 503 detail differs (read vs.
+    destructive copy), so callers pass that in.
+    """
+    expected = _admin_password()
+    if expected is None:
+        raise HTTPException(status_code=503, detail=missing_password_detail)
+    provided: Optional[str] = None
+    if authorization and authorization.startswith("Bearer "):
+        provided = authorization.removeprefix("Bearer ").strip() or None
+    if provided is None and token:
+        provided = token.strip() or None
+    if provided is None:
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Authentication required. Pass Authorization: Bearer "
+                "<token> or ?token=<token> matching "
+                "OVERLAY_MANAGER_PASSWORD."
+            ),
+        )
+    if provided != expected:
+        raise HTTPException(status_code=403, detail="Invalid token.")
+
+
 def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
     """Raise an ``HTTPException`` unless the caller is allowed to read.
 
@@ -70,32 +104,14 @@ def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
     """
     if _public_mode_enabled():
         return
-    expected = _admin_password()
-    if expected is None:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Match reports are disabled. Set OVERLAY_MANAGER_PASSWORD "
-                "for gated access or MATCH_REPORT_PUBLIC=true for open "
-                "access."
-            ),
-        )
-    provided: Optional[str] = None
-    if authorization and authorization.startswith("Bearer "):
-        provided = authorization.removeprefix("Bearer ").strip() or None
-    if provided is None and token:
-        provided = token.strip() or None
-    if provided is None:
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Authentication required. Pass Authorization: Bearer "
-                "<token> or ?token=<token> matching "
-                "OVERLAY_MANAGER_PASSWORD."
-            ),
-        )
-    if provided != expected:
-        raise HTTPException(status_code=403, detail="Invalid token.")
+    _require_admin_token(
+        authorization, token,
+        missing_password_detail=(
+            "Match reports are disabled. Set OVERLAY_MANAGER_PASSWORD "
+            "for gated access or MATCH_REPORT_PUBLIC=true for open "
+            "access."
+        ),
+    )
 
 
 def _check_admin_access(authorization: Optional[str], token: Optional[str]) -> None:
@@ -109,31 +125,13 @@ def _check_admin_access(authorization: Optional[str], token: Optional[str]) -> N
     authenticate destructive calls — return 503 rather than silently
     accepting them.
     """
-    expected = _admin_password()
-    if expected is None:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Destructive match-archive actions are disabled. "
-                "Set OVERLAY_MANAGER_PASSWORD to enable them."
-            ),
-        )
-    provided: Optional[str] = None
-    if authorization and authorization.startswith("Bearer "):
-        provided = authorization.removeprefix("Bearer ").strip() or None
-    if provided is None and token:
-        provided = token.strip() or None
-    if provided is None:
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Authentication required. Pass Authorization: Bearer "
-                "<token> or ?token=<token> matching "
-                "OVERLAY_MANAGER_PASSWORD."
-            ),
-        )
-    if provided != expected:
-        raise HTTPException(status_code=403, detail="Invalid token.")
+    _require_admin_token(
+        authorization, token,
+        missing_password_detail=(
+            "Destructive match-archive actions are disabled. "
+            "Set OVERLAY_MANAGER_PASSWORD to enable them."
+        ),
+    )
 
 
 _REPORT_TEMPLATE = """<!doctype html>
