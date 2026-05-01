@@ -46,7 +46,7 @@ export default function MatchAlertIndicator({ state }: MatchAlertIndicatorProps)
     : 'alerts.setPointTeam';
 
   const label = alert.team
-    ? t(labelKey).replace('{team}', String(alert.team))
+    ? t(labelKey, { team: alert.team })
     : t(labelKey);
 
   const icon =

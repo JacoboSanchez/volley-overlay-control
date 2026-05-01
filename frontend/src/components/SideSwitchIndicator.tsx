@@ -16,7 +16,7 @@ export default function SideSwitchIndicator({ info }: SideSwitchIndicatorProps) 
   const pending = info.is_switch_pending;
   const label = pending
     ? t('rules.sideSwitchPending')
-    : t('rules.sideSwitchInN').replace('{{n}}', String(info.points_until_switch));
+    : t('rules.sideSwitchInN', { n: info.points_until_switch });
 
   return (
     <div

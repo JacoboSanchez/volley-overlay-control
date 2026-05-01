@@ -185,7 +185,10 @@ class GameService:
         if undo and session.undo:
             session.undo = False
 
-        if set_won and not session.game_manager.match_finished(session.sets_limit):
+        # ``_compute_current_set`` already handles the match-finished
+        # case (returns t1+t2 without a +1 advance), so an extra
+        # match_finished guard here is redundant.
+        if set_won:
             session.current_set = session._compute_current_set()
 
         GameService._save_and_broadcast(session)
@@ -344,7 +347,10 @@ class GameService:
             session.points_limit, session.points_limit_last_set,
             session.sets_limit,
         )
-        if set_won and not session.game_manager.match_finished(session.sets_limit):
+        # ``_compute_current_set`` already handles the match-finished
+        # case (returns t1+t2 without a +1 advance), so an extra
+        # match_finished guard here is redundant.
+        if set_won:
             session.current_set = session._compute_current_set()
         GameService._save_and_broadcast(session)
         GameService._audit(session, "set_score", {
