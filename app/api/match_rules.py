@@ -14,15 +14,16 @@ Indoor:
   * 25 points per set (must win by 2)
   * 15 points in the deciding set
   * Best of 5
+  * Side switch in the deciding set when the leading team first
+    reaches the midpoint of its target (8 of 15). Computed entirely
+    on the client as a transient alert — the backend just exposes
+    the limits in ``config`` so the UI can derive the trigger.
 
 Beach:
   * 21 points per set (must win by 2)
   * 15 points in the deciding set
   * Best of 3
-  * Side switch every 7 points (every 5 in the tiebreak), plus a
-    one-off switch in the deciding set when either team reaches the
-    midpoint of its target (FIVB indoor 5th-set rule, applied here so
-    operators get a dedicated alert at e.g. 8 of 15).
+  * Side switch every 7 points (every 5 in the tiebreak)
 """
 
 from __future__ import annotations
@@ -104,17 +105,6 @@ def side_switch_interval(
     return 5 if target <= 15 else 7
 
 
-def _last_set_midpoint(points_limit_last_set: int) -> int:
-    """Half of the deciding-set target, rounded up (15 → 8).
-
-    Returns 0 for non-positive targets so callers can use it as a
-    "midpoint rule disabled" sentinel without an extra branch.
-    """
-    if points_limit_last_set <= 0:
-        return 0
-    return (points_limit_last_set + 1) // 2
-
-
 def compute_side_switch(
     *, mode: str, current_set: int, sets_limit: int,
     team1_score: int, team2_score: int,
@@ -123,16 +113,9 @@ def compute_side_switch(
     """Return the beach side-switch indicator for the current set.
 
     Returns ``None`` for non-beach modes — callers attach the field
-    only when present, so the indoor payload stays unchanged.
-
-    The pending flag fires for two reasons, OR-ed together:
-
-    * Combined-cadence boundary: the current combined score is a
-      non-zero multiple of ``interval``.
-    * Deciding-set midpoint: in the last set, when the leading team
-      first reaches ``ceil(points_limit_last_set / 2)`` (8 for 15).
-      The flag stays on until the trailing team also reaches that
-      score — at which point both have crossed and the alert clears.
+    only when present, so the indoor payload stays unchanged. (Indoor
+    has a separate, transient deciding-set midpoint alert that the
+    frontend computes from consecutive state diffs.)
     """
     if mode != "beach":
         return None
@@ -140,9 +123,7 @@ def compute_side_switch(
         current_set=current_set, sets_limit=sets_limit,
         points_limit=points_limit, points_limit_last_set=points_limit_last_set,
     )
-    t1 = max(0, int(team1_score))
-    t2 = max(0, int(team2_score))
-    points_in_set = t1 + t2
+    points_in_set = max(0, int(team1_score)) + max(0, int(team2_score))
     # ``next_switch_at`` is the smallest multiple of *interval* that is
     # strictly greater than the current total — so when the total is
     # exactly on the boundary, we advance to the next one. This matches
@@ -152,21 +133,6 @@ def compute_side_switch(
         next_switch_at = interval
     else:
         next_switch_at = ((points_in_set // interval) + 1) * interval
-    cadence_pending = points_in_set > 0 and points_in_set % interval == 0
-
-    # Deciding-set midpoint rule (FIVB indoor 5th-set semantic). Fires
-    # from the moment the leading team crosses the midpoint until the
-    # trailing team also reaches it — that way the alert persists as a
-    # reminder if the leader scores past it before the opponent catches
-    # up (e.g. 8-0 → 9-0 keeps firing). Once both have crossed there's
-    # no second switch this set, so the alert clears.
-    is_last_set = current_set >= sets_limit
-    midpoint = _last_set_midpoint(points_limit_last_set) if is_last_set else 0
-    midpoint_pending = (
-        is_last_set and midpoint > 0
-        and max(t1, t2) >= midpoint and min(t1, t2) < midpoint
-    )
-
     return {
         "interval": interval,
         "points_in_set": points_in_set,
@@ -174,7 +140,9 @@ def compute_side_switch(
         "points_until_switch": next_switch_at - points_in_set,
         # ``is_switch_pending`` flags the moment the most recent point
         # crossed a boundary — the operator should swap sides now.
-        "is_switch_pending": cadence_pending or midpoint_pending,
+        "is_switch_pending": (
+            points_in_set > 0 and points_in_set % interval == 0
+        ),
     }
 
 

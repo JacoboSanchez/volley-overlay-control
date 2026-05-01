@@ -42,4 +42,18 @@ describe('SideSwitchIndicator', () => {
     expect(el.className).toMatch(/pending/);
     expect(el.getAttribute('aria-live')).toBe('polite');
   });
+
+  it('renders the pending pill when forcePending is true even with no info', () => {
+    // Indoor mode supplies the trigger via ``forcePending`` rather than
+    // ``info`` — there's no countdown, just the immediate alert.
+    renderWithI18n(<SideSwitchIndicator info={null} forcePending={true} />);
+    const el = screen.getByTestId('side-switch-indicator');
+    expect(el.className).toMatch(/pending/);
+    expect(el.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('omits the indicator when both info and forcePending are absent', () => {
+    renderWithI18n(<SideSwitchIndicator info={null} forcePending={false} />);
+    expect(screen.queryByTestId('side-switch-indicator')).toBeNull();
+  });
 });
