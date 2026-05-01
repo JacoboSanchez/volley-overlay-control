@@ -24,6 +24,12 @@ export interface ScoreboardViewProps {
   buttonSize?: number;
   previewData: PreviewData | null | undefined;
   showPreview: boolean;
+  /**
+   * True on landscape phones (no room for persistent controls). The
+   * centre column then uses a tighter layout and a smaller preview so
+   * the alert pills don't get pushed off the bottom of the viewport.
+   */
+  compactLandscape?: boolean;
   showControls: boolean;
   setShowControls: Dispatch<SetStateAction<boolean>>;
   canUndo: boolean;
@@ -65,6 +71,7 @@ export default function ScoreboardView({
   buttonSize,
   previewData,
   showPreview,
+  compactLandscape = false,
   showControls,
   setShowControls,
   canUndo,
@@ -131,6 +138,7 @@ export default function ScoreboardView({
           currentSet={currentSet}
           setsLimit={setsLimit}
           isPortrait={isPortrait}
+          compactLandscape={compactLandscape}
           previewData={showPreview ? previewData : null}
           fontStyle={fontStyle}
           onAddSet={onAddSet}

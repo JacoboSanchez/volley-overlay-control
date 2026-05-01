@@ -365,6 +365,10 @@ export default function App() {
           buttonSize={buttonSize}
           previewData={previewData}
           showPreview={settings.showPreview}
+          // Landscape phones (no room for persistent controls) need the
+          // preview shrunk so the alert pills below it don't get pushed
+          // off the bottom of the viewport.
+          compactLandscape={!isPortrait && !hasRoomForPersistentControls}
           showControls={showControls}
           setShowControls={setShowControls}
           canUndo={state?.can_undo ?? false}

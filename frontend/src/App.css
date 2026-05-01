@@ -369,6 +369,19 @@ body {
   gap: 0.5rem;
 }
 
+/* Landscape phones: claw back vertical space so the preview (and the
+   match-point / set-point pills below it) fit without overflowing the
+   viewport. The preview-container's top margin and the column gap are
+   the only spacing knobs the centre column owns; squeezing both adds
+   up to ~12px back without changing layout structure. */
+.center-panel-compact {
+  gap: 0.25rem;
+}
+
+.center-panel-compact .preview-container {
+  margin-top: 0;
+}
+
 .sets-row {
   display: flex;
   flex-direction: row;
