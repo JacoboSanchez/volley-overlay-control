@@ -239,17 +239,6 @@ body {
   gap: 0.5rem;
 }
 
-/* Landscape compact: score button + history-col sit side-by-side, with the
-   history pinned to the side closest to the centre (right of team 1, left
-   of team 2). Used when CenterPanel needs to free up space for alert pills.
-   The team-panel-col still stacks this row above the timeout/serve row. */
-.team-score-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 /* Score history column (logo + per-set scores) — portrait only */
 .team-history-col {
   display: flex;
@@ -378,6 +367,19 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Landscape phones: claw back vertical space so the preview (and the
+   match-point / set-point pills below it) fit without overflowing the
+   viewport. The bulk of the saving comes from the smaller cardWidth
+   passed to OverlayPreview; tightening the column gap and zeroing the
+   preview's top margin recovers the remaining few pixels. */
+.center-panel-compact {
+  gap: 0.25rem;
+}
+
+.center-panel-compact .preview-container {
+  margin-top: 0;
 }
 
 .sets-row {

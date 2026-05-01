@@ -42,17 +42,27 @@ export default function MatchAlertIndicator({ state }: MatchAlertIndicatorProps)
 
   const labelKey =
     alert.kind === 'finished' ? 'alerts.matchFinished'
-    : alert.kind === 'match-point' ? 'alerts.matchPointTeam'
-    : 'alerts.setPointTeam';
-
-  const label = alert.team
-    ? t(labelKey, { team: alert.team })
-    : t(labelKey);
+    : alert.kind === 'match-point' ? 'alerts.matchPoint'
+    : 'alerts.setPoint';
+  const label = t(labelKey);
 
   const icon =
     alert.kind === 'finished' ? 'emoji_events'
     : alert.kind === 'match-point' ? 'sports_score'
     : 'flag';
+
+  // The icon's position is the only cue for which team is on point —
+  // left for team 1, right for team 2 — mirroring the team panels'
+  // physical position on the layout. Match-finished has no team and
+  // keeps the icon on the left like every other "lead" pill.
+  const iconLeft = alert.team !== 2;
+  const iconEl = <span className="material-icons">{icon}</span>;
+
+  // Screen readers can't see the icon's position, so spell the team out
+  // in the accessible name.
+  const ariaLabel = alert.team
+    ? `${label} — ${t('alerts.team', { team: alert.team })}`
+    : label;
 
   return (
     <div
@@ -62,9 +72,11 @@ export default function MatchAlertIndicator({ state }: MatchAlertIndicatorProps)
       data-alert-team={alert.team ?? ''}
       role="status"
       aria-live="polite"
+      aria-label={ariaLabel}
     >
-      <span className="material-icons">{icon}</span>
+      {iconLeft && iconEl}
       <span>{label}</span>
+      {!iconLeft && iconEl}
     </div>
   );
 }

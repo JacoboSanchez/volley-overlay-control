@@ -24,13 +24,12 @@ export interface CenterPanelProps {
   setsLimit: number;
   isPortrait: boolean;
   /**
-   * When true (landscape compact), the per-team score tables are
-   * rendered inside each TeamPanel instead of here, so the alert pills
-   * have room to breathe in the centre. Independent of ``isPortrait``
-   * because portrait already routes the tables to TeamPanel via a
-   * different code path.
+   * Landscape phones can't fit a 300px-wide preview AND the alert pills
+   * (set/match point, side switch) without spilling off the viewport.
+   * When true the centre column tightens its spacing and the preview
+   * renders at a reduced width so its derived height shrinks too.
    */
-  inlineScoreHistory?: boolean;
+  compactLandscape?: boolean;
   previewData: PreviewData | null | undefined;
   fontStyle?: ScoreButtonFontStyle;
   onAddSet: (teamId: 1 | 2) => void;
@@ -38,13 +37,16 @@ export interface CenterPanelProps {
   onSetChange: (set: number) => void;
 }
 
+const PREVIEW_CARD_WIDTH = 300;
+const PREVIEW_CARD_WIDTH_COMPACT = 200;
+
 export default function CenterPanel({
   state,
   customization,
   currentSet,
   setsLimit,
   isPortrait,
-  inlineScoreHistory = false,
+  compactLandscape = false,
   previewData,
   fontStyle,
   onAddSet,
@@ -60,7 +62,7 @@ export default function CenterPanel({
   const logo2 = asString(customization?.['Team 2 Logo']);
 
   return (
-    <div className="center-panel">
+    <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
       <div className="sets-row">
         <ScoreButton
           text={String(t1Sets)}
@@ -74,7 +76,7 @@ export default function CenterPanel({
           data-testid="team-1-sets"
         />
 
-        {!isPortrait && !inlineScoreHistory && (
+        {!isPortrait && (
           <div className="logos-scores-section">
             <div className="team-score-column">
               {logo1 && (
@@ -155,7 +157,7 @@ export default function CenterPanel({
           width={previewData.width}
           height={previewData.height}
           layoutId={previewData.layoutId}
-          cardWidth={300}
+          cardWidth={compactLandscape ? PREVIEW_CARD_WIDTH_COMPACT : PREVIEW_CARD_WIDTH}
         />
       )}
     </div>
