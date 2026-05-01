@@ -307,3 +307,90 @@ class TestMatchesIndex:
         # OID failed regex → no archives → empty page rendered cleanly.
         assert response.status_code == 200
         assert "<script>" not in response.text
+
+    def test_index_renders_delete_affordances(self, client):
+        match_id = self._archive("idx-del", winner=1)
+        response = client.get("/matches/index.html?oid=idx-del")
+        # Toolbar + per-row delete + select-all checkbox + script wired up.
+        assert 'id="delete-selected"' in response.text
+        assert 'id="select-all"' in response.text
+        assert 'class="row-delete"' in response.text
+        assert f'data-match-id="{match_id}"' in response.text
+        assert "/matches/' + encodeURIComponent" in response.text
+
+
+class TestDeleteArchivedMatch:
+    """Coverage for DELETE /matches/{match_id}."""
+
+    def _archive(self, oid: str = "del-1") -> str:
+        match_id = match_archive.archive_match(
+            oid=oid, final_state={}, winning_team=1,
+        )
+        assert match_id is not None
+        return match_id
+
+    def test_delete_succeeds_with_token(self, gated_client):
+        match_id = self._archive()
+        response = gated_client.delete(f"/matches/{match_id}?token=s3cret")
+        assert response.status_code == 204
+        assert match_archive.load_match(match_id) is None
+
+    def test_delete_accepts_bearer_header(self, gated_client):
+        match_id = self._archive()
+        response = gated_client.delete(
+            f"/matches/{match_id}",
+            headers={"Authorization": "Bearer s3cret"},
+        )
+        assert response.status_code == 204
+
+    def test_delete_404_for_unknown_match(self, gated_client):
+        bogus = "match_" + "0" * 20 + "_20260101T000000_000000Z"
+        response = gated_client.delete(f"/matches/{bogus}?token=s3cret")
+        assert response.status_code == 404
+
+    def test_delete_401_without_token(self, gated_client):
+        match_id = self._archive()
+        response = gated_client.delete(f"/matches/{match_id}")
+        assert response.status_code == 401
+        # Match must NOT have been deleted.
+        assert match_archive.load_match(match_id) is not None
+
+    def test_delete_403_with_wrong_token(self, gated_client):
+        match_id = self._archive()
+        response = gated_client.delete(f"/matches/{match_id}?token=wrong")
+        assert response.status_code == 403
+        assert match_archive.load_match(match_id) is not None
+
+    def test_delete_503_when_no_admin_password(self, monkeypatch):
+        # Public mode is on, but no admin password — destructive calls
+        # must still be denied.
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = self._archive()
+        response = c.delete(f"/matches/{match_id}")
+        assert response.status_code == 503
+        assert match_archive.load_match(match_id) is not None
+
+    def test_delete_rejects_public_mode_without_token(self, monkeypatch):
+        # MATCH_REPORT_PUBLIC=true grants read access, but DELETE must
+        # still require the admin token.
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = self._archive()
+        response = c.delete(f"/matches/{match_id}")
+        assert response.status_code == 401
+        assert match_archive.load_match(match_id) is not None
+
+    def test_delete_validates_match_id_shape(self, gated_client):
+        # Path-traversal attempts get rejected at the helper level, so
+        # the route should respond 404 (not 500, not partial filesystem
+        # exception). FastAPI may also bounce malformed ids before they
+        # reach the handler — accept either.
+        response = gated_client.delete("/matches/not-a-match-id?token=s3cret")
+        assert response.status_code in (404, 422)

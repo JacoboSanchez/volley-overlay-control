@@ -3832,6 +3832,73 @@
         "summary": "Browseable HTML list of archived matches for an OID"
       }
     },
+    "/matches/{match_id}": {
+      "delete": {
+        "description": "Delete a single archived match by id.\n\nAlways requires a valid admin token, even when\n``MATCH_REPORT_PUBLIC=true`` \u2014 public mode grants read-only access\nonly. Returns 204 on success, 404 when the match does not exist,\nand 401/403/503 for the various authentication failure modes.",
+        "operationId": "delete_archived_match_matches__match_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
+              "title": "Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete an archived match snapshot"
+      }
+    },
     "/overlay/{overlay_id}": {
       "get": {
         "operationId": "serve_overlay_overlay__overlay_id__get",

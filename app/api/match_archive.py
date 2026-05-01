@@ -194,6 +194,29 @@ def load_match(match_id: str) -> Optional[dict]:
         return None
 
 
+def delete_match(match_id: str) -> bool:
+    """Remove the archived snapshot identified by *match_id*.
+
+    Returns ``True`` if a file was removed, ``False`` if the match-id is
+    syntactically invalid, the file does not exist, or removal failed.
+    Validates the basename against ``_MATCH_FILENAME_RE`` so a caller
+    can never escape ``data/matches/`` via path traversal.
+    """
+    if not isinstance(match_id, str):
+        return False
+    if _MATCH_FILENAME_RE.match(match_id + ".json") is None:
+        return False
+    path = os.path.join(_data_dir(), match_id + ".json")
+    if not os.path.exists(path):
+        return False
+    try:
+        os.remove(path)
+        return True
+    except OSError as exc:
+        logger.warning("Failed to remove match %r: %s", match_id, exc)
+        return False
+
+
 def delete_for_oid(oid: str) -> int:
     """Remove every archived match for *oid*. Returns count deleted."""
     if not _is_valid_oid(oid):

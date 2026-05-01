@@ -101,6 +101,28 @@ class TestMatchArchive:
         assert removed == 3
         assert match_archive.list_matches(oid="oid-del") == []
 
+    def test_delete_match_removes_single_file(self):
+        a = match_archive.archive_match(oid="oid-single", final_state={}, winning_team=1)
+        b = match_archive.archive_match(oid="oid-single", final_state={}, winning_team=2)
+        assert a is not None and b is not None and a != b
+
+        assert match_archive.delete_match(a) is True
+        ids = {s["match_id"] for s in match_archive.list_matches(oid="oid-single")}
+        assert ids == {b}
+
+    def test_delete_match_returns_false_on_missing(self):
+        assert match_archive.delete_match("match_" + "0" * 20 + "_20260101T000000_000000Z") is False
+
+    def test_delete_match_rejects_traversal(self):
+        # Caller-supplied id must round-trip through the strict regex
+        # before we touch the filesystem — this guards against
+        # ``../etc/passwd`` style input.
+        assert match_archive.delete_match("../etc/passwd") is False
+        assert match_archive.delete_match("match_aaaaaaaaaaaaaaaaaaaa_../boom") is False
+        assert match_archive.delete_match("") is False
+        # Non-string types must not crash.
+        assert match_archive.delete_match(None) is False  # type: ignore[arg-type]
+
 
 # ---------------------------------------------------------------------------
 # GameService archive trigger

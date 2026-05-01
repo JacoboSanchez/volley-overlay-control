@@ -815,6 +815,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/matches/{match_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an archived match snapshot
+         * @description Delete a single archived match by id.
+         *
+         *     Always requires a valid admin token, even when
+         *     ``MATCH_REPORT_PUBLIC=true`` — public mode grants read-only access
+         *     only. Returns 204 on success, 404 when the match does not exist,
+         *     and 401/403/503 for the various authentication failure modes.
+         */
+        delete: operations["delete_archived_match_matches__match_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/overlay/{overlay_id}": {
         parameters: {
             query?: never;
@@ -2795,6 +2820,40 @@ export interface operations {
                 content: {
                     "text/html": string;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_archived_match_matches__match_id__delete: {
+        parameters: {
+            query?: {
+                /** @description OVERLAY_MANAGER_PASSWORD; alternative to Bearer header. */
+                token?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
