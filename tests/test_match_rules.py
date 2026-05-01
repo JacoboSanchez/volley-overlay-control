@@ -165,7 +165,7 @@ class TestComputeSideSwitch:
 
     def test_midpoint_pending_off_boundary_still_fires(self):
         # 8-3 (combined=11, NOT a cadence boundary). The midpoint rule
-        # alone keeps the alert on while exactly one team sits on 8.
+        # alone keeps the alert on while only one team has crossed 8.
         result = compute_side_switch(
             **_ss_kwargs(
                 current_set=3, sets_limit=3,
@@ -174,6 +174,30 @@ class TestComputeSideSwitch:
         )
         assert result["points_in_set"] == 11
         # Cadence next is 15 (15 % 5 == 0); 11 is not pending by cadence.
+        assert result["is_switch_pending"] is True
+
+    def test_midpoint_persists_when_leader_scores_past(self):
+        # 9-2: leader has scored past the midpoint before the trailing
+        # team caught up. The alert must persist as a reminder — the
+        # operator may not have switched yet — until both teams cross.
+        result = compute_side_switch(
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                team1_score=9, team2_score=2,
+            ),
+        )
+        assert result["is_switch_pending"] is True
+
+    def test_midpoint_persists_until_trailing_catches_up(self):
+        # 14-7: leader is one point from set/match win, trailing still
+        # below the midpoint — the alert is a stale reminder that the
+        # switch was missed. Stays on until trailing reaches 8.
+        result = compute_side_switch(
+            **_ss_kwargs(
+                current_set=3, sets_limit=3,
+                team1_score=14, team2_score=7,
+            ),
+        )
         assert result["is_switch_pending"] is True
 
     def test_midpoint_clears_once_both_reach_it(self):

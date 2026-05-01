@@ -155,14 +155,16 @@ def compute_side_switch(
     cadence_pending = points_in_set > 0 and points_in_set % interval == 0
 
     # Deciding-set midpoint rule (FIVB indoor 5th-set semantic). Fires
-    # while exactly one team sits on the midpoint score, mirroring the
-    # one-shot "swap when leader hits 8" trigger. Once both teams have
-    # reached it the alert clears — there's no second switch this set.
+    # from the moment the leading team crosses the midpoint until the
+    # trailing team also reaches it — that way the alert persists as a
+    # reminder if the leader scores past it before the opponent catches
+    # up (e.g. 8-0 → 9-0 keeps firing). Once both have crossed there's
+    # no second switch this set, so the alert clears.
     is_last_set = current_set >= sets_limit
     midpoint = _last_set_midpoint(points_limit_last_set) if is_last_set else 0
     midpoint_pending = (
         is_last_set and midpoint > 0
-        and max(t1, t2) == midpoint and min(t1, t2) < midpoint
+        and max(t1, t2) >= midpoint and min(t1, t2) < midpoint
     )
 
     return {
