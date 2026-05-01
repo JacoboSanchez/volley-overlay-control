@@ -25,6 +25,14 @@ interface AlertSpec {
   team?: 1 | 2;
 }
 
+// Per-team triangle that points toward the team's panel: left/up for
+// team 1 (top-left of the layout), right/down for team 2 — picking
+// the orientation that matches the current viewport.
+const TEAM_TRIANGLE = {
+  1: { portrait: 'arrow_drop_up', landscape: 'arrow_left' },
+  2: { portrait: 'arrow_drop_down', landscape: 'arrow_right' },
+} as const;
+
 function pickAlert(state: GameState): AlertSpec | null {
   // Match end is the loudest event — render it on its own and skip
   // everything else so the operator's eye lands here first.
@@ -57,13 +65,10 @@ export default function MatchAlertIndicator({
   const label = t(labelKey);
 
   // For team-bearing alerts (set / match point) the icon is a filled
-  // triangle pointing toward the team that can win — mirroring the
-  // panel's physical position: left/up for team 1, right/down for
-  // team 2. Match-finished has no team, so it keeps the trophy.
-  const icon =
-    alert.kind === 'finished' ? 'emoji_events'
-    : alert.team === 1 ? (isPortrait ? 'arrow_drop_up' : 'arrow_left')
-    : alert.team === 2 ? (isPortrait ? 'arrow_drop_down' : 'arrow_right')
+  // triangle pointing toward the team that can win. Match-finished
+  // has no team, so it keeps the trophy.
+  const icon = alert.team
+    ? TEAM_TRIANGLE[alert.team][isPortrait ? 'portrait' : 'landscape']
     : 'emoji_events';
 
   // The icon also sits on the side closest to the team — left for
