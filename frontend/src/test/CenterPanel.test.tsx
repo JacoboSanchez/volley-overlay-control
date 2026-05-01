@@ -120,4 +120,19 @@ describe('CenterPanel', () => {
     expect(screen.queryByTestId('team-1-logo')).not.toBeInTheDocument();
     expect(screen.queryByTestId('team-2-logo')).not.toBeInTheDocument();
   });
+
+  it('hides the in-centre score tables when inlineScoreHistory is true (landscape compact)', () => {
+    const cust = { ...mockCustomization, 'Team 1 Logo': 'logo1.png', 'Team 2 Logo': 'logo2.png' };
+    const { container } = renderWithI18n(
+      <CenterPanel
+        {...defaultProps}
+        customization={cust}
+        isPortrait={false}
+        inlineScoreHistory={true}
+      />,
+    );
+    // The logos-scores-section is the wrapper for the per-team tables;
+    // it should disappear when the tables are hosted by TeamPanel instead.
+    expect(container.querySelector('.logos-scores-section')).toBeNull();
+  });
 });

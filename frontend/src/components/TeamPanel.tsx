@@ -19,6 +19,13 @@ export interface TeamPanelProps {
   timeoutColor: string;
   buttonSize?: number;
   isPortrait: boolean;
+  /**
+   * In landscape, when true, render the per-team score history next to
+   * the score button instead of relying on CenterPanel to host it. The
+   * history sits on the side closest to the centre — right of the
+   * button for team 1, left for team 2.
+   */
+  inlineScoreHistory?: boolean;
   iconLogo?: string | null;
   iconOpacity?: number;
   fontStyle?: ScoreButtonFontStyle;
@@ -56,6 +63,7 @@ export default function TeamPanel({
   timeoutColor,
   buttonSize,
   isPortrait,
+  inlineScoreHistory = false,
   iconLogo,
   iconOpacity = 50,
   fontStyle,
@@ -134,41 +142,64 @@ export default function TeamPanel({
 
   const teamLogo = asString(customization?.[`Team ${teamId} Logo`]);
 
+  const historyBlock = state ? (
+    <div className="team-history-col">
+      {teamLogo && (
+        <img
+          src={teamLogo}
+          alt={`Team ${teamId}`}
+          className="team-logo"
+          data-testid={`team-${teamId}-logo`}
+        />
+      )}
+      <ScoreTable
+        state={state}
+        setsLimit={setsLimit}
+        currentSet={currentSet}
+        teamId={teamId}
+      />
+    </div>
+  ) : null;
+
+  const scoreButton = (
+    <ScoreButton
+      text={scoreText}
+      color={buttonColor}
+      textColor={buttonTextColor}
+      size={buttonSize}
+      fontStyle={fontStyle}
+      style={iconStyle}
+      onClick={handleAddPoint}
+      onDoubleTap={handleDoubleTap}
+      onLongPress={handleLongPress}
+      aria-label={scoreAriaLabel}
+      aria-describedby={scoreDescId}
+      data-testid={`team-${teamId}-score`}
+    />
+  );
+
+  // In landscape compact mode, the history rides next to the button on
+  // the side closest to the centre — right of team 1, left of team 2.
+  // ``state`` may be null on first load; fall back to the bare button.
+  const showInlineLandscapeHistory =
+    !isPortrait && inlineScoreHistory && historyBlock !== null;
+
   return (
     <div className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}>
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
-        {isPortrait && state && (
-          <div className="team-history-col">
-            {teamLogo && (
-              <img
-                src={teamLogo}
-                alt={`Team ${teamId}`}
-                className="team-logo"
-                data-testid={`team-${teamId}-logo`}
-              />
-            )}
-            <ScoreTable
-              state={state}
-              setsLimit={setsLimit}
-              currentSet={currentSet}
-              teamId={teamId}
-            />
+        {isPortrait && historyBlock}
+        {showInlineLandscapeHistory ? (
+          <div
+            className="team-score-row"
+            data-testid={`team-${teamId}-score-row`}
+          >
+            {teamId === 2 && historyBlock}
+            {scoreButton}
+            {teamId === 1 && historyBlock}
           </div>
+        ) : (
+          scoreButton
         )}
-        <ScoreButton
-          text={scoreText}
-          color={buttonColor}
-          textColor={buttonTextColor}
-          size={buttonSize}
-          fontStyle={fontStyle}
-          style={iconStyle}
-          onClick={handleAddPoint}
-          onDoubleTap={handleDoubleTap}
-          onLongPress={handleLongPress}
-          aria-label={scoreAriaLabel}
-          aria-describedby={scoreDescId}
-          data-testid={`team-${teamId}-score`}
-        />
         <span id={scoreDescId} className="visually-hidden">
           Tap to add point, double-tap to undo, long-press to set value.
         </span>
