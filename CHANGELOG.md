@@ -92,6 +92,15 @@ once a first tagged release ships.
 
 ### Added
 
+- Operators can now delete archived match snapshots from the
+  ``/matches/index.html`` page. New checkbox column with select-all
+  in the header, a "Delete selected" button in the toolbar, and a
+  per-row "Delete" button. Backed by a new
+  ``DELETE /matches/{match_id}`` route gated by a stricter
+  ``_check_admin_access`` helper that ignores
+  ``MATCH_REPORT_PUBLIC=true`` — public mode grants read-only
+  access, deletion always requires the admin token. Helper:
+  ``match_archive.delete_match(match_id)``.
 - Match-rules configuration is now editable per-session. New
   config-panel section "Match rules" exposes:
   * Indoor / Beach mode toggle (defaults: 25/15/5 indoor, 21/15/3

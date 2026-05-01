@@ -33,7 +33,7 @@ import logging
 import re
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 
 from app.api import match_archive
@@ -57,29 +57,22 @@ def _admin_password() -> Optional[str]:
     return raw or None
 
 
-def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
-    """Raise an ``HTTPException`` unless the caller is allowed to read.
+def _require_admin_token(
+    authorization: Optional[str],
+    token: Optional[str],
+    *,
+    missing_password_detail: str,
+) -> None:
+    """Raise unless the caller presents the admin token.
 
-    Order of precedence:
-      1. ``MATCH_REPORT_PUBLIC=true`` — open access (matches the
-         existing ``/overlay/{output_key}`` model);
-      2. otherwise, ``OVERLAY_MANAGER_PASSWORD`` must be set and
-         provided via Bearer header or ``?token=`` query;
-      3. when neither is configured, return 503 to make
-         misconfiguration loud rather than silently public.
+    Shared between :func:`_check_access` and :func:`_check_admin_access`.
+    Both flows need the same Bearer-or-``?token=`` resolution and the
+    same 503/401/403 ladder; only the 503 detail differs (read vs.
+    destructive copy), so callers pass that in.
     """
-    if _public_mode_enabled():
-        return
     expected = _admin_password()
     if expected is None:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Match reports are disabled. Set OVERLAY_MANAGER_PASSWORD "
-                "for gated access or MATCH_REPORT_PUBLIC=true for open "
-                "access."
-            ),
-        )
+        raise HTTPException(status_code=503, detail=missing_password_detail)
     provided: Optional[str] = None
     if authorization and authorization.startswith("Bearer "):
         provided = authorization.removeprefix("Bearer ").strip() or None
@@ -96,6 +89,49 @@ def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
         )
     if provided != expected:
         raise HTTPException(status_code=403, detail="Invalid token.")
+
+
+def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
+    """Raise an ``HTTPException`` unless the caller is allowed to read.
+
+    Order of precedence:
+      1. ``MATCH_REPORT_PUBLIC=true`` — open access (matches the
+         existing ``/overlay/{output_key}`` model);
+      2. otherwise, ``OVERLAY_MANAGER_PASSWORD`` must be set and
+         provided via Bearer header or ``?token=`` query;
+      3. when neither is configured, return 503 to make
+         misconfiguration loud rather than silently public.
+    """
+    if _public_mode_enabled():
+        return
+    _require_admin_token(
+        authorization, token,
+        missing_password_detail=(
+            "Match reports are disabled. Set OVERLAY_MANAGER_PASSWORD "
+            "for gated access or MATCH_REPORT_PUBLIC=true for open "
+            "access."
+        ),
+    )
+
+
+def _check_admin_access(authorization: Optional[str], token: Optional[str]) -> None:
+    """Stricter sibling of :func:`_check_access` for destructive actions.
+
+    The public-mode shortcut from :func:`_check_access` deliberately does
+    not apply here: ``MATCH_REPORT_PUBLIC=true`` grants read-only access
+    (anyone with a non-guessable ``match_id`` can view a report), but
+    deletion must still go through the admin token. When
+    ``OVERLAY_MANAGER_PASSWORD`` is unset the operator has no way to
+    authenticate destructive calls — return 503 rather than silently
+    accepting them.
+    """
+    _require_admin_token(
+        authorization, token,
+        missing_password_detail=(
+            "Destructive match-archive actions are disabled. "
+            "Set OVERLAY_MANAGER_PASSWORD to enable them."
+        ),
+    )
 
 
 _REPORT_TEMPLATE = """<!doctype html>
@@ -479,7 +515,7 @@ _INDEX_TEMPLATE = """<!doctype html>
     font-variant-numeric: tabular-nums;
   }}
   td.score .winner {{ color: #2e7d32; }}
-  a.report-link {{
+  a.report-link, button.row-delete {{
     display: inline-block;
     padding: 4px 10px;
     border: 1px solid var(--border);
@@ -487,8 +523,38 @@ _INDEX_TEMPLATE = """<!doctype html>
     text-decoration: none;
     color: var(--fg);
     font-size: 13px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
   }}
-  a.report-link:hover {{ background: var(--hover); }}
+  a.report-link:hover, button.row-delete:hover {{ background: var(--hover); }}
+  button.row-delete {{ color: #b71c1c; border-color: #ef9a9a; }}
+  button.row-delete:hover {{ background: #fdecea; }}
+  th.checkbox-col, td.checkbox-col {{ width: 28px; text-align: center; padding-left: 0; padding-right: 0; }}
+  .toolbar {{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }}
+  .toolbar button {{
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--fg);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }}
+  .toolbar button.danger {{
+    color: #b71c1c;
+    border-color: #ef9a9a;
+  }}
+  .toolbar button.danger:hover:not(:disabled) {{ background: #fdecea; }}
+  .toolbar button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
   .empty {{
     text-align: center;
     color: var(--muted);
@@ -538,15 +604,103 @@ def _render_match_row(summary: dict, token_qs: str) -> str:
             return f'<span class="winner">{html.escape(text)}</span>'
         return html.escape(text)
 
-    href = f"/match/{html.escape(match_id)}/report{token_qs}"
+    safe_id = html.escape(match_id)
+    href = f"/match/{safe_id}/report{token_qs}"
     return (
-        "<tr>"
+        f'<tr data-match-id="{safe_id}">'
+        f'<td class="checkbox-col">'
+        f'<input type="checkbox" class="match-checkbox" '
+        f'aria-label="Select match {safe_id}" '
+        f'data-match-id="{safe_id}"></td>'
         f"<td>{html.escape(ended)}</td>"
         f'<td class="score">{_sets_cell(1)} – {_sets_cell(2)}</td>'
         f"<td>{html.escape(duration)}</td>"
         f'<td><a class="report-link" href="{href}">View report</a></td>'
+        f'<td><button type="button" class="row-delete" '
+        f'data-match-id="{safe_id}">Delete</button></td>'
         "</tr>"
     )
+
+
+# Static client-side script for the index page. Pure JS — does not go
+# through ``str.format``, so curly braces stay single. Reads the
+# operator's token from the page URL (when present) and forwards it to
+# DELETE /matches/{id} as a Bearer header so the request authenticates
+# the same way the page itself did.
+_INDEX_SCRIPT = """
+<script>
+(function() {
+  const url = new URL(window.location.href);
+  const token = url.searchParams.get('token');
+  const tokenQuery = token ? ('?token=' + encodeURIComponent(token)) : '';
+  const headers = {};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  const checkboxes = () =>
+    Array.from(document.querySelectorAll('input.match-checkbox'));
+  const selectedIds = () =>
+    checkboxes().filter(cb => cb.checked).map(cb => cb.dataset.matchId);
+
+  function refreshToolbar() {
+    const ids = selectedIds();
+    const btn = document.getElementById('delete-selected');
+    const counter = document.getElementById('selected-count');
+    if (btn) btn.disabled = ids.length === 0;
+    if (counter) counter.textContent = ids.length;
+    const all = document.getElementById('select-all');
+    if (all) {
+      const total = checkboxes().length;
+      all.checked = total > 0 && ids.length === total;
+      all.indeterminate = ids.length > 0 && ids.length < total;
+    }
+  }
+
+  async function deleteOne(id) {
+    const res = await fetch(
+      '/matches/' + encodeURIComponent(id) + tokenQuery,
+      { method: 'DELETE', headers }
+    );
+    return res.ok;
+  }
+
+  async function deleteIds(ids) {
+    if (ids.length === 0) return;
+    const label = ids.length === 1 ? '1 match' : (ids.length + ' matches');
+    if (!confirm('Delete ' + label + '? This cannot be undone.')) return;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        if (!(await deleteOne(id))) failed++;
+      } catch (e) {
+        failed++;
+      }
+    }
+    if (failed > 0) {
+      alert('Failed to delete ' + failed + ' of ' + ids.length + ' matches.');
+    }
+    window.location.reload();
+  }
+
+  document.addEventListener('change', (e) => {
+    if (e.target.matches('input.match-checkbox')) refreshToolbar();
+    if (e.target.id === 'select-all') {
+      checkboxes().forEach(cb => { cb.checked = e.target.checked; });
+      refreshToolbar();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'delete-selected') {
+      deleteIds(selectedIds());
+    } else if (e.target.matches('button.row-delete')) {
+      deleteIds([e.target.dataset.matchId]);
+    }
+  });
+
+  refreshToolbar();
+})();
+</script>
+"""
 
 
 @match_report_router.get(
@@ -574,14 +728,28 @@ async def matches_index(
         rows = "\n".join(
             _render_match_row(s, token_qs=token_qs) for s in summaries
         )
-        body_html = (
+        toolbar_html = (
+            '<div class="toolbar">'
+            '<button type="button" id="delete-selected" class="danger" disabled>'
+            'Delete selected (<span id="selected-count">0</span>)'
+            '</button>'
+            '<span>Tip: tick the boxes to select rows, then use this button '
+            'or the per-row Delete to remove them.</span>'
+            '</div>'
+        )
+        table_html = (
             "<table>"
             "<thead><tr>"
-            "<th>Ended</th><th>Sets</th><th>Duration</th><th>Report</th>"
+            '<th class="checkbox-col">'
+            '<input type="checkbox" id="select-all" '
+            'aria-label="Select all matches"></th>'
+            "<th>Ended</th><th>Sets</th><th>Duration</th>"
+            "<th>Report</th><th>Actions</th>"
             "</tr></thead>"
             f"<tbody>{rows}</tbody>"
             "</table>"
         )
+        body_html = toolbar_html + table_html + _INDEX_SCRIPT
     else:
         body_html = '<div class="empty">No matches archived yet for this OID.</div>'
 
@@ -593,3 +761,28 @@ async def matches_index(
         body_html=body_html,
     )
     return HTMLResponse(content=rendered)
+
+
+@match_report_router.delete(
+    "/matches/{match_id}",
+    summary="Delete an archived match snapshot",
+    status_code=204,
+)
+async def delete_archived_match(
+    match_id: str,
+    authorization: Optional[str] = Header(default=None),
+    token: Optional[str] = Query(default=None,
+                                 description="OVERLAY_MANAGER_PASSWORD; "
+                                             "alternative to Bearer header."),
+):
+    """Delete a single archived match by id.
+
+    Always requires a valid admin token, even when
+    ``MATCH_REPORT_PUBLIC=true`` — public mode grants read-only access
+    only. Returns 204 on success, 404 when the match does not exist,
+    and 401/403/503 for the various authentication failure modes.
+    """
+    _check_admin_access(authorization, token)
+    if not match_archive.delete_match(match_id):
+        raise HTTPException(status_code=404, detail="Match not found.")
+    return Response(status_code=204)
