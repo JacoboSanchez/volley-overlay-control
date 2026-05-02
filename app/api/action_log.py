@@ -36,7 +36,6 @@ import re
 import tempfile
 import threading
 import time
-from collections import OrderedDict
 from collections.abc import Set as AbstractSet
 from typing import Optional
 
@@ -51,20 +50,18 @@ _FILENAME_HASH_LEN = 20
 # log so the two undo APIs stay consistent.
 UNDOABLE_ACTIONS = frozenset({"add_point", "add_set", "add_timeout"})
 
-# Per-OID locks coordinate concurrent writers within the same process.
-# A bounded LRU keeps the dict from growing unboundedly when an
-# instance sees many short-lived OIDs (e.g. test runs, churn from
-# created-and-deleted custom overlays). The cap is well above the
-# expected number of concurrently active overlays — once exceeded,
-# the least-recently-used lock is evicted. Eviction is safe because
-# the lock is only held for the duration of a single read/append/pop
-# inside this module; if a lock is evicted while no caller holds it,
-# the next caller for that OID gets a fresh one with identical
-# semantics. (No file-level lock is in play, so eviction does not
-# create a race.)
-_LOCKS_MAX = 256
-_locks_lock = threading.Lock()
-_locks: "OrderedDict[str, threading.Lock]" = OrderedDict()
+# Per-OID writers serialize through a fixed-size pool of locks keyed
+# by hash(oid). A pool gives bounded memory without the eviction
+# race that an LRU dict would create: if an LRU lock were evicted
+# while one thread held it, a concurrent caller for the same OID
+# would mint a new lock and both would enter the critical section
+# (read/append/pop) at once, corrupting the JSONL file. Hash
+# collisions across unrelated OIDs just cause negligible spurious
+# serialization — the critical sections are short.
+_LOCKS_POOL_SIZE = 256
+_locks_pool: tuple[threading.Lock, ...] = tuple(
+    threading.Lock() for _ in range(_LOCKS_POOL_SIZE)
+)
 
 
 def _data_dir() -> str:
@@ -84,23 +81,9 @@ def _path(oid: str) -> Optional[str]:
 
 
 def _lock_for(oid: str) -> threading.Lock:
-    with _locks_lock:
-        lock = _locks.get(oid)
-        if lock is None:
-            lock = threading.Lock()
-            _locks[oid] = lock
-            # Evict least-recently-used once we exceed the cap.
-            while len(_locks) > _LOCKS_MAX:
-                _locks.popitem(last=False)
-        else:
-            _locks.move_to_end(oid)
-        return lock
-
-
-def _drop_lock(oid: str) -> None:
-    """Drop the lock for *oid* (called when its file is deleted)."""
-    with _locks_lock:
-        _locks.pop(oid, None)
+    digest = hashlib.sha256(oid.encode("utf-8")).digest()
+    idx = int.from_bytes(digest[:4], "big") % _LOCKS_POOL_SIZE
+    return _locks_pool[idx]
 
 
 def append(oid: str, action: str, params: dict, result: dict) -> None:
@@ -178,10 +161,8 @@ def delete(oid: str) -> bool:
     try:
         with _lock_for(oid):
             os.remove(path)
-        _drop_lock(oid)
         return True
     except FileNotFoundError:
-        _drop_lock(oid)
         return False
     except OSError as exc:
         logger.warning("Failed to delete audit log for %r: %s", oid, exc)

@@ -177,14 +177,29 @@ def list_matches(oid: Optional[str] = None) -> list[dict]:
     return summaries
 
 
-def load_match(match_id: str) -> Optional[dict]:
-    """Return the full archived snapshot for *match_id*, or ``None``."""
+def _safe_match_path(match_id: object) -> Optional[str]:
+    """Validate *match_id* and return the on-disk path, or ``None``.
+
+    The path is rebuilt from the regex's named groups (which are
+    constrained to ``[0-9a-f]{20}`` and ``\\d{8}T\\d{6}_\\d{6}Z``) so
+    no caller-controlled bytes flow into the filename — the basename
+    is a pure function of two known-format substrings.
+    """
     if not isinstance(match_id, str):
         return None
-    if _MATCH_FILENAME_RE.match(match_id + ".json") is None:
+    m = _MATCH_FILENAME_RE.match(match_id + ".json")
+    if m is None:
         return None
-    path = os.path.join(_data_dir(), match_id + ".json")
-    if not os.path.exists(path):
+    safe_basename = (
+        f"match_{m.group('oid_hash')}_{m.group('ts')}.json"
+    )
+    return os.path.join(_data_dir(), safe_basename)
+
+
+def load_match(match_id: str) -> Optional[dict]:
+    """Return the full archived snapshot for *match_id*, or ``None``."""
+    path = _safe_match_path(match_id)
+    if path is None or not os.path.exists(path):
         return None
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -202,12 +217,8 @@ def delete_match(match_id: str) -> bool:
     Validates the basename against ``_MATCH_FILENAME_RE`` so a caller
     can never escape ``data/matches/`` via path traversal.
     """
-    if not isinstance(match_id, str):
-        return False
-    if _MATCH_FILENAME_RE.match(match_id + ".json") is None:
-        return False
-    path = os.path.join(_data_dir(), match_id + ".json")
-    if not os.path.exists(path):
+    path = _safe_match_path(match_id)
+    if path is None or not os.path.exists(path):
         return False
     try:
         os.remove(path)
