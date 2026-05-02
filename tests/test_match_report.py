@@ -192,6 +192,7 @@ class TestMatchReportTemplateStructure:
     ])
     def test_template_has_balanced_braces(self, name):
         import string
+
         import app.match_report as mr
         tpl = getattr(mr, name)
         # Forces the formatter to scan every brace — a literal single
