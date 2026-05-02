@@ -577,16 +577,24 @@ def _action_label(record: dict, locale: str) -> str:
 # Audit-log derived helpers (running score, undo collapse, stats, charts)
 # ---------------------------------------------------------------------------
 
-def _result_score(record: dict, team: int) -> Optional[int]:
-    """Pull the post-action score for *team* out of an audit ``result`` blob."""
-    result = record.get("result") or {}
-    block = result.get(f"team_{team}") or {}
-    raw = block.get("score")
+def _coerce_int(raw: object) -> Optional[int]:
+    """Best-effort ``int`` parse for audit-record numeric fields.
+
+    Accepts a real ``int`` directly or a string of digits (some
+    archive paths stringify scores). Returns ``None`` for anything
+    else. Caller decides whether to apply a positivity filter.
+    """
     if isinstance(raw, int):
         return raw
     if isinstance(raw, str) and raw.isdigit():
         return int(raw)
     return None
+
+
+def _result_score(record: dict, team: int) -> Optional[int]:
+    """Pull the post-action score for *team* out of an audit ``result`` blob."""
+    block = (record.get("result") or {}).get(f"team_{team}") or {}
+    return _coerce_int(block.get("score"))
 
 
 def _result_set(record: dict) -> Optional[int]:
@@ -601,9 +609,9 @@ def _result_set(record: dict) -> Optional[int]:
     """
     result = record.get("result") or {}
     for key in ("score_set", "current_set"):
-        raw = result.get(key)
-        if isinstance(raw, int) and raw > 0:
-            return raw
+        n = _coerce_int(result.get(key))
+        if n is not None and n > 0:
+            return n
     return None
 
 
