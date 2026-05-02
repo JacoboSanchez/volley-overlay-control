@@ -569,6 +569,74 @@ def _is_score_action(record: dict) -> bool:
     return record.get("action") in ("add_point", "set_score")
 
 
+def _first_scoring_index(audit: list[dict]) -> Optional[int]:
+    """Index of the first non-undo ``add_point`` / ``set_score`` record.
+
+    The audit log starts with whatever the operator did first — often a
+    ``reset`` to clear the previous match's state — but a "match" only
+    really begins once someone scores. Until the UI exposes a dedicated
+    "match start" marker, every report-side time anchor (relative
+    timestamps, duration, set durations, stats) snaps to this index.
+    Returns ``None`` when the audit has no scoring action at all.
+    """
+    for index, record in enumerate(audit):
+        if (record.get("params") or {}).get("undo"):
+            continue
+        if _is_score_action(record):
+            return index
+    return None
+
+
+def _trim_pregame(audit: list[dict]) -> list[dict]:
+    """Drop pre-first-scoring records (``reset``, stray timeouts, …).
+
+    Keeps everything from the first scoring action onward. When the
+    audit has no scoring action at all we return ``[]`` — the timeline
+    renderer already understands the empty case and shows "no audit
+    records", and falling through to the unfiltered list would let the
+    pregame noise leak back into the report.
+    """
+    idx = _first_scoring_index(audit)
+    return audit[idx:] if idx is not None else []
+
+
+def _played_set_count(final_state: dict, fallback: int) -> int:
+    """Highest set N with non-zero scoring data, clamped to *fallback*.
+
+    The match-history archive bundles ``team_X.scores.set_N`` for every
+    set up to ``sets_limit``, even sets that were never played (best
+    of 3 ending 2-0 still has ``set_3``: 0/0). Render only the sets
+    that actually saw points so empty trailing columns don't dilute
+    the report. When no set has scores yet (fresh archive) we collapse
+    to a single set frame rather than painting all ``sets_limit``
+    columns full of ``—``s.
+
+    *fallback* is honoured only as an upper bound — corrupt snapshots
+    reporting set N > sets_limit shouldn't paint a column the rules
+    don't allow.
+    """
+    teams = (final_state.get("team_1") or {}, final_state.get("team_2") or {})
+    highest = 0
+    for team in teams:
+        scores = team.get("scores") or {}
+        for key, value in scores.items():
+            if not isinstance(key, str) or not key.startswith("set_"):
+                continue
+            try:
+                n = int(key.removeprefix("set_"))
+            except ValueError:
+                continue
+            try:
+                v = int(value) if value is not None else 0
+            except (TypeError, ValueError):
+                continue
+            if v > 0:
+                highest = max(highest, n)
+    if highest == 0:
+        return 1
+    return min(highest, fallback) if fallback > 0 else highest
+
+
 def _collapse_undos(audit: list[dict]) -> list[dict]:
     """Mark forward audit records whose effect was reverted by a later ``undo``.
 
@@ -1009,7 +1077,12 @@ async def match_report(
     customization = payload.get("customization", {}) or {}
     final = payload.get("final_state", {}) or {}
     config = payload.get("config", {}) or {}
-    audit = payload.get("audit_log", []) or []
+    raw_audit = payload.get("audit_log", []) or []
+    # The "match" only exists from the first scored point onward — see
+    # ``_first_scoring_index`` for the rationale. Every audit consumer
+    # below operates on the trimmed slice so pre-game noise (resets,
+    # stray clicks) doesn't skew durations, charts, or relative times.
+    audit = _trim_pregame(raw_audit)
 
     team1_name = _team_name(customization, 1)
     team2_name = _team_name(customization, 2)
@@ -1019,6 +1092,10 @@ async def match_report(
     team1_sets = team1.get("sets") or 0
     team2_sets = team2.get("sets") or 0
     sets_limit = config.get("sets_limit") or 5
+    # Trailing sets that never saw points (e.g. set 3 of a 2-0 best-of-3)
+    # don't earn a column / chart / duration cell; they'd just read as
+    # ``—``s and dilute the rest of the report.
+    played_sets = _played_set_count(final, sets_limit)
 
     t1_color = _team_color(customization, 1, primary=True)
     t1_fg = _team_color(customization, 1, primary=False)
@@ -1027,19 +1104,39 @@ async def match_report(
 
     set_headers = "".join(
         f'<th>{html.escape(_t(locale, "setLabel", n=i))}</th>'
-        for i in range(1, sets_limit + 1)
+        for i in range(1, played_sets + 1)
     )
 
     def _team_set_cells(team_dict: dict) -> str:
         cells = []
         scores = team_dict.get("scores", {}) or {}
-        for i in range(1, sets_limit + 1):
+        for i in range(1, played_sets + 1):
             v = scores.get(f"set_{i}", "")
             cells.append(f"<td>{html.escape(str(v) if v != '' else '—')}</td>")
         return "".join(cells)
 
     stats = _compute_stats(audit)
     set_durations = stats.get("set_durations", {}) or {}
+
+    # The reported "Started" and "Duration" snap to the first scoring
+    # action, not the snapshot's wallclock — keeps the header subtitle
+    # honest about how long the *match* lasted, not how long the
+    # operator's tab was open.
+    first_scoring_ts: Optional[float] = None
+    for record in audit:
+        ts = record.get("ts")
+        if isinstance(ts, (int, float)):
+            first_scoring_ts = float(ts)
+            break
+    ended_at = payload.get("ended_at")
+    if first_scoring_ts is not None and isinstance(ended_at, (int, float)):
+        effective_duration = max(0.0, float(ended_at) - first_scoring_ts)
+    else:
+        effective_duration = payload.get("duration_s")
+    effective_started_at = (
+        first_scoring_ts if first_scoring_ts is not None
+        else payload.get("started_at")
+    )
 
     timeouts_t1 = team1.get("timeouts")
     timeouts_t2 = team2.get("timeouts")
@@ -1080,32 +1177,34 @@ async def match_report(
         team2_fg=t2_fg,
         team1_winner_badge=team1_winner,
         team2_winner_badge=team2_winner,
-        set_count=sets_limit,
+        set_count=played_sets,
         set_headers=set_headers,
         team1_set_cells=_team_set_cells(team1),
         team2_set_cells=_team_set_cells(team2),
-        set_duration_cells=_render_set_durations_row(set_durations, sets_limit),
+        set_duration_cells=_render_set_durations_row(set_durations, played_sets),
         timeouts_summary=timeouts_summary,
         # ``config`` values are operator-controlled — escape the
         # interpolated string defensively even though the formatter
-        # only sees ints in the happy path.
+        # only sees ints in the happy path. ``Best of {sets_limit}`` is
+        # the *match rule* and stays at sets_limit even when fewer
+        # sets actually got played.
         format_desc=html.escape(_t(
             locale, "formatDesc",
             sets=sets_limit,
             points=config.get("points_limit") or "—",
             last=config.get("points_limit_last_set") or "—",
         )),
-        started_at_display=_fmt_ts(payload.get("started_at")),
+        started_at_display=_fmt_ts(effective_started_at),
         ended_at_display=_fmt_ts(payload.get("ended_at")),
-        duration_display=_fmt_seconds(payload.get("duration_s")),
+        duration_display=_fmt_seconds(effective_duration),
         audit_count=len(audit),
         highlights_html=_render_highlights(stats, locale),
         charts_html=_render_charts(
-            audit, sets_limit, locale,
+            audit, played_sets, locale,
             t1_name=team1_name, t2_name=team2_name,
             t1_color=t1_color, t2_color=t2_color,
         ),
-        timeline_html=_render_timeline(audit, locale, sets_limit),
+        timeline_html=_render_timeline(audit, locale, played_sets),
         # i18n labels
         duration_label=html.escape(_t(locale, "duration")),
         versus=html.escape(_t(locale, "versus")),
