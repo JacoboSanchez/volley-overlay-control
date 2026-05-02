@@ -363,6 +363,25 @@ class TestMatchReportRichSections:
         # The row label is i18n-driven.
         assert "Set durations" in response.text
 
+    def test_team_name_with_ampersand_is_not_double_escaped(self, client):
+        # Regression: ``A & B`` was being html.escape'd twice — once
+        # into ``match_label`` and again into ``title`` — so it ended
+        # up reading ``A &amp;amp; B`` in the browser tab. The label
+        # is now raw end-to-end and only escaped at insertion sites.
+        match_id = match_archive.archive_match(
+            oid="amp-1",
+            final_state={"team_1": {"sets": 0}, "team_2": {"sets": 0}},
+            customization={"Team 1 Name": "A & B", "Team 2 Name": "C"},
+            winning_team=1,
+            sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert response.status_code == 200
+        assert "&amp;amp;" not in response.text
+        # The expected single-pass escape: literal ``&`` becomes
+        # ``&amp;`` exactly once in both ``<title>`` and ``<h1>``.
+        assert response.text.count("A &amp; B") >= 2
+
     def test_team_name_html_escaped(self, client):
         action_log.append("rep-xss", "add_point",
                           {"team": 1, "undo": False}, {})

@@ -926,13 +926,11 @@ def _render_timeline(audit: list[dict], locale: str, set_count: int) -> str:
     by_set: dict[int, list[dict]] = {}
     orphans: list[dict] = []
     for record in collapsed:
-        # Hide the explicit-undo orphan rows (no pair found): they were
-        # left in the list as a defensive log, but they'd duplicate the
-        # crossed-out original visually. The undo's effect is conveyed
-        # by the strikethrough.
-        params = record.get("params") or {}
-        if params.get("undo"):
-            continue
+        # ``_collapse_undos`` already drops the explicit-undo half of
+        # successfully paired records (their forward sibling renders
+        # with ``_was_undone=True`` strikethrough). Anything still
+        # marked ``undo`` here is an orphan that ``_collapse_undos``
+        # kept on purpose for forensic visibility — keep rendering it.
         set_num = _result_set(record)
         target = by_set.setdefault(set_num, []) if set_num else orphans
         target.append(record)
@@ -1057,17 +1055,18 @@ async def match_report(
     team1_winner = winner_badge if winning_team == 1 else ""
     team2_winner = winner_badge if winning_team == 2 else ""
 
-    match_label = (
-        f"{html.escape(team1_name)} {team1_sets} – {team2_sets} "
-        f"{html.escape(team2_name)}"
-    )
-
-    permalink = f"/match/{html.escape(match_id, quote=True)}/report"
+    # ``match_label`` and ``permalink`` are kept raw here — every
+    # consumer escapes at insertion time. Pre-escaping the source
+    # would push the title through ``html.escape`` twice (once here,
+    # once at the template kwarg) and produce ``&amp;amp;`` for any
+    # ``&`` in a team name.
+    match_label = f"{team1_name} {team1_sets} – {team2_sets} {team2_name}"
+    permalink = f"/match/{match_id}/report"
 
     rendered = _REPORT_TEMPLATE.format(
         locale=locale,
         title=html.escape(_t(locale, "title", label=match_label)),
-        match_label=match_label,
+        match_label=html.escape(match_label),
         match_id=html.escape(payload.get("match_id", match_id)),
         team1_name=html.escape(team1_name),
         team2_name=html.escape(team2_name),
@@ -1087,12 +1086,15 @@ async def match_report(
         team2_set_cells=_team_set_cells(team2),
         set_duration_cells=_render_set_durations_row(set_durations, sets_limit),
         timeouts_summary=timeouts_summary,
-        format_desc=_t(
+        # ``config`` values are operator-controlled — escape the
+        # interpolated string defensively even though the formatter
+        # only sees ints in the happy path.
+        format_desc=html.escape(_t(
             locale, "formatDesc",
             sets=sets_limit,
             points=config.get("points_limit") or "—",
             last=config.get("points_limit_last_set") or "—",
-        ),
+        )),
         started_at_display=_fmt_ts(payload.get("started_at")),
         ended_at_display=_fmt_ts(payload.get("ended_at")),
         duration_display=_fmt_seconds(payload.get("duration_s")),
