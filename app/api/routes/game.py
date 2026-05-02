@@ -90,3 +90,35 @@ async def set_sets(req: SetSetsRequest,
 async def reset_game(session: GameSession = Depends(get_session)):
     async with session.lock:
         return GameService.reset(session)
+
+
+@router.post(
+    "/game/start-match",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+    summary="Arm the match-start timer without scoring a point",
+)
+async def start_match(session: GameSession = Depends(get_session)):
+    """Stamps ``match_started_at`` with the current wallclock if the
+    match isn't already armed. Idempotent — a second call leaves the
+    original anchor in place. The HUD timer / report duration / undo
+    flow all read this field downstream.
+    """
+    async with session.lock:
+        return GameService.start_match(session)
+
+
+@router.post(
+    "/game/undo",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+    summary="Reverse the most recent undoable action",
+)
+async def undo_last(session: GameSession = Depends(get_session)):
+    """Pops the most recent forward ``add_point`` / ``add_set`` /
+    ``add_timeout`` from the audit log and applies the inverse via
+    ``undo=True``. Returns ``success=false`` with message
+    ``"Nothing to undo."`` when the log has no eligible entry.
+    """
+    async with session.lock:
+        return GameService.undo_last(session)

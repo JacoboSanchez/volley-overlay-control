@@ -79,8 +79,22 @@ async function installLogoRouter(context) {
   });
 }
 
-const SCOREBOARD_VIEWPORT = { width: 1280, height: 800 };
+// Mobile-landscape is the primary capture viewport because the
+// scoring operator's main use case is a phone held sideways during a
+// match. 844×390 is the rotation of PHONE_VIEWPORT below (iPhone-class
+// dimensions). The exception is /manage, which is browser-first
+// (operators rarely admin from a phone) — it uses MANAGE_VIEWPORT, a
+// scaled-down desktop layout.
+const MOBILE_LANDSCAPE_VIEWPORT = { width: 844, height: 390 };
 const PHONE_VIEWPORT = { width: 390, height: 844 };
+const MANAGE_VIEWPORT = { width: 1024, height: 700 };
+// /match/{id}/report is a print-friendly HTML page with a 960px max
+// content width — operators read it on a desktop or share it as PDF,
+// so it gets a desktop-sized viewport with enough vertical room to
+// fit the hero, set-by-set table and the top of the timeline in one
+// frame.
+const REPORT_VIEWPORT = { width: 1024, height: 1100 };
+const REPORT_OID = 'practice-hall';
 
 async function ensureDemoOverlay() {
   const adminHeaders = {
@@ -158,6 +172,160 @@ async function ensureDemoOverlay() {
   await driveMatchState();
 }
 
+async function ensureFinishedMatchForReport() {
+  // Drive ``REPORT_OID`` (the second overlay already created above) to
+  // a complete 4-set match so its archive is available at
+  // ``/match/{match_id}/report``. Uses ``set_score`` to fast-forward
+  // the loser's count in each set and ``add_point`` for the
+  // set-winning point — that way the audit log has a real point-by-
+  // point transition the report timeline can render, instead of just
+  // four bulk score-overrides.
+  const initRes = await fetch(`${BASE}/api/v1/session/init`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oid: REPORT_OID }),
+  });
+  if (!initRes.ok) {
+    const txt = await initRes.text();
+    throw new Error(`session/init for ${REPORT_OID} failed: ${initRes.status} ${txt}`);
+  }
+
+  // Same invented teams so the report shares the visual identity of
+  // the scoreboard shots. Note ``Team N Text Name`` drives the React
+  // scoreboard while ``Team N Name`` is what ``app.match_report``
+  // looks up — both keys point to the same string here so either
+  // surface picks the right label.
+  const customization = {
+    'Team 1 Text Name': TEAM_1.name,
+    'Team 2 Text Name': TEAM_2.name,
+    'Team 1 Name': TEAM_1.name,
+    'Team 2 Name': TEAM_2.name,
+    'Team 1 Color': TEAM_1.color,
+    'Team 2 Color': TEAM_2.color,
+    'Team 1 Text Color': TEAM_1.textColor,
+    'Team 2 Text Color': TEAM_2.textColor,
+    'Team 1 Logo': TEAM_1.logo,
+    'Team 2 Logo': TEAM_2.logo,
+    Logos: 'true',
+  };
+  const custRes = await fetch(
+    `${BASE}/api/v1/customization?oid=${encodeURIComponent(REPORT_OID)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(customization),
+    },
+  );
+  if (!custRes.ok) {
+    const txt = await custRes.text();
+    throw new Error(`customization for ${REPORT_OID} failed: ${custRes.status} ${txt}`);
+  }
+
+  const post = (path, body) =>
+    fetch(`${BASE}${path}?oid=${encodeURIComponent(REPORT_OID)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body == null ? undefined : JSON.stringify(body),
+    });
+
+  // Arm the live timer first so the archive carries a non-zero match
+  // duration and the report renders a meaningful "Duration: …" cell.
+  await post('/api/v1/game/start-match', null);
+
+  // Drive a set with the eventual winner pre-set first so the
+  // "biggest comeback" highlight is computed against realistic
+  // running scores instead of an artificial ``(0, loserEnd)``
+  // transient. Set the winner to ``loserEnd`` (tied), then bring
+  // the loser up to ``loserEnd``, optionally fire some in-set
+  // ``add_timeout`` calls (they must land BEFORE the closing
+  // add_point because the set-winning point advances
+  // ``current_set`` and any timeout after that would be recorded
+  // against the next set), then drive the winning team's remaining
+  // points via ``add_point`` so the audit log carries real
+  // point-by-point transitions.
+  async function closeSet(setNum, winner, winnerEnd, loserEnd, timeouts = {}) {
+    const loser = winner === 1 ? 2 : 1;
+    await post('/api/v1/game/set-score', {
+      team: winner, set_number: setNum, value: loserEnd,
+    });
+    await post('/api/v1/game/set-score', {
+      team: loser, set_number: setNum, value: loserEnd,
+    });
+    for (let i = 0; i < (timeouts[1] || 0); i++) {
+      await post('/api/v1/game/add-timeout', { team: 1 });
+    }
+    for (let i = 0; i < (timeouts[2] || 0); i++) {
+      await post('/api/v1/game/add-timeout', { team: 2 });
+    }
+    for (let i = 0; i < winnerEnd - loserEnd; i++) {
+      await post('/api/v1/game/add-point', { team: winner });
+    }
+  }
+
+  // TW wins 3-1 in four sets. Sets 1-3 use the boring closeSet helper
+  // (tight back-and-forth, no notable deficit). Set 4 is driven
+  // explicitly so the "biggest comeback" highlight has a real story
+  // to tell: SH jumps to 0-5, TW catches up and closes 25-22.
+  //
+  // The 700-ms gaps between sets give the audit log a non-zero
+  // wall-clock spread so the report's "Duration" cell and the
+  // score-evolution charts' time axis aren't compressed to 0m 00s.
+  const setBreak = () => new Promise((r) => setTimeout(r, 700));
+
+  // Set 1 — TW 25-23 with both teams calling 1 timeout each.
+  //   set-by-set cells: TW "25 (1)"  /  SH "23 (1)".
+  await closeSet(1, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/23,
+                 /*timeouts=*/{ 1: 1, 2: 1 });
+  await setBreak();
+
+  // Set 2 — SH 25-21. SH burns both timeouts while consolidating the
+  // lead. TW had no timeouts.
+  //   set-by-set cells: TW "21"  /  SH "25 (2)".
+  await closeSet(2, /*winner=*/2, /*winnerEnd=*/25, /*loserEnd=*/21,
+                 /*timeouts=*/{ 2: 2 });
+  await setBreak();
+
+  // Set 3 — TW 25-19, dominant. No timeouts called.
+  await closeSet(3, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/19);
+  await setBreak();
+
+  // Set 4 — TW comes back from 0-5 to win 25-22.
+  // ``set_score`` jumps SH to 5 first; the next 5 add_points pull TW
+  // even at 5-5. From there we tied-fast-forward to 22-22 and TW
+  // closes the match with three more add_points. The eventual
+  // winner (TW) faces a real 5-point deficit during the early phase,
+  // which is what the "biggest comeback" stat is meant to highlight.
+  // Both sides call one timeout mid-comeback.
+  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 5 });
+  for (let i = 0; i < 5; i++) {
+    await post('/api/v1/game/add-point', { team: 1 });
+  }
+  await post('/api/v1/game/add-timeout', { team: 1 });
+  await post('/api/v1/game/add-timeout', { team: 2 });
+  await post('/api/v1/game/set-score', { team: 1, set_number: 4, value: 22 });
+  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 22 });
+  for (let i = 0; i < 3; i++) {
+    await post('/api/v1/game/add-point', { team: 1 });
+  }
+}
+
+async function fetchLatestMatchId() {
+  // /api/v1/matches is admin-gated and returns {count, matches}.
+  const res = await fetch(
+    `${BASE}/api/v1/matches?oid=${encodeURIComponent(REPORT_OID)}`,
+    { headers: { Authorization: `Bearer ${ADMIN_PW}` } },
+  );
+  if (!res.ok) {
+    throw new Error(`Could not list matches for ${REPORT_OID}: ${res.status}`);
+  }
+  const body = await res.json();
+  const matches = Array.isArray(body) ? body : body.matches;
+  if (!Array.isArray(matches) || matches.length === 0) {
+    throw new Error(`No archived matches for ${REPORT_OID}`);
+  }
+  return matches[0].match_id;
+}
+
 async function setSimpleMode(enabled) {
   const res = await fetch(
     `${BASE}/api/v1/display/simple-mode?oid=${encodeURIComponent(DEMO_OID)}`,
@@ -181,6 +349,14 @@ async function driveMatchState() {
       body: body == null ? undefined : JSON.stringify(body),
     });
 
+  // Arm ``match_started_at`` so the HUD shows the Reset button + live
+  // timer instead of the unarmed "Start match" call-to-action. The
+  // implicit auto-arm only fires on ``add_point`` (not ``set_score``),
+  // and we drive scores via set-score below — so the explicit start
+  // endpoint is the one that matches the operator's "press Start, then
+  // play" flow this fixture is meant to depict.
+  await post('/api/v1/game/start-match', null);
+
   // Drive a realistic mid-match state: tied 1-1 going into set 3 with the
   // current set in progress. Always set the loser's value first so
   // set-score's auto-set-win check doesn't promote the wrong team
@@ -194,10 +370,13 @@ async function driveMatchState() {
   await post('/api/v1/game/set-score', { team: 1, set_number: 2, value: 22 });
   await post('/api/v1/game/set-score', { team: 2, set_number: 2, value: 25 });
 
-  // Set 3 (current) — mid-rally, 18-15 with TW serving.
+  // Set 3 (current) — 18-24 with SH on set point. The control UI's
+  // MatchAlertIndicator surfaces a "set point" badge in the centre
+  // HUD whenever a team is one point from closing the set, so this
+  // makes the alert visible in the regenerated scoreboard shot.
   await post('/api/v1/game/set-score', { team: 1, set_number: 3, value: 18 });
-  await post('/api/v1/game/set-score', { team: 2, set_number: 3, value: 15 });
-  await post('/api/v1/game/change-serve', { team: 1 });
+  await post('/api/v1/game/set-score', { team: 2, set_number: 3, value: 24 });
+  await post('/api/v1/game/change-serve', { team: 2 });
 }
 
 async function dismissPwaPrompt(page) {
@@ -234,8 +413,15 @@ async function captureScoreboard(page) {
     DEMO_OID,
     { timeout: 5000 },
   ).catch(() => {});
-  // Generic wait: a button containing two-digit numbers should be present.
-  await page.waitForTimeout(800);
+  // Wait for the match-alert pill to render so the set-point indicator
+  // is in-frame. The pill is a `data-testid="match-alert-indicator"`
+  // span inside `.match-alerts-row` — present whenever any team holds
+  // set or match point. We tolerate timeout (matches without an alert
+  // — e.g. the connect-screen-only mode — should still capture).
+  await page.waitForSelector('[data-testid="match-alert-indicator"]', {
+    timeout: 3000,
+  }).catch(() => {});
+  await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '02-scoreboard.png'), fullPage: false });
 }
 
@@ -247,7 +433,7 @@ async function captureScoreboardPhone(page) {
   await dismissPwaPrompt(page);
   await page.waitForTimeout(800);
   await page.screenshot({ path: resolve(OUT_DIR, '03-scoreboard-phone.png'), fullPage: false });
-  await page.setViewportSize(SCOREBOARD_VIEWPORT);
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function captureConfigPanel(page) {
@@ -286,6 +472,10 @@ async function captureConfigPanel(page) {
 }
 
 async function captureManagePage(page) {
+  // /manage is the only browser-first surface — operators don't admin
+  // overlays from a phone — so it gets a scaled-down desktop viewport
+  // instead of the mobile-landscape default used for the SPA shots.
+  await page.setViewportSize(MANAGE_VIEWPORT);
   await page.goto(`${BASE}/manage`, { waitUntil: 'networkidle' });
   // Fill the password and submit.
   await page.fill('input[type="password"]', ADMIN_PW);
@@ -294,6 +484,27 @@ async function captureManagePage(page) {
   await page.waitForSelector('table', { timeout: 5000 });
   await page.waitForTimeout(300);
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
+async function captureMatchReport(page, matchId) {
+  // /match/{id}/report needs the admin token — MATCH_REPORT_PUBLIC is
+  // not set in the screenshot environment, so we pass it via the
+  // ?token= query that the route accepts as an alias for the Bearer
+  // header.
+  await page.setViewportSize(REPORT_VIEWPORT);
+  const url = `${BASE}/match/${encodeURIComponent(matchId)}/report?token=${encodeURIComponent(ADMIN_PW)}`;
+  await page.goto(url, { waitUntil: 'networkidle' });
+  // The report renders an inline SVG chart per set; wait until at
+  // least one of them is mounted so the screenshot doesn't catch the
+  // pre-chart layout shift.
+  await page.waitForSelector('svg', { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: resolve(OUT_DIR, '08-match-report.png'),
+    fullPage: false,
+  });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function captureOverlayMosaic(page, filename) {
@@ -336,7 +547,7 @@ async function captureOverlayMosaic(page, filename) {
     fullPage: true,
     ...(clip ? { clip } : {}),
   });
-  await page.setViewportSize(SCOREBOARD_VIEWPORT);
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function main() {
@@ -344,10 +555,12 @@ async function main() {
   console.log(`Capturing screenshots into ${OUT_DIR}`);
 
   await ensureDemoOverlay();
+  await ensureFinishedMatchForReport();
+  const reportMatchId = await fetchLatestMatchId();
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
-    viewport: SCOREBOARD_VIEWPORT,
+    viewport: MOBILE_LANDSCAPE_VIEWPORT,
     // Render at 1× to keep PNGs lightweight for the README. The captured
     // surfaces are documentation-resolution, not retina assets — going
     // higher quadruples file size for no practical benefit.
@@ -377,6 +590,7 @@ async function main() {
     await setSimpleMode(true);
     await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png');
     await setSimpleMode(false);
+    await captureMatchReport(page, reportMatchId);
   } finally {
     await context.close();
     await browser.close();

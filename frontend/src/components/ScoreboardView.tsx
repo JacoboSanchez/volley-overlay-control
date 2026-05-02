@@ -23,12 +23,16 @@ export interface ScoreboardViewProps {
   buttonSize?: number;
   previewData: PreviewData | null | undefined;
   showPreview: boolean;
+  /**
+   * True on landscape phones (no room for persistent controls). The
+   * centre column then uses a tighter layout and a smaller preview so
+   * the alert pills don't get pushed off the bottom of the viewport.
+   */
+  compactLandscape?: boolean;
   showControls: boolean;
   setShowControls: Dispatch<SetStateAction<boolean>>;
   canUndo: boolean;
   simpleMode: boolean;
-  isFullscreen: boolean;
-  darkMode: boolean;
   btnColorA: string;
   btnTextA: string;
   btnColorB: string;
@@ -49,9 +53,9 @@ export interface ScoreboardViewProps {
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
-  onToggleDarkMode: () => void;
-  onToggleFullscreen: () => void;
   onTogglePreview: () => void;
+  onStartMatch: () => void;
+  onReset: () => void;
   onOpenConfig: () => void;
 }
 
@@ -64,12 +68,11 @@ export default function ScoreboardView({
   buttonSize,
   previewData,
   showPreview,
+  compactLandscape = false,
   showControls,
   setShowControls,
   canUndo,
   simpleMode,
-  isFullscreen,
-  darkMode,
   btnColorA,
   btnTextA,
   btnColorB,
@@ -90,9 +93,9 @@ export default function ScoreboardView({
   onToggleVisibility,
   onToggleSimpleMode,
   onUndoLast,
-  onToggleDarkMode,
-  onToggleFullscreen,
   onTogglePreview,
+  onStartMatch,
+  onReset,
   onOpenConfig,
 }: ScoreboardViewProps) {
   const { t } = useI18n();
@@ -130,6 +133,7 @@ export default function ScoreboardView({
           currentSet={currentSet}
           setsLimit={setsLimit}
           isPortrait={isPortrait}
+          compactLandscape={compactLandscape}
           previewData={showPreview ? previewData : null}
           fontStyle={fontStyle}
           onAddSet={onAddSet}
@@ -184,15 +188,15 @@ export default function ScoreboardView({
             visible={state.visible}
             simpleMode={simpleMode}
             canUndo={canUndo}
-            darkMode={darkMode}
-            isFullscreen={isFullscreen}
             showPreview={showPreview}
+            matchStartedAt={state.match_started_at}
+            matchFinished={state.match_finished}
             onToggleVisibility={onToggleVisibility}
             onToggleSimpleMode={onToggleSimpleMode}
             onUndoLast={onUndoLast}
-            onToggleDarkMode={onToggleDarkMode}
-            onToggleFullscreen={onToggleFullscreen}
             onTogglePreview={onTogglePreview}
+            onStartMatch={onStartMatch}
+            onReset={onReset}
           />
         </div>
       </div>

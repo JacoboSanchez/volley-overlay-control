@@ -5,11 +5,11 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from starlette.concurrency import run_in_threadpool
 
-from app.api.dependencies import check_oid_access, verify_api_key
+from app.api.dependencies import check_oid_access, get_session, verify_api_key
 from app.api.game_service import GameService
 from app.api.routes.lifespan import get_init_lock
-from app.api.schemas import ActionResponse, InitRequest
-from app.api.session_manager import SessionManager
+from app.api.schemas import ActionResponse, InitRequest, SetRulesRequest
+from app.api.session_manager import GameSession, SessionManager
 from app.backend import Backend
 from app.conf import Conf
 from app.logging_utils import redact_oid
@@ -87,3 +87,33 @@ async def init_session(req: InitRequest, request: Request):
         )
         logger.info("Session created for oid=%s", redact_oid(req.oid))
     return ActionResponse(success=True, state=GameService.get_state(session))
+
+
+@router.post(
+    "/session/rules",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+    summary="Update match rules (mode, points, sets) for the session",
+)
+async def set_rules(
+    req: SetRulesRequest,
+    session: GameSession = Depends(get_session),
+):
+    """Update match-rule preset for the session.
+
+    All fields are optional. ``mode`` accepts ``"indoor"`` or
+    ``"beach"`` and drives the beach side-switch indicator. The
+    ``reset_to_defaults`` flag replaces every limit with the
+    canonical preset for the resulting mode. Per-field overrides
+    in the same call still win, so the UI can switch modes and
+    keep one custom limit in a single request.
+    """
+    async with session.lock:
+        return GameService.set_rules(
+            session,
+            mode=req.mode,
+            points_limit=req.points_limit,
+            points_limit_last_set=req.points_limit_last_set,
+            sets_limit=req.sets_limit,
+            reset_to_defaults=req.reset_to_defaults,
+        )

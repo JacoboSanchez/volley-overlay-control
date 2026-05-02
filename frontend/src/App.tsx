@@ -20,7 +20,6 @@ import {
   FONT_SCALES,
 } from './theme';
 import { HUD_AUTO_HIDE_MS } from './constants';
-import { useActionHistory } from './hooks/useActionHistory';
 
 type Team = 1 | 2;
 
@@ -57,7 +56,6 @@ export default function App() {
 
   const [oid, setOid] = useState<string>(getInitialOid);
   const [oidInput, setOidInput] = useState<string>(oid);
-  const undoHistory = useActionHistory();
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
@@ -163,36 +161,30 @@ export default function App() {
     (team: Team) => {
       if (matchFinished) return;
       actions.addPoint(team, false);
-      undoHistory.push({ type: 'point', team });
       if (settings.autoSimple && !simpleMode) {
         actions.setSimpleMode(true);
       }
     },
-    // Depend on the stable individual functions rather than the wrapper
-    // object so callbacks don't re-build on every history push (which
-    // would propagate fresh prop identities into memoised ScoreButtons).
-    [actions, matchFinished, undoHistory.push, settings.autoSimple, simpleMode]
+    [actions, matchFinished, settings.autoSimple, simpleMode]
   );
 
   const handleAddSet = useCallback(
     (team: Team) => {
       if (matchFinished) return;
       actions.addSet(team, false);
-      undoHistory.push({ type: 'set', team });
     },
-    [actions, matchFinished, undoHistory.push]
+    [actions, matchFinished]
   );
 
   const handleAddTimeout = useCallback(
     (team: Team) => {
       if (matchFinished) return;
       actions.addTimeout(team, false);
-      undoHistory.push({ type: 'timeout', team });
       if (settings.autoSimple && settings.autoSimpleOnTimeout && simpleMode) {
         actions.setSimpleMode(false);
       }
     },
-    [actions, matchFinished, undoHistory.push, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
+    [actions, matchFinished, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
   );
 
   const handleChangeServe = useCallback(
@@ -208,13 +200,14 @@ export default function App() {
     actions.setSimpleMode(!simpleMode);
   }, [actions, simpleMode]);
 
+  // Server-side LIFO: ``actions.undoLast()`` posts to /game/undo,
+  // which pops from the audit log and reverses the action via the
+  // existing per-type ``add_*(undo=True)`` path. The two undo
+  // entry points (this and the per-team double-tap below) share
+  // the same stack on the server and cannot drift.
   const handleUndoLast = useCallback(() => {
-    const popped = undoHistory.undoLast();
-    if (!popped) return;
-    if (popped.type === 'point') actions.addPoint(popped.team, true);
-    else if (popped.type === 'set') actions.addSet(popped.team, true);
-    else actions.addTimeout(popped.team, true);
-  }, [actions, undoHistory.undoLast]);
+    actions.undoLast();
+  }, [actions]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -234,17 +227,19 @@ export default function App() {
   const handleReset = useCallback(() => {
     if (window.confirm(t('config.resetConfirm'))) {
       actions.reset();
-      undoHistory.clear();
     }
-  }, [actions, t, undoHistory.clear]);
+  }, [actions, t]);
+
+  const handleStartMatch = useCallback(() => {
+    actions.startMatch();
+  }, [actions]);
 
   const handleLogout = useCallback(() => {
     try { localStorage.removeItem('volley_oid'); } catch (e) { console.warn('Failed to remove OID:', e); }
     setOid('');
     setOidInput('');
-    undoHistory.clear();
     setActiveTab('scoreboard');
-  }, [undoHistory.clear]);
+  }, []);
 
   const handleSetChange = useCallback(
     (set: number) => {
@@ -254,20 +249,22 @@ export default function App() {
     [setsLimit]
   );
 
+  // Per-team double-tap undoes the most recent forward of the
+  // same (action, team). The server-side per-type undo path now
+  // pops the matching forward from the audit log on its own, so
+  // no client-side bookkeeping is required.
   const handleDoubleTapScore = useCallback(
     (team: Team) => {
       actions.addPoint(team, true);
-      undoHistory.popMatching('point', team);
     },
-    [actions, undoHistory.popMatching]
+    [actions]
   );
 
   const handleDoubleTapTimeout = useCallback(
     (team: Team) => {
       actions.addTimeout(team, true);
-      undoHistory.popMatching('timeout', team);
     },
-    [actions, undoHistory.popMatching]
+    [actions]
   );
 
   const handleLongPressScore = useCallback(
@@ -372,12 +369,14 @@ export default function App() {
           buttonSize={buttonSize}
           previewData={previewData}
           showPreview={settings.showPreview}
+          // Landscape phones (no room for persistent controls) need the
+          // preview shrunk so the alert pills below it don't get pushed
+          // off the bottom of the viewport.
+          compactLandscape={!isPortrait && !hasRoomForPersistentControls}
           showControls={showControls}
           setShowControls={setShowControls}
-          canUndo={undoHistory.canUndo}
+          canUndo={state?.can_undo ?? false}
           simpleMode={simpleMode}
-          isFullscreen={isFullscreen}
-          darkMode={settings.darkMode}
           btnColorA={btnColorA}
           btnTextA={btnTextA}
           btnColorB={btnColorB}
@@ -398,9 +397,9 @@ export default function App() {
           onToggleVisibility={handleToggleVisibility}
           onToggleSimpleMode={handleToggleSimpleMode}
           onUndoLast={handleUndoLast}
-          onToggleDarkMode={() => setSetting('darkMode', !settings.darkMode)}
-          onToggleFullscreen={handleToggleFullscreen}
           onTogglePreview={handleTogglePreview}
+          onStartMatch={handleStartMatch}
+          onReset={handleReset}
           onOpenConfig={() => setActiveTab('config')}
         />
         </ErrorBoundary>
@@ -412,11 +411,19 @@ export default function App() {
             oid={oid}
             customization={customization}
             actions={actions}
+            gameConfig={state?.config ?? null}
             onBack={() => setActiveTab('scoreboard')}
-            onReset={handleReset}
             onLogout={handleLogout}
             onCustomizationSaved={refreshCustomization}
-            onCustomizationRefreshed={setCustomization}
+            darkMode={settings.darkMode}
+            isFullscreen={isFullscreen}
+            onToggleDarkMode={() => {
+              // Cycle: auto → dark → light → auto
+              const current = settings.darkMode;
+              const next = current === 'auto' ? true : current === true ? false : 'auto';
+              setSetting('darkMode', next);
+            }}
+            onToggleFullscreen={handleToggleFullscreen}
           />
         </ErrorBoundary>
       )}

@@ -2,8 +2,11 @@ import ScoreButton from './ScoreButton';
 import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
+import SideSwitchIndicator from './SideSwitchIndicator';
+import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
+import { useIndoorMidpointAlert } from '../hooks/useIndoorMidpointAlert';
 import { asString } from '../utils/coerce';
 
 export interface PreviewData {
@@ -21,6 +24,13 @@ export interface CenterPanelProps {
   currentSet: number;
   setsLimit: number;
   isPortrait: boolean;
+  /**
+   * Landscape phones can't fit a 300px-wide preview AND the alert pills
+   * (set/match point, side switch) without spilling off the viewport.
+   * When true the centre column tightens its spacing and the preview
+   * renders at a reduced width so its derived height shrinks too.
+   */
+  compactLandscape?: boolean;
   previewData: PreviewData | null | undefined;
   fontStyle?: ScoreButtonFontStyle;
   onAddSet: (teamId: 1 | 2) => void;
@@ -28,18 +38,26 @@ export interface CenterPanelProps {
   onSetChange: (set: number) => void;
 }
 
+const PREVIEW_CARD_WIDTH = 300;
+const PREVIEW_CARD_WIDTH_COMPACT = 200;
+
 export default function CenterPanel({
   state,
   customization,
   currentSet,
   setsLimit,
   isPortrait,
+  compactLandscape = false,
   previewData,
   fontStyle,
   onAddSet,
   onLongPressSet,
   onSetChange,
 }: CenterPanelProps) {
+  // Hooks must run before any early return — the hook itself handles
+  // a null/undefined state by returning ``false``.
+  const indoorMidpointPending = useIndoorMidpointAlert(state, currentSet, setsLimit);
+
   if (!state) return null;
 
   const t1Sets = state.team_1.sets;
@@ -49,7 +67,7 @@ export default function CenterPanel({
   const logo2 = asString(customization?.['Team 2 Logo']);
 
   return (
-    <div className="center-panel">
+    <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
       <div className="sets-row">
         <ScoreButton
           text={String(t1Sets)}
@@ -129,6 +147,16 @@ export default function CenterPanel({
         </button>
       </div>
 
+      <div className="match-alerts-row" data-testid="match-alerts-row">
+        <MatchAlertIndicator state={state} isPortrait={isPortrait} />
+        {!state.match_finished && (
+          <SideSwitchIndicator
+            info={state.beach_side_switch}
+            forcePending={indoorMidpointPending}
+          />
+        )}
+      </div>
+
       {previewData && (
         <OverlayPreview
           overlayUrl={previewData.overlayUrl}
@@ -137,7 +165,7 @@ export default function CenterPanel({
           width={previewData.width}
           height={previewData.height}
           layoutId={previewData.layoutId}
-          cardWidth={300}
+          cardWidth={compactLandscape ? PREVIEW_CARD_WIDTH_COMPACT : PREVIEW_CARD_WIDTH}
         />
       )}
     </div>

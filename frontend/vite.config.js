@@ -68,6 +68,10 @@ export default defineConfig(async () => ({
           /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/,
           /^\/overlay/, /^\/ws(\/|\?|$)/, /^\/static/,
           /^\/(create|delete|list|manage)(\/|\?|$)/,
+          // Server-rendered match-history surfaces. Without these the SW
+          // would serve the SPA shell and the operator would land back on
+          // the scoreboard instead of the report / index page.
+          /^\/match(es)?(\/|\?|$)/,
         ],
         runtimeCaching: [
           {

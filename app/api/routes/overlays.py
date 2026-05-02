@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from app.api import match_archive
 from app.api.dependencies import get_current_username, get_session, verify_api_key
 from app.api.session_manager import GameSession
 from app.authentication import PasswordAuthenticator
@@ -139,7 +140,34 @@ async def get_links(request: Request,
         preview_qs = urllib.parse.urlencode(qs_params)
         links["preview"] = f"{base_url}/preview?{preview_qs}"
 
+    # Surface the latest archived match report and a browseable
+    # match-history index — but only when the report endpoint is
+    # publicly accessible. When the operator gates the routes
+    # behind ``OVERLAY_MANAGER_PASSWORD`` we deliberately do NOT
+    # embed the token in the URL: the control UI does not have
+    # access to that secret, and surfacing a token-bearing URL
+    # invites copy-paste leaks into chat tools.
+    raw_public = EnvVarsManager.get_env_var("MATCH_REPORT_PUBLIC", "false")
+    if str(raw_public).strip().lower() in ("1", "true", "t", "yes", "on"):
+        latest = await run_in_threadpool(_latest_match_id_for, oid)
+        if latest is not None:
+            base_url = str(request.base_url).rstrip('/')
+            links["latest_match_report"] = f"{base_url}/match/{latest}/report"
+            # The index is a per-OID listing; only emit when there
+            # *is* something to list, so the UI doesn't show a link
+            # to an empty page.
+            links["match_history"] = (
+                f"{base_url}/matches/index.html?oid="
+                + urllib.parse.quote(oid, safe="")
+            )
+
     return links
+
+
+def _latest_match_id_for(oid: str):
+    """Return the most-recent ``match_id`` archived for *oid*, or ``None``."""
+    summaries = match_archive.list_matches(oid=oid)
+    return summaries[0]["match_id"] if summaries else None
 
 
 @router.get("/styles", dependencies=[Depends(verify_api_key)])

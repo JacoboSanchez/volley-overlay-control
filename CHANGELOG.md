@@ -8,6 +8,325 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Security
+
+- `/match/{match_id}/report` is no longer unauthenticated by default.
+  Match snapshots bundle the audit log and full team customization,
+  which is strictly more sensitive than live overlay state. The route
+  now requires `OVERLAY_MANAGER_PASSWORD` (Bearer header *or*
+  `?token=` query string) unless the operator explicitly opts in to
+  open access via `MATCH_REPORT_PUBLIC=true`. When neither is
+  configured the route returns 503.
+- `app/match_report._team_color` validates customization-supplied
+  hex colours against a strict `^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`
+  regex before interpolating into the CSS template, closing a CSS
+  injection vector where a malformed value (e.g. `#a;}b`) could
+  inject styles or break the page.
+
+### Fixed
+
+- `app/api/match_archive` filenames now include microseconds
+  (`%Y%m%dT%H%M%S_<μs>Z`), so two archives in the same wall-clock
+  second produce distinct `match_id` values instead of silently
+  overwriting. Tests no longer need `time.sleep` workarounds.
+- `app/api/action_log` per-OID writer serialization now goes
+  through a fixed-size pool of 256 locks indexed by `hash(oid)`,
+  replacing an LRU dict. The LRU could evict a lock while one
+  thread was still inside the critical section, letting a
+  concurrent caller for the same OID mint a fresh lock and enter
+  the read/append/pop section at the same time — corrupting the
+  JSONL audit file. The pool gives bounded memory without that
+  race; unrelated OIDs that hash-collide just see negligible
+  spurious serialization.
+- Match report timeline drops "orphan" undo rows. Under the
+  unified undo, `action_log.pop_last_forward` physically removes
+  the original forward record and the caller appends a new
+  `undo=True` audit entry. `_collapse_undos` then could not pair
+  it with any prior forward and was leaving the orphan visible
+  as an unanchored row referencing an action that no longer
+  exists in the log. The collapse pass now drops those orphans
+  entirely; paired collapses (forwards still followed by their
+  explicit undo, e.g. legacy snapshots) keep working as before.
+- `WebhookDispatcher` is now drained on application shutdown via
+  `router_lifespan` calling `webhook_dispatcher.shutdown()` with
+  `cancel_futures=True`, so a hung outbound delivery cannot keep
+  the process alive past exit. Previously the executor was left
+  to Python's default `atexit` cleanup, which waits for in-flight
+  workers — usually fast (5 s per-target timeout) but visible in
+  systemd unit shutdown latency.
+- The cached `GameSession.undoable_forward_count` (source of truth
+  for `GameStateResponse.can_undo`) now updates *only* after the
+  audit-log append succeeds. A filesystem error during `_audit`
+  used to leave the counter overstating the on-disk truth; now
+  the counter and `count_undoable_forwards` always agree.
+- `action_log.pop_last_forward` rewrites the audit file atomically
+  via mkstemp + `os.replace` (matching `match_archive`'s pattern).
+  Previously a crash mid-write would truncate the file and lose
+  every preceding record.
+- The `set_end` webhook now reports the set that just ended, not
+  the set the session has advanced to. Both `add_point`'s
+  set-winning point and `add_set` were reading
+  `session.current_set` *after* it was incremented, so consumers
+  saw `set_number=2` when set 1 just ended (or `set_number=4`
+  after set 3 ended, etc.). The match-winning case is unchanged
+  because `current_set` doesn't advance past the deciding set.
+- The audit log now records the *final* score of the set the
+  action operated on. Previously, set-winning add_point and
+  add_set entries showed `team_1.score=0, team_2.score=0` because
+  the snapshot was taken after `current_set` advanced to the new,
+  empty set. Each entry gains a `score_set` field so a reader can
+  see the set the score belongs to (usually equal to
+  `current_set`, but lower on set-winning actions).
+- HUD: show the Reset button on finished matches; primary
+  controls relaid out on the left; match timer centred in its
+  spacer.
+- Match report: fall back to the rally axis when timestamps are
+  non-monotonic so the score-evolution charts still render.
+- Match report: prefer the team-identity colour over the per-team
+  accent; set-winning points are now grouped under the set they
+  completed.
+- Match report: exclude `set_score` events from the longest-rally
+  computation.
+- Match report: respect the explicit Start-match anchor on the
+  report side so the time axis matches the HUD timer.
+- Layout: shrink the overlay preview on landscape phones; reverted
+  the inline score-history experiment that broke alignment on
+  small screens.
+- PWA: exempt `/match` and `/matches` from the service-worker
+  navigation fallback so the report and matches index render
+  server-side instead of falling back to `index.html`.
+- Match-end: respect the per-session `sets_limit` so best-of-1
+  ends after one set instead of waiting for the configured
+  best-of-N target.
+- Rules UI: hide the "Points / final set" input when best-of-1 is
+  selected (the field is irrelevant without a deciding set).
+- Rules: keep the midpoint alert visible after the leader scores
+  past the trigger point so operators don't miss it on a fast
+  rally cluster.
+
+### Changed
+
+- Match report set-by-set table now annotates timeouts inline next
+  to each score: a cell renders ``25 (2)`` when the team called
+  two timeouts in that set and bare ``25`` when none. The
+  previous separate "Timeouts (final set)" row has been removed —
+  the per-set view is more useful and survives across sets, where
+  the old row only showed the deciding-set count (timeout
+  counters reset on each set transition).
+- Match report "Biggest comeback" highlight reads more clearly.
+  English copy was ``"down {n}, won {set}"`` — easy to misread as
+  "won by 1" when ``{set}`` was a small number. Now reads
+  ``"down {n} in set {set}"``. Romance-locale strings tightened
+  similarly so the trailing ``{set}`` always sits behind the word
+  for "set" (German already did this).
+- Unified the two undo entry points behind one audit-log stack.
+  Previously ``add_*(undo=True)`` and ``POST /game/undo`` had
+  divergent stack semantics: the per-type flag only reverted state
+  and appended an undo record, leaving the original forward record
+  in the log. A follow-up generic undo would then pop the fantasma
+  forward and double-revert. Now both paths pop the matching
+  forward before applying the state-level inverse, so the two
+  cannot drift.
+  - ``action_log.pop_last_forward`` accepts a new ``team`` filter
+    used by the per-type branches; ``action_log.peek_last_forward``
+    is the read-only sibling used by ``GameService.undo_last`` to
+    locate the next undoable record without consuming it (the
+    dispatched per-type call performs the actual pop).
+  - ``GameStateResponse.can_undo`` is a new boolean derived from a
+    cached ``GameSession.undoable_forward_count``. Lets frontends
+    drive the global Undo button from the server-side stack
+    instead of maintaining their own LIFO. The counter is
+    rehydrated from the audit log on session creation.
+  - The bundled React control UI now calls
+    ``actions.undoLast()`` (POST ``/game/undo``) for the bottom-bar
+    Undo button and consumes ``state.can_undo`` for the disabled
+    flag. Per-team double-tap gestures continue to use the per-type
+    flag — the unification means they pop from the same stack.
+    ``useActionHistory`` is no longer wired into ``App.tsx``.
+  - Behaviour change for callers of the per-type
+    ``add_*(undo=True)`` API: when no matching forward record
+    exists in the log, the call still falls through to the
+    state-level undo (preserving backward compatibility for
+    callers manipulating state via ``set_score``/etc.), but it
+    will not bump the undo counter — so ``can_undo`` only flips
+    based on real audit-log activity.
+
+### Added
+
+- Operators can now delete archived match snapshots from the
+  ``/matches/index.html`` page. New checkbox column with select-all
+  in the header, a "Delete selected" button in the toolbar, and a
+  per-row "Delete" button. Backed by a new
+  ``DELETE /matches/{match_id}`` route gated by a stricter
+  ``_check_admin_access`` helper that ignores
+  ``MATCH_REPORT_PUBLIC=true`` — public mode grants read-only
+  access, deletion always requires the admin token. Helper:
+  ``match_archive.delete_match(match_id)``.
+- Match-rules configuration is now editable per-session. New
+  config-panel section "Match rules" exposes:
+  * Indoor / Beach mode toggle (defaults: 25/15/5 indoor, 21/15/3
+    beach). Switching mode applies the canonical preset; per-field
+    overrides in the same call still win.
+  * Sets selector (1 / 3 / 5).
+  * Points-per-set and points-per-final-set inputs.
+  * "Reset defaults for mode" button.
+
+  Backend additions: ``app/api/match_rules.py`` (presets +
+  side-switch helpers), ``GameSession.mode`` (persisted via
+  ``session_meta``), new ``POST /api/v1/session/rules`` endpoint
+  with ``mode``/``points_limit``/``points_limit_last_set``/
+  ``sets_limit``/``reset_to_defaults`` body. ``GameStateResponse``
+  carries ``config.mode`` so frontends can render the active
+  preset.
+- Beach side-switch tracker (§2.3). Beach matches switch sides
+  every 7 combined points in non-tiebreak sets and every 5 in the
+  tiebreak. ``GameStateResponse.beach_side_switch`` now surfaces
+  ``{interval, points_in_set, next_switch_at, points_until_switch,
+  is_switch_pending}`` for consumers; the field is ``null`` for
+  indoor matches so existing payloads are unaffected. The control
+  UI renders an inline indicator below the set pagination ("Side
+  switch in N" → orange "Switch sides now" pulse on the boundary
+  point), with i18n strings in all six locales.
+- `GET /api/v1/links` returns a `latest_match_report` URL pointing
+  at the most recent archived match snapshot for the session — but
+  only when `MATCH_REPORT_PUBLIC=true`. The control UI's "Links"
+  configuration section surfaces it as a clickable / copyable entry
+  ("Latest match report" / "Último informe de partido" in 6
+  locales). The token is intentionally never embedded in the URL,
+  so gated deployments can keep their match reports private without
+  the link section ever leaking the admin token.
+- New browseable HTML match-history index at
+  `GET /matches/index.html?oid=<OID>`. Lists every archived match
+  for the OID with sets, duration, end-date, and a per-row link to
+  the full report. Same auth gate as `/match/{id}/report`
+  (`OVERLAY_MANAGER_PASSWORD` Bearer header / `?token=`, or open
+  via `MATCH_REPORT_PUBLIC=true`). The page propagates the token
+  to the per-match report links so a click-through doesn't
+  re-prompt for credentials. `GET /api/v1/links` surfaces it as
+  `match_history` (only when `MATCH_REPORT_PUBLIC=true` and the
+  session has at least one archive), and the React control UI's
+  Links section renders it alongside `latest_match_report` in 6
+  locales ("Match history" / "Historial de partidos" / …).
+- Session-level state survives process restarts. Per-OID flags
+  (`simple` mode, custom `points_limit`, `points_limit_last_set`,
+  `sets_limit`) used to live only in memory and were silently dropped
+  on deploy/crash. They are now persisted to
+  `data/session_meta_<sha256[:20]>.json` on every state mutation and
+  rehydrated by `SessionManager.get_or_create` before any caller-supplied
+  override is applied. Match data (scores, sets, current set, serve,
+  timeouts) was already round-tripped through the overlay state store
+  for local overlays and through the cloud for `overlays.uno`, so this
+  closes the last in-memory gap. Deleting a custom overlay from
+  `/manage` now also removes the session and the meta file.
+- Outbound webhooks fired on game events. The new
+  `WebhookDispatcher` reads
+  `WEBHOOKS_URL`/`WEBHOOKS_SECRET`/`WEBHOOKS_EVENTS` (single endpoint)
+  or `WEBHOOKS_JSON` (list of endpoints, optionally per-event-filtered)
+  and POSTs `{event, oid, ts, state, details}` payloads on `set_end`,
+  `match_end`, `timeout`, and `serve_change`. Bodies are signed with
+  HMAC-SHA256 (`X-Webhook-Signature: sha256=<hex>`) when a secret is
+  configured. Delivery is fire-and-forget on a small thread pool with
+  a configurable timeout — failures are logged but never break the
+  triggering action.
+- Per-OID action audit log at
+  `data/audit_<sha256[:20]>.jsonl`. Every state-mutating
+  `GameService` call appends `{ts, action, params, result}` where
+  `result` is a compact post-state snapshot. Exposed read-only via
+  `GET /api/v1/audit?oid=...&limit=100`. Cleared on `reset()` and
+  bundled into per-match snapshots on match end (see below).
+- Match history archive. When a session transitions to
+  `match_finished`, the final state, customization, audit log, and
+  match config are bundled into a snapshot at
+  `data/matches/match_<sha256(oid)[:20]>_<UTC-ISO8601>.json`.
+  Two new read endpoints: `GET /api/v1/matches[?oid=…]` returns
+  summaries newest-first, `GET /api/v1/matches/{match_id}` returns
+  the full snapshot. `GameSession` now tracks `match_started_at`
+  (persisted, reset on `reset()` and after every successful archive)
+  so durations are accurate.
+- Server-side undo stack. New `POST /api/v1/game/undo` pops the most
+  recent forward `add_point` / `add_set` / `add_timeout` from the
+  audit log and applies the inverse. Non-undoable forward records
+  (e.g. `change_serve`, `set_score`, `reset`) stay in the log so
+  the timeline is preserved; undo just walks past them. Returns
+  `success=false, message="Nothing to undo."` when no eligible
+  record exists. The per-type `undo=True` flag continues to work
+  and now shares the same stack — see the **Changed** section
+  above for the unification details.
+- Print-friendly match report at `GET /match/{match_id}/report`.
+  Server-rendered self-contained HTML page with hero scoreboard
+  (team names, sets won, winner badge, team colours from the
+  archived customization), set-by-set scores table, match facts
+  (start/end timestamps, format, audit count), and an action
+  timeline. A `@media print` block makes the page render cleanly
+  via the browser's built-in "Save as PDF" workflow. Auth model:
+  by default the route requires `OVERLAY_MANAGER_PASSWORD`
+  (Bearer header or `?token=` query); set
+  `MATCH_REPORT_PUBLIC=true` to make it openly addressable by
+  hash-prefixed `match_id` instead — see the **Security** section
+  above.
+- OS-aware light/dark theme for the React control UI. The
+  `darkMode` setting now accepts `'auto'` (default) in addition to
+  `true` / `false` — when `'auto'`, the UI follows the OS
+  `prefers-color-scheme` media query and updates live as the
+  preference changes. The theme button in the bottom HUD now cycles
+  through `auto → dark → light → auto`, with a `brightness_auto`
+  icon and a localised "Theme: follow system" tooltip in the auto
+  state. Existing localStorage values continue to work unchanged.
+- Explicit match start. The HUD gains a "Start match" button that
+  anchors the live match timer (rendered in the centre HUD spacer)
+  and the report-side time axis. Theme and fullscreen buttons
+  moved out of the scoreboard toolbar into the bottom HUD to
+  declutter the bar.
+- Match report enhancements layered on top of the initial
+  print-friendly report:
+  * Richer print layout with hero, set-by-set table, and action
+    timeline polish; pregame records trimmed and unplayed sets
+    hidden so finished best-of-3s don't render four empty
+    columns.
+  * Score-evolution charts can plot a time-elapsed X-axis (with
+    automatic fallback to the rally index when timestamps aren't
+    monotonic), and Highlights / chart axes / contrast / print
+    dialog received a polish pass.
+  * `MATCH_REPORT_PUBLIC_DELETE` env flag lets operators expose
+    the delete affordance on `/matches/index.html` without
+    handing out the admin token; OIDs in archived snapshots are
+    redacted before render so a public report URL never leaks
+    the session identifier.
+- In-match alert system. The control UI now surfaces match-finished,
+  set-point, and match-point indicators in the centre HUD, and an
+  indoor deciding-set midpoint alert (frontend-driven, fires when
+  the leader reaches half of the deciding-set target). Alerts
+  display the relevant team via a directional triangle icon
+  instead of an `[T1]` / `[T2]` label suffix, with i18n strings in
+  all six locales.
+
+### Removed
+
+- Deleted the orphan `frontend/src/hooks/useActionHistory.ts` hook
+  and its tests, plus the `ACTION_HISTORY_LIMIT` constant in
+  `frontend/src/constants.ts`. The bundled React UI now drives the
+  global Undo button straight off `state.can_undo` and
+  `actions.undoLast()`, so the client-side LIFO stack the hook
+  used to maintain is no longer needed. Pure cleanup — no
+  externally visible behaviour change.
+
+### Documentation
+
+- README endpoint table lists `/api/v1/audit`, `/api/v1/matches`,
+  `/api/v1/matches/{id}`, `/api/v1/game/undo`,
+  `/api/v1/session/rules`, and `/match/{id}/report`. Configuration
+  table documents the new `MATCH_REPORT_PUBLIC` env var.
+- `FRONTEND_DEVELOPMENT.md` gains a dedicated section for
+  `POST /api/v1/game/undo` plus a "Two undo APIs, one stack" note
+  explaining that `add_*(undo=true)` and the new generic endpoint
+  consume from the same audit-log stack and can be mixed safely;
+  also flags the deliberate footgun that `state.can_undo` reflects
+  audit-log truth (not raw scoreboard state).
+- `AGENTS.md` source-tree reflects the new modules
+  (`app/api/match_rules.py`, `app/api/action_log.py`,
+  `app/api/match_archive.py`, `app/api/webhooks.py`,
+  `app/api/session_persistence.py`, `app/match_report.py`).
+
 ---
 
 ## [5.0.4] - 2026-04-30

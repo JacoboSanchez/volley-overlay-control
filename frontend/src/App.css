@@ -369,6 +369,19 @@ body {
   gap: 0.5rem;
 }
 
+/* Landscape phones: claw back vertical space so the preview (and the
+   match-point / set-point pills below it) fit without overflowing the
+   viewport. The bulk of the saving comes from the smaller cardWidth
+   passed to OverlayPreview; tightening the column gap and zeroing the
+   preview's top margin recovers the remaining few pixels. */
+.center-panel-compact {
+  gap: 0.25rem;
+}
+
+.center-panel-compact .preview-container {
+  margin-top: 0;
+}
+
 .sets-row {
   display: flex;
   flex-direction: row;
@@ -700,6 +713,15 @@ body {
   box-shadow: 0 -4px 12px var(--shadow);
 }
 
+/* Centre the match-timer chip inside the HUD's middle spacer.
+   ``.spacer`` is shared (ConfigPanel / TeamPanel use it as a pure
+   ``flex: 1`` filler), so override only inside the control bar. */
+.control-buttons .spacer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .control-btn {
   width: 36px;
   height: 36px;
@@ -728,6 +750,44 @@ body {
 .control-btn-reset {
   border-color: #ff9800;
   color: #ff9800;
+}
+
+.control-btn-start {
+  border-color: var(--green, #2e7d32);
+  color: var(--green, #2e7d32);
+}
+
+/* Wider variant for buttons that pair an icon with a text label —
+   the bare-icon ``.control-btn`` is locked to a 36-px square, which
+   would clip the label. Used by the Start-match / Reset toggle on
+   the left edge of the HUD. */
+.control-btn-text {
+  width: auto;
+  min-width: 36px;
+  padding: 0 12px;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.control-btn-text .material-icons {
+  font-size: 1.1rem;
+}
+
+/* Live MM:SS counter rendered inside the bottom-bar spacer once the
+   match is armed. Tabular numerals so the digits stop "dancing" when
+   the seconds rollover. */
+.match-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.match-timer .material-icons {
+  font-size: 1rem;
 }
 
 .control-btn-logout {
@@ -1532,6 +1592,135 @@ body {
   align-items: center;
   margin-top: 0.75rem;
   flex-wrap: wrap;
+}
+
+/* ── Match-rules section ────────────────────────────────────────────── */
+
+.config-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.config-mode-toggle-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 64px;
+  padding: 0.5rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.config-mode-toggle-btn:hover:not(:disabled) {
+  background: var(--surface-light);
+}
+
+.config-mode-toggle-btn-active {
+  border-color: var(--blue);
+  color: var(--text);
+  background: var(--surface-light);
+}
+
+.config-mode-toggle-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.config-mode-toggle-btn .material-icons {
+  font-size: 1.5rem;
+}
+
+/* Side-switch indicator pinned to the centre panel during beach matches. */
+.side-switch-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-light);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+.side-switch-indicator-pending {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+  animation: side-switch-pulse 1.2s ease-in-out infinite;
+}
+
+.side-switch-indicator .material-icons {
+  font-size: 0.95rem;
+}
+
+@keyframes side-switch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Container for the side-switch + match-alert pills. Keeps them on a
+   single horizontal row so beach side-switch and set/match point can sit
+   side by side without colliding. */
+.match-alerts-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.match-alert-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--surface-light);
+  color: var(--text-muted);
+}
+
+.match-alert-indicator .material-icons {
+  font-size: 0.95rem;
+}
+
+/* Match finished — green, prominent, takes over the alert row visually. */
+.match-alert-indicator-finished {
+  background: var(--green, #2e7d32);
+  border-color: var(--green, #2e7d32);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Match point — most urgent in-play alert: red + pulse. */
+.match-alert-indicator-match-point {
+  background: #c62828;
+  border-color: #c62828;
+  color: #fff;
+  animation: side-switch-pulse 1.2s ease-in-out infinite;
+}
+
+/* Set point — orange, no pulse so it doesn't compete with the
+   beach side-switch pending pill. */
+.match-alert-indicator-set-point {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
 }
 
 .config-theme-inline .config-select {

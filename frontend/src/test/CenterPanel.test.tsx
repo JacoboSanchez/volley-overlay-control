@@ -120,4 +120,16 @@ describe('CenterPanel', () => {
     expect(screen.queryByTestId('team-1-logo')).not.toBeInTheDocument();
     expect(screen.queryByTestId('team-2-logo')).not.toBeInTheDocument();
   });
+
+  it('applies the compact modifier when compactLandscape is true', () => {
+    const { container } = renderWithI18n(
+      <CenterPanel {...defaultProps} compactLandscape={true} />,
+    );
+    expect(container.querySelector('.center-panel-compact')).not.toBeNull();
+  });
+
+  it('omits the compact modifier by default', () => {
+    const { container } = renderWithI18n(<CenterPanel {...defaultProps} />);
+    expect(container.querySelector('.center-panel-compact')).toBeNull();
+  });
 });

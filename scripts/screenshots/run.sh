@@ -73,6 +73,19 @@ if [ ! -d "$REPO_ROOT/frontend/dist" ]; then
   exit 1
 fi
 
+# Rebuild the frontend if any source file under frontend/src is newer than
+# the bundle. A stale dist is the most common cause of "feature X doesn't
+# show up in the screenshot" bugs (the screenshot pipeline serves whatever
+# the dist on disk currently has, even if the source has moved on since).
+NEWEST_SRC=$(find "$REPO_ROOT/frontend/src" -type f -printf '%T@\n' 2>/dev/null \
+  | sort -nr | head -1)
+DIST_TIME=$(stat -c '%Y' "$REPO_ROOT/frontend/dist/index.html" 2>/dev/null || echo 0)
+if [ -n "$NEWEST_SRC" ] && [ "${NEWEST_SRC%.*}" -gt "$DIST_TIME" ]; then
+  echo "frontend/src is newer than the bundle — rebuilding ..."
+  (cd "$REPO_ROOT/frontend" && npm run build) >/tmp/volley-screenshots-build.log 2>&1 \
+    || { tail -n 40 /tmp/volley-screenshots-build.log >&2; exit 1; }
+fi
+
 if [ ! -d "$SCRIPT_DIR/node_modules/playwright" ]; then
   echo "Installing Playwright into scripts/screenshots/ ..."
   (cd "$SCRIPT_DIR" && npm install --no-audit --no-fund)

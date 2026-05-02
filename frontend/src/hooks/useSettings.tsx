@@ -3,8 +3,15 @@ import { TEAM_A_COLOR, TEAM_B_COLOR } from '../theme';
 
 const LS_PREFIX = 'volley_';
 
+/**
+ * Theme preference. ``'auto'`` follows the OS ``prefers-color-scheme``
+ * media query and updates live as the OS preference changes. ``true``
+ * forces dark mode; ``false`` forces light mode.
+ */
+export type ThemePreference = boolean | 'auto';
+
 export interface Settings {
-  darkMode: boolean;
+  darkMode: ThemePreference;
   followTeamColors: boolean;
   showIcon: boolean;
   iconOpacity: number;
@@ -21,7 +28,7 @@ export interface Settings {
 }
 
 const DEFAULTS: Settings = {
-  darkMode: true,
+  darkMode: 'auto',
   followTeamColors: false,
   showIcon: false,
   iconOpacity: 50,
@@ -36,6 +43,21 @@ const DEFAULTS: Settings = {
   autoHide: false,
   autoHideSeconds: 5,
 };
+
+/**
+ * Resolve a :class:`ThemePreference` to a concrete boolean.
+ * ``'auto'`` consults ``prefers-color-scheme`` (defaulting to dark when
+ * the media query is unavailable, e.g. SSR or test environments).
+ */
+export function resolveDarkMode(pref: ThemePreference): boolean {
+  if (pref === 'auto') {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return true;
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  return pref;
+}
 
 function readAll(): Settings {
   const result: Settings = { ...DEFAULTS };
@@ -83,7 +105,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', !settings.darkMode);
+    const apply = () => {
+      const isDark = resolveDarkMode(settings.darkMode);
+      document.documentElement.classList.toggle('light', !isDark);
+    };
+    apply();
+
+    if (settings.darkMode !== 'auto'
+        || typeof window === 'undefined'
+        || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    mql.addEventListener('change', apply);
+    return () => mql.removeEventListener('change', apply);
   }, [settings.darkMode]);
 
   const value = useMemo(() => ({ settings, setSetting }), [settings, setSetting]);

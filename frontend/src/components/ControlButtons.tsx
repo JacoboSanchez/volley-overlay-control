@@ -1,4 +1,5 @@
 import { useI18n } from '../i18n';
+import MatchTimer from './MatchTimer';
 import {
   VISIBLE_ON_COLOR,
   VISIBLE_OFF_COLOR,
@@ -13,39 +14,92 @@ export interface ControlButtonsProps {
   visible: boolean;
   simpleMode: boolean;
   canUndo: boolean;
-  darkMode: boolean;
-  isFullscreen: boolean;
+  showPreview: boolean;
+  /**
+   * Match start timestamp (Unix seconds), or ``null`` when the match
+   * is unarmed. Drives the live timer in the spacer and one half of
+   * the Start-match / Reset toggle.
+   */
+  matchStartedAt: number | null | undefined;
+  /**
+   * ``true`` once the match transitions to finished. Combined with
+   * ``matchStartedAt`` to decide which side of the Start/Reset
+   * toggle to render: the archive path clears
+   * ``matchStartedAt`` to prep the next match, but the operator
+   * still sees the just-played scoreboard and needs to hit Reset
+   * before the next start can be armed — so a finished match
+   * forces the Reset face regardless of the timer field.
+   */
+  matchFinished: boolean;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
-  onToggleDarkMode: () => void;
-  onToggleFullscreen: () => void;
-  showPreview: boolean;
   onTogglePreview: () => void;
+  onStartMatch: () => void;
+  onReset: () => void;
 }
 
 /**
- * Bottom HUD control bar: visibility, preview, simple-mode, undo,
- * fullscreen, and dark-mode toggles.
+ * Bottom HUD control bar. Layout, left → right:
+ *   * Start-match / Reset toggle (with text label) — primary
+ *     operator action, parked on the dominant side.
+ *   * Live match timer (when armed).
+ *   * Visibility, preview, simple-mode, undo — secondary toggles
+ *     pushed to the right edge so they don't crowd the primary
+ *     action.
+ *
+ * Theme + fullscreen toggles live in the config panel; they're
+ * once-per-session decisions and don't earn a permanent slot here.
  */
 export default function ControlButtons({
   visible,
   simpleMode,
   canUndo,
-  darkMode,
-  isFullscreen,
+  showPreview,
+  matchStartedAt,
+  matchFinished,
   onToggleVisibility,
   onToggleSimpleMode,
   onUndoLast,
-  onToggleDarkMode,
-  onToggleFullscreen,
-  showPreview,
   onTogglePreview,
+  onStartMatch,
+  onReset,
 }: ControlButtonsProps) {
   const { t } = useI18n();
+  // ``matchFinished`` keeps the Reset face up after a match ends —
+  // ``_archive_if_finished`` zeroes ``matchStartedAt`` to prep the
+  // next match but the operator still sees the just-played
+  // scoreboard, so the next required action is Reset, not Start.
+  const showReset = matchStartedAt != null || matchFinished;
 
   return (
     <div className="control-buttons">
+      {showReset ? (
+        <button
+          className="control-btn control-btn-text control-btn-reset"
+          onClick={onReset}
+          title={t('ctrl.reset')}
+          data-testid="reset-button"
+        >
+          <span className="material-icons">restart_alt</span>
+          <span>{t('ctrl.reset')}</span>
+        </button>
+      ) : (
+        <button
+          className="control-btn control-btn-text control-btn-start"
+          onClick={onStartMatch}
+          title={t('ctrl.startMatch')}
+          data-testid="start-match-button"
+        >
+          <span className="material-icons">play_arrow</span>
+          <span>{t('ctrl.startMatch')}</span>
+        </button>
+      )}
+
+      <div className="spacer">
+        <MatchTimer startedAt={matchStartedAt} />
+      </div>
+
       <button
         className="control-btn"
         style={{
@@ -104,30 +158,6 @@ export default function ControlButtons({
         data-testid="undo-button"
       >
         <span className="material-icons">undo</span>
-      </button>
-
-      <div className="spacer" />
-
-      <button
-        className="control-btn control-btn-fullscreen"
-        onClick={onToggleFullscreen}
-        title={isFullscreen ? t('ctrl.exitFullscreen') : t('ctrl.fullscreen')}
-        data-testid="fullscreen-button"
-      >
-        <span className="material-icons">
-          {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-        </span>
-      </button>
-
-      <button
-        className="control-btn control-btn-theme"
-        onClick={onToggleDarkMode}
-        title={darkMode ? t('ctrl.lightMode') : t('ctrl.darkMode')}
-        data-testid="dark-mode-button"
-      >
-        <span className="material-icons">
-          {darkMode ? 'light_mode' : 'dark_mode'}
-        </span>
       </button>
     </div>
   );

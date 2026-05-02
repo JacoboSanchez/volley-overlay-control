@@ -76,7 +76,7 @@ class GameManager:
     def add_game(self, team: int, current_set: int, points_limit: int, points_limit_last_set: int, sets_limit: int, undo: bool) -> bool:
         """Adds or removes a point to a team and checks if the set or match is won."""
         logger.debug("Adding game point for team %s in set %s, undo: %s", team, current_set, undo)
-        if not undo and self.match_finished():
+        if not undo and self.match_finished(sets_limit):
              logger.debug("Match finished, not adding point.")
              return False
 
@@ -117,14 +117,14 @@ class GameManager:
 
             if self._is_winning_score(current_score, rival_score, game_limit):
                 logger.debug("Team %s won set %s", team, current_set)
-                self.add_set(team, undo)
+                self.add_set(team, undo, sets_limit)
                 return True
         return False
 
-    def add_set(self, team: int, undo: bool):
+    def add_set(self, team: int, undo: bool, sets_limit: int = None):
         """Adds or removes a set to a team."""
         logger.debug("Adding set for team %s, undo: %s", team, undo)
-        if not undo and self.match_finished():
+        if not undo and self.match_finished(sets_limit):
             logger.debug("Match finished, not adding set.")
             return
 
@@ -140,12 +140,18 @@ class GameManager:
             self.change_serve(0)
 
 
-    def match_finished(self) -> bool:
-        """Checks if the match has finished."""
+    def match_finished(self, sets_limit: int = None) -> bool:
+        """Checks if the match has finished.
+
+        ``sets_limit`` is the per-session "best of N" rule; when omitted it
+        falls back to the ``conf.sets`` env-var default. Callers driving a
+        ``GameSession`` must pass ``session.sets_limit`` so a best-of-1 (or
+        any rule that diverges from the env default) is detected correctly.
+        """
         logger.debug("Checking if match is finished")
         t1_sets = self.main_state.get_sets(1)
         t2_sets = self.main_state.get_sets(2)
-        limit = self.conf.sets
+        limit = sets_limit if sets_limit is not None else self.conf.sets
         soft_limit = int(limit / 2) + 1
         if t1_sets >= soft_limit or t2_sets >= soft_limit:
             logger.debug("Match finished. Score: %s-%s, required: %s", t1_sets, t2_sets, soft_limit)

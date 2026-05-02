@@ -16,6 +16,8 @@ vi.mock('../api/client', () => ({
   resetGame: vi.fn(),
   setVisibility: vi.fn(),
   setSimpleMode: vi.fn(),
+  undoLast: vi.fn(),
+  startMatch: vi.fn(),
 }));
 
 vi.mock('../api/websocket', () => ({
@@ -173,6 +175,34 @@ describe('useGameState', () => {
     });
 
     expect(api.resetGame).toHaveBeenCalledWith('oid');
+  });
+
+  it('undoLast action calls api.undoLast', async () => {
+    vi.mocked(api.undoLast).mockResolvedValue({ success: true, state: mockState });
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    await act(async () => {
+      await result.current.actions.undoLast();
+    });
+
+    expect(api.undoLast).toHaveBeenCalledWith('oid');
+  });
+
+  it('startMatch action calls api.startMatch', async () => {
+    vi.mocked(api.startMatch).mockResolvedValue({ success: true, state: mockState });
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    await act(async () => {
+      await result.current.actions.startMatch();
+    });
+
+    expect(api.startMatch).toHaveBeenCalledWith('oid');
   });
 
   it('setVisibility action calls api', async () => {

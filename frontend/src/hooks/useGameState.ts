@@ -46,6 +46,20 @@ export interface GameActions {
   reset: () => Promise<ActionResponse>;
   setVisibility: (visible: boolean) => Promise<ActionResponse>;
   setSimpleMode: (enabled: boolean) => Promise<ActionResponse>;
+  /**
+   * Server-side LIFO undo: pops the most recent forward
+   * ``add_point``/``add_set``/``add_timeout`` from the audit log
+   * and reverses it. Use this for global "Undo last" gestures so
+   * the undo stack is shared between clients and survives reload.
+   */
+  undoLast: () => Promise<ActionResponse>;
+  /**
+   * Stamps ``match_started_at`` on the server. Idempotent — a second
+   * call leaves the original anchor in place. Used by the explicit
+   * "Start match" button in the HUD; the first ``addPoint`` arms it
+   * automatically too.
+   */
+  startMatch: () => Promise<ActionResponse>;
 }
 
 export interface UseGameStateResult {
@@ -202,6 +216,8 @@ export function useGameState(oid: string | null): UseGameStateResult {
     reset: () => handleAction(() => api.resetGame(oid!)),
     setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
     setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
+    undoLast: () => handleAction(() => api.undoLast(oid!)),
+    startMatch: () => handleAction(() => api.startMatch(oid!)),
   }), [oid, handleAction]);
 
   const refreshCustomization = useCallback(async () => {
