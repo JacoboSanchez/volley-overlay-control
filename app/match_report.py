@@ -335,6 +335,10 @@ _REPORT_TEMPLATE = """<!doctype html>
     .charts, .highlights, .scoreboard {{ break-inside: avoid; }}
     h2 {{ break-after: avoid; }}
     .timeline-set {{ break-inside: avoid; }}
+    /* The Print toolbar can ask the operator to omit the timeline
+       from the printout. The class is toggled around the
+       ``window.print()`` call and only takes effect at print time. */
+    .print-hidden {{ display: none !important; }}
     @page {{ margin: 16mm; }}
   }}
 </style>
@@ -346,7 +350,8 @@ _REPORT_TEMPLATE = """<!doctype html>
     {ended_at_display} &middot; {duration_label} {duration_display}
   </div>
   <div class="toolbar" data-permalink="{permalink}">
-    <button type="button" data-action="print">{btn_print}</button>
+    <button type="button" data-action="print"
+            data-include-prompt="{btn_print_include_prompt}">{btn_print}</button>
     <button type="button" data-action="copy"
             data-default-label="{btn_copy}"
             data-ok-label="{btn_copy_ok}">{btn_copy}</button>
@@ -399,11 +404,13 @@ _REPORT_TEMPLATE = """<!doctype html>
   </tbody>
 </table>
 
+<section id="report-timeline-section">
 <h2>{h_timeline}</h2>
 <p style="margin: 0 0 8px; font-size: 12px; color: var(--muted);">
   {timeline_hint}
 </p>
 <div class="timeline">{timeline_html}</div>
+</section>
 
 <div class="footer">{footer_text}</div>
 
@@ -412,12 +419,32 @@ _REPORT_TEMPLATE = """<!doctype html>
   const toolbar = document.querySelector('.toolbar');
   if (!toolbar) return;
   const permalink = toolbar.getAttribute('data-permalink') || window.location.href;
+  const printBtn = toolbar.querySelector('button[data-action="print"]');
+  const includePrompt = printBtn ? printBtn.getAttribute('data-include-prompt') : '';
+  const timelineSection = document.getElementById('report-timeline-section');
   toolbar.addEventListener('click', async (event) => {{
     const target = event.target.closest('button[data-action]');
     if (!target) return;
     const action = target.getAttribute('data-action');
     if (action === 'print') {{
-      window.print();
+      // ``confirm`` returns true when the operator wants the timeline
+      // included; declining hides the section just for the duration
+      // of the print dialog and restores it afterwards. Falsy
+      // ``timelineSection`` (no timeline emitted at all) skips the
+      // toggle so we never strip a missing element.
+      const include = includePrompt
+        ? window.confirm(includePrompt)
+        : true;
+      if (!include && timelineSection) {{
+        timelineSection.classList.add('print-hidden');
+      }}
+      try {{
+        window.print();
+      }} finally {{
+        if (!include && timelineSection) {{
+          timelineSection.classList.remove('print-hidden');
+        }}
+      }}
       return;
     }}
     if (action === 'copy') {{
@@ -758,6 +785,7 @@ def _compute_stats(audit: list[dict]) -> dict:
     """
     longest_streak = {"team": None, "n": 0, "set": None}
     biggest_comeback = {"team": None, "deficit": 0, "set": None}
+    longest_rally = {"duration_s": 0.0, "set": None}
     total_points = 0
 
     by_set: dict[int, list[dict]] = {}
@@ -811,12 +839,108 @@ def _compute_stats(audit: list[dict]) -> dict:
                 "team": winner, "deficit": max_deficit, "set": set_num,
             }
 
+        # Longest rally: the gap between consecutive scoring actions
+        # within the set is a proxy for "longest point" — without
+        # ball-in-play instrumentation that's the closest the audit
+        # log can give us. Restrict to ``add_point`` only: a manual
+        # ``set_score`` override is an editorial action (operator
+        # correcting a score after the fact) and including it would
+        # report the *editing* delay as a rally. The audit log is
+        # append-only so ``set_records`` is already in chronological
+        # order — no extra sort needed.
+        scoring_ts: list[float] = []
+        for r in set_records:
+            if r.get("action") != "add_point":
+                continue
+            ts = r.get("ts")
+            if isinstance(ts, (int, float)):
+                scoring_ts.append(float(ts))
+        for i in range(1, len(scoring_ts)):
+            delta = scoring_ts[i] - scoring_ts[i - 1]
+            if delta > longest_rally["duration_s"]:
+                longest_rally = {"duration_s": delta, "set": set_num}
+
     return {
         "longest_streak": longest_streak,
         "biggest_comeback": biggest_comeback,
+        "longest_rally": longest_rally,
         "total_points": total_points,
         "set_durations": _set_durations_from_audit(audit),
     }
+
+
+# ---------------------------------------------------------------------------
+# Contrast-safe colour pickers for the chart / highlight surfaces
+# ---------------------------------------------------------------------------
+
+# Distinguishable fallback palette for teams whose own brand colour is
+# either too light to read on the report's white surface or
+# indistinguishable from the other team's colour. ``team_index`` is
+# 0-based so callers can use ``[team-1]``.
+_CHART_FALLBACK = ("#0047AB", "#E21836")
+# Luminance threshold above which the colour is "too light" for the
+# white-ish report background. Computed as relative luminance per
+# WCAG so 0.0 == black, 1.0 == white. ~0.85 keeps pastels usable but
+# rejects pure white / very light yellows.
+_LIGHTNESS_REJECT = 0.85
+
+
+def _hex_to_rgb(hex_color: str) -> Optional[tuple[int, int, int]]:
+    """Parse ``#RGB`` / ``#RRGGBB`` into ``(r, g, b)`` ∈ [0, 255]."""
+    if not isinstance(hex_color, str) or not _HEX_COLOR_RE.match(hex_color):
+        return None
+    body = hex_color.lstrip("#")
+    if len(body) == 3:
+        body = "".join(ch * 2 for ch in body)
+    return (int(body[0:2], 16), int(body[2:4], 16), int(body[4:6], 16))
+
+
+def _relative_luminance(hex_color: str) -> Optional[float]:
+    """WCAG relative luminance for *hex_color*, or ``None`` on failure."""
+    rgb = _hex_to_rgb(hex_color)
+    if rgb is None:
+        return None
+
+    def _channel(v: int) -> float:
+        c = v / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (_channel(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _chart_color(team: int, primary: str, fg: str) -> str:
+    """Pick a chart-/highlight-safe colour for *team*.
+
+    The team's primary brand colour is used when it has acceptable
+    contrast against the report's white background. Otherwise we
+    fall back to the team's text colour (which is, by design,
+    high-contrast against the brand colour and usually against
+    the page too) and finally to a fixed palette. This keeps every
+    rendered datapoint visible without losing team identity.
+    """
+    candidates = [primary, fg, _CHART_FALLBACK[(team - 1) % 2]]
+    for candidate in candidates:
+        lum = _relative_luminance(candidate)
+        if lum is not None and lum < _LIGHTNESS_REJECT:
+            return candidate
+    return _CHART_FALLBACK[(team - 1) % 2]
+
+
+def _ensure_distinct_chart_colors(c1: str, c2: str) -> tuple[str, str]:
+    """If both teams resolve to the same chart colour, force team 2 to fallback."""
+    if c1.lower() != c2.lower():
+        return c1, c2
+    fallback = _CHART_FALLBACK[1] if c1.lower() != _CHART_FALLBACK[1].lower() \
+        else _CHART_FALLBACK[0]
+    return c1, fallback
+
+
+# ---------------------------------------------------------------------------
+# Original ``_compute_stats`` continues here (kept logically below the
+# helpers above so the highlight / chart block has the colour-safety
+# tools imported by name).
+# ---------------------------------------------------------------------------
 
 
 def _render_score_chart(
@@ -824,10 +948,13 @@ def _render_score_chart(
 ) -> str:
     """Inline SVG showing how each team's score evolved through a set.
 
-    X axis: rally number (1..N). Y axis: points scored. One polyline
-    per team, coloured with the team's primary colour. Pure SVG, no
-    JS, so it survives "Save as PDF". Returns a placeholder string
-    when the set has fewer than two scoring records (nothing to plot).
+    X axis: rally number (1..N), labelled at start and end. Y axis:
+    points scored, labelled 0 / mid / max. Each rally datapoint is
+    marked with a small filled circle so single-point spikes are
+    legible. One polyline per team, coloured via the contrast-safe
+    palette resolved upstream. Pure SVG, no JS, so it survives
+    "Save as PDF". Returns a placeholder string when the set has
+    fewer than two scoring records (nothing to plot).
     """
     points: list[tuple[int, int]] = []
     for r in set_records:
@@ -838,18 +965,46 @@ def _render_score_chart(
         return ""
 
     max_score = max(max(p) for p in points)
-    width, height = 360, 120
-    pad_x, pad_y = 24, 12
-    plot_w = width - 2 * pad_x
-    plot_h = height - 2 * pad_y
+    width, height = 360, 150
+    pad_x_left, pad_x_right = 32, 18
+    pad_y_top, pad_y_bottom = 14, 26
+    plot_w = width - pad_x_left - pad_x_right
+    plot_h = height - pad_y_top - pad_y_bottom
     last_idx = len(points) - 1
     if last_idx == 0 or max_score == 0:
         return ""
 
     def _project(idx: int, score: int) -> tuple[float, float]:
-        x = pad_x + (idx / last_idx) * plot_w
-        y = pad_y + plot_h - (score / max_score) * plot_h
+        x = pad_x_left + (idx / last_idx) * plot_w
+        y = pad_y_top + plot_h - (score / max_score) * plot_h
         return x, y
+
+    # Three Y ticks (0, mid, max) and two X ticks (first / last rally).
+    mid_score = max_score // 2 if max_score >= 2 else max_score
+    y_ticks = sorted({0, mid_score, max_score})
+
+    grid_lines = "".join(
+        f'<line x1="{pad_x_left}" y1="{_project(0, v)[1]:.1f}" '
+        f'x2="{pad_x_left + plot_w}" y2="{_project(0, v)[1]:.1f}" '
+        f'stroke="#e0e0e0" stroke-width="1" stroke-dasharray="2,3" />'
+        for v in y_ticks
+    )
+
+    y_labels = "".join(
+        f'<text x="{pad_x_left - 4}" y="{_project(0, v)[1] + 3:.1f}" '
+        f'text-anchor="end" font-size="9" fill="#999">{v}</text>'
+        for v in y_ticks
+    )
+
+    # X labels: rally 1 (left) and rally N (right). 1-indexed for
+    # operator readability — point #1 sits at x=pad_x_left, point #N
+    # at x=pad_x_left + plot_w.
+    x_labels = (
+        f'<text x="{pad_x_left}" y="{height - 8}" text-anchor="start" '
+        f'font-size="9" fill="#999">1</text>'
+        f'<text x="{pad_x_left + plot_w}" y="{height - 8}" '
+        f'text-anchor="end" font-size="9" fill="#999">{len(points)}</text>'
+    )
 
     def _polyline(team_idx: int, color: str) -> str:
         coords = " ".join(
@@ -861,12 +1016,24 @@ def _render_score_chart(
             f'stroke-width="2" points="{coords}" />'
         )
 
+    def _markers(team_idx: int, color: str) -> str:
+        # ``r=2.5`` so they sit just above polyline thickness — big
+        # enough to read on print, small enough not to obscure rapid
+        # back-and-forth swings in volleyball-style 25-point sets.
+        return "".join(
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.5" '
+            f'fill="{html.escape(color)}" />'
+            for x, y in (_project(i, p[team_idx]) for i, p in enumerate(points))
+        )
+
     return (
         f'<svg viewBox="0 0 {width} {height}" role="img" '
         f'class="set-chart" preserveAspectRatio="xMidYMid meet">'
         f'<rect x="0" y="0" width="{width}" height="{height}" '
         f'fill="transparent" />'
+        f'{grid_lines}{y_labels}{x_labels}'
         f'{_polyline(0, t1_color)}{_polyline(1, t2_color)}'
+        f'{_markers(0, t1_color)}{_markers(1, t2_color)}'
         f'</svg>'
     )
 
@@ -881,9 +1048,27 @@ def _render_set_durations_row(durations: dict[int, float], set_count: int) -> st
     return "".join(cells)
 
 
-def _render_highlights(stats: dict, locale: str) -> str:
-    """Build the Highlights grid (longest streak / comeback / totals / set durations)."""
+def _render_highlights(
+    stats: dict, locale: str,
+    *, team1_name: str, team2_name: str,
+) -> str:
+    """Build the Highlights grid (longest streak / comeback / totals / set durations).
+
+    *team1_name* / *team2_name* are the human-readable team labels so
+    the cards say "Alpha" instead of the cryptic "Team 1". Falls back
+    to the i18n ``team`` template when a card references a team
+    number we somehow can't map (defensive — shouldn't happen).
+    """
     cards: list[str] = []
+
+    def _team_label(team: Optional[int]) -> str:
+        if team == 1:
+            return team1_name
+        if team == 2:
+            return team2_name
+        if team:
+            return _t(locale, "team", team=team)
+        return ""
 
     def _card(label: str, value: str, detail: str = "") -> None:
         detail_html = (
@@ -899,7 +1084,7 @@ def _render_highlights(stats: dict, locale: str) -> str:
         _card(
             _t(locale, "highlightStreak"),
             _t(locale, "pointsValue", n=streak["n"]),
-            _t(locale, "team") + f" {streak['team']} · "
+            f"{_team_label(streak['team'])} · "
             + _t(locale, "setLabel", n=streak.get("set") or "?"),
         )
 
@@ -909,7 +1094,19 @@ def _render_highlights(stats: dict, locale: str) -> str:
             _t(locale, "highlightComeback"),
             _t(locale, "deltaValue",
                n=comeback["deficit"], set=comeback.get("set") or "?"),
-            _t(locale, "team") + f" {comeback['team']}",
+            _team_label(comeback["team"]),
+        )
+
+    rally = stats.get("longest_rally") or {}
+    rally_duration = rally.get("duration_s") or 0
+    if rally_duration >= 1 and rally.get("set"):
+        # Sub-second rallies are noise (back-to-back action_log
+        # appends at the same wallclock); only show when there's
+        # actually a measurable gap.
+        _card(
+            _t(locale, "highlightLongestRally"),
+            _fmt_seconds(rally_duration),
+            _t(locale, "setLabel", n=rally["set"]),
         )
 
     total = stats.get("total_points", 0)
@@ -1112,6 +1309,15 @@ async def match_report(
     t1_fg = _team_color(customization, 1, primary=False)
     t2_color = _team_color(customization, 2, primary=True)
     t2_fg = _team_color(customization, 2, primary=False)
+    # The team's brand colour can be white-on-white (or the same hue
+    # for both teams) on the report's neutral surface — that would
+    # erase the chart polylines and the highlight text. Snap to a
+    # contrast-safe pick for the chart / legend layer; the panel
+    # backgrounds in ``.scoreboard`` keep the original brand colour.
+    t1_chart, t2_chart = _ensure_distinct_chart_colors(
+        _chart_color(1, t1_color, t1_fg),
+        _chart_color(2, t2_color, t2_fg),
+    )
 
     set_headers = "".join(
         f'<th>{html.escape(_t(locale, "setLabel", n=i))}</th>'
@@ -1218,11 +1424,14 @@ async def match_report(
         ended_at_display=_fmt_ts(payload.get("ended_at")),
         duration_display=_fmt_seconds(effective_duration),
         audit_count=len(audit),
-        highlights_html=_render_highlights(stats, locale),
+        highlights_html=_render_highlights(
+            stats, locale,
+            team1_name=team1_name, team2_name=team2_name,
+        ),
         charts_html=_render_charts(
             audit, played_sets, locale,
             t1_name=team1_name, t2_name=team2_name,
-            t1_color=t1_color, t2_color=t2_color,
+            t1_color=t1_chart, t2_color=t2_chart,
         ),
         timeline_html=_render_timeline(
             audit, locale, played_sets, base_ts=effective_started_at,
@@ -1246,6 +1455,9 @@ async def match_report(
         timeline_hint=html.escape(_t(locale, "timelineHint")),
         footer_text=html.escape(_t(locale, "footer")),
         btn_print=html.escape(_t(locale, "print")),
+        btn_print_include_prompt=html.escape(
+            _t(locale, "printIncludeLogPrompt"), quote=True,
+        ),
         btn_copy=html.escape(_t(locale, "copyLink")),
         btn_copy_ok=html.escape(_t(locale, "copyLinkOk")),
         permalink=html.escape(permalink, quote=True),
