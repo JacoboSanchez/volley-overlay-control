@@ -173,6 +173,34 @@ def archived_match():
     return match_id
 
 
+class TestMatchReportTemplateStructure:
+    """Structural guardrails for the ``str.format``-based templates.
+
+    The report module renders HTML by ``str.format``-ing two large
+    string templates (``_REPORT_TEMPLATE``, ``_INDEX_TEMPLATE``).
+    A stray single ``{`` or ``}`` in a CSS / JS block would parse
+    fine when the file loads but raise ``KeyError`` (or ``IndexError``)
+    the next time the report is rendered — a runtime regression
+    that's invisible to type checkers and easy to introduce when
+    adding new style rules. ``string.Formatter().parse()`` does the
+    bracket-matching pass without needing actual values, so we run
+    it once per template here as a fast structural smoke test.
+    """
+
+    @pytest.mark.parametrize("name", [
+        "_REPORT_TEMPLATE", "_INDEX_TEMPLATE", "_INDEX_SCRIPT",
+    ])
+    def test_template_has_balanced_braces(self, name):
+        import string
+        import app.match_report as mr
+        tpl = getattr(mr, name)
+        # Forces the formatter to scan every brace — a literal single
+        # ``{`` (without a matching ``}`` or its escaped ``{{`` form)
+        # raises ``ValueError`` here, surfacing the bug in CI instead
+        # of in a 500 response from /match/{id}/report.
+        list(string.Formatter().parse(tpl))
+
+
 class TestMatchReport:
     def test_404_for_unknown_match(self, client):
         response = client.get("/match/match_zzzz_invalid/report")
