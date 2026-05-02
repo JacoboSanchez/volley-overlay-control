@@ -201,10 +201,13 @@ async function driveMatchState() {
   await post('/api/v1/game/set-score', { team: 1, set_number: 2, value: 22 });
   await post('/api/v1/game/set-score', { team: 2, set_number: 2, value: 25 });
 
-  // Set 3 (current) — mid-rally, 18-15 with TW serving.
+  // Set 3 (current) — 18-24 with SH on set point. The control UI's
+  // MatchAlertIndicator surfaces a "set point" badge in the centre
+  // HUD whenever a team is one point from closing the set, so this
+  // makes the alert visible in the regenerated scoreboard shot.
   await post('/api/v1/game/set-score', { team: 1, set_number: 3, value: 18 });
-  await post('/api/v1/game/set-score', { team: 2, set_number: 3, value: 15 });
-  await post('/api/v1/game/change-serve', { team: 1 });
+  await post('/api/v1/game/set-score', { team: 2, set_number: 3, value: 24 });
+  await post('/api/v1/game/change-serve', { team: 2 });
 }
 
 async function dismissPwaPrompt(page) {
@@ -241,8 +244,15 @@ async function captureScoreboard(page) {
     DEMO_OID,
     { timeout: 5000 },
   ).catch(() => {});
-  // Generic wait: a button containing two-digit numbers should be present.
-  await page.waitForTimeout(800);
+  // Wait for the match-alert pill to render so the set-point indicator
+  // is in-frame. The pill is a `data-testid="match-alert-indicator"`
+  // span inside `.match-alerts-row` — present whenever any team holds
+  // set or match point. We tolerate timeout (matches without an alert
+  // — e.g. the connect-screen-only mode — should still capture).
+  await page.waitForSelector('[data-testid="match-alert-indicator"]', {
+    timeout: 3000,
+  }).catch(() => {});
+  await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '02-scoreboard.png'), fullPage: false });
 }
 
