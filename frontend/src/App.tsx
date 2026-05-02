@@ -230,6 +230,10 @@ export default function App() {
     }
   }, [actions, t]);
 
+  const handleStartMatch = useCallback(() => {
+    actions.startMatch();
+  }, [actions]);
+
   const handleLogout = useCallback(() => {
     try { localStorage.removeItem('volley_oid'); } catch (e) { console.warn('Failed to remove OID:', e); }
     setOid('');
@@ -373,8 +377,6 @@ export default function App() {
           setShowControls={setShowControls}
           canUndo={state?.can_undo ?? false}
           simpleMode={simpleMode}
-          isFullscreen={isFullscreen}
-          darkMode={settings.darkMode}
           btnColorA={btnColorA}
           btnTextA={btnTextA}
           btnColorB={btnColorB}
@@ -395,14 +397,9 @@ export default function App() {
           onToggleVisibility={handleToggleVisibility}
           onToggleSimpleMode={handleToggleSimpleMode}
           onUndoLast={handleUndoLast}
-          onToggleDarkMode={() => {
-            // Cycle: auto → dark → light → auto
-            const current = settings.darkMode;
-            const next = current === 'auto' ? true : current === true ? false : 'auto';
-            setSetting('darkMode', next);
-          }}
-          onToggleFullscreen={handleToggleFullscreen}
           onTogglePreview={handleTogglePreview}
+          onStartMatch={handleStartMatch}
+          onReset={handleReset}
           onOpenConfig={() => setActiveTab('config')}
         />
         </ErrorBoundary>
@@ -416,10 +413,17 @@ export default function App() {
             actions={actions}
             gameConfig={state?.config ?? null}
             onBack={() => setActiveTab('scoreboard')}
-            onReset={handleReset}
             onLogout={handleLogout}
             onCustomizationSaved={refreshCustomization}
-            onCustomizationRefreshed={setCustomization}
+            darkMode={settings.darkMode}
+            isFullscreen={isFullscreen}
+            onToggleDarkMode={() => {
+              // Cycle: auto → dark → light → auto
+              const current = settings.darkMode;
+              const next = current === 'auto' ? true : current === true ? false : 'auto';
+              setSetting('darkMode', next);
+            }}
+            onToggleFullscreen={handleToggleFullscreen}
           />
         </ErrorBoundary>
       )}

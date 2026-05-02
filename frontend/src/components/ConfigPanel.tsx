@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
-import { useSettings } from '../hooks/useSettings';
+import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
 import * as api from '../api/client';
 import ConfigSkeleton from './ConfigSkeleton';
@@ -44,6 +44,18 @@ const SECTION_ICONS: Record<Section, string> = {
 type Themes = Record<string, ConfigModel>;
 type LinksData = LinksSectionLinks | null;
 
+function themeIcon(pref: ThemePreference): string {
+  if (pref === 'auto') return 'brightness_auto';
+  // Boolean: icon represents the *next* state — clicking it cycles
+  // light → dark → auto.
+  return pref ? 'light_mode' : 'dark_mode';
+}
+
+function themeTitle(pref: ThemePreference, t: (k: string) => string): string {
+  if (pref === 'auto') return t('ctrl.themeAuto');
+  return pref ? t('ctrl.lightMode') : t('ctrl.darkMode');
+}
+
 export interface ConfigPanelProps {
   oid: string;
   customization: ConfigModel | null | undefined;
@@ -55,10 +67,17 @@ export interface ConfigPanelProps {
    */
   gameConfig?: Record<string, unknown> | null;
   onBack: () => void;
-  onReset: () => void;
   onLogout: () => void;
   onCustomizationSaved?: () => void | Promise<void>;
-  onCustomizationRefreshed?: (fresh: ConfigModel) => void;
+  /**
+   * Theme + fullscreen toggles live in this panel — they're
+   * once-per-session decisions and don't earn a permanent slot in
+   * the in-game HUD. The HUD now owns Start-match / Reset instead.
+   */
+  darkMode: ThemePreference;
+  isFullscreen: boolean;
+  onToggleDarkMode: () => void;
+  onToggleFullscreen: () => void;
 }
 
 export default function ConfigPanel({
@@ -66,10 +85,12 @@ export default function ConfigPanel({
   customization,
   gameConfig,
   onBack,
-  onReset,
   onLogout,
   onCustomizationSaved,
-  onCustomizationRefreshed,
+  darkMode,
+  isFullscreen,
+  onToggleDarkMode,
+  onToggleFullscreen,
 }: ConfigPanelProps) {
   const { t } = useI18n();
   const { settings, setSetting } = useSettings();
@@ -92,7 +113,6 @@ export default function ConfigPanel({
   const isDirtyRef = useRef(isDirty);
   useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
 
-  const [refreshing, setRefreshing] = useState(false);
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [themes, setThemes] = useState<Themes>({});
   const [styles, setStyles] = useState<string[]>([]);
@@ -174,18 +194,6 @@ export default function ConfigPanel({
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
-
-  const handleRefresh = useCallback(async () => {
-    if (!window.confirm(t('config.reloadConfirm'))) return;
-    setRefreshing(true);
-    try {
-      const fresh = await api.getCustomization(oid);
-      setModel({ ...fresh });
-      if (onCustomizationRefreshed) onCustomizationRefreshed(fresh);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [oid, t, onCustomizationRefreshed]);
 
   const handleApplyTheme = useCallback((themeName: string) => {
     const themeData = themes[themeName];
@@ -314,13 +322,19 @@ export default function ConfigPanel({
           <span>{saving ? '...' : t('config.save')}</span>
         </button>
         <div className="spacer" />
-        <button className="config-bottom-btn config-bottom-btn-refresh" onClick={handleRefresh}
-          disabled={refreshing} title={t('config.reloadFromServer')} data-testid="refresh-button">
-          <span className="material-icons">sync</span>
+        <button className="config-bottom-btn config-bottom-btn-fullscreen"
+          onClick={onToggleFullscreen}
+          title={isFullscreen ? t('ctrl.exitFullscreen') : t('ctrl.fullscreen')}
+          data-testid="fullscreen-button">
+          <span className="material-icons">
+            {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+          </span>
         </button>
-        <button className="config-bottom-btn config-bottom-btn-reset" onClick={onReset}
-          title={t('config.resetMatch')} data-testid="reset-button">
-          <span className="material-icons">recycling</span>
+        <button className="config-bottom-btn config-bottom-btn-theme"
+          onClick={onToggleDarkMode}
+          title={themeTitle(darkMode, t)}
+          data-testid="dark-mode-button">
+          <span className="material-icons">{themeIcon(darkMode)}</span>
         </button>
         <button className="config-bottom-btn config-bottom-btn-logout"
           onClick={() => { if (window.confirm(t('config.logoutConfirm'))) onLogout(); }}

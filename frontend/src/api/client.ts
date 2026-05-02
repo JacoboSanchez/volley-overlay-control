@@ -133,6 +133,10 @@ export function resetGame(oid: string): Promise<ActionResponse> {
   return request<ActionResponse>('POST', `/game/reset?oid=${encodeURIComponent(oid)}`);
 }
 
+export function startMatch(oid: string): Promise<ActionResponse> {
+  return request<ActionResponse>('POST', `/game/start-match?oid=${encodeURIComponent(oid)}`);
+}
+
 // Display controls
 export function setVisibility(oid: string, visible: boolean): Promise<ActionResponse> {
   return request<ActionResponse>(

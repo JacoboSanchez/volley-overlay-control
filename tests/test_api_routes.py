@@ -100,6 +100,19 @@ class TestGameRoutes:
         assert body["success"] is True
         assert body["state"]["team_1"]["scores"]["set_1"] == 1
 
+    def test_start_match_arms_timer(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        # Fresh session: timer starts unarmed.
+        r = client.post("/api/v1/game/start-match?oid=abc")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        anchor = body["state"]["match_started_at"]
+        assert isinstance(anchor, (int, float)) and anchor > 0
+        # Idempotent: second call leaves the original anchor in place.
+        r2 = client.post("/api/v1/game/start-match?oid=abc")
+        assert r2.json()["state"]["match_started_at"] == anchor
+
     def test_add_set_updates_count(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
         r = client.post(

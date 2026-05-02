@@ -178,19 +178,67 @@ class TestArchiveTrigger:
         response = GameService.add_set(session, team=1)
         assert response.success is True
 
+    def test_match_started_at_starts_unarmed(self, mock_conf, api_backend):
+        # Fresh session has no match anchor — operator (or first
+        # point) arms it explicitly.
+        session = SessionManager.get_or_create("arch-fresh", mock_conf, api_backend)
+        assert session.match_started_at is None
+
     def test_match_started_at_persists_across_restart(
             self, mock_conf, api_backend):
         session = SessionManager.get_or_create("arch-5", mock_conf, api_backend)
-        original = session.match_started_at
+        # First point implicitly arms the timer.
         GameService.add_point(session, team=1)
+        original = session.match_started_at
+        assert original is not None
         SessionManager.clear()
 
         restored = SessionManager.get_or_create("arch-5", mock_conf, api_backend)
         assert restored.match_started_at == pytest.approx(original)
 
-    def test_match_started_at_resets_on_reset(self, mock_conf, api_backend):
+    def test_match_started_at_clears_on_reset(self, mock_conf, api_backend):
+        # Reset wipes the match — the next match starts unarmed
+        # again, so the timer / report don't backdate the new run.
         session = SessionManager.get_or_create("arch-6", mock_conf, api_backend)
-        old = session.match_started_at - 100
-        session.match_started_at = old
+        GameService.add_point(session, team=1)
+        assert session.match_started_at is not None
         GameService.reset(session)
-        assert session.match_started_at > old
+        assert session.match_started_at is None
+
+    def test_first_point_arms_match_started_at(self, mock_conf, api_backend):
+        # The implicit-start path: a fresh session has no anchor; the
+        # first ``add_point`` sets it to now.
+        session = SessionManager.get_or_create("arch-arm", mock_conf, api_backend)
+        assert session.match_started_at is None
+        before = time.time()
+        GameService.add_point(session, team=1)
+        after = time.time()
+        assert before <= session.match_started_at <= after
+
+    def test_undo_does_not_arm_match_started_at(self, mock_conf, api_backend):
+        # ``add_point`` with ``undo=True`` shouldn't backdoor the
+        # implicit start; otherwise undoing the very first point
+        # would leave a ghost-armed match.
+        session = SessionManager.get_or_create("arch-no-arm", mock_conf, api_backend)
+        GameService.add_point(session, team=1, undo=True)
+        assert session.match_started_at is None
+
+    def test_start_match_arms_explicitly(self, mock_conf, api_backend):
+        session = SessionManager.get_or_create("arch-explicit",
+                                               mock_conf, api_backend)
+        assert session.match_started_at is None
+        before = time.time()
+        response = GameService.start_match(session)
+        after = time.time()
+        assert response.success is True
+        assert before <= session.match_started_at <= after
+
+    def test_start_match_is_idempotent(self, mock_conf, api_backend):
+        # A second call must not re-anchor the clock — otherwise
+        # double-clicking the button would reset the displayed timer.
+        session = SessionManager.get_or_create("arch-idem", mock_conf, api_backend)
+        GameService.start_match(session)
+        first_anchor = session.match_started_at
+        time.sleep(0.01)
+        GameService.start_match(session)
+        assert session.match_started_at == first_anchor

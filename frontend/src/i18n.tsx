@@ -32,6 +32,8 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.lightMode': 'Light mode',
     'ctrl.darkMode': 'Dark mode',
     'ctrl.themeAuto': 'Theme: follow system',
+    'ctrl.startMatch': 'Start match',
+    'ctrl.reset': 'Reset',
     'ctrl.config': 'Configuration',
 
     // Config panel
@@ -176,6 +178,8 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.lightMode': 'Modo claro',
     'ctrl.darkMode': 'Modo oscuro',
     'ctrl.themeAuto': 'Tema: seguir al sistema',
+    'ctrl.startMatch': 'Iniciar partido',
+    'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuración',
 
     // Config panel
@@ -320,6 +324,8 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.lightMode': 'Modo claro',
     'ctrl.darkMode': 'Modo escuro',
     'ctrl.themeAuto': 'Tema: seguir o sistema',
+    'ctrl.startMatch': 'Iniciar jogo',
+    'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuração',
 
     // Config panel
@@ -464,6 +470,8 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.lightMode': 'Modalità chiara',
     'ctrl.darkMode': 'Modalità scura',
     'ctrl.themeAuto': 'Tema: segui il sistema',
+    'ctrl.startMatch': 'Inizia partita',
+    'ctrl.reset': 'Reimposta',
     'ctrl.config': 'Configurazione',
 
     // Config panel
@@ -608,6 +616,8 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.lightMode': 'Mode clair',
     'ctrl.darkMode': 'Mode sombre',
     'ctrl.themeAuto': 'Thème : suivre le système',
+    'ctrl.startMatch': 'Démarrer le match',
+    'ctrl.reset': 'Réinitialiser',
     'ctrl.config': 'Configuration',
 
     // Config panel
@@ -752,6 +762,8 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.lightMode': 'Heller Modus',
     'ctrl.darkMode': 'Dunkler Modus',
     'ctrl.themeAuto': 'Theme: System folgen',
+    'ctrl.startMatch': 'Spiel starten',
+    'ctrl.reset': 'Zurücksetzen',
     'ctrl.config': 'Einstellungen',
 
     // Config panel

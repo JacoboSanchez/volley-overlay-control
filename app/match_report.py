@@ -979,17 +979,28 @@ def _render_charts(
     return "".join(cards) or ""
 
 
-def _render_timeline(audit: list[dict], locale: str, set_count: int) -> str:
-    """Group the audit by set and emit running-score-aware list items."""
+def _render_timeline(
+    audit: list[dict], locale: str, set_count: int,
+    *, base_ts: Optional[float] = None,
+) -> str:
+    """Group the audit by set and emit running-score-aware list items.
+
+    *base_ts* is the explicit match-start anchor (Start-match button
+    or first-point auto-arm). When supplied, relative timestamps are
+    measured from there — so a point scored 5 min after Start-match
+    reads ``+5:00``, not ``+0:00``. Falls back to the first audit
+    record's ts for legacy snapshots without an anchor.
+    """
     if not audit:
         return f'<em>{html.escape(_t(locale, "noAudit"))}</em>'
 
     collapsed = _collapse_undos(audit)
-    base_ts = next(
-        (r.get("ts") for r in collapsed
-         if isinstance(r.get("ts"), (int, float))),
-        None,
-    )
+    if base_ts is None:
+        base_ts = next(
+            (r.get("ts") for r in collapsed
+             if isinstance(r.get("ts"), (int, float))),
+            None,
+        )
 
     by_set: dict[int, list[dict]] = {}
     orphans: list[dict] = []
@@ -1118,25 +1129,34 @@ async def match_report(
     stats = _compute_stats(audit)
     set_durations = stats.get("set_durations", {}) or {}
 
-    # The reported "Started" and "Duration" snap to the first scoring
-    # action, not the snapshot's wallclock — keeps the header subtitle
-    # honest about how long the *match* lasted, not how long the
-    # operator's tab was open.
+    # The reported "Started" and "Duration" snap to the match anchor
+    # the session captured: ``session.match_started_at`` is set by the
+    # explicit Start-match button or implicitly by the first scored
+    # point, then archived as ``payload.started_at``. Either source is
+    # the moment the *match* really began; we just trust it. Legacy
+    # snapshots (no anchor stored) fall back to the first scoring
+    # action so the report still has something honest to show.
     first_scoring_ts: Optional[float] = None
     for record in audit:
         ts = record.get("ts")
         if isinstance(ts, (int, float)):
             first_scoring_ts = float(ts)
             break
+    payload_started = payload.get("started_at")
+    if isinstance(payload_started, (int, float)):
+        effective_started_at: Optional[float] = float(payload_started)
+    else:
+        effective_started_at = first_scoring_ts
     ended_at = payload.get("ended_at")
-    if first_scoring_ts is not None and isinstance(ended_at, (int, float)):
-        effective_duration = max(0.0, float(ended_at) - first_scoring_ts)
+    if (
+        effective_started_at is not None
+        and isinstance(ended_at, (int, float))
+    ):
+        effective_duration = max(
+            0.0, float(ended_at) - effective_started_at,
+        )
     else:
         effective_duration = payload.get("duration_s")
-    effective_started_at = (
-        first_scoring_ts if first_scoring_ts is not None
-        else payload.get("started_at")
-    )
 
     timeouts_t1 = team1.get("timeouts")
     timeouts_t2 = team2.get("timeouts")
@@ -1204,7 +1224,9 @@ async def match_report(
             t1_name=team1_name, t2_name=team2_name,
             t1_color=t1_color, t2_color=t2_color,
         ),
-        timeline_html=_render_timeline(audit, locale, played_sets),
+        timeline_html=_render_timeline(
+            audit, locale, played_sets, base_ts=effective_started_at,
+        ),
         # i18n labels
         duration_label=html.escape(_t(locale, "duration")),
         versus=html.escape(_t(locale, "versus")),

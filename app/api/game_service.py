@@ -104,6 +104,7 @@ class GameService:
             beach_side_switch=side_switch,
             match_point_info=match_point_info,
             can_undo=session.undoable_forward_count > 0,
+            match_started_at=session.match_started_at,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         if elapsed_ms > 50:
@@ -157,6 +158,14 @@ class GameService:
                 state=GameService.get_state(session),
                 message="Match is already finished.",
             )
+
+        # Implicit match-start: scoring before the operator hit
+        # ``Start match`` arms the timer here so the HUD timer and the
+        # match-report duration agree on when the match really began.
+        # Undo paths skip this — undoing the very first point shouldn't
+        # ghost-arm a match that never explicitly started.
+        if not undo and session.match_started_at is None:
+            session.match_started_at = time.time()
 
         was_finished_before = session.game_manager.match_finished(session.sets_limit)
         serve_before = session.game_manager.get_current_state().get_current_serve()
@@ -485,12 +494,30 @@ class GameService:
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
+    def start_match(session) -> ActionResponse:
+        """Arm the match-start clock without scoring a point.
+
+        Idempotent: a second call after the match has already started
+        is a no-op (the clock keeps the original anchor). The first
+        ``add_point`` arms the clock implicitly, so this endpoint
+        exists for the case where the operator wants the timer to
+        reflect the actual whistle rather than the first rally.
+        """
+        if session.match_started_at is None:
+            session.match_started_at = time.time()
+            session.persist_meta()
+            GameService._audit(session, "start_match", {})
+            GameService._broadcast(session)
+        return ActionResponse(success=True, state=GameService.get_state(session))
+
+    @staticmethod
     def reset(session) -> ActionResponse:
         session.game_manager.reset()
         session.current_set = session._compute_current_set()
-        # Reset starts a new match — bump the start clock so duration_s
-        # in the next archived snapshot is correct.
-        session.match_started_at = time.time()
+        # Reset wipes the match — clear the start clock so the next
+        # match begins unarmed (operator hits ``Start match`` or scores
+        # the first point to arm it again).
+        session.match_started_at = None
         GameService._save_and_broadcast(session)
         # Reset wipes the match — start the audit log fresh too so the
         # archive boundaries align with operator intent. Counter goes
@@ -563,8 +590,8 @@ class GameService:
         Called from add_point and add_set after the mutation completes.
         Returns the new ``match_id`` (or ``None`` if no archive happened).
         After a successful archive the session's ``match_started_at`` is
-        bumped to ``now`` so a follow-up ``reset`` does not retroactively
-        backdate the next match.
+        cleared so the next match starts unarmed — the operator (or
+        the first point) re-arms it the same way it did at the start.
         """
         if was_finished_before or not session.game_manager.match_finished(session.sets_limit):
             return None
@@ -581,7 +608,7 @@ class GameService:
                 points_limit_last_set=session.points_limit_last_set,
                 sets_limit=session.sets_limit,
             )
-            session.match_started_at = time.time()
+            session.match_started_at = None
             session.persist_meta()
             return match_id
         except Exception as exc:
