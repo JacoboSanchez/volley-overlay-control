@@ -829,10 +829,13 @@ export interface paths {
          * Delete an archived match snapshot
          * @description Delete a single archived match by id.
          *
-         *     Always requires a valid admin token, even when
-         *     ``MATCH_REPORT_PUBLIC=true`` — public mode grants read-only access
-         *     only. Returns 204 on success, 404 when the match does not exist,
-         *     and 401/403/503 for the various authentication failure modes.
+         *     Requires a valid admin token unless ``MATCH_REPORT_PUBLIC_DELETE``
+         *     is set — that flag is independent from ``MATCH_REPORT_PUBLIC``
+         *     (public read does *not* imply public delete) and lets operators
+         *     expose the per-row Delete button on the matches index without
+         *     sharing the admin password. Returns 204 on success, 404 when the
+         *     match does not exist, and 401/403/503 for the various
+         *     authentication failure modes when the flag is off.
          */
         delete: operations["delete_archived_match_matches__match_id__delete"];
         options?: never;

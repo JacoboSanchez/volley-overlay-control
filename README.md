@@ -206,6 +206,7 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_TIMEOUT_S` | *(Optional)* Per-target POST timeout in seconds. | `5` |
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable without a token (matches the `/overlay/{output_key}` model). When unset, the route requires `OVERLAY_MANAGER_PASSWORD` via Bearer header or `?token=`. Returns 503 if neither is configured. | `false` |
+| `MATCH_REPORT_PUBLIC_DELETE` | If `true`, `DELETE /matches/{id}` no longer requires the admin token — the per-row Delete button on `/matches/index.html` becomes usable without sharing `OVERLAY_MANAGER_PASSWORD`. Independent from `MATCH_REPORT_PUBLIC`: granting public read does *not* grant public delete. | `false` |
 
 <br>
 
@@ -359,6 +360,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/api/v1/game/undo` | `POST` — pop the last forward `add_point`/`add_set`/`add_timeout` from the audit log and reverse it. Returns 200 with `success=false` and `message="Nothing to undo."` when the log is empty. |
 | `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` (Bearer header or `?token=`) unless `MATCH_REPORT_PUBLIC=true`. Returns 503 when neither is configured. |
 | `/matches/index.html?oid=X` | `GET` — browseable HTML list of every archived match for the OID (date, sets, duration, link to each report). Same auth gate as `/match/{id}/report`; the `?token=` query is propagated to the per-match report links. |
+| `/matches/{match_id}` | `DELETE` — remove a single archived snapshot. Gated by `OVERLAY_MANAGER_PASSWORD` unless `MATCH_REPORT_PUBLIC_DELETE=true`. |
 | `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |
 | `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
 | `/api/config/{id}` | Overlay config (output URL, available styles) |

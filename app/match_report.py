@@ -23,6 +23,12 @@ more sensitive than live overlay state. Access requires either:
 When ``OVERLAY_MANAGER_PASSWORD`` is unset and ``MATCH_REPORT_PUBLIC``
 is not enabled, the route returns 503 — operators must explicitly
 opt in to one mode or the other.
+
+Destructive actions (``DELETE /matches/{match_id}``) keep their own
+flag, ``MATCH_REPORT_PUBLIC_DELETE``: when ``true`` the delete route
+no longer requires the admin token. This is intentionally separate
+from ``MATCH_REPORT_PUBLIC`` so that public *read* doesn't silently
+unlock public *delete* — the operator has to opt in to each.
 """
 
 from __future__ import annotations
@@ -44,9 +50,26 @@ logger = logging.getLogger(__name__)
 match_report_router = APIRouter()
 
 
+_TRUTHY_ENV = ("1", "true", "t", "yes", "on")
+
+
+def _is_env_enabled(key: str) -> bool:
+    """``True`` when env var *key* parses as a truthy boolean string."""
+    raw = EnvVarsManager.get_env_var(key, "false")
+    return str(raw).strip().lower() in _TRUTHY_ENV
+
+
 def _public_mode_enabled() -> bool:
-    raw = EnvVarsManager.get_env_var("MATCH_REPORT_PUBLIC", "false")
-    return str(raw).strip().lower() in ("1", "true", "t", "yes", "on")
+    return _is_env_enabled("MATCH_REPORT_PUBLIC")
+
+
+def _public_delete_enabled() -> bool:
+    """``True`` when the operator has opted into unauthenticated delete.
+
+    Independent from :func:`_public_mode_enabled` on purpose: granting
+    public read shouldn't silently authorise public destruction.
+    """
+    return _is_env_enabled("MATCH_REPORT_PUBLIC_DELETE")
 
 
 def _admin_password() -> Optional[str]:
@@ -258,7 +281,6 @@ _REPORT_TEMPLATE = """<!doctype html>
 <table>
   <tbody>
     <tr><td>Match ID</td><td>{match_id}</td></tr>
-    <tr><td>OID</td><td>{oid}</td></tr>
     <tr><td>Format</td><td>Best of {sets_limit} &middot; {points_limit} pts/set ({points_limit_last_set} in final)</td></tr>
     <tr><td>Started</td><td>{started_at_display}</td></tr>
     <tr><td>Ended</td><td>{ended_at_display}</td></tr>
@@ -438,7 +460,6 @@ async def match_report(
     rendered = _REPORT_TEMPLATE.format(
         match_label=match_label,
         match_id=html.escape(payload.get("match_id", match_id)),
-        oid=html.escape(payload.get("oid", "—")),
         team1_name=html.escape(team1_name),
         team2_name=html.escape(team2_name),
         team1_sets=team1_sets,
@@ -777,12 +798,16 @@ async def delete_archived_match(
 ):
     """Delete a single archived match by id.
 
-    Always requires a valid admin token, even when
-    ``MATCH_REPORT_PUBLIC=true`` — public mode grants read-only access
-    only. Returns 204 on success, 404 when the match does not exist,
-    and 401/403/503 for the various authentication failure modes.
+    Requires a valid admin token unless ``MATCH_REPORT_PUBLIC_DELETE``
+    is set — that flag is independent from ``MATCH_REPORT_PUBLIC``
+    (public read does *not* imply public delete) and lets operators
+    expose the per-row Delete button on the matches index without
+    sharing the admin password. Returns 204 on success, 404 when the
+    match does not exist, and 401/403/503 for the various
+    authentication failure modes when the flag is off.
     """
-    _check_admin_access(authorization, token)
+    if not _public_delete_enabled():
+        _check_admin_access(authorization, token)
     if not match_archive.delete_match(match_id):
         raise HTTPException(status_code=404, detail="Match not found.")
     return Response(status_code=204)
