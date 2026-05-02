@@ -236,6 +236,88 @@ class TestMatchReport:
         # Permalink anchor on the toolbar; lets the JS grab it without
         # parsing window.location.
         assert f'data-permalink="/match/{archived_match}/report"' in response.text
+        # Print button carries the include-log prompt as a
+        # ``data-include-prompt`` attribute so the JS can confirm()
+        # without re-fetching translations.
+        assert "data-include-prompt=" in response.text
+        # Timeline section gets an id so the JS can toggle ``print-hidden``.
+        assert 'id="report-timeline-section"' in response.text
+        assert ".print-hidden" in response.text
+
+    def _seed_minimal_chart_audit(self, oid: str) -> None:
+        """Two-point audit log so the chart layer has something to plot."""
+        from app.api import action_log as _al
+        records = [
+            {"ts": time.time(), "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            {"ts": time.time() + 1, "action": "add_point",
+             "params": {"team": 2, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 1}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+
+    def test_chart_uses_contrast_safe_color_for_white_team(self, client):
+        # Team 2 picks pure white as its primary brand colour. That's
+        # invisible on the report's white surface, so the chart layer
+        # should snap to the team's text colour or the fallback palette
+        # instead.
+        oid = "white-team"
+        self._seed_minimal_chart_audit(oid)
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 1}},
+                "team_2": {"sets": 0, "scores": {"set_1": 1}},
+            },
+            customization={
+                "Team 1 Name": "A",
+                "Team 2 Name": "B",
+                "Color 1": "#0047AB",
+                "Color 2": "#FFFFFF",
+                "Text Color 1": "#FFFFFF",
+                "Text Color 2": "#000000",
+            },
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # The chart for team 2 must use a darker colour (text colour
+        # ``#000000`` or the fallback palette).
+        assert ('stroke="#000000"' in response.text
+                or 'stroke="#E21836"' in response.text)
+
+    def test_chart_colors_are_distinct_when_both_teams_share_a_colour(
+            self, client):
+        # Both teams pick the same brand colour. The chart layer
+        # forces a fallback on team 2 so the polylines remain
+        # distinguishable.
+        oid = "same-team-color"
+        self._seed_minimal_chart_audit(oid)
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 1}},
+                "team_2": {"sets": 0, "scores": {"set_1": 1}},
+            },
+            customization={
+                "Team 1 Name": "A",
+                "Team 2 Name": "B",
+                "Color 1": "#0047AB",
+                "Color 2": "#0047AB",
+                "Text Color 1": "#FFFFFF",
+                "Text Color 2": "#FFFFFF",
+            },
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert 'stroke="#0047AB"' in response.text
+        assert 'stroke="#E21836"' in response.text
 
     def test_print_media_query_hides_toolbar_and_unbounds_timeline(
             self, client, archived_match):
@@ -327,6 +409,62 @@ class TestMatchReportRichSections:
         assert response.text.count('class="set-chart"') == 2
         assert "#0047AB" in response.text
         assert "#E21836" in response.text
+
+    def test_chart_marks_data_points_and_labels_axes(
+            self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # Each rally has a marker per team, so the page is full of
+        # ``<circle>`` elements; we just need at least a handful to
+        # confirm the markers are emitted at all.
+        assert response.text.count("<circle") >= 8
+        # Axis text labels — y-axis ticks include 0 and the max
+        # (set 1 caps at 5, set 2 at 25). Spot-check 0.
+        assert ">0</text>" in response.text
+        # X-axis labels are 1 / N where N is the number of plotted
+        # rallies; the rich-fixture set 1 has 9 scoring records
+        # (set_score not used) → endpoint label is 9.
+        assert ">1</text>" in response.text
+
+    def test_highlights_use_team_names_not_indices(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # The timeline still spells out ``Team 1 / Team 2`` in the
+        # action labels (that's the audit-log idiom), so we slice
+        # just the highlights region to assert *that* uses the
+        # human-readable name from customization.
+        body = response.text
+        start = body.index('<div class="highlights">')
+        # Find the closing div for the highlights section: it's the
+        # one matching ``<div class="highlights">``. Walk forward
+        # collecting nested divs.
+        depth = 1
+        cursor = start + len('<div class="highlights">')
+        while depth and cursor < len(body):
+            next_open = body.find('<div', cursor)
+            next_close = body.find('</div>', cursor)
+            if next_close == -1:
+                break
+            if next_open != -1 and next_open < next_close:
+                depth += 1
+                cursor = next_open + 4
+            else:
+                depth -= 1
+                cursor = next_close + 6
+        highlights_block = body[start:cursor]
+        # Highlights mention real team names — ``Alpha`` / ``Bravo``
+        # — rather than the opaque ``Team 1`` label.
+        assert "Alpha" in highlights_block
+        assert "Bravo" in highlights_block
+        assert "Team 1" not in highlights_block
+        assert "Team 2" not in highlights_block
+
+    def test_longest_rally_card_renders(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # The rich fixture's set 2 has a 5m 0s gap (last point at
+        # offset 1500, second-to-last at 900 — but those aren't
+        # consecutive in the audit; the actual sorted gap depends
+        # on the seed). Any non-zero rally duration should produce
+        # the card with the i18n label.
+        assert "Longest rally" in response.text
 
     def test_timeline_groups_by_set_and_shows_running_score(
             self, client, rich_match):
