@@ -7,7 +7,6 @@ import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import type { PreviewData } from './CenterPanel';
 import type { ScoreButtonFontStyle } from './ScoreButton';
-import type { ThemePreference } from '../hooks/useSettings';
 import {
   TEAM_A_SERVE_ACTIVE,
   TEAM_B_SERVE_ACTIVE,
@@ -34,8 +33,6 @@ export interface ScoreboardViewProps {
   setShowControls: Dispatch<SetStateAction<boolean>>;
   canUndo: boolean;
   simpleMode: boolean;
-  isFullscreen: boolean;
-  darkMode: ThemePreference;
   btnColorA: string;
   btnTextA: string;
   btnColorB: string;
@@ -56,9 +53,9 @@ export interface ScoreboardViewProps {
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
-  onToggleDarkMode: () => void;
-  onToggleFullscreen: () => void;
   onTogglePreview: () => void;
+  onStartMatch: () => void;
+  onReset: () => void;
   onOpenConfig: () => void;
 }
 
@@ -76,8 +73,6 @@ export default function ScoreboardView({
   setShowControls,
   canUndo,
   simpleMode,
-  isFullscreen,
-  darkMode,
   btnColorA,
   btnTextA,
   btnColorB,
@@ -98,9 +93,9 @@ export default function ScoreboardView({
   onToggleVisibility,
   onToggleSimpleMode,
   onUndoLast,
-  onToggleDarkMode,
-  onToggleFullscreen,
   onTogglePreview,
+  onStartMatch,
+  onReset,
   onOpenConfig,
 }: ScoreboardViewProps) {
   const { t } = useI18n();
@@ -193,15 +188,14 @@ export default function ScoreboardView({
             visible={state.visible}
             simpleMode={simpleMode}
             canUndo={canUndo}
-            darkMode={darkMode}
-            isFullscreen={isFullscreen}
             showPreview={showPreview}
+            matchStartedAt={state.match_started_at}
             onToggleVisibility={onToggleVisibility}
             onToggleSimpleMode={onToggleSimpleMode}
             onUndoLast={onUndoLast}
-            onToggleDarkMode={onToggleDarkMode}
-            onToggleFullscreen={onToggleFullscreen}
             onTogglePreview={onTogglePreview}
+            onStartMatch={onStartMatch}
+            onReset={onReset}
           />
         </div>
       </div>

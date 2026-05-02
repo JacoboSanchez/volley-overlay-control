@@ -93,6 +93,22 @@ async def reset_game(session: GameSession = Depends(get_session)):
 
 
 @router.post(
+    "/game/start-match",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+    summary="Arm the match-start timer without scoring a point",
+)
+async def start_match(session: GameSession = Depends(get_session)):
+    """Stamps ``match_started_at`` with the current wallclock if the
+    match isn't already armed. Idempotent — a second call leaves the
+    original anchor in place. The HUD timer / report duration / undo
+    flow all read this field downstream.
+    """
+    async with session.lock:
+        return GameService.start_match(session)
+
+
+@router.post(
     "/game/undo",
     response_model=ActionResponse,
     dependencies=[Depends(verify_api_key)],

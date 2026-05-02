@@ -19,9 +19,12 @@ const defaultProps = {
   customization: mockCustomization,
   actions: {},
   onBack: vi.fn(),
-  onReset: vi.fn(),
   onLogout: vi.fn(),
   onCustomizationSaved: vi.fn(),
+  darkMode: 'auto' as const,
+  isFullscreen: false,
+  onToggleDarkMode: vi.fn(),
+  onToggleFullscreen: vi.fn(),
 };
 
 describe('ConfigPanel', () => {
@@ -120,15 +123,28 @@ describe('ConfigPanel', () => {
 
   it('renders bottom bar action buttons', () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    expect(screen.getByTestId('refresh-button')).toBeInTheDocument();
-    expect(screen.getByTestId('reset-button')).toBeInTheDocument();
+    // Save / fullscreen / theme / logout. Reset and refresh moved
+    // out of the panel; reset now lives on the HUD next to the
+    // Start-match toggle.
+    expect(screen.getByTestId('save-button')).toBeInTheDocument();
+    expect(screen.getByTestId('fullscreen-button')).toBeInTheDocument();
+    expect(screen.getByTestId('dark-mode-button')).toBeInTheDocument();
     expect(screen.getByTestId('logout-button')).toBeInTheDocument();
+    // Both removed.
+    expect(screen.queryByTestId('refresh-button')).toBeNull();
+    expect(screen.queryByTestId('reset-button')).toBeNull();
   });
 
-  it('calls onReset when reset button clicked', () => {
+  it('calls onToggleDarkMode when theme button clicked', () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('reset-button'));
-    expect(defaultProps.onReset).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByTestId('dark-mode-button'));
+    expect(defaultProps.onToggleDarkMode).toHaveBeenCalledOnce();
+  });
+
+  it('calls onToggleFullscreen when fullscreen button clicked', () => {
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('fullscreen-button'));
+    expect(defaultProps.onToggleFullscreen).toHaveBeenCalledOnce();
   });
 
   it('shows logout confirmation', () => {

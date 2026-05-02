@@ -2,6 +2,7 @@ import asyncio
 import logging
 import threading
 import time
+from typing import Optional
 
 from app.api import action_log
 from app.api.match_rules import is_valid_mode
@@ -35,10 +36,14 @@ class GameSession:
         self.simple = False
         self.current_set = 1
         self.undo = False
-        # Wall-clock seconds at which the current match started. Persisted
-        # in session_meta so it survives restarts; reset by GameService.reset
-        # and bumped automatically after a match is archived.
-        self.match_started_at = time.time()
+        # Wall-clock seconds at which the current match started, or
+        # ``None`` when the match hasn't begun yet. The first
+        # ``add_point`` auto-arms it (``GameService.add_point``); the
+        # explicit ``POST /game/start_match`` lets the operator arm it
+        # before the first point so the timer in the HUD reflects the
+        # actual whistle. ``GameService.reset`` clears it back to
+        # ``None``. Persisted via session_meta so it survives restarts.
+        self.match_started_at: Optional[float] = None
         # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.
@@ -94,7 +99,10 @@ class GameSession:
             "points_limit": int(self.points_limit),
             "points_limit_last_set": int(self.points_limit_last_set),
             "sets_limit": int(self.sets_limit),
-            "match_started_at": float(self.match_started_at),
+            "match_started_at": (
+                float(self.match_started_at)
+                if self.match_started_at is not None else None
+            ),
             "mode": str(self.mode),
         }
 
@@ -120,10 +128,14 @@ class GameSession:
                     key, value, self.oid,
                 )
         if "match_started_at" in meta:
-            try:
-                self.match_started_at = float(meta["match_started_at"])
-            except (TypeError, ValueError):
-                pass
+            raw = meta["match_started_at"]
+            if raw is None:
+                self.match_started_at = None
+            else:
+                try:
+                    self.match_started_at = float(raw)
+                except (TypeError, ValueError):
+                    pass
         if "mode" in meta and is_valid_mode(meta["mode"]):
             self.mode = meta["mode"]
 

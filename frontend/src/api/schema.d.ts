@@ -435,6 +435,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/game/start-match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Arm the match-start timer without scoring a point
+         * @description Stamps ``match_started_at`` with the current wallclock if the
+         *     match isn't already armed. Idempotent — a second call leaves the
+         *     original anchor in place. The HUD timer / report duration / undo
+         *     flow all read this field downstream.
+         */
+        post: operations["start_match_api_v1_game_start_match_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/game/undo": {
         parameters: {
             query?: never;
@@ -963,6 +986,8 @@ export interface components {
             /** Match Finished */
             match_finished: boolean;
             match_point_info?: components["schemas"]["MatchPointInfo"] | null;
+            /** Match Started At */
+            match_started_at?: number | null;
             /** Serve */
             serve: string;
             /** Simple Mode */
@@ -2107,6 +2132,42 @@ export interface operations {
                 "application/json": components["schemas"]["SetSetsRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_match_api_v1_game_start_match_post: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

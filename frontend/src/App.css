@@ -743,6 +743,27 @@ body {
   color: #ff9800;
 }
 
+.control-btn-start {
+  border-color: var(--green, #2e7d32);
+  color: var(--green, #2e7d32);
+}
+
+/* Live MM:SS counter rendered inside the bottom-bar spacer once the
+   match is armed. Tabular numerals so the digits stop "dancing" when
+   the seconds rollover. */
+.match-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.match-timer .material-icons {
+  font-size: 1rem;
+}
+
 .control-btn-logout {
   border-color: #f44336;
   color: #f44336;

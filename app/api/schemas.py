@@ -135,6 +135,11 @@ class GameStateResponse(BaseModel):
     # frontends drive the global Undo button from the server-side
     # stack instead of maintaining their own LIFO.
     can_undo: bool = False
+    # Wall-clock seconds at which the current match started, or
+    # ``None`` when the match hasn't begun yet. Drives the live
+    # match timer in the HUD and toggles the Start-match / Reset
+    # button in the control bar.
+    match_started_at: Optional[float] = None
 
 
 class ActionResponse(BaseModel):
