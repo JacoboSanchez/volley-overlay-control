@@ -466,6 +466,44 @@ class TestMatchReportRichSections:
         # the card with the i18n label.
         assert "Longest rally" in response.text
 
+    def test_longest_rally_ignores_manual_score_overrides(self, client):
+        # Operator scores 1-0 at t=0 then *5 minutes* later corrects
+        # the score via ``set_score`` (typo / late edit). That gap is
+        # editorial, not a real rally — the longest-rally card
+        # should ignore it and fall back to the actual ``add_point``
+        # cadence (which here is just a single point, not enough
+        # for a rally calculation).
+        oid = "rally-edit"
+        from app.api import action_log as _al
+        records = [
+            {"ts": 1700000000, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            {"ts": 1700000300, "action": "set_score",
+             "params": {"team": 1, "set_number": 1, "value": 5},
+             "result": {"current_set": 1, "team_1": {"score": 5},
+                        "team_2": {"score": 0}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 5}},
+                         "team_2": {"scores": {"set_1": 0}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # The set-duration row legitimately shows ``5m 00s`` (set 1
+        # spans 300 s of audit timestamps), but the longest-rally
+        # card must not exist at all — there's only one ``add_point``
+        # in the fixture, so no consecutive-rally gap to measure.
+        assert "Longest rally" not in response.text
+
     def test_timeline_groups_by_set_and_shows_running_score(
             self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")

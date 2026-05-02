@@ -842,17 +842,19 @@ def _compute_stats(audit: list[dict]) -> dict:
         # Longest rally: the gap between consecutive scoring actions
         # within the set is a proxy for "longest point" — without
         # ball-in-play instrumentation that's the closest the audit
-        # log can give us. Skip non-scoring actions (timeouts mid-set
-        # would inflate the gap) and rallies of fewer than two points
-        # (no gap to measure).
+        # log can give us. Restrict to ``add_point`` only: a manual
+        # ``set_score`` override is an editorial action (operator
+        # correcting a score after the fact) and including it would
+        # report the *editing* delay as a rally. The audit log is
+        # append-only so ``set_records`` is already in chronological
+        # order — no extra sort needed.
         scoring_ts: list[float] = []
         for r in set_records:
-            if not _is_score_action(r):
+            if r.get("action") != "add_point":
                 continue
             ts = r.get("ts")
             if isinstance(ts, (int, float)):
                 scoring_ts.append(float(ts))
-        scoring_ts.sort()
         for i in range(1, len(scoring_ts)):
             delta = scoring_ts[i] - scoring_ts[i - 1]
             if delta > longest_rally["duration_s"]:
