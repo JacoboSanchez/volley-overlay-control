@@ -16,13 +16,13 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 |---|---|
 | ![Scoreboard control UI in landscape](docs/screenshots/02-scoreboard.png) | ![Scoreboard control UI in portrait](docs/screenshots/03-scoreboard-phone.png) |
 
-| Custom overlay manager (`/manage`) | Initial connect screen |
+| Initial connect screen | Configuration panel |
 |---|---|
-| ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) | ![Connect screen](docs/screenshots/01-init-screen.png) |
+| ![Connect screen](docs/screenshots/01-init-screen.png) | ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) |
 
-| Configuration panel | Match report (`/match/{id}/report`) |
+| Custom overlay manager (`/manage`) | Match report (`/match/{id}/report`) |
 |---|---|
-| ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) | ![Print-friendly match report with hero, set-by-set, highlights and per-set score charts](docs/screenshots/08-match-report.png) |
+| ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
 **Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{id}`. All 14 selectable styles laid out side-by-side in a single preview grid via `/overlay/{id}?style=mosaic`:
 
