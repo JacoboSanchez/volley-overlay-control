@@ -11,6 +11,100 @@ from app.match_report import match_report_router
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
+def _seed_realistic_audit(oid: str, base_ts: float) -> None:
+    """Write a deterministic audit JSONL covering streak, comeback,
+    running-score and undo paths. Bypasses ``action_log.append`` so the
+    timestamps we care about don't depend on wallclock.
+    """
+    import json
+    import os
+    from app.api import action_log as _al
+
+    records: list[dict] = []
+
+    def _add(action: str, params: dict, result: dict, offset: float) -> None:
+        records.append({
+            "ts": base_ts + offset,
+            "action": action,
+            "params": params,
+            "result": result,
+        })
+
+    # Set 1: team 1 takes a 5-0 streak (longest streak), team 2 catches up.
+    for i in range(5):
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1, "team_1": {"score": i + 1},
+              "team_2": {"score": 0}}, offset=i * 30)
+    _add("add_point", {"team": 2, "undo": False},
+         {"current_set": 1, "team_1": {"score": 5},
+          "team_2": {"score": 1}}, offset=180)
+    _add("add_point", {"team": 2, "undo": False},
+         {"current_set": 1, "team_1": {"score": 5},
+          "team_2": {"score": 2}}, offset=210)
+    # An undo pair: team 2 scores then retracts. The retraction must
+    # mark the prior record as ``_was_undone`` in the collapsed timeline.
+    _add("add_point", {"team": 2, "undo": False},
+         {"current_set": 1, "team_1": {"score": 5},
+          "team_2": {"score": 3}}, offset=240)
+    _add("add_point", {"team": 2, "undo": True},
+         {"current_set": 1, "team_1": {"score": 5},
+          "team_2": {"score": 2}}, offset=260)
+
+    # Set 2: 6-0 deficit then full comeback (biggest comeback = 6 points).
+    for i in range(6):
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 2, "team_1": {"score": i + 1},
+              "team_2": {"score": 0}}, offset=600 + i * 30)
+    _add("add_point", {"team": 2, "undo": False},
+         {"current_set": 2, "team_1": {"score": 6},
+          "team_2": {"score": 1}}, offset=900)
+    _add("add_point", {"team": 2, "undo": False},
+         {"current_set": 2, "team_1": {"score": 22},
+          "team_2": {"score": 25}}, offset=1500)
+
+    path = _al._path(oid)
+    assert path is not None, "action_log path resolution failed in test"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record, separators=(",", ":"), ensure_ascii=False) + "\n")
+
+
+@pytest.fixture
+def rich_match():
+    """A match snapshot with a realistic audit log — exercises the
+    running-score, comeback, streak, undo and chart paths in one go.
+    """
+    base_ts = time.time() - 3600
+    _seed_realistic_audit("rich-1", base_ts)
+    match_id = match_archive.archive_match(
+        oid="rich-1",
+        final_state={
+            "current_set": 2,
+            "team_1": {"sets": 0, "timeouts": 0,
+                       "scores": {"set_1": 25, "set_2": 22}},
+            "team_2": {"sets": 2, "timeouts": 1,
+                       "scores": {"set_1": 23, "set_2": 25}},
+        },
+        customization={
+            "Team 1 Name": "Alpha",
+            "Team 2 Name": "Bravo",
+            "Team 1 Logo": "https://example.com/alpha.png",
+            "Color 1": "#0047AB",
+            "Color 2": "#E21836",
+            "Text Color 1": "#FFFFFF",
+            "Text Color 2": "#FFFFFF",
+        },
+        started_at=base_ts,
+        winning_team=2,
+        points_limit=25,
+        points_limit_last_set=15,
+        sets_limit=3,
+    )
+    assert match_id is not None
+    return match_id
+
+
 @pytest.fixture
 def client(monkeypatch):
     """Default client: report endpoint open via MATCH_REPORT_PUBLIC.
@@ -129,6 +223,144 @@ class TestMatchReport:
         assert response.status_code == 200
         assert "rep-1" not in response.text
         assert ">OID<" not in response.text
+
+    # ── Print toolbar + page-break hints ───────────────────────────────
+
+    def test_renders_print_and_copy_toolbar(self, client, archived_match):
+        response = client.get(f"/match/{archived_match}/report")
+        assert 'data-action="print"' in response.text
+        assert 'data-action="copy"' in response.text
+        # Permalink anchor on the toolbar; lets the JS grab it without
+        # parsing window.location.
+        assert f'data-permalink="/match/{archived_match}/report"' in response.text
+
+    def test_print_media_query_hides_toolbar_and_unbounds_timeline(
+            self, client, archived_match):
+        response = client.get(f"/match/{archived_match}/report")
+        assert "@media print" in response.text
+        assert ".toolbar { display: none; }" in response.text
+        assert "break-inside: avoid" in response.text
+
+    # ── Team logos ─────────────────────────────────────────────────────
+
+    def test_renders_team_logo_when_customization_has_url(self, client):
+        match_id = match_archive.archive_match(
+            oid="logo-1",
+            final_state={"team_1": {"sets": 0}, "team_2": {"sets": 0}},
+            customization={
+                "Team 1 Logo": "https://example.com/alpha.png",
+                "Team 2 Logo": "data:image/png;base64,iVBORw0",
+            },
+            winning_team=1, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert 'src="https://example.com/alpha.png"' in response.text
+        assert 'src="data:image/png;base64,iVBORw0"' in response.text
+
+    def test_logo_with_dangerous_scheme_is_dropped(self, client):
+        match_id = match_archive.archive_match(
+            oid="logo-xss",
+            final_state={"team_1": {"sets": 0}, "team_2": {"sets": 0}},
+            customization={
+                "Team 1 Logo": "javascript:alert(1)",
+                "Team 2 Logo": "  http://ok.example/img.png  ",
+            },
+            winning_team=1, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert "javascript:alert(1)" not in response.text
+        # The other team's safe URL still renders (whitespace stripped).
+        assert 'src="http://ok.example/img.png"' in response.text
+
+
+class TestMatchReportI18n:
+    """Locale resolution from ``Accept-Language`` header."""
+
+    def test_default_locale_is_english(self, client, archived_match):
+        response = client.get(f"/match/{archived_match}/report")
+        assert response.status_code == 200
+        assert "Match facts" in response.text
+        assert 'lang="en"' in response.text
+
+    def test_spanish_when_accept_language_es(self, client, archived_match):
+        response = client.get(
+            f"/match/{archived_match}/report",
+            headers={"Accept-Language": "es-ES,es;q=0.9,en;q=0.8"},
+        )
+        assert "Datos del partido" in response.text
+        assert 'lang="es"' in response.text
+
+    def test_german_when_accept_language_de(self, client, archived_match):
+        response = client.get(
+            f"/match/{archived_match}/report",
+            headers={"Accept-Language": "de"},
+        )
+        assert "Spieldaten" in response.text
+
+    def test_unknown_locale_falls_back_to_english(self, client, archived_match):
+        response = client.get(
+            f"/match/{archived_match}/report",
+            headers={"Accept-Language": "kl,xx-YY"},
+        )
+        assert "Match facts" in response.text
+
+
+class TestMatchReportRichSections:
+    """Coverage for highlights, charts, timeline running-score and undo collapse."""
+
+    def test_highlights_section_renders(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # Header is rendered via i18n; the seeded audit guarantees the
+        # streak / comeback / total / set-duration cards all qualify.
+        assert "Highlights" in response.text
+        assert ">5 pts<" in response.text or "5 pts" in response.text  # 5-0 streak
+        # Biggest comeback in this audit is 6 (team 2 trailed 0-6).
+        assert "down 6" in response.text or ">6<" in response.text
+
+    def test_charts_render_inline_svg_per_set(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # One per played set in the audit (1 and 2). The SVG class
+        # is stable; both colours from the customization should appear.
+        assert response.text.count('class="set-chart"') == 2
+        assert "#0047AB" in response.text
+        assert "#E21836" in response.text
+
+    def test_timeline_groups_by_set_and_shows_running_score(
+            self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # Grouped sections — one per set. Running score is rendered as
+        # ``(t1-t2)`` next to point actions.
+        assert response.text.count('class="timeline-set"') >= 2
+        assert "(5–0)" in response.text  # mid-streak running score
+        assert "(22–25)" in response.text  # set-2 final running score
+
+    def test_timeline_uses_relative_timestamps(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # Base ts == first record (offset 0) → ``+0:00``. Later offsets
+        # progress monotonically. Spot-check a known offset (180s = +3:00).
+        assert "+0:00" in response.text
+        assert "+3:00" in response.text
+
+    def test_undo_collapses_to_strikethrough(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # The original team-2 forward record at 5-3 is paired with the
+        # explicit undo right after it; the collapsed timeline marks
+        # the original with class="undone" (CSS draws strike-through).
+        assert 'class="undone"' in response.text
+        # The standalone undo entry must NOT be rendered as its own row
+        # — pairing collapses both into one editorial line.
+        assert response.text.count('(undone)') <= 1
+        assert response.text.count("(undo)") == 0
+
+    def test_set_durations_row_shows_seconds(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report")
+        # Set 1 last forward record sits at offset 240 (the offset-260
+        # entry is the explicit undo, which we skip). Set 2 spans
+        # 600..1500. The exact text comes from ``_fmt_seconds``.
+        assert "4m 00s" in response.text
+        assert "15m 00s" in response.text
+        # The row label is i18n-driven.
+        assert "Set durations" in response.text
 
     def test_team_name_html_escaped(self, client):
         action_log.append("rep-xss", "add_point",

@@ -2771,6 +2771,7 @@ export interface operations {
             };
             header?: {
                 authorization?: string | null;
+                "accept-language"?: string | null;
             };
             path: {
                 match_id: string;
