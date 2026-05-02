@@ -118,6 +118,18 @@ class TestMatchReport:
         assert "#0047AB" in response.text
         assert "#FFD700" in response.text
 
+    def test_oid_is_not_exposed_in_report_html(self, client, archived_match):
+        # The single-match report URL uses an opaque hash-prefixed
+        # match_id, not the OID — so the OID is not derivable from
+        # the link. The page must not leak it back, otherwise anyone
+        # who receives a report URL learns which control session
+        # produced it. Both the literal OID string and the "OID"
+        # label row must be gone.
+        response = client.get(f"/match/{archived_match}/report")
+        assert response.status_code == 200
+        assert "rep-1" not in response.text
+        assert ">OID<" not in response.text
+
     def test_team_name_html_escaped(self, client):
         action_log.append("rep-xss", "add_point",
                           {"team": 1, "undo": False}, {})
@@ -394,3 +406,57 @@ class TestDeleteArchivedMatch:
         # reach the handler — accept either.
         response = gated_client.delete("/matches/not-a-match-id?token=s3cret")
         assert response.status_code in (404, 422)
+
+    # ── MATCH_REPORT_PUBLIC_DELETE opt-in ──────────────────────────────
+
+    def _public_delete_client(self, monkeypatch):
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC_DELETE", "true")
+        # Read access still gated — we're isolating the delete flag.
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
+        app = FastAPI()
+        app.include_router(match_report_router)
+        return TestClient(app)
+
+    def test_delete_public_mode_succeeds_without_token(self, monkeypatch):
+        c = self._public_delete_client(monkeypatch)
+        match_id = self._archive()
+        response = c.delete(f"/matches/{match_id}")
+        assert response.status_code == 204
+        assert match_archive.load_match(match_id) is None
+
+    def test_delete_public_mode_works_without_admin_password(self, monkeypatch):
+        # The whole point of the flag is to avoid the "I have to set
+        # OVERLAY_MANAGER_PASSWORD just to enable Delete" trap. Without
+        # the password set, the delete must still go through.
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC_DELETE", "true")
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = self._archive()
+        response = c.delete(f"/matches/{match_id}")
+        assert response.status_code == 204
+        assert match_archive.load_match(match_id) is None
+
+    def test_delete_public_mode_still_404s_for_unknown(self, monkeypatch):
+        c = self._public_delete_client(monkeypatch)
+        bogus = "match_" + "0" * 20 + "_20260101T000000_000000Z"
+        response = c.delete(f"/matches/{bogus}")
+        assert response.status_code == 404
+
+    def test_public_read_alone_does_not_unlock_delete(self, monkeypatch):
+        # MATCH_REPORT_PUBLIC=true (read) without
+        # MATCH_REPORT_PUBLIC_DELETE must NOT enable destructive calls
+        # — this independence is the safety property of the two flags.
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC_DELETE", raising=False)
+        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = self._archive()
+        response = c.delete(f"/matches/{match_id}")
+        assert response.status_code == 401
+        assert match_archive.load_match(match_id) is not None
