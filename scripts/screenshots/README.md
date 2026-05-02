@@ -30,15 +30,21 @@ Output PNGs are written to `docs/screenshots/`. The orchestrator:
 
 ## What is captured
 
-| File | Description |
-|------|-------------|
-| `01-init-screen.png` | Connect screen at `/`. |
-| `02-scoreboard.png` | Main control UI (desktop, 1280×800). |
-| `03-scoreboard-phone.png` | Main control UI (portrait phone, 390×844). |
-| `04-config-panel.png` | Customization tab inside the React control UI. |
-| `05-manage-page.png` | Custom overlay manager at `/manage`. |
-| `06-overlay-mosaic-full.png` | `?style=mosaic` preview grid showing every selectable style with full match data. |
-| `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). |
+| File | Description | Viewport |
+|------|-------------|----------|
+| `01-init-screen.png` | Connect screen at `/`. | 844×390 (mobile-landscape) |
+| `02-scoreboard.png` | Main control UI. | 844×390 (mobile-landscape) |
+| `03-scoreboard-phone.png` | Main control UI in portrait. | 390×844 (mobile-portrait) |
+| `04-config-panel.png` | Customization tab inside the React control UI. | 844×390 (mobile-landscape) |
+| `05-manage-page.png` | Custom overlay manager at `/manage`. | 1024×700 (compact desktop) |
+| `06-overlay-mosaic-full.png` | `?style=mosaic` preview grid showing every selectable style with full match data. | 1600×1800 (mosaic grid) |
+| `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). | 1600×1800 (mosaic grid) |
+
+The control UI shots default to **844×390** because the operator's
+primary use case is a phone held sideways during a match. `/manage`
+keeps a (compact) desktop layout because it is browser-first — admin
+work is rarely done on a phone. Mosaic uses its own larger viewport
+to fit every style in one frame.
 
 PNGs are rendered at `deviceScaleFactor: 1` so they stay small enough to
 ship in-tree alongside the README. Bump the factor in `capture.mjs` only

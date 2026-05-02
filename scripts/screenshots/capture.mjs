@@ -79,8 +79,15 @@ async function installLogoRouter(context) {
   });
 }
 
-const SCOREBOARD_VIEWPORT = { width: 1280, height: 800 };
+// Mobile-landscape is the primary capture viewport because the
+// scoring operator's main use case is a phone held sideways during a
+// match. 844×390 is the rotation of PHONE_VIEWPORT below (iPhone-class
+// dimensions). The exception is /manage, which is browser-first
+// (operators rarely admin from a phone) — it uses MANAGE_VIEWPORT, a
+// scaled-down desktop layout.
+const MOBILE_LANDSCAPE_VIEWPORT = { width: 844, height: 390 };
 const PHONE_VIEWPORT = { width: 390, height: 844 };
+const MANAGE_VIEWPORT = { width: 1024, height: 700 };
 
 async function ensureDemoOverlay() {
   const adminHeaders = {
@@ -247,7 +254,7 @@ async function captureScoreboardPhone(page) {
   await dismissPwaPrompt(page);
   await page.waitForTimeout(800);
   await page.screenshot({ path: resolve(OUT_DIR, '03-scoreboard-phone.png'), fullPage: false });
-  await page.setViewportSize(SCOREBOARD_VIEWPORT);
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function captureConfigPanel(page) {
@@ -286,6 +293,10 @@ async function captureConfigPanel(page) {
 }
 
 async function captureManagePage(page) {
+  // /manage is the only browser-first surface — operators don't admin
+  // overlays from a phone — so it gets a scaled-down desktop viewport
+  // instead of the mobile-landscape default used for the SPA shots.
+  await page.setViewportSize(MANAGE_VIEWPORT);
   await page.goto(`${BASE}/manage`, { waitUntil: 'networkidle' });
   // Fill the password and submit.
   await page.fill('input[type="password"]', ADMIN_PW);
@@ -294,6 +305,7 @@ async function captureManagePage(page) {
   await page.waitForSelector('table', { timeout: 5000 });
   await page.waitForTimeout(300);
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function captureOverlayMosaic(page, filename) {
@@ -336,7 +348,7 @@ async function captureOverlayMosaic(page, filename) {
     fullPage: true,
     ...(clip ? { clip } : {}),
   });
-  await page.setViewportSize(SCOREBOARD_VIEWPORT);
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function main() {
@@ -347,7 +359,7 @@ async function main() {
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
-    viewport: SCOREBOARD_VIEWPORT,
+    viewport: MOBILE_LANDSCAPE_VIEWPORT,
     // Render at 1× to keep PNGs lightweight for the README. The captured
     // surfaces are documentation-resolution, not retina assets — going
     // higher quadruples file size for no practical benefit.
