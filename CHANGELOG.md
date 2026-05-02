@@ -55,6 +55,32 @@ once a first tagged release ships.
   empty set. Each entry gains a `score_set` field so a reader can
   see the set the score belongs to (usually equal to
   `current_set`, but lower on set-winning actions).
+- HUD: show the Reset button on finished matches; primary
+  controls relaid out on the left; match timer centred in its
+  spacer.
+- Match report: fall back to the rally axis when timestamps are
+  non-monotonic so the score-evolution charts still render.
+- Match report: prefer the team-identity colour over the per-team
+  accent; set-winning points are now grouped under the set they
+  completed.
+- Match report: exclude `set_score` events from the longest-rally
+  computation.
+- Match report: respect the explicit Start-match anchor on the
+  report side so the time axis matches the HUD timer.
+- Layout: shrink the overlay preview on landscape phones; reverted
+  the inline score-history experiment that broke alignment on
+  small screens.
+- PWA: exempt `/match` and `/matches` from the service-worker
+  navigation fallback so the report and matches index render
+  server-side instead of falling back to `index.html`.
+- Match-end: respect the per-session `sets_limit` so best-of-1
+  ends after one set instead of waiting for the configured
+  best-of-N target.
+- Rules UI: hide the "Points / final set" input when best-of-1 is
+  selected (the field is irrelevant without a deciding set).
+- Rules: keep the midpoint alert visible after the leader scores
+  past the trigger point so operators don't miss it on a fast
+  rally cluster.
 
 ### Changed
 
@@ -211,6 +237,33 @@ once a first tagged release ships.
   through `auto → dark → light → auto`, with a `brightness_auto`
   icon and a localised "Theme: follow system" tooltip in the auto
   state. Existing localStorage values continue to work unchanged.
+- Explicit match start. The HUD gains a "Start match" button that
+  anchors the live match timer (rendered in the centre HUD spacer)
+  and the report-side time axis. Theme and fullscreen buttons
+  moved out of the scoreboard toolbar into the bottom HUD to
+  declutter the bar.
+- Match report enhancements layered on top of the initial
+  print-friendly report:
+  * Richer print layout with hero, set-by-set table, and action
+    timeline polish; pregame records trimmed and unplayed sets
+    hidden so finished best-of-3s don't render four empty
+    columns.
+  * Score-evolution charts can plot a time-elapsed X-axis (with
+    automatic fallback to the rally index when timestamps aren't
+    monotonic), and Highlights / chart axes / contrast / print
+    dialog received a polish pass.
+  * `MATCH_REPORT_PUBLIC_DELETE` env flag lets operators expose
+    the delete affordance on `/matches/index.html` without
+    handing out the admin token; OIDs in archived snapshots are
+    redacted before render so a public report URL never leaks
+    the session identifier.
+- In-match alert system. The control UI now surfaces match-finished,
+  set-point, and match-point indicators in the centre HUD, and an
+  indoor deciding-set midpoint alert (frontend-driven, fires when
+  the leader reaches half of the deciding-set target). Alerts
+  display the relevant team via a directional triangle icon
+  instead of an `[T1]` / `[T2]` label suffix, with i18n strings in
+  all six locales.
 
 ### Removed
 
