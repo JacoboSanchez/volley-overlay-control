@@ -11,6 +11,7 @@ const defaultProps = {
   canUndo: true,
   showPreview: false,
   matchStartedAt: null as number | null,
+  matchFinished: false,
   onToggleVisibility: vi.fn(),
   onToggleSimpleMode: vi.fn(),
   onUndoLast: vi.fn(),
@@ -136,6 +137,34 @@ describe('ControlButtons', () => {
     );
     fireEvent.click(screen.getByTestId('reset-button'));
     expect(onReset).toHaveBeenCalledOnce();
+  });
+
+  it('shows Reset (not Start) once the match is finished, even if matchStartedAt is null', () => {
+    // Regression: ``_archive_if_finished`` clears
+    // ``match_started_at`` to prep the next match, but the
+    // operator still sees the just-played scoreboard. The next
+    // required action is Reset, not Start — otherwise clicking
+    // Start would arm a fresh timer over the visible (finished)
+    // scores.
+    renderWithI18n(
+      <ControlButtons
+        {...defaultProps}
+        matchStartedAt={null}
+        matchFinished={true}
+      />,
+    );
+    expect(screen.getByTestId('reset-button')).toBeInTheDocument();
+    expect(screen.queryByTestId('start-match-button')).toBeNull();
+  });
+
+  it('renders the start/reset button with a visible text label', () => {
+    // The primary action sits on the left edge of the HUD with an
+    // icon *and* text — ``ctrl.startMatch`` / ``ctrl.reset`` from
+    // the i18n catalogue. Bare-icon mode is reserved for the
+    // secondary toggles on the right.
+    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={null} />);
+    const start = screen.getByTestId('start-match-button');
+    expect(start.textContent).toMatch(/Start match/i);
   });
 
   // ── Match timer ────────────────────────────────────────────────────

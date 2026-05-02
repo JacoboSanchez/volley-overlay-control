@@ -17,10 +17,20 @@ export interface ControlButtonsProps {
   showPreview: boolean;
   /**
    * Match start timestamp (Unix seconds), or ``null`` when the match
-   * is unarmed. Drives the Start-match / Reset toggle and the live
-   * timer in the spacer.
+   * is unarmed. Drives the live timer in the spacer and one half of
+   * the Start-match / Reset toggle.
    */
   matchStartedAt: number | null | undefined;
+  /**
+   * ``true`` once the match transitions to finished. Combined with
+   * ``matchStartedAt`` to decide which side of the Start/Reset
+   * toggle to render: the archive path clears
+   * ``matchStartedAt`` to prep the next match, but the operator
+   * still sees the just-played scoreboard and needs to hit Reset
+   * before the next start can be armed — so a finished match
+   * forces the Reset face regardless of the timer field.
+   */
+  matchFinished: boolean;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
@@ -30,11 +40,16 @@ export interface ControlButtonsProps {
 }
 
 /**
- * Bottom HUD control bar: visibility, preview, simple-mode, undo,
- * a live match timer (when armed), and a start-match / reset toggle
- * on the right edge. Theme + fullscreen toggles live in the config
- * panel — they're once-per-session decisions, so they don't earn
- * a permanent slot in the in-game HUD.
+ * Bottom HUD control bar. Layout, left → right:
+ *   * Start-match / Reset toggle (with text label) — primary
+ *     operator action, parked on the dominant side.
+ *   * Live match timer (when armed).
+ *   * Visibility, preview, simple-mode, undo — secondary toggles
+ *     pushed to the right edge so they don't crowd the primary
+ *     action.
+ *
+ * Theme + fullscreen toggles live in the config panel; they're
+ * once-per-session decisions and don't earn a permanent slot here.
  */
 export default function ControlButtons({
   visible,
@@ -42,6 +57,7 @@ export default function ControlButtons({
   canUndo,
   showPreview,
   matchStartedAt,
+  matchFinished,
   onToggleVisibility,
   onToggleSimpleMode,
   onUndoLast,
@@ -50,10 +66,40 @@ export default function ControlButtons({
   onReset,
 }: ControlButtonsProps) {
   const { t } = useI18n();
-  const isArmed = matchStartedAt != null;
+  // ``matchFinished`` keeps the Reset face up after a match ends —
+  // ``_archive_if_finished`` zeroes ``matchStartedAt`` to prep the
+  // next match but the operator still sees the just-played
+  // scoreboard, so the next required action is Reset, not Start.
+  const showReset = matchStartedAt != null || matchFinished;
 
   return (
     <div className="control-buttons">
+      {showReset ? (
+        <button
+          className="control-btn control-btn-text control-btn-reset"
+          onClick={onReset}
+          title={t('ctrl.reset')}
+          data-testid="reset-button"
+        >
+          <span className="material-icons">restart_alt</span>
+          <span>{t('ctrl.reset')}</span>
+        </button>
+      ) : (
+        <button
+          className="control-btn control-btn-text control-btn-start"
+          onClick={onStartMatch}
+          title={t('ctrl.startMatch')}
+          data-testid="start-match-button"
+        >
+          <span className="material-icons">play_arrow</span>
+          <span>{t('ctrl.startMatch')}</span>
+        </button>
+      )}
+
+      <div className="spacer">
+        <MatchTimer startedAt={matchStartedAt} />
+      </div>
+
       <button
         className="control-btn"
         style={{
@@ -113,30 +159,6 @@ export default function ControlButtons({
       >
         <span className="material-icons">undo</span>
       </button>
-
-      <div className="spacer">
-        <MatchTimer startedAt={matchStartedAt} />
-      </div>
-
-      {isArmed ? (
-        <button
-          className="control-btn control-btn-reset"
-          onClick={onReset}
-          title={t('ctrl.reset')}
-          data-testid="reset-button"
-        >
-          <span className="material-icons">restart_alt</span>
-        </button>
-      ) : (
-        <button
-          className="control-btn control-btn-start"
-          onClick={onStartMatch}
-          title={t('ctrl.startMatch')}
-          data-testid="start-match-button"
-        >
-          <span className="material-icons">play_arrow</span>
-        </button>
-      )}
     </div>
   );
 }

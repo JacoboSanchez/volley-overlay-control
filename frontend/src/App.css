@@ -748,6 +748,23 @@ body {
   color: var(--green, #2e7d32);
 }
 
+/* Wider variant for buttons that pair an icon with a text label —
+   the bare-icon ``.control-btn`` is locked to a 36-px square, which
+   would clip the label. Used by the Start-match / Reset toggle on
+   the left edge of the HUD. */
+.control-btn-text {
+  width: auto;
+  min-width: 36px;
+  padding: 0 12px;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.control-btn-text .material-icons {
+  font-size: 1.1rem;
+}
+
 /* Live MM:SS counter rendered inside the bottom-bar spacer once the
    match is armed. Tabular numerals so the digits stop "dancing" when
    the seconds rollover. */
