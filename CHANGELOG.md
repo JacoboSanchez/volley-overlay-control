@@ -106,6 +106,19 @@ once a first tagged release ships.
 
 ### Changed
 
+- Match report set-by-set table now annotates timeouts inline next
+  to each score: a cell renders ``25 (2)`` when the team called
+  two timeouts in that set and bare ``25`` when none. The
+  previous separate "Timeouts (final set)" row has been removed —
+  the per-set view is more useful and survives across sets, where
+  the old row only showed the deciding-set count (timeout
+  counters reset on each set transition).
+- Match report "Biggest comeback" highlight reads more clearly.
+  English copy was ``"down {n}, won {set}"`` — easy to misread as
+  "won by 1" when ``{set}`` was a small number. Now reads
+  ``"down {n} in set {set}"``. Romance-locale strings tightened
+  similarly so the trailing ``{set}`` always sits behind the word
+  for "set" (German already did this).
 - Unified the two undo entry points behind one audit-log stack.
   Previously ``add_*(undo=True)`` and ``POST /game/undo`` had
   divergent stack semantics: the per-type flag only reverted state

@@ -921,12 +921,98 @@ class TestMatchReportPregameTrim:
             started_at=base + 90, sets_limit=3,
         )
         response = client.get(f"/match/{match_id}/report")
-        # Pregame timeout/reset shouldn't appear in the timeline. We
-        # check the action-label form (``Timeout — Team N``) so we
-        # don't false-match the ``Timeouts (final set)`` row label.
+        # Pregame timeout/reset shouldn't appear in the timeline. The
+        # action-label form ``Timeout — Team N`` is the timeline-row
+        # marker; the set-by-set table now shows timeouts inline as
+        # ``score (N)`` rather than a separate row, so this match
+        # match-substring isn't load-bearing against any other label.
         assert "Timeout — Team" not in response.text
         assert ">Reset<" not in response.text
         assert "Point — Team 1" in response.text
+
+
+class TestMatchReportTimeoutsInline:
+    """Timeouts are now annotated inline in the set-by-set table.
+
+    Set scores render as ``25 (N)`` when the team called N>0 timeouts
+    in that set; bare ``25`` when none. The previous "Timeouts (final
+    set)" summary row has been removed in favour of this per-set view.
+    """
+
+    def _seed_audit(self, oid: str, records: list[dict]) -> None:
+        from app.api import action_log as _al
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+
+    def test_set_score_cell_appends_timeout_count(self, client):
+        # Set 1: team_1 took 2 timeouts; set 2: team_2 took 1; set 3:
+        # neither team. The cell text must read "25 (2)" / "25 (1)" /
+        # "25" (no parens) accordingly. Records must be appended in
+        # chronological order — ``_trim_pregame`` indexes by FILE
+        # position (not timestamp) when searching for the first
+        # scoring action, so out-of-order seeding would silently drop
+        # the timeouts that came after the seeded first add_point but
+        # earlier in the file.
+        base_ts = time.time() - 3000
+        oid = "to-inline-1"
+        records = []
+
+        def _add(action, params, result, off):
+            records.append({"ts": base_ts + off, "action": action,
+                            "params": params, "result": result})
+
+        # Set 1 — team_1 wins, with 2 timeouts.
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 1}, "team_2": {"score": 0}}, off=5)
+        _add("add_timeout", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 5, "timeouts": 1},
+              "team_2": {"score": 3, "timeouts": 0}}, off=10)
+        _add("add_timeout", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 18, "timeouts": 2},
+              "team_2": {"score": 16, "timeouts": 0}}, off=120)
+        # Set 2 — team_2 takes 1 timeout.
+        _add("add_timeout", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 12, "timeouts": 0},
+              "team_2": {"score": 14, "timeouts": 1}}, off=300)
+        # Set 3 — no timeouts on either side; one scoring record
+        # grounds the set's timeline.
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 3,
+              "team_1": {"score": 1}, "team_2": {"score": 0}}, off=600)
+        self._seed_audit(oid, records)
+
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "current_set": 3,
+                "team_1": {"sets": 2, "timeouts": 0,
+                           "scores": {"set_1": 25, "set_2": 21,
+                                      "set_3": 25}},
+                "team_2": {"sets": 1, "timeouts": 0,
+                           "scores": {"set_1": 23, "set_2": 25,
+                                      "set_3": 19}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3, started_at=base_ts + 5,
+        )
+        response = client.get(f"/match/{match_id}/report")
+
+        # team_1 set 1: 25 with 2 timeouts → "25 (2)"
+        assert "25 (2)" in response.text
+        # team_2 set 2: 25 with 1 timeout → "25 (1)"
+        assert "25 (1)" in response.text
+        # No-timeout cells stay bare. Use the absence of "(0)" parens
+        # as a coarse check that we never spell out a zero count.
+        assert "(0)" not in response.text
+        # The legacy "Timeouts (final set)" row must be gone.
+        assert "Timeouts (final set)" not in response.text
 
 
 class TestMatchReportEmptySets:

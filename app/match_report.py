@@ -383,7 +383,6 @@ _REPORT_TEMPLATE = """<!doctype html>
     <tr><td>{team1_name}</td>{team1_set_cells}</tr>
     <tr><td>{team2_name}</td>{team2_set_cells}</tr>
     <tr><td>{h_set_durations}</td>{set_duration_cells}</tr>
-    <tr><td>{h_timeouts_label}</td><td colspan="{set_count}">{timeouts_summary}</td></tr>
   </tbody>
 </table>
 
@@ -803,6 +802,32 @@ def _logo_url(customization: dict, team: int) -> Optional[str]:
         if lowered.startswith(("http://", "https://", "data:image/")):
             return candidate
     return None
+
+
+def _timeouts_per_set(audit: list[dict]) -> dict[int, dict[int, int]]:
+    """Count ``add_timeout`` actions per (set, team) from the audit log.
+
+    Per-team timeout counters reset to zero on every set transition
+    (see :meth:`GameManager.add_set`), so timeouts are intrinsically
+    per-set and the audit log carries enough to rebuild that table
+    even though the snapshot's ``team_X.timeouts`` only reflects the
+    final set. Returns ``{set_num: {team: count}}``; callers consult
+    ``.get(set, {}).get(team, 0)`` for safe lookup.
+    """
+    out: dict[int, dict[int, int]] = {}
+    for record in audit:
+        if record.get("action") != "add_timeout":
+            continue
+        params = record.get("params") or {}
+        if params.get("undo"):
+            continue
+        team = params.get("team")
+        set_num = _result_set(record)
+        if team not in (1, 2) or set_num is None:
+            continue
+        out.setdefault(set_num, {}).setdefault(team, 0)
+        out[set_num][team] += 1
+    return out
 
 
 def _compute_stats(audit: list[dict]) -> dict:
@@ -1424,12 +1449,18 @@ async def match_report(
         for i in range(1, played_sets + 1)
     )
 
-    def _team_set_cells(team_dict: dict) -> str:
+    timeouts_by_set = _timeouts_per_set(audit)
+
+    def _team_set_cells(team_dict: dict, team_id: int) -> str:
         cells = []
         scores = team_dict.get("scores", {}) or {}
         for i in range(1, played_sets + 1):
             v = scores.get(f"set_{i}", "")
-            cells.append(f"<td>{html.escape(str(v) if v != '' else '—')}</td>")
+            text = str(v) if v != "" else "—"
+            timeouts = timeouts_by_set.get(i, {}).get(team_id, 0)
+            if timeouts > 0:
+                text = f"{text} ({timeouts})"
+            cells.append(f"<td>{html.escape(text)}</td>")
         return "".join(cells)
 
     stats = _compute_stats(audit)
@@ -1463,13 +1494,6 @@ async def match_report(
         )
     else:
         effective_duration = payload.get("duration_s")
-
-    timeouts_t1 = team1.get("timeouts")
-    timeouts_t2 = team2.get("timeouts")
-    timeouts_summary = (
-        f"{html.escape(team1_name)}: {timeouts_t1 if timeouts_t1 is not None else '—'} &middot; "
-        f"{html.escape(team2_name)}: {timeouts_t2 if timeouts_t2 is not None else '—'}"
-    )
 
     winning_team = payload.get("winning_team")
     winner_badge = (
@@ -1505,10 +1529,9 @@ async def match_report(
         team2_winner_badge=team2_winner,
         set_count=played_sets,
         set_headers=set_headers,
-        team1_set_cells=_team_set_cells(team1),
-        team2_set_cells=_team_set_cells(team2),
+        team1_set_cells=_team_set_cells(team1, 1),
+        team2_set_cells=_team_set_cells(team2, 2),
         set_duration_cells=_render_set_durations_row(set_durations, played_sets),
-        timeouts_summary=timeouts_summary,
         # ``config`` values are operator-controlled — escape the
         # interpolated string defensively even though the formatter
         # only sees ints in the happy path. ``Best of {sets_limit}`` is
@@ -1542,7 +1565,6 @@ async def match_report(
         h_team=html.escape(_t(locale, "team")),
         h_set_byset=html.escape(_t(locale, "setByset")),
         h_set_durations=html.escape(_t(locale, "setDurations")),
-        h_timeouts_label=html.escape(_t(locale, "timeoutsLabel")),
         h_highlights=html.escape(_t(locale, "highlights")),
         h_score_evolution=html.escape(_t(locale, "scoreEvolution")),
         h_match_facts=html.escape(_t(locale, "matchFacts")),

@@ -232,37 +232,81 @@ async function ensureFinishedMatchForReport() {
   // duration and the report renders a meaningful "Duration: …" cell.
   await post('/api/v1/game/start-match', null);
 
-  // Helper: close out a set with set_score for the bulk filling and
-  // one final add_point for the winning point. Always set the loser
-  // first so check_set_won doesn't trip before we want it to.
-  async function closeSet(setNum, winner, winnerEnd, loserEnd) {
+  // Drive a set with the eventual winner pre-set first so the
+  // "biggest comeback" highlight is computed against realistic
+  // running scores instead of an artificial ``(0, loserEnd)``
+  // transient. Set the winner to ``loserEnd`` (tied), then bring
+  // the loser up to ``loserEnd``, optionally fire some in-set
+  // ``add_timeout`` calls (they must land BEFORE the closing
+  // add_point because the set-winning point advances
+  // ``current_set`` and any timeout after that would be recorded
+  // against the next set), then drive the winning team's remaining
+  // points via ``add_point`` so the audit log carries real
+  // point-by-point transitions.
+  async function closeSet(setNum, winner, winnerEnd, loserEnd, timeouts = {}) {
     const loser = winner === 1 ? 2 : 1;
+    await post('/api/v1/game/set-score', {
+      team: winner, set_number: setNum, value: loserEnd,
+    });
     await post('/api/v1/game/set-score', {
       team: loser, set_number: setNum, value: loserEnd,
     });
-    await post('/api/v1/game/set-score', {
-      team: winner, set_number: setNum, value: winnerEnd - 1,
-    });
-    await post('/api/v1/game/add-point', { team: winner });
+    for (let i = 0; i < (timeouts[1] || 0); i++) {
+      await post('/api/v1/game/add-timeout', { team: 1 });
+    }
+    for (let i = 0; i < (timeouts[2] || 0); i++) {
+      await post('/api/v1/game/add-timeout', { team: 2 });
+    }
+    for (let i = 0; i < winnerEnd - loserEnd; i++) {
+      await post('/api/v1/game/add-point', { team: winner });
+    }
   }
 
-  // TW wins 3-1 in four sets. The deciding-set path stays unused so
-  // the report still shows a "Best of 5, decided in 4" rhythm — the
-  // most common volleyball outcome.
+  // TW wins 3-1 in four sets. Sets 1-3 use the boring closeSet helper
+  // (tight back-and-forth, no notable deficit). Set 4 is driven
+  // explicitly so the "biggest comeback" highlight has a real story
+  // to tell: SH jumps to 0-5, TW catches up and closes 25-22.
   //
   // The 700-ms gaps between sets give the audit log a non-zero
   // wall-clock spread so the report's "Duration" cell and the
   // score-evolution charts' time axis aren't compressed to 0m 00s.
-  // Total added wait is ~2.1 s — negligible against the screenshot
-  // pipeline's overall runtime.
   const setBreak = () => new Promise((r) => setTimeout(r, 700));
-  await closeSet(1, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/23);
+
+  // Set 1 — TW 25-23 with both teams calling 1 timeout each.
+  //   set-by-set cells: TW "25 (1)"  /  SH "23 (1)".
+  await closeSet(1, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/23,
+                 /*timeouts=*/{ 1: 1, 2: 1 });
   await setBreak();
-  await closeSet(2, /*winner=*/2, /*winnerEnd=*/25, /*loserEnd=*/21);
+
+  // Set 2 — SH 25-21. SH burns both timeouts while consolidating the
+  // lead. TW had no timeouts.
+  //   set-by-set cells: TW "21"  /  SH "25 (2)".
+  await closeSet(2, /*winner=*/2, /*winnerEnd=*/25, /*loserEnd=*/21,
+                 /*timeouts=*/{ 2: 2 });
   await setBreak();
+
+  // Set 3 — TW 25-19, dominant. No timeouts called.
   await closeSet(3, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/19);
   await setBreak();
-  await closeSet(4, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/22);
+
+  // Set 4 — TW comes back from 0-5 to win 25-22.
+  // ``set_score`` jumps SH to 5 first; the next 5 add_points pull TW
+  // even at 5-5. From there we tied-fast-forward to 22-22 and TW
+  // closes the match with three more add_points. The eventual
+  // winner (TW) faces a real 5-point deficit during the early phase,
+  // which is what the "biggest comeback" stat is meant to highlight.
+  // Both sides call one timeout mid-comeback.
+  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 5 });
+  for (let i = 0; i < 5; i++) {
+    await post('/api/v1/game/add-point', { team: 1 });
+  }
+  await post('/api/v1/game/add-timeout', { team: 1 });
+  await post('/api/v1/game/add-timeout', { team: 2 });
+  await post('/api/v1/game/set-score', { team: 1, set_number: 4, value: 22 });
+  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 22 });
+  for (let i = 0; i < 3; i++) {
+    await post('/api/v1/game/add-point', { team: 1 });
+  }
 }
 
 async function fetchLatestMatchId() {
