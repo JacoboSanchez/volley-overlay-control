@@ -713,6 +713,15 @@ body {
   box-shadow: 0 -4px 12px var(--shadow);
 }
 
+/* Centre the match-timer chip inside the HUD's middle spacer.
+   ``.spacer`` is shared (ConfigPanel / TeamPanel use it as a pure
+   ``flex: 1`` filler), so override only inside the control bar. */
+.control-buttons .spacer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .control-btn {
   width: 36px;
   height: 36px;
@@ -746,6 +755,23 @@ body {
 .control-btn-start {
   border-color: var(--green, #2e7d32);
   color: var(--green, #2e7d32);
+}
+
+/* Wider variant for buttons that pair an icon with a text label —
+   the bare-icon ``.control-btn`` is locked to a 36-px square, which
+   would clip the label. Used by the Start-match / Reset toggle on
+   the left edge of the HUD. */
+.control-btn-text {
+  width: auto;
+  min-width: 36px;
+  padding: 0 12px;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.control-btn-text .material-icons {
+  font-size: 1.1rem;
 }
 
 /* Live MM:SS counter rendered inside the bottom-bar spacer once the
