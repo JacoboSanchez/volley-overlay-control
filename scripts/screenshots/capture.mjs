@@ -188,6 +188,14 @@ async function driveMatchState() {
       body: body == null ? undefined : JSON.stringify(body),
     });
 
+  // Arm ``match_started_at`` so the HUD shows the Reset button + live
+  // timer instead of the unarmed "Start match" call-to-action. The
+  // implicit auto-arm only fires on ``add_point`` (not ``set_score``),
+  // and we drive scores via set-score below — so the explicit start
+  // endpoint is the one that matches the operator's "press Start, then
+  // play" flow this fixture is meant to depict.
+  await post('/api/v1/game/start-match', null);
+
   // Drive a realistic mid-match state: tied 1-1 going into set 3 with the
   // current set in progress. Always set the loser's value first so
   // set-score's auto-set-win check doesn't promote the wrong team
