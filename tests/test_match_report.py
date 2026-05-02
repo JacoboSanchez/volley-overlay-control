@@ -552,6 +552,40 @@ class TestMatchReportRichSections:
         assert "25–18" in set1_slice
         assert "25–18" not in set2_slice
 
+    def test_chart_x_axis_uses_mmss_label_when_time_mode(self, client):
+        # Two points 90 s apart in set 1 → time-axis kicks in. Right
+        # label should be ``1:30``, left label ``0:00``.
+        oid = "axis-time-label"
+        from app.api import action_log as _al
+        records = [
+            {"ts": 1700000000, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            {"ts": 1700000090, "action": "add_point",
+             "params": {"team": 2, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 1}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 1}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert 'data-x-axis="time"' in response.text
+        assert ">0:00</text>" in response.text
+        assert ">1:30</text>" in response.text
+
     def test_chart_x_axis_falls_back_to_rally_when_gap_exceeds_15_min(
             self, client):
         # 16-minute lull between two consecutive points in a set: the

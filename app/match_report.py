@@ -1020,20 +1020,30 @@ def _render_score_chart(
     if last_idx == 0 or max_score == 0:
         return ""
 
-    # Decide axis mode: time when every record has a ts and no gap
-    # between consecutive records exceeds the threshold; otherwise
-    # rally-number with ``+0:00 → +1:00 → …`` semantics broken.
-    use_time_axis = all(t is not None for t in timestamps)
-    if use_time_axis:
-        for i in range(1, len(timestamps)):
-            gap = timestamps[i] - timestamps[i - 1]  # type: ignore[operator]
-            if gap > _TIME_AXIS_MAX_GAP_S:
-                use_time_axis = False
+    # Decide axis mode. Time mode requires every record to carry a
+    # timestamp *and* no gap between consecutive records to exceed
+    # the trust threshold — anything bigger means the operator was
+    # AFK and the wallclock no longer tracks play, so we fall back
+    # to rally-number indexing rather than compress the whole set
+    # into a thin slice on the left.
+    times: Optional[list[float]] = None
+    if all(t is not None for t in timestamps):
+        # ``timestamps`` is structurally ``list[Optional[float]]``;
+        # the ``all(...)`` check above narrows it but mypy can't see
+        # through it, so build the float-only list explicitly.
+        times = [float(t) for t in timestamps if t is not None]
+        for i in range(1, len(times)):
+            if times[i] - times[i - 1] > _TIME_AXIS_MAX_GAP_S:
+                times = None
                 break
 
-    if use_time_axis:
-        base_ts = timestamps[0] or 0.0
-        x_values = [(t or base_ts) - base_ts for t in timestamps]
+    use_time_axis = times is not None
+    if times is not None:
+        base_ts = times[0]
+        x_values: list[float] = [t - base_ts for t in times]
+        # Guard against a degenerate "all points at the same ts" set:
+        # the polyline would collapse, but we still need a non-zero
+        # divisor for the projection.
         x_max = x_values[-1] if x_values[-1] > 0 else 1.0
     else:
         x_values = [float(i) for i in range(len(points))]
