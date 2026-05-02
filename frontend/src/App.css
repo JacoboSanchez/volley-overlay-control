@@ -713,6 +713,15 @@ body {
   box-shadow: 0 -4px 12px var(--shadow);
 }
 
+/* Centre the match-timer chip inside the HUD's middle spacer.
+   ``.spacer`` is shared (ConfigPanel / TeamPanel use it as a pure
+   ``flex: 1`` filler), so override only inside the control bar. */
+.control-buttons .spacer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .control-btn {
   width: 36px;
   height: 36px;
