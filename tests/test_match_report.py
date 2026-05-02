@@ -1,4 +1,6 @@
 """Tests for the print-friendly match report at /match/{match_id}/report."""
+import json
+import os
 import time
 
 import pytest
@@ -362,6 +364,193 @@ class TestMatchReportRichSections:
         assert "15m 00s" in response.text
         # The row label is i18n-driven.
         assert "Set durations" in response.text
+
+
+class TestMatchReportPregameTrim:
+    """Reset / pregame records must not anchor the report timeline."""
+
+    def _seed_audit(self, oid: str, records: list[dict]) -> None:
+        from app.api import action_log as _al
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+
+    def test_relative_timestamps_anchor_at_first_point_not_reset(self, client):
+        # Reset 5 min before the first point; the first point must
+        # render as ``+0:00`` (anchoring restarts here) and the
+        # second point 60 s later as ``+1:00``. The reset line
+        # itself is trimmed and the audit_count drops to 2.
+        base_ts = time.time() - 1000
+        oid = "trim-1"
+        self._seed_audit(oid, [
+            {"ts": base_ts, "action": "reset", "params": {},
+             "result": {"current_set": 1, "team_1": {"score": 0},
+                        "team_2": {"score": 0}}},
+            {"ts": base_ts + 300, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            {"ts": base_ts + 360, "action": "add_point",
+             "params": {"team": 2, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 1}}},
+        ])
+        match_id = match_archive.archive_match(
+            oid=oid, final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 1}},
+                "team_2": {"sets": 0, "scores": {"set_1": 1}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            started_at=base_ts, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # First scored point is the new anchor.
+        assert "+0:00" in response.text
+        assert "+1:00" in response.text
+        # Reset entry is gone from the rendered timeline.
+        assert ">Reset<" not in response.text
+        # ``Audit entries`` reflects the trimmed view (3 raw → 2 shown).
+        assert ">2</td>" in response.text
+
+    def test_started_at_uses_first_scoring_ts(self, client):
+        # Snapshot's ``started_at`` is 1000 s before wallclock-now;
+        # first point is 300 s after that. The "Started" row in the
+        # match-facts table should render the first-point timestamp,
+        # not the snapshot's ``started_at``.
+        import datetime as _dt
+        base_ts = time.time() - 1000
+        first_pt_ts = base_ts + 300
+        oid = "trim-started"
+        self._seed_audit(oid, [
+            {"ts": base_ts, "action": "reset", "params": {},
+             "result": {"current_set": 1, "team_1": {"score": 0},
+                        "team_2": {"score": 0}}},
+            {"ts": first_pt_ts, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+        ])
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 0}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            started_at=base_ts, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        first_pt_label = _dt.datetime.fromtimestamp(
+            first_pt_ts, _dt.timezone.utc,
+        ).strftime("%Y-%m-%d %H:%M UTC")
+        reset_label = _dt.datetime.fromtimestamp(
+            base_ts, _dt.timezone.utc,
+        ).strftime("%Y-%m-%d %H:%M UTC")
+        # Same minute? Skip the negative side of the assertion. Modulo
+        # that edge case the Started row should reflect the point time.
+        assert first_pt_label in response.text
+        if first_pt_label != reset_label:
+            assert response.text.count(reset_label) == 0
+
+    def test_timeline_omits_pregame_actions(self, client):
+        # Reset + a stray timeout before any point should both be
+        # trimmed; only the first scored point survives in the timeline.
+        oid = "trim-stray"
+        base = time.time() - 3000
+        self._seed_audit(oid, [
+            {"ts": base, "action": "reset", "params": {},
+             "result": {"current_set": 1, "team_1": {"score": 0},
+                        "team_2": {"score": 0}}},
+            {"ts": base + 30, "action": "add_timeout",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 0,
+                                                     "timeouts": 1},
+                        "team_2": {"score": 0, "timeouts": 0}}},
+            {"ts": base + 90, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+        ])
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 0}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            started_at=base, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # Pregame timeout/reset shouldn't appear in the timeline. We
+        # check the action-label form (``Timeout — Team N``) so we
+        # don't false-match the ``Timeouts (final set)`` row label.
+        assert "Timeout — Team" not in response.text
+        assert ">Reset<" not in response.text
+        assert "Point — Team 1" in response.text
+
+
+class TestMatchReportEmptySets:
+    """A best-of-3 ending 2-0 must not render a Set 3 column / chart."""
+
+    def test_unplayed_trailing_sets_are_omitted(self, client):
+        # Final state: set 1 won 25-22, set 2 won 25-19, set 3 untouched
+        # (operator never reached the deciding set).
+        match_id = match_archive.archive_match(
+            oid="empty-3",
+            final_state={
+                "team_1": {"sets": 2, "scores": {"set_1": 25, "set_2": 25,
+                                                 "set_3": 0}},
+                "team_2": {"sets": 0, "scores": {"set_1": 22, "set_2": 19,
+                                                 "set_3": 0}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # Set headers and chart card titles use "Set N"; with set 3
+        # omitted, the substring shouldn't appear at all in the page.
+        assert "Set 1" in response.text
+        assert "Set 2" in response.text
+        assert "Set 3" not in response.text
+        # The "Best of 3" rule still appears — that's the match
+        # configuration, not the played-set count.
+        assert "Best of 3" in response.text
+
+    def test_full_three_sets_still_render_when_played(self, client):
+        # Best-of-3 going to a deciding set — every column / card
+        # must still render (this is the regression guard for the
+        # opt-in trimming).
+        match_id = match_archive.archive_match(
+            oid="empty-full",
+            final_state={
+                "team_1": {"sets": 2, "scores": {"set_1": 25, "set_2": 22,
+                                                 "set_3": 15}},
+                "team_2": {"sets": 1, "scores": {"set_1": 22, "set_2": 25,
+                                                 "set_3": 13}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        for label in ("Set 1", "Set 2", "Set 3"):
+            assert label in response.text
+
+    def test_played_set_count_clamps_to_sets_limit(self, client):
+        # Defensive: a snapshot reporting set-4 scores in a best-of-3
+        # match (data-corruption / mode-change scenario) shouldn't
+        # render past the formal limit either, otherwise we'd paint a
+        # column the rules don't allow.
+        match_id = match_archive.archive_match(
+            oid="empty-overrun",
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 25, "set_2": 0,
+                                                 "set_3": 0, "set_4": 25}},
+                "team_2": {"sets": 0, "scores": {"set_1": 22, "set_2": 0,
+                                                 "set_3": 0, "set_4": 19}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert "Set 4" not in response.text
 
     def test_team_name_with_ampersand_is_not_double_escaped(self, client):
         # Regression: ``A & B`` was being html.escape'd twice — once
