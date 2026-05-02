@@ -630,6 +630,42 @@ class TestMatchReportRichSections:
         assert ">1</text>" in response.text
         assert ">3</text>" in response.text
 
+    def test_chart_x_axis_falls_back_to_rally_on_non_monotonic_timestamps(
+            self, client):
+        # Clock skew / NTP correction: a later record has an earlier
+        # ``ts`` than its predecessor. Plotting time-mode would put
+        # the second point at a negative x and outside the SVG
+        # viewport — fall back to rally-number indexing instead.
+        oid = "axis-skew"
+        from app.api import action_log as _al
+        records = [
+            {"ts": 1700000100, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            # 30 s *earlier* than the previous record.
+            {"ts": 1700000070, "action": "add_point",
+             "params": {"team": 2, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 1}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 1}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert 'data-x-axis="rally"' in response.text
+
     def test_longest_rally_card_renders(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
         # The rich fixture's set 2 has a 5m 0s gap (last point at

@@ -1033,7 +1033,13 @@ def _render_score_chart(
         # through it, so build the float-only list explicitly.
         times = [float(t) for t in timestamps if t is not None]
         for i in range(1, len(times)):
-            if times[i] - times[i - 1] > _TIME_AXIS_MAX_GAP_S:
+            gap = times[i] - times[i - 1]
+            # ``gap > threshold``: operator was AFK, wallclock no
+            # longer tracks play. ``gap < 0``: non-monotonic
+            # timestamps (clock skew, NTP correction) — would
+            # otherwise plot points outside the SVG viewport. Both
+            # downgrade to the rally-number fallback.
+            if gap > _TIME_AXIS_MAX_GAP_S or gap < 0:
                 times = None
                 break
 
