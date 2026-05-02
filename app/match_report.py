@@ -591,12 +591,13 @@ def _trim_pregame(audit: list[dict]) -> list[dict]:
     """Drop pre-first-scoring records (``reset``, stray timeouts, …).
 
     Keeps everything from the first scoring action onward. When the
-    audit has no scoring action the original list is returned so the
-    caller can decide how to handle the degenerate case (currently the
-    timeline renders "no audit records" in that branch).
+    audit has no scoring action at all we return ``[]`` — the timeline
+    renderer already understands the empty case and shows "no audit
+    records", and falling through to the unfiltered list would let the
+    pregame noise leak back into the report.
     """
     idx = _first_scoring_index(audit)
-    return audit[idx:] if idx is not None else audit
+    return audit[idx:] if idx is not None else []
 
 
 def _played_set_count(final_state: dict, fallback: int) -> int:
@@ -606,9 +607,13 @@ def _played_set_count(final_state: dict, fallback: int) -> int:
     set up to ``sets_limit``, even sets that were never played (best
     of 3 ending 2-0 still has ``set_3``: 0/0). Render only the sets
     that actually saw points so empty trailing columns don't dilute
-    the report. Falls back to *fallback* when no set has scores —
-    keeps the "fresh archive" edge case showing a single set frame
-    instead of collapsing the whole report.
+    the report. When no set has scores yet (fresh archive) we collapse
+    to a single set frame rather than painting all ``sets_limit``
+    columns full of ``—``s.
+
+    *fallback* is honoured only as an upper bound — corrupt snapshots
+    reporting set N > sets_limit shouldn't paint a column the rules
+    don't allow.
     """
     teams = (final_state.get("team_1") or {}, final_state.get("team_2") or {})
     highest = 0
@@ -628,7 +633,7 @@ def _played_set_count(final_state: dict, fallback: int) -> int:
             if v > 0:
                 highest = max(highest, n)
     if highest == 0:
-        return max(1, fallback)
+        return 1
     return min(highest, fallback) if fallback > 0 else highest
 
 

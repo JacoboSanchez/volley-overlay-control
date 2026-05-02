@@ -533,6 +533,26 @@ class TestMatchReportEmptySets:
         for label in ("Set 1", "Set 2", "Set 3"):
             assert label in response.text
 
+    def test_empty_match_collapses_to_single_set_frame(self, client):
+        # ``_played_set_count`` returns 1 (not ``sets_limit``) when the
+        # archive has no scoring data — otherwise a fresh-archive
+        # snapshot would paint 3 or 5 empty columns.
+        match_id = match_archive.archive_match(
+            oid="empty-fresh",
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 0, "set_2": 0,
+                                                 "set_3": 0}},
+                "team_2": {"sets": 0, "scores": {"set_1": 0, "set_2": 0,
+                                                 "set_3": 0}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert "Set 1" in response.text
+        assert "Set 2" not in response.text
+        assert "Set 3" not in response.text
+
     def test_played_set_count_clamps_to_sets_limit(self, client):
         # Defensive: a snapshot reporting set-4 scores in a best-of-3
         # match (data-corruption / mode-change scenario) shouldn't
