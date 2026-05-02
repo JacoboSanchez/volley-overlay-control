@@ -966,24 +966,47 @@ def _ensure_distinct_chart_colors(c1: str, c2: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 
+# Anything beyond this gap between consecutive points is treated as
+# "the operator left the tab open / time isn't trustworthy", and the
+# chart falls back to the rally-number X-axis. 15 minutes is well
+# beyond a normal set-break and well short of operator-distraction
+# territory.
+_TIME_AXIS_MAX_GAP_S = 15 * 60
+
+
+def _format_mmss(seconds: float) -> str:
+    """``MM:SS`` (no leading zero on minutes) for the X-axis label."""
+    seconds = max(0, int(seconds))
+    m, s = divmod(seconds, 60)
+    return f"{m}:{s:02d}"
+
+
 def _render_score_chart(
     set_records: list[dict], *, t1_color: str, t2_color: str,
 ) -> str:
     """Inline SVG showing how each team's score evolved through a set.
 
-    X axis: rally number (1..N), labelled at start and end. Y axis:
-    points scored, labelled 0 / mid / max. Each rally datapoint is
-    marked with a small filled circle so single-point spikes are
-    legible. One polyline per team, coloured via the contrast-safe
-    palette resolved upstream. Pure SVG, no JS, so it survives
-    "Save as PDF". Returns a placeholder string when the set has
-    fewer than two scoring records (nothing to plot).
+    X axis: time elapsed since the first point of the set (``MM:SS``)
+    when the audit timestamps look reliable. If any gap between two
+    consecutive scoring records exceeds :data:`_TIME_AXIS_MAX_GAP_S`
+    we fall back to plain rally-number indexing — that's the signal
+    the operator stepped away and the timestamps stopped reflecting
+    play. Y axis: points scored, labelled 0 / mid / max. Each rally
+    datapoint is marked with a small filled circle so single-point
+    spikes are legible. One polyline per team, coloured via the
+    contrast-safe palette resolved upstream. Pure SVG, no JS, so it
+    survives "Save as PDF". Returns a placeholder string when the
+    set has fewer than two scoring records (nothing to plot).
     """
     points: list[tuple[int, int]] = []
+    timestamps: list[Optional[float]] = []
     for r in set_records:
         pair = _running_score_pair(r)
-        if pair:
-            points.append(pair)
+        if not pair:
+            continue
+        points.append(pair)
+        ts = r.get("ts")
+        timestamps.append(float(ts) if isinstance(ts, (int, float)) else None)
     if len(points) < 2:
         return ""
 
@@ -997,12 +1020,47 @@ def _render_score_chart(
     if last_idx == 0 or max_score == 0:
         return ""
 
+    # Decide axis mode. Time mode requires every record to carry a
+    # timestamp *and* no gap between consecutive records to exceed
+    # the trust threshold — anything bigger means the operator was
+    # AFK and the wallclock no longer tracks play, so we fall back
+    # to rally-number indexing rather than compress the whole set
+    # into a thin slice on the left.
+    times: Optional[list[float]] = None
+    if all(t is not None for t in timestamps):
+        # ``timestamps`` is structurally ``list[Optional[float]]``;
+        # the ``all(...)`` check above narrows it but mypy can't see
+        # through it, so build the float-only list explicitly.
+        times = [float(t) for t in timestamps if t is not None]
+        for i in range(1, len(times)):
+            gap = times[i] - times[i - 1]
+            # ``gap > threshold``: operator was AFK, wallclock no
+            # longer tracks play. ``gap < 0``: non-monotonic
+            # timestamps (clock skew, NTP correction) — would
+            # otherwise plot points outside the SVG viewport. Both
+            # downgrade to the rally-number fallback.
+            if gap > _TIME_AXIS_MAX_GAP_S or gap < 0:
+                times = None
+                break
+
+    use_time_axis = times is not None
+    if times is not None:
+        base_ts = times[0]
+        x_values: list[float] = [t - base_ts for t in times]
+        # Guard against a degenerate "all points at the same ts" set:
+        # the polyline would collapse, but we still need a non-zero
+        # divisor for the projection.
+        x_max = x_values[-1] if x_values[-1] > 0 else 1.0
+    else:
+        x_values = [float(i) for i in range(len(points))]
+        x_max = float(last_idx) if last_idx else 1.0
+
     def _project(idx: int, score: int) -> tuple[float, float]:
-        x = pad_x_left + (idx / last_idx) * plot_w
+        x_norm = x_values[idx] / x_max if x_max else 0.0
+        x = pad_x_left + x_norm * plot_w
         y = pad_y_top + plot_h - (score / max_score) * plot_h
         return x, y
 
-    # Three Y ticks (0, mid, max) and two X ticks (first / last rally).
     mid_score = max_score // 2 if max_score >= 2 else max_score
     y_ticks = sorted({0, mid_score, max_score})
 
@@ -1019,14 +1077,21 @@ def _render_score_chart(
         for v in y_ticks
     )
 
-    # X labels: rally 1 (left) and rally N (right). 1-indexed for
-    # operator readability — point #1 sits at x=pad_x_left, point #N
-    # at x=pad_x_left + plot_w.
+    if use_time_axis:
+        # Endpoints: ``0:00`` → ``M:SS`` of the last rally relative
+        # to the set's first point.
+        left_label = "0:00"
+        right_label = _format_mmss(x_values[-1])
+    else:
+        # 1-indexed rally numbers, matching prior behaviour.
+        left_label = "1"
+        right_label = str(len(points))
+
     x_labels = (
         f'<text x="{pad_x_left}" y="{height - 8}" text-anchor="start" '
-        f'font-size="9" fill="#999">1</text>'
+        f'font-size="9" fill="#999">{html.escape(left_label)}</text>'
         f'<text x="{pad_x_left + plot_w}" y="{height - 8}" '
-        f'text-anchor="end" font-size="9" fill="#999">{len(points)}</text>'
+        f'text-anchor="end" font-size="9" fill="#999">{html.escape(right_label)}</text>'
     )
 
     def _polyline(team_idx: int, color: str) -> str:
@@ -1049,9 +1114,13 @@ def _render_score_chart(
             for x, y in (_project(i, p[team_idx]) for i, p in enumerate(points))
         )
 
+    # ``data-x-axis`` lets tests assert which mode kicked in without
+    # parsing the rendered labels.
+    axis_attr = "time" if use_time_axis else "rally"
     return (
         f'<svg viewBox="0 0 {width} {height}" role="img" '
-        f'class="set-chart" preserveAspectRatio="xMidYMid meet">'
+        f'class="set-chart" data-x-axis="{axis_attr}" '
+        f'preserveAspectRatio="xMidYMid meet">'
         f'<rect x="0" y="0" width="{width}" height="{height}" '
         f'fill="transparent" />'
         f'{grid_lines}{y_labels}{x_labels}'

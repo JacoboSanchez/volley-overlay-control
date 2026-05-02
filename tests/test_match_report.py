@@ -452,13 +452,13 @@ class TestMatchReportRichSections:
         # ``<circle>`` elements; we just need at least a handful to
         # confirm the markers are emitted at all.
         assert response.text.count("<circle") >= 8
-        # Axis text labels — y-axis ticks include 0 and the max
-        # (set 1 caps at 5, set 2 at 25). Spot-check 0.
+        # Y-axis ticks always include 0.
         assert ">0</text>" in response.text
-        # X-axis labels are 1 / N where N is the number of plotted
-        # rallies; the rich-fixture set 1 has 9 scoring records
-        # (set_score not used) → endpoint label is 9.
-        assert ">1</text>" in response.text
+        # The rich fixture's audit timestamps are tightly spaced
+        # (max gap < 15 min), so the time-axis branch kicks in and
+        # labels read ``0:00`` (left) / ``M:SS`` (right).
+        assert 'data-x-axis="time"' in response.text
+        assert ">0:00</text>" in response.text
 
     def test_highlights_use_team_names_not_indices(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
@@ -551,6 +551,120 @@ class TestMatchReportRichSections:
         set2_slice = body[timeline_set2:body.index("</div>", timeline_set2)]
         assert "25–18" in set1_slice
         assert "25–18" not in set2_slice
+
+    def test_chart_x_axis_uses_mmss_label_when_time_mode(self, client):
+        # Two points 90 s apart in set 1 → time-axis kicks in. Right
+        # label should be ``1:30``, left label ``0:00``.
+        oid = "axis-time-label"
+        from app.api import action_log as _al
+        records = [
+            {"ts": 1700000000, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            {"ts": 1700000090, "action": "add_point",
+             "params": {"team": 2, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 1}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 1}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert 'data-x-axis="time"' in response.text
+        assert ">0:00</text>" in response.text
+        assert ">1:30</text>" in response.text
+
+    def test_chart_x_axis_falls_back_to_rally_when_gap_exceeds_15_min(
+            self, client):
+        # 16-minute lull between two consecutive points in a set: the
+        # operator was probably AFK, so the timestamps stop reflecting
+        # play. Chart falls back to rally-number indexing — left
+        # label ``1``, right label = number of points (3 here).
+        oid = "axis-fallback"
+        from app.api import action_log as _al
+        records = [
+            {"ts": 1700000000, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            {"ts": 1700000030, "action": "add_point",
+             "params": {"team": 2, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 1}}},
+            # 16 min later — exceeds the threshold.
+            {"ts": 1700000030 + 16 * 60, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 2},
+                        "team_2": {"score": 1}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 2}},
+                         "team_2": {"scores": {"set_1": 1}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert 'data-x-axis="rally"' in response.text
+        # Rally-axis labels: ``1`` (left), ``3`` (right).
+        assert ">1</text>" in response.text
+        assert ">3</text>" in response.text
+
+    def test_chart_x_axis_falls_back_to_rally_on_non_monotonic_timestamps(
+            self, client):
+        # Clock skew / NTP correction: a later record has an earlier
+        # ``ts`` than its predecessor. Plotting time-mode would put
+        # the second point at a negative x and outside the SVG
+        # viewport — fall back to rally-number indexing instead.
+        oid = "axis-skew"
+        from app.api import action_log as _al
+        records = [
+            {"ts": 1700000100, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            # 30 s *earlier* than the previous record.
+            {"ts": 1700000070, "action": "add_point",
+             "params": {"team": 2, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 1}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 1}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert 'data-x-axis="rally"' in response.text
 
     def test_longest_rally_card_renders(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
