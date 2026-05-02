@@ -8,6 +8,10 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+---
+
+## [5.1.0] - 2026-05-02
+
 ### Security
 
 - `/match/{match_id}/report` is no longer unauthenticated by default.
