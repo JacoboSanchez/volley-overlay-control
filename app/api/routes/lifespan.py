@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from weakref import WeakValueDictionary
 
 from app.api.session_manager import SessionManager
+from app.api.webhooks import webhook_dispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -47,3 +48,6 @@ async def router_lifespan(app):
     if _cleanup_task:
         _cleanup_task.cancel()
     SessionManager.clear()
+    # Drain in-flight deliveries with cancel_futures=True so a hung
+    # outbound webhook can't keep the process alive past shutdown.
+    webhook_dispatcher.shutdown()

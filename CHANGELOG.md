@@ -38,6 +38,22 @@ once a first tagged release ships.
   JSONL audit file. The pool gives bounded memory without that
   race; unrelated OIDs that hash-collide just see negligible
   spurious serialization.
+- Match report timeline drops "orphan" undo rows. Under the
+  unified undo, `action_log.pop_last_forward` physically removes
+  the original forward record and the caller appends a new
+  `undo=True` audit entry. `_collapse_undos` then could not pair
+  it with any prior forward and was leaving the orphan visible
+  as an unanchored row referencing an action that no longer
+  exists in the log. The collapse pass now drops those orphans
+  entirely; paired collapses (forwards still followed by their
+  explicit undo, e.g. legacy snapshots) keep working as before.
+- `WebhookDispatcher` is now drained on application shutdown via
+  `router_lifespan` calling `webhook_dispatcher.shutdown()` with
+  `cancel_futures=True`, so a hung outbound delivery cannot keep
+  the process alive past exit. Previously the executor was left
+  to Python's default `atexit` cleanup, which waits for in-flight
+  workers — usually fast (5 s per-target timeout) but visible in
+  systemd unit shutdown latency.
 - The cached `GameSession.undoable_forward_count` (source of truth
   for `GameStateResponse.can_undo`) now updates *only* after the
   audit-log append succeeds. A filesystem error during `_audit`

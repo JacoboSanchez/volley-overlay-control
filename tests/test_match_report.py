@@ -740,6 +740,30 @@ class TestMatchReportRichSections:
         assert response.text.count('(undone)') <= 1
         assert response.text.count("(undo)") == 0
 
+    def test_orphan_undo_records_are_dropped(self):
+        """Unified-undo logs only carry the trailing undo record (the
+        forward was popped by ``action_log.pop_last_forward``). The
+        report must not surface those orphan rows — they reference an
+        action that no longer exists in the timeline.
+        """
+        from app.match_report import _collapse_undos
+        audit = [
+            {"ts": 1.0, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1,
+                        "team_1": {"score": 1}, "team_2": {"score": 0}}},
+            # Orphan undo: no matching forward survived in the log.
+            {"ts": 2.0, "action": "add_point",
+             "params": {"team": 2, "undo": True},
+             "result": {"current_set": 1,
+                        "team_1": {"score": 1}, "team_2": {"score": 0}}},
+        ]
+        out = _collapse_undos(audit)
+        # The legitimate forward survives, the orphan undo is dropped.
+        assert len(out) == 1
+        assert out[0]["params"]["team"] == 1
+        assert not (out[0].get("params") or {}).get("undo")
+
     def test_set_durations_row_shows_seconds(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
         # Set 1 last forward record sits at offset 240 (the offset-260

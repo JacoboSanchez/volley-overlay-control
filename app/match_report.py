@@ -690,14 +690,21 @@ def _played_set_count(final_state: dict, fallback: int) -> int:
 def _collapse_undos(audit: list[dict]) -> list[dict]:
     """Mark forward audit records whose effect was reverted by a later ``undo``.
 
-    The audit log keeps both the original record and the explicit undo
-    that reversed it; the report's job is editorial, not forensic, so
-    we annotate the original as ``_was_undone=True`` and drop the
-    explicit undo from the rendered timeline. Match each undo to the
-    most recent matching forward record by ``(action, team)`` — same
-    pairing rule the server-side undo stack uses. Records that don't
-    match are left as-is (defensive: an extra undo with no pair stays
-    visible so we don't hide signal during a bug investigation).
+    Two cases reach this function:
+
+    * Legacy / archived audit logs that still hold both a forward
+      record and the explicit undo that reversed it — typically from
+      pre-unification snapshots or replay-style fixtures. Match each
+      undo to the most recent matching forward record by
+      ``(action, team)``, mark the forward with ``_was_undone=True``
+      and drop the explicit undo from the rendered timeline.
+    * Live unified-undo logs, where ``action_log.pop_last_forward``
+      already removed the original forward physically and the
+      audit-log just carries the trailing undo record. With no
+      forward to mark, an orphan undo conveys nothing the report
+      can render meaningfully — the action it referenced no longer
+      exists in the timeline — so we drop it. Otherwise the report
+      would show "undo team-1 add_point" rows with no anchor.
     """
     out: list[dict] = []
     for record in audit:
@@ -720,10 +727,10 @@ def _collapse_undos(audit: list[dict]) -> list[dict]:
             ):
                 prior["_was_undone"] = True
                 break
-        else:
-            # No pair found — keep the orphan undo so it doesn't
-            # silently disappear from the timeline.
-            out.append(dict(record))
+        # else-branch (no pair found): orphan undo. Drop it — see
+        # docstring. The for/else here would have executed if the
+        # loop completed without a break, but we no longer want to
+        # surface unanchored undo rows.
     return out
 
 
@@ -1294,11 +1301,12 @@ def _render_timeline(
     by_set: dict[int, list[dict]] = {}
     orphans: list[dict] = []
     for record in collapsed:
-        # ``_collapse_undos`` already drops the explicit-undo half of
-        # successfully paired records (their forward sibling renders
-        # with ``_was_undone=True`` strikethrough). Anything still
-        # marked ``undo`` here is an orphan that ``_collapse_undos``
-        # kept on purpose for forensic visibility — keep rendering it.
+        # ``_collapse_undos`` drops both halves of an undo: the
+        # explicit-undo half of paired records (the forward sibling
+        # renders with ``_was_undone=True`` strikethrough) AND any
+        # orphan undo whose forward was already physically popped by
+        # the unified ``action_log.pop_last_forward`` flow. So
+        # nothing reaching here should still be marked ``undo``.
         set_num = _result_set(record)
         target = by_set.setdefault(set_num, []) if set_num else orphans
         target.append(record)
