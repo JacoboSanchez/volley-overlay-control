@@ -12,9 +12,9 @@ It includes 16 overlay style templates served directly to OBS browser sources â€
 
 ## Screenshots
 
-| Control UI (desktop) | Control UI (phone) |
+| Control UI (phone, landscape) | Control UI (phone, portrait) |
 |---|---|
-| ![Scoreboard control UI](docs/screenshots/02-scoreboard.png) | ![Scoreboard control UI on phone](docs/screenshots/03-scoreboard-phone.png) |
+| ![Scoreboard control UI in landscape](docs/screenshots/02-scoreboard.png) | ![Scoreboard control UI in portrait](docs/screenshots/03-scoreboard-phone.png) |
 
 | Custom overlay manager (`/manage`) | Initial connect screen |
 |---|---|
