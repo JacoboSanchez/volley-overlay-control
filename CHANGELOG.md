@@ -29,9 +29,15 @@ once a first tagged release ships.
   (`%Y%m%dT%H%M%S_<μs>Z`), so two archives in the same wall-clock
   second produce distinct `match_id` values instead of silently
   overwriting. Tests no longer need `time.sleep` workarounds.
-- `app/api/action_log` per-OID lock map is bounded by a 256-entry
-  LRU; previously it grew unboundedly as new OIDs flowed through the
-  process. `delete()` also evicts the lock entry now.
+- `app/api/action_log` per-OID writer serialization now goes
+  through a fixed-size pool of 256 locks indexed by `hash(oid)`,
+  replacing an LRU dict. The LRU could evict a lock while one
+  thread was still inside the critical section, letting a
+  concurrent caller for the same OID mint a fresh lock and enter
+  the read/append/pop section at the same time — corrupting the
+  JSONL audit file. The pool gives bounded memory without that
+  race; unrelated OIDs that hash-collide just see negligible
+  spurious serialization.
 - The cached `GameSession.undoable_forward_count` (source of truth
   for `GameStateResponse.can_undo`) now updates *only* after the
   audit-log append succeeds. A filesystem error during `_audit`
