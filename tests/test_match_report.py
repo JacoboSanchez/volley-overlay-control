@@ -382,17 +382,22 @@ class TestMatchReportPregameTrim:
         # render as ``+0:00`` (anchoring restarts here) and the
         # second point 60 s later as ``+1:00``. The reset line
         # itself is trimmed and the audit_count drops to 2.
+        # In real flow ``GameSession.match_started_at`` is ``None``
+        # at reset time and is auto-armed by the first ``add_point``
+        # — so the archived ``started_at`` reflects the first point,
+        # not the reset. Mirror that here.
         base_ts = time.time() - 1000
+        first_pt_ts = base_ts + 300
         oid = "trim-1"
         self._seed_audit(oid, [
             {"ts": base_ts, "action": "reset", "params": {},
              "result": {"current_set": 1, "team_1": {"score": 0},
                         "team_2": {"score": 0}}},
-            {"ts": base_ts + 300, "action": "add_point",
+            {"ts": first_pt_ts, "action": "add_point",
              "params": {"team": 1, "undo": False},
              "result": {"current_set": 1, "team_1": {"score": 1},
                         "team_2": {"score": 0}}},
-            {"ts": base_ts + 360, "action": "add_point",
+            {"ts": first_pt_ts + 60, "action": "add_point",
              "params": {"team": 2, "undo": False},
              "result": {"current_set": 1, "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
@@ -403,10 +408,11 @@ class TestMatchReportPregameTrim:
                 "team_2": {"sets": 0, "scores": {"set_1": 1}},
             },
             customization={"Team 1 Name": "A", "Team 2 Name": "B"},
-            started_at=base_ts, sets_limit=3,
+            started_at=first_pt_ts, sets_limit=3,
         )
         response = client.get(f"/match/{match_id}/report")
-        # First scored point is the new anchor.
+        # First scored point is the anchor → +0:00; second point 60s
+        # later → +1:00.
         assert "+0:00" in response.text
         assert "+1:00" in response.text
         # Reset entry is gone from the rendered timeline.
@@ -414,11 +420,40 @@ class TestMatchReportPregameTrim:
         # ``Audit entries`` reflects the trimmed view (3 raw → 2 shown).
         assert ">2</td>" in response.text
 
+    def test_explicit_start_match_anchors_before_first_point(self, client):
+        # Operator hits Start match 5 min before the first rally
+        # (``GameSession.match_started_at`` set explicitly). The
+        # archive then carries ``started_at = T_explicit`` and the
+        # report's anchor follows: first point now reads ``+5:00``,
+        # not ``+0:00``.
+        explicit_start = time.time() - 1000
+        first_pt_ts = explicit_start + 300
+        oid = "trim-explicit"
+        self._seed_audit(oid, [
+            {"ts": explicit_start, "action": "start_match",
+             "params": {},
+             "result": {"current_set": 1, "team_1": {"score": 0},
+                        "team_2": {"score": 0}}},
+            {"ts": first_pt_ts, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+        ])
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 0}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            started_at=explicit_start, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # 300 s gap between the explicit anchor and the first rally.
+        assert "+5:00" in response.text
+
     def test_started_at_uses_first_scoring_ts(self, client):
-        # Snapshot's ``started_at`` is 1000 s before wallclock-now;
-        # first point is 300 s after that. The "Started" row in the
-        # match-facts table should render the first-point timestamp,
-        # not the snapshot's ``started_at``.
+        # Real-flow archive: started_at == first-point ts (auto-arm).
+        # The "Started" row in the match-facts table should render
+        # that timestamp.
         import datetime as _dt
         base_ts = time.time() - 1000
         first_pt_ts = base_ts + 300
@@ -437,7 +472,7 @@ class TestMatchReportPregameTrim:
             final_state={"team_1": {"scores": {"set_1": 1}},
                          "team_2": {"scores": {"set_1": 0}}},
             customization={"Team 1 Name": "A", "Team 2 Name": "B"},
-            started_at=base_ts, sets_limit=3,
+            started_at=first_pt_ts, sets_limit=3,
         )
         response = client.get(f"/match/{match_id}/report")
         first_pt_label = _dt.datetime.fromtimestamp(
@@ -446,8 +481,6 @@ class TestMatchReportPregameTrim:
         reset_label = _dt.datetime.fromtimestamp(
             base_ts, _dt.timezone.utc,
         ).strftime("%Y-%m-%d %H:%M UTC")
-        # Same minute? Skip the negative side of the assertion. Modulo
-        # that edge case the Started row should reflect the point time.
         assert first_pt_label in response.text
         if first_pt_label != reset_label:
             assert response.text.count(reset_label) == 0
@@ -476,7 +509,7 @@ class TestMatchReportPregameTrim:
             final_state={"team_1": {"scores": {"set_1": 1}},
                          "team_2": {"scores": {"set_1": 0}}},
             customization={"Team 1 Name": "A", "Team 2 Name": "B"},
-            started_at=base, sets_limit=3,
+            started_at=base + 90, sets_limit=3,
         )
         response = client.get(f"/match/{match_id}/report")
         # Pregame timeout/reset shouldn't appear in the timeline. We
