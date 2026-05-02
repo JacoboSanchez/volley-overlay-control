@@ -263,6 +263,41 @@ class TestMatchReport:
             for r in records:
                 f.write(json.dumps(r) + "\n")
 
+    def test_team_color_priority_prefers_team_identity_keys(self, client):
+        # The customization separates *overlay* colours (alternating
+        # row strips, ``Color 1`` / ``Color 2``) from *team identity*
+        # colours (``Team 1 Color`` / ``Team 2 Color``). The report
+        # should pick the team's own colour even when both kinds are
+        # set — otherwise team 2's chart line snaps to whatever the
+        # overlay's row 2 happens to be (often the default red).
+        oid = "color-priority"
+        self._seed_minimal_chart_audit(oid)
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 1}},
+                "team_2": {"sets": 0, "scores": {"set_1": 1}},
+            },
+            customization={
+                "Team 1 Name": "A",
+                "Team 2 Name": "B",
+                # Overlay-wide row colours — should NOT win.
+                "Color 1": "#000000",
+                "Color 2": "#E21836",
+                # Team identity colours — should win.
+                "Team 1 Color": "#FFFFFF",
+                "Team 1 Text Color": "#000000",
+                "Team 2 Color": "#0047AB",
+                "Team 2 Text Color": "#FFFFFF",
+            },
+            winning_team=None, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # Team 2's chart polyline should be blue (the team-identity
+        # colour) — not red (the overlay's ``Color 2`` row).
+        assert 'stroke="#0047AB"' in response.text
+        assert 'stroke="#E21836"' not in response.text
+
     def test_chart_uses_contrast_safe_color_for_white_team(self, client):
         # Team 2 picks pure white as its primary brand colour. That's
         # invisible on the report's white surface, so the chart layer
@@ -456,6 +491,66 @@ class TestMatchReportRichSections:
         assert "Bravo" in highlights_block
         assert "Team 1" not in highlights_block
         assert "Team 2" not in highlights_block
+
+    def test_set_winning_point_groups_under_previous_set(self, client):
+        # Set-winning ``add_point`` records advance ``current_set`` in
+        # the audit result, but the scores still belong to the set
+        # that just ended. ``score_set`` tags this in the audit log;
+        # the report must use it so the winning point doesn't
+        # leak into the *next* set's timeline / chart.
+        oid = "score-set-bug"
+        from app.api import action_log as _al
+        records = [
+            # Set 1: just one point to keep the fixture small.
+            {"ts": 1700000000, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 1, "score_set": 1,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+            # Set-winning point of set 1: ``current_set`` has advanced
+            # to 2 but ``score_set`` keeps the scores anchored to 1.
+            {"ts": 1700000010, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 2, "score_set": 1,
+                        "team_1": {"score": 25},
+                        "team_2": {"score": 18}}},
+            # First real point of set 2.
+            {"ts": 1700000020, "action": "add_point",
+             "params": {"team": 1, "undo": False},
+             "result": {"current_set": 2, "score_set": 2,
+                        "team_1": {"score": 1},
+                        "team_2": {"score": 0}}},
+        ]
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 1,
+                           "scores": {"set_1": 25, "set_2": 1}},
+                "team_2": {"sets": 0,
+                           "scores": {"set_1": 18, "set_2": 0}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        # The 25-18 record is grouped under set 1 — set 2's running
+        # scores in the timeline must NOT include ``(25–18)``. The
+        # timeline groups its sets with ``<section class="timeline-set">``,
+        # so we slice between those markers to scope the assertion.
+        body = response.text
+        timeline_set1 = body.index('<section class="timeline-set"')
+        timeline_set2 = body.index(
+            '<section class="timeline-set"', timeline_set1 + 1,
+        )
+        set1_slice = body[timeline_set1:timeline_set2]
+        set2_slice = body[timeline_set2:body.index("</div>", timeline_set2)]
+        assert "25–18" in set1_slice
+        assert "25–18" not in set2_slice
 
     def test_longest_rally_card_renders(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")

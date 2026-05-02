@@ -515,16 +515,22 @@ def _team_color(customization: dict, team: int, primary: bool) -> str:
     stored value is anything but ``#RGB`` / ``#RRGGBB``. Strictness is
     load-bearing: this value is interpolated into a CSS custom
     property, so a malformed input could otherwise inject CSS.
+
+    Key priority: the team-identity colours (``Team 1 Color`` /
+    ``Team 1 Text Color``) come first because they're the *team's*
+    brand, set per-team in the operator UI. The overlay-wide
+    ``Color 1`` / ``Text Color 1`` keys are alternating row colours
+    and shouldn't override the team's own colour in the report.
     """
     fallback_bg = ("#0047AB", "#E21836")[team - 1]
     fallback_fg = "#FFFFFF"
     bg_keys = {
-        1: ("Color 1", "Team 1 Color", "color_primary"),
-        2: ("Color 2", "Team 2 Color", "color_primary"),
+        1: ("Team 1 Color", "Color 1", "color_primary"),
+        2: ("Team 2 Color", "Color 2", "color_primary"),
     }
     fg_keys = {
-        1: ("Text Color 1", "Team 1 Text Color"),
-        2: ("Text Color 2", "Team 2 Text Color"),
+        1: ("Team 1 Text Color", "Text Color 1"),
+        2: ("Team 2 Text Color", "Text Color 2"),
     }
     keys = bg_keys[team] if primary else fg_keys[team]
     for key in keys:
@@ -584,11 +590,20 @@ def _result_score(record: dict, team: int) -> Optional[int]:
 
 
 def _result_set(record: dict) -> Optional[int]:
-    """Set number this audit record applies to (1-indexed)."""
+    """Set number this audit record applies to (1-indexed).
+
+    Prefers ``result.score_set`` when present: a set-winning
+    ``add_point`` advances ``current_set`` to the next set, but the
+    scores in the record (e.g. 25-23) belong to the *previous* set,
+    and ``score_set`` tags that explicitly. Falls back to
+    ``current_set`` for older audit records that predate the
+    ``score_set`` field.
+    """
     result = record.get("result") or {}
-    raw = result.get("current_set")
-    if isinstance(raw, int) and raw > 0:
-        return raw
+    for key in ("score_set", "current_set"):
+        raw = result.get(key)
+        if isinstance(raw, int) and raw > 0:
+            return raw
     return None
 
 
