@@ -88,6 +88,13 @@ async function installLogoRouter(context) {
 const MOBILE_LANDSCAPE_VIEWPORT = { width: 844, height: 390 };
 const PHONE_VIEWPORT = { width: 390, height: 844 };
 const MANAGE_VIEWPORT = { width: 1024, height: 700 };
+// /match/{id}/report is a print-friendly HTML page with a 960px max
+// content width — operators read it on a desktop or share it as PDF,
+// so it gets a desktop-sized viewport with enough vertical room to
+// fit the hero, set-by-set table and the top of the timeline in one
+// frame.
+const REPORT_VIEWPORT = { width: 1024, height: 1100 };
+const REPORT_OID = 'practice-hall';
 
 async function ensureDemoOverlay() {
   const adminHeaders = {
@@ -163,6 +170,116 @@ async function ensureDemoOverlay() {
   // Drive a realistic match into the state — adds 12 / 8 in set 1 and a
   // serve to team A so the rendered scoreboard isn't all zeroes.
   await driveMatchState();
+}
+
+async function ensureFinishedMatchForReport() {
+  // Drive ``REPORT_OID`` (the second overlay already created above) to
+  // a complete 4-set match so its archive is available at
+  // ``/match/{match_id}/report``. Uses ``set_score`` to fast-forward
+  // the loser's count in each set and ``add_point`` for the
+  // set-winning point — that way the audit log has a real point-by-
+  // point transition the report timeline can render, instead of just
+  // four bulk score-overrides.
+  const initRes = await fetch(`${BASE}/api/v1/session/init`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oid: REPORT_OID }),
+  });
+  if (!initRes.ok) {
+    const txt = await initRes.text();
+    throw new Error(`session/init for ${REPORT_OID} failed: ${initRes.status} ${txt}`);
+  }
+
+  // Same invented teams so the report shares the visual identity of
+  // the scoreboard shots. Note ``Team N Text Name`` drives the React
+  // scoreboard while ``Team N Name`` is what ``app.match_report``
+  // looks up — both keys point to the same string here so either
+  // surface picks the right label.
+  const customization = {
+    'Team 1 Text Name': TEAM_1.name,
+    'Team 2 Text Name': TEAM_2.name,
+    'Team 1 Name': TEAM_1.name,
+    'Team 2 Name': TEAM_2.name,
+    'Team 1 Color': TEAM_1.color,
+    'Team 2 Color': TEAM_2.color,
+    'Team 1 Text Color': TEAM_1.textColor,
+    'Team 2 Text Color': TEAM_2.textColor,
+    'Team 1 Logo': TEAM_1.logo,
+    'Team 2 Logo': TEAM_2.logo,
+    Logos: 'true',
+  };
+  const custRes = await fetch(
+    `${BASE}/api/v1/customization?oid=${encodeURIComponent(REPORT_OID)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(customization),
+    },
+  );
+  if (!custRes.ok) {
+    const txt = await custRes.text();
+    throw new Error(`customization for ${REPORT_OID} failed: ${custRes.status} ${txt}`);
+  }
+
+  const post = (path, body) =>
+    fetch(`${BASE}${path}?oid=${encodeURIComponent(REPORT_OID)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body == null ? undefined : JSON.stringify(body),
+    });
+
+  // Arm the live timer first so the archive carries a non-zero match
+  // duration and the report renders a meaningful "Duration: …" cell.
+  await post('/api/v1/game/start-match', null);
+
+  // Helper: close out a set with set_score for the bulk filling and
+  // one final add_point for the winning point. Always set the loser
+  // first so check_set_won doesn't trip before we want it to.
+  async function closeSet(setNum, winner, winnerEnd, loserEnd) {
+    const loser = winner === 1 ? 2 : 1;
+    await post('/api/v1/game/set-score', {
+      team: loser, set_number: setNum, value: loserEnd,
+    });
+    await post('/api/v1/game/set-score', {
+      team: winner, set_number: setNum, value: winnerEnd - 1,
+    });
+    await post('/api/v1/game/add-point', { team: winner });
+  }
+
+  // TW wins 3-1 in four sets. The deciding-set path stays unused so
+  // the report still shows a "Best of 5, decided in 4" rhythm — the
+  // most common volleyball outcome.
+  //
+  // The 700-ms gaps between sets give the audit log a non-zero
+  // wall-clock spread so the report's "Duration" cell and the
+  // score-evolution charts' time axis aren't compressed to 0m 00s.
+  // Total added wait is ~2.1 s — negligible against the screenshot
+  // pipeline's overall runtime.
+  const setBreak = () => new Promise((r) => setTimeout(r, 700));
+  await closeSet(1, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/23);
+  await setBreak();
+  await closeSet(2, /*winner=*/2, /*winnerEnd=*/25, /*loserEnd=*/21);
+  await setBreak();
+  await closeSet(3, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/19);
+  await setBreak();
+  await closeSet(4, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/22);
+}
+
+async function fetchLatestMatchId() {
+  // /api/v1/matches is admin-gated and returns {count, matches}.
+  const res = await fetch(
+    `${BASE}/api/v1/matches?oid=${encodeURIComponent(REPORT_OID)}`,
+    { headers: { Authorization: `Bearer ${ADMIN_PW}` } },
+  );
+  if (!res.ok) {
+    throw new Error(`Could not list matches for ${REPORT_OID}: ${res.status}`);
+  }
+  const body = await res.json();
+  const matches = Array.isArray(body) ? body : body.matches;
+  if (!Array.isArray(matches) || matches.length === 0) {
+    throw new Error(`No archived matches for ${REPORT_OID}`);
+  }
+  return matches[0].match_id;
 }
 
 async function setSimpleMode(enabled) {
@@ -326,6 +443,26 @@ async function captureManagePage(page) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureMatchReport(page, matchId) {
+  // /match/{id}/report needs the admin token — MATCH_REPORT_PUBLIC is
+  // not set in the screenshot environment, so we pass it via the
+  // ?token= query that the route accepts as an alias for the Bearer
+  // header.
+  await page.setViewportSize(REPORT_VIEWPORT);
+  const url = `${BASE}/match/${encodeURIComponent(matchId)}/report?token=${encodeURIComponent(ADMIN_PW)}`;
+  await page.goto(url, { waitUntil: 'networkidle' });
+  // The report renders an inline SVG chart per set; wait until at
+  // least one of them is mounted so the screenshot doesn't catch the
+  // pre-chart layout shift.
+  await page.waitForSelector('svg', { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: resolve(OUT_DIR, '08-match-report.png'),
+    fullPage: false,
+  });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureOverlayMosaic(page, filename) {
   // Mosaic is a full-page grid of every selectable style; needs a wider
   // viewport and enough vertical room to fit every cell, plus extra
@@ -374,6 +511,8 @@ async function main() {
   console.log(`Capturing screenshots into ${OUT_DIR}`);
 
   await ensureDemoOverlay();
+  await ensureFinishedMatchForReport();
+  const reportMatchId = await fetchLatestMatchId();
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -407,6 +546,7 @@ async function main() {
     await setSimpleMode(true);
     await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png');
     await setSimpleMode(false);
+    await captureMatchReport(page, reportMatchId);
   } finally {
     await context.close();
     await browser.close();

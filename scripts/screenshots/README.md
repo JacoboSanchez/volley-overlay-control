@@ -39,6 +39,7 @@ Output PNGs are written to `docs/screenshots/`. The orchestrator:
 | `05-manage-page.png` | Custom overlay manager at `/manage`. | 1024×700 (compact desktop) |
 | `06-overlay-mosaic-full.png` | `?style=mosaic` preview grid showing every selectable style with full match data. | 1600×1800 (mosaic grid) |
 | `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). | 1600×1800 (mosaic grid) |
+| `08-match-report.png` | Print-friendly match report at `/match/{id}/report` for a finished 3-1 demo match. | 1024×1100 (compact desktop) |
 
 The control UI shots default to **844×390** because the operator's
 primary use case is a phone held sideways during a match. `/manage`
