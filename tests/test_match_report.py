@@ -194,10 +194,14 @@ class TestMatchReport:
 
     def test_renders_final_score(self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")
-        # Match winner team 1 with 3-1 sets.
+        # Set scores 3-1; the winner is implicit from those plus the
+        # ``Team 1 3 – 1 Team 2`` page title (no separate badge — the
+        # scores themselves carry the verdict).
         assert ">3<" in response.text
         assert ">1<" in response.text
-        assert "Match winner" in response.text
+        # The legacy "Match winner" badge below the winning team's
+        # score has been removed; just being a higher number says it.
+        assert "Match winner" not in response.text
 
     def test_renders_set_by_set_table(self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")

@@ -27,7 +27,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "en": {
         "title": "Match report — {label}",
         "duration": "Duration",
-        "matchWinner": "Match winner",
         "setByset": "Set-by-set",
         "team": "Team",
         "setDurations": "Set durations",
@@ -72,7 +71,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "es": {
         "title": "Informe del partido — {label}",
         "duration": "Duración",
-        "matchWinner": "Ganador del partido",
         "setByset": "Set a set",
         "team": "Equipo",
         "setDurations": "Duración de los sets",
@@ -117,7 +115,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "pt": {
         "title": "Relatório do jogo — {label}",
         "duration": "Duração",
-        "matchWinner": "Vencedor do jogo",
         "setByset": "Set a set",
         "team": "Equipa",
         "setDurations": "Duração dos sets",
@@ -162,7 +159,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "it": {
         "title": "Referto della partita — {label}",
         "duration": "Durata",
-        "matchWinner": "Vincitore della partita",
         "setByset": "Set per set",
         "team": "Squadra",
         "setDurations": "Durata dei set",
@@ -207,7 +203,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "fr": {
         "title": "Rapport du match — {label}",
         "duration": "Durée",
-        "matchWinner": "Vainqueur du match",
         "setByset": "Set par set",
         "team": "Équipe",
         "setDurations": "Durée des sets",
@@ -252,7 +247,6 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "de": {
         "title": "Spielbericht — {label}",
         "duration": "Dauer",
-        "matchWinner": "Spielsieger",
         "setByset": "Satz für Satz",
         "team": "Team",
         "setDurations": "Satzdauer",

@@ -234,7 +234,6 @@ _REPORT_TEMPLATE = """<!doctype html>
   }}
   .team .name {{ font-weight: 600; font-size: 18px; }}
   .team .sets {{ font-size: 56px; line-height: 1; font-weight: 700; }}
-  .team .winner {{ font-size: 12px; opacity: 0.85; margin-top: 4px; }}
   .vs {{ font-size: 24px; font-weight: 600; color: var(--muted); }}
   table {{
     width: 100%;
@@ -363,14 +362,12 @@ _REPORT_TEMPLATE = """<!doctype html>
     {team1_logo}
     <div class="name">{team1_name}</div>
     <div class="sets">{team1_sets}</div>
-    {team1_winner_badge}
   </div>
   <div class="vs">{versus}</div>
   <div class="team t2">
     {team2_logo}
     <div class="name">{team2_name}</div>
     <div class="sets">{team2_sets}</div>
-    {team2_winner_badge}
   </div>
 </section>
 
@@ -1495,13 +1492,6 @@ async def match_report(
     else:
         effective_duration = payload.get("duration_s")
 
-    winning_team = payload.get("winning_team")
-    winner_badge = (
-        f'<div class="winner">{html.escape(_t(locale, "matchWinner"))}</div>'
-    )
-    team1_winner = winner_badge if winning_team == 1 else ""
-    team2_winner = winner_badge if winning_team == 2 else ""
-
     # ``match_label`` and ``permalink`` are kept raw here — every
     # consumer escapes at insertion time. Pre-escaping the source
     # would push the title through ``html.escape`` twice (once here,
@@ -1525,8 +1515,6 @@ async def match_report(
         team1_fg=t1_fg,
         team2_color=t2_color,
         team2_fg=t2_fg,
-        team1_winner_badge=team1_winner,
-        team2_winner_badge=team2_winner,
         set_count=played_sets,
         set_headers=set_headers,
         team1_set_cells=_team_set_cells(team1, 1),
