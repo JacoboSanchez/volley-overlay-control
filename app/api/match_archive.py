@@ -180,10 +180,19 @@ def list_matches(oid: Optional[str] = None) -> list[dict]:
 def _safe_match_path(match_id: object) -> Optional[str]:
     """Validate *match_id* and return the on-disk path, or ``None``.
 
-    The path is rebuilt from the regex's named groups (which are
-    constrained to ``[0-9a-f]{20}`` and ``\\d{8}T\\d{6}_\\d{6}Z``) so
-    no caller-controlled bytes flow into the filename — the basename
-    is a pure function of two known-format substrings.
+    Three layers of defence stack here so the public ``load_match``
+    and ``delete_match`` callers can never escape ``data/matches/``:
+
+    1. ``isinstance`` + ``_MATCH_FILENAME_RE`` reject anything whose
+       shape is not ``match_<20-hex>_<UTC-ISO>.json``.
+    2. The basename is rebuilt from the regex's named groups, so no
+       caller-controlled bytes flow into the filename.
+    3. The canonicalized realpath is checked to live directly inside
+       the canonicalized data dir. This last step is the pattern
+       CodeQL's ``py/path-injection`` query recognizes as a
+       sanitizer — without it the prior two layers were correct but
+       still flagged because the static analyser cannot trace the
+       regex-as-sanitizer relationship.
     """
     if not isinstance(match_id, str):
         return None
@@ -193,7 +202,11 @@ def _safe_match_path(match_id: object) -> Optional[str]:
     safe_basename = (
         f"match_{m.group('oid_hash')}_{m.group('ts')}.json"
     )
-    return os.path.join(_data_dir(), safe_basename)
+    base = os.path.realpath(_data_dir())
+    candidate = os.path.realpath(os.path.join(base, safe_basename))
+    if os.path.dirname(candidate) != base:
+        return None
+    return candidate
 
 
 def load_match(match_id: str) -> Optional[dict]:
