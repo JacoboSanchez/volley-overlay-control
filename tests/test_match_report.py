@@ -194,10 +194,13 @@ class TestMatchReport:
 
     def test_renders_final_score(self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")
-        # Match winner team 1 with 3-1 sets.
+        # Match winner is team 1 with 3-1 sets — the score blocks
+        # carry both numbers; the winner badge itself was dropped
+        # from the scoreboard panel (the score on its own conveys
+        # the same information without an extra label).
         assert ">3<" in response.text
         assert ">1<" in response.text
-        assert "Match winner" in response.text
+        assert "Match winner" not in response.text
 
     def test_renders_set_by_set_table(self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")
