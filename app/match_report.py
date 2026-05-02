@@ -44,7 +44,8 @@ from fastapi.responses import HTMLResponse
 
 from app.api import match_archive
 from app.env_vars_manager import EnvVarsManager
-from app.match_report_i18n import resolve_locale, t as _t
+from app.match_report_i18n import resolve_locale
+from app.match_report_i18n import t as _t
 
 logger = logging.getLogger(__name__)
 
