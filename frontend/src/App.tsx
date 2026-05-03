@@ -112,16 +112,17 @@ export default function App() {
     if (matchStartedAt == null) {
       setShowControls(true);
     }
-  }, [matchStartedAt]);
+  }, [matchStartedAt, setShowControls]);
 
   useEffect(() => {
     // On tablets/desktops the control bar fits without covering scoreboard
     // elements, so skip the inactivity timer entirely.
     if (hasRoomForPersistentControls) return;
     // Keep the bar visible while the match is pending — only arm the
-    // inactivity timer once ``match_started_at`` is stamped.
-    if (state && state.match_started_at == null) return;
-    if (showControls && activeTab === 'scoreboard' && state) {
+    // inactivity timer once ``match_started_at`` is stamped. Also covers
+    // the pre-init case where ``state`` itself is still null.
+    if (state?.match_started_at == null) return;
+    if (showControls && activeTab === 'scoreboard') {
       resetHideTimer();
       window.addEventListener('pointerdown', resetHideTimer, { passive: true });
     }
