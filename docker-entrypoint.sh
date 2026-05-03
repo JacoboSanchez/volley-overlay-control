@@ -13,10 +13,16 @@ DATA_DIR="${DATA_DIR:-/app/data}"
 
 if [ "$(id -u)" = "0" ]; then
   if [ -d "$DATA_DIR" ]; then
-    # Only chown when ownership is wrong, so a 1M-file volume on a slow
-    # disk doesn't pay the recursive walk cost on every restart.
-    if [ "$(stat -c '%u' "$DATA_DIR")" != "1000" ] \
-       || [ "$(stat -c '%g' "$DATA_DIR")" != "1000" ]; then
+    # Reclaim when ``$DATA_DIR`` or anything inside it is not 1000-owned.
+    # ``find`` evaluates the starting directory itself first, so this also
+    # catches the freshly-mounted root-owned-volume case without a separate
+    # ``stat`` check.
+    #
+    # ``-print -quit`` short-circuits on the first stale entry. A healthy
+    # volume is still walked end-to-end to confirm — fine for the dozens
+    # of JSON files this app writes; an operator running with a huge data
+    # volume can override DATA_DIR or pre-chown out of band.
+    if [ -n "$(find "$DATA_DIR" \( -not -uid 1000 -o -not -gid 1000 \) -print -quit 2>/dev/null)" ]; then
       echo "[entrypoint] Reclaiming $DATA_DIR for app:app (UID 1000)..."
       chown -R app:app "$DATA_DIR"
     fi
