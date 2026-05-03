@@ -21,7 +21,7 @@ class InitRequest(BaseModel):
         if not OID_PATTERN.match(v):
             raise ValueError(
                 'OID must contain only alphanumeric characters, hyphens, '
-                'underscores, slashes, and dots'
+                'underscores, slashes, and dots. ".." is not allowed.'
             )
         return v
 
