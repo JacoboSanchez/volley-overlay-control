@@ -6,8 +6,9 @@ backend or an HTTP session.
 
 The cache is intentionally tiny (one slot per ``Backend``) because each
 backend instance maps to one OID; multi-OID coordination happens at the
-``GameSession`` layer above. ``remember`` and ``fresh`` shallow-copy the
-dict so callers can swap top-level entries without poisoning the cached
+``GameSession`` layer above. ``remember`` and ``fresh`` deep-copy the
+dict so callers can mutate any level (including future nested values
+like ``geometry`` or ``colors`` sub-dicts) without poisoning the cached
 value, and a lock guards the slot because background save tasks (running
 on the backend's ``ThreadPoolExecutor``) update the cache concurrently
 with foreground reads from request handlers.
@@ -15,6 +16,7 @@ with foreground reads from request handlers.
 
 from __future__ import annotations
 
+import copy
 import threading
 import time
 from typing import Optional
@@ -38,21 +40,22 @@ class CustomizationCache:
     def remember(self, data: Optional[dict]) -> None:
         """Store *data* as the freshest snapshot. ``None`` clears the slot.
 
-        The dict is shallow-copied to insulate the cache from later
-        mutations by the caller.
+        The dict is deep-copied to insulate the cache from later
+        mutations by the caller, including writes into any nested
+        sub-structures the customization payload may carry.
         """
         with self._lock:
-            self._data = data.copy() if data is not None else None
+            self._data = copy.deepcopy(data) if data is not None else None
             self._timestamp = time.monotonic()
 
     def fresh(self) -> Optional[dict]:
-        """Return a copy of the cached dict if not stale, else ``None``."""
+        """Return a deep-copy of the cached dict if not stale, else ``None``."""
         with self._lock:
             if self._data is None:
                 return None
             if (time.monotonic() - self._timestamp) > self._ttl:
                 return None
-            return self._data.copy()
+            return copy.deepcopy(self._data)
 
     def invalidate(self) -> None:
         """Drop any cached value without waiting for TTL expiry."""
