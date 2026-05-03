@@ -8,6 +8,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from app.customization_cache import CustomizationCache
 from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends import (
     CustomOverlayBackend,
@@ -79,22 +80,18 @@ class Backend:
         self.session.mount("http://", _adapter)
         self.session.mount("https://", _adapter)
         self.executor = ThreadPoolExecutor(max_workers=5)
-        self._customization_cache = None
-        self._customization_cache_ts = 0.0
+        self._customization_cache = CustomizationCache(
+            _CUSTOMIZATION_CACHE_TTL_SECONDS
+        )
         self._overlay = self._create_overlay_backend()
 
     def _remember_customization(self, data):
         """Store a copy of *data* in the cache so callers can't mutate it."""
-        self._customization_cache = data.copy() if data is not None else None
-        self._customization_cache_ts = time.monotonic()
+        self._customization_cache.remember(data)
 
     def _fresh_customization_cache(self):
         """Return a fresh copy of the cached customization, or None if stale."""
-        if self._customization_cache is None:
-            return None
-        if (time.monotonic() - self._customization_cache_ts) > _CUSTOMIZATION_CACHE_TTL_SECONDS:
-            return None
-        return self._customization_cache.copy()
+        return self._customization_cache.fresh()
 
     @staticmethod
     def _local_overlay_exists(overlay_id: str) -> bool:

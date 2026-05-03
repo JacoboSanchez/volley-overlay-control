@@ -32,16 +32,17 @@ import hashlib
 import json
 import logging
 import os
-import re
 import tempfile
 import threading
 import time
 from collections.abc import Set as AbstractSet
 from typing import Optional
 
+from app.api.oid_validation import OID_PATTERN
+
 logger = logging.getLogger(__name__)
 
-_OID_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
+_OID_PATTERN = OID_PATTERN
 _FILENAME_HASH_LEN = 20
 
 # Actions whose forward records can be reversed by an undo (either

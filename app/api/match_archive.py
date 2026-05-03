@@ -36,10 +36,11 @@ import tempfile
 from typing import Optional
 
 from app.api import action_log
+from app.api.oid_validation import OID_PATTERN
 
 logger = logging.getLogger(__name__)
 
-_OID_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
+_OID_PATTERN = OID_PATTERN
 _FILENAME_HASH_LEN = 20
 
 # Match basename: ``match_<20-hex>_<UTC-ISO>.json`` where the timestamp

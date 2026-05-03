@@ -31,9 +31,13 @@ class TestSessionPersistenceFile:
         assert session_persistence.load_session_meta("never-saved") is None
 
     def test_invalid_oid_is_silently_ignored(self):
-        # Path-traversal-y inputs and OIDs with separators must not produce
-        # any file and load must return None.
-        for bad in ("../escape", "with/slash", "", "a" * 200, "white space"):
+        # Path-traversal-y inputs (``..``), out-of-range lengths, and OIDs
+        # containing whitespace or other disallowed characters must not
+        # produce any file. ``with/slash`` is intentionally NOT here:
+        # custom-overlay OIDs include slashes (e.g. ``C-foo/line``) and
+        # the on-disk basename is a sha256 prefix of the OID, so slashes
+        # never reach the filesystem path.
+        for bad in ("../escape", "", "a" * 201, "white space", "weird?chars"):
             session_persistence.save_session_meta(bad, {"simple": True})
             assert session_persistence.load_session_meta(bad) is None
 

@@ -4,6 +4,24 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 const analyze = process.env.ANALYZE === 'true';
 
+// Pre-compresses static assets at build time so the FastAPI server can
+// serve ``.gz`` / ``.br`` siblings without paying the CPU cost on every
+// request. ``vite-plugin-compression2`` is a soft dep: when it isn't
+// installed (e.g. legacy lockfile, dev-only env) the build still works,
+// it just ships uncompressed assets.
+async function maybeCompression() {
+  try {
+    const mod = await import('vite-plugin-compression2');
+    const compression = mod.compression || mod.default;
+    return [
+      compression({ algorithm: 'gzip', threshold: 1024 }),
+      compression({ algorithm: 'brotliCompress', threshold: 1024 }),
+    ];
+  } catch {
+    return [];
+  }
+}
+
 async function maybeVisualizer() {
   if (!analyze) return null;
   try {
@@ -28,6 +46,7 @@ export default defineConfig(async () => ({
   plugins: [
     react(),
     await maybeVisualizer(),
+    ...(await maybeCompression()),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['fonts/**/*', 'icon.svg'],

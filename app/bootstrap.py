@@ -288,6 +288,53 @@ def _register_system_endpoints(application: FastAPI) -> None:
             "service": "volley-overlay-control",
         }
 
+    @application.get("/health/ready")
+    def readiness_check():
+        """Readiness probe — fails when the app cannot serve real traffic.
+
+        Checks the local invariants the app needs to make forward progress:
+        the data directory is writable (audit log / session meta / match
+        archives all live there) and the FastAPI router is wired up.
+        Dependencies on external overlay servers are intentionally not
+        probed: a transient overlays.uno blip should not flip pods out
+        of the load balancer.
+        """
+        import time
+        from app.api import action_log
+
+        checks: dict[str, bool] = {}
+        details: dict[str, str] = {}
+
+        try:
+            data_dir = action_log._data_dir()
+            os.makedirs(data_dir, exist_ok=True)
+            probe = os.path.join(data_dir, ".readiness_probe")
+            with open(probe, "w", encoding="utf-8") as f:
+                f.write("ok")
+            os.remove(probe)
+            checks["data_dir_writable"] = True
+        except Exception as exc:
+            checks["data_dir_writable"] = False
+            details["data_dir_writable"] = str(exc)
+
+        try:
+            checks["routes_mounted"] = bool(application.routes)
+        except Exception as exc:
+            checks["routes_mounted"] = False
+            details["routes_mounted"] = str(exc)
+
+        all_ok = all(checks.values())
+        payload = {
+            "status": "ok" if all_ok else "degraded",
+            "timestamp": int(time.time()),
+            "service": "volley-overlay-control",
+            "checks": checks,
+        }
+        if details:
+            payload["details"] = details
+        status_code = 200 if all_ok else 503
+        return JSONResponse(payload, status_code=status_code)
+
 
 def _register_spa(application: FastAPI) -> None:
     """Mount the built SPA as the catch-all. Must be called last."""
