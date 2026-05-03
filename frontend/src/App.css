@@ -575,54 +575,18 @@ body {
   color: initial;
 }
 
-/* ── Set pagination ──────────────────────────────────────────────────── */
+/* ── Current set indicator ──────────────────────────────────────────── */
 
-.set-pagination {
+.current-set-indicator {
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-
-.pagination-arrow {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 2px;
-  display: flex;
-  align-items: center;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.pagination-arrow:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.pagination-arrow:not(:disabled):hover {
-  background: var(--surface-light);
-}
-
-.pagination-page {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.pagination-page:hover {
-  background: var(--surface-light);
-}
-
-.pagination-page-active {
-  background: #009688;
-  color: #fff;
+  justify-content: center;
+  align-self: center;
+  min-width: 28px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
 }
 
 /* ── Control buttons bar ─────────────────────────────────────────────── */

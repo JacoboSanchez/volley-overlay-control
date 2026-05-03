@@ -49,7 +49,6 @@ export interface ScoreboardViewProps {
   onDoubleTapTimeout: (teamId: 1 | 2) => void;
   onLongPressScore: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
-  onSetChange: (set: number) => void;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
@@ -89,7 +88,6 @@ export default function ScoreboardView({
   onDoubleTapTimeout,
   onLongPressScore,
   onLongPressSet,
-  onSetChange,
   onToggleVisibility,
   onToggleSimpleMode,
   onUndoLast,
@@ -138,7 +136,6 @@ export default function ScoreboardView({
           fontStyle={fontStyle}
           onAddSet={onAddSet}
           onLongPressSet={onLongPressSet}
-          onSetChange={onSetChange}
         />
 
         <TeamPanel
