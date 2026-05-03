@@ -108,9 +108,14 @@ class GameService:
             match_started_at=session.match_started_at,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        warn_threshold_ms = float(
-            EnvVarsManager.get_env_var('PERF_GET_STATE_WARN_MS', '50')
-        )
+        # Misconfigured env var must not turn every /state call into a 500;
+        # silently fall back to the documented default.
+        try:
+            warn_threshold_ms = float(
+                EnvVarsManager.get_env_var('PERF_GET_STATE_WARN_MS', '50')
+            )
+        except (TypeError, ValueError):
+            warn_threshold_ms = 50.0
         if elapsed_ms > warn_threshold_ms:
             logger.warning(
                 'get_state slow: %.1fms sets_limit=%s', elapsed_ms, session.sets_limit,
