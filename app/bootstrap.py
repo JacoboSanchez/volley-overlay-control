@@ -306,6 +306,7 @@ def _register_system_endpoints(application: FastAPI) -> None:
         """
         import tempfile
         import time
+
         from app.api import action_log
 
         checks: dict[str, bool] = {}

@@ -3701,6 +3701,23 @@
         "summary": "Health Check"
       }
     },
+    "/health/ready": {
+      "get": {
+        "description": "Readiness probe \u2014 fails when the app cannot serve real traffic.\n\nChecks the local invariants the app needs to make forward\nprogress: the data directory is writable (audit log, session\nmeta, and match archives all live there). Dependencies on\nexternal overlay servers are intentionally not probed: a\ntransient overlays.uno blip should not flip pods out of the\nload balancer.\n\nOn failure the underlying exception is logged but the response\nonly carries a generic reason \u2014 readiness probes are typically\nunauthenticated and we don't want to surface filesystem paths\nto whoever can reach the endpoint.",
+        "operationId": "readiness_check_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness Check"
+      }
+    },
     "/list/overlay": {
       "get": {
         "description": "Return every overlay id plus its output key.\n\nGated behind ``OVERLAY_MANAGER_PASSWORD`` because the response\ndefeats the capability-URL design of ``/overlay/{output_key}``.\nSee ``AUTHENTICATION.md`` (F-4).",
