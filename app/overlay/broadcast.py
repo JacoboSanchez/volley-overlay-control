@@ -116,7 +116,8 @@ class ObsBroadcastHub:
             task.cancel()
         clients = self._clients.pop(overlay_id, [])
         for client in clients:
+            # Best-effort: a client that already disconnected raises here.
             try:
                 await client.close()
-            except Exception:
+            except Exception:  # nosec B110
                 pass

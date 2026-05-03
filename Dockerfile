@@ -37,15 +37,16 @@ COPY font/ ./font/
 COPY overlay_static/ ./overlay_static/
 COPY overlay_templates/ ./overlay_templates/
 COPY --from=frontend-build /build/dist /app/frontend/dist
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Run as a non-root user to reduce blast radius if the process is
-# compromised. /app and the data directory it writes into must be owned by
-# this user; bind-mounted volumes mounted with different ownership need
-# matching UID on the host.
+# Create an unprivileged ``app`` user but keep the container starting as root
+# so the entrypoint can chown the data volume on first boot of an upgraded
+# image (existing volumes from previous images are root-owned). The entrypoint
+# drops to ``app`` via ``runuser`` before exec'ing the real command.
 RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --create-home --home /home/app app \
-    && chown -R app:app /app
-USER app
+    && chown -R app:app /app \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Standalone containers (not via compose) get the same liveness probe.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
@@ -53,4 +54,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 url = f\"http://127.0.0.1:{os.environ.get('APP_PORT','8080')}/health\"; \
 sys.exit(0 if urllib.request.urlopen(url, timeout=3).status == 200 else 1)"
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["python", "main.py"]

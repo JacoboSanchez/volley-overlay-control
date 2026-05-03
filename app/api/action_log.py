@@ -103,8 +103,6 @@ def append(oid: str, action: str, params: dict, result: dict) -> None:
         with _lock_for(oid):
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
-                f.flush()
-                os.fsync(f.fileno())
     except Exception as exc:
         logger.warning("Failed to append audit log for %r: %s", oid, exc)
 
@@ -229,8 +227,6 @@ def pop_last_forward(
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     f.writelines(lines)
-                    f.flush()
-                    os.fsync(f.fileno())
                 os.replace(tmp_path, path)
             except BaseException:
                 try:

@@ -212,8 +212,6 @@ class OverlayStateStore:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(state, f)
-                f.flush()
-                os.fsync(f.fileno())
             os.replace(tmp_path, path)
         except BaseException:
             try:
