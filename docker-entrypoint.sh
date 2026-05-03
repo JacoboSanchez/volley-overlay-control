@@ -13,18 +13,16 @@ DATA_DIR="${DATA_DIR:-/app/data}"
 
 if [ "$(id -u)" = "0" ]; then
   if [ -d "$DATA_DIR" ]; then
-    # Reclaim when the directory itself is wrong, OR when any file inside
-    # is. The first condition catches a freshly-mounted root-owned volume;
-    # the second catches the upgrade case where the directory was already
-    # 1000-owned but the previous root-running image wrote root-owned
-    # state files into it (the app user could then read them but not
-    # atomically replace them, silently losing config).
+    # Reclaim when ``$DATA_DIR`` or anything inside it is not 1000-owned.
+    # ``find`` evaluates the starting directory itself first, so this also
+    # catches the freshly-mounted root-owned-volume case without a separate
+    # ``stat`` check.
     #
-    # ``find ... -print -quit`` short-circuits on the first stale entry
-    # so a healthy volume still pays only one syscall.
-    if [ "$(stat -c '%u' "$DATA_DIR")" != "1000" ] \
-       || [ "$(stat -c '%g' "$DATA_DIR")" != "1000" ] \
-       || [ -n "$(find "$DATA_DIR" \( -not -uid 1000 -o -not -gid 1000 \) -print -quit 2>/dev/null)" ]; then
+    # ``-print -quit`` short-circuits on the first stale entry. A healthy
+    # volume is still walked end-to-end to confirm — fine for the dozens
+    # of JSON files this app writes; an operator running with a huge data
+    # volume can override DATA_DIR or pre-chown out of band.
+    if [ -n "$(find "$DATA_DIR" \( -not -uid 1000 -o -not -gid 1000 \) -print -quit 2>/dev/null)" ]; then
       echo "[entrypoint] Reclaiming $DATA_DIR for app:app (UID 1000)..."
       chown -R app:app "$DATA_DIR"
     fi
