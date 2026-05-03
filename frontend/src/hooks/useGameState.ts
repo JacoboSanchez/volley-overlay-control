@@ -3,7 +3,11 @@ import * as api from '../api/client';
 import type { GameState, ActionResponse, Team } from '../api/client';
 import type { components } from '../api/schema';
 import { createWebSocket } from '../api/websocket';
-import { WS_RECONNECT_MS } from '../constants';
+import {
+  WS_RECONNECT_BASE_MS,
+  WS_RECONNECT_FACTOR,
+  WS_RECONNECT_MAX_MS,
+} from '../constants';
 
 type Customization = Record<string, unknown>;
 type TeamState = components['schemas']['TeamState'];
@@ -84,6 +88,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttempts = useRef<number>(0);
   const abortRef = useRef<AbortController | null>(null);
   // Mirror of `state` used by handleAction so it can synchronously snapshot
   // the current state and apply an optimistic update without relying on an
@@ -114,11 +119,25 @@ export function useGameState(oid: string | null): UseGameStateResult {
     wsRef.current = createWebSocket(oid, {
       onStateUpdate: (newState) => applyState(newState),
       onCustomizationUpdate: (newCust) => setCustomization(newCust),
-      onOpen: () => setConnected(true),
+      onOpen: () => {
+        // Successful handshake: reset the backoff so the next outage
+        // starts retrying quickly again.
+        reconnectAttempts.current = 0;
+        setConnected(true);
+      },
       onClose: (event) => {
         setConnected(false);
         if (event.code !== 4004) {
-          reconnectTimer.current = setTimeout(connectWs, WS_RECONNECT_MS);
+          // Exponential backoff with jitter: prevents reconnect storms
+          // when many clients lose the server simultaneously, and avoids
+          // hammering an unreachable server during long outages.
+          const attempt = reconnectAttempts.current;
+          reconnectAttempts.current = attempt + 1;
+          const exp = WS_RECONNECT_BASE_MS * Math.pow(WS_RECONNECT_FACTOR, attempt);
+          const capped = Math.min(exp, WS_RECONNECT_MAX_MS);
+          const jitter = Math.random() * 0.3 * capped;
+          const delay = capped + jitter;
+          reconnectTimer.current = setTimeout(connectWs, delay);
         }
       },
       onError: () => setConnected(false),

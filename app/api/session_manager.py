@@ -66,6 +66,9 @@ class GameSession:
         self.current_set = self._compute_current_set()
         # Async lock for protecting concurrent mutations
         self.lock = asyncio.Lock()
+        # Coalesces concurrent customization refresh fetches so a burst
+        # of UI requests collapses into a single overlay-server round-trip.
+        self.customization_fetch_lock = threading.Lock()
         # Last access time for TTL-based cleanup
         self.last_accessed = time.monotonic()
         logger.info(

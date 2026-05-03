@@ -288,6 +288,59 @@ def _register_system_endpoints(application: FastAPI) -> None:
             "service": "volley-overlay-control",
         }
 
+    @application.get("/health/ready")
+    def readiness_check():
+        """Readiness probe — fails when the app cannot serve real traffic.
+
+        Checks the local invariants the app needs to make forward
+        progress: the data directory is writable (audit log, session
+        meta, and match archives all live there). Dependencies on
+        external overlay servers are intentionally not probed: a
+        transient overlays.uno blip should not flip pods out of the
+        load balancer.
+
+        On failure the underlying exception is logged but the response
+        only carries a generic reason — readiness probes are typically
+        unauthenticated and we don't want to surface filesystem paths
+        to whoever can reach the endpoint.
+        """
+        import tempfile
+        import time
+
+        from app.api import action_log
+
+        checks: dict[str, bool] = {}
+        reasons: dict[str, str] = {}
+
+        try:
+            data_dir = action_log._data_dir()
+            os.makedirs(data_dir, exist_ok=True)
+            # NamedTemporaryFile gives a unique name so concurrent probes
+            # cannot race on the same file handle. delete=True ensures
+            # the probe is cleaned up even if a later assertion raises.
+            with tempfile.NamedTemporaryFile(
+                dir=data_dir, prefix=".readiness_probe_", delete=True,
+            ) as probe:
+                probe.write(b"ok")
+                probe.flush()
+            checks["data_dir_writable"] = True
+        except Exception:
+            logger.exception("Readiness probe: data dir write failed")
+            checks["data_dir_writable"] = False
+            reasons["data_dir_writable"] = "write_failed"
+
+        all_ok = all(checks.values())
+        payload = {
+            "status": "ok" if all_ok else "degraded",
+            "timestamp": int(time.time()),
+            "service": "volley-overlay-control",
+            "checks": checks,
+        }
+        if reasons:
+            payload["reasons"] = reasons
+        status_code = 200 if all_ok else 503
+        return JSONResponse(payload, status_code=status_code)
+
 
 def _register_spa(application: FastAPI) -> None:
     """Mount the built SPA as the catch-all. Must be called last."""

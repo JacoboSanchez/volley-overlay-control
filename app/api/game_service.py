@@ -143,17 +143,33 @@ class GameService:
         callers still receive the current session model, just without a
         redundant HTTP round-trip. ``update_customization`` primes the
         timestamp, so a write is immediately visible on the next read.
+
+        Concurrent callers for the same session coalesce on
+        ``session.customization_fetch_lock``: only the first request hits
+        the overlay server, the rest return the freshly populated cache
+        as soon as the lock is released. Without this, a burst of UI
+        opens (config panel, scoreboard mount, control bar refresh) can
+        fire several simultaneous fetches before the first one populates
+        the TTL window.
         """
         now = time.monotonic()
         last = getattr(session, "_last_customization_fetch", None)
         if last is not None and now - last < CUSTOMIZATION_CACHE_TTL_SECONDS:
             return session.customization.get_model()
 
-        fresh = session.backend.get_current_customization()
-        if fresh is not None:
-            session.customization.set_model(fresh)
-        session._last_customization_fetch = now
-        return session.customization.get_model()
+        with session.customization_fetch_lock:
+            # Re-check inside the lock: a sibling caller may have refreshed
+            # while we were blocked, in which case the cache is now warm.
+            now = time.monotonic()
+            last = getattr(session, "_last_customization_fetch", None)
+            if last is not None and now - last < CUSTOMIZATION_CACHE_TTL_SECONDS:
+                return session.customization.get_model()
+
+            fresh = session.backend.get_current_customization()
+            if fresh is not None:
+                session.customization.set_model(fresh)
+            session._last_customization_fetch = now
+            return session.customization.get_model()
 
     # ------------------------------------------------------------------
     # State mutations

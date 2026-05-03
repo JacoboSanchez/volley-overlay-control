@@ -17,9 +17,10 @@ import hashlib
 import json
 import logging
 import os
-import re
 import tempfile
 from typing import Optional
+
+from app.api.oid_validation import OID_PATTERN
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 # convention is uniform.
 _FILENAME_HASH_LEN = 20
 
-_OID_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
+_OID_PATTERN = OID_PATTERN
 
 
 def _hashed_basename(oid: str) -> str:

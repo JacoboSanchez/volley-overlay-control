@@ -746,6 +746,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness Check
+         * @description Readiness probe — fails when the app cannot serve real traffic.
+         *
+         *     Checks the local invariants the app needs to make forward
+         *     progress: the data directory is writable (audit log, session
+         *     meta, and match archives all live there). Dependencies on
+         *     external overlay servers are intentionally not probed: a
+         *     transient overlays.uno blip should not flip pods out of the
+         *     load balancer.
+         *
+         *     On failure the underlying exception is logged but the response
+         *     only carries a generic reason — readiness probes are typically
+         *     unauthenticated and we don't want to surface filesystem paths
+         *     to whoever can reach the endpoint.
+         */
+        get: operations["readiness_check_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/list/overlay": {
         parameters: {
             query?: never;
@@ -2734,6 +2766,26 @@ export interface operations {
         };
     };
     health_check_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    readiness_check_health_ready_get: {
         parameters: {
             query?: never;
             header?: never;

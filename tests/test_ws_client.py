@@ -220,7 +220,7 @@ class TestBackendWSIntegration:
         mock_ws.is_connected = True
         mock_ws.send_state.return_value = True
         backend._overlay._ws_client = mock_ws
-        backend._customization_cache = {
+        backend._remember_customization({
             "Team 1 Text Name": "Local",
             "Team 2 Text Name": "Visitor",
             "Team 1 Color": "#060f8a",
@@ -240,7 +240,7 @@ class TestBackendWSIntegration:
             "Color 2": "#ffffff",
             "Text Color 2": "#2a2f35",
             "preferredStyle": "default",
-        }
+        })
 
         backend.update_local_overlay({"Current Set": "1"})
 
@@ -261,7 +261,7 @@ class TestBackendWSIntegration:
         mock_ws = MagicMock()
         mock_ws.is_connected = False
         backend._overlay._ws_client = mock_ws
-        backend._customization_cache = {
+        backend._remember_customization({
             "Team 1 Text Name": "Local",
             "Team 2 Text Name": "Visitor",
             "Team 1 Color": "#060f8a",
@@ -281,7 +281,7 @@ class TestBackendWSIntegration:
             "Color 2": "#ffffff",
             "Text Color 2": "#2a2f35",
             "preferredStyle": "default",
-        }
+        })
 
         backend.update_local_overlay({"Current Set": "1"})
 
@@ -322,7 +322,7 @@ class TestBackendWSIntegration:
         mock_ws.send_raw_config.return_value = True
         mock_ws.send_state.return_value = True
         backend._overlay._ws_client = mock_ws
-        backend._customization_cache = {
+        backend._remember_customization({
             "Team 1 Text Name": "Local",
             "Team 2 Text Name": "Visitor",
             "Team 1 Color": "#060f8a",
@@ -342,7 +342,7 @@ class TestBackendWSIntegration:
             "Color 2": "#ffffff",
             "Text Color 2": "#2a2f35",
             "preferredStyle": "default",
-        }
+        })
 
         backend.save_model({"Current Set": "1"}, simple=False)
 

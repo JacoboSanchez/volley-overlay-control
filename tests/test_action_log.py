@@ -30,9 +30,12 @@ class TestActionLog:
         assert action_log.read_all("never-written") == []
 
     def test_invalid_oid_silently_ignored(self):
+        # ``with/slash`` is intentionally omitted: custom-overlay OIDs
+        # legitimately contain slashes and the basename hashes the OID
+        # before touching the filesystem, so slash is safe.
         action_log.append("../bad", "add_point", {}, {})
-        action_log.append("with/slash", "add_point", {}, {})
         action_log.append("", "add_point", {}, {})
+        action_log.append("white space", "add_point", {}, {})
         # Verify no files were created.
         files = [
             f for f in os.listdir(action_log._data_dir())
