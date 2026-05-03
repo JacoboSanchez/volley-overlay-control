@@ -105,11 +105,24 @@ export default function App() {
     }
   }, [hasRoomForPersistentControls]);
 
+  // Reveal the bar whenever the match flips back to the pending state
+  // (initial load or post-reset) so the operator can see the Start button.
+  const matchStartedAt = state?.match_started_at ?? null;
+  useEffect(() => {
+    if (matchStartedAt == null) {
+      setShowControls(true);
+    }
+  }, [matchStartedAt, setShowControls]);
+
   useEffect(() => {
     // On tablets/desktops the control bar fits without covering scoreboard
     // elements, so skip the inactivity timer entirely.
     if (hasRoomForPersistentControls) return;
-    if (showControls && activeTab === 'scoreboard' && state) {
+    // Keep the bar visible while the match is pending — only arm the
+    // inactivity timer once ``match_started_at`` is stamped. Also covers
+    // the pre-init case where ``state`` itself is still null.
+    if (state?.match_started_at == null) return;
+    if (showControls && activeTab === 'scoreboard') {
       resetHideTimer();
       window.addEventListener('pointerdown', resetHideTimer, { passive: true });
     }
