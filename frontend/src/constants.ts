@@ -27,11 +27,8 @@ export const HUD_AUTO_HIDE_MS = 5000;
  *  detect zombie connections (ms). */
 export const WS_PING_INTERVAL_MS = 25000;
 
-/** Delay before attempting to reconnect after an unexpected close (ms).
- *  Excludes intentional close codes such as 4004 ("no session"). */
-export const WS_RECONNECT_MS = 3000;
-
-/** Initial delay for the exponential reconnect backoff (ms). */
+/** Initial delay for the exponential reconnect backoff (ms). Excludes
+ *  intentional close codes such as 4004 ("no session"). */
 export const WS_RECONNECT_BASE_MS = 1000;
 
 /** Upper bound for the exponential reconnect backoff (ms). Prevents the

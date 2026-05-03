@@ -6,11 +6,11 @@ backend or an HTTP session.
 
 The cache is intentionally tiny (one slot per ``Backend``) because each
 backend instance maps to one OID; multi-OID coordination happens at the
-``GameSession`` layer above. All reads and writes deep-copy the dict so
-callers can mutate their copy without poisoning the cached value, and a
-lock guards the slot because background save tasks (running on the
-backend's ``ThreadPoolExecutor``) update the cache concurrently with
-foreground reads from request handlers.
+``GameSession`` layer above. ``remember`` and ``fresh`` shallow-copy the
+dict so callers can swap top-level entries without poisoning the cached
+value, and a lock guards the slot because background save tasks (running
+on the backend's ``ThreadPoolExecutor``) update the cache concurrently
+with foreground reads from request handlers.
 """
 
 from __future__ import annotations
