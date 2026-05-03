@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import App from '../App';
 import * as api from '../api/client';
 import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
+import { HUD_AUTO_HIDE_MS } from '../constants';
 
 vi.mock('../api/client', () => ({
   initSession: vi.fn(),
@@ -160,5 +161,50 @@ describe('App', () => {
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('my-overlay') as HTMLInputElement;
     expect(input.value).toBe('alias-oid');
+  });
+
+  describe('HUD auto-hide', () => {
+    // Shrink the viewport below the persistent-controls breakpoint so the
+    // inactivity timer is actually engaged.
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 400 });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
+      vi.useFakeTimers();
+    });
+    afterEach(() => { vi.useRealTimers(); });
+
+    async function bootApp() {
+      renderWithI18n(<App />);
+      const input = screen.getByPlaceholderText('my-overlay');
+      fireEvent.change(input, { target: { value: 'auto-hide-oid' } });
+      fireEvent.submit(input.closest('form')!);
+      await vi.waitFor(() => {
+        expect(screen.getByTestId('team-1-sets')).toBeInTheDocument();
+      });
+    }
+
+    it('keeps the HUD visible while the match is pending (no match_started_at)', async () => {
+      vi.mocked(api.initSession).mockResolvedValue({
+        success: true,
+        state: { ...mockGameState, match_started_at: null },
+      });
+      await bootApp();
+      const hud = document.querySelector('.hud-controls')!;
+      expect(hud.classList.contains('ui-hidden')).toBe(false);
+      act(() => { vi.advanceTimersByTime(HUD_AUTO_HIDE_MS + 500); });
+      expect(hud.classList.contains('ui-hidden')).toBe(false);
+    });
+
+    it('auto-hides the HUD after inactivity once the match has started', async () => {
+      vi.mocked(api.initSession).mockResolvedValue({
+        success: true,
+        state: { ...mockGameState, match_started_at: 1700000000 },
+      });
+      await bootApp();
+      const hud = document.querySelector('.hud-controls')!;
+      expect(hud.classList.contains('ui-hidden')).toBe(false);
+      act(() => { vi.advanceTimersByTime(HUD_AUTO_HIDE_MS + 500); });
+      expect(hud.classList.contains('ui-hidden')).toBe(true);
+    });
   });
 });
