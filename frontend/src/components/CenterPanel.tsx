@@ -35,7 +35,6 @@ export interface CenterPanelProps {
   fontStyle?: ScoreButtonFontStyle;
   onAddSet: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
-  onSetChange: (set: number) => void;
 }
 
 const PREVIEW_CARD_WIDTH = 300;
@@ -52,7 +51,6 @@ export default function CenterPanel({
   fontStyle,
   onAddSet,
   onLongPressSet,
-  onSetChange,
 }: CenterPanelProps) {
   // Hooks must run before any early return — the hook itself handles
   // a null/undefined state by returning ``false``.
@@ -94,6 +92,9 @@ export default function CenterPanel({
                 teamId={1}
               />
             </div>
+            <div className="current-set-indicator" data-testid="current-set-indicator">
+              {currentSet}
+            </div>
             <div className="team-score-column">
               {logo2 && (
                 <img src={logo2} alt="Team 2" className="team-logo" data-testid="team-2-logo" />
@@ -108,6 +109,12 @@ export default function CenterPanel({
           </div>
         )}
 
+        {isPortrait && (
+          <div className="current-set-indicator" data-testid="current-set-indicator">
+            {currentSet}
+          </div>
+        )}
+
         <ScoreButton
           text={String(t2Sets)}
           color="#424242"
@@ -119,32 +126,6 @@ export default function CenterPanel({
           onLongPress={() => onLongPressSet(2)}
           data-testid="team-2-sets"
         />
-      </div>
-
-      <div className="set-pagination" data-testid="set-selector">
-        <button
-          className="pagination-arrow"
-          disabled={currentSet <= 1}
-          onClick={() => onSetChange(currentSet - 1)}
-        >
-          <span className="material-icons">chevron_left</span>
-        </button>
-        {Array.from({ length: setsLimit }, (_, i) => i + 1).map((num) => (
-          <button
-            key={num}
-            className={`pagination-page ${num === currentSet ? 'pagination-page-active' : ''}`}
-            onClick={() => onSetChange(num)}
-          >
-            {num}
-          </button>
-        ))}
-        <button
-          className="pagination-arrow"
-          disabled={currentSet >= setsLimit}
-          onClick={() => onSetChange(currentSet + 1)}
-        >
-          <span className="material-icons">chevron_right</span>
-        </button>
       </div>
 
       <div className="match-alerts-row" data-testid="match-alerts-row">

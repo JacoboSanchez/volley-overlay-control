@@ -254,14 +254,6 @@ export default function App() {
     setActiveTab('scoreboard');
   }, []);
 
-  const handleSetChange = useCallback(
-    (set: number) => {
-      const clamped = Math.max(1, Math.min(set, setsLimit));
-      setCurrentSet(clamped);
-    },
-    [setsLimit]
-  );
-
   // Per-team double-tap undoes the most recent forward of the
   // same (action, team). The server-side per-type undo path now
   // pops the matching forward from the audit log on its own, so
@@ -406,7 +398,6 @@ export default function App() {
           onDoubleTapTimeout={handleDoubleTapTimeout}
           onLongPressScore={handleLongPressScore}
           onLongPressSet={handleLongPressSet}
-          onSetChange={handleSetChange}
           onToggleVisibility={handleToggleVisibility}
           onToggleSimpleMode={handleToggleSimpleMode}
           onUndoLast={handleUndoLast}

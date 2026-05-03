@@ -13,7 +13,6 @@ const defaultProps = {
   previewData: null,
   onAddSet: vi.fn(),
   onLongPressSet: vi.fn(),
-  onSetChange: vi.fn(),
 };
 
 describe('CenterPanel', () => {
@@ -46,61 +45,23 @@ describe('CenterPanel', () => {
     expect(defaultProps.onAddSet).toHaveBeenCalledWith(2);
   });
 
-  it('renders set pagination with correct number of pages', () => {
+  it('does not render the legacy set selector', () => {
     renderWithI18n(<CenterPanel {...defaultProps} />);
-    const selector = screen.getByTestId('set-selector');
-    // Should have 5 page buttons + 2 arrows
-    const buttons = selector.querySelectorAll('button');
-    expect(buttons).toHaveLength(7);
+    expect(screen.queryByTestId('set-selector')).not.toBeInTheDocument();
   });
 
-  it('highlights current set in pagination', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} />);
-    const selector = screen.getByTestId('set-selector');
-    const activePages = selector.querySelectorAll('.pagination-page-active');
-    expect(activePages).toHaveLength(1);
-    expect(activePages[0]).toHaveTextContent('3');
+  it('renders the current set indicator with the active set number in landscape', () => {
+    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} isPortrait={false} />);
+    const indicators = screen.getAllByTestId('current-set-indicator');
+    expect(indicators).toHaveLength(1);
+    expect(indicators[0]).toHaveTextContent('3');
   });
 
-  it('calls onSetChange when pagination button clicked', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={2} />);
-    const selector = screen.getByTestId('set-selector');
-    const pageButtons = selector.querySelectorAll('.pagination-page');
-    // Click page 4
-    fireEvent.click(pageButtons[3]);
-    expect(defaultProps.onSetChange).toHaveBeenCalledWith(4);
-  });
-
-  it('disables left arrow when on first set', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={1} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    expect(arrows[0]).toBeDisabled();
-    expect(arrows[1]).not.toBeDisabled();
-  });
-
-  it('disables right arrow when on last set', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={5} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    expect(arrows[0]).not.toBeDisabled();
-    expect(arrows[1]).toBeDisabled();
-  });
-
-  it('calls onSetChange with decremented value on left arrow click', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    fireEvent.click(arrows[0]);
-    expect(defaultProps.onSetChange).toHaveBeenCalledWith(2);
-  });
-
-  it('calls onSetChange with incremented value on right arrow click', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    fireEvent.click(arrows[1]);
-    expect(defaultProps.onSetChange).toHaveBeenCalledWith(4);
+  it('renders the current set indicator with the active set number in portrait', () => {
+    renderWithI18n(<CenterPanel {...defaultProps} currentSet={4} isPortrait={true} />);
+    const indicators = screen.getAllByTestId('current-set-indicator');
+    expect(indicators).toHaveLength(1);
+    expect(indicators[0]).toHaveTextContent('4');
   });
 
   it('shows logos in landscape mode when customization has logos', () => {
