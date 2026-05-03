@@ -38,4 +38,19 @@ COPY overlay_static/ ./overlay_static/
 COPY overlay_templates/ ./overlay_templates/
 COPY --from=frontend-build /build/dist /app/frontend/dist
 
+# Run as a non-root user to reduce blast radius if the process is
+# compromised. /app and the data directory it writes into must be owned by
+# this user; bind-mounted volumes mounted with different ownership need
+# matching UID on the host.
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --create-home --home /home/app app \
+    && chown -R app:app /app
+USER app
+
+# Standalone containers (not via compose) get the same liveness probe.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request, os, sys; \
+url = f\"http://127.0.0.1:{os.environ.get('APP_PORT','8080')}/health\"; \
+sys.exit(0 if urllib.request.urlopen(url, timeout=3).status == 200 else 1)"
+
 CMD ["python", "main.py"]

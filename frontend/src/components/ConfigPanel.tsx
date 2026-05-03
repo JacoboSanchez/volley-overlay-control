@@ -121,10 +121,12 @@ export default function ConfigPanel({
   const [activeSection, setActiveSection] = useState<Section | null>('teams');
 
   useEffect(() => {
-    api.getTeams().then((d) => setPredefinedTeams(d as PredefinedTeams)).catch(console.warn);
-    api.getThemes().then((d) => setThemes(d as Themes)).catch(console.warn);
-    api.getLinks(oid).then((d) => setLinks(d as LinksData)).catch(console.warn);
-    api.getStyles(oid).then(setStyles).catch(console.warn);
+    let cancelled = false;
+    api.getTeams().then((d) => { if (!cancelled) setPredefinedTeams(d as PredefinedTeams); }).catch(console.warn);
+    api.getThemes().then((d) => { if (!cancelled) setThemes(d as Themes); }).catch(console.warn);
+    api.getLinks(oid).then((d) => { if (!cancelled) setLinks(d as LinksData); }).catch(console.warn);
+    api.getStyles(oid).then((d) => { if (!cancelled) setStyles(d); }).catch(console.warn);
+    return () => { cancelled = true; };
   }, [oid]);
 
   const updateField = useCallback((key: string, value: unknown) => {

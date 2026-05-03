@@ -19,6 +19,7 @@ from app.api.schemas import (
 )
 from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
+from app.env_vars_manager import EnvVarsManager
 from app.state import State
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,10 @@ class GameService:
             match_started_at=session.match_started_at,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        if elapsed_ms > 50:
+        warn_threshold_ms = float(
+            EnvVarsManager.get_env_var('PERF_GET_STATE_WARN_MS', '50')
+        )
+        if elapsed_ms > warn_threshold_ms:
             logger.warning(
                 'get_state slow: %.1fms sets_limit=%s', elapsed_ms, session.sets_limit,
             )

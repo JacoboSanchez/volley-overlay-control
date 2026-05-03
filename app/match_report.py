@@ -37,6 +37,7 @@ import datetime
 import html
 import logging
 import re
+import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
@@ -112,7 +113,7 @@ def _require_admin_token(
                 "OVERLAY_MANAGER_PASSWORD."
             ),
         )
-    if provided != expected:
+    if not secrets.compare_digest(provided, expected):
         raise HTTPException(status_code=403, detail="Invalid token.")
 
 
