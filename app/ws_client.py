@@ -90,9 +90,11 @@ class WSControlClient:
         self._stop_event.set()
         with self._lock:
             if self._ws:
+                # close() races the receiver thread; the socket may already
+                # be torn down on the remote side. Swallow.
                 try:
                     self._ws.close()
-                except Exception:
+                except Exception:  # nosec B110
                     pass
                 self._ws = None
             self._connected = False

@@ -92,7 +92,9 @@ _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     # ``password=…``, ``api_key=…``, ``token=…``, ``secret=…`` in URLs/forms.
     re.compile(r"(?i)\b((?:password|api[_-]?key|token|secret)=)[^\s&'\"]+"),
 )
-_SECRET_PLACEHOLDER = "***"
+# Bandit B105 false positive: this is the redaction marker we substitute
+# secrets with in logs, not a hardcoded credential.
+_SECRET_PLACEHOLDER = "***"  # nosec B105
 
 
 def _scrub_secrets(text: str) -> str:

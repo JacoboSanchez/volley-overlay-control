@@ -423,7 +423,7 @@ class Backend:
         self.save_model(state.get_current_model(), simple)
 
     def process_response(self, response):
-        if response.status_code >= 300:
+        if response.status_code >= 400:
             logging.warning("response %s: '%s'", response.status_code, response.text)
         else:
             logging.info("response status: %s", response.status_code)

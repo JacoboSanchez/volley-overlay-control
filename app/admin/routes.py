@@ -196,11 +196,14 @@ async def delete_custom_overlay(name: str):
     existed = await run_in_threadpool(store.delete_overlay, name)
     if not existed:
         raise HTTPException(status_code=404, detail=f"Overlay '{name}' not found.")
+    # Best-effort cleanup of the broadcast hub: the overlay is already gone,
+    # so a stray exception here must not surface as a 500 to the operator.
     try:
         from app.overlay import obs_broadcast_hub
         await obs_broadcast_hub.cleanup_overlay(name)
-    except Exception:
+    except Exception:  # nosec B110
         pass
+    # Best-effort cleanup of the per-OID auxiliary state: same rationale.
     try:
         from app.api import action_log, match_archive
         from app.api.session_manager import SessionManager
@@ -209,6 +212,6 @@ async def delete_custom_overlay(name: str):
         delete_session_meta(name)
         action_log.delete(name)
         match_archive.delete_for_oid(name)
-    except Exception:
+    except Exception:  # nosec B110
         pass
     return {"ok": True}

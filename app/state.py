@@ -92,7 +92,6 @@ class State:
             self._state = GameState()
         else:
             self._state = self._from_dict(new_state)
-            self._state.current_set = 1
 
     @staticmethod
     def _from_dict(d: dict) -> GameState:

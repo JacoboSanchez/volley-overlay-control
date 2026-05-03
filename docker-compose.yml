@@ -32,9 +32,15 @@ services:
       - PREDEFINED_OVERLAYS=${PREDEFINED_OVERLAYS:-}
       - HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=${HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED:-}
       - OVERLAY_MANAGER_PASSWORD=${OVERLAY_MANAGER_PASSWORD:-} #Optional: unlocks the /manage admin page
+      - OVERLAY_SERVER_TOKEN=${OVERLAY_SERVER_TOKEN:-} #Optional: bearer token for the external overlay server
+      - MATCH_REPORT_PUBLIC=${MATCH_REPORT_PUBLIC:-false} #Optional: open match-report routes to anonymous reads
       - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
       - REST_USER_AGENT=${REST_USER_AGENT:-}
       - APP_THEMES=${APP_THEMES:-}
+      - WEBHOOKS_URL=${WEBHOOKS_URL:-} #Optional: single outbound webhook endpoint
+      - WEBHOOKS_SECRET=${WEBHOOKS_SECRET:-} #Optional: HMAC-SHA256 secret for the single endpoint
+      - WEBHOOKS_JSON=${WEBHOOKS_JSON:-} #Optional: multi-target webhook config as JSON
+      - PERF_GET_STATE_WARN_MS=${PERF_GET_STATE_WARN_MS:-50} #Optional: slow-path threshold for GET /api/v1/state
     healthcheck:
       # python:3.12-slim does not ship with curl; use urllib instead of
       # installing an extra binary just for the probe.

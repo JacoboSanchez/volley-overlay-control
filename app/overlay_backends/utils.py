@@ -1,8 +1,11 @@
 """Small helpers shared by the overlay backend strategies."""
 
+import logging
 import re
 from enum import Enum
-from typing import Callable
+from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 # UNO overlay IDs are exactly 22 mixed-case alphanumeric characters
 # (e.g. ``2cIXk2IjHvMuva6Wwele8j``). The format is documented by overlays.uno
@@ -86,6 +89,21 @@ def resolve_overlay_kind(
     if matches_uno_format(s):
         return OverlayKind.UNO
     return OverlayKind.INVALID
+
+
+def safe_json(response, default: Any = None) -> Any:
+    """Decode *response*'s JSON body, returning *default* on parse error.
+
+    Overlay servers occasionally reply with HTML error pages even on 2xx, and
+    a raw ``response.json()`` would raise and bubble up to the request
+    handler. Treating malformed bodies as missing payloads degrades
+    gracefully.
+    """
+    try:
+        return response.json()
+    except (ValueError, AttributeError) as exc:
+        logger.warning("Non-JSON overlay response: %s", exc)
+        return default
 
 
 def _mock_response(status_code=200, payload=None):

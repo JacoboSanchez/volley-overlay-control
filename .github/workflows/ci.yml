@@ -9,6 +9,12 @@ on:
   pull_request:
     branches: [ "main", "dev" ]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Only cancel in-flight runs on PR branches. Pushes to main/dev still run
+  # to completion so we keep a green-build signal on protected branches.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Run Pytest and Linters

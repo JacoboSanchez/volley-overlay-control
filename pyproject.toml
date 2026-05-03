@@ -72,6 +72,12 @@ warn_redundant_casts = true
 log_cli = false
 log_level = "WARNING"
 
+[tool.bandit]
+# Skip ``B101`` (asserts in test code) and ``B311`` (random for non-crypto)
+# globally — both are deliberate in our codebase.
+skips = ["B101", "B311"]
+exclude_dirs = ["tests", "frontend", "scripts"]
+
 [tool.coverage.run]
 source = ["app"]
 branch = true

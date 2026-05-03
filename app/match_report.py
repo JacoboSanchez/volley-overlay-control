@@ -37,6 +37,7 @@ import datetime
 import html
 import logging
 import re
+import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
@@ -112,7 +113,7 @@ def _require_admin_token(
                 "OVERLAY_MANAGER_PASSWORD."
             ),
         )
-    if provided != expected:
+    if not secrets.compare_digest(provided, expected):
         raise HTTPException(status_code=403, detail="Invalid token.")
 
 
@@ -131,7 +132,9 @@ def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
         return
     _require_admin_token(
         authorization, token,
-        missing_password_detail=(
+        # Bandit B106 false positive: this is the error message shown
+        # when the password env var is unset, not a hardcoded credential.
+        missing_password_detail=(  # nosec B106
             "Match reports are disabled. Set OVERLAY_MANAGER_PASSWORD "
             "for gated access or MATCH_REPORT_PUBLIC=true for open "
             "access."
@@ -152,7 +155,9 @@ def _check_admin_access(authorization: Optional[str], token: Optional[str]) -> N
     """
     _require_admin_token(
         authorization, token,
-        missing_password_detail=(
+        # Bandit B106 false positive: this is the error message shown
+        # when the password env var is unset, not a hardcoded credential.
+        missing_password_detail=(  # nosec B106
             "Destructive match-archive actions are disabled. "
             "Set OVERLAY_MANAGER_PASSWORD to enable them."
         ),

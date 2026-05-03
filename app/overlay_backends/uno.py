@@ -8,7 +8,7 @@ import requests.exceptions
 
 from app.app_storage import AppStorage
 from app.overlay_backends.base import OverlayBackend
-from app.overlay_backends.utils import _mock_response
+from app.overlay_backends.utils import _mock_response, safe_json
 from app.state import State
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class UnoOverlayBackend(OverlayBackend):
 
         response = self._send_command("GetOverlayContent", oid=target_oid)
         if response.status_code == 200:
-            result = response.json().get('payload')
+            result = (safe_json(response, default={}) or {}).get('payload')
             if save_result and result:
                 AppStorage.save(AppStorage.Category.CURRENT_MODEL, result, oid=target_oid)
             return result
@@ -71,13 +71,13 @@ class UnoOverlayBackend(OverlayBackend):
     def get_customization(self, oid: str = None) -> dict | None:
         response = self._send_command("GetCustomization", oid=oid)
         if response.status_code == 200:
-            return response.json().get('payload')
+            return (safe_json(response, default={}) or {}).get('payload')
         return None
 
     def is_visible(self) -> bool:
         response = self._send_command("GetOverlayVisibility")
         if response.status_code == 200:
-            return response.json().get('payload', False)
+            return (safe_json(response, default={}) or {}).get('payload', False)
         return False
 
     def get_available_styles(self, oid: str = None) -> list:
@@ -89,7 +89,7 @@ class UnoOverlayBackend(OverlayBackend):
             url = f'https://app.overlays.uno/apiv2/controlapps/{target_oid}'
             response = self.session.get(url, timeout=5.0)
             if response.status_code == 200:
-                output_url = response.json().get('outputUrl')
+                output_url = (safe_json(response, default={}) or {}).get('outputUrl')
                 if output_url:
                     match = re.search(r'/output/([^/?]+)', output_url)
                     if match:
@@ -116,7 +116,7 @@ class UnoOverlayBackend(OverlayBackend):
         payload = {"command": "GetOverlays", "value": ""}
         response = self._do_request(oid, payload)
         if hasattr(response, 'status_code') and response.status_code == 200:
-            result = response.json().get('payload')
+            result = (safe_json(response, default={}) or {}).get('payload')
             if result and isinstance(result, list) and len(result) > 0:
                 overlay_id = result[0].get('id')
                 if overlay_id:
