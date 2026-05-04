@@ -565,6 +565,150 @@ describe('useRecentEvents', () => {
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
   });
 
+  it('drops sticky events when match_started_at changes (new match boundary)', async () => {
+    // First fetch: a forward point lives in the audit and surfaces a
+    // chip, populating the stickiness buffer.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 1,
+      records: [
+        rec(10, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 1, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+      ],
+    });
+    // Second fetch (after match reset): empty audit, fresh
+    // ``match_started_at``. The sticky chip from the previous match
+    // must not bleed into the new one.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 0,
+      records: [],
+    });
+    const stateWithStart = (started: number, points = 1): GameState => ({
+      ...makeState(points, 0),
+      match_started_at: started,
+    } as unknown as GameState);
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: stateWithStart(1000) } },
+    );
+    await waitFor(() => expect(result.current).toHaveLength(1));
+    // Match resets: start time changes, score back to zero.
+    rerender({ s: stateWithStart(2000, 0) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current).toEqual([]));
+  });
+
+  it('anchors set_undo ts to the latest merged event, not Date.now', async () => {
+    // First fetch: set-winning point at ts=10. After classification,
+    // ``priorEvents`` holds the [point_add, set_won] pair both at
+    // ts=10 (the audit ts).
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(9, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 0 },
+          team_2: { score: 20, sets: 0 },
+        }),
+        rec(10, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 25, sets: 1 },
+          team_2: { score: 20, sets: 0 },
+        }),
+      ],
+    });
+    // Second fetch: forward popped, undo at ts=11.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(9, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 0 },
+          team_2: { score: 20, sets: 0 },
+        }),
+        rec(11, 'add_point', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 0 },
+          team_2: { score: 20, sets: 0 },
+        }),
+      ],
+    });
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: makeState(25, 20, 1, 0) } },
+    );
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'set_won')).toBe(true),
+    );
+    rerender({ s: makeState(24, 20, 0, 0) });
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'set_undo')).toBe(true),
+    );
+    const setUndo = result.current.find((e) => e.kind === 'set_undo');
+    // Ts must be derived from the latest merged audit ts (11), with
+    // a small bump — *not* a Date.now() value (which would be on the
+    // order of 1.7e9, an order of magnitude apart).
+    expect(setUndo!.ts).toBeGreaterThan(11);
+    expect(setUndo!.ts).toBeLessThan(12);
+  });
+
+  it('does not collapse two distinct manual chips with the same ts but different values', async () => {
+    // Two manual corrections that happen to share a ts (e.g.
+    // low-resolution server clock). They differ in ``value`` and
+    // must not dedupe each other when stickiness merges them.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(10, 'set_score', { team: 1, set_number: 1, value: 5 }, {
+          score_set: 1,
+          team_1: { score: 5, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+        rec(10, 'set_score', { team: 1, set_number: 1, value: 7 }, {
+          score_set: 1,
+          team_1: { score: 7, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+      ],
+    });
+    // Same payload on refetch — sticky merge must surface both.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(10, 'set_score', { team: 1, set_number: 1, value: 5 }, {
+          score_set: 1,
+          team_1: { score: 5, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+        rec(10, 'set_score', { team: 1, set_number: 1, value: 7 }, {
+          score_set: 1,
+          team_1: { score: 7, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+      ],
+    });
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: makeState(7, 0) } },
+    );
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    // Trigger a refetch — same records, sticky merge must not
+    // collapse the two manual chips into one.
+    rerender({ s: makeState(7, 1) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    const values = result.current.map((e) => e.value).sort();
+    expect(values).toEqual([5, 7]);
+  });
+
   it('clears events on fetch error', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     getAuditSpy.mockRejectedValue(new Error('boom'));

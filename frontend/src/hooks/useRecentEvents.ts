@@ -193,6 +193,7 @@ interface PriorSnapshot {
   sets1: number;
   sets2: number;
   matchFinished: boolean;
+  matchStartedAt: number | null;
 }
 
 function snapshotState(state: GameState | null): PriorSnapshot | null {
@@ -201,6 +202,8 @@ function snapshotState(state: GameState | null): PriorSnapshot | null {
     sets1: state.team_1?.sets ?? 0,
     sets2: state.team_2?.sets ?? 0,
     matchFinished: state.match_finished === true,
+    matchStartedAt:
+      typeof state.match_started_at === 'number' ? state.match_started_at : null,
   };
 }
 
@@ -237,8 +240,17 @@ export function useRecentEvents(
       return;
     }
     const prior = priorSnapshotRef.current;
-    const priorEvents = priorEventsRef.current;
     const cur = snapshotState(state);
+    // Drop the stickiness buffer when the operator (re)starts the
+    // match — ``match_started_at`` flipping from one timestamp to
+    // another (or to / from null) means the prior chips belong to
+    // a different match and shouldn't bleed across the boundary.
+    const matchBoundary =
+      prior !== null && cur !== null && prior.matchStartedAt !== cur.matchStartedAt;
+    if (matchBoundary) {
+      priorEventsRef.current = [];
+    }
+    const priorEvents = priorEventsRef.current;
     const controller = new AbortController();
     let cancelled = false;
     // 3× headroom over ``max`` covers interleaved ``add_set`` /
@@ -257,8 +269,14 @@ export function useRecentEvents(
         // ``priorEvents`` that isn't matched by an entry in
         // ``fresh`` (same ts + team + kind) is treated as popped
         // and re-added.
+        // ``value`` is part of the identity for ``manual`` chips — two
+        // different manual corrections can land at the same ts (e.g.
+        // low-resolution server clock) and must not dedupe each other.
         const isSame = (a: RecentEvent, b: RecentEvent) =>
-          a.ts === b.ts && a.team === b.team && a.kind === b.kind;
+          a.ts === b.ts &&
+          a.team === b.team &&
+          a.kind === b.kind &&
+          a.value === b.value;
         const popped = priorEvents.filter(
           (p) => !fresh.some((f) => isSame(f, p)),
         );
@@ -268,12 +286,16 @@ export function useRecentEvents(
         if (prior && cur) {
           // Set / match undo detection: append a struck-chip when
           // sets dropped or match_finished flipped back to false
-          // between refetches. ``Date.now() / 1000`` matches the
-          // audit ``ts`` unit so the chip sorts after anything in
-          // the response.
+          // between refetches. Anchor the synthetic ts to the most
+          // recent event we already have rather than ``Date.now()``
+          // — the audit log's ts is the server clock and a drifted
+          // client clock could otherwise sort the undo chip ahead
+          // of records that actually happened later.
           const matchUndone = prior.matchFinished && !cur.matchFinished;
-          const ts = Date.now() / 1000;
+          let ts =
+            merged.length > 0 ? merged[merged.length - 1].ts : Date.now() / 1000;
           if (cur.sets1 < prior.sets1) {
+            ts += 1e-3;
             merged.push({
               ts,
               team: 1,
@@ -281,6 +303,7 @@ export function useRecentEvents(
             });
           }
           if (cur.sets2 < prior.sets2) {
+            ts += 1e-3;
             merged.push({
               ts,
               team: 2,
