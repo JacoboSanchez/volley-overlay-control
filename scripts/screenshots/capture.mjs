@@ -427,12 +427,38 @@ async function captureScoreboard(page) {
 
 async function captureScoreboardPhone(page) {
   await page.setViewportSize(PHONE_VIEWPORT);
+  // First nav establishes the SPA's localStorage origin so the
+  // ``volley_showPreview`` flag can be written, then a reload picks
+  // it up. With the preview hidden the centre column renders the
+  // points-history strip in the slot the iframe would have occupied
+  // — same toggle the operator flips via the tv/tv_off button. The
+  // strip is the more useful at-a-glance surface on a phone (no
+  // micro-iframe to squint at), so the portrait shot leads with it.
   await page.goto(`${BASE}/?oid=${encodeURIComponent(DEMO_OID)}`, {
-    waitUntil: 'networkidle',
+    waitUntil: 'domcontentloaded',
   });
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('volley_showPreview', JSON.stringify(false));
+    } catch (_) { /* ignore */ }
+  });
+  await page.reload({ waitUntil: 'networkidle' });
   await dismissPwaPrompt(page);
+  // The strip is populated from the audit log via a fetch, so wait
+  // until at least one chip has rendered before snapping. Fail open
+  // — the screenshot still proceeds if the selector times out.
+  await page.waitForSelector('[data-testid="points-history-strip"] .phs-chip', {
+    timeout: 5000,
+  }).catch(() => {});
   await page.waitForTimeout(800);
   await page.screenshot({ path: resolve(OUT_DIR, '03-scoreboard-phone.png'), fullPage: false });
+  // Restore the default so subsequent captures (config panel etc.)
+  // don't inherit the preview-hidden state.
+  await page.evaluate(() => {
+    try {
+      localStorage.removeItem('volley_showPreview');
+    } catch (_) { /* ignore */ }
+  });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
