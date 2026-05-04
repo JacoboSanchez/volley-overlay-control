@@ -84,6 +84,7 @@ export default function App() {
 
   const {
     state,
+    confirmedState,
     customization,
     error,
     initialize,
@@ -102,10 +103,15 @@ export default function App() {
 
   // Filled only while the preview is hidden, so the centre column shows
   // a momentum strip in place of the empty preview gap.
+  // Uses ``confirmedState`` (not ``state``) so the audit refetch is triggered
+  // only after the server has acknowledged a change. Depending on the
+  // optimistically-updated ``state`` would race the audit GET against the
+  // in-flight POST and silently drop the chip for the action that just
+  // happened — it would only surface together with the next confirmed event.
   const recentEvents = useRecentEvents(
     oid,
     !settings.showPreview,
-    state,
+    confirmedState,
     compactLandscape ? 5 : 8,
   );
 

@@ -134,6 +134,51 @@ describe('useGameState', () => {
     expect(result.current.state).toEqual(updatedState);
   });
 
+  it('addPoint applies optimistic to state but defers confirmedState until response', async () => {
+    // Mirrors the audit-strip refetch race. Consumers that key off
+    // ``confirmedState`` (e.g. the recent-events hook) should not advance
+    // their cache key until the server has acknowledged the action —
+    // otherwise their refetch races the in-flight POST and misses the
+    // freshly-appended audit row.
+    const updatedState = {
+      ...mockState,
+      team_1: { ...mockState.team_1, scores: { set_1: 1 } },
+    } as unknown as GameState;
+    let resolveAddPoint: (value: { success: true; state: GameState }) => void = () => {};
+    vi.mocked(api.addPoint).mockReturnValue(
+      new Promise((resolve) => {
+        resolveAddPoint = resolve;
+      }),
+    );
+
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    const stateBefore = result.current.state;
+    const confirmedBefore = result.current.confirmedState;
+    expect(confirmedBefore).toEqual(mockState);
+
+    let actionPromise: Promise<unknown> = Promise.resolve();
+    act(() => {
+      actionPromise = result.current.actions.addPoint(1);
+    });
+
+    // Optimistic phase: state has advanced, confirmedState has not.
+    expect(result.current.state).not.toEqual(stateBefore);
+    expect(result.current.confirmedState).toEqual(confirmedBefore);
+
+    await act(async () => {
+      resolveAddPoint({ success: true, state: updatedState });
+      await actionPromise;
+    });
+
+    // Confirmation phase: confirmedState catches up to the server's truth.
+    expect(result.current.state).toEqual(updatedState);
+    expect(result.current.confirmedState).toEqual(updatedState);
+  });
+
   it('addPoint with undo passes undo flag', async () => {
     vi.mocked(api.addPoint).mockResolvedValue({ success: true, state: mockState });
     const { result } = renderHook(() => useGameState('oid'));
