@@ -166,7 +166,7 @@ function Row({ team, events, color, textColor, logo, name }: RowProps) {
         const isOurs = ev.team === team;
         return (
           <span
-            key={`${ev.ts}-${i}`}
+            key={`${ev.ts}-${ev.team}-${ev.kind}-${ev.value ?? ''}`}
             className="phs-cell"
             data-testid={`phs-cell-${team}-${i}`}
           >
