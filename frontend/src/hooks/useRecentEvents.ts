@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
 import type { GameState, AuditRecord } from '../api/client';
 import type { components } from '../api/schema';
@@ -9,7 +9,9 @@ export type RecentEventKind =
   | 'point_add'
   | 'point_undo'
   | 'set_won'
+  | 'set_undo'
   | 'match_won'
+  | 'match_undo'
   | 'timeout'
   | 'timeout_undo'
   | 'manual';
@@ -113,24 +115,19 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
           events.push({ ts: r.ts, team: t, kind: undo ? 'point_undo' : 'point_add' });
           break;
         case 'add_timeout': {
-          if (undo) {
-            // Adjacency: was the previous record's post-state
-            // already at this record's post-state? Then the popped
-            // forward had no in-between records — both the original
-            // and the undo collapse to nothing visible. Otherwise
-            // we already synthesized the forward chip above (one or
-            // more in-between records carried the bumped count) and
-            // the undo gets its struck chip here.
-            const post = (result[`team_${t}`] as Record<string, unknown> | undefined)?.timeouts;
-            const prev = prevTimeouts ? prevTimeouts[t] : post;
-            if (typeof post === 'number' && prev === post) {
-              // Adjacent — emit nothing.
-            } else {
-              events.push({ ts: r.ts, team: t, kind: 'timeout_undo' });
-            }
-          } else {
-            events.push({ ts: r.ts, team: t, kind: 'timeout' });
-          }
+          // Always emit a chip on undo so the operator gets the same
+          // visual signal as for any other undone action. The
+          // synthesized forward chip above only fires when one or
+          // more in-between records observed the bumped count, so:
+          //   - Adjacent undo (no in-betweens): just the struck chip.
+          //   - Non-adjacent undo: synth forward + in-betweens +
+          //     struck — recovers the timeline the operator saw
+          //     before clicking undo.
+          events.push({
+            ts: r.ts,
+            team: t,
+            kind: undo ? 'timeout_undo' : 'timeout',
+          });
           break;
         }
         case 'set_score': {
@@ -192,6 +189,21 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
   return events;
 }
 
+interface PriorSnapshot {
+  sets1: number;
+  sets2: number;
+  matchFinished: boolean;
+}
+
+function snapshotState(state: GameState | null): PriorSnapshot | null {
+  if (!state) return null;
+  return {
+    sets1: state.team_1?.sets ?? 0,
+    sets2: state.team_2?.sets ?? 0,
+    matchFinished: state.match_finished === true,
+  };
+}
+
 export function useRecentEvents(
   oid: string | null,
   enabled: boolean,
@@ -200,12 +212,22 @@ export function useRecentEvents(
 ): RecentEvent[] {
   const [events, setEvents] = useState<RecentEvent[]>([]);
   const key = scoringKey(state);
+  // Holds the snapshot we last successfully classified against. We
+  // diff prior vs current to detect set / match undoes — those can't
+  // be detected from the audit log alone (``pop_last_forward``
+  // physically removes the original set-winning forward record and
+  // doesn't store the popped payload anywhere visible to the
+  // classifier).
+  const priorRef = useRef<PriorSnapshot | null>(null);
 
   useEffect(() => {
     if (!enabled || !oid) {
       setEvents([]);
+      priorRef.current = null;
       return;
     }
+    const prior = priorRef.current;
+    const cur = snapshotState(state);
     const controller = new AbortController();
     let cancelled = false;
     // 3× headroom over ``max`` covers interleaved ``add_set`` /
@@ -216,7 +238,31 @@ export function useRecentEvents(
       .then((res) => {
         if (cancelled) return;
         const all = classifyRecords(res.records);
+        if (prior && cur) {
+          // Set / match undo detection: append a struck-chip overlay
+          // when sets dropped or match_finished flipped from true to
+          // false between consecutive refetches. ``Date.now() / 1000``
+          // matches the audit ``ts`` unit so the chip sorts after
+          // anything in the response.
+          const matchUndone = prior.matchFinished && !cur.matchFinished;
+          const ts = Date.now() / 1000;
+          if (cur.sets1 < prior.sets1) {
+            all.push({
+              ts,
+              team: 1,
+              kind: matchUndone ? 'match_undo' : 'set_undo',
+            });
+          }
+          if (cur.sets2 < prior.sets2) {
+            all.push({
+              ts,
+              team: 2,
+              kind: matchUndone ? 'match_undo' : 'set_undo',
+            });
+          }
+        }
         setEvents(all.slice(-max));
+        priorRef.current = cur;
       })
       .catch((err) => {
         if (controller.signal.aborted) return;

@@ -28,23 +28,24 @@ once a first tagged release ships.
     ``add_set`` action and — far more common — the set-winning
     ``add_point`` (which the backend logs as ``add_point``
     only, with the new ``sets`` count carried in the result
-    block).
-  * Trophy icon when the same diff also flips
-    ``match_finished`` to ``true``, so the operator can
-    distinguish set wins from match-ending wins at a glance.
-  * Clock icon for ``add_timeout``. Undoes are smarter than
-    the prior "always show a struck clock" rule: when the undo
-    is adjacent to its forward (no in-between records), both
-    chips collapse to nothing — the operator sees the strip
-    return to where it was. When the undo is non-adjacent
-    (some action happened in between), the classifier
-    synthesizes the missing forward chip from the post-state
-    timeout diff (the forward record was physically removed by
-    ``pop_last_forward`` so we never see it directly) and
-    emits the struck chip at the undo's position. The
-    synthesized chip is placed before the first in-between
-    record that observed the bumped count, so the temporal
-    order in the strip stays right.
+    block). Struck-star variant when the operator undoes the
+    set-winning point: detected via a React state diff
+    (``team_X.sets`` drops between refetches), since the
+    audit log alone can't reconstruct the popped forward.
+  * Trophy icon when the same sets diff also flips
+    ``match_finished`` to ``true``. Struck-trophy variant when
+    ``match_finished`` flips back to ``false`` (operator undoes
+    the match-winning point).
+  * Clock icon for ``add_timeout``; struck-clock for any undo
+    of a timeout — same rule as ``point_undo`` so the strip is
+    visually consistent across action types. When the undo is
+    non-adjacent (some action happened in between), the
+    classifier additionally synthesizes the missing forward
+    chip from the post-state timeout diff (the forward record
+    was physically removed by ``pop_last_forward`` so we never
+    see it directly) and places it before the first in-between
+    record that observed the bumped count, recovering the
+    timeline the operator saw before clicking undo.
   * Pencil icon plus the absolute new score (e.g. ``15``,
     ``0``) for a ``set_score`` manual correction. No-op
     corrections (typed value matches the current value) are
