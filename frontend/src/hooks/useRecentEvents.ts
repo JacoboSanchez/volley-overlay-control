@@ -212,21 +212,32 @@ export function useRecentEvents(
 ): RecentEvent[] {
   const [events, setEvents] = useState<RecentEvent[]>([]);
   const key = scoringKey(state);
-  // Holds the snapshot we last successfully classified against. We
-  // diff prior vs current to detect set / match undoes — those can't
-  // be detected from the audit log alone (``pop_last_forward``
-  // physically removes the original set-winning forward record and
-  // doesn't store the popped payload anywhere visible to the
-  // classifier).
-  const priorRef = useRef<PriorSnapshot | null>(null);
+  // Snapshot we last successfully classified against. We diff prior
+  // vs current to detect set / match undoes — those can't be
+  // detected from the audit log alone (``pop_last_forward``
+  // physically removes the original forward record and doesn't
+  // store the popped payload anywhere visible to the classifier).
+  const priorSnapshotRef = useRef<PriorSnapshot | null>(null);
+  // The full event list we last surfaced. Used to keep "popped"
+  // chips visible across refetches: when the operator undoes a
+  // forward action, ``pop_last_forward`` deletes its audit record
+  // entirely, so a fresh classification of the post-undo log is
+  // missing the original chip. We recover it by carrying forward
+  // any prior event that doesn't appear in the new classification
+  // — the original chip stays put and the undo chip lands beside
+  // it, instead of the original silently morphing into a struck
+  // variant.
+  const priorEventsRef = useRef<RecentEvent[]>([]);
 
   useEffect(() => {
     if (!enabled || !oid) {
       setEvents([]);
-      priorRef.current = null;
+      priorSnapshotRef.current = null;
+      priorEventsRef.current = [];
       return;
     }
-    const prior = priorRef.current;
+    const prior = priorSnapshotRef.current;
+    const priorEvents = priorEventsRef.current;
     const cur = snapshotState(state);
     const controller = new AbortController();
     let cancelled = false;
@@ -237,32 +248,54 @@ export function useRecentEvents(
       .getAudit(oid, fetchLimit, controller.signal)
       .then((res) => {
         if (cancelled) return;
-        const all = classifyRecords(res.records);
+        const fresh = classifyRecords(res.records);
+        // Recover events whose underlying audit record was popped
+        // between fetches. ``pop_last_forward`` deletes the original
+        // ``add_point`` / ``add_timeout`` row when the operator
+        // undoes it, so a fresh re-classification is silently
+        // missing the chip we showed last time. Anything in
+        // ``priorEvents`` that isn't matched by an entry in
+        // ``fresh`` (same ts + team + kind) is treated as popped
+        // and re-added.
+        const isSame = (a: RecentEvent, b: RecentEvent) =>
+          a.ts === b.ts && a.team === b.team && a.kind === b.kind;
+        const popped = priorEvents.filter(
+          (p) => !fresh.some((f) => isSame(f, p)),
+        );
+        const merged: RecentEvent[] = [...popped, ...fresh].sort(
+          (a, b) => a.ts - b.ts,
+        );
         if (prior && cur) {
-          // Set / match undo detection: append a struck-chip overlay
-          // when sets dropped or match_finished flipped from true to
-          // false between consecutive refetches. ``Date.now() / 1000``
-          // matches the audit ``ts`` unit so the chip sorts after
-          // anything in the response.
+          // Set / match undo detection: append a struck-chip when
+          // sets dropped or match_finished flipped back to false
+          // between refetches. ``Date.now() / 1000`` matches the
+          // audit ``ts`` unit so the chip sorts after anything in
+          // the response.
           const matchUndone = prior.matchFinished && !cur.matchFinished;
           const ts = Date.now() / 1000;
           if (cur.sets1 < prior.sets1) {
-            all.push({
+            merged.push({
               ts,
               team: 1,
               kind: matchUndone ? 'match_undo' : 'set_undo',
             });
           }
           if (cur.sets2 < prior.sets2) {
-            all.push({
+            merged.push({
               ts,
               team: 2,
               kind: matchUndone ? 'match_undo' : 'set_undo',
             });
           }
         }
-        setEvents(all.slice(-max));
-        priorRef.current = cur;
+        const capped = merged.slice(-max);
+        setEvents(capped);
+        priorSnapshotRef.current = cur;
+        // Keep extra headroom over ``max`` so a popped event still
+        // sitting just off the visible window can be recovered on
+        // the next refetch (otherwise a single intervening chip
+        // would push it past the cap and lose the recovery anchor).
+        priorEventsRef.current = merged.slice(-max * 4);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -270,6 +303,7 @@ export function useRecentEvents(
         // stale data after a score change whose refetch failed.
         console.warn('Failed to fetch recent events:', err);
         setEvents([]);
+        priorEventsRef.current = [];
       });
     return () => {
       cancelled = true;

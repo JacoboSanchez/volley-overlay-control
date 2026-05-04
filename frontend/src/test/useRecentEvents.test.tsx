@@ -113,6 +113,170 @@ describe('useRecentEvents', () => {
     expect(result.current[0]).toMatchObject({ team: 2, kind: 'timeout' });
   });
 
+  it('keeps the original timeout chip and appends a struck-clock when the operator undoes an adjacent timeout', async () => {
+    // Real-life flow across two fetches:
+    //  1. Operator hits "+timeout" → audit gets the forward record →
+    //     strip shows [clock].
+    //  2. Operator hits "undo timeout" → ``pop_last_forward`` deletes
+    //     the forward record and a new ``undo=true`` row is appended.
+    //     The fresh re-classification only sees the undo, so without
+    //     stickiness the clock chip would silently morph into the
+    //     struck variant. The hook must instead keep the original
+    //     clock visible *and* append the struck-clock beside it.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 1,
+      records: [
+        rec(10, 'add_timeout', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 0, sets: 0, timeouts: 1 },
+          team_2: { score: 0, sets: 0, timeouts: 0 },
+        }),
+      ],
+    });
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 1,
+      records: [
+        rec(11, 'add_timeout', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 0, sets: 0, timeouts: 0 },
+          team_2: { score: 0, sets: 0, timeouts: 0 },
+        }),
+      ],
+    });
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: makeState(0, 0, 0, 0, 1, 0) } },
+    );
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'timeout')).toBe(true),
+    );
+    rerender({ s: makeState(0, 0, 0, 0, 0, 0) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    expect(result.current.map((e) => e.kind)).toEqual(['timeout', 'timeout_undo']);
+  });
+
+  it('keeps the original set_won chip and surfaces both point_undo and set_undo when the operator undoes a set-winning point', async () => {
+    // First fetch: a baseline point (so ``prevSets`` is anchored) and
+    // the set-winning ``add_point`` are both in the audit.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(9, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 0 },
+          team_2: { score: 20, sets: 0 },
+        }),
+        rec(10, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 25, sets: 1 },
+          team_2: { score: 20, sets: 0 },
+        }),
+      ],
+    });
+    // Second fetch: forward was popped, leaving the baseline point
+    // plus the new ``undo=true`` record.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(9, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 0 },
+          team_2: { score: 20, sets: 0 },
+        }),
+        rec(11, 'add_point', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 0 },
+          team_2: { score: 20, sets: 0 },
+        }),
+      ],
+    });
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: makeState(25, 20, 1, 0) } },
+    );
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'set_won')).toBe(true),
+    );
+    rerender({ s: makeState(24, 20, 0, 0) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'set_undo')).toBe(true),
+    );
+    const kinds = result.current.map((e) => e.kind);
+    expect(kinds).toContain('point_add');
+    expect(kinds).toContain('set_won');
+    expect(kinds).toContain('point_undo');
+    expect(kinds).toContain('set_undo');
+  });
+
+  it('keeps the original match_won chip and surfaces both point_undo and match_undo on a match-winning undo', async () => {
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(9, 'add_point', { team: 1 }, {
+          score_set: 3,
+          team_1: { score: 24, sets: 2 },
+          team_2: { score: 20, sets: 1 },
+          match_finished: false,
+        }),
+        rec(10, 'add_point', { team: 1 }, {
+          score_set: 3,
+          team_1: { score: 25, sets: 3 },
+          team_2: { score: 20, sets: 1 },
+          match_finished: true,
+        }),
+      ],
+    });
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(9, 'add_point', { team: 1 }, {
+          score_set: 3,
+          team_1: { score: 24, sets: 2 },
+          team_2: { score: 20, sets: 1 },
+          match_finished: false,
+        }),
+        rec(11, 'add_point', { team: 1, undo: true }, {
+          score_set: 3,
+          team_1: { score: 24, sets: 2 },
+          team_2: { score: 20, sets: 1 },
+          match_finished: false,
+        }),
+      ],
+    });
+    const finishedState = (): GameState => ({
+      ...makeState(25, 20, 3, 1),
+      match_finished: true,
+    } as unknown as GameState);
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: finishedState() } },
+    );
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'match_won')).toBe(true),
+    );
+    rerender({ s: makeState(24, 20, 2, 1) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'match_undo')).toBe(true),
+    );
+    const kinds = result.current.map((e) => e.kind);
+    expect(kinds).toContain('point_add');
+    expect(kinds).toContain('match_won');
+    expect(kinds).toContain('point_undo');
+    expect(kinds).toContain('match_undo');
+    // Trophy preempts the star — undoing a match-winning point should
+    // not also push a struck-star alongside the struck-trophy.
+    expect(kinds).not.toContain('set_undo');
+  });
+
   it('always emits a struck-clock chip on timeout undo (adjacent case → just struck)', async () => {
     // After ``pop_last_forward`` the original forward record is gone,
     // so the audit response only contains the undo entry. We always

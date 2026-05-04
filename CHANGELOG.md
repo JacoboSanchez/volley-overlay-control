@@ -28,14 +28,15 @@ once a first tagged release ships.
     ``add_set`` action and — far more common — the set-winning
     ``add_point`` (which the backend logs as ``add_point``
     only, with the new ``sets`` count carried in the result
-    block). Struck-star variant when the operator undoes the
-    set-winning point: detected via a React state diff
-    (``team_X.sets`` drops between refetches), since the
-    audit log alone can't reconstruct the popped forward.
+    block). Struck-star variant added beside the original star
+    when the operator undoes the set-winning point: detected
+    via a React state diff (``team_X.sets`` drops between
+    refetches), since the audit log alone can't reconstruct
+    the popped forward.
   * Trophy icon when the same sets diff also flips
-    ``match_finished`` to ``true``. Struck-trophy variant when
-    ``match_finished`` flips back to ``false`` (operator undoes
-    the match-winning point).
+    ``match_finished`` to ``true``. Struck-trophy variant
+    appended when ``match_finished`` flips back to ``false``
+    (operator undoes the match-winning point).
   * Clock icon for ``add_timeout``; struck-clock for any undo
     of a timeout — same rule as ``point_undo`` so the strip is
     visually consistent across action types. When the undo is
@@ -50,6 +51,15 @@ once a first tagged release ships.
     ``0``) for a ``set_score`` manual correction. No-op
     corrections (typed value matches the current value) are
     suppressed via a per-(set, team) running cache.
+
+  Forward chips are sticky across refetches. When
+  ``pop_last_forward`` deletes the original forward record on
+  an undo, the hook carries the prior chip forward (it remembers
+  the last surfaced events) and appends the struck-undo chip
+  beside it instead of letting the original silently vanish or
+  morph into its struck variant. So undoing a set-winning point
+  shows ``[+1, ★, −1, ⊘★]`` rather than just ``[⊘★]``, matching
+  the way ``point_undo`` already laid out next to ``point_add``.
 
   Chips render at ``opacity: 0.7`` so they recede behind the
   score buttons and alert pills they sit next to instead of
