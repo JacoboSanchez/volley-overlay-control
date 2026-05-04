@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-05-04
+
 ### Added
 
 - React control UI: when the overlay preview is hidden, the centre
@@ -89,6 +91,26 @@ once a first tagged release ships.
     circle. ``max`` is set to ``8`` on desktop / portrait and
     ``5`` on landscape phones (compact layout) so the strip
     never overflows the centre slot.
+
+### Changed
+
+- React control UI: replaced the horizontal set selector with a
+  compact current-set indicator, freeing horizontal space in the
+  centre column for the new points history strip.
+- Points-history chips now use a stable composite key
+  (``ts/team/kind/value``) instead of the array index, so the
+  sliding window no longer remounts every chip when the oldest
+  event drops off — preserves chip state and avoids unnecessary
+  reconciliation.
+- README screenshots regenerated; the portrait capture now shows
+  the points history strip in the centre slot.
+
+### Fixed
+
+- UNO overlay preview size now matches the custom overlays
+  (``cardHeight`` hoisted to the shared scope), so the iframe no
+  longer renders at a different aspect than what the broadcast
+  output will show.
 
 ---
 
