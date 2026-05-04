@@ -111,18 +111,31 @@ describe('PointsHistoryStrip', () => {
     );
   });
 
-  it('renders an SVG icon for set_won, timeout, timeout_undo and manual chips', () => {
+  it('renders an SVG icon for set_won, match_won, timeout, timeout_undo and manual chips', () => {
     render(
       strip([
         { ts: 1, team: 1, kind: 'set_won' },
         { ts: 2, team: 2, kind: 'timeout' },
         { ts: 3, team: 1, kind: 'timeout_undo' },
         { ts: 4, team: 2, kind: 'manual', value: 4 },
+        { ts: 5, team: 1, kind: 'match_won' },
       ]),
     );
     expect(screen.getByTestId('phs-chip-1-0').querySelector('svg')).not.toBeNull();
     expect(screen.getByTestId('phs-chip-2-1').querySelector('svg')).not.toBeNull();
     expect(screen.getByTestId('phs-chip-1-2').querySelector('svg')).not.toBeNull();
     expect(screen.getByTestId('phs-chip-2-3').querySelector('svg')).not.toBeNull();
+    expect(screen.getByTestId('phs-chip-1-4').querySelector('svg')).not.toBeNull();
+  });
+
+  it('uses a different aria-label for match_won than set_won', () => {
+    render(
+      strip([
+        { ts: 1, team: 1, kind: 'set_won' },
+        { ts: 2, team: 2, kind: 'match_won' },
+      ]),
+    );
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveAttribute('aria-label', 'Home: set won');
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveAttribute('aria-label', 'Away: match won');
   });
 });

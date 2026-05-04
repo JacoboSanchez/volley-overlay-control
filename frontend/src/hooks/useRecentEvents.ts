@@ -9,6 +9,7 @@ export type RecentEventKind =
   | 'point_add'
   | 'point_undo'
   | 'set_won'
+  | 'match_won'
   | 'timeout'
   | 'timeout_undo'
   | 'manual';
@@ -50,9 +51,8 @@ function scoringKey(state: GameState | null): string {
 
 function classifyRecords(records: AuditRecord[]): RecentEvent[] {
   const events: RecentEvent[] = [];
-  // Last seen post-state score per (set, team), used to derive deltas
-  // for manual ``set_score`` corrections — those carry the absolute
-  // value, not the delta.
+  // Last seen post-state score per (set, team), used to spot no-op
+  // ``set_score`` corrections (typed value === current).
   const lastScore: Record<string, number> = {};
   const k = (set: number, team: 1 | 2) => `${set}:${team}`;
   // Last seen post-state set counts. Used to detect set wins from
@@ -61,6 +61,17 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
   // set-winning ``add_point`` (which the backend doesn't log as
   // ``add_set``).
   let prevSets: { 1: number; 2: number } | null = null;
+  // Last seen post-state timeout counts. Used to detect "popped"
+  // forward timeouts (when a later undo physically removed the
+  // forward record from the audit log via ``pop_last_forward``,
+  // intermediate records still show the bumped count and we can
+  // synthesize the missing chip from the upward diff) and to spot
+  // adjacent vs non-adjacent undoes.
+  let prevTimeouts: { 1: number; 2: number } | null = null;
+  // Track match-finished transitions so a set-winning record that
+  // also ends the match emits a ``match_won`` chip rather than the
+  // regular set-won star.
+  let prevMatchFinished = false;
 
   for (const r of records) {
     const params = (r.params ?? {}) as Record<string, unknown>;
@@ -69,15 +80,59 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
     const validTeam = team === 1 || team === 2;
     const undo = !!params.undo;
 
+    const t1Tos = (result.team_1 as Record<string, unknown> | undefined)?.timeouts;
+    const t2Tos = (result.team_2 as Record<string, unknown> | undefined)?.timeouts;
+
+    // ── Synthesized forward timeout chips ──────────────────────────
+    // ``pop_last_forward`` physically deletes the original forward
+    // record from the audit log when the operator undoes a timeout,
+    // so we never see it directly. Whenever a record's post-state
+    // shows team_X.timeouts higher than the previous record's, and
+    // the bump isn't accounted for by *this* record being the
+    // forward itself, the bump must come from a record that has
+    // since been popped. Synthesize the missing chip and place it
+    // right before the current record's chip — chronologically
+    // correct since the original happened before the in-between
+    // actions that observed the bumped state.
+    if (prevTimeouts !== null) {
+      const isOurForward = (t: 1 | 2) =>
+        r.action === 'add_timeout' && !undo && team === t;
+      if (typeof t1Tos === 'number' && t1Tos > prevTimeouts[1] && !isOurForward(1)) {
+        events.push({ ts: r.ts - 1e-6, team: 1, kind: 'timeout' });
+      }
+      if (typeof t2Tos === 'number' && t2Tos > prevTimeouts[2] && !isOurForward(2)) {
+        events.push({ ts: r.ts - 1e-6, team: 2, kind: 'timeout' });
+      }
+    }
+
+    // ── Action-driven chips ────────────────────────────────────────
     if (validTeam) {
       const t = team as 1 | 2;
       switch (r.action) {
         case 'add_point':
           events.push({ ts: r.ts, team: t, kind: undo ? 'point_undo' : 'point_add' });
           break;
-        case 'add_timeout':
-          events.push({ ts: r.ts, team: t, kind: undo ? 'timeout_undo' : 'timeout' });
+        case 'add_timeout': {
+          if (undo) {
+            // Adjacency: was the previous record's post-state
+            // already at this record's post-state? Then the popped
+            // forward had no in-between records — both the original
+            // and the undo collapse to nothing visible. Otherwise
+            // we already synthesized the forward chip above (one or
+            // more in-between records carried the bumped count) and
+            // the undo gets its struck chip here.
+            const post = (result[`team_${t}`] as Record<string, unknown> | undefined)?.timeouts;
+            const prev = prevTimeouts ? prevTimeouts[t] : post;
+            if (typeof post === 'number' && prev === post) {
+              // Adjacent — emit nothing.
+            } else {
+              events.push({ ts: r.ts, team: t, kind: 'timeout_undo' });
+            }
+          } else {
+            events.push({ ts: r.ts, team: t, kind: 'timeout' });
+          }
           break;
+        }
         case 'set_score': {
           const setNum = params.set_number;
           const newVal = params.value;
@@ -89,37 +144,49 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
           }
           break;
         }
-        // ``add_set`` intentionally not handled here. Trophy chips
-        // fall out of the post-state ``team_X.sets`` diff below,
-        // so the explicit add_set path and the set-winning
+        // ``add_set`` intentionally not handled here. Trophy / star
+        // chips fall out of the post-state ``team_X.sets`` diff
+        // below, so the explicit add_set path and the set-winning
         // add_point path share the same trigger.
       }
     }
 
-    // Trophy detection via post-state diff.
+    // ── Set / match win detection via post-state diff ──────────────
     const t1Sets = (result.team_1 as Record<string, unknown> | undefined)?.sets;
     const t2Sets = (result.team_2 as Record<string, unknown> | undefined)?.sets;
+    const matchFinished = result.match_finished === true;
     if (typeof t1Sets === 'number' && typeof t2Sets === 'number') {
       if (prevSets !== null) {
+        // A sets++ that also ends the match is a match-winning event,
+        // not just a set-winning one — promote the chip kind so the
+        // operator sees the trophy instead of the regular set star.
+        const matchWin = matchFinished && !prevMatchFinished;
         if (t1Sets > prevSets[1]) {
-          events.push({ ts: r.ts, team: 1, kind: 'set_won' });
+          events.push({ ts: r.ts, team: 1, kind: matchWin ? 'match_won' : 'set_won' });
         }
         if (t2Sets > prevSets[2]) {
-          events.push({ ts: r.ts, team: 2, kind: 'set_won' });
+          events.push({ ts: r.ts, team: 2, kind: matchWin ? 'match_won' : 'set_won' });
         }
       }
       prevSets = { 1: t1Sets, 2: t2Sets };
     }
+    prevMatchFinished = matchFinished;
 
-    // Refresh the score cache from this record's post-state so the
-    // next ``set_score`` delta is computed against the latest known
-    // value — even when the intermediate record wasn't user-rendered.
+    // ── Score cache refresh (manual delta detection) ───────────────
     const scoreSet = result.score_set;
     if (typeof scoreSet === 'number') {
       const t1 = (result.team_1 as Record<string, unknown> | undefined)?.score;
       const t2 = (result.team_2 as Record<string, unknown> | undefined)?.score;
       if (typeof t1 === 'number') lastScore[k(scoreSet, 1)] = t1;
       if (typeof t2 === 'number') lastScore[k(scoreSet, 2)] = t2;
+    }
+
+    // ── Timeout state refresh (synthesis baseline) ─────────────────
+    if (typeof t1Tos === 'number' || typeof t2Tos === 'number') {
+      prevTimeouts = {
+        1: typeof t1Tos === 'number' ? t1Tos : prevTimeouts?.[1] ?? 0,
+        2: typeof t2Tos === 'number' ? t2Tos : prevTimeouts?.[2] ?? 0,
+      };
     }
   }
   return events;

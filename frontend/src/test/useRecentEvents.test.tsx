@@ -94,21 +94,118 @@ describe('useRecentEvents', () => {
     ]);
   });
 
-  it('classifies add_timeout forward and undo into timeout / timeout_undo', async () => {
+  it('emits a forward timeout chip on add_timeout', async () => {
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
-      count: 2,
+      count: 1,
       records: [
-        rec(1, 'add_timeout', { team: 2 }),
-        rec(2, 'add_timeout', { team: 2, undo: true }),
+        rec(1, 'add_timeout', { team: 2 }, {
+          score_set: 1,
+          team_1: { score: 0, sets: 0, timeouts: 0 },
+          team_2: { score: 0, sets: 0, timeouts: 1 },
+        }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useRecentEvents('oid', true, makeState(0, 0, 0, 0, 0, 1), 8),
+    );
+    await waitFor(() => expect(result.current).toHaveLength(1));
+    expect(result.current[0]).toMatchObject({ team: 2, kind: 'timeout' });
+  });
+
+  it('collapses an immediately-undone timeout to nothing (adjacent undo)', async () => {
+    // After ``pop_last_forward`` the original forward record is gone,
+    // so the audit response only contains the undo entry. The post-
+    // state matches the pre-forward state (no in-between records
+    // observed the bumped count), so adjacency is detected and both
+    // the original and the undo collapse visually.
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 1,
+      records: [
+        rec(1, 'add_timeout', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 0, sets: 0, timeouts: 0 },
+          team_2: { score: 0, sets: 0, timeouts: 0 },
+        }),
       ],
     });
     const { result } = renderHook(() =>
       useRecentEvents('oid', true, makeState(0, 0), 8),
     );
-    await waitFor(() => expect(result.current).toHaveLength(2));
-    expect(result.current[0]).toMatchObject({ team: 2, kind: 'timeout' });
-    expect(result.current[1]).toMatchObject({ team: 2, kind: 'timeout_undo' });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
+    expect(result.current).toEqual([]);
+  });
+
+  it('synthesizes the forward chip and emits the struck-clock when an undo is non-adjacent', async () => {
+    // Operator sequence: point(0→1), [popped timeout(t1: 0→1)],
+    // point(1→2), undo timeout(t1: 1→0).
+    // After pop_last_forward the audit response is the baseline
+    // point + the in-between point (still showing the bumped
+    // timeout count) + the undo. The classifier synthesizes the
+    // missing forward chip right before the in-between record and
+    // emits the struck chip at the undo.
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 3,
+      records: [
+        // Baseline record — anchors prevTimeouts at t1=0.
+        rec(1, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 1, sets: 0, timeouts: 0 },
+          team_2: { score: 0, sets: 0, timeouts: 0 },
+        }),
+        // In-between record — observed the bumped count, so
+        // synthesis fires here.
+        rec(2, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 2, sets: 0, timeouts: 1 },
+          team_2: { score: 0, sets: 0, timeouts: 0 },
+        }),
+        // Undo brings the count back down.
+        rec(3, 'add_timeout', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 2, sets: 0, timeouts: 0 },
+          team_2: { score: 0, sets: 0, timeouts: 0 },
+        }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useRecentEvents('oid', true, makeState(2, 0), 8),
+    );
+    await waitFor(() => expect(result.current).toHaveLength(4));
+    expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
+    expect(result.current[1]).toMatchObject({ team: 1, kind: 'timeout' });
+    expect(result.current[2]).toMatchObject({ team: 1, kind: 'point_add' });
+    expect(result.current[3]).toMatchObject({ team: 1, kind: 'timeout_undo' });
+  });
+
+  it('emits match_won (not set_won) when a sets++ also flips match_finished', async () => {
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(1, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 2 },
+          team_2: { score: 20, sets: 0 },
+          match_finished: false,
+        }),
+        // Match-winning point: sets++ AND match_finished flips true.
+        rec(2, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 25, sets: 3 },
+          team_2: { score: 20, sets: 0 },
+          match_finished: true,
+        }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useRecentEvents('oid', true, makeState(0, 0, 3, 0), 8),
+    );
+    await waitFor(() => expect(result.current).toHaveLength(3));
+    expect(result.current[2]).toMatchObject({ team: 1, kind: 'match_won' });
+    expect(result.current.some((e) => e.kind === 'set_won')).toBe(false);
   });
 
   it('emits set_won when team.sets advances on an explicit add_set', async () => {

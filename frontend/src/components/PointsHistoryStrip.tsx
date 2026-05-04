@@ -51,6 +51,17 @@ function TrophyIcon() {
   );
 }
 
+function StarIcon() {
+  return (
+    <svg viewBox={ICON_VIEWBOX} className="phs-icon" aria-hidden="true">
+      <path
+        d="M12 2.5l2.6 6.8 7.4.5-5.6 4.8 1.8 7.2L12 17.9 5.8 21.8l1.8-7.2L2 9.8l7.4-.5L12 2.5z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 function PencilIcon() {
   return (
     <svg viewBox={ICON_VIEWBOX} className="phs-icon phs-icon-sm" aria-hidden="true">
@@ -69,6 +80,8 @@ function chipContent(ev: RecentEvent) {
     case 'point_undo':
       return <span className="phs-chip-text">−1</span>;
     case 'set_won':
+      return <StarIcon />;
+    case 'match_won':
       return <TrophyIcon />;
     case 'timeout':
       return <ClockIcon />;
@@ -94,6 +107,8 @@ function chipAriaLabel(ev: RecentEvent, teamName: string): string {
       return `${teamName}: undo point`;
     case 'set_won':
       return `${teamName}: set won`;
+    case 'match_won':
+      return `${teamName}: match won`;
     case 'timeout':
       return `${teamName}: timeout`;
     case 'timeout_undo':
