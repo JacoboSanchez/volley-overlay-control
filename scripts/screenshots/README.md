@@ -34,7 +34,7 @@ Output PNGs are written to `docs/screenshots/`. The orchestrator:
 |------|-------------|----------|
 | `01-init-screen.png` | Connect screen at `/`. | 844×390 (mobile-landscape) |
 | `02-scoreboard.png` | Main control UI. | 844×390 (mobile-landscape) |
-| `03-scoreboard-phone.png` | Main control UI in portrait. | 390×844 (mobile-portrait) |
+| `03-scoreboard-phone.png` | Main control UI in portrait, preview hidden so the points-history strip renders in the centre slot. | 390×844 (mobile-portrait) |
 | `04-config-panel.png` | Customization tab inside the React control UI. | 844×390 (mobile-landscape) |
 | `05-manage-page.png` | Custom overlay manager at `/manage`. | 1024×700 (compact desktop) |
 | `06-overlay-mosaic-full.png` | `?style=mosaic` preview grid showing every selectable style with full match data. | 1600×1800 (mosaic grid) |
