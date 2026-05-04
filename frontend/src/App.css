@@ -669,6 +669,7 @@ body {
   border-radius: 4px;
   font-weight: 700;
   line-height: 1;
+  opacity: 0.85;
 }
 
 .phs-chip-text {
