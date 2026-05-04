@@ -12,32 +12,48 @@ once a first tagged release ships.
 
 - React control UI: when the overlay preview is hidden, the centre
   column now renders a "points history strip" in the slot the
-  preview would have occupied — a horizontal row of up to five
-  team-coloured chips, oldest on the left, one per scored rally.
-  Lets operators glance at recent momentum without the bandwidth /
-  visual cost of the live preview iframe.
+  preview would have occupied — a two-row table (one row per team)
+  with the team's coloured logo marker on the left and a
+  chronological sequence of action chips to the right. Each
+  audit-log event becomes a chip on its team's row only, so the
+  column visually maps to the moment the action happened. Lets
+  operators read momentum and recent corrections at a glance
+  without the bandwidth / visual cost of the live preview iframe.
+
+  Chip vocabulary:
+  * ``+1`` / ``−1`` for an ``add_point`` forward / undo entry.
+  * Trophy icon for an ``add_set`` forward (set won).
+  * Clock icon for ``add_timeout``; clock with a strike-through
+    line for an ``add_timeout`` undo.
+  * Pencil icon plus signed delta (``+3``, ``−2``, …) for a
+    ``set_score`` manual correction. The delta is computed
+    client-side against the most recent post-state score for the
+    same (team, set) tracked while walking the audit response, so
+    the chip always reflects what changed even though the API
+    only carries the absolute new value.
 
   Implementation:
-  * New ``frontend/src/hooks/useRecentPoints.ts`` fetches
-    ``GET /api/v1/audit`` only while the preview is hidden, and
-    refetches when the match scoring key (sum of all set scores +
-    sets won) changes — so unrelated state pushes (visibility
-    toggles, simple-mode changes) don't trigger redundant network
-    calls. Audit fetch limit derives from the requested window
-    (``Math.max(20, max * 3)``) to leave headroom for interleaved
-    ``add_set`` / ``add_timeout`` records. Failed fetches clear
-    the strip rather than leave stale chips.
-  * ``add_set``, ``add_timeout`` and ``params.undo === true`` are
-    filtered out client-side. ``pop_last_forward`` already removes
-    the underlying record on the server, so the strip stays
-    consistent with the displayed score after an undo.
-  * New ``frontend/src/components/PointsHistoryStrip.tsx``
-    receives ``team1Color`` / ``team1TextColor`` / ``team2Color``
-    / ``team2TextColor`` from ``App.tsx`` (via ``ScoreboardView``
-    and ``CenterPanel``), so the chips honour
-    ``followTeamColors`` and the per-team customisation
-    overrides instead of the bare ``TEAM_A_COLOR`` / ``TEAM_B_COLOR``
-    constants.
+  * New ``frontend/src/hooks/useRecentEvents.ts`` (replaces the
+    earlier ``useRecentPoints``) fetches ``GET /api/v1/audit``
+    only while the preview is hidden, and refetches when the
+    match scoring key (sum of all set scores + sets won) changes
+    — so unrelated state pushes (visibility toggles, simple-mode
+    changes) don't trigger redundant network calls. Audit fetch
+    limit derives from the requested window
+    (``Math.max(40, max * 3)``) to leave headroom for interleaved
+    non-rendered actions. Failed fetches clear the strip rather
+    than leave stale chips. The classifier walks records in order
+    while maintaining a per-(set, team) score cache to derive
+    ``set_score`` deltas.
+  * ``frontend/src/components/PointsHistoryStrip.tsx`` renders
+    two rows × N cells with inline-SVG icons for clock,
+    clock-undo, trophy and pencil. Receives team colours, logos
+    and names from ``App.tsx`` via ``ScoreboardView`` and
+    ``CenterPanel``, so the marker honours ``followTeamColors``
+    and the per-team customisation overrides; absent logos fall
+    back to a flat coloured circle. ``max`` is set to ``8`` on
+    desktop / portrait and ``5`` on landscape phones (compact
+    layout) so the strip never overflows the centre slot.
 
 ---
 

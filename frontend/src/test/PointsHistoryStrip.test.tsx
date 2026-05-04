@@ -1,62 +1,128 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import PointsHistoryStrip from '../components/PointsHistoryStrip';
-import type { RecentPoint } from '../hooks/useRecentPoints';
+import type { RecentEvent } from '../hooks/useRecentEvents';
 
-const COLORS = {
+const COMMON = {
   team1Color: '#1a73e8',
   team1TextColor: '#ffffff',
   team2Color: '#d93025',
   team2TextColor: '#000000',
+  team1Name: 'Home',
+  team2Name: 'Away',
 };
 
+function strip(events: RecentEvent[], opts: Partial<typeof COMMON> & {
+  team1Logo?: string | null;
+  team2Logo?: string | null;
+} = {}) {
+  return (
+    <PointsHistoryStrip
+      events={events}
+      team1Color={opts.team1Color ?? COMMON.team1Color}
+      team1TextColor={opts.team1TextColor ?? COMMON.team1TextColor}
+      team1Logo={opts.team1Logo ?? null}
+      team1Name={opts.team1Name ?? COMMON.team1Name}
+      team2Color={opts.team2Color ?? COMMON.team2Color}
+      team2TextColor={opts.team2TextColor ?? COMMON.team2TextColor}
+      team2Logo={opts.team2Logo ?? null}
+      team2Name={opts.team2Name ?? COMMON.team2Name}
+    />
+  );
+}
+
 describe('PointsHistoryStrip', () => {
-  it('renders nothing when points array is empty', () => {
-    const { container } = render(<PointsHistoryStrip points={[]} {...COLORS} />);
+  it('renders nothing when events array is empty', () => {
+    const { container } = render(strip([]));
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders one chip per point in the order given', () => {
-    const points: RecentPoint[] = [
-      { team: 1, ts: 1 },
-      { team: 2, ts: 2 },
-      { team: 1, ts: 3 },
-    ];
-    render(<PointsHistoryStrip points={points} {...COLORS} />);
-    const chips = [
-      screen.getByTestId('points-history-chip-0'),
-      screen.getByTestId('points-history-chip-1'),
-      screen.getByTestId('points-history-chip-2'),
-    ];
-    expect(chips[0]).toHaveTextContent('A');
-    expect(chips[1]).toHaveTextContent('B');
-    expect(chips[2]).toHaveTextContent('A');
+  it('renders two rows, one per team, each with its marker', () => {
+    render(strip([{ ts: 1, team: 1, kind: 'point_add' }]));
+    expect(screen.getByTestId('phs-row-1')).toBeInTheDocument();
+    expect(screen.getByTestId('phs-row-2')).toBeInTheDocument();
   });
 
-  it('applies team-specific class and the colors received via props', () => {
-    const points: RecentPoint[] = [
-      { team: 1, ts: 1 },
-      { team: 2, ts: 2 },
-    ];
-    render(<PointsHistoryStrip points={points} {...COLORS} />);
-    const chip1 = screen.getByTestId('points-history-chip-0');
-    const chip2 = screen.getByTestId('points-history-chip-1');
-    expect(chip1).toHaveClass('points-history-chip-team-1');
-    expect(chip2).toHaveClass('points-history-chip-team-2');
-    expect(chip1).toHaveStyle({
-      backgroundColor: COLORS.team1Color,
-      color: COLORS.team1TextColor,
+  it('renders the chip in the team-1 row only when the event is for team 1', () => {
+    render(
+      strip([
+        { ts: 1, team: 1, kind: 'point_add' },
+        { ts: 2, team: 2, kind: 'point_add' },
+      ]),
+    );
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('+1');
+    expect(screen.queryByTestId('phs-chip-2-0')).not.toBeInTheDocument();
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveTextContent('+1');
+    expect(screen.queryByTestId('phs-chip-1-1')).not.toBeInTheDocument();
+  });
+
+  it('renders point_undo as -1 (using a true minus sign)', () => {
+    render(strip([{ ts: 1, team: 1, kind: 'point_undo' }]));
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('−1');
+  });
+
+  it('renders manual chips with the signed delta', () => {
+    render(
+      strip([
+        { ts: 1, team: 1, kind: 'manual', delta: 3 },
+        { ts: 2, team: 2, kind: 'manual', delta: -2 },
+      ]),
+    );
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('+3');
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveTextContent('−2');
+  });
+
+  it('paints chip bg/fg from the team colour props', () => {
+    render(
+      strip([
+        { ts: 1, team: 1, kind: 'point_add' },
+        { ts: 2, team: 2, kind: 'point_add' },
+      ]),
+    );
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveStyle({
+      backgroundColor: COMMON.team1Color,
+      color: COMMON.team1TextColor,
     });
-    expect(chip2).toHaveStyle({
-      backgroundColor: COLORS.team2Color,
-      color: COLORS.team2TextColor,
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveStyle({
+      backgroundColor: COMMON.team2Color,
+      color: COMMON.team2TextColor,
     });
   });
 
-  it('renders the strip container with an aria-label for accessibility', () => {
-    const points: RecentPoint[] = [{ team: 1, ts: 1 }];
-    render(<PointsHistoryStrip points={points} {...COLORS} />);
-    const strip = screen.getByTestId('points-history-strip');
-    expect(strip).toHaveAttribute('aria-label', 'Last points');
+  it('shows the team logo inside the marker when provided', () => {
+    render(strip([{ ts: 1, team: 1, kind: 'point_add' }], { team1Logo: '/logo1.png' }));
+    const row1 = screen.getByTestId('phs-row-1');
+    const img = row1.querySelector('img.phs-marker-logo');
+    expect(img).not.toBeNull();
+    expect(img).toHaveAttribute('src', '/logo1.png');
+  });
+
+  it('renders the marker without a logo when none is configured', () => {
+    render(strip([{ ts: 1, team: 1, kind: 'point_add' }]));
+    const row2 = screen.getByTestId('phs-row-2');
+    expect(row2.querySelector('img.phs-marker-logo')).toBeNull();
+  });
+
+  it('uses the team name in chip aria-labels for accessibility', () => {
+    render(strip([{ ts: 1, team: 1, kind: 'set_won' }]));
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveAttribute(
+      'aria-label',
+      'Home: set won',
+    );
+  });
+
+  it('renders an SVG icon for set_won, timeout, timeout_undo and manual chips', () => {
+    render(
+      strip([
+        { ts: 1, team: 1, kind: 'set_won' },
+        { ts: 2, team: 2, kind: 'timeout' },
+        { ts: 3, team: 1, kind: 'timeout_undo' },
+        { ts: 4, team: 2, kind: 'manual', delta: 4 },
+      ]),
+    );
+    expect(screen.getByTestId('phs-chip-1-0').querySelector('svg')).not.toBeNull();
+    expect(screen.getByTestId('phs-chip-2-1').querySelector('svg')).not.toBeNull();
+    expect(screen.getByTestId('phs-chip-1-2').querySelector('svg')).not.toBeNull();
+    expect(screen.getByTestId('phs-chip-2-3').querySelector('svg')).not.toBeNull();
   });
 });

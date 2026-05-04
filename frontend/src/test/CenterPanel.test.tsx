@@ -11,7 +11,7 @@ const defaultProps = {
   setsLimit: 5,
   isPortrait: false,
   previewData: null,
-  recentPoints: [],
+  recentEvents: [],
   btnColorA: '#2196f3',
   btnTextA: '#ffffff',
   btnColorB: '#f44336',
@@ -100,14 +100,14 @@ describe('CenterPanel', () => {
   });
 
   it('renders the points history strip when no preview is provided', () => {
-    const points = [
-      { team: 1 as const, ts: 1 },
-      { team: 2 as const, ts: 2 },
+    const events = [
+      { ts: 1, team: 1 as const, kind: 'point_add' as const },
+      { ts: 2, team: 2 as const, kind: 'point_add' as const },
     ];
-    renderWithI18n(<CenterPanel {...defaultProps} previewData={null} recentPoints={points} />);
+    renderWithI18n(<CenterPanel {...defaultProps} previewData={null} recentEvents={events} />);
     expect(screen.getByTestId('points-history-strip')).toBeInTheDocument();
-    expect(screen.getByTestId('points-history-chip-0')).toHaveTextContent('A');
-    expect(screen.getByTestId('points-history-chip-1')).toHaveTextContent('B');
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('+1');
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveTextContent('+1');
   });
 
   it('does not render the points history strip when preview is provided', () => {
@@ -118,9 +118,9 @@ describe('CenterPanel', () => {
       width: 100,
       height: 50,
     };
-    const points = [{ team: 1 as const, ts: 1 }];
+    const events = [{ ts: 1, team: 1 as const, kind: 'point_add' as const }];
     renderWithI18n(
-      <CenterPanel {...defaultProps} previewData={previewData} recentPoints={points} />,
+      <CenterPanel {...defaultProps} previewData={previewData} recentEvents={events} />,
     );
     expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
   });

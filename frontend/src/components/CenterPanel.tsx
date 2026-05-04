@@ -7,7 +7,7 @@ import SideSwitchIndicator from './SideSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
-import type { RecentPoint } from '../hooks/useRecentPoints';
+import type { RecentEvent } from '../hooks/useRecentEvents';
 import { useIndoorMidpointAlert } from '../hooks/useIndoorMidpointAlert';
 import { asString } from '../utils/coerce';
 
@@ -35,11 +35,11 @@ export interface CenterPanelProps {
   compactLandscape?: boolean;
   previewData: PreviewData | null | undefined;
   /**
-   * Last few points scored in chronological order (oldest first).
-   * Rendered as a chip strip in the slot the preview would occupy
-   * whenever the preview is hidden.
+   * Recent audit events in chronological order (oldest first).
+   * Rendered as a two-row table (one per team) in the slot the
+   * preview would occupy whenever the preview is hidden.
    */
-  recentPoints: RecentPoint[];
+  recentEvents: RecentEvent[];
   /** Score-button colours, reused for the points-history chips so the
    * strip honours followTeamColors / custom team colour overrides. */
   btnColorA: string;
@@ -62,7 +62,7 @@ export default function CenterPanel({
   isPortrait,
   compactLandscape = false,
   previewData,
-  recentPoints,
+  recentEvents,
   btnColorA,
   btnTextA,
   btnColorB,
@@ -169,11 +169,15 @@ export default function CenterPanel({
         />
       ) : (
         <PointsHistoryStrip
-          points={recentPoints}
+          events={recentEvents}
           team1Color={btnColorA}
           team1TextColor={btnTextA}
+          team1Logo={logo1 || null}
+          team1Name={asString(customization?.['Team 1 Name']) || 'Team 1'}
           team2Color={btnColorB}
           team2TextColor={btnTextB}
+          team2Logo={logo2 || null}
+          team2Name={asString(customization?.['Team 2 Name']) || 'Team 2'}
         />
       )}
     </div>
