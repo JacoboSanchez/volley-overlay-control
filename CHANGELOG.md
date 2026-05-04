@@ -8,6 +8,37 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- React control UI: when the overlay preview is hidden, the centre
+  column now renders a "points history strip" in the slot the
+  preview would have occupied — a horizontal row of up to five
+  team-coloured chips, oldest on the left, one per scored rally.
+  Lets operators glance at recent momentum without the bandwidth /
+  visual cost of the live preview iframe.
+
+  Implementation:
+  * New ``frontend/src/hooks/useRecentPoints.ts`` fetches
+    ``GET /api/v1/audit`` only while the preview is hidden, and
+    refetches when the match scoring key (sum of all set scores +
+    sets won) changes — so unrelated state pushes (visibility
+    toggles, simple-mode changes) don't trigger redundant network
+    calls. Audit fetch limit derives from the requested window
+    (``Math.max(20, max * 3)``) to leave headroom for interleaved
+    ``add_set`` / ``add_timeout`` records. Failed fetches clear
+    the strip rather than leave stale chips.
+  * ``add_set``, ``add_timeout`` and ``params.undo === true`` are
+    filtered out client-side. ``pop_last_forward`` already removes
+    the underlying record on the server, so the strip stays
+    consistent with the displayed score after an undo.
+  * New ``frontend/src/components/PointsHistoryStrip.tsx``
+    receives ``team1Color`` / ``team1TextColor`` / ``team2Color``
+    / ``team2TextColor`` from ``App.tsx`` (via ``ScoreboardView``
+    and ``CenterPanel``), so the chips honour
+    ``followTeamColors`` and the per-team customisation
+    overrides instead of the bare ``TEAM_A_COLOR`` / ``TEAM_B_COLOR``
+    constants.
+
 ---
 
 ## [5.1.0] - 2026-05-02
