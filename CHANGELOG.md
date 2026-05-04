@@ -111,6 +111,19 @@ once a first tagged release ships.
   (``cardHeight`` hoisted to the shared scope), so the iframe no
   longer renders at a different aspect than what the broadcast
   output will show.
+- Points history strip occasionally missed the chip for the action
+  that just happened — it would only surface together with the next
+  action's chip. Root cause was a race between the optimistic state
+  update in ``useGameState.addPoint`` and the audit ``GET`` that
+  ``useRecentEvents`` fires when its ``scoringKey`` changes: the
+  optimistic write bumped the key immediately, the GET often beat
+  the in-flight ``POST``'s ``action_log.append``, and the follow-up
+  WS broadcast carried the same state so the key didn't change
+  again. Fixed by introducing a separate ``confirmedState`` slot in
+  ``useGameState`` that only advances on authoritative updates
+  (initial fetch, action response, WS push) and feeding *that* to
+  ``useRecentEvents`` — so the audit refetch trigger no longer
+  outruns the server's acknowledgement.
 
 ---
 
