@@ -8,6 +8,88 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- React control UI: when the overlay preview is hidden, the centre
+  column now renders a "points history strip" in the slot the
+  preview would have occupied — a two-row table (one row per team)
+  with the team's coloured logo marker on the left and a
+  chronological sequence of action chips to the right. Each
+  audit-log event becomes a chip on its team's row only, so the
+  column visually maps to the moment the action happened. Lets
+  operators read momentum and recent corrections at a glance
+  without the bandwidth / visual cost of the live preview iframe.
+
+  Chip vocabulary:
+  * ``+1`` / ``−1`` for an ``add_point`` forward / undo entry.
+  * Star icon when a team's ``sets`` count advances by 1
+    without ending the match. Detected via the post-state diff
+    in the audit response, so it covers both the explicit
+    ``add_set`` action and — far more common — the set-winning
+    ``add_point`` (which the backend logs as ``add_point``
+    only, with the new ``sets`` count carried in the result
+    block). Struck-star variant added beside the original star
+    when the operator undoes the set-winning point: detected
+    via a React state diff (``team_X.sets`` drops between
+    refetches), since the audit log alone can't reconstruct
+    the popped forward.
+  * Trophy icon when the same sets diff also flips
+    ``match_finished`` to ``true``. Struck-trophy variant
+    appended when ``match_finished`` flips back to ``false``
+    (operator undoes the match-winning point).
+  * Clock icon for ``add_timeout``; struck-clock for any undo
+    of a timeout — same rule as ``point_undo`` so the strip is
+    visually consistent across action types. When the undo is
+    non-adjacent (some action happened in between), the
+    classifier additionally synthesizes the missing forward
+    chip from the post-state timeout diff (the forward record
+    was physically removed by ``pop_last_forward`` so we never
+    see it directly) and places it before the first in-between
+    record that observed the bumped count, recovering the
+    timeline the operator saw before clicking undo.
+  * Pencil icon plus the absolute new score (e.g. ``15``,
+    ``0``) for a ``set_score`` manual correction. No-op
+    corrections (typed value matches the current value) are
+    suppressed via a per-(set, team) running cache.
+
+  Forward chips are sticky across refetches. When
+  ``pop_last_forward`` deletes the original forward record on
+  an undo, the hook carries the prior chip forward (it remembers
+  the last surfaced events) and appends the struck-undo chip
+  beside it instead of letting the original silently vanish or
+  morph into its struck variant. So undoing a set-winning point
+  shows ``[+1, ★, −1, ⊘★]`` rather than just ``[⊘★]``, matching
+  the way ``point_undo`` already laid out next to ``point_add``.
+
+  Chips render at ``opacity: 0.7`` so they recede behind the
+  score buttons and alert pills they sit next to instead of
+  competing with them.
+
+  Implementation:
+  * New ``frontend/src/hooks/useRecentEvents.ts`` (replaces the
+    earlier ``useRecentPoints``) fetches ``GET /api/v1/audit``
+    only while the preview is hidden, and refetches when the
+    match scoring key (sum of all set scores + sets won +
+    timeouts per team) changes — so unrelated state pushes
+    (visibility toggles, simple-mode changes) don't trigger
+    redundant network calls, but a timeout immediately surfaces
+    its clock chip rather than waiting for the next scoring
+    event. Audit fetch limit derives from the requested window
+    (``Math.max(40, max * 3)``). Failed fetches clear the strip
+    rather than leave stale chips.
+  * ``frontend/src/components/PointsHistoryStrip.tsx`` renders
+    two rows × N cells with inline-SVG icons for clock,
+    clock-undo, trophy and pencil. Hairline divider between
+    the team marker and the action cells, plus a row-to-row
+    separator between the two team rows. Receives team
+    colours, logos and names from ``App.tsx`` via
+    ``ScoreboardView`` and ``CenterPanel``, so the marker
+    honours ``followTeamColors`` and the per-team customisation
+    overrides; absent logos fall back to a flat coloured
+    circle. ``max`` is set to ``8`` on desktop / portrait and
+    ``5`` on landscape phones (compact layout) so the strip
+    never overflows the centre slot.
+
 ---
 
 ## [5.1.0] - 2026-05-02

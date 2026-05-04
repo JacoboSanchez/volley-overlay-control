@@ -11,9 +11,13 @@ const defaultProps = {
   setsLimit: 5,
   isPortrait: false,
   previewData: null,
+  recentEvents: [],
+  btnColorA: '#2196f3',
+  btnTextA: '#ffffff',
+  btnColorB: '#f44336',
+  btnTextB: '#ffffff',
   onAddSet: vi.fn(),
   onLongPressSet: vi.fn(),
-  onSetChange: vi.fn(),
 };
 
 describe('CenterPanel', () => {
@@ -46,61 +50,23 @@ describe('CenterPanel', () => {
     expect(defaultProps.onAddSet).toHaveBeenCalledWith(2);
   });
 
-  it('renders set pagination with correct number of pages', () => {
+  it('does not render the legacy set selector', () => {
     renderWithI18n(<CenterPanel {...defaultProps} />);
-    const selector = screen.getByTestId('set-selector');
-    // Should have 5 page buttons + 2 arrows
-    const buttons = selector.querySelectorAll('button');
-    expect(buttons).toHaveLength(7);
+    expect(screen.queryByTestId('set-selector')).not.toBeInTheDocument();
   });
 
-  it('highlights current set in pagination', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} />);
-    const selector = screen.getByTestId('set-selector');
-    const activePages = selector.querySelectorAll('.pagination-page-active');
-    expect(activePages).toHaveLength(1);
-    expect(activePages[0]).toHaveTextContent('3');
+  it('renders the current set indicator with the active set number in landscape', () => {
+    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} isPortrait={false} />);
+    const indicators = screen.getAllByTestId('current-set-indicator');
+    expect(indicators).toHaveLength(1);
+    expect(indicators[0]).toHaveTextContent('3');
   });
 
-  it('calls onSetChange when pagination button clicked', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={2} />);
-    const selector = screen.getByTestId('set-selector');
-    const pageButtons = selector.querySelectorAll('.pagination-page');
-    // Click page 4
-    fireEvent.click(pageButtons[3]);
-    expect(defaultProps.onSetChange).toHaveBeenCalledWith(4);
-  });
-
-  it('disables left arrow when on first set', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={1} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    expect(arrows[0]).toBeDisabled();
-    expect(arrows[1]).not.toBeDisabled();
-  });
-
-  it('disables right arrow when on last set', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={5} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    expect(arrows[0]).not.toBeDisabled();
-    expect(arrows[1]).toBeDisabled();
-  });
-
-  it('calls onSetChange with decremented value on left arrow click', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    fireEvent.click(arrows[0]);
-    expect(defaultProps.onSetChange).toHaveBeenCalledWith(2);
-  });
-
-  it('calls onSetChange with incremented value on right arrow click', () => {
-    renderWithI18n(<CenterPanel {...defaultProps} currentSet={3} />);
-    const selector = screen.getByTestId('set-selector');
-    const arrows = selector.querySelectorAll('.pagination-arrow');
-    fireEvent.click(arrows[1]);
-    expect(defaultProps.onSetChange).toHaveBeenCalledWith(4);
+  it('renders the current set indicator with the active set number in portrait', () => {
+    renderWithI18n(<CenterPanel {...defaultProps} currentSet={4} isPortrait={true} />);
+    const indicators = screen.getAllByTestId('current-set-indicator');
+    expect(indicators).toHaveLength(1);
+    expect(indicators[0]).toHaveTextContent('4');
   });
 
   it('shows logos in landscape mode when customization has logos', () => {
@@ -131,5 +97,31 @@ describe('CenterPanel', () => {
   it('omits the compact modifier by default', () => {
     const { container } = renderWithI18n(<CenterPanel {...defaultProps} />);
     expect(container.querySelector('.center-panel-compact')).toBeNull();
+  });
+
+  it('renders the points history strip when no preview is provided', () => {
+    const events = [
+      { ts: 1, team: 1 as const, kind: 'point_add' as const },
+      { ts: 2, team: 2 as const, kind: 'point_add' as const },
+    ];
+    renderWithI18n(<CenterPanel {...defaultProps} previewData={null} recentEvents={events} />);
+    expect(screen.getByTestId('points-history-strip')).toBeInTheDocument();
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('+1');
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveTextContent('+1');
+  });
+
+  it('does not render the points history strip when preview is provided', () => {
+    const previewData = {
+      overlayUrl: 'about:blank',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 50,
+    };
+    const events = [{ ts: 1, team: 1 as const, kind: 'point_add' as const }];
+    renderWithI18n(
+      <CenterPanel {...defaultProps} previewData={previewData} recentEvents={events} />,
+    );
+    expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
   });
 });

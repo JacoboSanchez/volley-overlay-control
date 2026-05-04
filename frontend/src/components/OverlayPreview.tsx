@@ -97,8 +97,12 @@ export default function OverlayPreview({
 
   if (!safeOverlayUrl) return null;
 
+  // Shared 16:9 card geometry: both preview kinds render in the same
+  // visual slot so a UNO scoreboard isn't squeezed into a tiny strip
+  // jammed up against the match-point / side-switch pills above.
+  const cardHeight = cardWidth * 9 / 16;
+
   if (isCustomOverlay) {
-    const cardHeight = cardWidth * 9 / 16;
     const iframeW = 1920;
     const iframeH = 1080;
 
@@ -160,8 +164,6 @@ export default function OverlayPreview({
   const iframeWidth = 600;
   const iframeHeight = iframeWidth * 9 / 16;
 
-  const cardHeight = cardWidth * height / width;
-
   const regionW = (width / 100) * iframeWidth;
   const regionH = (height / (championship ? 60 : 100)) * iframeHeight;
 
@@ -172,8 +174,11 @@ export default function OverlayPreview({
     ? (topCoord / 100) * iframeHeight
     : ((topCoord + 50) / 100) * iframeHeight;
 
+  // ``* 0.95`` mirrors the custom-overlay path so both previews
+  // leave the same small inset between the rendered scoreboard and
+  // the card edge.
   const scale = regionW > 0 && regionH > 0
-    ? Math.min(cardWidth / regionW, (cardHeight / 2) / regionH)
+    ? Math.min(cardWidth / regionW, cardHeight / regionH) * 0.95
     : 1;
 
   const src = getBustedUrl(safeOverlayUrl, { aspect: '16:9' });
@@ -181,7 +186,7 @@ export default function OverlayPreview({
   return (
     <div
       className="preview-container"
-      style={{ width: cardWidth, height: cardHeight / 2, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+      style={{ width: cardWidth, height: cardHeight, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
     >
       <div
         style={{
