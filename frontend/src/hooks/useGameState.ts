@@ -68,6 +68,15 @@ export interface GameActions {
 
 export interface UseGameStateResult {
   state: GameState | null;
+  /**
+   * Mirror of ``state`` that excludes optimistic predictions — only updated
+   * from authoritative sources (initial fetch, action response, WS push).
+   * Consumers that derive cache keys from state (e.g. the recent-events
+   * hook) should depend on this instead of ``state`` to avoid racing the
+   * optimistic update against the network round-trip that would actually
+   * make the prediction observable on the server.
+   */
+  confirmedState: GameState | null;
   customization: Customization | null;
   connected: boolean;
   error: string | null;
@@ -83,6 +92,7 @@ export interface UseGameStateResult {
  */
 export function useGameState(oid: string | null): UseGameStateResult {
   const [state, setState] = useState<GameState | null>(null);
+  const [confirmedState, setConfirmedState] = useState<GameState | null>(null);
   const [customization, setCustomization] = useState<Customization | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,10 +105,23 @@ export function useGameState(oid: string | null): UseGameStateResult {
   // impure setState updater. Updated eagerly on every state write.
   const stateRef = useRef<GameState | null>(null);
 
-  const applyState = useCallback((next: GameState | null) => {
-    stateRef.current = next;
-    setState(next);
-  }, []);
+  const applyState = useCallback(
+    (next: GameState | null, confirmed: boolean = true) => {
+      stateRef.current = next;
+      setState(next);
+      // ``confirmedState`` deliberately excludes optimistic writes so cache
+      // keys derived from it (e.g. the recent-events refetch trigger) do
+      // not advance until the server has acknowledged the change. Without
+      // this gate the optimistic add-point bumps the scoring key
+      // immediately, the audit refetch races the in-flight POST, and the
+      // newly-appended audit row is missed — producing the "chip appears
+      // one action late" symptom.
+      if (confirmed) {
+        setConfirmedState(next);
+      }
+    },
+    [],
+  );
 
   const closeWs = useCallback(() => {
     if (reconnectTimer.current) {
@@ -202,19 +225,19 @@ export function useGameState(oid: string | null): UseGameStateResult {
     const snapshot = stateRef.current;
     const shouldApplyOptimistic = Boolean(optimisticUpdater && snapshot);
     if (shouldApplyOptimistic && snapshot && optimisticUpdater) {
-      applyState(optimisticUpdater(snapshot));
+      applyState(optimisticUpdater(snapshot), false);
     }
     try {
       const res = await actionFn();
       if (res.success && res.state) {
         applyState(res.state);
       } else if (!res.success && shouldApplyOptimistic) {
-        applyState(snapshot);
+        applyState(snapshot, false);
       }
       return res;
     } catch (e) {
       if (shouldApplyOptimistic) {
-        applyState(snapshot);
+        applyState(snapshot, false);
       }
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
@@ -257,6 +280,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
 
   return {
     state,
+    confirmedState,
     customization,
     connected,
     error,
