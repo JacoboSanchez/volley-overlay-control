@@ -97,8 +97,12 @@ export default function OverlayPreview({
 
   if (!safeOverlayUrl) return null;
 
+  // Shared 16:9 card geometry: both preview kinds render in the same
+  // visual slot so a UNO scoreboard isn't squeezed into a tiny strip
+  // jammed up against the match-point / side-switch pills above.
+  const cardHeight = cardWidth * 9 / 16;
+
   if (isCustomOverlay) {
-    const cardHeight = cardWidth * 9 / 16;
     const iframeW = 1920;
     const iframeH = 1080;
 
@@ -159,15 +163,6 @@ export default function OverlayPreview({
   const championship = layoutId === CHAMPIONSHIP_LAYOUT_ID;
   const iframeWidth = 600;
   const iframeHeight = iframeWidth * 9 / 16;
-
-  // Match the custom-overlay path: render in a 16:9 box so both
-  // preview kinds occupy the same visual slot. Previously the UNO
-  // path used a card half the height of the overlay's region, which
-  // made the scoreboard render in a tiny strip jammed up against the
-  // match-point / side-switch pills directly above. Sharing the
-  // 16:9 frame with the custom path centers the scoreboard with
-  // breathing room above and below.
-  const cardHeight = cardWidth * 9 / 16;
 
   const regionW = (width / 100) * iframeWidth;
   const regionH = (height / (championship ? 60 : 100)) * iframeHeight;
