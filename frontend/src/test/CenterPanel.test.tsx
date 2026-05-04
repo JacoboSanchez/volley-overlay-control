@@ -11,6 +11,7 @@ const defaultProps = {
   setsLimit: 5,
   isPortrait: false,
   previewData: null,
+  recentPoints: [],
   onAddSet: vi.fn(),
   onLongPressSet: vi.fn(),
 };
@@ -92,5 +93,31 @@ describe('CenterPanel', () => {
   it('omits the compact modifier by default', () => {
     const { container } = renderWithI18n(<CenterPanel {...defaultProps} />);
     expect(container.querySelector('.center-panel-compact')).toBeNull();
+  });
+
+  it('renders the points history strip when no preview is provided', () => {
+    const points = [
+      { team: 1 as const, ts: 1 },
+      { team: 2 as const, ts: 2 },
+    ];
+    renderWithI18n(<CenterPanel {...defaultProps} previewData={null} recentPoints={points} />);
+    expect(screen.getByTestId('points-history-strip')).toBeInTheDocument();
+    expect(screen.getByTestId('points-history-chip-0')).toHaveTextContent('A');
+    expect(screen.getByTestId('points-history-chip-1')).toHaveTextContent('B');
+  });
+
+  it('does not render the points history strip when preview is provided', () => {
+    const previewData = {
+      overlayUrl: 'about:blank',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 50,
+    };
+    const points = [{ team: 1 as const, ts: 1 }];
+    renderWithI18n(
+      <CenterPanel {...defaultProps} previewData={previewData} recentPoints={points} />,
+    );
+    expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
   });
 });

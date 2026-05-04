@@ -2,10 +2,12 @@ import ScoreButton from './ScoreButton';
 import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
+import PointsHistoryStrip from './PointsHistoryStrip';
 import SideSwitchIndicator from './SideSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
+import type { RecentPoint } from '../hooks/useRecentPoints';
 import { useIndoorMidpointAlert } from '../hooks/useIndoorMidpointAlert';
 import { asString } from '../utils/coerce';
 
@@ -32,6 +34,12 @@ export interface CenterPanelProps {
    */
   compactLandscape?: boolean;
   previewData: PreviewData | null | undefined;
+  /**
+   * Last few points scored in chronological order (oldest first).
+   * Rendered as a chip strip in the slot the preview would occupy
+   * whenever the preview is hidden.
+   */
+  recentPoints: RecentPoint[];
   fontStyle?: ScoreButtonFontStyle;
   onAddSet: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
@@ -48,6 +56,7 @@ export default function CenterPanel({
   isPortrait,
   compactLandscape = false,
   previewData,
+  recentPoints,
   fontStyle,
   onAddSet,
   onLongPressSet,
@@ -138,7 +147,7 @@ export default function CenterPanel({
         )}
       </div>
 
-      {previewData && (
+      {previewData ? (
         <OverlayPreview
           overlayUrl={previewData.overlayUrl}
           x={previewData.x}
@@ -148,6 +157,8 @@ export default function CenterPanel({
           layoutId={previewData.layoutId}
           cardWidth={compactLandscape ? PREVIEW_CARD_WIDTH_COMPACT : PREVIEW_CARD_WIDTH}
         />
+      ) : (
+        <PointsHistoryStrip points={recentPoints} />
       )}
     </div>
   );
