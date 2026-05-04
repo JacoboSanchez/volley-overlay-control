@@ -11,6 +11,11 @@ const defaultProps = {
   setsLimit: 5,
   isPortrait: false,
   previewData: null,
+  recentEvents: [],
+  btnColorA: '#2196f3',
+  btnTextA: '#ffffff',
+  btnColorB: '#f44336',
+  btnTextB: '#ffffff',
   onAddSet: vi.fn(),
   onLongPressSet: vi.fn(),
 };
@@ -92,5 +97,31 @@ describe('CenterPanel', () => {
   it('omits the compact modifier by default', () => {
     const { container } = renderWithI18n(<CenterPanel {...defaultProps} />);
     expect(container.querySelector('.center-panel-compact')).toBeNull();
+  });
+
+  it('renders the points history strip when no preview is provided', () => {
+    const events = [
+      { ts: 1, team: 1 as const, kind: 'point_add' as const },
+      { ts: 2, team: 2 as const, kind: 'point_add' as const },
+    ];
+    renderWithI18n(<CenterPanel {...defaultProps} previewData={null} recentEvents={events} />);
+    expect(screen.getByTestId('points-history-strip')).toBeInTheDocument();
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('+1');
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveTextContent('+1');
+  });
+
+  it('does not render the points history strip when preview is provided', () => {
+    const previewData = {
+      overlayUrl: 'about:blank',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 50,
+    };
+    const events = [{ ts: 1, team: 1 as const, kind: 'point_add' as const }];
+    renderWithI18n(
+      <CenterPanel {...defaultProps} previewData={previewData} recentEvents={events} />,
+    );
+    expect(screen.queryByTestId('points-history-strip')).not.toBeInTheDocument();
   });
 });

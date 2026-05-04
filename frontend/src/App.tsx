@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, FormEvent } from 're
 import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
+import { useRecentEvents } from './hooks/useRecentEvents';
 import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
@@ -94,6 +95,19 @@ export default function App() {
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
   const previewData = usePreview(oid, settings.showPreview, !!state);
+
+  // Landscape phones run with a narrower centre slot; truncate the
+  // history strip accordingly so it doesn't overflow.
+  const compactLandscape = !isPortrait && !hasRoomForPersistentControls;
+
+  // Filled only while the preview is hidden, so the centre column shows
+  // a momentum strip in place of the empty preview gap.
+  const recentEvents = useRecentEvents(
+    oid,
+    !settings.showPreview,
+    state,
+    compactLandscape ? 5 : 8,
+  );
 
   // Reveal the bar when the viewport gains room for it (e.g. phone→tablet
   // resize). Kept in its own effect so the manual hide toggle still works
@@ -374,10 +388,11 @@ export default function App() {
           buttonSize={buttonSize}
           previewData={previewData}
           showPreview={settings.showPreview}
+          recentEvents={recentEvents}
           // Landscape phones (no room for persistent controls) need the
           // preview shrunk so the alert pills below it don't get pushed
           // off the bottom of the viewport.
-          compactLandscape={!isPortrait && !hasRoomForPersistentControls}
+          compactLandscape={compactLandscape}
           showControls={showControls}
           setShowControls={setShowControls}
           canUndo={state?.can_undo ?? false}

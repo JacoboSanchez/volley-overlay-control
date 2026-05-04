@@ -40,10 +40,14 @@ async function request<T = unknown>(
   method: HttpMethod,
   path: string,
   body: unknown = null,
+  signal?: AbortSignal,
 ): Promise<T> {
   const opts: RequestInit = { method, headers: headers() };
   if (body !== null) {
     opts.body = JSON.stringify(body);
+  }
+  if (signal) {
+    opts.signal = signal;
   }
   const res = await fetch(`${BASE_URL}${path}`, opts);
   if (!res.ok) {
@@ -203,4 +207,37 @@ export function getOverlays(): Promise<OverlayPayload[]> {
 
 export function getAppConfig(): Promise<AppConfig> {
   return request<AppConfig>('GET', '/app-config');
+}
+
+// Audit log
+export interface AuditParams {
+  team?: 1 | 2;
+  undo?: boolean;
+  [key: string]: unknown;
+}
+
+export interface AuditRecord {
+  ts: number;
+  action: string;
+  params: AuditParams;
+  result?: Record<string, unknown>;
+}
+
+export interface AuditResponse {
+  oid: string;
+  count: number;
+  records: AuditRecord[];
+}
+
+export function getAudit(
+  oid: string,
+  limit: number = 20,
+  signal?: AbortSignal,
+): Promise<AuditResponse> {
+  return request<AuditResponse>(
+    'GET',
+    `/audit?oid=${encodeURIComponent(oid)}&limit=${limit}`,
+    null,
+    signal,
+  );
 }

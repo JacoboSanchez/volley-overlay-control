@@ -7,6 +7,7 @@ import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import type { PreviewData } from './CenterPanel';
 import type { ScoreButtonFontStyle } from './ScoreButton';
+import type { RecentEvent } from '../hooks/useRecentEvents';
 import {
   TEAM_A_SERVE_ACTIVE,
   TEAM_B_SERVE_ACTIVE,
@@ -23,6 +24,7 @@ export interface ScoreboardViewProps {
   buttonSize?: number;
   previewData: PreviewData | null | undefined;
   showPreview: boolean;
+  recentEvents: RecentEvent[];
   /**
    * True on landscape phones (no room for persistent controls). The
    * centre column then uses a tighter layout and a smaller preview so
@@ -67,6 +69,7 @@ export default function ScoreboardView({
   buttonSize,
   previewData,
   showPreview,
+  recentEvents,
   compactLandscape = false,
   showControls,
   setShowControls,
@@ -133,6 +136,11 @@ export default function ScoreboardView({
           isPortrait={isPortrait}
           compactLandscape={compactLandscape}
           previewData={showPreview ? previewData : null}
+          recentEvents={recentEvents}
+          btnColorA={btnColorA}
+          btnTextA={btnTextA}
+          btnColorB={btnColorB}
+          btnTextB={btnTextB}
           fontStyle={fontStyle}
           onAddSet={onAddSet}
           onLongPressSet={onLongPressSet}
