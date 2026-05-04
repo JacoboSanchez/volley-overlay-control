@@ -1,11 +1,24 @@
 import type { RecentPoint } from '../hooks/useRecentPoints';
-import { TEAM_A_COLOR, TEAM_B_COLOR } from '../theme';
 
 export interface PointsHistoryStripProps {
   points: RecentPoint[];
+  /** Background colour for team 1 chips. Same value the score buttons use. */
+  team1Color: string;
+  /** Foreground (letter) colour for team 1 chips. */
+  team1TextColor: string;
+  /** Background colour for team 2 chips. Same value the score buttons use. */
+  team2Color: string;
+  /** Foreground (letter) colour for team 2 chips. */
+  team2TextColor: string;
 }
 
-export default function PointsHistoryStrip({ points }: PointsHistoryStripProps) {
+export default function PointsHistoryStrip({
+  points,
+  team1Color,
+  team1TextColor,
+  team2Color,
+  team2TextColor,
+}: PointsHistoryStripProps) {
   if (points.length === 0) return null;
   return (
     <div
@@ -18,7 +31,10 @@ export default function PointsHistoryStrip({ points }: PointsHistoryStripProps) 
           key={`${p.ts}-${i}`}
           className={`points-history-chip points-history-chip-team-${p.team}`}
           data-testid={`points-history-chip-${i}`}
-          style={{ backgroundColor: p.team === 1 ? TEAM_A_COLOR : TEAM_B_COLOR }}
+          style={{
+            backgroundColor: p.team === 1 ? team1Color : team2Color,
+            color: p.team === 1 ? team1TextColor : team2TextColor,
+          }}
         >
           {p.team === 1 ? 'A' : 'B'}
         </span>

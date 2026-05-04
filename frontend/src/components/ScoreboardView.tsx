@@ -137,6 +137,10 @@ export default function ScoreboardView({
           compactLandscape={compactLandscape}
           previewData={showPreview ? previewData : null}
           recentPoints={recentPoints}
+          btnColorA={btnColorA}
+          btnTextA={btnTextA}
+          btnColorB={btnColorB}
+          btnTextB={btnTextB}
           fontStyle={fontStyle}
           onAddSet={onAddSet}
           onLongPressSet={onLongPressSet}

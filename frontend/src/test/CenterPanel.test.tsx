@@ -12,6 +12,10 @@ const defaultProps = {
   isPortrait: false,
   previewData: null,
   recentPoints: [],
+  btnColorA: '#2196f3',
+  btnTextA: '#ffffff',
+  btnColorB: '#f44336',
+  btnTextB: '#ffffff',
   onAddSet: vi.fn(),
   onLongPressSet: vi.fn(),
 };

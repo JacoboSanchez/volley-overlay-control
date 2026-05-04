@@ -48,8 +48,12 @@ export function useRecentPoints(
     }
     const controller = new AbortController();
     let cancelled = false;
+    // 3× headroom over `max` covers interleaved add_set/add_timeout records
+    // (rare versus add_point in volleyball) so we still surface enough
+    // points if the caller asks for a larger window than the floor.
+    const fetchLimit = Math.max(DEFAULT_AUDIT_FETCH_LIMIT, max * 3);
     api
-      .getAudit(oid, DEFAULT_AUDIT_FETCH_LIMIT, controller.signal)
+      .getAudit(oid, fetchLimit, controller.signal)
       .then((res) => {
         if (cancelled) return;
         const recent: RecentPoint[] = [];
@@ -64,7 +68,10 @@ export function useRecentPoints(
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
+        // Drop any previous points so the strip doesn't keep showing
+        // stale data after a score change whose refetch failed.
         console.warn('Failed to fetch recent points:', err);
+        setPoints([]);
       });
     return () => {
       cancelled = true;

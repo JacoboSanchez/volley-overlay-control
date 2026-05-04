@@ -40,6 +40,12 @@ export interface CenterPanelProps {
    * whenever the preview is hidden.
    */
   recentPoints: RecentPoint[];
+  /** Score-button colours, reused for the points-history chips so the
+   * strip honours followTeamColors / custom team colour overrides. */
+  btnColorA: string;
+  btnTextA: string;
+  btnColorB: string;
+  btnTextB: string;
   fontStyle?: ScoreButtonFontStyle;
   onAddSet: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
@@ -57,6 +63,10 @@ export default function CenterPanel({
   compactLandscape = false,
   previewData,
   recentPoints,
+  btnColorA,
+  btnTextA,
+  btnColorB,
+  btnTextB,
   fontStyle,
   onAddSet,
   onLongPressSet,
@@ -158,7 +168,13 @@ export default function CenterPanel({
           cardWidth={compactLandscape ? PREVIEW_CARD_WIDTH_COMPACT : PREVIEW_CARD_WIDTH}
         />
       ) : (
-        <PointsHistoryStrip points={recentPoints} />
+        <PointsHistoryStrip
+          points={recentPoints}
+          team1Color={btnColorA}
+          team1TextColor={btnTextA}
+          team2Color={btnColorB}
+          team2TextColor={btnTextB}
+        />
       )}
     </div>
   );
