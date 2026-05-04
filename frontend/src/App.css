@@ -613,6 +613,12 @@ body {
   align-items: center;
   gap: 4px;
   min-width: 0;
+  padding-bottom: 3px;
+}
+
+.phs-row + .phs-row {
+  padding-top: 3px;
+  border-top: 1px solid var(--border);
 }
 
 .phs-marker {
@@ -624,6 +630,19 @@ body {
   border-radius: 50%;
   flex: 0 0 26px;
   overflow: hidden;
+  margin-right: 6px;
+  position: relative;
+}
+
+.phs-marker::after {
+  /* Vertical hairline between the team marker and the action cells. */
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--border);
 }
 
 .phs-marker-logo {

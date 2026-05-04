@@ -61,15 +61,15 @@ describe('PointsHistoryStrip', () => {
     expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('−1');
   });
 
-  it('renders manual chips with the signed delta', () => {
+  it('renders manual chips with the absolute value (no sign)', () => {
     render(
       strip([
-        { ts: 1, team: 1, kind: 'manual', delta: 3 },
-        { ts: 2, team: 2, kind: 'manual', delta: -2 },
+        { ts: 1, team: 1, kind: 'manual', value: 15 },
+        { ts: 2, team: 2, kind: 'manual', value: 0 },
       ]),
     );
-    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('+3');
-    expect(screen.getByTestId('phs-chip-2-1')).toHaveTextContent('−2');
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('15');
+    expect(screen.getByTestId('phs-chip-2-1')).toHaveTextContent('0');
   });
 
   it('paints chip bg/fg from the team colour props', () => {
@@ -117,7 +117,7 @@ describe('PointsHistoryStrip', () => {
         { ts: 1, team: 1, kind: 'set_won' },
         { ts: 2, team: 2, kind: 'timeout' },
         { ts: 3, team: 1, kind: 'timeout_undo' },
-        { ts: 4, team: 2, kind: 'manual', delta: 4 },
+        { ts: 4, team: 2, kind: 'manual', value: 4 },
       ]),
     );
     expect(screen.getByTestId('phs-chip-1-0').querySelector('svg')).not.toBeNull();

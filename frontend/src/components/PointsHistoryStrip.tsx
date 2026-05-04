@@ -75,15 +75,11 @@ function chipContent(ev: RecentEvent) {
     case 'timeout_undo':
       return <ClockIcon struck />;
     case 'manual': {
-      const d = ev.delta ?? 0;
-      const sign = d > 0 ? '+' : '−';
+      const v = ev.value ?? 0;
       return (
         <span className="phs-chip-manual">
           <PencilIcon />
-          <span className="phs-chip-text-sm">
-            {sign}
-            {Math.abs(d)}
-          </span>
+          <span className="phs-chip-text-sm">{v}</span>
         </span>
       );
     }
@@ -102,10 +98,8 @@ function chipAriaLabel(ev: RecentEvent, teamName: string): string {
       return `${teamName}: timeout`;
     case 'timeout_undo':
       return `${teamName}: undo timeout`;
-    case 'manual': {
-      const d = ev.delta ?? 0;
-      return `${teamName}: manual ${d > 0 ? '+' : ''}${d}`;
-    }
+    case 'manual':
+      return `${teamName}: manual ${ev.value ?? 0}`;
   }
 }
 

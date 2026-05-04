@@ -4,17 +4,24 @@ import { useRecentEvents } from '../hooks/useRecentEvents';
 import type { GameState } from '../api/client';
 import * as apiClient from '../api/client';
 
-function makeState(t1Points = 0, t2Points = 0, t1Sets = 0, t2Sets = 0): GameState {
+function makeState(
+  t1Points = 0,
+  t2Points = 0,
+  t1Sets = 0,
+  t2Sets = 0,
+  t1Timeouts = 0,
+  t2Timeouts = 0,
+): GameState {
   return {
     team_1: {
       sets: t1Sets,
-      timeouts: 0,
+      timeouts: t1Timeouts,
       serving: true,
       scores: { set_1: t1Points },
     },
     team_2: {
       sets: t2Sets,
-      timeouts: 0,
+      timeouts: t2Timeouts,
       serving: false,
       scores: { set_1: t2Points },
     },
@@ -104,41 +111,93 @@ describe('useRecentEvents', () => {
     expect(result.current[1]).toMatchObject({ team: 2, kind: 'timeout_undo' });
   });
 
-  it('emits set_won only for forward add_set', async () => {
+  it('emits set_won when team.sets advances on an explicit add_set', async () => {
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 2,
+      // First record anchors the prevSets baseline; second record bumps
+      // team_1.sets so the diff fires. The explicit add_set itself
+      // produces no action chip — only the trophy from the diff.
       records: [
-        rec(1, 'add_set', { team: 1 }),
-        rec(2, 'add_set', { team: 1, undo: true }),
+        rec(1, 'add_point', { team: 1 }, {
+          score_set: 1, team_1: { score: 1, sets: 0 }, team_2: { score: 0, sets: 0 },
+        }),
+        rec(2, 'add_set', { team: 1 }, {
+          score_set: 1, team_1: { score: 25, sets: 1 }, team_2: { score: 20, sets: 0 },
+        }),
       ],
     });
     const { result } = renderHook(() =>
       useRecentEvents('oid', true, makeState(0, 0, 1, 0), 8),
     );
-    await waitFor(() => expect(result.current).toHaveLength(1));
-    expect(result.current[0]).toMatchObject({ team: 1, kind: 'set_won' });
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
+    expect(result.current[1]).toMatchObject({ team: 1, kind: 'set_won' });
   });
 
-  it('emits manual chips with the signed delta computed against prior state', async () => {
+  it('emits set_won AND point_add when a set-winning add_point bumps team.sets', async () => {
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(1, 'add_point', { team: 1 }, {
+          score_set: 1, team_1: { score: 24, sets: 0 }, team_2: { score: 20, sets: 0 },
+        }),
+        // Set-winning add_point — backend logs add_point, NOT add_set.
+        rec(2, 'add_point', { team: 1 }, {
+          score_set: 1, team_1: { score: 25, sets: 1 }, team_2: { score: 20, sets: 0 },
+        }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useRecentEvents('oid', true, makeState(0, 0, 1, 0), 8),
+    );
+    await waitFor(() => expect(result.current).toHaveLength(3));
+    expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
+    expect(result.current[1]).toMatchObject({ team: 1, kind: 'point_add' });
+    expect(result.current[2]).toMatchObject({ team: 1, kind: 'set_won' });
+  });
+
+  it('does not emit set_won when team.sets decreases (set undo)', async () => {
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(1, 'add_set', { team: 1 }, {
+          score_set: 1, team_1: { score: 25, sets: 1 }, team_2: { score: 20, sets: 0 },
+        }),
+        rec(2, 'add_set', { team: 1, undo: true }, {
+          score_set: 1, team_1: { score: 25, sets: 0 }, team_2: { score: 20, sets: 0 },
+        }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useRecentEvents('oid', true, makeState(0, 0, 0, 0), 8),
+    );
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
+    // No set_won — first record has no prev to diff against, second
+    // record's sets decreased so the diff is negative.
+    expect(result.current.some((e) => e.kind === 'set_won')).toBe(false);
+  });
+
+  it('emits manual chips with the absolute new value', async () => {
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 4,
       records: [
-        // Bring score to 5-0 via add_points so the running cache reflects it.
         rec(1, 'add_point', { team: 1 }, {
-          score_set: 1, team_1: { score: 1 }, team_2: { score: 0 },
+          score_set: 1, team_1: { score: 1, sets: 0 }, team_2: { score: 0, sets: 0 },
         }),
         rec(2, 'add_point', { team: 1 }, {
-          score_set: 1, team_1: { score: 2 }, team_2: { score: 0 },
+          score_set: 1, team_1: { score: 2, sets: 0 }, team_2: { score: 0, sets: 0 },
         }),
-        // Operator types 5 → delta = 5 - 2 = +3.
+        // Operator types 5 → chip shows 5 (absolute), not the +3 delta.
         rec(3, 'set_score', { team: 1, set_number: 1, value: 5 }, {
-          score_set: 1, team_1: { score: 5 }, team_2: { score: 0 },
+          score_set: 1, team_1: { score: 5, sets: 0 }, team_2: { score: 0, sets: 0 },
         }),
-        // Operator corrects down to 4 → delta = 4 - 5 = -1.
+        // Operator corrects down to 4 → chip shows 4.
         rec(4, 'set_score', { team: 1, set_number: 1, value: 4 }, {
-          score_set: 1, team_1: { score: 4 }, team_2: { score: 0 },
+          score_set: 1, team_1: { score: 4, sets: 0 }, team_2: { score: 0, sets: 0 },
         }),
       ],
     });
@@ -146,17 +205,17 @@ describe('useRecentEvents', () => {
       useRecentEvents('oid', true, makeState(4, 0), 8),
     );
     await waitFor(() => expect(result.current).toHaveLength(4));
-    expect(result.current[2]).toMatchObject({ team: 1, kind: 'manual', delta: 3 });
-    expect(result.current[3]).toMatchObject({ team: 1, kind: 'manual', delta: -1 });
+    expect(result.current[2]).toMatchObject({ team: 1, kind: 'manual', value: 5 });
+    expect(result.current[3]).toMatchObject({ team: 1, kind: 'manual', value: 4 });
   });
 
-  it('drops manual records whose delta is zero (no-op corrections)', async () => {
+  it('drops manual records that match the current value (no-op corrections)', async () => {
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 1,
       records: [
         rec(1, 'set_score', { team: 1, set_number: 1, value: 0 }, {
-          score_set: 1, team_1: { score: 0 }, team_2: { score: 0 },
+          score_set: 1, team_1: { score: 0, sets: 0 }, team_2: { score: 0, sets: 0 },
         }),
       ],
     });
@@ -165,6 +224,18 @@ describe('useRecentEvents', () => {
     );
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
     expect(result.current).toEqual([]);
+  });
+
+  it('refetches when only timeouts change (so the clock chip is not delayed)', async () => {
+    getAuditSpy.mockResolvedValue({ oid: 'oid', count: 0, records: [] });
+    const { rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: makeState(5, 3, 0, 0, 0, 0) } },
+    );
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(1));
+    // Same scores+sets but one team's timeouts went up → must refetch.
+    rerender({ s: makeState(5, 3, 0, 0, 1, 0) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
   });
 
   it('truncates to the last `max` events', async () => {
