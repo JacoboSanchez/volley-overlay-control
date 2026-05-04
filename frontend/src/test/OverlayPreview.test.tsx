@@ -103,7 +103,27 @@ describe('OverlayPreview', () => {
       />
     );
     const container = screen.getByTestId('overlay-preview').closest('.preview-container');
-    expect(container).toHaveStyle({ width: '300px', height: '50px' });
+    // 16:9 box (cardWidth * 9 / 16 = 168.75), matching the custom-overlay
+    // path so the visual slot is the same regardless of overlay kind.
+    expect(container).toHaveStyle({ width: '300px', height: '168.75px' });
+  });
+
+  it('renders the UNO preview in the same 16:9 box as a custom overlay', () => {
+    // Both kinds should share the same container dimensions so the
+    // scoreboard isn't squeezed into a tiny strip on UNO previews.
+    renderWithI18n(
+      <OverlayPreview
+        overlayUrl="https://overlays.uno/output/abc"
+        x={-33}
+        y={-41}
+        width={30}
+        height={10}
+        layoutId="some-layout"
+        cardWidth={400}
+      />
+    );
+    const uno = screen.getByTestId('overlay-preview').closest('.preview-container');
+    expect(uno).toHaveStyle({ width: '400px', height: '225px' });
   });
 
   it('appends aspect param with & when URL already has query params', () => {
