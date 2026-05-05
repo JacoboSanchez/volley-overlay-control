@@ -3,6 +3,7 @@ name: Publish Dev Docker image
 on:
   push:
     branches: [ "dev" ]
+  workflow_dispatch:
 
 concurrency:
   group: docker-publish-dev-${{ github.ref }}

@@ -3,6 +3,17 @@ name: Publish Release Docker image
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (e.g. v5.1.1)'
+        required: true
+        type: string
+      also_latest:
+        description: 'Also push :latest'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   push_to_registry:
@@ -14,8 +25,23 @@ jobs:
       attestations: write
       id-token: write
     steps:
+      - name: Resolve release tag
+        id: rel
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag='${{ inputs.tag }}'
+            latest='${{ inputs.also_latest }}'
+          else
+            tag='${{ github.event.release.tag_name }}'
+            latest='true'
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "also_latest=$latest" >> "$GITHUB_OUTPUT"
+
       - name: Check out the repo
         uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.rel.outputs.tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -30,7 +56,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf
         with:
-          images: ${{ secrets.DOCKER_IMAGE }}:${{ github.event.release.tag_name }}
+          images: ${{ secrets.DOCKER_IMAGE }}:${{ steps.rel.outputs.tag }}
 
       - name: Build and push Docker image
         id: push
@@ -40,8 +66,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKER_HUB_TAG }}:${{ github.event.release.tag_name }}
-            ${{ secrets.DOCKER_HUB_TAG }}:latest
+            ${{ secrets.DOCKER_HUB_TAG }}:${{ steps.rel.outputs.tag }}
+            ${{ steps.rel.outputs.also_latest == 'true' && format('{0}:latest', secrets.DOCKER_HUB_TAG) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=docker-release
           cache-to: type=gha,mode=max,scope=docker-release
