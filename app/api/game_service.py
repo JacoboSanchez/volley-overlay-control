@@ -214,9 +214,7 @@ class GameService:
         if serve_before != serve_after:
             GameService._fire(
                 session, "serve_change", state_response,
-                {"serve": str(
-                    serve_after.value if hasattr(serve_after, "value") else serve_after
-                )},
+                {"serve": str(getattr(serve_after, "value", serve_after))},
             )
 
     @staticmethod
