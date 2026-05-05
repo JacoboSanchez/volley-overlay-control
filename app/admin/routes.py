@@ -20,7 +20,6 @@ variable to be set and the request to include a matching
 import logging
 import os
 import re
-import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -28,7 +27,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from app.env_vars_manager import EnvVarsManager
+from app.auth_utils import get_admin_password, require_admin_token
 
 logger = logging.getLogger(__name__)
 
@@ -58,30 +57,22 @@ class CustomOverlayCreate(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _get_admin_password() -> Optional[str]:
-    password = EnvVarsManager.get_env_var("OVERLAY_MANAGER_PASSWORD", None)
-    if password is None:
-        return None
-    password = password.strip()
-    return password or None
-
-
 def require_admin(authorization: str = Header(None)) -> None:
     """Validate the admin Bearer token."""
-    password = _get_admin_password()
-    if password is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Overlay management is disabled. Set OVERLAY_MANAGER_PASSWORD to enable it.",
-        )
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing admin password. Use 'Authorization: Bearer <password>'.",
-        )
-    token = authorization.removeprefix("Bearer ").strip()
-    if not secrets.compare_digest(token, password):
-        raise HTTPException(status_code=403, detail="Invalid admin password.")
+    require_admin_token(
+        authorization,
+        token=None,
+        # Bandit B106 false positive: this is the error message shown
+        # when the password env var is unset, not a hardcoded credential.
+        missing_password_detail=(  # nosec B106
+            "Overlay management is disabled. "
+            "Set OVERLAY_MANAGER_PASSWORD to enable it."
+        ),
+        missing_token_detail=(  # nosec B106
+            "Missing admin password. Use 'Authorization: Bearer <password>'."
+        ),
+        invalid_token_detail="Invalid admin password.",  # nosec B106
+    )
 
 
 def _validate_overlay_id(value: str) -> str:
@@ -132,7 +123,7 @@ admin_router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 @admin_router.get("/status")
 def admin_status():
     """Report whether overlay management is enabled on this server."""
-    return {"enabled": _get_admin_password() is not None}
+    return {"enabled": get_admin_password() is not None}
 
 
 @admin_router.post("/login")

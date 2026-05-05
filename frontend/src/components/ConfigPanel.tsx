@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef, lazy, Suspense } fro
 import { useI18n } from '../i18n';
 import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import * as api from '../api/client';
 import ConfigSkeleton from './ConfigSkeleton';
 import type { ConfigModel, PredefinedTeams } from './TeamCard';
@@ -97,8 +98,6 @@ export default function ConfigPanel({
   const { isPortrait } = useOrientation();
 
   const [model, setModel] = useState<ConfigModel>(() => ({ ...(customization ?? {}) }));
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (customization) {
@@ -154,21 +153,17 @@ export default function ConfigPanel({
     window.history.back();
   }, []);
 
-  const handleSave = useCallback(async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
+  const { run: handleSave, pending: saving, error: saveError } = useAsyncAction(
+    async () => {
       await api.updateCustomization(oid, model);
       if (onCustomizationSaved) await onCustomizationSaved();
       bypassConfirmRef.current = true;
       window.history.back();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : t('config.failedToSave');
-      setSaveError(msg);
-    } finally {
-      setSaving(false);
-    }
-  }, [oid, model, onCustomizationSaved, t]);
+    },
+    {
+      formatError: (e) => e instanceof Error ? e.message : t('config.failedToSave'),
+    },
+  );
 
   useEffect(() => {
     window.history.pushState({ configOpen: true }, '');

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useI18n } from '../i18n';
 import ColorPicker from './ColorPicker';
+import { asString } from '../utils/coerce';
 
 export type ConfigModel = Record<string, unknown>;
 
@@ -19,10 +20,6 @@ export interface TeamCardProps {
   predefinedTeams: PredefinedTeams;
 }
 
-function asString(v: unknown, fallback = ''): string {
-  return typeof v === 'string' ? v : fallback;
-}
-
 /**
  * Team customization card — logo preview, team name selector, colors.
  */
@@ -35,8 +32,8 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
   const colorKey = `${prefix} Color`;
   const textColorKey = `${prefix} Text Color`;
   const logoKey = `${prefix} Logo`;
-  const logoUrl = asString(model[logoKey]);
-  const currentName = asString(model[nameKey]);
+  const logoUrl = asString(model[logoKey], '');
+  const currentName = asString(model[nameKey], '');
   const [editing, setEditing] = useState(false);
 
   const teamNames = Object.keys(predefinedTeams);

@@ -37,13 +37,13 @@ import datetime
 import html
 import logging
 import re
-import secrets
-from typing import Optional
+from typing import Optional, overload
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 
 from app.api import match_archive
+from app.auth_utils import require_admin_token as _require_admin_token
 from app.env_vars_manager import EnvVarsManager
 from app.match_report_i18n import resolve_locale
 from app.match_report_i18n import t as _t
@@ -73,48 +73,6 @@ def _public_delete_enabled() -> bool:
     public read shouldn't silently authorise public destruction.
     """
     return _is_env_enabled("MATCH_REPORT_PUBLIC_DELETE")
-
-
-def _admin_password() -> Optional[str]:
-    raw = EnvVarsManager.get_env_var("OVERLAY_MANAGER_PASSWORD", None)
-    if raw is None:
-        return None
-    raw = str(raw).strip()
-    return raw or None
-
-
-def _require_admin_token(
-    authorization: Optional[str],
-    token: Optional[str],
-    *,
-    missing_password_detail: str,
-) -> None:
-    """Raise unless the caller presents the admin token.
-
-    Shared between :func:`_check_access` and :func:`_check_admin_access`.
-    Both flows need the same Bearer-or-``?token=`` resolution and the
-    same 503/401/403 ladder; only the 503 detail differs (read vs.
-    destructive copy), so callers pass that in.
-    """
-    expected = _admin_password()
-    if expected is None:
-        raise HTTPException(status_code=503, detail=missing_password_detail)
-    provided: Optional[str] = None
-    if authorization and authorization.startswith("Bearer "):
-        provided = authorization.removeprefix("Bearer ").strip() or None
-    if provided is None and token:
-        provided = token.strip() or None
-    if provided is None:
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Authentication required. Pass Authorization: Bearer "
-                "<token> or ?token=<token> matching "
-                "OVERLAY_MANAGER_PASSWORD."
-            ),
-        )
-    if not secrets.compare_digest(provided, expected):
-        raise HTTPException(status_code=403, detail="Invalid token.")
 
 
 def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
@@ -592,6 +550,27 @@ def _coerce_int(raw: object) -> Optional[int]:
     return None
 
 
+@overload
+def _safe_int(value: object) -> Optional[int]: ...
+@overload
+def _safe_int(value: object, default: int) -> int: ...
+@overload
+def _safe_int(value: object, default: None) -> Optional[int]: ...
+
+
+def _safe_int(value: object, default: Optional[int] = None) -> Optional[int]:
+    """Lenient ``int`` parse: like ``int(value)`` but returns *default* on failure.
+
+    Stricter callers should prefer :func:`_coerce_int`; this helper
+    mirrors the inline ``try: int(value) except (TypeError, ValueError)``
+    pattern that recurs across set/score parsing.
+    """
+    try:
+        return int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return default
+
+
 def _result_score(record: dict, team: int) -> Optional[int]:
     """Pull the post-action score for *team* out of an audit ``result`` blob."""
     block = (record.get("result") or {}).get(f"team_{team}") or {}
@@ -673,14 +652,10 @@ def _played_set_count(final_state: dict, fallback: int) -> int:
         for key, value in scores.items():
             if not isinstance(key, str) or not key.startswith("set_"):
                 continue
-            try:
-                n = int(key.removeprefix("set_"))
-            except ValueError:
+            n = _safe_int(key.removeprefix("set_"))
+            if n is None:
                 continue
-            try:
-                v = int(value) if value is not None else 0
-            except (TypeError, ValueError):
-                continue
+            v = 0 if value is None else _safe_int(value, 0)
             if v > 0:
                 highest = max(highest, n)
     if highest == 0:

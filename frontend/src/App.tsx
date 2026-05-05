@@ -21,6 +21,7 @@ import {
   FONT_SCALES,
 } from './theme';
 import { HUD_AUTO_HIDE_MS } from './constants';
+import { asColor, asString } from './utils/coerce';
 
 type Team = 1 | 2;
 
@@ -339,11 +340,6 @@ export default function App() {
     [dialog, actions, currentSet]
   );
 
-  const asColor = (v: unknown, fallback: string): string =>
-    typeof v === 'string' && v ? v : fallback;
-  const asLogo = (v: unknown): string | null =>
-    typeof v === 'string' && v ? v : null;
-
   const btnColorA = settings.followTeamColors
     ? asColor(customization?.['Team 1 Color'], TEAM_A_COLOR)
     : (settings.team1BtnColor ?? TEAM_A_COLOR);
@@ -357,8 +353,8 @@ export default function App() {
     ? asColor(customization?.['Team 2 Text Color'], '#ffffff')
     : (settings.team2BtnText ?? '#ffffff');
 
-  const iconLogoA = settings.showIcon ? asLogo(customization?.['Team 1 Logo']) : null;
-  const iconLogoB = settings.showIcon ? asLogo(customization?.['Team 2 Logo']) : null;
+  const iconLogoA = settings.showIcon ? asString(customization?.['Team 1 Logo']) : null;
+  const iconLogoB = settings.showIcon ? asString(customization?.['Team 2 Logo']) : null;
 
   const fontStyle = useMemo<ScoreButtonFontStyle>(() => {
     const fontScales = FONT_SCALES as Record<string, FontScale>;
