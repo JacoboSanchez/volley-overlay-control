@@ -8,6 +8,14 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- React control UI: reversed the order of the four secondary toggles
+  on the bottom HUD bar. New order, left → right (closest to the
+  match timer first): undo, simple-mode, preview, visibility. Undo
+  is the most reached-for action during play, so it now sits closest
+  to the primary side of the bar.
+
 ## [5.1.1] - 2026-05-04
 
 ### Added

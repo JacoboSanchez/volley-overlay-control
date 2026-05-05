@@ -44,9 +44,10 @@ export interface ControlButtonsProps {
  *   * Start-match / Reset toggle (with text label) — primary
  *     operator action, parked on the dominant side.
  *   * Live match timer (when armed).
- *   * Visibility, preview, simple-mode, undo — secondary toggles
+ *   * Undo, simple-mode, preview, visibility — secondary toggles
  *     pushed to the right edge so they don't crowd the primary
- *     action.
+ *     action. Undo sits closest to the timer because it's the
+ *     most reached-for during play.
  *
  * Theme + fullscreen toggles live in the config panel; they're
  * once-per-session decisions and don't earn a permanent slot here.
@@ -103,15 +104,30 @@ export default function ControlButtons({
       <button
         className="control-btn"
         style={{
-          borderColor: visible ? VISIBLE_ON_COLOR : VISIBLE_OFF_COLOR,
-          color: visible ? VISIBLE_ON_COLOR : VISIBLE_OFF_COLOR,
+          borderColor: UNDO_COLOR,
+          color: UNDO_COLOR,
+          opacity: canUndo ? 1 : 0.4,
         }}
-        onClick={onToggleVisibility}
-        title={visible ? t('ctrl.hideOverlay') : t('ctrl.showOverlay')}
-        data-testid="visibility-button"
+        onClick={onUndoLast}
+        disabled={!canUndo}
+        title={t('ctrl.undoLast')}
+        data-testid="undo-button"
+      >
+        <span className="material-icons">undo</span>
+      </button>
+
+      <button
+        className="control-btn"
+        style={{
+          borderColor: simpleMode ? SIMPLE_SCOREBOARD_COLOR : FULL_SCOREBOARD_COLOR,
+          color: simpleMode ? SIMPLE_SCOREBOARD_COLOR : FULL_SCOREBOARD_COLOR,
+        }}
+        onClick={onToggleSimpleMode}
+        title={simpleMode ? t('ctrl.fullScoreboard') : t('ctrl.simpleScoreboard')}
+        data-testid="simple-mode-button"
       >
         <span className="material-icons">
-          {visible ? 'visibility' : 'visibility_off'}
+          {simpleMode ? 'window' : 'grid_on'}
         </span>
       </button>
 
@@ -133,31 +149,16 @@ export default function ControlButtons({
       <button
         className="control-btn"
         style={{
-          borderColor: simpleMode ? SIMPLE_SCOREBOARD_COLOR : FULL_SCOREBOARD_COLOR,
-          color: simpleMode ? SIMPLE_SCOREBOARD_COLOR : FULL_SCOREBOARD_COLOR,
+          borderColor: visible ? VISIBLE_ON_COLOR : VISIBLE_OFF_COLOR,
+          color: visible ? VISIBLE_ON_COLOR : VISIBLE_OFF_COLOR,
         }}
-        onClick={onToggleSimpleMode}
-        title={simpleMode ? t('ctrl.fullScoreboard') : t('ctrl.simpleScoreboard')}
-        data-testid="simple-mode-button"
+        onClick={onToggleVisibility}
+        title={visible ? t('ctrl.hideOverlay') : t('ctrl.showOverlay')}
+        data-testid="visibility-button"
       >
         <span className="material-icons">
-          {simpleMode ? 'window' : 'grid_on'}
+          {visible ? 'visibility' : 'visibility_off'}
         </span>
-      </button>
-
-      <button
-        className="control-btn"
-        style={{
-          borderColor: UNDO_COLOR,
-          color: UNDO_COLOR,
-          opacity: canUndo ? 1 : 0.4,
-        }}
-        onClick={onUndoLast}
-        disabled={!canUndo}
-        title={t('ctrl.undoLast')}
-        data-testid="undo-button"
-      >
-        <span className="material-icons">undo</span>
       </button>
     </div>
   );
