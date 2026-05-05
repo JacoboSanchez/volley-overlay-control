@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
 import * as api from '../../api/client';
+import { useAsyncAction } from '../../hooks/useAsyncAction';
 
 export interface MatchRulesSectionProps {
   oid: string;
@@ -38,26 +39,18 @@ export default function MatchRulesSection({
   onChanged,
 }: MatchRulesSectionProps) {
   const { t } = useI18n();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [pointsDraft, setPointsDraft] = useState<number | null>(pointsLimit);
   const [pointsLastDraft, setPointsLastDraft] = useState<number | null>(pointsLimitLastSet);
 
   useEffect(() => { setPointsDraft(pointsLimit); }, [pointsLimit]);
   useEffect(() => { setPointsLastDraft(pointsLimitLastSet); }, [pointsLimitLastSet]);
 
-  async function call(payload: api.SetRulesPayload) {
-    setPending(true);
-    setError(null);
-    try {
+  const { run: call, pending, error } = useAsyncAction<[api.SetRulesPayload]>(
+    async (payload) => {
       await api.setRules(oid, payload);
       onChanged?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setPending(false);
-    }
-  }
+    },
+  );
 
   function handleModeChange(newMode: api.MatchMode) {
     if (newMode === mode) return;

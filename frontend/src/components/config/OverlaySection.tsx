@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n';
-import ColorPicker from '../ColorPicker';
 import type { ConfigModel } from './TeamsSection';
+import { asBool, asString } from '../../utils/coerce';
+import { ConfigColorField } from './fields';
 
 export type OverlayThemes = Record<string, unknown>;
 
@@ -13,14 +14,6 @@ export interface OverlaySectionProps {
   setSelectedTheme: (name: string) => void;
   onApplyTheme: (name: string) => void;
   isCustomOverlay: boolean;
-}
-
-function asBool(v: unknown): boolean {
-  return v === 'true' || v === true;
-}
-
-function asString(v: unknown, fallback: string): string {
-  return typeof v === 'string' ? v : fallback;
 }
 
 export default function OverlaySection({
@@ -60,26 +53,26 @@ export default function OverlaySection({
         )}
       </div>
       <div className="config-color-grid-2x2">
-        <div className="config-color-group">
-          <label className="config-label">{t('overlay.setColor')}</label>
-          <ColorPicker color={asString(model['Color 1'], '#2a2f35')}
-            onChange={(c) => updateField('Color 1', c)} />
-        </div>
-        <div className="config-color-group">
-          <label className="config-label">{t('overlay.setText')}</label>
-          <ColorPicker color={asString(model['Text Color 1'], '#ffffff')}
-            onChange={(c) => updateField('Text Color 1', c)} />
-        </div>
-        <div className="config-color-group">
-          <label className="config-label">{t('overlay.gameColor')}</label>
-          <ColorPicker color={asString(model['Color 2'], '#ffffff')}
-            onChange={(c) => updateField('Color 2', c)} />
-        </div>
-        <div className="config-color-group">
-          <label className="config-label">{t('overlay.gameText')}</label>
-          <ColorPicker color={asString(model['Text Color 2'], '#2a2f35')}
-            onChange={(c) => updateField('Text Color 2', c)} />
-        </div>
+        <ConfigColorField
+          label={t('overlay.setColor')}
+          color={asString(model['Color 1'], '#2a2f35')}
+          onChange={(c) => updateField('Color 1', c)}
+        />
+        <ConfigColorField
+          label={t('overlay.setText')}
+          color={asString(model['Text Color 1'], '#ffffff')}
+          onChange={(c) => updateField('Text Color 1', c)}
+        />
+        <ConfigColorField
+          label={t('overlay.gameColor')}
+          color={asString(model['Color 2'], '#ffffff')}
+          onChange={(c) => updateField('Color 2', c)}
+        />
+        <ConfigColorField
+          label={t('overlay.gameText')}
+          color={asString(model['Text Color 2'], '#2a2f35')}
+          onChange={(c) => updateField('Text Color 2', c)}
+        />
       </div>
       {(hasStyles || hasThemes) && (
         <div className="config-theme-inline">

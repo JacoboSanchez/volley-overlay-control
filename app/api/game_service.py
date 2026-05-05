@@ -176,13 +176,55 @@ class GameService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def add_point(session, team: int, undo: bool = False) -> ActionResponse:
-        if not undo and session.game_manager.match_finished(session.sets_limit):
+    def _match_finished_response(session) -> Optional[ActionResponse]:
+        """Return the early-exit ``ActionResponse`` when the match is already over.
+
+        ``add_point`` / ``add_set`` / ``add_timeout`` all share the same
+        guard for non-undo actions — keep its message and shape in one
+        place so changes to the wording stay aligned.
+        """
+        if session.game_manager.match_finished(session.sets_limit):
             return ActionResponse(
                 success=False,
                 state=GameService.get_state(session),
                 message="Match is already finished.",
             )
+        return None
+
+    @staticmethod
+    def _ended_set_index(session) -> int:
+        """Set number that just ended (1-indexed).
+
+        ``current_set`` is advanced on a set win unless the match
+        finishes, so the just-ended set is ``current_set`` when the
+        match is over and ``current_set - 1`` otherwise. Shared by
+        ``add_point`` and ``add_set`` to keep the two ``set_end``
+        webhook payloads aligned.
+        """
+        if session.game_manager.match_finished(session.sets_limit):
+            return session.current_set
+        return session.current_set - 1
+
+    @staticmethod
+    def _fire_serve_change_if_changed(
+        session, serve_before, state_response: GameStateResponse
+    ) -> None:
+        """Fire a ``serve_change`` webhook when the current serve flipped."""
+        serve_after = session.game_manager.get_current_state().get_current_serve()
+        if serve_before != serve_after:
+            GameService._fire(
+                session, "serve_change", state_response,
+                {"serve": str(
+                    serve_after.value if hasattr(serve_after, "value") else serve_after
+                )},
+            )
+
+    @staticmethod
+    def add_point(session, team: int, undo: bool = False) -> ActionResponse:
+        if not undo:
+            blocked = GameService._match_finished_response(session)
+            if blocked is not None:
+                return blocked
 
         # Implicit match-start: scoring before the operator hit
         # ``Start match`` arms the timer here so the HUD timer and the
@@ -238,42 +280,25 @@ class GameService:
         if not undo:
             state_response = GameService.get_state(session)
             if set_won:
-                # ``session.current_set`` was already advanced above
-                # (when set_won and not match_finished), so the set
-                # that just *ended* is one less than the current
-                # one. When the match is finished, current_set is
-                # not advanced and is itself the set that just
-                # ended.
-                ended_set = (
-                    session.current_set
-                    if session.game_manager.match_finished(session.sets_limit)
-                    else session.current_set - 1
-                )
                 GameService._fire(session, "set_end", state_response, {
                     "team": team,
-                    "set_number": ended_set,
+                    "set_number": GameService._ended_set_index(session),
                 })
             if session.game_manager.match_finished(session.sets_limit) and not was_finished_before:
                 GameService._archive_if_finished(session, was_finished_before, team)
                 GameService._fire(session, "match_end", state_response, {
                     "winning_team": team,
                 })
-            serve_after = session.game_manager.get_current_state().get_current_serve()
-            if serve_before != serve_after:
-                GameService._fire(session, "serve_change", state_response, {
-                    "serve": str(serve_after.value if hasattr(serve_after, "value") else serve_after),
-                })
+            GameService._fire_serve_change_if_changed(session, serve_before, state_response)
 
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod
     def add_set(session, team: int, undo: bool = False) -> ActionResponse:
-        if not undo and session.game_manager.match_finished(session.sets_limit):
-            return ActionResponse(
-                success=False,
-                state=GameService.get_state(session),
-                message="Match is already finished.",
-            )
+        if not undo:
+            blocked = GameService._match_finished_response(session)
+            if blocked is not None:
+                return blocked
 
         was_finished_before = session.game_manager.match_finished(session.sets_limit)
         # Same reasoning as add_point: capture before advance so the
@@ -301,17 +326,9 @@ class GameService:
 
         if not undo:
             state_response = GameService.get_state(session)
-            # Same reasoning as in add_point: ``current_set`` may
-            # have advanced inside ``add_set`` when the match isn't
-            # finished, so the set that just ended is one less.
-            ended_set = (
-                session.current_set
-                if session.game_manager.match_finished(session.sets_limit)
-                else session.current_set - 1
-            )
             GameService._fire(session, "set_end", state_response, {
                 "team": team,
-                "set_number": ended_set,
+                "set_number": GameService._ended_set_index(session),
             })
             if session.game_manager.match_finished(session.sets_limit) and not was_finished_before:
                 GameService._archive_if_finished(session, was_finished_before, team)
@@ -322,12 +339,10 @@ class GameService:
 
     @staticmethod
     def add_timeout(session, team: int, undo: bool = False) -> ActionResponse:
-        if not undo and session.game_manager.match_finished(session.sets_limit):
-            return ActionResponse(
-                success=False,
-                state=GameService.get_state(session),
-                message="Match is already finished.",
-            )
+        if not undo:
+            blocked = GameService._match_finished_response(session)
+            if blocked is not None:
+                return blocked
 
         popped = (
             action_log.pop_last_forward(
@@ -358,12 +373,9 @@ class GameService:
         session.game_manager.change_serve(team)
         GameService._save_and_broadcast(session)
         GameService._audit(session, "change_serve", {"team": team})
-        serve_after = session.game_manager.get_current_state().get_current_serve()
-        if serve_before != serve_after:
-            GameService._fire(
-                session, "serve_change", GameService.get_state(session),
-                {"serve": str(serve_after.value if hasattr(serve_after, "value") else serve_after)},
-            )
+        GameService._fire_serve_change_if_changed(
+            session, serve_before, GameService.get_state(session),
+        )
         return ActionResponse(success=True, state=GameService.get_state(session))
 
     @staticmethod

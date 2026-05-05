@@ -3,9 +3,35 @@
 import logging
 from abc import ABC, abstractmethod
 
+from app.overlay_backends.utils import split_custom_oid
 from app.state import State
 
 logger = logging.getLogger(__name__)
+
+
+class CustomOidMixin:
+    """Shared OID parsing helpers for custom-overlay backends.
+
+    Both :class:`LocalOverlayBackend` and :class:`CustomOverlayBackend`
+    accept the ``id[/style]`` (and legacy ``C-id[/style]``) syntax. This
+    mixin avoids duplicating the same three accessors in each subclass.
+    The Uno backend stores opaque OIDs and does NOT inherit this mixin.
+    """
+
+    @staticmethod
+    def get_overlay_id(oid: str):
+        """Extract base_id and optional style from a custom OID."""
+        return split_custom_oid(oid)
+
+    def _custom_id(self, oid=None):
+        check_oid = oid if oid is not None else self.conf.oid
+        cid, _ = split_custom_oid(check_oid)
+        return cid
+
+    def _style(self, oid=None):
+        check_oid = oid if oid is not None else self.conf.oid
+        _, style = split_custom_oid(check_oid)
+        return style
 
 
 class OverlayBackend(ABC):

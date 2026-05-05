@@ -4,14 +4,13 @@ import copy
 import logging
 
 from app.env_vars_manager import EnvVarsManager
-from app.overlay_backends.base import OverlayBackend
-from app.overlay_backends.utils import split_custom_oid
+from app.overlay_backends.base import CustomOidMixin, OverlayBackend
 from app.state import State
 
 logger = logging.getLogger(__name__)
 
 
-class LocalOverlayBackend(OverlayBackend):
+class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
     """In-process overlay backend — no external server needed.
 
     Manages overlay state directly via the ``app.overlay`` package instead
@@ -22,22 +21,6 @@ class LocalOverlayBackend(OverlayBackend):
         self.conf = conf
         # Build overlay payload callback — set by Backend after construction
         self._build_payload = None
-
-    # Backwards-compatible static helper (used elsewhere in the codebase).
-    @staticmethod
-    def get_overlay_id(oid: str):
-        """Extract base_id and optional style from a custom OID."""
-        return split_custom_oid(oid)
-
-    def _custom_id(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
-        cid, _ = split_custom_oid(check_oid)
-        return cid
-
-    def _style(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
-        _, style = split_custom_oid(check_oid)
-        return style
 
     def _store(self):
         from app.overlay import overlay_state_store

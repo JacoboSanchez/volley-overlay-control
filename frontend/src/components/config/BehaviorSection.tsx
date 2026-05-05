@@ -1,4 +1,5 @@
 import { useI18n } from '../../i18n';
+import { ConfigRange, ConfigSwitch } from './fields';
 
 export interface BehaviorSettings {
   autoHide: boolean;
@@ -25,27 +26,26 @@ export default function BehaviorSection({ settings, setSetting }: BehaviorSectio
   const { t, lang, setLanguage, languages } = useI18n();
   return (
     <div className="config-section-behavior">
-      <div className="config-switch-row">
-        <label className="config-switch-label">
-          <input type="checkbox" checked={settings.autoHide}
-            onChange={(e) => setSetting('autoHide', e.target.checked)} />
-          {t('behavior.autoHide')}
-        </label>
-      </div>
+      <ConfigSwitch
+        label={t('behavior.autoHide')}
+        checked={settings.autoHide}
+        onChange={(v) => setSetting('autoHide', v)}
+      />
       {settings.autoHide && (
-        <div className="config-range-row">
-          <label className="config-label">{t('behavior.hideAfter', { value: settings.autoHideSeconds })}</label>
-          <input type="range" min={1} max={15} step={1} value={settings.autoHideSeconds}
-            onChange={(e) => setSetting('autoHideSeconds', Number(e.target.value))} className="config-range" />
-        </div>
+        <ConfigRange
+          label={t('behavior.hideAfter', { value: settings.autoHideSeconds })}
+          value={settings.autoHideSeconds}
+          min={1}
+          max={15}
+          step={1}
+          onChange={(v) => setSetting('autoHideSeconds', v)}
+        />
       )}
-      <div className="config-switch-row">
-        <label className="config-switch-label">
-          <input type="checkbox" checked={settings.autoSimple}
-            onChange={(e) => setSetting('autoSimple', e.target.checked)} />
-          {t('behavior.autoSimple')}
-        </label>
-      </div>
+      <ConfigSwitch
+        label={t('behavior.autoSimple')}
+        checked={settings.autoSimple}
+        onChange={(v) => setSetting('autoSimple', v)}
+      />
       {settings.autoSimple && (
         <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
           <label className="config-switch-label">

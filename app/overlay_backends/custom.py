@@ -8,14 +8,13 @@ import requests
 import requests.exceptions
 
 from app.env_vars_manager import EnvVarsManager
-from app.overlay_backends.base import OverlayBackend
-from app.overlay_backends.utils import split_custom_oid
+from app.overlay_backends.base import CustomOidMixin, OverlayBackend
 from app.state import State
 
 logger = logging.getLogger(__name__)
 
 
-class CustomOverlayBackend(OverlayBackend):
+class CustomOverlayBackend(CustomOidMixin, OverlayBackend):
     """Communicates with an external overlay server via WebSocket + HTTP fallback."""
 
     def __init__(self, conf, session: requests.Session):
@@ -25,12 +24,6 @@ class CustomOverlayBackend(OverlayBackend):
         self._obs_client_count = 0
         # Build overlay payload callback — set by Backend after construction
         self._build_payload = None
-
-    # Backwards-compatible static helper (used elsewhere in the codebase).
-    @staticmethod
-    def get_overlay_id(oid: str):
-        """Extract base_id and optional style from a custom OID."""
-        return split_custom_oid(oid)
 
     def _base_url(self):
         return EnvVarsManager.get_custom_overlay_url().rstrip('/')
@@ -46,16 +39,6 @@ class CustomOverlayBackend(OverlayBackend):
         if token and token.strip():
             return {"Authorization": f"Bearer {token.strip()}"}
         return {}
-
-    def _custom_id(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
-        cid, _ = split_custom_oid(check_oid)
-        return cid
-
-    def _style(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
-        _, style = split_custom_oid(check_oid)
-        return style
 
     def _ws_send_raw_config(self, payload):
         """Send raw_config via WS if connected, else HTTP POST."""
