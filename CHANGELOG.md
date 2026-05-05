@@ -15,6 +15,9 @@ once a first tagged release ships.
   match timer first): undo, simple-mode, preview, visibility. Undo
   is the most reached-for action during play, so it now sits closest
   to the primary side of the bar.
+- Docs: regenerated README screenshots to reflect the bottom-HUD
+  toggle reorder and the recent control-UI / config-panel /
+  match-report tweaks.
 
 ## [5.1.1] - 2026-05-04
 
