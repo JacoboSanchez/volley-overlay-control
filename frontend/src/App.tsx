@@ -340,18 +340,32 @@ export default function App() {
     [dialog, actions, currentSet]
   );
 
-  const btnColorA = settings.followTeamColors
-    ? asColor(customization?.['Team 1 Color'], TEAM_A_COLOR)
-    : (settings.team1BtnColor ?? TEAM_A_COLOR);
-  const btnTextA = settings.followTeamColors
-    ? asColor(customization?.['Team 1 Text Color'], '#ffffff')
-    : (settings.team1BtnText ?? '#ffffff');
-  const btnColorB = settings.followTeamColors
-    ? asColor(customization?.['Team 2 Color'], TEAM_B_COLOR)
-    : (settings.team2BtnColor ?? TEAM_B_COLOR);
-  const btnTextB = settings.followTeamColors
-    ? asColor(customization?.['Team 2 Text Color'], '#ffffff')
-    : (settings.team2BtnText ?? '#ffffff');
+  // Memoize the four button colours together so the strings keep
+  // referential identity across re-renders that didn't change any
+  // colour input. Without this, every WebSocket state push would
+  // hand fresh string instances to TeamPanel/CenterPanel and defeat
+  // the React.memo wrappers that guard those subtrees.
+  const { btnColorA, btnTextA, btnColorB, btnTextB } = useMemo(() => ({
+    btnColorA: settings.followTeamColors
+      ? asColor(customization?.['Team 1 Color'], TEAM_A_COLOR)
+      : (settings.team1BtnColor ?? TEAM_A_COLOR),
+    btnTextA: settings.followTeamColors
+      ? asColor(customization?.['Team 1 Text Color'], '#ffffff')
+      : (settings.team1BtnText ?? '#ffffff'),
+    btnColorB: settings.followTeamColors
+      ? asColor(customization?.['Team 2 Color'], TEAM_B_COLOR)
+      : (settings.team2BtnColor ?? TEAM_B_COLOR),
+    btnTextB: settings.followTeamColors
+      ? asColor(customization?.['Team 2 Text Color'], '#ffffff')
+      : (settings.team2BtnText ?? '#ffffff'),
+  }), [
+    settings.followTeamColors,
+    settings.team1BtnColor,
+    settings.team1BtnText,
+    settings.team2BtnColor,
+    settings.team2BtnText,
+    customization,
+  ]);
 
   const iconLogoA = settings.showIcon ? asString(customization?.['Team 1 Logo']) : null;
   const iconLogoB = settings.showIcon ? asString(customization?.['Team 2 Logo']) : null;

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import ScoreButton from './ScoreButton';
 import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
@@ -54,7 +55,7 @@ export interface CenterPanelProps {
 const PREVIEW_CARD_WIDTH = 300;
 const PREVIEW_CARD_WIDTH_COMPACT = 200;
 
-export default function CenterPanel({
+function CenterPanel({
   state,
   customization,
   currentSet,
@@ -183,3 +184,5 @@ export default function CenterPanel({
     </div>
   );
 }
+
+export default memo(CenterPanel);

@@ -98,17 +98,20 @@ export default function ConfigPanel({
   const { isPortrait } = useOrientation();
 
   const [model, setModel] = useState<ConfigModel>(() => ({ ...(customization ?? {}) }));
+  // Track dirtiness via a flag toggled by the mutation paths (updateField,
+  // theme apply) instead of comparing model and customization with a
+  // double JSON.stringify on every render. The form has many fields and
+  // gets a setModel on every keystroke; the JSON.stringify approach was
+  // O(n) per render in both depth and key count.
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     if (customization) {
       setModel({ ...customization });
+      setIsDirty(false);
     }
   }, [customization]);
 
-  const isDirty = useMemo(
-    () => JSON.stringify(model) !== JSON.stringify(customization ?? {}),
-    [model, customization],
-  );
   const isDirtyRef = useRef(isDirty);
   useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
 
@@ -130,6 +133,7 @@ export default function ConfigPanel({
 
   const updateField = useCallback((key: string, value: unknown) => {
     setModel((m) => ({ ...m, [key]: value }));
+    setIsDirty(true);
   }, []);
 
   const bypassConfirmRef = useRef(false);
@@ -156,6 +160,7 @@ export default function ConfigPanel({
   const { run: handleSave, pending: saving, error: saveError } = useAsyncAction(
     async () => {
       await api.updateCustomization(oid, model);
+      setIsDirty(false);
       if (onCustomizationSaved) await onCustomizationSaved();
       bypassConfirmRef.current = true;
       window.history.back();
@@ -196,6 +201,7 @@ export default function ConfigPanel({
     const themeData = themes[themeName];
     if (themeData) {
       setModel((m) => ({ ...m, ...themeData }));
+      setIsDirty(true);
     }
   }, [themes]);
 

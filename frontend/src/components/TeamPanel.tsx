@@ -1,4 +1,4 @@
-import { CSSProperties, ReactElement, useCallback } from 'react';
+import { CSSProperties, ReactElement, memo, useCallback } from 'react';
 import ScoreButton, { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import type { GameState } from '../api/client';
@@ -46,7 +46,7 @@ function isSafeUrl(url: string | null | undefined): url is string {
 /**
  * Team panel with score button, timeout button + indicators, and serve icon.
  */
-export default function TeamPanel({
+function TeamPanel({
   teamId,
   teamState,
   currentSet,
@@ -211,3 +211,5 @@ export default function TeamPanel({
     </div>
   );
 }
+
+export default memo(TeamPanel);

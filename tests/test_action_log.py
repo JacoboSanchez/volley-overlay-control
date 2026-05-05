@@ -101,6 +101,38 @@ class TestActionLog:
         seen = {id(action_log._lock_for(f"oid-{i}")) for i in range(1024)}
         assert len(seen) <= action_log._LOCKS_POOL_SIZE
 
+    def test_pop_last_forward_appends_tombstone_no_rewrite(self):
+        """Pop must be append-only: the file size before+after a pop
+        differs by exactly the tombstone line, not by a rewrite. This
+        is the perf invariant — undo cost stays O(1) regardless of
+        how many records the audit log already holds."""
+        for i in range(20):
+            action_log.append(
+                "oid-tomb", "add_point", {"team": 1, "undo": False},
+                {"i": i},
+            )
+        path = action_log._path("oid-tomb")
+        size_before = os.path.getsize(path)
+        with open(path, "rb") as f:
+            content_before = f.read()
+
+        popped = action_log.pop_last_forward("oid-tomb")
+        assert popped is not None
+        assert popped["params"]["team"] == 1
+
+        with open(path, "rb") as f:
+            content_after = f.read()
+        # The original 20 lines must remain byte-identical at the head
+        # of the file (append-only). Only a single tombstone line is
+        # added at the end.
+        assert content_after.startswith(content_before)
+        size_after = os.path.getsize(path)
+        assert size_after > size_before
+        # read_all hides both the popped record and the tombstone.
+        remaining = action_log.read_all("oid-tomb")
+        assert len(remaining) == 19
+        assert all(r["action"] == "add_point" for r in remaining)
+
     def test_skips_malformed_lines(self):
         path = action_log._path("oid-bad")
         os.makedirs(os.path.dirname(path), exist_ok=True)
