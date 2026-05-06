@@ -267,7 +267,13 @@ class GameService:
         if set_won:
             session.current_set = session._compute_current_set()
 
-        GameService._save_and_broadcast(session)
+        # Compute the post-mutation state once and reuse it for the
+        # broadcast, webhook fan-out, archive, and HTTP response.
+        # ``get_state`` does non-trivial work (set-range iteration plus
+        # side-switch / match-point computation), so collapsing four
+        # call sites into one is a measurable per-action win.
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         GameService._audit(
             session, "add_point", {"team": team, "undo": undo},
             popped_forward=popped,
@@ -276,20 +282,21 @@ class GameService:
 
         # Fire after persistence so consumers always see the post-state.
         if not undo:
-            state_response = GameService.get_state(session)
             if set_won:
                 GameService._fire(session, "set_end", state_response, {
                     "team": team,
                     "set_number": GameService._ended_set_index(session),
                 })
             if session.game_manager.match_finished(session.sets_limit) and not was_finished_before:
-                GameService._archive_if_finished(session, was_finished_before, team)
+                GameService._archive_if_finished(
+                    session, was_finished_before, team, state_response,
+                )
                 GameService._fire(session, "match_end", state_response, {
                     "winning_team": team,
                 })
             GameService._fire_serve_change_if_changed(session, serve_before, state_response)
 
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def add_set(session, team: int, undo: bool = False) -> ActionResponse:
@@ -315,7 +322,8 @@ class GameService:
             session.undo = False
 
         session.current_set = session._compute_current_set()
-        GameService._save_and_broadcast(session)
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         GameService._audit(
             session, "add_set", {"team": team, "undo": undo},
             popped_forward=popped,
@@ -323,17 +331,18 @@ class GameService:
         )
 
         if not undo:
-            state_response = GameService.get_state(session)
             GameService._fire(session, "set_end", state_response, {
                 "team": team,
                 "set_number": GameService._ended_set_index(session),
             })
             if session.game_manager.match_finished(session.sets_limit) and not was_finished_before:
-                GameService._archive_if_finished(session, was_finished_before, team)
+                GameService._archive_if_finished(
+                    session, was_finished_before, team, state_response,
+                )
                 GameService._fire(session, "match_end", state_response, {
                     "winning_team": team,
                 })
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def add_timeout(session, team: int, undo: bool = False) -> ActionResponse:
@@ -353,28 +362,29 @@ class GameService:
         if undo and session.undo:
             session.undo = False
 
-        GameService._save_and_broadcast(session)
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         GameService._audit(
             session, "add_timeout", {"team": team, "undo": undo},
             popped_forward=popped,
         )
         if not undo:
             GameService._fire(
-                session, "timeout", GameService.get_state(session),
-                {"team": team},
+                session, "timeout", state_response, {"team": team},
             )
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def change_serve(session, team: int) -> ActionResponse:
         serve_before = session.game_manager.get_current_state().get_current_serve()
         session.game_manager.change_serve(team)
-        GameService._save_and_broadcast(session)
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "change_serve", {"team": team})
         GameService._fire_serve_change_if_changed(
-            session, serve_before, GameService.get_state(session),
+            session, serve_before, state_response,
         )
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def set_score(session, team: int, set_number: int, value: int) -> ActionResponse:
@@ -398,19 +408,21 @@ class GameService:
         # match_finished guard here is redundant.
         if set_won:
             session.current_set = session._compute_current_set()
-        GameService._save_and_broadcast(session)
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "set_score", {
             "team": team, "set_number": set_number, "value": value,
         })
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def set_sets_value(session, team: int, value: int) -> ActionResponse:
         session.game_manager.set_sets_value(team, value)
         session.current_set = session._compute_current_set()
-        GameService._save_and_broadcast(session)
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "set_sets_value", {"team": team, "value": value})
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def undo_last(session) -> ActionResponse:
@@ -518,7 +530,8 @@ class GameService:
         # A smaller sets_limit may invalidate the current set.
         session.current_set = session._compute_current_set()
         session.persist_meta()
-        GameService._broadcast(session)
+        state_response = GameService.get_state(session)
+        GameService._broadcast(session, state_response)
         GameService._audit(session, "set_rules", {
             "mode": session.mode,
             "points_limit": session.points_limit,
@@ -526,7 +539,7 @@ class GameService:
             "sets_limit": session.sets_limit,
             "reset_to_defaults": reset_to_defaults,
         })
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def start_match(session) -> ActionResponse:
@@ -553,29 +566,32 @@ class GameService:
         # match begins unarmed (operator hits ``Start match`` or scores
         # the first point to arm it again).
         session.match_started_at = None
-        GameService._save_and_broadcast(session)
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         # Reset wipes the match — start the audit log fresh too so the
         # archive boundaries align with operator intent. Counter goes
         # to zero alongside the log so ``can_undo`` is correct.
         action_log.clear(session.oid)
         session.undoable_forward_count = 0
         GameService._audit(session, "reset", {})
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def set_visibility(session, visible: bool) -> ActionResponse:
         session.visible = visible
         session.backend.change_overlay_visibility(visible)
-        GameService._broadcast(session)
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        state_response = GameService.get_state(session)
+        GameService._broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def set_simple_mode(session, enabled: bool) -> ActionResponse:
         session.simple = enabled
         if enabled:
             session.backend.reduce_games_to_one()
-        GameService._save_and_broadcast(session)
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
 
     @staticmethod
     def update_customization(session, data: dict) -> ActionResponse:
@@ -597,29 +613,51 @@ class GameService:
         # cache so the next refresh short-circuits instead of fetching
         # the same data we just pushed.
         session._last_customization_fetch = time.monotonic()
-        GameService._broadcast(session)
-        return ActionResponse(success=True, state=GameService.get_state(session))
+        state_response = GameService.get_state(session)
+        GameService._broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _save_and_broadcast(session):
-        """Persist state to the overlay backend and notify WS clients."""
+    def _save_and_broadcast(session, state_response: Optional[GameStateResponse] = None):
+        """Persist state to the overlay backend and notify WS clients.
+
+        Callers that already computed the post-mutation
+        ``GameStateResponse`` should pass it via *state_response* —
+        :func:`get_state` is non-trivial (iterates the set range,
+        computes side-switch / match-point info), so reusing the
+        same object across the broadcast and the API response avoids
+        recomputing the payload twice on every action.
+        """
         session.game_manager.save(session.simple, session.current_set)
         session.persist_meta()
-        GameService._broadcast(session)
+        GameService._broadcast(session, state_response)
 
     @staticmethod
-    def _broadcast(session):
-        """Notify all WebSocket frontend clients about the new state."""
-        state_data = GameService.get_state(session).model_dump()
-        WSHub.broadcast_sync(session.oid, state_data)
+    def _broadcast(session, state_response: Optional[GameStateResponse] = None):
+        """Notify all WebSocket frontend clients about the new state.
+
+        See :func:`_save_and_broadcast` for the *state_response* reuse
+        contract. The payload is encoded directly via
+        :meth:`pydantic.BaseModel.model_dump_json` so we skip the
+        intermediate ``model_dump`` → dict → ``json.dumps`` round-trip
+        that the previous code path went through on every action.
+        """
+        if state_response is None:
+            state_response = GameService.get_state(session)
+        payload_json = state_response.model_dump_json()
+        WSHub.broadcast_payload_json_sync(session.oid, payload_json)
 
     @staticmethod
-    def _archive_if_finished(session, was_finished_before: bool,
-                             winning_team: int) -> Optional[str]:
+    def _archive_if_finished(
+        session,
+        was_finished_before: bool,
+        winning_team: int,
+        state_response: Optional[GameStateResponse] = None,
+    ) -> Optional[str]:
         """Archive the match when it transitions to finished.
 
         Called from add_point and add_set after the mutation completes.
@@ -627,11 +665,18 @@ class GameService:
         After a successful archive the session's ``match_started_at`` is
         cleared so the next match starts unarmed — the operator (or
         the first point) re-arms it the same way it did at the start.
+
+        Callers that have a fresh post-mutation ``GameStateResponse``
+        should pass it via *state_response* to avoid the redundant
+        ``get_state`` recompute the archive payload would otherwise
+        trigger.
         """
         if was_finished_before or not session.game_manager.match_finished(session.sets_limit):
             return None
         try:
-            final_state = GameService.get_state(session).model_dump()
+            if state_response is None:
+                state_response = GameService.get_state(session)
+            final_state = state_response.model_dump()
             customization = session.customization.get_model()
             match_id = match_archive.archive_match(
                 oid=session.oid,

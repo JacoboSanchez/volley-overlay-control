@@ -113,6 +113,57 @@ class TestMatchArchive:
     def test_delete_match_returns_false_on_missing(self):
         assert match_archive.delete_match("match_" + "0" * 20 + "_20260101T000000_000000Z") is False
 
+    def test_list_matches_uses_index_not_full_load(self, monkeypatch):
+        """``list_matches`` must read the cheap ``index.jsonl`` summary
+        file instead of opening every match snapshot. This is the perf
+        invariant — listing 1000 matches must not cost 1000 json.load
+        calls."""
+        for i in range(5):
+            match_archive.archive_match(
+                oid="oid-idx",
+                final_state={"team_1": {"sets": i}, "team_2": {"sets": 0}},
+                winning_team=1,
+            )
+        # Sanity check: archives created an index file.
+        index = match_archive._index_path()
+        import os as _os
+        assert _os.path.exists(index)
+
+        # Spy on the per-match json.load — it should not be called by
+        # list_matches when the index is fresh.
+        original_open = open
+        opened_match_files: list[str] = []
+
+        def tracking_open(path, *args, **kwargs):  # noqa: ANN001
+            if isinstance(path, str) and "match_" in _os.path.basename(path) \
+                    and path.endswith(".json"):
+                opened_match_files.append(path)
+            return original_open(path, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", tracking_open)
+        results = match_archive.list_matches(oid="oid-idx")
+        assert len(results) == 5
+        assert opened_match_files == [], (
+            f"list_matches opened individual snapshots: {opened_match_files}"
+        )
+
+    def test_list_matches_rebuilds_index_when_missing(self):
+        """If the index is missing (e.g. upgrade from older build),
+        ``list_matches`` reconstructs it from the on-disk files."""
+        for _ in range(3):
+            match_archive.archive_match(
+                oid="oid-rebuild", final_state={}, winning_team=1,
+            )
+        import os as _os
+        idx = match_archive._index_path()
+        assert _os.path.exists(idx)
+        _os.remove(idx)
+
+        results = match_archive.list_matches(oid="oid-rebuild")
+        assert len(results) == 3
+        # Index is rebuilt and reused on the next call.
+        assert _os.path.exists(idx)
+
     def test_delete_match_rejects_traversal(self):
         # Caller-supplied id must round-trip through the strict regex
         # before we touch the filesystem — this guards against

@@ -33,6 +33,7 @@ import logging
 import os
 import re
 import tempfile
+import threading
 from typing import Optional
 
 from app.api import action_log
@@ -49,6 +50,133 @@ _FILENAME_HASH_LEN = 20
 _MATCH_FILENAME_RE = re.compile(
     r"^match_(?P<oid_hash>[0-9a-f]{20})_(?P<ts>\d{8}T\d{6}_\d{6}Z)\.json$"
 )
+
+# Index of archived matches — one summary line per match. Avoids the
+# previous ``list_matches`` cost of opening and ``json.load``-ing every
+# snapshot on disk just to render the dashboard list.
+_INDEX_FILENAME = "index.jsonl"
+_index_lock = threading.Lock()
+
+
+def _index_path() -> str:
+    return os.path.join(_data_dir(), _INDEX_FILENAME)
+
+
+def _summary_from_payload(payload: dict) -> dict:
+    """Return the compact summary written to the index for *payload*."""
+    final_state = payload.get("final_state", {}) or {}
+    team_1 = final_state.get("team_1", {}) or {}
+    team_2 = final_state.get("team_2", {}) or {}
+    return {
+        "match_id": payload.get("match_id"),
+        "oid": payload.get("oid"),
+        "ended_at": payload.get("ended_at"),
+        "duration_s": payload.get("duration_s"),
+        "winning_team": payload.get("winning_team"),
+        "team_1_sets": team_1.get("sets"),
+        "team_2_sets": team_2.get("sets"),
+        "current_set": final_state.get("current_set"),
+    }
+
+
+def _index_append(summary: dict) -> None:
+    """Append one summary line to the index. Best-effort."""
+    path = _index_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        line = json.dumps(summary, ensure_ascii=False) + "\n"
+        with _index_lock:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+    except Exception as exc:
+        logger.warning("Failed to append match index entry: %s", exc)
+
+
+def _read_index_locked() -> Optional[list[dict]]:
+    """Return parsed index entries or ``None`` if the index is absent.
+
+    Caller must already hold ``_index_lock``.
+    """
+    path = _index_path()
+    if not os.path.exists(path):
+        return None
+    summaries: list[dict] = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                summaries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return summaries
+
+
+def _rebuild_index_locked() -> list[dict]:
+    """Scan the matches dir and rebuild ``index.jsonl`` from scratch.
+
+    Used as a fallback when the index is missing (fresh upgrade) or
+    to re-sync after a delete operation. Caller must already hold
+    ``_index_lock``.
+    """
+    summaries: list[dict] = []
+    if not os.path.isdir(_data_dir()):
+        return summaries
+    for filename in os.listdir(_data_dir()):
+        m = _MATCH_FILENAME_RE.match(filename)
+        if m is None:
+            continue
+        try:
+            with open(os.path.join(_data_dir(), filename),
+                      "r", encoding="utf-8") as f:
+                payload = json.load(f)
+        except Exception as exc:
+            logger.warning("Skipping unreadable match file '%s': %s",
+                           filename, exc)
+            continue
+        if not isinstance(payload, dict):
+            continue
+        summaries.append(_summary_from_payload(payload))
+    _write_index_locked(summaries)
+    return summaries
+
+
+def _write_index_locked(summaries: list[dict]) -> None:
+    """Atomically rewrite the index with *summaries*. Caller holds the lock."""
+    path = _index_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(
+            dir=os.path.dirname(path), suffix=".tmp",
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                for s in summaries:
+                    f.write(json.dumps(s, ensure_ascii=False) + "\n")
+            os.replace(tmp_path, path)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+    except Exception as exc:
+        logger.warning("Failed to write match index: %s", exc)
+
+
+def _index_remove_match_ids(match_ids: set[str]) -> None:
+    """Remove every index entry whose ``match_id`` is in *match_ids*."""
+    if not match_ids:
+        return
+    with _index_lock:
+        existing = _read_index_locked()
+        if existing is None:
+            return
+        kept = [s for s in existing if s.get("match_id") not in match_ids]
+        if len(kept) == len(existing):
+            return
+        _write_index_locked(kept)
 
 
 def _data_dir() -> str:
@@ -129,6 +257,7 @@ def archive_match(
     except Exception as exc:
         logger.warning("Failed to archive match for %r: %s", oid, exc)
         return None
+    _index_append(_summary_from_payload(payload))
     return payload["match_id"]
 
 
@@ -140,40 +269,21 @@ def list_matches(oid: Optional[str] = None) -> list[dict]:
     ``duration_s``, ``winning_team``, and the final-state header
     (sets and current_set) — enough to render a list without
     re-reading every full snapshot.
+
+    Reads from the ``index.jsonl`` summary file populated by
+    :func:`archive_match`. If the index is missing — e.g. after an
+    upgrade from a build that did not maintain it — it is rebuilt
+    from the on-disk match files on first access.
     """
-    summaries: list[dict] = []
     if not os.path.isdir(_data_dir()):
-        return summaries
-    target_hash = _oid_hash(oid) if oid and _is_valid_oid(oid) else None
-    for filename in os.listdir(_data_dir()):
-        m = _MATCH_FILENAME_RE.match(filename)
-        if m is None:
-            continue
-        if target_hash is not None and m.group("oid_hash") != target_hash:
-            continue
-        try:
-            with open(os.path.join(_data_dir(), filename),
-                      "r", encoding="utf-8") as f:
-                payload = json.load(f)
-        except Exception as exc:
-            logger.warning("Skipping unreadable match file '%s': %s",
-                           filename, exc)
-            continue
-        if not isinstance(payload, dict):
-            continue
-        final_state = payload.get("final_state", {}) or {}
-        team_1 = final_state.get("team_1", {}) or {}
-        team_2 = final_state.get("team_2", {}) or {}
-        summaries.append({
-            "match_id": payload.get("match_id"),
-            "oid": payload.get("oid"),
-            "ended_at": payload.get("ended_at"),
-            "duration_s": payload.get("duration_s"),
-            "winning_team": payload.get("winning_team"),
-            "team_1_sets": team_1.get("sets"),
-            "team_2_sets": team_2.get("sets"),
-            "current_set": final_state.get("current_set"),
-        })
+        return []
+    with _index_lock:
+        summaries = _read_index_locked()
+        if summaries is None:
+            summaries = _rebuild_index_locked()
+    if oid and _is_valid_oid(oid):
+        target_oid = oid
+        summaries = [s for s in summaries if s.get("oid") == target_oid]
     summaries.sort(key=lambda s: s.get("ended_at") or 0, reverse=True)
     return summaries
 
@@ -236,10 +346,11 @@ def delete_match(match_id: str) -> bool:
         return False
     try:
         os.remove(path)
-        return True
     except OSError as exc:
         logger.warning("Failed to remove match %r: %s", match_id, exc)
         return False
+    _index_remove_match_ids({match_id})
+    return True
 
 
 def delete_for_oid(oid: str) -> int:
@@ -249,15 +360,16 @@ def delete_for_oid(oid: str) -> int:
     target_hash = _oid_hash(oid)
     if not os.path.isdir(_data_dir()):
         return 0
-    removed = 0
+    removed_ids: set[str] = set()
     for filename in os.listdir(_data_dir()):
         m = _MATCH_FILENAME_RE.match(filename)
         if m is None or m.group("oid_hash") != target_hash:
             continue
         try:
             os.remove(os.path.join(_data_dir(), filename))
-            removed += 1
+            removed_ids.add(filename[:-len(".json")])
         except OSError as exc:
             logger.warning("Failed to remove match file '%s': %s",
                            filename, exc)
-    return removed
+    _index_remove_match_ids(removed_ids)
+    return len(removed_ids)

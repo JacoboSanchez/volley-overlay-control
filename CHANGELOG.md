@@ -8,6 +8,57 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- React control UI: reversed the order of the four secondary toggles
+  on the bottom HUD bar. New order, left → right (closest to the
+  match timer first): undo, simple-mode, preview, visibility. Undo
+  is the most reached-for action during play, so it now sits closest
+  to the primary side of the bar.
+- Docs: regenerated README screenshots to reflect the bottom-HUD
+  toggle reorder and the recent control-UI / config-panel /
+  match-report tweaks.
+- Performance: audit-log undo (``POST /api/v1/game/undo`` and the
+  per-type ``add_*(undo=True)`` flag) now appends a single tombstone
+  record instead of rewriting the entire ``data/audit_<hash>.jsonl``
+  file. Reads continue to expose the same logical view — tombstones
+  and the records they reference are filtered out — and the file is
+  still truncated on match end / ``reset`` so tombstones do not
+  accumulate across matches. Brings undo cost down from O(N) to
+  O(1) per call.
+- Performance: ``GET /api/v1/matches`` now reads a compact
+  ``data/matches/index.jsonl`` summary file (one line per archive)
+  instead of opening and JSON-parsing every match snapshot on disk.
+  The index is appended on each ``archive_match`` and rewritten on
+  ``delete_match`` / ``delete_for_oid``; missing indices are
+  rebuilt on demand from the on-disk files, so upgrades from
+  earlier builds do not need a manual migration step.
+- Performance: ``GameService`` action methods (``add_point``,
+  ``add_set``, ``add_timeout``, ``change_serve``, ``set_score``,
+  ``set_sets_value``, ``set_rules``, ``reset``, ``set_visibility``,
+  ``set_simple_mode``, ``update_customization``) compute
+  ``GameStateResponse`` once per call and reuse the same object for
+  the broadcast, webhook fan-out, archive payload, and HTTP
+  response. The previous code path called ``get_state`` 2-5 times
+  per action, each call iterating ``sets_limit`` and recomputing
+  side-switch / match-point info.
+- Performance: ``WSHub`` gained a ``broadcast_payload_json`` path
+  that accepts an already-encoded JSON string. ``GameService._broadcast``
+  uses ``GameStateResponse.model_dump_json`` so the WebSocket
+  payload is serialized in a single pass instead of going through an
+  intermediate ``model_dump`` → dict → ``json.dumps`` round-trip.
+- Performance: React control UI — ``TeamPanel`` and ``CenterPanel``
+  are now wrapped in ``React.memo`` so a WebSocket state push no
+  longer re-renders the full scoreboard subtree when only the
+  relevant team's props changed. Button-colour derivations in
+  ``App.tsx`` are collapsed into a single ``useMemo`` to keep
+  referential identity stable across renders.
+- Performance: React control UI — ``ConfigPanel`` tracks
+  unsaved-changes via an explicit ``isDirty`` flag toggled by the
+  mutation paths (``updateField``, theme apply) instead of running
+  a double ``JSON.stringify`` comparison of the full customization
+  object on every keystroke.
+
 ## [5.1.1] - 2026-05-04
 
 ### Added

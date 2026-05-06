@@ -40,8 +40,8 @@ class WSHub:
     _BROADCAST_SEND_TIMEOUT = 2.0
 
     @classmethod
-    async def broadcast(cls, oid: str, data: dict):
-        """Send a JSON message to every WebSocket client subscribed to *oid*.
+    async def _broadcast_text(cls, oid: str, message: str):
+        """Send the pre-serialized *message* to every client for *oid*.
 
         Sends run concurrently with a per-socket timeout so a single stuck
         client cannot delay updates to the rest or leak memory by keeping
@@ -51,7 +51,6 @@ class WSHub:
         if not conns:
             return
 
-        message = json.dumps({"type": "state_update", "data": data})
         targets = list(conns)
 
         async def _send(ws):
@@ -80,6 +79,26 @@ class WSHub:
             cls._connections.pop(oid, None)
 
     @classmethod
+    async def broadcast(cls, oid: str, data: dict):
+        """Send a JSON ``state_update`` message to every client for *oid*."""
+        message = json.dumps({"type": "state_update", "data": data})
+        await cls._broadcast_text(oid, message)
+
+    @classmethod
+    async def broadcast_payload_json(cls, oid: str, payload_json: str):
+        """Variant of :meth:`broadcast` that accepts the ``data`` field
+        already serialized to JSON. Wraps it in the standard
+        ``{"type":"state_update","data":<payload>}`` envelope and sends.
+
+        Use this from the hot path (a game action) where the payload was
+        produced by ``GameStateResponse.model_dump_json`` — avoids the
+        round-trip ``model_dump`` → dict → ``json.dumps`` that
+        :meth:`broadcast` would otherwise perform.
+        """
+        message = '{"type":"state_update","data":' + payload_json + '}'
+        await cls._broadcast_text(oid, message)
+
+    @classmethod
     def broadcast_sync(cls, oid: str, data: dict):
         """Fire-and-forget broadcast usable from synchronous code.
 
@@ -89,6 +108,16 @@ class WSHub:
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(cls.broadcast(oid, data))
+        except RuntimeError:
+            logger.debug("No running event loop — skipping broadcast for OID=%s", oid)
+
+    @classmethod
+    def broadcast_payload_json_sync(cls, oid: str, payload_json: str):
+        """Sync wrapper around :meth:`broadcast_payload_json` for use from
+        synchronous code paths (the ``GameService`` action methods)."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(cls.broadcast_payload_json(oid, payload_json))
         except RuntimeError:
             logger.debug("No running event loop — skipping broadcast for OID=%s", oid)
 
