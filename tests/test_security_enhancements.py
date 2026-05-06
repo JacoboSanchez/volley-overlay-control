@@ -82,6 +82,14 @@ def test_html_response_carries_csp_and_xframe(headers_client):
     csp = res.headers.get("content-security-policy", "")
     assert "default-src 'self'" in csp
     assert "frame-ancestors 'self'" in csp
+    # Default img-src must not contain a bare ``http:`` token —
+    # HTTPS deployments would block mixed-content images anyway.
+    img_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("img-src")),
+        "",
+    )
+    assert " http:" not in f" {img_directive} "
+    assert "https:" in img_directive
     assert res.headers.get("x-frame-options") == "SAMEORIGIN"
 
 
@@ -174,8 +182,17 @@ def test_rate_limit_blocks_after_repeated_failures(monkeypatch):
     assert res.status_code == 429
 
 
-def test_rate_limit_resets_on_success(monkeypatch):
-    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "5")
+def test_rate_limit_does_not_reset_on_intervening_success(monkeypatch):
+    """A successful response on a public endpoint must not launder failures.
+
+    Earlier revisions cleared the bucket on any non-401/403 outcome,
+    which let an attacker interleave login attempts with hits to
+    ``/api/v1/admin/status`` (a 200, no auth) to keep the failure
+    count below the threshold. The current implementation only ever
+    appends to the bucket — old failures fall out of the sliding
+    window on their own.
+    """
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "3")
     import importlib
 
     importlib.reload(auth_rate_limit)
@@ -188,14 +205,52 @@ def test_rate_limit_resets_on_success(monkeypatch):
     client = TestClient(app)
 
     bad = {"Authorization": "Bearer wrong"}
-    good = {"Authorization": "Bearer correct-horse"}
+    # Two failures, then a public 200 (status check), then a third
+    # failure must still trip the limit on the next attempt.
     for _ in range(2):
         assert client.post("/api/v1/admin/login", headers=bad).status_code == 403
-    # A success drops the bucket entirely.
-    assert client.post("/api/v1/admin/login", headers=good).status_code == 200
-    # Another four failures should still be allowed (fresh bucket).
-    for _ in range(4):
-        assert client.post("/api/v1/admin/login", headers=bad).status_code == 403
+    assert client.get("/api/v1/admin/status").status_code == 200
+    assert client.post("/api/v1/admin/login", headers=bad).status_code == 403
+    # 3 failures in the window; the 4th request must be blocked even
+    # though a 200 happened in the middle.
+    res = client.post("/api/v1/admin/login", headers=bad)
+    assert res.status_code == 429
+
+
+def test_rate_limit_uses_socket_peer_not_xff(monkeypatch):
+    """The limiter must ignore client-supplied ``X-Forwarded-For``.
+
+    Trusting the leftmost XFF would let an attacker mint a fresh
+    bucket per request by varying the header. The middleware now
+    relies on ``scope["client"]`` only, which the ASGI server
+    populates from the socket peer (or from a trusted proxy hop
+    when ``--proxy-headers`` is configured).
+    """
+    monkeypatch.setenv("AUTH_RATE_LIMIT_MAX_FAILURES", "3")
+    import importlib
+
+    importlib.reload(auth_rate_limit)
+    from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware as M
+
+    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "correct-horse")
+    app = FastAPI()
+    app.include_router(admin_router)
+    app.add_middleware(M)
+    client = TestClient(app)
+
+    bad = {"Authorization": "Bearer wrong"}
+    # Vary X-Forwarded-For across requests; if it were trusted, each
+    # request would hit a fresh bucket and never trip the limit.
+    for i in range(3):
+        spoof = {**bad, "X-Forwarded-For": f"10.0.0.{i}"}
+        assert client.post(
+            "/api/v1/admin/login", headers=spoof,
+        ).status_code == 403
+    res = client.post(
+        "/api/v1/admin/login",
+        headers={**bad, "X-Forwarded-For": "10.0.0.99"},
+    )
+    assert res.status_code == 429
 
 
 def test_rate_limit_ignores_unwatched_paths(monkeypatch):
@@ -308,3 +363,41 @@ def test_update_customization_rejects_non_dict(api_session):
 
     res = GameService.update_customization(api_session, "not a dict")
     assert res.success is False
+
+
+@pytest.mark.parametrize("bad_value", [
+    {"nested": "object"},
+    ["array", "of", "strings"],
+    [],
+    {},
+])
+def test_update_customization_rejects_nested_types(api_session, bad_value):
+    """Only scalar JSON types may be stored — arrays / objects bypass
+    the per-string length cap and would balloon the broadcast payload
+    via deep merge.
+    """
+    from app.api.game_service import GameService
+
+    res = GameService.update_customization(
+        api_session, {"Team 1 Name": bad_value},
+    )
+    assert res.success is False
+    assert "string" in (res.message or "").lower() or "type" in (res.message or "").lower()
+
+
+@pytest.mark.parametrize("scalar_value", [
+    True,
+    False,
+    None,
+    42,
+    1.5,
+    "short string",
+])
+def test_update_customization_accepts_scalar_types(api_session, scalar_value):
+    """Booleans, numbers, None, and short strings are all valid."""
+    from app.api.game_service import GameService
+
+    res = GameService.update_customization(
+        api_session, {"Team 1 Name": scalar_value},
+    )
+    assert res.success is True

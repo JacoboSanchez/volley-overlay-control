@@ -50,7 +50,11 @@ _DEFAULT_CSP = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
     "style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data: https: http:; "
+    # ``http:`` deliberately omitted: HTTPS deployments would block
+    # mixed-content images anyway, and ``'self'`` already covers
+    # plain-HTTP localhost dev servers. Operators that genuinely need
+    # third-party HTTP logos can override via ``SECURITY_CSP``.
+    "img-src 'self' data: https:; "
     "font-src 'self' data:; "
     "connect-src 'self' ws: wss: https:; "
     "object-src 'none'; "

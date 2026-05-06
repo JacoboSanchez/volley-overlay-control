@@ -75,19 +75,20 @@ _lock = asyncio.Lock()
 def _client_ip(scope) -> str:
     """Best-effort peer identifier from the ASGI scope.
 
-    Honours ``X-Forwarded-For`` so the limiter does not collapse every
-    caller behind a reverse proxy into one bucket; falls back to the
-    raw socket address. Production deployments should also configure
-    uvicorn with ``--proxy-headers``.
+    Reads ``scope["client"]`` only — uvicorn populates this from the
+    socket peer by default, and from a trusted proxy hop when the
+    server is started with ``--proxy-headers`` /
+    ``--forwarded-allow-ips``. Trusting ``X-Forwarded-For`` directly
+    here would be spoofable: any request can supply that header and
+    pin the leftmost value to an arbitrary IP, defeating the
+    per-IP bucket. The ASGI server is the single trust boundary that
+    decides whether the proxy chain is honoured.
+
+    Operators behind a reverse proxy must configure uvicorn /
+    gunicorn with the appropriate proxy-header flags so
+    ``scope["client"]`` reflects the real remote IP — see
+    `AUTHENTICATION.md` §6 for guidance.
     """
-    for k, v in scope.get("headers") or ():
-        if k == b"x-forwarded-for":
-            try:
-                first = v.decode("latin-1").split(",", 1)[0].strip()
-            except Exception:
-                first = ""
-            if first:
-                return first
     client = scope.get("client") or ()
     if isinstance(client, (list, tuple)) and client:
         return str(client[0])
@@ -120,29 +121,31 @@ async def _is_blocked(ip: str) -> bool:
 async def _record_outcome(ip: str, status_code: int) -> None:
     """Update the bucket for *ip* based on the response *status_code*.
 
-    A 401/403 records a failure (and may flip the bucket into the
-    blocked state); any other status drops the bucket entirely so a
-    successful login resets the counter.
+    A 401/403 appends a failure timestamp (and may flip the bucket
+    into the blocked state). Any other status is ignored: an attacker
+    can hit unauthenticated endpoints under the same prefix
+    (``/api/v1/admin/status``, ``/manage`` itself) to draw a 200, so
+    "200 clears the bucket" would let them launder failures and
+    bypass the limit. The sliding window already evicts old failures
+    once they fall out of ``_WINDOW_SECONDS``, which is the only
+    legitimate reset path.
     """
+    if status_code not in (401, 403):
+        return
     now = time.monotonic()
     async with _lock:
-        if status_code in (401, 403):
-            bucket = _buckets.get(ip)
-            if bucket is None:
-                bucket = _Bucket()
-                _buckets[ip] = bucket
-                if len(_buckets) > _MAX_CLIENTS:
-                    _buckets.popitem(last=False)
-            else:
-                _buckets.move_to_end(ip)
-            _trim_failures_locked(bucket, now)
-            bucket.failures.append(now)
-            if len(bucket.failures) >= _MAX_FAILURES:
-                bucket.blocked_until = now + _BLOCK_SECONDS
+        bucket = _buckets.get(ip)
+        if bucket is None:
+            bucket = _Bucket()
+            _buckets[ip] = bucket
+            if len(_buckets) > _MAX_CLIENTS:
+                _buckets.popitem(last=False)
         else:
-            # Any non-auth-failure outcome (200, 422, 404, 500, …)
-            # clears the bucket. We only care about repeated 401/403.
-            _buckets.pop(ip, None)
+            _buckets.move_to_end(ip)
+        _trim_failures_locked(bucket, now)
+        bucket.failures.append(now)
+        if len(bucket.failures) >= _MAX_FAILURES:
+            bucket.blocked_until = now + _BLOCK_SECONDS
 
 
 def _reset_for_tests() -> None:

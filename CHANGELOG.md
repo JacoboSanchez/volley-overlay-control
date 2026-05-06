@@ -31,14 +31,26 @@ once a first tagged release ships.
   ``require_admin`` dependencies. Tunables:
   ``AUTH_RATE_LIMIT_MAX_FAILURES`` (default 10),
   ``AUTH_RATE_LIMIT_WINDOW_SECONDS`` (default 60),
-  ``AUTH_RATE_LIMIT_BLOCK_SECONDS`` (default 60). A successful
-  response clears the bucket immediately.
+  ``AUTH_RATE_LIMIT_BLOCK_SECONDS`` (default 60). The bucket is
+  reset only by the sliding window — successful responses to public
+  endpoints under the same prefix (``/api/v1/admin/status``,
+  ``/manage`` itself) do not clear failures, so an attacker cannot
+  launder login attempts by interleaving status requests. The
+  client identifier is sourced from ``scope["client"]`` only;
+  client-supplied ``X-Forwarded-For`` headers are ignored to defeat
+  spoofing. Operators behind a reverse proxy must configure uvicorn
+  with ``--proxy-headers`` / ``--forwarded-allow-ips`` so the ASGI
+  scope reflects the real remote IP.
 - ``/api/v1/`` JSON responses now carry ``Cache-Control: no-store``
   unless the handler explicitly sets a different policy, so
   intermediaries cannot cache authenticated payloads.
 - ``PUT /api/v1/customization`` now caps payload size and validates
   every value:
   - At most 64 top-level keys per request.
+  - Only scalar JSON types (string, boolean, number, null) are
+    accepted — arrays and nested objects are rejected so the
+    deep-merge into the broadcast state cannot be used to inflate
+    the WebSocket payload.
   - String values capped at 256 characters (8 KiB for logo URLs to
     accommodate base64 ``data:image/...`` payloads).
   - Logo URLs must use ``http(s)://`` or ``data:image/...`` schemes.

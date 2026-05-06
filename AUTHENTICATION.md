@@ -236,13 +236,23 @@ operators don't need to opt in.
 
 Located in `app/api/middleware/auth_rate_limit.py`. Watches the
 `/api/v1/` and `/manage` path prefixes; when a response carries a
-401 or 403 status, the caller's IP (sourced from `X-Forwarded-For`
-when present, otherwise the raw socket peer) is recorded in a
-sliding-window counter. Once the bucket exceeds the configured
-threshold the next request from that IP is short-circuited with
-`429 Too Many Requests` and a `Retry-After` header before reaching
-the handler. Any non-401/403 response clears the bucket immediately
-so a legitimate operator who mistyped once isn't penalised.
+401 or 403 status, the caller's IP is recorded in a sliding-window
+counter. Once the bucket exceeds the configured threshold the next
+request from that IP is short-circuited with `429 Too Many
+Requests` and a `Retry-After` header before reaching the handler.
+The bucket is reset only by the sliding window — non-failure
+responses are intentionally ignored so an attacker cannot launder
+failures by interleaving login attempts with hits to a public
+endpoint under the same prefix (e.g. `/api/v1/admin/status`).
+
+The caller IP is sourced exclusively from `scope["client"]` —
+client-supplied `X-Forwarded-For` headers are ignored to defeat
+spoofing. **Operators behind a reverse proxy must configure
+uvicorn with `--proxy-headers` and `--forwarded-allow-ips=<proxy
+IP>`** so the ASGI scope reflects the real remote IP rather than
+the proxy hop. Without that, every caller behind the proxy
+collapses into a single bucket and a single attacker can lock out
+all legitimate users.
 
 | Env var | Default | Meaning |
 | :--- | :--- | :--- |

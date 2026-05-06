@@ -628,10 +628,12 @@ class GameService:
                 message="No valid customization keys provided.",
             )
 
-        # Per-value validation: cap string lengths and require logo URLs
-        # to use a safe scheme. Non-string values (booleans, floats) are
-        # passed through unchanged; the existing model treats them as
-        # opaque blobs and broadcasts them verbatim.
+        # Per-value validation: only scalar JSON types are allowed
+        # (str / bool / int / float / None). Lists and nested objects
+        # are rejected outright — the customization model is a flat
+        # map of UI knobs, so an array or dict would either be ignored
+        # downstream or balloon the broadcast payload via deep merge.
+        # Strings are length-capped and logo URLs are scheme-checked.
         for key, value in filtered.items():
             if key in LOGO_KEYS:
                 if value in (None, ""):
@@ -645,13 +647,26 @@ class GameService:
                             f"data:image scheme."
                         ),
                     )
-            elif isinstance(value, str) and len(value) > MAX_STRING_VALUE_LENGTH:
+            elif isinstance(value, str):
+                if len(value) > MAX_STRING_VALUE_LENGTH:
+                    return ActionResponse(
+                        success=False,
+                        state=GameService.get_state(session),
+                        message=(
+                            f"Value for '{key}' exceeds "
+                            f"{MAX_STRING_VALUE_LENGTH} characters."
+                        ),
+                    )
+            elif not isinstance(value, (bool, int, float, type(None))):
+                # ``bool`` is a subclass of ``int`` so it would have
+                # been accepted by the numeric branch anyway, but
+                # listing it explicitly documents intent.
                 return ActionResponse(
                     success=False,
                     state=GameService.get_state(session),
                     message=(
-                        f"Value for '{key}' exceeds "
-                        f"{MAX_STRING_VALUE_LENGTH} characters."
+                        f"Value for '{key}' must be a string, "
+                        f"boolean, number, or null."
                     ),
                 )
         # Merge into existing model to preserve keys not in the allowed set
