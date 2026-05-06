@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.1.2] - 2026-05-06
+
 ### Changed
 
 - React control UI: reversed the order of the four secondary toggles
