@@ -10,6 +10,36 @@ once a first tagged release ships.
 
 ### Security
 
+- **Hashed credentials at rest.** New module ``app/password_hash.py``
+  uses ``hashlib.scrypt`` (no new dependency) to mint salted hash
+  records of the form ``scrypt$n=16384,r=8,p=1$<salt>$<hash>``. Three
+  auth surfaces gained an opt-in hashed alternative — operators
+  migrate without a flag day, since each surface accepts either the
+  legacy plaintext or the new hash:
+  - ``SCOREBOARD_USERS`` user entries may carry ``password_hash``
+    instead of ``password``. When both are present, the hash wins
+    so the migration doesn't leave both credentials valid.
+  - ``OVERLAY_MANAGER_PASSWORD_HASH`` is honoured alongside the
+    legacy ``OVERLAY_MANAGER_PASSWORD``. The match-report URL
+    signing key follows whichever credential is configured, so
+    rotating either one still invalidates outstanding signed URLs.
+  - ``OVERLAY_SERVER_TOKEN_HASH`` is honoured alongside
+    ``OVERLAY_SERVER_TOKEN``. When the hash is set, the security
+    bootstrap skips auto-generation of the persisted plaintext
+    file — a hash-only deployment keeps zero cleartext on the
+    server side; the peer keeps the cleartext token.
+
+  Mint a hash via ``python -m app.password_hash`` (interactive
+  prompt) or ``echo -n 'pw' | python -m app.password_hash --stdin``.
+
+  Hash verification with the default scrypt parameters costs ~50 ms
+  per check, which would noticeably slow the React control UI's
+  per-action API calls. ``PasswordAuthenticator`` now keeps a
+  60-second per-process verify cache keyed on
+  ``sha256(provided_token)`` so the hot path stays fast; the cache
+  is automatically invalidated whenever ``SCOREBOARD_USERS`` is
+  rotated.
+
 - **Capability-style signed URLs for the gated match report.** New
   endpoint ``POST /api/v1/admin/match/{match_id}/sign-url`` (admin
   Bearer auth) returns a short-lived URL of the form

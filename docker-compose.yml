@@ -32,12 +32,16 @@ services:
       - PREDEFINED_OVERLAYS=${PREDEFINED_OVERLAYS:-}
       - HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=${HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED:-}
       - OVERLAY_MANAGER_PASSWORD=${OVERLAY_MANAGER_PASSWORD:-} #Optional: unlocks the /manage admin page
+      - OVERLAY_MANAGER_PASSWORD_HASH=${OVERLAY_MANAGER_PASSWORD_HASH:-} #Optional: scrypt-hashed alternative (mint via `python -m app.password_hash`)
       # OVERLAY_SERVER_TOKEN is auto-generated and persisted to data/.overlay_server_token
       # on first start. Set it explicitly here to override (e.g. when an external
       # CustomOverlayBackend peer must use the same value), or set
-      # OVERLAY_SERVER_TOKEN_DISABLED=true to opt back into legacy unauthenticated
-      # behaviour (only safe on a trusted LAN).
+      # OVERLAY_SERVER_TOKEN_HASH for a hash-only deployment that stores zero
+      # cleartext on this server (peer still needs the plaintext token).
+      # Set OVERLAY_SERVER_TOKEN_DISABLED=true to opt back into legacy
+      # unauthenticated behaviour (only safe on a trusted LAN).
       - OVERLAY_SERVER_TOKEN=${OVERLAY_SERVER_TOKEN:-}
+      - OVERLAY_SERVER_TOKEN_HASH=${OVERLAY_SERVER_TOKEN_HASH:-} #Optional: scrypt-hashed alternative
       - OVERLAY_SERVER_TOKEN_DISABLED=${OVERLAY_SERVER_TOKEN_DISABLED:-} #Optional: opt out of overlay-server auth
       - SCOREBOARD_USERS_DISABLED=${SCOREBOARD_USERS_DISABLED:-} #Optional: silence the open-API startup warning
       - MATCH_REPORT_PUBLIC=${MATCH_REPORT_PUBLIC:-false} #Optional: open match-report routes to anonymous reads
