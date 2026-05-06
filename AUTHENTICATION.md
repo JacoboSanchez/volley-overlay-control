@@ -298,11 +298,13 @@ subdomains are honoured (`*.example.com` matches any subdomain).
 | `TRUSTED_HOSTS` | unset | Comma-separated allow-list. Whitespace around entries is stripped. |
 
 Operators behind a reverse proxy must also configure uvicorn with
-`--proxy-headers` so the ASGI scope reflects the real `Host`. The
-overlay routes (`/overlay/{id}`) remain reachable from any host
-because the `Host` check happens before the route is dispatched —
-see `_maybe_register_trusted_hosts` if you need to relax that for
-OBS browser sources on a different domain.
+`--proxy-headers` so the ASGI scope reflects the real `Host`.
+Enforcement is global — the overlay routes (`/overlay/{id}`,
+`/ws/{id}`) are subject to the same allow-list because the `Host`
+check fires before route dispatch. If OBS browser sources on a
+different domain need to load an overlay, add that domain (or a
+wildcard parent) to `TRUSTED_HOSTS`; do not try to special-case the
+overlay router downstream of the middleware.
 
 ### 6.3 `CORSMiddleware` — cross-origin SPA scaffolding (opt-in)
 
