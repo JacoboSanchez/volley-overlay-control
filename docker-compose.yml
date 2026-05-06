@@ -53,6 +53,7 @@ services:
       - WEBHOOKS_URL=${WEBHOOKS_URL:-} #Optional: single outbound webhook endpoint
       - WEBHOOKS_SECRET=${WEBHOOKS_SECRET:-} #Optional: HMAC-SHA256 secret for the single endpoint
       - WEBHOOKS_JSON=${WEBHOOKS_JSON:-} #Optional: multi-target webhook config as JSON
+      - WEBHOOKS_ALLOW_PRIVATE_IPS=${WEBHOOKS_ALLOW_PRIVATE_IPS:-} #Optional: allow webhook targets on private/loopback IPs (SSRF opt-out)
       - PERF_GET_STATE_WARN_MS=${PERF_GET_STATE_WARN_MS:-50} #Optional: slow-path threshold for GET /api/v1/state
     healthcheck:
       # python:3.12-slim does not ship with curl; use urllib instead of

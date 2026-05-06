@@ -10,6 +10,30 @@ once a first tagged release ships.
 
 ### Security
 
+- **Webhook SSRF guard.** ``app/api/webhooks.py`` now refuses to POST
+  to URLs whose host resolves to a private (RFC 1918), loopback,
+  link-local (including the ``169.254.169.254`` cloud-metadata
+  endpoint), multicast, reserved (RFC 5737 / RFC 3849
+  documentation), or unspecified address. Trusted-LAN deployments
+  that legitimately call internal webhook receivers set
+  ``WEBHOOKS_ALLOW_PRIVATE_IPS=true`` to opt out. Non-``http(s)``
+  schemes are also rejected. DNS resolution failures pass through
+  so flaky resolvers don't silently break valid webhook
+  configurations.
+- **`WWW-Authenticate` on 401 responses.** Per RFC 7235 §4.1, every
+  401 from the auth ladders now carries a
+  ``WWW-Authenticate: Bearer realm="<scoreboard|admin|overlay-server>"``
+  header. The realm hint helps the OpenAPI / Swagger UI label the
+  credential prompt and lets operators tell from access logs which
+  ladder rejected a request. 403 semantics are preserved (invalid
+  credential ≠ no credential).
+- **Enriched unhandled-exception logging.** ``ExceptionLoggingMiddleware``
+  now logs the request method, path, exception class, and request id
+  in both the message text and as structured ``extra`` fields
+  (``http_method``, ``http_path``, ``exc_class``) so JSON log
+  consumers can query each axis without parsing the free-form
+  message.
+
 - **`TrustedHostMiddleware` (opt-in).** Set ``TRUSTED_HOSTS`` to a
   comma-separated list of public hostnames the deployment serves
   from; requests carrying a ``Host`` header outside the allow-list

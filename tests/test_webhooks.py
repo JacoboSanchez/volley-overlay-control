@@ -131,12 +131,21 @@ class TestDispatch:
     def test_dispatch_posts_signed_body(self, monkeypatch):
         monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
         monkeypatch.setenv("WEBHOOKS_SECRET", "topsecret")
+        # Bypass the SSRF guard: ``hooks.example.com`` doesn't resolve
+        # in the test sandbox, but the existing tests assume the
+        # delivery proceeds. The guard's threat model is malicious /
+        # accidental private IPs, which is unrelated to this test.
+        monkeypatch.setenv("WEBHOOKS_ALLOW_PRIVATE_IPS", "true")
         d = WebhookDispatcher()
-        # Force synchronous delivery for assertion.
-        d._executor = None
         with patch("app.api.webhooks.requests.post") as post:
             post.return_value.status_code = 200
             queued = d.dispatch("set_end", "match-1", {"foo": 1})
+            # Drain the executor so the worker thread has run before
+            # we assert on the mock — pre-PR the assertion was racy
+            # and only worked because ``_deliver`` finished quickly.
+            if d._executor is not None:
+                d._executor.shutdown(wait=True)
+                d._executor = None
             assert queued == 1
             post.assert_called_once()
             kwargs = post.call_args.kwargs
@@ -160,11 +169,16 @@ class TestDispatch:
             {"url": "https://only-set.example.com", "events": ["set_end"]},
             {"url": "https://only-timeout.example.com", "events": ["timeout"]},
         ]))
+        # Sandbox DNS doesn't resolve example.com — bypass the SSRF
+        # guard so the original assertion still holds.
+        monkeypatch.setenv("WEBHOOKS_ALLOW_PRIVATE_IPS", "true")
         d = WebhookDispatcher()
-        d._executor = None
         with patch("app.api.webhooks.requests.post") as post:
             post.return_value.status_code = 200
             queued = d.dispatch("timeout", "oid", {})
+            if d._executor is not None:
+                d._executor.shutdown(wait=True)
+                d._executor = None
             assert queued == 1
             assert post.call_args.args[0] == "https://only-timeout.example.com"
 
@@ -173,8 +187,12 @@ class TestDispatch:
 
         import requests
         monkeypatch.setenv("WEBHOOKS_URL", "https://broken.example.com")
+        # Sandbox DNS doesn't resolve example.com; the SSRF guard
+        # would block this target before requests.post is reached
+        # and the test would assert on a different log record. The
+        # opt-out lets us still exercise the network-failure path.
+        monkeypatch.setenv("WEBHOOKS_ALLOW_PRIVATE_IPS", "true")
         d = WebhookDispatcher()
-        d._executor = None
 
         # Attach our own handler directly to the dispatcher's logger so the
         # assertion does not depend on caplog plumbing (which interacts
@@ -191,6 +209,11 @@ class TestDispatch:
             with patch("app.api.webhooks.requests.post",
                        side_effect=requests.ConnectionError("nope")):
                 d.dispatch("set_end", "oid", {})
+                # Drain the executor so the worker thread's log
+                # record lands before we inspect ``records``.
+                if d._executor is not None:
+                    d._executor.shutdown(wait=True)
+                    d._executor = None
         finally:
             webhook_logger.removeHandler(handler)
             webhook_logger.setLevel(prior_level)

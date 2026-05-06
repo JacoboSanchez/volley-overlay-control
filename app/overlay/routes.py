@@ -73,6 +73,11 @@ def require_overlay_server_token(authorization: str = Header(None)) -> None:
         raise HTTPException(
             status_code=401,
             detail="Missing overlay server token. Use 'Authorization: Bearer <token>'.",
+            # RFC 7235 §4.1: 401 responses must advertise the auth
+            # scheme. ``realm="overlay-server"`` distinguishes this
+            # ladder from the scoreboard and admin ones in client
+            # / proxy logs.
+            headers={"WWW-Authenticate": 'Bearer realm="overlay-server"'},
         )
     provided = authorization.removeprefix("Bearer ").strip()
     if not verify_password(provided, expected):

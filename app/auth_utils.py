@@ -36,6 +36,12 @@ _DEFAULT_MISSING_TOKEN_DETAIL = (  # nosec B105
 )
 _DEFAULT_INVALID_TOKEN_DETAIL = "Invalid token."  # nosec B105
 
+# RFC 7235 §4.1: every 401 response MUST carry a WWW-Authenticate
+# header. The realm hint helps the OpenAPI UI label the credential
+# prompt and lets operators tell at a glance which ladder rejected
+# them when grepping access logs.
+_ADMIN_WWW_AUTH = {"WWW-Authenticate": 'Bearer realm="admin"'}
+
 
 def get_admin_credential() -> Optional[str]:
     """Return the configured admin credential, hash-preferred.
@@ -112,6 +118,10 @@ def require_admin_token(
     if provided is None and token:
         provided = token.strip() or None
     if provided is None:
-        raise HTTPException(status_code=401, detail=missing_token_detail)
+        raise HTTPException(
+            status_code=401,
+            detail=missing_token_detail,
+            headers=_ADMIN_WWW_AUTH,
+        )
     if not verify_password(provided, expected):
         raise HTTPException(status_code=403, detail=invalid_token_detail)

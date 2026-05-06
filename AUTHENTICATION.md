@@ -23,6 +23,12 @@ preferred form: storing a scrypt record on disk means the cleartext
 credential never sits in `.env`. See §8 for the migration guide and
 the verifier's caching/rotation semantics.
 
+Every 401 response from these ladders carries a
+`WWW-Authenticate: Bearer realm="<scoreboard|admin|overlay-server>"`
+header per RFC 7235 §4.1. The realm hint helps the OpenAPI /
+Swagger UI label the credential prompt and lets operators tell
+from access logs which ladder rejected a request.
+
 The `check_oid_access` helper is a second-level check layered on top of
 `verify_api_key`: it compares the caller's `control` OID (stored in
 `SCOREBOARD_USERS`) against the OID in the request and returns `403`

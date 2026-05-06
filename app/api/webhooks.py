@@ -31,12 +31,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
+import socket
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Iterable, Optional
+from urllib.parse import urlparse
 
 import requests
 
@@ -49,6 +52,98 @@ KNOWN_EVENTS = frozenset({"set_end", "match_end", "timeout", "serve_change"})
 
 _DEFAULT_TIMEOUT_S = 5.0
 _MAX_WORKERS = 4
+
+_TRUTHY = ("1", "true", "t", "yes", "on")
+
+
+def _allow_private_targets() -> bool:
+    """Return True iff the operator opted into private-IP webhook targets.
+
+    The default posture is fail-closed: a webhook URL whose host
+    resolves to a private / loopback / link-local / multicast /
+    reserved IP is dropped before the HTTP request fires. This blocks
+    classic SSRF (``http://localhost/admin``, ``http://169.254.169.254``
+    cloud metadata, ``http://10.0.0.5/``) without operator effort.
+
+    Trusted-LAN deployments that legitimately need to call internal
+    webhooks (a Home Assistant bridge on the same network, an
+    on-premises Slack relay) set ``WEBHOOKS_ALLOW_PRIVATE_IPS=true``
+    to opt out.
+    """
+    raw = EnvVarsManager.get_env_var("WEBHOOKS_ALLOW_PRIVATE_IPS", "false")
+    return str(raw).strip().lower() in _TRUTHY
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Return True iff *ip_str* is in any IP range we refuse to call."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        # Anything that isn't a parseable IP literal is suspicious.
+        return True
+    return (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+def _resolve_target_addresses(host: str) -> Optional[list[str]]:
+    """Return every IP the *host* resolves to, or ``None`` on failure.
+
+    The resolution is intentionally fresh on every delivery so a CDN
+    that swaps IPs doesn't accumulate stale entries. ``None`` (a
+    DNS failure) is distinct from ``[]`` (resolution succeeded but
+    yielded no addresses, which would be unusual): the caller passes
+    through on ``None`` so a temporarily unreachable real domain
+    isn't mistaken for a malicious one — the actual ``requests.post``
+    call will surface the network error a moment later.
+    """
+    try:
+        addrinfo = socket.getaddrinfo(
+            host, None, type=socket.SOCK_STREAM,
+        )
+    except (socket.gaierror, UnicodeError):
+        return None
+    return [sockaddr[0] for _, _, _, _, sockaddr in addrinfo]
+
+
+def _is_target_safe(url: str) -> tuple[bool, str]:
+    """Return ``(safe, reason)`` for the given webhook *url*.
+
+    The ``reason`` string is empty when ``safe`` is True; otherwise
+    it explains the rejection so the operator can debug from log
+    output. The function only refuses targets whose host resolves
+    to a positively-private IP — DNS failures pass through so
+    flaky resolvers don't silently break legitimate webhook
+    deliveries.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return False, f"scheme {parsed.scheme!r} not allowed (use http/https)"
+    host = parsed.hostname
+    if not host:
+        return False, "URL has no hostname"
+    # If the hostname is a literal IP, classify it directly.
+    try:
+        literal_ip = ipaddress.ip_address(host)
+    except ValueError:
+        literal_ip = None
+    if literal_ip is not None:
+        if _is_private_ip(str(literal_ip)):
+            return False, f"host literal {host} is private/loopback"
+        return True, ""
+    addresses = _resolve_target_addresses(host)
+    if addresses is None:
+        # DNS failure — let ``requests.post`` surface the error.
+        return True, ""
+    for addr in addresses:
+        if _is_private_ip(addr):
+            return False, f"host resolves to private/loopback IP {addr}"
+    return True, ""
 
 
 def _safe_json_list(raw: str) -> list[dict]:
@@ -210,6 +305,27 @@ class WebhookDispatcher:
         return f"sha256={digest}"
 
     def _deliver(self, target: WebhookTarget, body: bytes) -> None:
+        # SSRF guard: refuse to call URLs that resolve to private,
+        # loopback, link-local, or otherwise non-public IPs unless
+        # the operator explicitly opted in. Resolution happens here
+        # rather than at config time so a target whose DNS rotates
+        # between deliveries is still vetted on every send. This
+        # does not fully mitigate DNS rebinding (the IP at delivery
+        # could differ from the one ``requests.post`` ultimately
+        # connects to), but it stops the most common foot-guns:
+        # accidental ``http://localhost/...`` typos and cloud
+        # metadata endpoints (``http://169.254.169.254``).
+        if not _allow_private_targets():
+            safe, reason = _is_target_safe(target.url)
+            if not safe:
+                logger.warning(
+                    "Webhook %s blocked by SSRF guard: %s. Set "
+                    "WEBHOOKS_ALLOW_PRIVATE_IPS=true to opt into "
+                    "private-network targets.",
+                    target.url, reason,
+                )
+                return
+
         headers = {"Content-Type": "application/json"}
         if target.secret:
             headers["X-Webhook-Signature"] = self._sign(target.secret, body)
