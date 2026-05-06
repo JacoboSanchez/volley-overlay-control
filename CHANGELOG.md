@@ -10,6 +10,32 @@ once a first tagged release ships.
 
 ### Security
 
+- **`TrustedHostMiddleware` (opt-in).** Set ``TRUSTED_HOSTS`` to a
+  comma-separated list of public hostnames the deployment serves
+  from; requests carrying a ``Host`` header outside the allow-list
+  are rejected with HTTP 400 before any handler reads
+  ``request.base_url``. Wildcard subdomains are honoured. Default:
+  unset → no enforcement (backwards compatible).
+- **CORS scaffolding (opt-in).** Set ``CORS_ALLOWED_ORIGINS`` to a
+  comma-separated list of origins permitted to call the API
+  cross-origin. ``*`` is deliberately rejected on this credentialed
+  API; explicit origins only. ``Authorization``,
+  ``Content-Type``, ``X-Request-ID``, and
+  ``Sec-WebSocket-Protocol`` are forwarded so the existing auth
+  flows and the new Bearer-subprotocol WebSocket handshake all keep
+  working. Default: unset → same-origin only (backwards compatible).
+- **CI security scanners.** New ``security-scan`` job in
+  ``.github/workflows/ci.yml`` runs Bandit (MEDIUM+ severity) over
+  ``app/``, ``pip-audit --strict`` against both
+  ``requirements.lock`` and ``requirements-dev.lock``, and
+  ``npm audit --omit=dev --audit-level=high`` against the frontend.
+  Findings fail the job; suppression requires either a documented
+  ``# nosec`` comment or an explicit advisory ignore.
+- **`SECURITY.md`** — formal vulnerability-disclosure policy.
+  Points reporters at GitHub's private vulnerability reporting,
+  documents in-scope/out-of-scope surfaces, and links to the
+  hardening reference (``AUTHENTICATION.md``).
+
 - **Hashed credentials at rest.** New module ``app/password_hash.py``
   uses ``hashlib.scrypt`` (no new dependency) to mint salted hash
   records of the form ``scrypt$n=16384,r=8,p=1$<salt>$<hash>``. Three

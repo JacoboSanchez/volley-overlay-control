@@ -200,6 +200,8 @@ Configure the application using the following environment variables:
 | `OVERLAY_SERVER_TOKEN_HASH` | scrypt-hashed alternative to `OVERLAY_SERVER_TOKEN`. When set, the bootstrap skips auto-generating the persisted plaintext file — a hash-only deployment keeps zero cleartext on this server (the peer keeps the cleartext). | |
 | `OVERLAY_SERVER_TOKEN_DISABLED` | If `true`, opts back into legacy unauthenticated overlay-server endpoints. The bootstrap logs a `CRITICAL` startup warning when active. Only safe on a trusted LAN. | `false` |
 | `SCOREBOARD_USERS_DISABLED` | If `true`, silences the startup warning emitted when `SCOREBOARD_USERS` is unset. The API still allows unauthenticated requests; this flag only acknowledges the choice. | `false` |
+| `TRUSTED_HOSTS` | Comma-separated allow-list of hostnames the app accepts in the `Host` header. Wildcard subdomains (`*.example.com`) supported. Requests outside the list are rejected with HTTP 400 before any handler reads `request.base_url`. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.2. | *(unset → no enforcement)* |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allow-list of origins permitted to call the API cross-origin. `*` is rejected (credentialed API; explicit origins only). Default: same-origin only. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.3. | *(unset → no CORS)* |
 | `APP_THEMES` | JSON with a list of customization themes. | |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
