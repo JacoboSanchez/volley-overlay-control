@@ -83,6 +83,47 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     'preferredStyle',
 }
 
+# Per-value bounds for ``PUT /customization``. Logos can hold base64
+# data URLs so they get a much larger budget than the rest. Everything
+# else maps to a short label or a numeric position, so 256 chars is
+# generous and keeps a malicious operator from stuffing megabyte
+# strings into the broadcast state.
+LOGO_KEYS = frozenset({'Team 1 Logo', 'Team 2 Logo'})
+MAX_LOGO_VALUE_LENGTH = 8192
+MAX_STRING_VALUE_LENGTH = 256
+MAX_CUSTOMIZATION_KEYS = 64
+
+# Logo URL schemes accepted by the customization endpoint. Any other
+# scheme (``javascript:``, ``vbscript:``, ``data:text/html`` …) is
+# rejected so a compromised client cannot plant XSS payloads via a
+# logo string that downstream surfaces (match report, /links preview,
+# overlay templates) interpolate into ``<img src=…>``.
+ALLOWED_LOGO_PREFIXES = (
+    "http://",
+    "https://",
+    "data:image/",
+)
+
+
+def is_safe_logo_url(value: object) -> bool:
+    """Return True iff *value* is a non-empty string with an allowed scheme.
+
+    Protocol-relative URLs (``//cdn.example.com/logo.png``) are accepted
+    because :func:`app.customization.Customization.fix_icon` rewrites
+    them to ``https://`` before they are persisted.
+    """
+    if not isinstance(value, str):
+        return False
+    candidate = value.strip()
+    if not candidate:
+        return False
+    if len(candidate) > MAX_LOGO_VALUE_LENGTH:
+        return False
+    if candidate.startswith("//"):
+        candidate = "https:" + candidate
+    lowered = candidate.lower()
+    return lowered.startswith(ALLOWED_LOGO_PREFIXES)
+
 
 # ---------------------------------------------------------------------------
 # Response models

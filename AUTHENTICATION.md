@@ -225,3 +225,65 @@ One deployment-visible change operators should be aware of:
    setup). Control apps pointed at an external overlay server via
    `APP_CUSTOM_OVERLAY_URL` must also set it to the same value. Leaving
    it unset is backward-compatible but triggers a startup warning.
+
+## 6. Defence-in-depth middleware
+
+Two middlewares wrap every request and complement the per-route auth
+ladder above. Both are wired in `app/bootstrap.py:create_app` so
+operators don't need to opt in.
+
+### 6.1 `AuthRateLimitMiddleware` — brute-force backstop
+
+Located in `app/api/middleware/auth_rate_limit.py`. Watches the
+`/api/v1/` and `/manage` path prefixes; when a response carries a
+401 or 403 status, the caller's IP is recorded in a sliding-window
+counter. Once the bucket exceeds the configured threshold the next
+request from that IP is short-circuited with `429 Too Many
+Requests` and a `Retry-After` header before reaching the handler.
+The bucket is reset only by the sliding window — non-failure
+responses are intentionally ignored so an attacker cannot launder
+failures by interleaving login attempts with hits to a public
+endpoint under the same prefix (e.g. `/api/v1/admin/status`).
+
+The caller IP is sourced exclusively from `scope["client"]` —
+client-supplied `X-Forwarded-For` headers are ignored to defeat
+spoofing. **Operators behind a reverse proxy must configure
+uvicorn with `--proxy-headers` and `--forwarded-allow-ips=<proxy
+IP>`** so the ASGI scope reflects the real remote IP rather than
+the proxy hop. Without that, every caller behind the proxy
+collapses into a single bucket and a single attacker can lock out
+all legitimate users.
+
+| Env var | Default | Meaning |
+| :--- | :--- | :--- |
+| `AUTH_RATE_LIMIT_MAX_FAILURES` | `10` | 401/403 responses per window before blocking |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS` | `60` | sliding-window length |
+| `AUTH_RATE_LIMIT_BLOCK_SECONDS` | `60` | how long the IP stays blocked once the threshold trips |
+
+State is process-local. Multi-replica deployments should still front
+the app with a layer-7 limiter (Cloudflare, Nginx, etc.) — this
+middleware is the single-replica self-hosted backstop.
+
+### 6.2 `SecurityHeadersMiddleware` — HTTP response hardening
+
+Located in `app/api/middleware/security_headers.py`. Adds:
+
+* `X-Content-Type-Options: nosniff` and `Referrer-Policy:
+  strict-origin-when-cross-origin` and a `Permissions-Policy` that
+  denies geolocation/microphone/camera/payment/usb on every response.
+* `Content-Security-Policy` (locked to `'self'` plus
+  `'unsafe-inline'`/`'unsafe-eval'` to keep the existing inline
+  match-report and SPA scripts working) and `X-Frame-Options:
+  SAMEORIGIN` on HTML responses. The `/overlay/*` routes get
+  `frame-ancestors *` instead so OBS browser sources can still embed
+  them off-origin.
+* `Cache-Control: no-store` on `/api/v1/` responses that don't
+  already set a `Cache-Control` header — keeps authenticated JSON
+  out of intermediary caches.
+
+Operators can override individual headers via env vars:
+`SECURITY_CSP`, `SECURITY_REFERRER_POLICY`,
+`SECURITY_PERMISSIONS_POLICY`, and `SECURITY_HSTS_SECONDS`
+(opt-in HSTS, off by default so non-HTTPS deployments are not
+locked out). Existing handler-level `Cache-Control` headers are
+always preserved.
