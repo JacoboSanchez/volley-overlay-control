@@ -177,6 +177,45 @@ def test_has_hashed_credentials_reports_correctly(monkeypatch, fast_hash):
     assert PasswordAuthenticator.has_hashed_credentials() is True
 
 
+@pytest.mark.parametrize("malformed", [
+    "[]",                              # JSON array, not object
+    '"a string"',                      # JSON string
+    "42",                              # JSON number
+    "null",                            # JSON null
+    "not json at all",                 # syntactic garbage
+])
+def test_malformed_scoreboard_users_does_not_crash(monkeypatch, malformed):
+    """Non-dict ``SCOREBOARD_USERS`` payloads must fail closed, not raise.
+
+    Pre-PR-261 the verifier called ``users.items()`` / ``userconf.get``
+    without type checks, so a misconfigured env var would 500 the
+    request instead of cleanly rejecting the credential.
+    """
+    monkeypatch.setenv("SCOREBOARD_USERS", malformed)
+    # Reach for a credential — the result must be False/None even
+    # though the JSON is structurally invalid.
+    assert PasswordAuthenticator.check_api_key("anything") is False
+    assert PasswordAuthenticator.has_hashed_credentials() is False
+
+
+def test_per_user_non_dict_entry_is_skipped(monkeypatch, fast_hash):
+    """One bogus entry shouldn't poison the rest of the user list.
+
+    ``SCOREBOARD_USERS={"bogus": "string", "real": {...}}`` should
+    authenticate ``real`` and silently skip ``bogus`` rather than
+    raising on ``"string".get("password")``.
+    """
+    monkeypatch.setenv(
+        "SCOREBOARD_USERS",
+        json.dumps({
+            "bogus": "not-a-dict",
+            "real": {"password_hash": fast_hash("real-pw")},
+        }),
+    )
+    assert PasswordAuthenticator.check_api_key("real-pw") is True
+    assert PasswordAuthenticator.check_api_key("bogus") is False
+
+
 # ---------------------------------------------------------------------------
 # OVERLAY_MANAGER_PASSWORD_HASH — admin Bearer
 # ---------------------------------------------------------------------------

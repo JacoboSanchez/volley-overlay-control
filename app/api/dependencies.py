@@ -58,8 +58,12 @@ def check_oid_access(authorization: str, oid: str):
         raise HTTPException(status_code=403, detail="Invalid API key.")
 
     users = PasswordAuthenticator._get_users()
-    userconf = users.get(username)
-    if userconf:
+    # ``_get_users`` already guarantees a dict-or-None at the top
+    # level, but a per-user entry may still be a non-dict shape
+    # (e.g. ``{"alice": "string"}``); skip the OID check rather
+    # than crash on ``userconf.get(...)``.
+    userconf = users.get(username) if isinstance(users, dict) else None
+    if isinstance(userconf, dict):
         allowed_oid = userconf.get("control")
         if allowed_oid and allowed_oid != oid:
             raise HTTPException(status_code=403, detail="Not authorized for this OID.")

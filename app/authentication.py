@@ -44,6 +44,11 @@ class PasswordAuthenticator:
         Re-parses only when the raw env var value changes. Any change
         also flushes the verify cache so a removed user can't stay
         authenticated past the env-var rotation.
+
+        Returns ``None`` for any malformed payload — invalid JSON,
+        a top-level JSON value that isn't an object, etc. — so every
+        caller can assume the cached value is either ``None`` or a
+        ``dict`` and skip the type check.
         """
         raw = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
         if raw == cls._cached_users_raw:
@@ -55,9 +60,22 @@ class PasswordAuthenticator:
             cls._cached_users = None
             return None
         try:
-            cls._cached_users = json.loads(raw)
+            parsed = json.loads(raw)
         except json.JSONDecodeError:
             cls._cached_users = None
+            return None
+        if not isinstance(parsed, dict):
+            # ``SCOREBOARD_USERS=[]`` or any other non-object payload
+            # would later trip ``.items()`` / ``.get()``; reject at
+            # the cache boundary so callers can trust the type.
+            logger.warning(
+                "SCOREBOARD_USERS top-level JSON value must be an object; "
+                "got %s — treating as no users configured.",
+                type(parsed).__name__,
+            )
+            cls._cached_users = None
+            return None
+        cls._cached_users = parsed
         return cls._cached_users
 
     @staticmethod
@@ -99,7 +117,10 @@ class PasswordAuthenticator:
         stays negligible even with hashed credentials.
         """
         users = cls._get_users()
-        if users is None or not isinstance(key, str):
+        # ``_get_users`` already guarantees ``None`` or ``dict``, but
+        # the explicit ``isinstance`` makes the contract obvious to
+        # static analysis and future refactors.
+        if not isinstance(users, dict) or not isinstance(key, str):
             return None
 
         key_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
@@ -110,6 +131,11 @@ class PasswordAuthenticator:
                 return cached
 
         for username, userconf in users.items():
+            # A ``SCOREBOARD_USERS`` payload like ``{"alice": "secret"}``
+            # would parse fine but trip ``userconf.get`` if we trusted
+            # the dict shape. Skip non-object entries.
+            if not isinstance(userconf, dict):
+                continue
             stored = userconf.get("password_hash") or userconf.get("password")
             if not isinstance(stored, str) or not stored:
                 continue
