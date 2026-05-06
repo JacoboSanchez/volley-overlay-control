@@ -14,9 +14,14 @@ different environment variable:
 
 | Layer | Env var | How it's enforced | Where |
 | :--- | :--- | :--- | :--- |
-| `verify_api_key` dependency | `SCOREBOARD_USERS` | Per-route `Depends(verify_api_key)`. Returns `401` when the header is missing, `403` when the Bearer token does not match any configured user. | `app/api/dependencies.py` |
-| `require_admin` dependency | `OVERLAY_MANAGER_PASSWORD` | Per-route `Depends(require_admin)`. Returns `503` when the password env var is unset, `401` when the header is missing, `403` when the Bearer token does not match. | `app/admin/routes.py` |
-| `require_overlay_server_token` dependency | `OVERLAY_SERVER_TOKEN` | Per-route `Depends(require_overlay_server_token)`. **No-op when the env var is unset** (logs a startup warning). When set: `401` without header, `403` with a mismatched Bearer token. | `app/overlay/routes.py` |
+| `verify_api_key` dependency | `SCOREBOARD_USERS` (per-user `password` or `password_hash`) | Per-route `Depends(verify_api_key)`. Returns `401` when the header is missing, `403` when the Bearer token does not match any configured user. | `app/api/dependencies.py` |
+| `require_admin` dependency | `OVERLAY_MANAGER_PASSWORD` or `OVERLAY_MANAGER_PASSWORD_HASH` | Per-route `Depends(require_admin)`. Returns `503` when neither env var is set, `401` when the header is missing, `403` when the Bearer token does not match. | `app/admin/routes.py` |
+| `require_overlay_server_token` dependency | `OVERLAY_SERVER_TOKEN` or `OVERLAY_SERVER_TOKEN_HASH` | Per-route `Depends(require_overlay_server_token)`. Auto-populated by the security bootstrap when neither is set (unless `OVERLAY_SERVER_TOKEN_DISABLED=true`). When set: `401` without header, `403` with a mismatched Bearer token. | `app/overlay/routes.py` |
+
+Each row's `_HASH` env var (or `password_hash` user field) is the
+preferred form: storing a scrypt record on disk means the cleartext
+credential never sits in `.env`. See §8 for the migration guide and
+the verifier's caching/rotation semantics.
 
 The `check_oid_access` helper is a second-level check layered on top of
 `verify_api_key`: it compares the caller's `control` OID (stored in
@@ -355,3 +360,68 @@ The route now resolves auth in this order:
 
 The token never appears in the request line for browser clients
 that adopt path 1.
+
+## 8. Hashed credentials at rest
+
+The three credential env vars all started life as plaintext values
+read directly from `.env` / compose. `secrets.compare_digest` /
+`hmac.compare_digest` made the *comparison* constant-time, but the
+source value sat in cleartext on disk where any operator with shell
+access could read it. PR 4 of the security plan added an opt-in
+hashed alternative without introducing a new dependency.
+
+### 8.1 Hash format
+
+Hashes are produced by `app/password_hash.py` using
+`hashlib.scrypt`. The wire format is::
+
+    scrypt$n=16384,r=8,p=1$<salt-hex>$<hash-hex>
+
+* `n`, `r`, `p` are the standard scrypt parameters; the verifier
+  reads them from the record so existing hashes keep working when
+  the defaults change.
+* `salt` is 16 random bytes, lowercase hex (32 chars).
+* `hash` is the 32-byte derived key, lowercase hex (64 chars).
+
+Mint a hash via the CLI helper::
+
+    python -m app.password_hash                    # interactive (no echo)
+    echo -n 'mypw' | python -m app.password_hash --stdin
+    python -m app.password_hash --stdin --n 32768  # heavier hash
+
+### 8.2 Per-surface configuration
+
+| Credential | Plaintext env var | Hash env var | Field name |
+| :--- | :--- | :--- | :--- |
+| Scoreboard user | inside `SCOREBOARD_USERS` JSON: `password` | inside `SCOREBOARD_USERS` JSON: `password_hash` | (per-user) |
+| Admin (`/manage`, `/api/v1/admin/*`) | `OVERLAY_MANAGER_PASSWORD` | `OVERLAY_MANAGER_PASSWORD_HASH` | env var |
+| Overlay server | `OVERLAY_SERVER_TOKEN` | `OVERLAY_SERVER_TOKEN_HASH` | env var |
+
+When both forms are configured, the hash wins. This matters for the
+migration path: an operator who has minted a hash but hasn't yet
+deleted the plaintext should already be authenticating against the
+new value, otherwise the old password keeps working until both are
+rotated.
+
+### 8.3 Verification cache
+
+`hashlib.scrypt` at the default parameters costs ~50 ms per check.
+Routes protected by `verify_api_key` are called many times per
+second from the React UI, so unhashed verification is essentially
+free but hashed verification would add real latency. The
+`PasswordAuthenticator._verify_cache` keeps a 60-second per-process
+TTL cache keyed on `sha256(provided_token)`; cached lookups skip
+the scrypt call entirely. The cache is invalidated automatically
+on `SCOREBOARD_USERS` rotation, so a removed user cannot remain
+authenticated past the env-var change.
+
+### 8.4 Auto-generation interaction
+
+`security_bootstrap.ensure_overlay_server_token` (PR 2) auto-generates
+`OVERLAY_SERVER_TOKEN` and persists it to `data/.overlay_server_token`
+on first start. When `OVERLAY_SERVER_TOKEN_HASH` is set, the
+bootstrap skips that step — a hash-only deployment intentionally
+keeps zero cleartext on the server side. The peer
+(`CustomOverlayBackend`) still reads the cleartext token from its
+own configuration, so the hash-only model splits trust cleanly:
+this server stores only a hash, the peer stores only the cleartext.

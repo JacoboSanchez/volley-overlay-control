@@ -191,11 +191,13 @@ Configure the application using the following environment variables:
 | `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
 | `APP_TEAMS` | JSON with the list of predefined teams. | |
-| `SCOREBOARD_USERS` | JSON with the list of users and passwords (also used as API keys). | |
+| `SCOREBOARD_USERS` | JSON map of users. Each entry carries either `password` (legacy plaintext) or `password_hash` (a scrypt record minted via `python -m app.password_hash`). When both are present, the hash wins. See [AUTHENTICATION.md](AUTHENTICATION.md) §8. | |
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
-| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page. | |
+| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page, or use `OVERLAY_MANAGER_PASSWORD_HASH` instead to keep no cleartext on disk. | |
+| `OVERLAY_MANAGER_PASSWORD_HASH` | scrypt-hashed alternative to `OVERLAY_MANAGER_PASSWORD`. Mint via `python -m app.password_hash`. When both are set, the hash wins. See [AUTHENTICATION.md](AUTHENTICATION.md) §8. | |
 | `OVERLAY_SERVER_TOKEN` | Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). **Auto-generated and persisted to `data/.overlay_server_token` on first start when unset.** Set explicitly here to override (e.g. when an external `CustomOverlayBackend` peer must use the same value). See [AUTHENTICATION.md](AUTHENTICATION.md) §5. | *(auto)* |
+| `OVERLAY_SERVER_TOKEN_HASH` | scrypt-hashed alternative to `OVERLAY_SERVER_TOKEN`. When set, the bootstrap skips auto-generating the persisted plaintext file — a hash-only deployment keeps zero cleartext on this server (the peer keeps the cleartext). | |
 | `OVERLAY_SERVER_TOKEN_DISABLED` | If `true`, opts back into legacy unauthenticated overlay-server endpoints. The bootstrap logs a `CRITICAL` startup warning when active. Only safe on a trusted LAN. | `false` |
 | `SCOREBOARD_USERS_DISABLED` | If `true`, silences the startup warning emitted when `SCOREBOARD_USERS` is unset. The API still allows unauthenticated requests; this flag only acknowledges the choice. | `false` |
 | `APP_THEMES` | JSON with a list of customization themes. | |

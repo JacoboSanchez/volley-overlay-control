@@ -130,9 +130,11 @@ def ensure_overlay_server_token() -> Optional[str]:
     """Resolve / mint / persist the overlay-server token.
 
     Returns the active token string, or ``None`` when fail-open mode is
-    explicitly enabled. Mutates ``os.environ`` so downstream callers
-    that read via :class:`EnvVarsManager` pick the value up
-    transparently.
+    explicitly enabled or when the operator configured a hashed
+    credential (``OVERLAY_SERVER_TOKEN_HASH``) — in the hashed case the
+    plaintext lives only on the peer side, never on this server.
+    Mutates ``os.environ`` so downstream callers that read via
+    :class:`EnvVarsManager` pick the value up transparently.
     """
     if _is_truthy_env(os.environ.get("OVERLAY_SERVER_TOKEN_DISABLED")):
         # Operator opted into the legacy fail-open behaviour. Make the
@@ -141,7 +143,20 @@ def ensure_overlay_server_token() -> Optional[str]:
             "OVERLAY_SERVER_TOKEN_DISABLED=true — overlay server "
             "mutation/config endpoints are UNAUTHENTICATED. Anyone "
             "who can reach this port can mutate overlay state. Set "
-            "OVERLAY_SERVER_TOKEN to enable authentication."
+            "OVERLAY_SERVER_TOKEN or OVERLAY_SERVER_TOKEN_HASH to "
+            "enable authentication."
+        )
+        return None
+
+    # Hash-only configuration: the operator has set
+    # OVERLAY_SERVER_TOKEN_HASH and intentionally not set the
+    # plaintext. Auth is enforced (the verifier reads the hash) but
+    # we never store cleartext on this server. Skip auto-generation.
+    hashed = (os.environ.get("OVERLAY_SERVER_TOKEN_HASH") or "").strip()
+    if hashed:
+        logger.info(
+            "OVERLAY_SERVER_TOKEN_HASH is set — verifying against the "
+            "hash; auto-generated plaintext will not be persisted."
         )
         return None
 
