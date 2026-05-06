@@ -39,10 +39,14 @@ def _get_overlay_server_token() -> Optional[str]:
 def require_overlay_server_token(authorization: str = Header(None)) -> None:
     """Gate overlay-server mutation / leaky read endpoints.
 
-    When ``OVERLAY_SERVER_TOKEN`` is unset the check is a no-op so
-    existing deployments keep working (with a startup warning; see
-    ``AUTHENTICATION.md`` F-3 and F-5). When the env var is set, the
-    request must include ``Authorization: Bearer <token>``.
+    ``OVERLAY_SERVER_TOKEN`` is normally populated at startup by
+    :func:`app.security_bootstrap.ensure_overlay_server_token` (auto-
+    generated on first run, persisted to ``data/.overlay_server_token``).
+    When the env var is set the request must include
+    ``Authorization: Bearer <token>``. The dependency stays a no-op
+    only when the operator explicitly opted into legacy fail-open
+    via ``OVERLAY_SERVER_TOKEN_DISABLED=true`` — see
+    ``AUTHENTICATION.md`` §5 for the migration notes.
     """
     token = _get_overlay_server_token()
     if token is None:
