@@ -44,11 +44,6 @@ from app.auth_utils import get_admin_password
 logger = logging.getLogger(__name__)
 
 
-# ``urlsafe_b64`` would shave a few bytes off the URL but operators
-# tend to copy-paste these into chat tools that mangle ``-`` / ``_`` in
-# unpredictable ways. Hex is uglier but bulletproof.
-_SIG_ENCODING = "hex"
-
 # Cap the TTL the admin endpoint will mint. Operators who want a
 # permanent share-link should set ``MATCH_REPORT_PUBLIC=true`` and
 # share the bare URL — that's the documented model. The cap stops

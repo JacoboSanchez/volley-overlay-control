@@ -20,6 +20,7 @@ variable to be set and the request to include a matching
 import logging
 import os
 import re
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -259,11 +260,10 @@ def sign_match_report_url(
         f"{base_url}/match/{match_id}/report"
         f"?exp={signed['exp']}&sig={signed['sig']}"
     )
-    import time as _time
     return MatchSignUrlResponse(
         url=url,
         expires_at=signed["expires_at"],
-        expires_in=max(0, signed["expires_at"] - int(_time.time())),
+        expires_in=max(0, signed["expires_at"] - int(time.time())),
     )
 
 
