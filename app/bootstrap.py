@@ -16,7 +16,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -370,6 +372,72 @@ def _register_spa(application: FastAPI) -> None:
     )
 
 
+def _split_csv_env(name: str) -> list[str]:
+    """Parse a comma-separated env var into a stripped, non-empty list."""
+    raw = os.environ.get(name, "")
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _maybe_register_trusted_hosts(application: FastAPI) -> None:
+    """Wire ``TrustedHostMiddleware`` when ``TRUSTED_HOSTS`` is configured.
+
+    Without this middleware, ``request.base_url`` and any link composed
+    from ``Host`` (``/links``, ``/api/config/{id}``) can be poisoned by
+    a caller setting an arbitrary ``Host`` header. Operators behind a
+    reverse proxy should set ``TRUSTED_HOSTS`` to the comma-separated
+    list of hostnames they actually serve from. Wildcards are honoured
+    by Starlette (``*.example.com`` matches any subdomain).
+
+    Default: unset → no host enforcement, backwards compatible.
+    """
+    hosts = _split_csv_env("TRUSTED_HOSTS")
+    if not hosts:
+        return
+    application.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
+    logger.info(
+        "TrustedHostMiddleware enabled (allowed_hosts=%s)",
+        ",".join(hosts),
+    )
+
+
+def _maybe_register_cors(application: FastAPI) -> None:
+    """Wire ``CORSMiddleware`` when ``CORS_ALLOWED_ORIGINS`` is configured.
+
+    Default: unset → no CORS, same-origin only (backwards compatible —
+    the bundled SPA is served by FastAPI itself, no cross-origin
+    requests). Operators running the React UI from a separate origin
+    (a CDN, a dev server, a custom domain) populate the env var with
+    a comma-separated allow-list. ``*`` is **not** accepted to prevent
+    a copy-paste footgun on credentialed APIs; explicit hosts only.
+    """
+    origins = _split_csv_env("CORS_ALLOWED_ORIGINS")
+    if not origins:
+        return
+    if any(o == "*" for o in origins):
+        logger.error(
+            "CORS_ALLOWED_ORIGINS=* is not accepted on a credentialed "
+            "API — refusing to enable CORS. Use explicit origins."
+        )
+        return
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        # Authorization is the credential the browser must be allowed
+        # to forward; the rest of the list mirrors the headers the
+        # control UI sends so preflight does not strip them.
+        allow_headers=[
+            "Authorization", "Content-Type", "X-Request-ID",
+            "Sec-WebSocket-Protocol",
+        ],
+    )
+    logger.info(
+        "CORSMiddleware enabled (origins=%s)",
+        ",".join(origins),
+    )
+
+
 def create_app() -> FastAPI:
     """Build and return the FastAPI application.
 
@@ -391,14 +459,21 @@ def create_app() -> FastAPI:
     _register_spa(application)
     # Middleware ordering — Starlette wraps in reverse registration order, so
     # the LAST add_middleware ends up outermost. We want:
-    #   AuthRateLimit  (outermost — reject brute-force IPs before any work)
-    #     SecurityHeaders  (annotates every outgoing response)
-    #       GZip           (compresses after headers are decided)
-    #         RequestContext (populates contextvars for logging)
-    #           ExceptionLogging (innermost — sees raw handler exceptions)
+    #   TrustedHost     (outermost — reject Host-header attacks before
+    #                    anything else inspects request.base_url)
+    #     CORS          (browser preflight short-circuits before auth)
+    #       AuthRateLimit  (reject brute-force IPs before any work)
+    #         SecurityHeaders  (annotates every outgoing response)
+    #           GZip           (compresses after headers are decided)
+    #             RequestContext (populates contextvars for logging)
+    #               ExceptionLogging (innermost — sees raw handler exceptions)
     application.add_middleware(ExceptionLoggingMiddleware)
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(GZipMiddleware, minimum_size=1024)
     application.add_middleware(SecurityHeadersMiddleware)
     application.add_middleware(AuthRateLimitMiddleware)
+    # CORS and TrustedHost are opt-in; the helpers no-op when the env
+    # vars are unset so existing deployments are unaffected.
+    _maybe_register_cors(application)
+    _maybe_register_trusted_hosts(application)
     return application

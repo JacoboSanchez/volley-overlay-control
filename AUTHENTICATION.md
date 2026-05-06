@@ -282,7 +282,52 @@ State is process-local. Multi-replica deployments should still front
 the app with a layer-7 limiter (Cloudflare, Nginx, etc.) — this
 middleware is the single-replica self-hosted backstop.
 
-### 6.2 `SecurityHeadersMiddleware` — HTTP response hardening
+### 6.2 `TrustedHostMiddleware` — Host-header poisoning defence (opt-in)
+
+Wired in `app/bootstrap.py:_maybe_register_trusted_hosts`. When
+`TRUSTED_HOSTS` is unset the middleware is not installed (default,
+backwards compatible). When set to a comma-separated list of
+hostnames, Starlette's `TrustedHostMiddleware` rejects requests
+whose `Host` header doesn't match any entry with HTTP 400 before
+any handler reads `request.base_url` (used by `/links`,
+`/api/config/{id}`, the signed-URL minter, etc.). Wildcard
+subdomains are honoured (`*.example.com` matches any subdomain).
+
+| Env var | Default | Meaning |
+| :--- | :--- | :--- |
+| `TRUSTED_HOSTS` | unset | Comma-separated allow-list. Whitespace around entries is stripped. |
+
+Operators behind a reverse proxy must also configure uvicorn with
+`--proxy-headers` so the ASGI scope reflects the real `Host`.
+Enforcement is global — the overlay routes (`/overlay/{id}`,
+`/ws/{id}`) are subject to the same allow-list because the `Host`
+check fires before route dispatch. If OBS browser sources on a
+different domain need to load an overlay, add that domain (or a
+wildcard parent) to `TRUSTED_HOSTS`; do not try to special-case the
+overlay router downstream of the middleware.
+
+### 6.3 `CORSMiddleware` — cross-origin SPA scaffolding (opt-in)
+
+Wired in `app/bootstrap.py:_maybe_register_cors`. When
+`CORS_ALLOWED_ORIGINS` is unset the middleware is not installed
+(default, backwards compatible — the bundled SPA is served by
+FastAPI itself, no cross-origin requests). When set to a
+comma-separated list of origins, browser preflight responses get
+explicit allow-list semantics:
+
+* `Access-Control-Allow-Origin` is echoed only for listed origins.
+* `Access-Control-Allow-Credentials: true` so the React UI can
+  forward `Authorization` headers.
+* `Access-Control-Allow-Headers` includes `Authorization`,
+  `Content-Type`, `X-Request-ID`, and `Sec-WebSocket-Protocol`
+  — the headers the existing auth flows and the WS subprotocol
+  handshake actually use.
+
+| Env var | Default | Meaning |
+| :--- | :--- | :--- |
+| `CORS_ALLOWED_ORIGINS` | unset | Comma-separated allow-list of origins. `*` is **rejected** to prevent a copy-paste footgun on a credentialed API; an `ERROR` is logged and CORS stays disabled. |
+
+### 6.4 `SecurityHeadersMiddleware` — HTTP response hardening
 
 Located in `app/api/middleware/security_headers.py`. Adds:
 

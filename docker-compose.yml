@@ -44,6 +44,8 @@ services:
       - OVERLAY_SERVER_TOKEN_HASH=${OVERLAY_SERVER_TOKEN_HASH:-} #Optional: scrypt-hashed alternative
       - OVERLAY_SERVER_TOKEN_DISABLED=${OVERLAY_SERVER_TOKEN_DISABLED:-} #Optional: opt out of overlay-server auth
       - SCOREBOARD_USERS_DISABLED=${SCOREBOARD_USERS_DISABLED:-} #Optional: silence the open-API startup warning
+      - TRUSTED_HOSTS=${TRUSTED_HOSTS:-} #Optional: comma-separated allow-list of Host header values (wildcards OK)
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-} #Optional: comma-separated allow-list of cross-origin SPA hosts (no wildcards)
       - MATCH_REPORT_PUBLIC=${MATCH_REPORT_PUBLIC:-false} #Optional: open match-report routes to anonymous reads
       - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
       - REST_USER_AGENT=${REST_USER_AGENT:-}
