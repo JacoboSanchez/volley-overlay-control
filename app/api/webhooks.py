@@ -108,7 +108,11 @@ def _resolve_target_addresses(host: str) -> Optional[list[str]]:
         )
     except (socket.gaierror, UnicodeError):
         return None
-    return [sockaddr[0] for _, _, _, _, sockaddr in addrinfo]
+    # Dedupe: ``getaddrinfo`` returns one entry per (family, socktype,
+    # proto) tuple, so the same IP literal can appear multiple times
+    # for a host that supports several socket flavours. The caller
+    # only cares about the unique address set.
+    return list({sockaddr[0] for _, _, _, _, sockaddr in addrinfo})
 
 
 def _is_target_safe(url: str) -> tuple[bool, str]:
