@@ -62,7 +62,7 @@ via `get_session` (or explicitly inside the handler).
 | `GET` | `/themes` | Y | |
 | `GET` | `/links` | Y + OID | |
 | `GET` | `/styles` | Y + OID | |
-| `WS` | `/ws` | Y + OID | Explicit `check_oid_access`; accepts token via `?token=…` query param |
+| `WS` | `/ws` | Y + OID | Explicit `check_oid_access`; accepts token via `Sec-WebSocket-Protocol: bearer, <token>` (preferred) or `?token=…` query param (deprecated, kept for legacy clients) |
 
 ### 2.2 Admin — `admin_router` + `admin_page_router` (`app/admin/routes.py`)
 
@@ -71,6 +71,7 @@ via `get_session` (or explicitly inside the handler).
 | `GET` | `/manage` | — | Static HTML page; JS prompts for password client-side and keeps it in a closure variable only. |
 | `GET` | `/api/v1/admin/status` | — | Returns `{"enabled": bool}` only — does not leak the password itself. |
 | `POST` | `/api/v1/admin/login` | `require_admin` | Used by the management page to validate the password. |
+| `POST` | `/api/v1/admin/match/{match_id}/sign-url` | `require_admin` | Mints an HMAC-signed capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response: `{"url", "expires_at", "expires_in"}`. The URL embeds `?exp=&sig=` — never the admin password. |
 | `GET` | `/api/v1/admin/custom-overlays` | `require_admin` | Lists custom overlays managed by the in-process engine. |
 | `POST` | `/api/v1/admin/custom-overlays` | `require_admin` | Creates a custom overlay (optional `copy_from` to clone). |
 | `DELETE` | `/api/v1/admin/custom-overlays/{id}` | `require_admin` | Deletes a custom overlay and its persisted state. |
@@ -299,3 +300,58 @@ Operators can override individual headers via env vars:
 (opt-in HSTS, off by default so non-HTTPS deployments are not
 locked out). Existing handler-level `Cache-Control` headers are
 always preserved.
+
+## 7. Credential transport patterns
+
+This section documents how each credential travels on the wire, and
+the H-4 hardening that flipped two of them away from the URL line.
+
+### 7.1 Match report: signed capability URLs
+
+The legacy share flow for the gated match report was
+``/match/{id}/report?token=$OVERLAY_MANAGER_PASSWORD``. Pasting
+the URL into chat tools, browser bookmarks, or anywhere a
+``Referer`` header could be sent leaked the actual admin password.
+
+Operators should now mint a capability URL via
+``POST /api/v1/admin/match/{match_id}/sign-url`` (admin Bearer
+required). The response carries a URL of the form
+``/match/{id}/report?exp=<unix_seconds>&sig=<hmac_hex>``. The
+signing key is derived from ``OVERLAY_MANAGER_PASSWORD``, so:
+
+* Anyone who holds the URL can read the report until ``exp``
+  passes.
+* The admin password itself never leaves the server.
+* Rotating ``OVERLAY_MANAGER_PASSWORD`` invalidates every
+  outstanding signed URL — the desired behaviour after a suspected
+  leak.
+* TTL is bounded to ``[60 s, 30 days]``; the default is one day.
+
+The legacy ``?token=`` flow is preserved for backwards
+compatibility but should be considered deprecated. The matches
+index (``/matches/index.html``) deliberately does *not* honour
+signed URLs — it would need a separate list-all capability that
+also unlocks per-row deletion, and that feature is intentionally
+not provided yet.
+
+### 7.2 `/api/v1/ws`: Bearer subprotocol auth
+
+WebSocket connections from JavaScript clients cannot set custom
+headers. The legacy workaround was a ``?token=<value>`` query
+parameter, which leaks via every reverse-proxy access log.
+
+The route now resolves auth in this order:
+
+1. ``Sec-WebSocket-Protocol: bearer, <token>`` — preferred.
+   Browser clients open the socket with
+   ``new WebSocket(url, ["bearer", token])``. The server
+   selects the ``bearer`` subprotocol and echoes it back during
+   the handshake (RFC 6455 §4.1).
+2. ``Authorization: Bearer <token>`` header — for non-browser
+   clients that can set headers on the upgrade request.
+3. ``?token=<value>`` query parameter — legacy fallback. Kept
+   so existing CLI / script clients keep working; documented as
+   deprecated in the OpenAPI schema.
+
+The token never appears in the request line for browser clients
+that adopt path 1.

@@ -75,19 +75,40 @@ def _public_delete_enabled() -> bool:
     return _is_env_enabled("MATCH_REPORT_PUBLIC_DELETE")
 
 
-def _check_access(authorization: Optional[str], token: Optional[str]) -> None:
+def _check_access(
+    authorization: Optional[str],
+    token: Optional[str],
+    *,
+    match_id: Optional[str] = None,
+    exp: Optional[str] = None,
+    sig: Optional[str] = None,
+) -> None:
     """Raise an ``HTTPException`` unless the caller is allowed to read.
 
     Order of precedence:
       1. ``MATCH_REPORT_PUBLIC=true`` — open access (matches the
          existing ``/overlay/{output_key}`` model);
-      2. otherwise, ``OVERLAY_MANAGER_PASSWORD`` must be set and
-         provided via Bearer header or ``?token=`` query;
-      3. when neither is configured, return 503 to make
-         misconfiguration loud rather than silently public.
+      2. a valid HMAC signature on ``(match_id, exp)`` (capability URL
+         minted by the admin endpoint, no password in the link);
+      3. otherwise, ``OVERLAY_MANAGER_PASSWORD`` must be set and
+         provided via Bearer header or ``?token=`` query (legacy);
+      4. when neither password nor signature works and no public-read
+         mode is enabled, return 503 to make misconfiguration loud
+         rather than silently public.
     """
     if _public_mode_enabled():
         return
+    # Capability URL — no need for the password to be on the wire.
+    # Signed URLs are minted by the admin endpoint and embed an
+    # ``exp`` that lets the operator share a short-lived link
+    # without leaking ``OVERLAY_MANAGER_PASSWORD``.
+    if match_id is not None and (exp or sig):
+        from app.match_report_signing import verify_signed_query
+        if verify_signed_query(match_id, exp, sig):
+            return
+        # Falling through is intentional: an invalid sig should not
+        # leak via a different error than an invalid token, so the
+        # require_admin_token call below produces the canonical 401/403.
     _require_admin_token(
         authorization, token,
         # Bandit B106 false positive: this is the error message shown
@@ -1376,9 +1397,15 @@ async def match_report(
     token: Optional[str] = Query(default=None,
                                  description="OVERLAY_MANAGER_PASSWORD; "
                                              "alternative to Bearer header."),
+    exp: Optional[str] = Query(default=None,
+                               description="Signed-URL expiry (unix seconds)."),
+    sig: Optional[str] = Query(default=None,
+                               description="Signed-URL HMAC-SHA256 hex digest."),
     accept_language: Optional[str] = Header(default=None),
 ):
-    _check_access(authorization, token)
+    _check_access(
+        authorization, token, match_id=match_id, exp=exp, sig=sig,
+    )
     payload = match_archive.load_match(match_id)
     if payload is None:
         raise HTTPException(status_code=404, detail="Match not found.")
@@ -1804,6 +1831,11 @@ async def matches_index(
                                  description="OVERLAY_MANAGER_PASSWORD; "
                                              "alternative to Bearer header."),
 ):
+    # Signed-URL auth deliberately not honoured on the index — a
+    # signature pins one specific match_id; the index would need a
+    # separate "list-all" capability that's a different feature
+    # (and intentionally not provided yet, since the index gives
+    # destructive access via per-row Delete).
     _check_access(authorization, token)
     summaries = match_archive.list_matches(oid=oid)
 

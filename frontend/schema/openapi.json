@@ -427,6 +427,52 @@
         "title": "MatchPointInfo",
         "type": "object"
       },
+      "MatchSignUrlRequest": {
+        "properties": {
+          "ttl_seconds": {
+            "anyOf": [
+              {
+                "maximum": 2592000.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "URL lifetime in seconds. Bounded to [60, 2592000]; defaults to 86400.",
+            "title": "Ttl Seconds"
+          }
+        },
+        "title": "MatchSignUrlRequest",
+        "type": "object"
+      },
+      "MatchSignUrlResponse": {
+        "properties": {
+          "expires_at": {
+            "description": "Unix-seconds expiry the URL was signed for.",
+            "title": "Expires At",
+            "type": "integer"
+          },
+          "expires_in": {
+            "description": "Seconds remaining until expiry, at mint time.",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "url": {
+            "description": "Absolute capability URL \u2014 anyone holding it can read the report until ``expires_at``.",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at",
+          "expires_in"
+        ],
+        "title": "MatchSignUrlResponse",
+        "type": "object"
+      },
       "OverlayControlModel": {
         "additionalProperties": true,
         "properties": {
@@ -1519,6 +1565,68 @@
           }
         },
         "summary": "Admin Login",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/match/{match_id}/sign-url": {
+      "post": {
+        "description": "Return a capability URL the operator can paste into chat tools.\n\nThe legacy share flow (``/match/{id}/report?token=<password>``)\nembeds the actual ``OVERLAY_MANAGER_PASSWORD`` in the URL \u2014\nevery browser bookmark, server log, or HTTP ``Referer`` that\ntouches the link leaks the credential. This endpoint replaces\nthat flow with an HMAC-signed URL of the form\n``/match/{id}/report?exp=<ts>&sig=<hex>``: the password stays\non the server and the URL expires automatically.\n\nRotating the admin password invalidates every outstanding\nsigned URL \u2014 that's the desired behaviour, since rotations are\ntypically motivated by suspected leaks.\n\nThe endpoint deliberately does *not* check whether the\n``match_id`` exists: a 404 here would be a free oracle for\nenumerating archived matches by anyone holding the admin\npassword (who could already do far worse anyway). Signing a\nbogus match id just produces a URL that 404s on use.",
+        "operationId": "sign_match_report_url_api_v1_admin_match__match_id__sign_url_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchSignUrlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchSignUrlResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mint a short-lived signed URL for a match report",
         "tags": [
           "Admin"
         ]
@@ -3820,6 +3928,42 @@
               ],
               "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
               "title": "Token"
+            }
+          },
+          {
+            "description": "Signed-URL expiry (unix seconds).",
+            "in": "query",
+            "name": "exp",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Signed-URL expiry (unix seconds).",
+              "title": "Exp"
+            }
+          },
+          {
+            "description": "Signed-URL HMAC-SHA256 hex digest.",
+            "in": "query",
+            "name": "sig",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Signed-URL HMAC-SHA256 hex digest.",
+              "title": "Sig"
             }
           },
           {

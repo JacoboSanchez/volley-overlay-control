@@ -19,8 +19,21 @@ class WSHub:
     _connections: dict = {}
 
     @classmethod
-    async def connect(cls, ws: WebSocket, oid: str):
-        await ws.accept()
+    async def connect(cls, ws: WebSocket, oid: str, *,
+                      subprotocol: str | None = None):
+        """Accept *ws* and register it under *oid*.
+
+        ``subprotocol`` is echoed back to the client during the
+        WebSocket handshake. The Bearer-token-as-subprotocol pattern
+        (RFC 6455 §4.1) requires the server to confirm the chosen
+        subprotocol, otherwise the browser drops the connection
+        with a protocol-mismatch error. Callers that authenticated
+        via subprotocol must pass the same value here.
+        """
+        if subprotocol is not None:
+            await ws.accept(subprotocol=subprotocol)
+        else:
+            await ws.accept()
         cls._connections.setdefault(oid, set()).add(ws)
         logger.info(
             "WS client connected for OID=%s (total=%d)",
