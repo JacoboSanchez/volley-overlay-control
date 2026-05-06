@@ -101,6 +101,43 @@ class TestActionLog:
         seen = {id(action_log._lock_for(f"oid-{i}")) for i in range(1024)}
         assert len(seen) <= action_log._LOCKS_POOL_SIZE
 
+    def test_append_ts_strictly_monotonic_per_oid(self, monkeypatch):
+        """Two appends must never share ``ts`` even when the OS clock
+        returns the same ``time.time()`` value twice. Otherwise a
+        single ``_pop`` tombstone could match — and so silently undo —
+        more than one record."""
+        # Pin ``time.time`` so the OS clock looks like a Windows-style
+        # low-resolution timer that returns the same value back-to-back.
+        monkeypatch.setattr(action_log.time, "time", lambda: 1_000_000.0)
+        action_log.append("oid-mono", "add_point", {"team": 1}, {})
+        action_log.append("oid-mono", "add_point", {"team": 2}, {})
+        action_log.append("oid-mono", "add_point", {"team": 1}, {})
+        records = action_log.read_all("oid-mono")
+        timestamps = [r["ts"] for r in records]
+        assert len(timestamps) == 3
+        # Strictly increasing — no duplicates, even though the
+        # underlying clock never advanced.
+        assert timestamps == sorted(set(timestamps))
+        assert all(
+            timestamps[i] < timestamps[i + 1]
+            for i in range(len(timestamps) - 1)
+        )
+
+    def test_pop_does_not_tombstone_unrelated_records(self, monkeypatch):
+        """Popping the last forward must remove only that record, even
+        if a sibling forward shares the OS-clock timestamp. The
+        per-OID monotonic ``_next_ts`` is what makes this safe — this
+        test guards against a regression that drops it."""
+        monkeypatch.setattr(action_log.time, "time", lambda: 1_000_000.0)
+        action_log.append("oid-iso", "add_point", {"team": 1}, {})
+        action_log.append("oid-iso", "add_point", {"team": 2}, {})
+        popped = action_log.pop_last_forward("oid-iso")
+        assert popped is not None
+        assert popped["params"] == {"team": 2}
+        remaining = action_log.read_all("oid-iso")
+        assert len(remaining) == 1
+        assert remaining[0]["params"] == {"team": 1}
+
     def test_pop_last_forward_appends_tombstone_no_rewrite(self):
         """Pop must be append-only: the file size before+after a pop
         differs by exactly the tombstone line, not by a rewrite. This

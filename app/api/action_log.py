@@ -75,6 +75,37 @@ _locks_pool: tuple[threading.Lock, ...] = tuple(
     threading.Lock() for _ in range(_LOCKS_POOL_SIZE)
 )
 
+# Per-OID strictly-monotonic timestamp tracker. Tombstones are
+# matched by ``ts``, so two records sharing a timestamp would be
+# tombstoned together by a single ``_pop`` — which would silently
+# undo more than the operator asked for. ``time.time()`` resolution
+# is OS-dependent (~15 ms on Windows) so collisions are possible
+# during a flurry of rapid mutations even with the per-OID lock.
+# ``_next_ts`` returns ``max(time.time(), _last_ts[oid] + 1e-6)`` so
+# successive appends for the same OID always carry strictly
+# increasing ``ts`` regardless of OS clock granularity.
+_last_ts_per_oid: dict[str, float] = {}
+# Float64 holds far more than microsecond precision at unix-epoch
+# scale, so a 1 µs minimum step never loses the high-order bits and
+# stays human-readable in the audit log.
+_TS_MIN_STEP = 1e-6
+
+
+def _next_ts(oid: str) -> float:
+    """Return a per-OID strictly-monotonic timestamp.
+
+    Caller must hold ``_lock_for(oid)``: the dict access is guarded
+    by the same lock that serializes file writes for *oid*, so the
+    "read last_ts → maybe bump → store" sequence is atomic with the
+    enclosing append.
+    """
+    now = time.time()
+    last = _last_ts_per_oid.get(oid)
+    if last is not None and now <= last:
+        now = last + _TS_MIN_STEP
+    _last_ts_per_oid[oid] = now
+    return now
+
 
 def _data_dir() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
@@ -103,16 +134,18 @@ def append(oid: str, action: str, params: dict, result: dict) -> None:
     path = _path(oid)
     if path is None:
         return
-    record = {
-        "ts": time.time(),
-        "action": action,
-        "params": params,
-        "result": result,
-    }
-    line = json.dumps(record, separators=(",", ":"), ensure_ascii=False) + "\n"
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with _lock_for(oid):
+            record = {
+                "ts": _next_ts(oid),
+                "action": action,
+                "params": params,
+                "result": result,
+            }
+            line = json.dumps(
+                record, separators=(",", ":"), ensure_ascii=False,
+            ) + "\n"
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
     except Exception as exc:
@@ -203,6 +236,7 @@ def clear(oid: str) -> None:
         with _lock_for(oid):
             if os.path.exists(path):
                 os.remove(path)
+            _last_ts_per_oid.pop(oid, None)
     except Exception as exc:
         logger.warning("Failed to clear audit log for %r: %s", oid, exc)
 
@@ -215,8 +249,10 @@ def delete(oid: str) -> bool:
     try:
         with _lock_for(oid):
             os.remove(path)
+            _last_ts_per_oid.pop(oid, None)
         return True
     except FileNotFoundError:
+        _last_ts_per_oid.pop(oid, None)
         return False
     except OSError as exc:
         logger.warning("Failed to delete audit log for %r: %s", oid, exc)
@@ -286,7 +322,7 @@ def pop_last_forward(
                 # the undo as a no-op rather than losing track of it.
                 return None
             tombstone = {
-                "ts": time.time(),
+                "ts": _next_ts(oid),
                 "action": _POP_TOMBSTONE_ACTION,
                 "ref_ts": target_ts,
             }
