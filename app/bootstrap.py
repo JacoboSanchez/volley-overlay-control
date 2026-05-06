@@ -23,8 +23,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin import admin_page_router, admin_router
 from app.api import api_router
+from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
+from app.api.middleware.security_headers import SecurityHeadersMiddleware
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
 from app.match_report import match_report_router
@@ -384,11 +386,16 @@ def create_app() -> FastAPI:
     _register_static_mounts(application)
     _register_system_endpoints(application)
     _register_spa(application)
-    # Outermost-first: RequestContextMiddleware must wrap ExceptionLoggingMiddleware
-    # so the contextvars are populated by the time we log unhandled exceptions.
-    # GZip is registered last so it ends up outermost and compresses the final
-    # response body after observability middlewares have annotated it.
+    # Middleware ordering — Starlette wraps in reverse registration order, so
+    # the LAST add_middleware ends up outermost. We want:
+    #   AuthRateLimit  (outermost — reject brute-force IPs before any work)
+    #     SecurityHeaders  (annotates every outgoing response)
+    #       GZip           (compresses after headers are decided)
+    #         RequestContext (populates contextvars for logging)
+    #           ExceptionLogging (innermost — sees raw handler exceptions)
     application.add_middleware(ExceptionLoggingMiddleware)
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(GZipMiddleware, minimum_size=1024)
+    application.add_middleware(SecurityHeadersMiddleware)
+    application.add_middleware(AuthRateLimitMiddleware)
     return application

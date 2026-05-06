@@ -11,11 +11,15 @@ from app.api.match_rules import (
 )
 from app.api.schemas import (
     ALLOWED_CUSTOMIZATION_KEYS,
+    LOGO_KEYS,
+    MAX_CUSTOMIZATION_KEYS,
+    MAX_STRING_VALUE_LENGTH,
     ActionResponse,
     BeachSideSwitch,
     GameStateResponse,
     MatchPointInfo,
     TeamState,
+    is_safe_logo_url,
 )
 from app.api.webhooks import webhook_dispatcher
 from app.api.ws_hub import WSHub
@@ -595,6 +599,26 @@ class GameService:
 
     @staticmethod
     def update_customization(session, data: dict) -> ActionResponse:
+        # Reject obviously malformed payloads before doing any work. The
+        # cap on top-level keys keeps a malicious client from streaming
+        # tens of thousands of unknown keys (the filter below drops them,
+        # but allocating the dict iteration is still wasted work).
+        if not isinstance(data, dict):
+            return ActionResponse(
+                success=False,
+                state=GameService.get_state(session),
+                message="Customization payload must be a JSON object.",
+            )
+        if len(data) > MAX_CUSTOMIZATION_KEYS:
+            return ActionResponse(
+                success=False,
+                state=GameService.get_state(session),
+                message=(
+                    f"Customization payload exceeds {MAX_CUSTOMIZATION_KEYS} "
+                    f"keys."
+                ),
+            )
+
         # Filter to allowed keys only
         filtered = {k: v for k, v in data.items() if k in ALLOWED_CUSTOMIZATION_KEYS}
         if not filtered:
@@ -603,6 +627,33 @@ class GameService:
                 state=GameService.get_state(session),
                 message="No valid customization keys provided.",
             )
+
+        # Per-value validation: cap string lengths and require logo URLs
+        # to use a safe scheme. Non-string values (booleans, floats) are
+        # passed through unchanged; the existing model treats them as
+        # opaque blobs and broadcasts them verbatim.
+        for key, value in filtered.items():
+            if key in LOGO_KEYS:
+                if value in (None, ""):
+                    continue
+                if not is_safe_logo_url(value):
+                    return ActionResponse(
+                        success=False,
+                        state=GameService.get_state(session),
+                        message=(
+                            f"Logo URL for '{key}' must use http(s) or "
+                            f"data:image scheme."
+                        ),
+                    )
+            elif isinstance(value, str) and len(value) > MAX_STRING_VALUE_LENGTH:
+                return ActionResponse(
+                    success=False,
+                    state=GameService.get_state(session),
+                    message=(
+                        f"Value for '{key}' exceeds "
+                        f"{MAX_STRING_VALUE_LENGTH} characters."
+                    ),
+                )
         # Merge into existing model to preserve keys not in the allowed set
         # (e.g. Team 1 Logo Fit, Color 3, Text Color 3)
         current = session.customization.get_model()

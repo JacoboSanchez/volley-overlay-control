@@ -8,6 +8,43 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Security
+
+- New ``SecurityHeadersMiddleware`` adds baseline response headers on
+  every request: ``X-Content-Type-Options: nosniff``,
+  ``Referrer-Policy: strict-origin-when-cross-origin``, and a
+  ``Permissions-Policy`` that denies geolocation/microphone/camera by
+  default. HTML responses additionally carry a ``Content-Security-Policy``
+  (locked to ``'self'`` + inline scripts/styles to keep the existing
+  match report rendering) and ``X-Frame-Options: SAMEORIGIN``. The
+  ``/overlay/*`` routes get a relaxed ``frame-ancestors *`` so OBS
+  browser sources can still embed them. Operators can override the
+  CSP / referrer / permissions strings via ``SECURITY_CSP``,
+  ``SECURITY_REFERRER_POLICY``, ``SECURITY_PERMISSIONS_POLICY`` and
+  opt into HSTS by setting ``SECURITY_HSTS_SECONDS`` (off by default
+  to avoid locking out non-HTTPS deployments).
+- New ``AuthRateLimitMiddleware`` watches ``/api/v1/`` and ``/manage``
+  for repeated 401/403 responses and blocks further requests from
+  the same IP with HTTP 429 once a per-IP threshold is reached. This
+  is a defence-in-depth backstop for brute-force attempts against
+  ``/api/v1/admin/login`` and the ``verify_api_key`` /
+  ``require_admin`` dependencies. Tunables:
+  ``AUTH_RATE_LIMIT_MAX_FAILURES`` (default 10),
+  ``AUTH_RATE_LIMIT_WINDOW_SECONDS`` (default 60),
+  ``AUTH_RATE_LIMIT_BLOCK_SECONDS`` (default 60). A successful
+  response clears the bucket immediately.
+- ``/api/v1/`` JSON responses now carry ``Cache-Control: no-store``
+  unless the handler explicitly sets a different policy, so
+  intermediaries cannot cache authenticated payloads.
+- ``PUT /api/v1/customization`` now caps payload size and validates
+  every value:
+  - At most 64 top-level keys per request.
+  - String values capped at 256 characters (8 KiB for logo URLs to
+    accommodate base64 ``data:image/...`` payloads).
+  - Logo URLs must use ``http(s)://`` or ``data:image/...`` schemes.
+    ``javascript:``, ``vbscript:``, ``data:text/html``, ``file://``,
+    etc. are rejected before persistence and broadcast.
+
 ## [5.1.2] - 2026-05-06
 
 ### Changed
