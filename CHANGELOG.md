@@ -10,6 +10,32 @@ once a first tagged release ships.
 
 ### Security
 
+- ``OVERLAY_SERVER_TOKEN`` is now **auto-generated and persisted on
+  first start** instead of leaving the seven overlay-server mutation
+  endpoints (``POST /api/state/{id}``, ``/create/overlay/{id}``,
+  ``/delete/overlay/{id}``, ``/api/raw_config/{id}``,
+  ``/api/theme/{id}/{name}``) unauthenticated by default. Resolution
+  order at startup:
+  1. ``OVERLAY_SERVER_TOKEN_DISABLED=true`` keeps the legacy
+     fail-open behaviour and logs a ``CRITICAL`` startup warning.
+  2. ``OVERLAY_SERVER_TOKEN=<value>`` already set wins.
+  3. Otherwise the bootstrap reads / mints a token at
+     ``data/.overlay_server_token`` (mode ``0o600``) and injects it
+     into ``os.environ`` so the rest of the app picks it up
+     transparently. The same value is reused across restarts so an
+     external ``CustomOverlayBackend`` peer does not need to be
+     re-configured.
+
+  **Operator action:** when an external overlay server points at this
+  app via ``APP_CUSTOM_OVERLAY_URL``, both sides must use the same
+  ``OVERLAY_SERVER_TOKEN``. Either set it explicitly on both, or read
+  the auto-generated value from ``data/.overlay_server_token`` after
+  the first start. To restore the previous unauthenticated behaviour
+  on a trusted LAN, set ``OVERLAY_SERVER_TOKEN_DISABLED=true``.
+- ``SCOREBOARD_USERS`` left unset now emits a startup ``WARNING``
+  (previously silent) so the open-API posture is visible in the
+  startup tail. ``SCOREBOARD_USERS_DISABLED=true`` silences the
+  warning for trusted-LAN deployments.
 - New ``SecurityHeadersMiddleware`` adds baseline response headers on
   every request: ``X-Content-Type-Options: nosniff``,
   ``Referrer-Policy: strict-origin-when-cross-origin``, and a

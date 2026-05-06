@@ -30,6 +30,7 @@ from app.api.middleware.security_headers import SecurityHeadersMiddleware
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
 from app.match_report import match_report_router
+from app.security_bootstrap import run_security_bootstrap
 
 logger = logging.getLogger(__name__)
 
@@ -206,13 +207,10 @@ def _register_overlay_routes(application: FastAPI) -> None:
     )
     application.include_router(overlay_router)
     logger.info("Overlay routes mounted (templates: %s)", OVERLAY_TEMPLATES_DIR)
-
-    if not os.environ.get("OVERLAY_SERVER_TOKEN", "").strip():
-        logger.warning(
-            "OVERLAY_SERVER_TOKEN is not set — overlay server mutation "
-            "and config endpoints are unauthenticated. See "
-            "AUTHENTICATION.md (F-3, F-5) for details."
-        )
+    # The bootstrap.run_security_bootstrap call earlier in create_app
+    # has already either populated OVERLAY_SERVER_TOKEN (auto-generated
+    # or persisted) or logged the fail-open opt-out warning, so no
+    # additional warning is needed here.
 
 
 def _register_static_mounts(application: FastAPI) -> None:
@@ -379,6 +377,11 @@ def create_app() -> FastAPI:
     registered before the SPA catch-all mount, otherwise the SPA consumes
     every unmatched path.
     """
+    # Resolve / mint credentials BEFORE any router is included so the
+    # auth dependencies see the same token that the rest of the app does.
+    # ``run_security_bootstrap`` mutates os.environ in place; idempotent
+    # across repeated create_app calls (e.g. in tests).
+    run_security_bootstrap()
     application = FastAPI(title="Volley Overlay Control", lifespan=_lifespan)
     _register_auth(application)
     _register_api_routes(application)

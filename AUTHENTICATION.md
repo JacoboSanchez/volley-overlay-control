@@ -218,13 +218,25 @@ When adding a new route, add a matching entry in this test file.
 
 ## 5. Release notes
 
-One deployment-visible change operators should be aware of:
+Two deployment-visible changes operators should be aware of:
 
-1. **`OVERLAY_SERVER_TOKEN` is recommended** — set it on any deployment
-   that exposes overlay routes (the default in-process overlay server
-   setup). Control apps pointed at an external overlay server via
-   `APP_CUSTOM_OVERLAY_URL` must also set it to the same value. Leaving
-   it unset is backward-compatible but triggers a startup warning.
+1. **`OVERLAY_SERVER_TOKEN` is now auto-generated.** When the env var
+   is unset on first start, the bootstrap mints a random token,
+   persists it to `data/.overlay_server_token` (mode `0o600`), and
+   exposes it via `os.environ` so the rest of the app picks it up
+   transparently. Subsequent restarts read the same file, so the
+   token stays stable. Operators pairing this app with an external
+   overlay server (`APP_CUSTOM_OVERLAY_URL`) must either set
+   `OVERLAY_SERVER_TOKEN` explicitly on both sides, or read the
+   generated value from the persisted file. Set
+   `OVERLAY_SERVER_TOKEN_DISABLED=true` to opt back into the legacy
+   unauthenticated behaviour (only safe on a trusted LAN); the
+   bootstrap logs a `CRITICAL` warning when this opt-out is active.
+2. **`SCOREBOARD_USERS` unset now triggers a startup warning.** The
+   API still works without auth — backwards compatible — but the
+   open-API posture is now visible in the startup tail. Set
+   `SCOREBOARD_USERS_DISABLED=true` to silence the warning for
+   trusted-LAN deployments.
 
 ## 6. Defence-in-depth middleware
 

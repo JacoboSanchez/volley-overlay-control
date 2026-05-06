@@ -195,7 +195,9 @@ Configure the application using the following environment variables:
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
 | `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page. | |
-| `OVERLAY_SERVER_TOKEN` | *(Recommended)* Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). When unset the endpoints stay open and a warning is logged at startup. If you also run the control app against an **external** overlay server via `APP_CUSTOM_OVERLAY_URL`, set the same value on both sides. See [AUTHENTICATION.md](AUTHENTICATION.md) (F-3, F-5). | |
+| `OVERLAY_SERVER_TOKEN` | Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). **Auto-generated and persisted to `data/.overlay_server_token` on first start when unset.** Set explicitly here to override (e.g. when an external `CustomOverlayBackend` peer must use the same value). See [AUTHENTICATION.md](AUTHENTICATION.md) §5. | *(auto)* |
+| `OVERLAY_SERVER_TOKEN_DISABLED` | If `true`, opts back into legacy unauthenticated overlay-server endpoints. The bootstrap logs a `CRITICAL` startup warning when active. Only safe on a trusted LAN. | `false` |
+| `SCOREBOARD_USERS_DISABLED` | If `true`, silences the startup warning emitted when `SCOREBOARD_USERS` is unset. The API still allows unauthenticated requests; this flag only acknowledges the choice. | `false` |
 | `APP_THEMES` | JSON with a list of customization themes. | |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
@@ -311,9 +313,8 @@ OVERLAY_MANAGER_PASSWORD=change-me
 ### Overlay server token (`OVERLAY_SERVER_TOKEN`)
 
 When the built-in overlay server is mounted (i.e. the `overlay_templates/`
-directory is present), its mutation and config endpoints can be gated behind
-a Bearer token. Set `OVERLAY_SERVER_TOKEN` to any non-empty value and every
-request to the following routes must include
+directory is present), its mutation and config endpoints are gated behind
+a Bearer token. Every request to the following routes must include
 `Authorization: Bearer <token>`:
 
 - `POST /api/state/{id}`
@@ -323,13 +324,18 @@ request to the following routes must include
 - `GET /api/config/{id}`
 - `POST /api/theme/{id}/{name}`
 
-When the variable is unset the routes stay open and a warning is logged at
-startup — existing deployments keep working unchanged.
+The token is **auto-generated and persisted to `data/.overlay_server_token`
+on first start**. Subsequent restarts reuse the same value, so an external
+`CustomOverlayBackend` peer pointed at this app via
+`APP_CUSTOM_OVERLAY_URL` only needs to be configured once: read the value
+from the persisted file or set `OVERLAY_SERVER_TOKEN` explicitly on both
+sides.
 
-If the control app is pointed at an **external** overlay server via
-`APP_CUSTOM_OVERLAY_URL`, set `OVERLAY_SERVER_TOKEN` to the same value on
-both sides. The control app's `CustomOverlayBackend` forwards the token in
-every request it makes to the overlay server.
+To opt back into the legacy unauthenticated behaviour (e.g. for a
+trusted-LAN install or local debugging), set
+`OVERLAY_SERVER_TOKEN_DISABLED=true`. A `CRITICAL` startup warning is
+logged whenever this opt-out is active so the choice is visible in the
+startup tail.
 
 The OBS capability URLs (`/overlay/{output_key}` and `/ws/{output_key}`) are
 intentionally **not** gated by this token — they are the public-by-design
