@@ -20,14 +20,21 @@ variable to be set and the request to include a matching
 import logging
 import os
 import re
+import time
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from app.auth_utils import get_admin_password, require_admin_token
+from app.match_report_signing import (
+    DEFAULT_TTL_SECONDS,
+    MAX_TTL_SECONDS,
+    MIN_TTL_SECONDS,
+    make_signed_query,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +56,35 @@ class CustomOverlayCreate(BaseModel):
     copy_from: Optional[str] = Field(
         None,
         description="Optional existing overlay id to clone configuration from",
+    )
+
+
+class MatchSignUrlRequest(BaseModel):
+    ttl_seconds: Optional[int] = Field(
+        default=None,
+        ge=MIN_TTL_SECONDS,
+        le=MAX_TTL_SECONDS,
+        description=(
+            "URL lifetime in seconds. Bounded to "
+            f"[{MIN_TTL_SECONDS}, {MAX_TTL_SECONDS}]; defaults to "
+            f"{DEFAULT_TTL_SECONDS}."
+        ),
+    )
+
+
+class MatchSignUrlResponse(BaseModel):
+    url: str = Field(
+        ...,
+        description=(
+            "Absolute capability URL — anyone holding it can read "
+            "the report until ``expires_at``."
+        ),
+    )
+    expires_at: int = Field(
+        ..., description="Unix-seconds expiry the URL was signed for.",
+    )
+    expires_in: int = Field(
+        ..., description="Seconds remaining until expiry, at mint time.",
     )
 
 
@@ -177,6 +213,58 @@ def create_custom_overlay(payload: CustomOverlayCreate):
         "oid": name,
         "output_key": store.get_output_key(name),
     }
+
+
+@admin_router.post(
+    "/match/{match_id}/sign-url",
+    response_model=MatchSignUrlResponse,
+    dependencies=[Depends(require_admin)],
+    summary="Mint a short-lived signed URL for a match report",
+)
+def sign_match_report_url(
+    match_id: str,
+    payload: MatchSignUrlRequest,
+    request: Request,
+):
+    """Return a capability URL the operator can paste into chat tools.
+
+    The legacy share flow (``/match/{id}/report?token=<password>``)
+    embeds the actual ``OVERLAY_MANAGER_PASSWORD`` in the URL —
+    every browser bookmark, server log, or HTTP ``Referer`` that
+    touches the link leaks the credential. This endpoint replaces
+    that flow with an HMAC-signed URL of the form
+    ``/match/{id}/report?exp=<ts>&sig=<hex>``: the password stays
+    on the server and the URL expires automatically.
+
+    Rotating the admin password invalidates every outstanding
+    signed URL — that's the desired behaviour, since rotations are
+    typically motivated by suspected leaks.
+
+    The endpoint deliberately does *not* check whether the
+    ``match_id`` exists: a 404 here would be a free oracle for
+    enumerating archived matches by anyone holding the admin
+    password (who could already do far worse anyway). Signing a
+    bogus match id just produces a URL that 404s on use.
+    """
+    signed = make_signed_query(match_id, payload.ttl_seconds)
+    if signed is None:
+        # Should be unreachable — require_admin already 503's when
+        # the password is unset — but guard anyway in case a future
+        # refactor decouples the two.
+        raise HTTPException(
+            status_code=503,
+            detail="Match-report signing requires OVERLAY_MANAGER_PASSWORD.",
+        )
+    base_url = str(request.base_url).rstrip("/")
+    url = (
+        f"{base_url}/match/{match_id}/report"
+        f"?exp={signed['exp']}&sig={signed['sig']}"
+    )
+    return MatchSignUrlResponse(
+        url=url,
+        expires_at=signed["expires_at"],
+        expires_in=max(0, signed["expires_at"] - int(time.time())),
+    )
 
 
 @admin_router.delete("/custom-overlays/{name}", dependencies=[Depends(require_admin)])

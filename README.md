@@ -365,7 +365,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/api/v1/matches[?oid=X]` | `GET` — list summaries of archived matches, newest first (optional OID filter). |
 | `/api/v1/matches/{match_id}` | `GET` — full archived match snapshot (final state, customization, audit log, config). |
 | `/api/v1/game/undo` | `POST` — pop the last forward `add_point`/`add_set`/`add_timeout` from the audit log and reverse it. Returns 200 with `success=false` and `message="Nothing to undo."` when the log is empty. |
-| `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` (Bearer header or `?token=`) unless `MATCH_REPORT_PUBLIC=true`. Returns 503 when neither is configured. |
+| `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` unless `MATCH_REPORT_PUBLIC=true`. Auth modes: `Authorization: Bearer <password>` header, `?exp=&sig=` signed URL minted via `POST /api/v1/admin/match/{id}/sign-url` (preferred), or legacy `?token=<password>` query (deprecated — leaks the admin password into URL access logs). Returns 503 when neither password nor public mode is configured. |
 | `/matches/index.html?oid=X` | `GET` — browseable HTML list of every archived match for the OID (date, sets, duration, link to each report). Same auth gate as `/match/{id}/report`; the `?token=` query is propagated to the per-match report links. |
 | `/matches/{match_id}` | `DELETE` — remove a single archived snapshot. Gated by `OVERLAY_MANAGER_PASSWORD` unless `MATCH_REPORT_PUBLIC_DELETE=true`. |
 | `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |

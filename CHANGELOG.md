@@ -10,6 +10,23 @@ once a first tagged release ships.
 
 ### Security
 
+- **Capability-style signed URLs for the gated match report.** New
+  endpoint ``POST /api/v1/admin/match/{match_id}/sign-url`` (admin
+  Bearer auth) returns a short-lived URL of the form
+  ``/match/{id}/report?exp=<unix>&sig=<hmac>``. The legacy
+  ``?token=<OVERLAY_MANAGER_PASSWORD>`` flow is preserved for
+  backwards compatibility but operators should switch over: signed
+  URLs do not embed the admin password, expire automatically (TTL
+  bounded to ``[60, 30 days]``, default ``86 400 s``), and rotating
+  the password invalidates every outstanding signature.
+- **Bearer subprotocol auth on ``/api/v1/ws``.** The WebSocket route
+  now prefers ``Sec-WebSocket-Protocol: bearer, <token>`` over the
+  legacy ``?token=`` query parameter. The handshake echoes the
+  selected subprotocol so browser clients accept the connection.
+  Resolution order: subprotocol → ``Authorization`` header → legacy
+  ``?token=`` query (deprecated). Tokens no longer need to appear
+  in URL access logs or HTTP ``Referer`` headers for browser clients.
+
 - ``OVERLAY_SERVER_TOKEN`` is now **auto-generated and persisted on
   first start** instead of leaving the seven overlay-server mutation
   endpoints (``POST /api/state/{id}``, ``/create/overlay/{id}``,

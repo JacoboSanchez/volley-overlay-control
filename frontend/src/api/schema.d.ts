@@ -179,6 +179,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/match/{match_id}/sign-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a short-lived signed URL for a match report
+         * @description Return a capability URL the operator can paste into chat tools.
+         *
+         *     The legacy share flow (``/match/{id}/report?token=<password>``)
+         *     embeds the actual ``OVERLAY_MANAGER_PASSWORD`` in the URL —
+         *     every browser bookmark, server log, or HTTP ``Referer`` that
+         *     touches the link leaks the credential. This endpoint replaces
+         *     that flow with an HMAC-signed URL of the form
+         *     ``/match/{id}/report?exp=<ts>&sig=<hex>``: the password stays
+         *     on the server and the URL expires automatically.
+         *
+         *     Rotating the admin password invalidates every outstanding
+         *     signed URL — that's the desired behaviour, since rotations are
+         *     typically motivated by suspected leaks.
+         *
+         *     The endpoint deliberately does *not* check whether the
+         *     ``match_id`` exists: a 404 here would be a free oracle for
+         *     enumerating archived matches by anyone holding the admin
+         *     password (who could already do far worse anyway). Signing a
+         *     bogus match id just produces a URL that 404s on use.
+         */
+        post: operations["sign_match_report_url_api_v1_admin_match__match_id__sign_url_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/status": {
         parameters: {
             query?: never;
@@ -1081,6 +1119,32 @@ export interface components {
             /** Team 2 Set Point */
             team_2_set_point: boolean;
         };
+        /** MatchSignUrlRequest */
+        MatchSignUrlRequest: {
+            /**
+             * Ttl Seconds
+             * @description URL lifetime in seconds. Bounded to [60, 2592000]; defaults to 86400.
+             */
+            ttl_seconds?: number | null;
+        };
+        /** MatchSignUrlResponse */
+        MatchSignUrlResponse: {
+            /**
+             * Expires At
+             * @description Unix-seconds expiry the URL was signed for.
+             */
+            expires_at: number;
+            /**
+             * Expires In
+             * @description Seconds remaining until expiry, at mint time.
+             */
+            expires_in: number;
+            /**
+             * Url
+             * @description Absolute capability URL — anyone holding it can read the report until ``expires_at``.
+             */
+            url: string;
+        };
         /** OverlayControlModel */
         OverlayControlModel: {
             /** Colors */
@@ -1625,6 +1689,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_match_report_url_api_v1_admin_match__match_id__sign_url_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchSignUrlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchSignUrlResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2881,6 +2982,10 @@ export interface operations {
             query?: {
                 /** @description OVERLAY_MANAGER_PASSWORD; alternative to Bearer header. */
                 token?: string | null;
+                /** @description Signed-URL expiry (unix seconds). */
+                exp?: string | null;
+                /** @description Signed-URL HMAC-SHA256 hex digest. */
+                sig?: string | null;
             };
             header?: {
                 authorization?: string | null;
