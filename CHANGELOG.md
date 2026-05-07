@@ -8,6 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Material Icons no longer blocked by CSP.** The control UI used to
+  load the icon font from ``https://fonts.googleapis.com/icon?family=Material+Icons``,
+  which the security-headers CSP (``style-src 'self' 'unsafe-inline'``,
+  ``font-src 'self' data:``) blocks on fresh page loads — leaving the
+  timeout / serve / bottom-bar buttons rendered as text ligatures.
+  The font is now bundled with the frontend via the ``material-icons``
+  npm package (filled variant only) and served same-origin from
+  ``/assets/``, so no third-party network request is made and the
+  default CSP is unchanged. Side benefit: the UI now works in
+  airgapped / firewalled deployments.
+
 ### Security
 
 - **Webhook SSRF guard.** ``app/api/webhooks.py`` now refuses to POST
