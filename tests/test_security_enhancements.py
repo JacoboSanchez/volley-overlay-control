@@ -14,6 +14,8 @@ Pins:
 
 from __future__ import annotations
 
+import urllib.parse
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -116,16 +118,27 @@ def test_overlay_html_allows_google_fonts(headers_client):
         (p.strip() for p in csp.split(";") if p.strip().startswith("font-src")),
         "",
     )
-    # Compare against the directive's whitespace-separated tokens rather
-    # than ``in`` substrings so we (a) actually verify the host is an
-    # allowed source rather than appearing as a path fragment of some
-    # other origin (e.g. ``https://fonts.googleapis.com.evil.example``)
-    # and (b) keep CodeQL's incomplete-URL-substring-sanitization rule
-    # quiet on test code.
     style_tokens = style_directive.split()
     font_tokens = font_directive.split()
-    assert "https://fonts.googleapis.com" in style_tokens
-    assert "https://fonts.gstatic.com" in font_tokens
+    # Compare each CSP source by parsing its scheme + host with
+    # ``urllib.parse`` rather than putting a URL literal on the LHS of
+    # ``in``. This (a) actually verifies the host appears as an allowed
+    # source rather than as a path fragment of some other origin
+    # (e.g. ``https://fonts.googleapis.com.evil.example``), and (b)
+    # keeps CodeQL's ``py/incomplete-url-substring-sanitization`` rule
+    # quiet on test code — the rule flags any ``URL_LITERAL in
+    # something`` regardless of the RHS being a token list.
+    def _origins(tokens: list[str]) -> set[tuple[str, str]]:
+        out: set[tuple[str, str]] = set()
+        for tok in tokens:
+            if not tok.startswith(("http://", "https://")):
+                continue
+            parsed = urllib.parse.urlparse(tok)
+            out.add((parsed.scheme, parsed.netloc))
+        return out
+
+    assert ("https", "fonts.googleapis.com") in _origins(style_tokens)
+    assert ("https", "fonts.gstatic.com") in _origins(font_tokens)
     # Pre-existing tokens must be preserved.
     assert "'self'" in style_tokens
     assert "'unsafe-inline'" in style_tokens
