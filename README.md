@@ -212,6 +212,7 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_EVENTS` | *(Optional)* CSV subset of events the single-URL webhook should receive. | *(all events)* |
 | `WEBHOOKS_TIMEOUT_S` | *(Optional)* Per-target POST timeout in seconds. | `5` |
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
+| `WEBHOOKS_ALLOW_PRIVATE_IPS` | If `true`, allows webhook targets whose host resolves to private / loopback / link-local IPs. Default: `false` — such targets are rejected with a logged warning to block accidental SSRF (`http://localhost/admin`, cloud metadata at `169.254.169.254`, etc.). Trusted-LAN deployments that need to call internal receivers opt in here. | `false` |
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable without a token (matches the `/overlay/{output_key}` model). When unset, the route requires `OVERLAY_MANAGER_PASSWORD` via Bearer header or `?token=`. Returns 503 if neither is configured. | `false` |
 | `MATCH_REPORT_PUBLIC_DELETE` | If `true`, `DELETE /matches/{id}` no longer requires the admin token — the per-row Delete button on `/matches/index.html` becomes usable without sharing `OVERLAY_MANAGER_PASSWORD`. Independent from `MATCH_REPORT_PUBLIC`: granting public read does *not* grant public delete. | `false` |
 
