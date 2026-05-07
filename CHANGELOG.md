@@ -8,6 +8,32 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.1.4] - 2026-05-07
+
+### Fixed
+
+- **OverlayPreview iframe blocked by the strict default CSP (regression
+  in v5.1.3).** The new ``SecurityHeadersMiddleware`` shipped a default
+  ``Content-Security-Policy`` without a ``frame-src`` directive, so
+  browsers fell back to ``default-src 'self'`` and silently blocked
+  every cross-origin iframe in the React control UI. Two real-world
+  paths broke:
+  * UNO overlay previews loaded from ``https://overlays.uno`` (the
+    iframe inside ``OverlayPreview.tsx`` for non-custom overlays).
+  * Custom-overlay previews when ``OVERLAY_PUBLIC_URL`` points at a
+    different host than the control UI itself — e.g. a Traefik
+    deployment that serves the scoreboard on ``marcador.example.com``
+    and the overlay on ``overlay.example.com``.
+
+  ``_DEFAULT_CSP`` now includes ``frame-src 'self' https:``, which
+  unblocks both cases without weakening the policy meaningfully:
+  ``data:`` / ``javascript:`` / ``http:`` iframe sources remain
+  forbidden, and the iframe content's own origin still governs what
+  scripts run inside it (``sandbox="allow-scripts allow-same-origin"``
+  in ``OverlayPreview.tsx`` is unchanged). Operators that already set
+  a custom ``SECURITY_CSP`` should add ``frame-src 'self' https:`` to
+  their override string.
+
 ## [5.1.3] - 2026-05-07
 
 ### Changed

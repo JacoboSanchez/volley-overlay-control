@@ -57,6 +57,13 @@ _DEFAULT_CSP = (
     "img-src 'self' data: https:; "
     "font-src 'self' data:; "
     "connect-src 'self' ws: wss: https:; "
+    # ``frame-src`` covers iframes the control UI embeds: the OverlayPreview
+    # card loads UNO overlays from ``overlays.uno`` and custom overlays from
+    # whichever host ``OVERLAY_PUBLIC_URL`` points at (which can be a separate
+    # subdomain when the overlay is reverse-proxied independently of the
+    # control UI). Without an explicit ``frame-src``, browsers fall back to
+    # ``default-src 'self'`` and silently block both cases.
+    "frame-src 'self' https:; "
     "object-src 'none'; "
     "base-uri 'self'; "
     "form-action 'self'; "

@@ -92,6 +92,16 @@ def test_html_response_carries_csp_and_xframe(headers_client):
     )
     assert " http:" not in f" {img_directive} "
     assert "https:" in img_directive
+    # ``frame-src`` must allow cross-origin HTTPS sources so the
+    # OverlayPreview iframe can render UNO overlays and custom overlays
+    # served from a different host (``OVERLAY_PUBLIC_URL`` split-host
+    # deployments).
+    frame_src_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("frame-src")),
+        "",
+    )
+    assert "https:" in frame_src_directive
+    assert "'self'" in frame_src_directive
     assert res.headers.get("x-frame-options") == "SAMEORIGIN"
 
 
