@@ -97,8 +97,10 @@ def _write_persisted_token(path: Path, token: str) -> bool:
         # Write to a temp file first so a crash mid-write cannot leave a
         # truncated token on disk. ``os.replace`` is atomic on POSIX.
         tmp = path.with_suffix(path.suffix + ".tmp")
-        # Write with restrictive perms from the start by opening through
-        # ``os.open`` with O_CREAT + O_EXCL + mode 0o600.
+        # Open with restrictive perms from the start by going through
+        # ``os.open(..., O_CREAT | O_TRUNC, 0o600)``. ``O_EXCL`` is
+        # deliberately not set: a stale ``.tmp`` from a crashed
+        # previous run should be overwritten, not block startup.
         flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         # Some platforms ignore the mode arg on subsequent opens, so
         # chmod after-the-fact as a belt-and-suspenders.
