@@ -92,6 +92,17 @@ once a first tagged release ships.
 
 ### Added
 
+- **Backfilled tests for ``app.api.dependencies`` and
+  ``app.bootstrap``.** ``tests/test_api_dependencies.py`` (24
+  tests) covers ``_strict_oid_access_enabled`` env-var parsing,
+  ``check_oid_access`` (auth disabled, missing header, invalid
+  token, allowed OID, mismatched OID, lenient vs strict modes,
+  malformed per-user config), and ``get_current_username``
+  edge cases. ``tests/test_bootstrap.py`` (4 tests) verifies that
+  ``create_app`` boots gracefully when ``frontend/dist`` and/or
+  ``overlay_templates`` directories are missing, and exercises
+  ``_split_csv_env``. Total backend tests grew from 853 → 883;
+  ``--cov=app`` is at 82%.
 - **Repository hygiene.** Added ``.editorconfig`` (LF endings,
   4-space Python, 2-space JS/TS/MD), ``.gitattributes`` (text=auto
   eol=lf with explicit binary classification and
