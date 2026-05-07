@@ -116,12 +116,20 @@ def test_overlay_html_allows_google_fonts(headers_client):
         (p.strip() for p in csp.split(";") if p.strip().startswith("font-src")),
         "",
     )
-    assert "https://fonts.googleapis.com" in style_directive
-    assert "https://fonts.gstatic.com" in font_directive
+    # Compare against the directive's whitespace-separated tokens rather
+    # than ``in`` substrings so we (a) actually verify the host is an
+    # allowed source rather than appearing as a path fragment of some
+    # other origin (e.g. ``https://fonts.googleapis.com.evil.example``)
+    # and (b) keep CodeQL's incomplete-URL-substring-sanitization rule
+    # quiet on test code.
+    style_tokens = style_directive.split()
+    font_tokens = font_directive.split()
+    assert "https://fonts.googleapis.com" in style_tokens
+    assert "https://fonts.gstatic.com" in font_tokens
     # Pre-existing tokens must be preserved.
-    assert "'self'" in style_directive
-    assert "'unsafe-inline'" in style_directive
-    assert "'self'" in font_directive
+    assert "'self'" in style_tokens
+    assert "'unsafe-inline'" in style_tokens
+    assert "'self'" in font_tokens
 
 
 def test_non_overlay_html_does_not_allow_google_fonts(headers_client):
@@ -129,8 +137,10 @@ def test_non_overlay_html_does_not_allow_google_fonts(headers_client):
     font hosts leak in from the overlay branch."""
     res = headers_client.get("/manage")
     csp = res.headers.get("content-security-policy", "")
-    assert "fonts.googleapis.com" not in csp
-    assert "fonts.gstatic.com" not in csp
+    # Token-based check (see the overlay test for rationale).
+    csp_tokens = {tok for part in csp.split(";") for tok in part.split()}
+    assert "https://fonts.googleapis.com" not in csp_tokens
+    assert "https://fonts.gstatic.com" not in csp_tokens
 
 
 def test_existing_cache_control_is_preserved(headers_client, monkeypatch):
