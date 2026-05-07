@@ -120,3 +120,69 @@ jobs:
         name: frontend-coverage
         path: frontend/coverage/lcov.info
         if-no-files-found: ignore
+
+  security-scan:
+    # Surfaces dependency CVEs and risky-pattern findings on every PR.
+    # The scanners are configured to FAIL on issues in the codebase /
+    # the pinned lockfiles so a regression is caught before merge.
+    # ``continue-on-error`` is intentionally NOT set: an operator
+    # adding a vulnerable pin should see a red check and have to either
+    # bump the dep or document the suppression in pyproject.toml /
+    # ``# nosec`` comments.
+    name: Security scanners (bandit, pip-audit, npm audit)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install scanners
+      run: |
+        python -m pip install --upgrade pip
+        # Pin Bandit and pip-audit to known-good majors so the scan
+        # output is stable across CI runs. Bumping them is a
+        # deliberate operator decision that should land in its own
+        # PR with the diff of new findings reviewed.
+        pip install "bandit[toml]==1.7.*" "pip-audit==2.*"
+
+    - name: Bandit static analysis
+      # ``-r`` walks the package; ``-q`` suppresses progress output.
+      # ``--severity-level medium`` filters out the LOW noise Bandit
+      # emits for things like ``random`` usage in non-security paths;
+      # we still want HIGH/MEDIUM findings to fail the job.
+      # The repo already uses targeted ``# nosec`` comments where a
+      # pattern is intentional (see app/auth_utils.py, app/match_report.py).
+      run: |
+        bandit -r app/ -q --severity-level medium
+
+    - name: pip-audit (runtime lockfile)
+      # Runs against the runtime lockfile so a CVE in a transitive
+      # dep surfaces here. The dev lockfile is scanned in the next
+      # step to catch issues in tooling without conflating the two.
+      run: |
+        pip-audit -r requirements.lock --strict
+
+    - name: pip-audit (dev lockfile)
+      run: |
+        pip-audit -r requirements-dev.lock --strict
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: "20"
+        cache: "npm"
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: npm audit (runtime + transitive)
+      working-directory: frontend
+      # ``--omit=dev`` skips the toolchain (Vite, Vitest, etc.) so a
+      # known-low CVE in a build-only dep doesn't block production
+      # changes. ``--audit-level=high`` matches the Bandit threshold:
+      # we want HIGH+ findings to fail, not every advisory.
+      run: |
+        npm audit --omit=dev --audit-level=high

@@ -19,6 +19,15 @@ def _strict_oid_access_enabled() -> bool:
     raw = EnvVarsManager.get_env_var('STRICT_OID_ACCESS', 'false')
     return str(raw).strip().lower() in ('1', 'true', 't', 'yes', 'on')
 
+# RFC 7235 mandates a ``WWW-Authenticate`` header on every 401 response so
+# clients know which scheme to retry with. We emit ``Bearer`` plus a
+# realm hint so the OpenAPI / Swagger UI prompt presents a sensible
+# label. The realm strings are deliberately surface-specific so an
+# operator can tell from the response which auth ladder the request
+# tripped (scoreboard / admin / overlay-server).
+_API_KEY_WWW_AUTH = {"WWW-Authenticate": 'Bearer realm="scoreboard"'}
+
+
 async def verify_api_key(authorization: str = Header(None)):
     """Validate the Bearer token when user authentication is enabled.
 
@@ -29,7 +38,11 @@ async def verify_api_key(authorization: str = Header(None)):
         return  # no auth required
 
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing API key. Use 'Authorization: Bearer <key>'.")
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Use 'Authorization: Bearer <key>'.",
+            headers=_API_KEY_WWW_AUTH,
+        )
 
     token = authorization.removeprefix("Bearer ").strip()
     if not PasswordAuthenticator.check_api_key(token):
@@ -51,15 +64,23 @@ def check_oid_access(authorization: str, oid: str):
     if not PasswordAuthenticator.do_authenticate_users():
         return
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing API key.")
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key.",
+            headers=_API_KEY_WWW_AUTH,
+        )
 
     username = get_current_username(authorization)
     if not username:
         raise HTTPException(status_code=403, detail="Invalid API key.")
 
     users = PasswordAuthenticator._get_users()
-    userconf = users.get(username)
-    if userconf:
+    # ``_get_users`` already guarantees a dict-or-None at the top
+    # level, but a per-user entry may still be a non-dict shape
+    # (e.g. ``{"alice": "string"}``); skip the OID check rather
+    # than crash on ``userconf.get(...)``.
+    userconf = users.get(username) if isinstance(users, dict) else None
+    if isinstance(userconf, dict):
         allowed_oid = userconf.get("control")
         if allowed_oid and allowed_oid != oid:
             raise HTTPException(status_code=403, detail="Not authorized for this OID.")

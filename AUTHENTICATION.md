@@ -14,9 +14,20 @@ different environment variable:
 
 | Layer | Env var | How it's enforced | Where |
 | :--- | :--- | :--- | :--- |
-| `verify_api_key` dependency | `SCOREBOARD_USERS` | Per-route `Depends(verify_api_key)`. Returns `401` when the header is missing, `403` when the Bearer token does not match any configured user. | `app/api/dependencies.py` |
-| `require_admin` dependency | `OVERLAY_MANAGER_PASSWORD` | Per-route `Depends(require_admin)`. Returns `503` when the password env var is unset, `401` when the header is missing, `403` when the Bearer token does not match. | `app/admin/routes.py` |
-| `require_overlay_server_token` dependency | `OVERLAY_SERVER_TOKEN` | Per-route `Depends(require_overlay_server_token)`. **No-op when the env var is unset** (logs a startup warning). When set: `401` without header, `403` with a mismatched Bearer token. | `app/overlay/routes.py` |
+| `verify_api_key` dependency | `SCOREBOARD_USERS` (per-user `password` or `password_hash`) | Per-route `Depends(verify_api_key)`. Returns `401` when the header is missing, `403` when the Bearer token does not match any configured user. | `app/api/dependencies.py` |
+| `require_admin` dependency | `OVERLAY_MANAGER_PASSWORD` or `OVERLAY_MANAGER_PASSWORD_HASH` | Per-route `Depends(require_admin)`. Returns `503` when neither env var is set, `401` when the header is missing, `403` when the Bearer token does not match. | `app/admin/routes.py` |
+| `require_overlay_server_token` dependency | `OVERLAY_SERVER_TOKEN` or `OVERLAY_SERVER_TOKEN_HASH` | Per-route `Depends(require_overlay_server_token)`. Auto-populated by the security bootstrap when neither is set (unless `OVERLAY_SERVER_TOKEN_DISABLED=true`). When set: `401` without header, `403` with a mismatched Bearer token. | `app/overlay/routes.py` |
+
+Each row's `_HASH` env var (or `password_hash` user field) is the
+preferred form: storing a scrypt record on disk means the cleartext
+credential never sits in `.env`. See §8 for the migration guide and
+the verifier's caching/rotation semantics.
+
+Every 401 response from these ladders carries a
+`WWW-Authenticate: Bearer realm="<scoreboard|admin|overlay-server>"`
+header per RFC 7235 §4.1. The realm hint helps the OpenAPI /
+Swagger UI label the credential prompt and lets operators tell
+from access logs which ladder rejected a request.
 
 The `check_oid_access` helper is a second-level check layered on top of
 `verify_api_key`: it compares the caller's `control` OID (stored in
@@ -62,7 +73,7 @@ via `get_session` (or explicitly inside the handler).
 | `GET` | `/themes` | Y | |
 | `GET` | `/links` | Y + OID | |
 | `GET` | `/styles` | Y + OID | |
-| `WS` | `/ws` | Y + OID | Explicit `check_oid_access`; accepts token via `?token=…` query param |
+| `WS` | `/ws` | Y + OID | Explicit `check_oid_access`; accepts token via `Sec-WebSocket-Protocol: bearer, <token>` (preferred) or `?token=…` query param (deprecated, kept for legacy clients) |
 
 ### 2.2 Admin — `admin_router` + `admin_page_router` (`app/admin/routes.py`)
 
@@ -71,6 +82,7 @@ via `get_session` (or explicitly inside the handler).
 | `GET` | `/manage` | — | Static HTML page; JS prompts for password client-side and keeps it in a closure variable only. |
 | `GET` | `/api/v1/admin/status` | — | Returns `{"enabled": bool}` only — does not leak the password itself. |
 | `POST` | `/api/v1/admin/login` | `require_admin` | Used by the management page to validate the password. |
+| `POST` | `/api/v1/admin/match/{match_id}/sign-url` | `require_admin` | Mints an HMAC-signed capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response: `{"url", "expires_at", "expires_in"}`. The URL embeds `?exp=&sig=` — never the admin password. |
 | `GET` | `/api/v1/admin/custom-overlays` | `require_admin` | Lists custom overlays managed by the in-process engine. |
 | `POST` | `/api/v1/admin/custom-overlays` | `require_admin` | Creates a custom overlay (optional `copy_from` to clone). |
 | `DELETE` | `/api/v1/admin/custom-overlays/{id}` | `require_admin` | Deletes a custom overlay and its persisted state. |
@@ -218,10 +230,249 @@ When adding a new route, add a matching entry in this test file.
 
 ## 5. Release notes
 
-One deployment-visible change operators should be aware of:
+Two deployment-visible changes operators should be aware of:
 
-1. **`OVERLAY_SERVER_TOKEN` is recommended** — set it on any deployment
-   that exposes overlay routes (the default in-process overlay server
-   setup). Control apps pointed at an external overlay server via
-   `APP_CUSTOM_OVERLAY_URL` must also set it to the same value. Leaving
-   it unset is backward-compatible but triggers a startup warning.
+1. **`OVERLAY_SERVER_TOKEN` is now auto-generated.** When the env var
+   is unset on first start, the bootstrap mints a random token,
+   persists it to `data/.overlay_server_token` (mode `0o600`), and
+   exposes it via `os.environ` so the rest of the app picks it up
+   transparently. Subsequent restarts read the same file, so the
+   token stays stable. Operators pairing this app with an external
+   overlay server (`APP_CUSTOM_OVERLAY_URL`) must either set
+   `OVERLAY_SERVER_TOKEN` explicitly on both sides, or read the
+   generated value from the persisted file. Set
+   `OVERLAY_SERVER_TOKEN_DISABLED=true` to opt back into the legacy
+   unauthenticated behaviour (only safe on a trusted LAN); the
+   bootstrap logs a `CRITICAL` warning when this opt-out is active.
+2. **`SCOREBOARD_USERS` unset now triggers a startup warning.** The
+   API still works without auth — backwards compatible — but the
+   open-API posture is now visible in the startup tail. Set
+   `SCOREBOARD_USERS_DISABLED=true` to silence the warning for
+   trusted-LAN deployments.
+
+## 6. Defence-in-depth middleware
+
+Two middlewares wrap every request and complement the per-route auth
+ladder above. Both are wired in `app/bootstrap.py:create_app` so
+operators don't need to opt in.
+
+### 6.1 `AuthRateLimitMiddleware` — brute-force backstop
+
+Located in `app/api/middleware/auth_rate_limit.py`. Watches the
+`/api/v1/` and `/manage` path prefixes; when a response carries a
+401 or 403 status, the caller's IP is recorded in a sliding-window
+counter. Once the bucket exceeds the configured threshold the next
+request from that IP is short-circuited with `429 Too Many
+Requests` and a `Retry-After` header before reaching the handler.
+The bucket is reset only by the sliding window — non-failure
+responses are intentionally ignored so an attacker cannot launder
+failures by interleaving login attempts with hits to a public
+endpoint under the same prefix (e.g. `/api/v1/admin/status`).
+
+The caller IP is sourced exclusively from `scope["client"]` —
+client-supplied `X-Forwarded-For` headers are ignored to defeat
+spoofing. **Operators behind a reverse proxy must configure
+uvicorn with `--proxy-headers` and `--forwarded-allow-ips=<proxy
+IP>`** so the ASGI scope reflects the real remote IP rather than
+the proxy hop. Without that, every caller behind the proxy
+collapses into a single bucket and a single attacker can lock out
+all legitimate users.
+
+| Env var | Default | Meaning |
+| :--- | :--- | :--- |
+| `AUTH_RATE_LIMIT_MAX_FAILURES` | `10` | 401/403 responses per window before blocking |
+| `AUTH_RATE_LIMIT_WINDOW_SECONDS` | `60` | sliding-window length |
+| `AUTH_RATE_LIMIT_BLOCK_SECONDS` | `60` | how long the IP stays blocked once the threshold trips |
+
+State is process-local. Multi-replica deployments should still front
+the app with a layer-7 limiter (Cloudflare, Nginx, etc.) — this
+middleware is the single-replica self-hosted backstop.
+
+### 6.2 `TrustedHostMiddleware` — Host-header poisoning defence (opt-in)
+
+Wired in `app/bootstrap.py:_maybe_register_trusted_hosts`. When
+`TRUSTED_HOSTS` is unset the middleware is not installed (default,
+backwards compatible). When set to a comma-separated list of
+hostnames, Starlette's `TrustedHostMiddleware` rejects requests
+whose `Host` header doesn't match any entry with HTTP 400 before
+any handler reads `request.base_url` (used by `/links`,
+`/api/config/{id}`, the signed-URL minter, etc.). Wildcard
+subdomains are honoured (`*.example.com` matches any subdomain).
+
+| Env var | Default | Meaning |
+| :--- | :--- | :--- |
+| `TRUSTED_HOSTS` | unset | Comma-separated allow-list. Whitespace around entries is stripped. |
+
+Operators behind a reverse proxy must also configure uvicorn with
+`--proxy-headers` so the ASGI scope reflects the real `Host`.
+Enforcement is global — the overlay routes (`/overlay/{id}`,
+`/ws/{id}`) are subject to the same allow-list because the `Host`
+check fires before route dispatch. If OBS browser sources on a
+different domain need to load an overlay, add that domain (or a
+wildcard parent) to `TRUSTED_HOSTS`; do not try to special-case the
+overlay router downstream of the middleware.
+
+### 6.3 `CORSMiddleware` — cross-origin SPA scaffolding (opt-in)
+
+Wired in `app/bootstrap.py:_maybe_register_cors`. When
+`CORS_ALLOWED_ORIGINS` is unset the middleware is not installed
+(default, backwards compatible — the bundled SPA is served by
+FastAPI itself, no cross-origin requests). When set to a
+comma-separated list of origins, browser preflight responses get
+explicit allow-list semantics:
+
+* `Access-Control-Allow-Origin` is echoed only for listed origins.
+* `Access-Control-Allow-Credentials: true` so the React UI can
+  forward `Authorization` headers.
+* `Access-Control-Allow-Headers` includes `Authorization`,
+  `Content-Type`, `X-Request-ID`, and `Sec-WebSocket-Protocol`
+  — the headers the existing auth flows and the WS subprotocol
+  handshake actually use.
+
+| Env var | Default | Meaning |
+| :--- | :--- | :--- |
+| `CORS_ALLOWED_ORIGINS` | unset | Comma-separated allow-list of origins. `*` is **rejected** to prevent a copy-paste footgun on a credentialed API; an `ERROR` is logged and CORS stays disabled. |
+
+### 6.4 `SecurityHeadersMiddleware` — HTTP response hardening
+
+Located in `app/api/middleware/security_headers.py`. Adds:
+
+* `X-Content-Type-Options: nosniff` and `Referrer-Policy:
+  strict-origin-when-cross-origin` and a `Permissions-Policy` that
+  denies geolocation/microphone/camera/payment/usb on every response.
+* `Content-Security-Policy` (locked to `'self'` plus
+  `'unsafe-inline'`/`'unsafe-eval'` to keep the existing inline
+  match-report and SPA scripts working) and `X-Frame-Options:
+  SAMEORIGIN` on HTML responses. The `/overlay/*` routes get
+  `frame-ancestors *` instead so OBS browser sources can still embed
+  them off-origin.
+* `Cache-Control: no-store` on `/api/v1/` responses that don't
+  already set a `Cache-Control` header — keeps authenticated JSON
+  out of intermediary caches.
+
+Operators can override individual headers via env vars:
+`SECURITY_CSP`, `SECURITY_REFERRER_POLICY`,
+`SECURITY_PERMISSIONS_POLICY`, and `SECURITY_HSTS_SECONDS`
+(opt-in HSTS, off by default so non-HTTPS deployments are not
+locked out). Existing handler-level `Cache-Control` headers are
+always preserved.
+
+## 7. Credential transport patterns
+
+This section documents how each credential travels on the wire, and
+the H-4 hardening that flipped two of them away from the URL line.
+
+### 7.1 Match report: signed capability URLs
+
+The legacy share flow for the gated match report was
+``/match/{id}/report?token=$OVERLAY_MANAGER_PASSWORD``. Pasting
+the URL into chat tools, browser bookmarks, or anywhere a
+``Referer`` header could be sent leaked the actual admin password.
+
+Operators should now mint a capability URL via
+``POST /api/v1/admin/match/{match_id}/sign-url`` (admin Bearer
+required). The response carries a URL of the form
+``/match/{id}/report?exp=<unix_seconds>&sig=<hmac_hex>``. The
+signing key is derived from ``OVERLAY_MANAGER_PASSWORD``, so:
+
+* Anyone who holds the URL can read the report until ``exp``
+  passes.
+* The admin password itself never leaves the server.
+* Rotating ``OVERLAY_MANAGER_PASSWORD`` invalidates every
+  outstanding signed URL — the desired behaviour after a suspected
+  leak.
+* TTL is bounded to ``[60 s, 30 days]``; the default is one day.
+
+The legacy ``?token=`` flow is preserved for backwards
+compatibility but should be considered deprecated. The matches
+index (``/matches/index.html``) deliberately does *not* honour
+signed URLs — it would need a separate list-all capability that
+also unlocks per-row deletion, and that feature is intentionally
+not provided yet.
+
+### 7.2 `/api/v1/ws`: Bearer subprotocol auth
+
+WebSocket connections from JavaScript clients cannot set custom
+headers. The legacy workaround was a ``?token=<value>`` query
+parameter, which leaks via every reverse-proxy access log.
+
+The route now resolves auth in this order:
+
+1. ``Sec-WebSocket-Protocol: bearer, <token>`` — preferred.
+   Browser clients open the socket with
+   ``new WebSocket(url, ["bearer", token])``. The server
+   selects the ``bearer`` subprotocol and echoes it back during
+   the handshake (RFC 6455 §4.1).
+2. ``Authorization: Bearer <token>`` header — for non-browser
+   clients that can set headers on the upgrade request.
+3. ``?token=<value>`` query parameter — legacy fallback. Kept
+   so existing CLI / script clients keep working; documented as
+   deprecated in the OpenAPI schema.
+
+The token never appears in the request line for browser clients
+that adopt path 1.
+
+## 8. Hashed credentials at rest
+
+The three credential env vars all started life as plaintext values
+read directly from `.env` / compose. `secrets.compare_digest` /
+`hmac.compare_digest` made the *comparison* constant-time, but the
+source value sat in cleartext on disk where any operator with shell
+access could read it. PR 4 of the security plan added an opt-in
+hashed alternative without introducing a new dependency.
+
+### 8.1 Hash format
+
+Hashes are produced by `app/password_hash.py` using
+`hashlib.scrypt`. The wire format is::
+
+    scrypt$n=16384,r=8,p=1$<salt-hex>$<hash-hex>
+
+* `n`, `r`, `p` are the standard scrypt parameters; the verifier
+  reads them from the record so existing hashes keep working when
+  the defaults change.
+* `salt` is 16 random bytes, lowercase hex (32 chars).
+* `hash` is the 32-byte derived key, lowercase hex (64 chars).
+
+Mint a hash via the CLI helper::
+
+    python -m app.password_hash                    # interactive (no echo)
+    echo -n 'mypw' | python -m app.password_hash --stdin
+    python -m app.password_hash --stdin --n 32768  # heavier hash
+
+### 8.2 Per-surface configuration
+
+| Credential | Plaintext env var | Hash env var | Field name |
+| :--- | :--- | :--- | :--- |
+| Scoreboard user | inside `SCOREBOARD_USERS` JSON: `password` | inside `SCOREBOARD_USERS` JSON: `password_hash` | (per-user) |
+| Admin (`/manage`, `/api/v1/admin/*`) | `OVERLAY_MANAGER_PASSWORD` | `OVERLAY_MANAGER_PASSWORD_HASH` | env var |
+| Overlay server | `OVERLAY_SERVER_TOKEN` | `OVERLAY_SERVER_TOKEN_HASH` | env var |
+
+When both forms are configured, the hash wins. This matters for the
+migration path: an operator who has minted a hash but hasn't yet
+deleted the plaintext should already be authenticating against the
+new value, otherwise the old password keeps working until both are
+rotated.
+
+### 8.3 Verification cache
+
+`hashlib.scrypt` at the default parameters costs ~50 ms per check.
+Routes protected by `verify_api_key` are called many times per
+second from the React UI, so unhashed verification is essentially
+free but hashed verification would add real latency. The
+`PasswordAuthenticator._verify_cache` keeps a 60-second per-process
+TTL cache keyed on `sha256(provided_token)`; cached lookups skip
+the scrypt call entirely. The cache is invalidated automatically
+on `SCOREBOARD_USERS` rotation, so a removed user cannot remain
+authenticated past the env-var change.
+
+### 8.4 Auto-generation interaction
+
+`security_bootstrap.ensure_overlay_server_token` (PR 2) auto-generates
+`OVERLAY_SERVER_TOKEN` and persists it to `data/.overlay_server_token`
+on first start. When `OVERLAY_SERVER_TOKEN_HASH` is set, the
+bootstrap skips that step — a hash-only deployment intentionally
+keeps zero cleartext on the server side. The peer
+(`CustomOverlayBackend`) still reads the cleartext token from its
+own configuration, so the hash-only model splits trust cleanly:
+this server stores only a hash, the peer stores only the cleartext.

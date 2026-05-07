@@ -191,11 +191,17 @@ Configure the application using the following environment variables:
 | `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
 | `APP_TEAMS` | JSON with the list of predefined teams. | |
-| `SCOREBOARD_USERS` | JSON with the list of users and passwords (also used as API keys). | |
+| `SCOREBOARD_USERS` | JSON map of users. Each entry carries either `password` (legacy plaintext) or `password_hash` (a scrypt record minted via `python -m app.password_hash`). When both are present, the hash wins. See [AUTHENTICATION.md](AUTHENTICATION.md) §8. | |
 | `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
 | `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
-| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page. | |
-| `OVERLAY_SERVER_TOKEN` | *(Recommended)* Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). When unset the endpoints stay open and a warning is logged at startup. If you also run the control app against an **external** overlay server via `APP_CUSTOM_OVERLAY_URL`, set the same value on both sides. See [AUTHENTICATION.md](AUTHENTICATION.md) (F-3, F-5). | |
+| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page, or use `OVERLAY_MANAGER_PASSWORD_HASH` instead to keep no cleartext on disk. | |
+| `OVERLAY_MANAGER_PASSWORD_HASH` | scrypt-hashed alternative to `OVERLAY_MANAGER_PASSWORD`. Mint via `python -m app.password_hash`. When both are set, the hash wins. See [AUTHENTICATION.md](AUTHENTICATION.md) §8. | |
+| `OVERLAY_SERVER_TOKEN` | Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). **Auto-generated and persisted to `data/.overlay_server_token` on first start when unset.** Set explicitly here to override (e.g. when an external `CustomOverlayBackend` peer must use the same value). See [AUTHENTICATION.md](AUTHENTICATION.md) §5. | *(auto)* |
+| `OVERLAY_SERVER_TOKEN_HASH` | scrypt-hashed alternative to `OVERLAY_SERVER_TOKEN`. When set, the bootstrap skips auto-generating the persisted plaintext file — a hash-only deployment keeps zero cleartext on this server (the peer keeps the cleartext). | |
+| `OVERLAY_SERVER_TOKEN_DISABLED` | If `true`, opts back into legacy unauthenticated overlay-server endpoints. The bootstrap logs a `CRITICAL` startup warning when active. Only safe on a trusted LAN. | `false` |
+| `SCOREBOARD_USERS_DISABLED` | If `true`, silences the startup warning emitted when `SCOREBOARD_USERS` is unset. The API still allows unauthenticated requests; this flag only acknowledges the choice. | `false` |
+| `TRUSTED_HOSTS` | Comma-separated allow-list of hostnames the app accepts in the `Host` header. Wildcard subdomains (`*.example.com`) supported. Requests outside the list are rejected with HTTP 400 before any handler reads `request.base_url`. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.2. | *(unset → no enforcement)* |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allow-list of origins permitted to call the API cross-origin. `*` is rejected (credentialed API; explicit origins only). Default: same-origin only. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.3. | *(unset → no CORS)* |
 | `APP_THEMES` | JSON with a list of customization themes. | |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
@@ -206,6 +212,7 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_EVENTS` | *(Optional)* CSV subset of events the single-URL webhook should receive. | *(all events)* |
 | `WEBHOOKS_TIMEOUT_S` | *(Optional)* Per-target POST timeout in seconds. | `5` |
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
+| `WEBHOOKS_ALLOW_PRIVATE_IPS` | If `true`, allows webhook targets whose host resolves to private / loopback / link-local IPs. Default: `false` — such targets are rejected with a logged warning to block accidental SSRF (`http://localhost/admin`, cloud metadata at `169.254.169.254`, etc.). Trusted-LAN deployments that need to call internal receivers opt in here. | `false` |
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable without a token (matches the `/overlay/{output_key}` model). When unset, the route requires `OVERLAY_MANAGER_PASSWORD` via Bearer header or `?token=`. Returns 503 if neither is configured. | `false` |
 | `MATCH_REPORT_PUBLIC_DELETE` | If `true`, `DELETE /matches/{id}` no longer requires the admin token — the per-row Delete button on `/matches/index.html` becomes usable without sharing `OVERLAY_MANAGER_PASSWORD`. Independent from `MATCH_REPORT_PUBLIC`: granting public read does *not* grant public delete. | `false` |
 
@@ -311,9 +318,8 @@ OVERLAY_MANAGER_PASSWORD=change-me
 ### Overlay server token (`OVERLAY_SERVER_TOKEN`)
 
 When the built-in overlay server is mounted (i.e. the `overlay_templates/`
-directory is present), its mutation and config endpoints can be gated behind
-a Bearer token. Set `OVERLAY_SERVER_TOKEN` to any non-empty value and every
-request to the following routes must include
+directory is present), its mutation and config endpoints are gated behind
+a Bearer token. Every request to the following routes must include
 `Authorization: Bearer <token>`:
 
 - `POST /api/state/{id}`
@@ -323,13 +329,18 @@ request to the following routes must include
 - `GET /api/config/{id}`
 - `POST /api/theme/{id}/{name}`
 
-When the variable is unset the routes stay open and a warning is logged at
-startup — existing deployments keep working unchanged.
+The token is **auto-generated and persisted to `data/.overlay_server_token`
+on first start**. Subsequent restarts reuse the same value, so an external
+`CustomOverlayBackend` peer pointed at this app via
+`APP_CUSTOM_OVERLAY_URL` only needs to be configured once: read the value
+from the persisted file or set `OVERLAY_SERVER_TOKEN` explicitly on both
+sides.
 
-If the control app is pointed at an **external** overlay server via
-`APP_CUSTOM_OVERLAY_URL`, set `OVERLAY_SERVER_TOKEN` to the same value on
-both sides. The control app's `CustomOverlayBackend` forwards the token in
-every request it makes to the overlay server.
+To opt back into the legacy unauthenticated behaviour (e.g. for a
+trusted-LAN install or local debugging), set
+`OVERLAY_SERVER_TOKEN_DISABLED=true`. A `CRITICAL` startup warning is
+logged whenever this opt-out is active so the choice is visible in the
+startup tail.
 
 The OBS capability URLs (`/overlay/{output_key}` and `/ws/{output_key}`) are
 intentionally **not** gated by this token — they are the public-by-design
@@ -359,7 +370,7 @@ Import configuration from an external resource via `REMOTE_CONFIG_URL`. The appl
 | `/api/v1/matches[?oid=X]` | `GET` — list summaries of archived matches, newest first (optional OID filter). |
 | `/api/v1/matches/{match_id}` | `GET` — full archived match snapshot (final state, customization, audit log, config). |
 | `/api/v1/game/undo` | `POST` — pop the last forward `add_point`/`add_set`/`add_timeout` from the audit log and reverse it. Returns 200 with `success=false` and `message="Nothing to undo."` when the log is empty. |
-| `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` (Bearer header or `?token=`) unless `MATCH_REPORT_PUBLIC=true`. Returns 503 when neither is configured. |
+| `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` unless `MATCH_REPORT_PUBLIC=true`. Auth modes: `Authorization: Bearer <password>` header, `?exp=&sig=` signed URL minted via `POST /api/v1/admin/match/{id}/sign-url` (preferred), or legacy `?token=<password>` query (deprecated — leaks the admin password into URL access logs). Returns 503 when neither password nor public mode is configured. |
 | `/matches/index.html?oid=X` | `GET` — browseable HTML list of every archived match for the OID (date, sets, duration, link to each report). Same auth gate as `/match/{id}/report`; the `?token=` query is propagated to the per-match report links. |
 | `/matches/{match_id}` | `DELETE` — remove a single archived snapshot. Gated by `OVERLAY_MANAGER_PASSWORD` unless `MATCH_REPORT_PUBLIC_DELETE=true`. |
 | `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |

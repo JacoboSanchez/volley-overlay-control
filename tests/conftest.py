@@ -103,6 +103,27 @@ def isolate_match_archive(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(match_archive, "_data_dir", lambda: str(seed_dir))
 
 
+@pytest.fixture(autouse=True)
+def isolate_security_bootstrap(tmp_path_factory, monkeypatch):
+    """Redirect the security bootstrap's data dir to a per-test temp dir.
+
+    ``app.security_bootstrap.ensure_overlay_server_token`` writes a
+    persisted token file to ``data/.overlay_server_token`` on first
+    invocation. Tests that build a real FastAPI app via
+    ``bootstrap.create_app()`` (e.g. ``test_trusted_hosts_and_cors``)
+    trigger the bootstrap and would otherwise pollute the dev tree's
+    real ``data/`` directory and leak token state between tests.
+
+    Mirrors the per-module isolation used for ``action_log``,
+    ``match_archive``, ``session_persistence``, and
+    ``overlay_state_store``.
+    """
+    from app import security_bootstrap
+
+    seed_dir = tmp_path_factory.mktemp("security_bootstrap")
+    monkeypatch.setattr(security_bootstrap, "_data_dir", lambda: str(seed_dir))
+
+
 def load_fixture(name):
     """Auxiliary function to load a JSON file from the fixtures folder."""
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')

@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import re
-import secrets
 import time
 from typing import Any, Dict, Optional
 
@@ -23,12 +22,25 @@ from starlette.concurrency import run_in_threadpool
 from app.admin.routes import require_admin
 from app.env_vars_manager import EnvVarsManager
 from app.overlay.state_store import OverlayStateStore
+from app.password_hash import verify_password
 
 logger = logging.getLogger(__name__)
 
 
-def _get_overlay_server_token() -> Optional[str]:
-    """Return the configured overlay-server token (or None if unset)."""
+def _get_overlay_server_credential() -> Optional[str]:
+    """Return the configured overlay-server credential, hash-preferred.
+
+    ``OVERLAY_SERVER_TOKEN_HASH`` (a scrypt record from
+    :mod:`app.password_hash`) wins over the legacy plaintext
+    ``OVERLAY_SERVER_TOKEN`` when both are set, so an operator
+    migrating to hashed credentials does not have to delete the
+    plaintext to switch over. Returns ``None`` when neither is set.
+    """
+    h = EnvVarsManager.get_env_var("OVERLAY_SERVER_TOKEN_HASH", None)
+    if h is not None:
+        h = str(h).strip()
+        if h:
+            return h
     token = EnvVarsManager.get_env_var("OVERLAY_SERVER_TOKEN", None)
     if token is None:
         return None
@@ -39,21 +51,36 @@ def _get_overlay_server_token() -> Optional[str]:
 def require_overlay_server_token(authorization: str = Header(None)) -> None:
     """Gate overlay-server mutation / leaky read endpoints.
 
-    When ``OVERLAY_SERVER_TOKEN`` is unset the check is a no-op so
-    existing deployments keep working (with a startup warning; see
-    ``AUTHENTICATION.md`` F-3 and F-5). When the env var is set, the
-    request must include ``Authorization: Bearer <token>``.
+    ``OVERLAY_SERVER_TOKEN`` is normally populated at startup by
+    :func:`app.security_bootstrap.ensure_overlay_server_token` (auto-
+    generated on first run, persisted to ``data/.overlay_server_token``).
+    Operators who prefer hash-only configuration can set
+    ``OVERLAY_SERVER_TOKEN_HASH`` instead — the bootstrap detects
+    that and skips auto-generation.
+
+    When either credential is set the request must include
+    ``Authorization: Bearer <token>``; verification goes through
+    :func:`app.password_hash.verify_password` which accepts plaintext
+    or hash records (constant-time in either branch). The dependency
+    stays a no-op only when the operator explicitly opted into legacy
+    fail-open via ``OVERLAY_SERVER_TOKEN_DISABLED=true`` — see
+    ``AUTHENTICATION.md`` §5 for the migration notes.
     """
-    token = _get_overlay_server_token()
-    if token is None:
+    expected = _get_overlay_server_credential()
+    if expected is None:
         return
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=401,
             detail="Missing overlay server token. Use 'Authorization: Bearer <token>'.",
+            # RFC 7235 §4.1: 401 responses must advertise the auth
+            # scheme. ``realm="overlay-server"`` distinguishes this
+            # ladder from the scoreboard and admin ones in client
+            # / proxy logs.
+            headers={"WWW-Authenticate": 'Bearer realm="overlay-server"'},
         )
     provided = authorization.removeprefix("Bearer ").strip()
-    if not secrets.compare_digest(provided, token):
+    if not verify_password(provided, expected):
         raise HTTPException(status_code=403, detail="Invalid overlay server token.")
 
 

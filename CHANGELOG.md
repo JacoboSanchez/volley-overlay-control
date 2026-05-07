@@ -8,6 +8,178 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Security
+
+- **Webhook SSRF guard.** ``app/api/webhooks.py`` now refuses to POST
+  to URLs whose host resolves to a private (RFC 1918), loopback,
+  link-local (including the ``169.254.169.254`` cloud-metadata
+  endpoint), multicast, reserved (RFC 5737 / RFC 3849
+  documentation), or unspecified address. Trusted-LAN deployments
+  that legitimately call internal webhook receivers set
+  ``WEBHOOKS_ALLOW_PRIVATE_IPS=true`` to opt out. Non-``http(s)``
+  schemes are also rejected. DNS resolution failures pass through
+  so flaky resolvers don't silently break valid webhook
+  configurations.
+- **`WWW-Authenticate` on 401 responses.** Per RFC 7235 §4.1, every
+  401 from the auth ladders now carries a
+  ``WWW-Authenticate: Bearer realm="<scoreboard|admin|overlay-server>"``
+  header. The realm hint helps the OpenAPI / Swagger UI label the
+  credential prompt and lets operators tell from access logs which
+  ladder rejected a request. 403 semantics are preserved (invalid
+  credential ≠ no credential).
+- **Enriched unhandled-exception logging.** ``ExceptionLoggingMiddleware``
+  now logs the request method, path, exception class, and request id
+  in both the message text and as structured ``extra`` fields
+  (``http_method``, ``http_path``, ``exc_class``) so JSON log
+  consumers can query each axis without parsing the free-form
+  message.
+
+- **`TrustedHostMiddleware` (opt-in).** Set ``TRUSTED_HOSTS`` to a
+  comma-separated list of public hostnames the deployment serves
+  from; requests carrying a ``Host`` header outside the allow-list
+  are rejected with HTTP 400 before any handler reads
+  ``request.base_url``. Wildcard subdomains are honoured. Default:
+  unset → no enforcement (backwards compatible).
+- **CORS scaffolding (opt-in).** Set ``CORS_ALLOWED_ORIGINS`` to a
+  comma-separated list of origins permitted to call the API
+  cross-origin. ``*`` is deliberately rejected on this credentialed
+  API; explicit origins only. ``Authorization``,
+  ``Content-Type``, ``X-Request-ID``, and
+  ``Sec-WebSocket-Protocol`` are forwarded so the existing auth
+  flows and the new Bearer-subprotocol WebSocket handshake all keep
+  working. Default: unset → same-origin only (backwards compatible).
+- **CI security scanners.** New ``security-scan`` job in
+  ``.github/workflows/ci.yml`` runs Bandit (MEDIUM+ severity) over
+  ``app/``, ``pip-audit --strict`` against both
+  ``requirements.lock`` and ``requirements-dev.lock``, and
+  ``npm audit --omit=dev --audit-level=high`` against the frontend.
+  Findings fail the job; suppression requires either a documented
+  ``# nosec`` comment or an explicit advisory ignore.
+- **`SECURITY.md`** — formal vulnerability-disclosure policy.
+  Points reporters at GitHub's private vulnerability reporting,
+  documents in-scope/out-of-scope surfaces, and links to the
+  hardening reference (``AUTHENTICATION.md``).
+
+- **Hashed credentials at rest.** New module ``app/password_hash.py``
+  uses ``hashlib.scrypt`` (no new dependency) to mint salted hash
+  records of the form ``scrypt$n=16384,r=8,p=1$<salt>$<hash>``. Three
+  auth surfaces gained an opt-in hashed alternative — operators
+  migrate without a flag day, since each surface accepts either the
+  legacy plaintext or the new hash:
+  - ``SCOREBOARD_USERS`` user entries may carry ``password_hash``
+    instead of ``password``. When both are present, the hash wins
+    so the migration doesn't leave both credentials valid.
+  - ``OVERLAY_MANAGER_PASSWORD_HASH`` is honoured alongside the
+    legacy ``OVERLAY_MANAGER_PASSWORD``. The match-report URL
+    signing key follows whichever credential is configured, so
+    rotating either one still invalidates outstanding signed URLs.
+  - ``OVERLAY_SERVER_TOKEN_HASH`` is honoured alongside
+    ``OVERLAY_SERVER_TOKEN``. When the hash is set, the security
+    bootstrap skips auto-generation of the persisted plaintext
+    file — a hash-only deployment keeps zero cleartext on the
+    server side; the peer keeps the cleartext token.
+
+  Mint a hash via ``python -m app.password_hash`` (interactive
+  prompt) or ``echo -n 'pw' | python -m app.password_hash --stdin``.
+
+  Hash verification with the default scrypt parameters costs ~50 ms
+  per check, which would noticeably slow the React control UI's
+  per-action API calls. ``PasswordAuthenticator`` now keeps a
+  60-second per-process verify cache keyed on
+  ``sha256(provided_token)`` so the hot path stays fast; the cache
+  is automatically invalidated whenever ``SCOREBOARD_USERS`` is
+  rotated.
+
+- **Capability-style signed URLs for the gated match report.** New
+  endpoint ``POST /api/v1/admin/match/{match_id}/sign-url`` (admin
+  Bearer auth) returns a short-lived URL of the form
+  ``/match/{id}/report?exp=<unix>&sig=<hmac>``. The legacy
+  ``?token=<OVERLAY_MANAGER_PASSWORD>`` flow is preserved for
+  backwards compatibility but operators should switch over: signed
+  URLs do not embed the admin password, expire automatically (TTL
+  bounded to ``[60, 30 days]``, default ``86 400 s``), and rotating
+  the password invalidates every outstanding signature.
+- **Bearer subprotocol auth on ``/api/v1/ws``.** The WebSocket route
+  now prefers ``Sec-WebSocket-Protocol: bearer, <token>`` over the
+  legacy ``?token=`` query parameter. The handshake echoes the
+  selected subprotocol so browser clients accept the connection.
+  Resolution order: subprotocol → ``Authorization`` header → legacy
+  ``?token=`` query (deprecated). Tokens no longer need to appear
+  in URL access logs or HTTP ``Referer`` headers for browser clients.
+
+- ``OVERLAY_SERVER_TOKEN`` is now **auto-generated and persisted on
+  first start** instead of leaving the seven overlay-server mutation
+  endpoints (``POST /api/state/{id}``, ``/create/overlay/{id}``,
+  ``/delete/overlay/{id}``, ``/api/raw_config/{id}``,
+  ``/api/theme/{id}/{name}``) unauthenticated by default. Resolution
+  order at startup:
+  1. ``OVERLAY_SERVER_TOKEN_DISABLED=true`` keeps the legacy
+     fail-open behaviour and logs a ``CRITICAL`` startup warning.
+  2. ``OVERLAY_SERVER_TOKEN=<value>`` already set wins.
+  3. Otherwise the bootstrap reads / mints a token at
+     ``data/.overlay_server_token`` (mode ``0o600``) and injects it
+     into ``os.environ`` so the rest of the app picks it up
+     transparently. The same value is reused across restarts so an
+     external ``CustomOverlayBackend`` peer does not need to be
+     re-configured.
+
+  **Operator action:** when an external overlay server points at this
+  app via ``APP_CUSTOM_OVERLAY_URL``, both sides must use the same
+  ``OVERLAY_SERVER_TOKEN``. Either set it explicitly on both, or read
+  the auto-generated value from ``data/.overlay_server_token`` after
+  the first start. To restore the previous unauthenticated behaviour
+  on a trusted LAN, set ``OVERLAY_SERVER_TOKEN_DISABLED=true``.
+- ``SCOREBOARD_USERS`` left unset now emits a startup ``WARNING``
+  (previously silent) so the open-API posture is visible in the
+  startup tail. ``SCOREBOARD_USERS_DISABLED=true`` silences the
+  warning for trusted-LAN deployments.
+- New ``SecurityHeadersMiddleware`` adds baseline response headers on
+  every request: ``X-Content-Type-Options: nosniff``,
+  ``Referrer-Policy: strict-origin-when-cross-origin``, and a
+  ``Permissions-Policy`` that denies geolocation/microphone/camera by
+  default. HTML responses additionally carry a ``Content-Security-Policy``
+  (locked to ``'self'`` + inline scripts/styles to keep the existing
+  match report rendering) and ``X-Frame-Options: SAMEORIGIN``. The
+  ``/overlay/*`` routes get a relaxed ``frame-ancestors *`` so OBS
+  browser sources can still embed them. Operators can override the
+  CSP / referrer / permissions strings via ``SECURITY_CSP``,
+  ``SECURITY_REFERRER_POLICY``, ``SECURITY_PERMISSIONS_POLICY`` and
+  opt into HSTS by setting ``SECURITY_HSTS_SECONDS`` (off by default
+  to avoid locking out non-HTTPS deployments).
+- New ``AuthRateLimitMiddleware`` watches ``/api/v1/`` and ``/manage``
+  for repeated 401/403 responses and blocks further requests from
+  the same IP with HTTP 429 once a per-IP threshold is reached. This
+  is a defence-in-depth backstop for brute-force attempts against
+  ``/api/v1/admin/login`` and the ``verify_api_key`` /
+  ``require_admin`` dependencies. Tunables:
+  ``AUTH_RATE_LIMIT_MAX_FAILURES`` (default 10),
+  ``AUTH_RATE_LIMIT_WINDOW_SECONDS`` (default 60),
+  ``AUTH_RATE_LIMIT_BLOCK_SECONDS`` (default 60). The bucket is
+  reset only by the sliding window — successful responses to public
+  endpoints under the same prefix (``/api/v1/admin/status``,
+  ``/manage`` itself) do not clear failures, so an attacker cannot
+  launder login attempts by interleaving status requests. The
+  client identifier is sourced from ``scope["client"]`` only;
+  client-supplied ``X-Forwarded-For`` headers are ignored to defeat
+  spoofing. Operators behind a reverse proxy must configure uvicorn
+  with ``--proxy-headers`` / ``--forwarded-allow-ips`` so the ASGI
+  scope reflects the real remote IP.
+- ``/api/v1/`` JSON responses now carry ``Cache-Control: no-store``
+  unless the handler explicitly sets a different policy, so
+  intermediaries cannot cache authenticated payloads.
+- ``PUT /api/v1/customization`` now caps payload size and validates
+  every value:
+  - At most 64 top-level keys per request.
+  - Only scalar JSON types (string, boolean, number, null) are
+    accepted — arrays and nested objects are rejected so the
+    deep-merge into the broadcast state cannot be used to inflate
+    the WebSocket payload.
+  - String values capped at 256 characters (8 KiB for logo URLs to
+    accommodate base64 ``data:image/...`` payloads).
+  - Logo URLs must use ``http(s)://`` or ``data:image/...`` schemes.
+    ``javascript:``, ``vbscript:``, ``data:text/html``, ``file://``,
+    etc. are rejected before persistence and broadcast.
+
 ## [5.1.2] - 2026-05-06
 
 ### Changed
