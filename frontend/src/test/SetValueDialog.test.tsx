@@ -45,13 +45,31 @@ describe('SetValueDialog', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('calls onClose when overlay clicked', () => {
+  it('calls onClose when backdrop clicked', () => {
     const onClose = vi.fn();
     const { container } = renderWithI18n(
       <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
     );
-    fireEvent.click(container.querySelector('.dialog-overlay')!);
+    fireEvent.click(container.querySelector('.dialog-backdrop')!);
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('calls onClose when Escape pressed', () => {
+    const onClose = vi.fn();
+    renderWithI18n(
+      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('renders with role="dialog" and aria-modal', () => {
+    const { container } = renderWithI18n(
+      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={vi.fn()} />
+    );
+    const card = container.querySelector('[role="dialog"]');
+    expect(card).not.toBeNull();
+    expect(card!.getAttribute('aria-modal')).toBe('true');
   });
 
   it('clamps value to maxValue', () => {
@@ -85,5 +103,49 @@ describe('SetValueDialog', () => {
     fireEvent.change(input, { target: { value: '-10' } });
     fireEvent.submit(input.closest('form')!);
     expect(onSubmit).toHaveBeenCalledWith(0);
+  });
+
+  it('does not steal focus on parent re-render with unstable onClose', async () => {
+    // Regression: the previous Dialog effect re-ran on every onClose
+    // identity change, refocusing the card and clobbering whatever the
+    // user was typing. With the split effects, focus is only set once
+    // per open transition.
+    const { rerender } = renderWithI18n(
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={() => {
+          /* fresh closure on every render */
+        }}
+      />,
+    );
+    const input = screen.getByDisplayValue('0') as HTMLInputElement;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    // Rerender with a fresh ``onClose`` reference — this is exactly the
+    // scenario Gemini flagged: a parent passing an inline arrow that
+    // changes identity on every render.
+    const { I18nProvider } = await import('../i18n');
+    const { SettingsProvider } = await import('../hooks/useSettings');
+    rerender(
+      <I18nProvider>
+        <SettingsProvider>
+          <SetValueDialog
+            open={true}
+            title="Test"
+            initialValue={0}
+            maxValue={99}
+            onSubmit={vi.fn()}
+            onClose={() => {
+              /* new closure */
+            }}
+          />
+        </SettingsProvider>
+      </I18nProvider>,
+    );
+    expect(document.activeElement).toBe(input);
   });
 });

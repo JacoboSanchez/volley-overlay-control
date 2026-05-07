@@ -36,7 +36,7 @@ Headers applied to ``/api/v1/`` responses:
 from __future__ import annotations
 
 import os
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 
 def _env(name: str, default: str) -> str:
@@ -154,7 +154,7 @@ class SecurityHeadersMiddleware:
     ``bootstrap`` are respected).
     """
 
-    def __init__(self, app, *, hsts_seconds: Optional[int] = None) -> None:
+    def __init__(self, app, *, hsts_seconds: int | None = None) -> None:
         self.app = app
         # HSTS is opt-in: setting it on a deployment that's not HTTPS-only
         # will lock browsers out. Operators enable it via env var.

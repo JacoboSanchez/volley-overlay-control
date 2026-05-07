@@ -223,7 +223,7 @@ def test_is_target_safe_rejects_loopback_literal():
 
 
 def test_is_target_safe_rejects_cloud_metadata_literal():
-    safe, reason = _is_target_safe("http://169.254.169.254/latest/meta-data/")
+    safe, _reason = _is_target_safe("http://169.254.169.254/latest/meta-data/")
     assert safe is False
 
 
@@ -240,7 +240,7 @@ def test_is_target_safe_rejects_non_http_scheme():
 
 
 def test_is_target_safe_rejects_missing_host():
-    safe, reason = _is_target_safe("http:///")
+    safe, _reason = _is_target_safe("http:///")
     assert safe is False
 
 
@@ -248,7 +248,7 @@ def test_is_target_safe_passes_through_dns_failure():
     """A non-resolving public hostname must pass through the guard so
     ``requests.post`` can surface the actual network error rather
     than this guard masking it as an SSRF rejection."""
-    safe, reason = _is_target_safe("http://this-does-not-resolve.invalid/")
+    safe, _reason = _is_target_safe("http://this-does-not-resolve.invalid/")
     assert safe is True
 
 
@@ -290,12 +290,11 @@ def test_webhook_blocked_emits_warning(monkeypatch, caplog):
     )
     monkeypatch.delenv("WEBHOOKS_ALLOW_PRIVATE_IPS", raising=False)
     d = WebhookDispatcher()
-    with caplog.at_level(logging.WARNING, logger="app.api.webhooks"):
-        with patch("app.api.webhooks.requests.post"):
-            d.dispatch("set_end", "oid", {})
-            if d._executor is not None:
-                d._executor.shutdown(wait=True)
-                d._executor = None
+    with caplog.at_level(logging.WARNING, logger="app.api.webhooks"), patch("app.api.webhooks.requests.post"):
+        d.dispatch("set_end", "oid", {})
+        if d._executor is not None:
+            d._executor.shutdown(wait=True)
+            d._executor = None
     assert any(
         "blocked by SSRF guard" in r.getMessage()
         for r in caplog.records

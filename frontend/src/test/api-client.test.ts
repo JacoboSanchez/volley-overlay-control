@@ -84,7 +84,8 @@ describe('api/client', () => {
     mockFetchOk({});
     setApiKey('secret');
     await getTeams();
-    const callHeaders = fetchMock().mock.calls[0][1].headers;
+    const firstCall = fetchMock().mock.calls[0]!;
+    const callHeaders = firstCall[1].headers;
     expect(callHeaders.Authorization).toBe('Bearer secret');
     setApiKey(null);
   });

@@ -43,7 +43,6 @@ import os
 import threading
 import time
 from collections.abc import Set as AbstractSet
-from typing import Optional
 
 from app.api.oid_validation import OID_PATTERN
 
@@ -117,7 +116,7 @@ def _hashed_basename(oid: str) -> str:
     return f"audit_{digest}.jsonl"
 
 
-def _path(oid: str) -> Optional[str]:
+def _path(oid: str) -> str | None:
     if not isinstance(oid, str) or _OID_PATTERN.match(oid) is None:
         return None
     return os.path.join(_data_dir(), _hashed_basename(oid))
@@ -160,7 +159,7 @@ def _read_raw_locked(path: str, oid: str) -> list[dict]:
     in :func:`_apply_tombstones`.
     """
     records: list[dict] = []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -261,9 +260,9 @@ def delete(oid: str) -> bool:
 
 def _find_last_forward(
     records: list[dict],
-    allowed_actions: Optional[AbstractSet[str]] = None,
-    team: Optional[int] = None,
-) -> Optional[dict]:
+    allowed_actions: AbstractSet[str] | None = None,
+    team: int | None = None,
+) -> dict | None:
     """Walk *records* (already tombstone-filtered) in reverse and
     return the most recent non-undo record matching the filters."""
     for record in reversed(records):
@@ -281,9 +280,9 @@ def _find_last_forward(
 
 def pop_last_forward(
     oid: str,
-    allowed_actions: Optional[AbstractSet[str]] = None,
-    team: Optional[int] = None,
-) -> Optional[dict]:
+    allowed_actions: AbstractSet[str] | None = None,
+    team: int | None = None,
+) -> dict | None:
     """Remove and return the most recent non-undo, allowed record.
 
     * Undo records (``params.undo`` truthy) are always skipped.
@@ -339,9 +338,9 @@ def pop_last_forward(
 
 def peek_last_forward(
     oid: str,
-    allowed_actions: Optional[AbstractSet[str]] = None,
-    team: Optional[int] = None,
-) -> Optional[dict]:
+    allowed_actions: AbstractSet[str] | None = None,
+    team: int | None = None,
+) -> dict | None:
     """Return the most recent matching forward record without removing it.
 
     Same filtering rules as :func:`pop_last_forward`. Used by

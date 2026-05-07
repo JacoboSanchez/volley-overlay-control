@@ -1,0 +1,50 @@
+# Default behaviour: treat everything as text and normalise line endings to LF
+# on commit. Override below for known binary extensions.
+* text=auto eol=lf
+
+# Explicit text classification — these should never get CRLFed on Windows
+# checkouts.
+*.py     text eol=lf
+*.ts     text eol=lf
+*.tsx    text eol=lf
+*.js     text eol=lf
+*.mjs    text eol=lf
+*.cjs    text eol=lf
+*.json   text eol=lf
+*.jsonc  text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.md     text eol=lf
+*.html   text eol=lf
+*.css    text eol=lf
+*.scss   text eol=lf
+*.toml   text eol=lf
+*.cfg    text eol=lf
+*.ini    text eol=lf
+*.sh     text eol=lf
+*.env.example text eol=lf
+Dockerfile text eol=lf
+Makefile text eol=lf
+
+# Binary assets — disable diff and prevent line-ending normalisation.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.zip   binary
+*.gz    binary
+*.tgz   binary
+
+# Lockfiles — keep diffs collapsed in PR review UIs.
+frontend/package-lock.json linguist-generated=true
+requirements.lock          linguist-generated=true
+requirements-dev.lock      linguist-generated=true
+frontend/src/api/schema.d.ts linguist-generated=true

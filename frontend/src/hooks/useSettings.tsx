@@ -64,7 +64,11 @@ function readAll(): Settings {
   for (const key of Object.keys(DEFAULTS) as Array<keyof Settings>) {
     try {
       const v = localStorage.getItem(LS_PREFIX + key);
-      if (v !== null) (result as unknown as Record<string, unknown>)[key] = JSON.parse(v);
+      // JSON.parse returns ``any``; we route through Object.assign rather
+      // than a mutating index assignment so we avoid the ``as unknown as``
+      // double-cast the previous version needed to bypass keyof Settings's
+      // write-side narrowness.
+      if (v !== null) Object.assign(result, { [key]: JSON.parse(v) });
     } catch { /* use default */ }
   }
   return result;

@@ -105,6 +105,10 @@ jobs:
           exit 1
         fi
 
+    - name: Lint
+      working-directory: frontend
+      run: npm run lint
+
     - name: Typecheck
       working-directory: frontend
       run: npm run typecheck

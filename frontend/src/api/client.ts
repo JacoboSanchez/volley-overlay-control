@@ -17,6 +17,7 @@ export type ActionResponse = Schemas['ActionResponse'];
 export type AppConfig = Schemas['AppConfigResponse'];
 export type InitRequest = Schemas['InitRequest'];
 export type OverlayPayload = Schemas['OverlayPayload'];
+export type TeamState = Schemas['TeamState'];
 
 export type InitOptions = Omit<InitRequest, 'oid'>;
 

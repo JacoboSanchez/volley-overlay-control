@@ -134,7 +134,7 @@ class TestMatchArchive:
         original_open = open
         opened_match_files: list[str] = []
 
-        def tracking_open(path, *args, **kwargs):  # noqa: ANN001
+        def tracking_open(path, *args, **kwargs):
             if isinstance(path, str) and "match_" in _os.path.basename(path) \
                     and path.endswith(".json"):
                 opened_match_files.append(path)

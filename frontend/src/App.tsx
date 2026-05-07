@@ -12,13 +12,12 @@ import ScoreboardView from './components/ScoreboardView';
 import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
 import ErrorBoundary from './components/ErrorBoundary';
-import type { GameState } from './api/client';
-import type { ConfigModel } from './components/TeamCard';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
 import {
   TEAM_A_COLOR,
   TEAM_B_COLOR,
   FONT_SCALES,
+  DEFAULT_FONT_SCALE,
 } from './theme';
 import { HUD_AUTO_HIDE_MS } from './constants';
 import { asColor, asString } from './utils/coerce';
@@ -91,7 +90,6 @@ export default function App() {
     initialize,
     actions,
     refreshCustomization,
-    setCustomization,
   } = useGameState(oid);
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
@@ -371,8 +369,8 @@ export default function App() {
   const iconLogoB = settings.showIcon ? asString(customization?.['Team 2 Logo']) : null;
 
   const fontStyle = useMemo<ScoreButtonFontStyle>(() => {
-    const fontScales = FONT_SCALES as Record<string, FontScale>;
-    const fontProps: FontScale = fontScales[settings.selectedFont] ?? fontScales.Default;
+    const fontProps: FontScale =
+      FONT_SCALES[settings.selectedFont] ?? DEFAULT_FONT_SCALE;
     return settings.selectedFont && settings.selectedFont !== 'Default'
       ? { fontFamily: `'${settings.selectedFont}'`, fontScale: fontProps.scale, fontOffsetY: fontProps.offset_y }
       : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };

@@ -918,10 +918,10 @@ class TestMatchReportPregameTrim:
         )
         response = client.get(f"/match/{match_id}/report")
         first_pt_label = _dt.datetime.fromtimestamp(
-            first_pt_ts, _dt.timezone.utc,
+            first_pt_ts, _dt.UTC,
         ).strftime("%Y-%m-%d %H:%M UTC")
         reset_label = _dt.datetime.fromtimestamp(
-            base_ts, _dt.timezone.utc,
+            base_ts, _dt.UTC,
         ).strftime("%Y-%m-%d %H:%M UTC")
         assert first_pt_label in response.text
         if first_pt_label != reset_label:

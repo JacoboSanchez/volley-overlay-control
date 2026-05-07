@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class WSControlClient:
         self,
         overlay_id: str,
         ws_url: str,
-        on_event: Optional[Callable[[dict], None]] = None,
+        on_event: Callable[[dict], None] | None = None,
     ):
         self._overlay_id = overlay_id
         self._ws_url = ws_url
@@ -51,7 +51,7 @@ class WSControlClient:
         self._last_inbound_ts: float = 0.0
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
     # -- public properties --------------------------------------------------
 
@@ -91,11 +91,15 @@ class WSControlClient:
         with self._lock:
             if self._ws:
                 # close() races the receiver thread; the socket may already
-                # be torn down on the remote side. Swallow.
+                # be torn down on the remote side. Swallow but log so a
+                # disconnect storm is visible at debug level.
                 try:
                     self._ws.close()
-                except Exception:  # nosec B110
-                    pass
+                except Exception as exc:  # nosec B110
+                    logger.debug(
+                        "WS close raced for overlay '%s': %s",
+                        self._overlay_id, exc,
+                    )
                 self._ws = None
             self._connected = False
         if self._thread:
@@ -219,7 +223,8 @@ class WSControlClient:
                 try:
                     sock.send(json.dumps({"type": "ping"}))
                     last_ping = now
-                except Exception:
+                except Exception as exc:
+                    logger.debug("WS heartbeat send failed: %s", exc)
                     break
 
     def _handle_message(self, msg: dict) -> None:

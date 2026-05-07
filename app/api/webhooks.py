@@ -37,8 +37,8 @@ import logging
 import socket
 import threading
 import time
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Iterable, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -91,7 +91,7 @@ def _is_private_ip(ip_str: str) -> bool:
     )
 
 
-def _resolve_target_addresses(host: str) -> Optional[list[str]]:
+def _resolve_target_addresses(host: str) -> list[str] | None:
     """Return every IP the *host* resolves to, or ``None`` on failure.
 
     The resolution is intentionally fresh on every delivery so a CDN
@@ -162,7 +162,7 @@ def _safe_json_list(raw: str) -> list[dict]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
-def _normalise_events(value) -> Optional[set[str]]:
+def _normalise_events(value) -> set[str] | None:
     if value is None:
         return None
     if isinstance(value, str):
@@ -178,10 +178,10 @@ def _normalise_events(value) -> Optional[set[str]]:
 class WebhookTarget:
     """A single configured endpoint."""
 
-    __slots__ = ("url", "secret", "events", "timeout_s")
+    __slots__ = ("events", "secret", "timeout_s", "url")
 
-    def __init__(self, url: str, secret: Optional[str] = None,
-                 events: Optional[Iterable[str]] = None,
+    def __init__(self, url: str, secret: str | None = None,
+                 events: Iterable[str] | None = None,
                  timeout_s: float = _DEFAULT_TIMEOUT_S):
         self.url = url
         self.secret = secret or None
@@ -204,8 +204,8 @@ class WebhookDispatcher:
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._targets: Optional[list[WebhookTarget]] = None
-        self._executor: Optional[ThreadPoolExecutor] = None
+        self._targets: list[WebhookTarget] | None = None
+        self._executor: ThreadPoolExecutor | None = None
 
     # -- configuration ---------------------------------------------------
 

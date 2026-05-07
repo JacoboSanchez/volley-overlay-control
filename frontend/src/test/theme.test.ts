@@ -17,7 +17,7 @@ describe('theme', () => {
   });
 
   it('all font scales have scale and offset_y', () => {
-    for (const [name, props] of Object.entries(FONT_SCALES)) {
+    for (const [, props] of Object.entries(FONT_SCALES)) {
       expect(props).toHaveProperty('scale');
       expect(props).toHaveProperty('offset_y');
       expect(typeof props.scale).toBe('number');
@@ -26,7 +26,9 @@ describe('theme', () => {
   });
 
   it('Default font has scale 1.0 and offset 0', () => {
-    expect(FONT_SCALES.Default.scale).toBe(1.0);
-    expect(FONT_SCALES.Default.offset_y).toBe(0.0);
+    const def = FONT_SCALES.Default;
+    expect(def).toBeDefined();
+    expect(def!.scale).toBe(1.0);
+    expect(def!.offset_y).toBe(0.0);
   });
 });

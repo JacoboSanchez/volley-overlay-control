@@ -40,7 +40,6 @@ import os
 import secrets
 import stat
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ _TOKEN_BYTES = 32  # → 43-char URL-safe string
 _TRUTHY = ("1", "true", "t", "yes", "on")
 
 
-def _is_truthy_env(value: Optional[str]) -> bool:
+def _is_truthy_env(value: str | None) -> bool:
     return isinstance(value, str) and value.strip().lower() in _TRUTHY
 
 
@@ -71,7 +70,7 @@ def _token_path() -> Path:
     return Path(_data_dir()) / _TOKEN_FILENAME
 
 
-def _read_persisted_token(path: Path) -> Optional[str]:
+def _read_persisted_token(path: Path) -> str | None:
     try:
         text = path.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
@@ -128,7 +127,7 @@ def _write_persisted_token(path: Path, token: str) -> bool:
     return True
 
 
-def ensure_overlay_server_token() -> Optional[str]:
+def ensure_overlay_server_token() -> str | None:
     """Resolve / mint / persist the overlay-server token.
 
     Returns the active token string, or ``None`` when fail-open mode is
