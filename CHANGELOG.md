@@ -20,6 +20,20 @@ once a first tagged release ships.
   ``/assets/``, so no third-party network request is made and the
   default CSP is unchanged. Side benefit: the UI now works in
   airgapped / firewalled deployments.
+- **Overlay templates' Google Fonts allowed by CSP.** Several overlay
+  styles (``clear_jersey``, ``neo_jersey``, ``split_jersey``,
+  ``compact``, ``original``, ``esports``, ``glass``, ``mosaic``,
+  ``pill``, ``ribbon``, ``shield``, ``vertical``, ``style``,
+  ``style_reference``, ``split``, ``diagonal``) load Outfit / Inter /
+  Roboto / Oswald / Montserrat / Rajdhani / Barlow Condensed / Chakra
+  Petch / Rubik from ``fonts.googleapis.com``. The strict default CSP
+  blocked them and OBS browser sources fell back to system sans-serif.
+  ``SecurityHeadersMiddleware._build_html_csp`` now appends
+  ``https://fonts.googleapis.com`` to ``style-src`` and
+  ``https://fonts.gstatic.com`` to ``font-src`` **only on
+  ``/overlay/*`` paths** (alongside the existing
+  ``frame-ancestors *`` relaxation). The control UI, ``/manage``, and
+  ``/match/{id}/report`` keep the strict 'self'-only CSP.
 
 ### Security
 

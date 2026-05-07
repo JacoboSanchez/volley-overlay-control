@@ -102,6 +102,37 @@ def test_overlay_html_relaxes_frame_ancestors(headers_client):
     assert "x-frame-options" not in res.headers
 
 
+def test_overlay_html_allows_google_fonts(headers_client):
+    """Overlay templates pull Google Fonts; the strict default CSP
+    blocks them on every other route, so /overlay/* must allow the two
+    Google Fonts hosts on style-src and font-src."""
+    res = headers_client.get("/overlay/x")
+    csp = res.headers.get("content-security-policy", "")
+    style_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("style-src")),
+        "",
+    )
+    font_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("font-src")),
+        "",
+    )
+    assert "https://fonts.googleapis.com" in style_directive
+    assert "https://fonts.gstatic.com" in font_directive
+    # Pre-existing tokens must be preserved.
+    assert "'self'" in style_directive
+    assert "'unsafe-inline'" in style_directive
+    assert "'self'" in font_directive
+
+
+def test_non_overlay_html_does_not_allow_google_fonts(headers_client):
+    """The control UI / manage page CSP stays strict — no third-party
+    font hosts leak in from the overlay branch."""
+    res = headers_client.get("/manage")
+    csp = res.headers.get("content-security-policy", "")
+    assert "fonts.googleapis.com" not in csp
+    assert "fonts.gstatic.com" not in csp
+
+
 def test_existing_cache_control_is_preserved(headers_client, monkeypatch):
     app = FastAPI()
 
