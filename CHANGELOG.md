@@ -10,6 +10,22 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Expanded mypy coverage.** ``[tool.mypy] files`` in
+  ``pyproject.toml`` grew from 6 to ~17 modules. ``app/state.py``,
+  ``app/customization.py``, ``app/game_manager.py``,
+  ``app/conf.py``, ``app/oid_utils.py``,
+  ``app/env_vars_manager.py``, ``app/app_storage.py``,
+  ``app/match_report_i18n.py``, ``app/match_report_signing.py``,
+  ``app/password_hash.py``, ``app/auth_utils.py``,
+  ``app/security_bootstrap.py``, and
+  ``app/overlay/state_store.py`` are now type-checked. The
+  expansion required minor cleanups: ``AppStorage`` and
+  ``Customization`` static helpers got the ``@staticmethod``
+  decorator they were missing, ``State.OIDStatus`` got the right
+  enum name, and ``EnvVarsManager._remote_config_cache`` /
+  ``Customization.predefined_teams`` /
+  ``Customization.THEMES`` got explicit type annotations. No
+  runtime behaviour change.
 - **Stricter Ruff rule set.** ``pyproject.toml`` now selects ``UP``
   (pyupgrade), ``C90`` (mccabe complexity, capped at 18), ``RUF``,
   and ``SIM`` on top of the previous ``E/F/W/I/B``. The mass

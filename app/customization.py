@@ -76,9 +76,10 @@ class Customization:
         VPOS_FLOAT: -41.1,
         WIDTH_FLOAT: 30}
 
-    predefined_teams = {}
-    THEMES = {}
+    predefined_teams: dict[str, dict[str, str]] = {}
+    THEMES: dict[str, dict[str, str | int | float]] = {}
 
+    @staticmethod
     def refresh():
         provided_teams_json = EnvVarsManager.get_env_var('APP_TEAMS', None)
 
@@ -263,10 +264,12 @@ class Customization:
     def set_v_pos(self, float_val):
         self.customization_model[Customization.VPOS_FLOAT] = float_val
 
+    @staticmethod
     def get_predefined_teams():
         Customization.refresh()
         return Customization.predefined_teams
 
+    @staticmethod
     def fix_icon(url):
         if url.startswith("//"):
             return "https:" + url

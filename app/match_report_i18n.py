@@ -310,7 +310,7 @@ def resolve_locale(accept_language: str | None) -> str:
         if ";" in token:
             tag, *params = (p.strip() for p in token.split(";"))
         else:
-            tag, params = token, ()
+            tag, params = token, []
         if not _LANG_TAG_RE.match(tag):
             continue
         q = 1.0

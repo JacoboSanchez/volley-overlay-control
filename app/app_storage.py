@@ -1,8 +1,9 @@
 import logging
 from enum import Enum
+from typing import Any
 
 # In-memory storage (replaces the former NiceGUI per-browser storage)
-_memory_storage = {}
+_memory_storage: dict[str, Any] = {}
 
 
 class AppStorage:
@@ -28,9 +29,11 @@ class AppStorage:
 
     logger = logging.getLogger(__name__)
 
+    @staticmethod
     def _get_storage():
         return _memory_storage
 
+    @staticmethod
     def save(tag: Category, value, oid=None):
         storage = AppStorage._get_storage()
         AppStorage.logger.debug('Saving key %s [%s]', tag, oid)
@@ -41,6 +44,7 @@ class AppStorage:
         else:
             storage[tag.value] = value
 
+    @staticmethod
     def load(tag: Category, default=None, oid=None):
         storage = AppStorage._get_storage()
         AppStorage.logger.debug('Loading %s [%s]', oid, tag)
@@ -49,6 +53,7 @@ class AppStorage:
             return oid_storage.get(tag.value, default)
         return storage.get(tag.value, default)
 
+    @staticmethod
     def refresh_state(oid, preserve_keys=None):
         storage = AppStorage._get_storage()
         if oid in storage:
@@ -63,6 +68,7 @@ class AppStorage:
             else:
                 del storage[oid]
 
+    @staticmethod
     def clear_user_storage():
         storage = AppStorage._get_storage()
         AppStorage.logger.info('Clearing storage')

@@ -103,6 +103,23 @@ files = [
     "app/api/ws_hub.py",
     "app/api/routes",
     "app/api/middleware",
+    "app/state.py",
+    "app/game_manager.py",
+    "app/customization.py",
+    "app/customization_cache.py",
+    "app/conf.py",
+    "app/oid_utils.py",
+    "app/env_vars_manager.py",
+    "app/app_storage.py",
+    "app/logging_config.py",
+    "app/logging_context.py",
+    "app/logging_utils.py",
+    "app/match_report_i18n.py",
+    "app/match_report_signing.py",
+    "app/password_hash.py",
+    "app/auth_utils.py",
+    "app/security_bootstrap.py",
+    "app/overlay/state_store.py",
 ]
 python_version = "3.11"
 follow_imports = "silent"
@@ -113,6 +130,15 @@ disallow_untyped_defs = false
 check_untyped_defs = false
 warn_unused_ignores = true
 warn_redundant_casts = true
+
+# ``requests`` ships its own stubs as ``types-requests`` but the project
+# doesn't depend on it. ``ignore_missing_imports`` covers most cases, but
+# the ``import-untyped`` error code is separate; silence it just for these
+# import sites.
+[[tool.mypy.overrides]]
+module = ["requests", "requests.*", "websocket", "websocket._exceptions"]
+ignore_missing_imports = true
+follow_imports = "skip"
 
 [tool.pytest.ini_options]
 log_cli = false
