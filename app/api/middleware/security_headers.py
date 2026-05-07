@@ -64,6 +64,15 @@ _DEFAULT_CSP = (
 )
 
 _OVERLAY_CSP_FRAME_ANCESTORS = "frame-ancestors *"
+# Overlay templates pull webfonts from Google Fonts (Outfit, Inter,
+# Roboto, Oswald, Montserrat, Rajdhani, Barlow Condensed, Chakra Petch,
+# Rubik). The stylesheet is served from fonts.googleapis.com and the
+# woff2 files from fonts.gstatic.com — both must be allowed for the
+# OBS-rendered overlays to keep their intended typography. We only
+# relax this on /overlay/* paths; the control UI, /manage, and the
+# match report stay locked to 'self'.
+_OVERLAY_CSP_STYLE_HOSTS = "https://fonts.googleapis.com"
+_OVERLAY_CSP_FONT_HOSTS = "https://fonts.gstatic.com"
 _DEFAULT_PERMISSIONS_POLICY = (
     "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
 )
@@ -76,19 +85,37 @@ _DEFAULT_REFERRER_POLICY = "strict-origin-when-cross-origin"
 _OVERLAY_PREFIXES: tuple[str, ...] = ("/overlay/",)
 
 
+def _augment_directive(parts: list[str], name: str, *extras: str) -> None:
+    """Append *extras* to the CSP directive *name* in-place.
+
+    If the directive is missing, a new one is appended that starts at
+    ``'self'`` and adds *extras*. Existing tokens are preserved so an
+    operator-supplied ``SECURITY_CSP`` override never loses entries.
+    """
+    lower = name.lower()
+    for i, part in enumerate(parts):
+        tokens = part.split()
+        if tokens and tokens[0].lower() == lower:
+            for extra in extras:
+                if extra not in tokens:
+                    tokens.append(extra)
+            parts[i] = " ".join(tokens)
+            return
+    parts.append(" ".join((name, "'self'", *extras)))
+
+
 def _build_html_csp(path: str) -> str:
     """Return the CSP string for an HTML response on *path*.
 
     Overlay routes are embedded in OBS browser sources, which load the
-    page off-origin; ``frame-ancestors 'self'`` would break them. The
-    overlay-specific override only relaxes that one directive — every
-    other ``script-src`` / ``style-src`` / ``img-src`` policy stays in
-    force.
+    page off-origin; ``frame-ancestors 'self'`` would break them, and
+    several templates pull webfonts from Google Fonts. The overlay
+    branch relaxes ``frame-ancestors``, ``style-src``, and ``font-src``
+    only — every other ``script-src`` / ``img-src`` / ``connect-src``
+    policy stays in force.
     """
     csp = _env("SECURITY_CSP", _DEFAULT_CSP)
     if any(path.startswith(prefix) for prefix in _OVERLAY_PREFIXES):
-        # Replace any frame-ancestors directive with the overlay-friendly
-        # value. Falls back to appending if the env override removed it.
         parts = [p.strip() for p in csp.split(";") if p.strip()]
         replaced = False
         for i, p in enumerate(parts):
@@ -98,6 +125,8 @@ def _build_html_csp(path: str) -> str:
                 break
         if not replaced:
             parts.append(_OVERLAY_CSP_FRAME_ANCESTORS)
+        _augment_directive(parts, "style-src", _OVERLAY_CSP_STYLE_HOSTS)
+        _augment_directive(parts, "font-src", _OVERLAY_CSP_FONT_HOSTS)
         csp = "; ".join(parts)
     return csp
 
