@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
-import type { GameState, AuditRecord } from '../api/client';
-import type { components } from '../api/schema';
-
-type TeamState = components['schemas']['TeamState'];
+import type { GameState, AuditRecord, TeamState } from '../api/client';
 
 export type RecentEventKind =
   | 'point_add'
@@ -292,8 +289,8 @@ export function useRecentEvents(
           // client clock could otherwise sort the undo chip ahead
           // of records that actually happened later.
           const matchUndone = prior.matchFinished && !cur.matchFinished;
-          let ts =
-            merged.length > 0 ? merged[merged.length - 1].ts : Date.now() / 1000;
+          const lastMerged = merged[merged.length - 1];
+          let ts = lastMerged ? lastMerged.ts : Date.now() / 1000;
           if (cur.sets1 < prior.sets1) {
             ts += 1e-3;
             merged.push({

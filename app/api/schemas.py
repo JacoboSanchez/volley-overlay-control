@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -10,10 +10,10 @@ from app.api.oid_validation import OID_PATTERN
 
 class InitRequest(BaseModel):
     oid: str = Field(min_length=1, max_length=200)
-    output_url: Optional[str] = None
-    points_limit: Optional[int] = None
-    points_limit_last_set: Optional[int] = None
-    sets_limit: Optional[int] = None
+    output_url: str | None = None
+    points_limit: int | None = None
+    points_limit_last_set: int | None = None
+    sets_limit: int | None = None
 
     @field_validator('oid')
     @classmethod
@@ -62,10 +62,10 @@ class SetRulesRequest(BaseModel):
     the canonical preset for the resulting mode (per-field overrides
     in the same call still win).
     """
-    mode: Optional[Literal["indoor", "beach"]] = None
-    points_limit: Optional[int] = Field(default=None, ge=1, le=99)
-    points_limit_last_set: Optional[int] = Field(default=None, ge=1, le=99)
-    sets_limit: Optional[int] = Field(default=None, ge=1, le=5)
+    mode: Literal["indoor", "beach"] | None = None
+    points_limit: int | None = Field(default=None, ge=1, le=99)
+    points_limit_last_set: int | None = Field(default=None, ge=1, le=99)
+    sets_limit: int | None = Field(default=None, ge=1, le=5)
     reset_to_defaults: bool = False
 
 
@@ -173,8 +173,8 @@ class GameStateResponse(BaseModel):
     team_2: TeamState
     serve: str
     config: dict  # points_limit, sets_limit, mode, etc.
-    beach_side_switch: Optional[BeachSideSwitch] = None
-    match_point_info: Optional[MatchPointInfo] = None
+    beach_side_switch: BeachSideSwitch | None = None
+    match_point_info: MatchPointInfo | None = None
     # True when the audit log has at least one pending undoable
     # forward record (any of add_point/add_set/add_timeout). Lets
     # frontends drive the global Undo button from the server-side
@@ -184,13 +184,13 @@ class GameStateResponse(BaseModel):
     # ``None`` when the match hasn't begun yet. Drives the live
     # match timer in the HUD and toggles the Start-match / Reset
     # button in the control bar.
-    match_started_at: Optional[float] = None
+    match_started_at: float | None = None
 
 
 class ActionResponse(BaseModel):
     success: bool
-    state: Optional[GameStateResponse] = None
-    message: Optional[str] = None
+    state: GameStateResponse | None = None
+    message: str | None = None
 
 
 class AppConfigResponse(BaseModel):

@@ -143,9 +143,8 @@ class TestGameRoutes:
 
 class TestWebSocketRoute:
     def test_ws_rejects_unknown_oid(self, client):
-        with pytest.raises(Exception):
-            with client.websocket_connect("/api/v1/ws?oid=nobody"):
-                pass  # connection should close with code 4004
+        with pytest.raises(Exception), client.websocket_connect("/api/v1/ws?oid=nobody"):
+            pass  # connection should close with code 4004
 
     def test_ws_receives_initial_state(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})

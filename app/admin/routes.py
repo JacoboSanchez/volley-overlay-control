@@ -21,7 +21,6 @@ import logging
 import os
 import re
 import time
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -53,14 +52,14 @@ _OVERLAY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 class CustomOverlayCreate(BaseModel):
     name: str = Field(..., min_length=1, description="Overlay id used as OID")
-    copy_from: Optional[str] = Field(
+    copy_from: str | None = Field(
         None,
         description="Optional existing overlay id to clone configuration from",
     )
 
 
 class MatchSignUrlRequest(BaseModel):
-    ttl_seconds: Optional[int] = Field(
+    ttl_seconds: int | None = Field(
         default=None,
         ge=MIN_TTL_SECONDS,
         le=MAX_TTL_SECONDS,

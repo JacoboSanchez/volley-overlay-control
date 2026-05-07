@@ -8,6 +8,148 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Type-safer settings persistence.**
+  ``frontend/src/hooks/useSettings.tsx::readAll`` no longer needs the
+  ``as unknown as Record<string, unknown>`` double-cast to write
+  parsed JSON back into the typed ``Settings`` object — it routes
+  through ``Object.assign`` instead. The remaining ``as unknown as``
+  cast in ``OverlayPreview.tsx`` is now documented inline (it is
+  required because Chromium's iframe ``allowTransparency`` honours
+  the string form more reliably than the boolean React types model).
+- **Centralised TeamState re-imports.** ``TeamState`` now lives in
+  ``frontend/src/api/client.ts`` alongside the other generated-schema
+  type aliases. The four call sites
+  (``useGameState.ts``, ``useRecentEvents.ts``, ``TeamPanel.tsx``,
+  ``test/TeamPanel.test.tsx``) import from there instead of digging
+  into ``./schema`` directly.
+- **Expanded mypy coverage.** ``[tool.mypy] files`` in
+  ``pyproject.toml`` grew from 6 to ~17 modules. ``app/state.py``,
+  ``app/customization.py``, ``app/game_manager.py``,
+  ``app/conf.py``, ``app/oid_utils.py``,
+  ``app/env_vars_manager.py``, ``app/app_storage.py``,
+  ``app/match_report_i18n.py``, ``app/match_report_signing.py``,
+  ``app/password_hash.py``, ``app/auth_utils.py``,
+  ``app/security_bootstrap.py``, and
+  ``app/overlay/state_store.py`` are now type-checked. The
+  expansion required minor cleanups: ``AppStorage`` and
+  ``Customization`` static helpers got the ``@staticmethod``
+  decorator they were missing, ``State.OIDStatus`` got the right
+  enum name, and ``EnvVarsManager._remote_config_cache`` /
+  ``Customization.predefined_teams`` /
+  ``Customization.THEMES`` got explicit type annotations. No
+  runtime behaviour change.
+- **Stricter Ruff rule set.** ``pyproject.toml`` now selects ``UP``
+  (pyupgrade), ``C90`` (mccabe complexity, capped at 18), ``RUF``,
+  and ``SIM`` on top of the previous ``E/F/W/I/B``. The mass
+  modernization sweep replaced legacy ``Optional[X]`` /
+  ``Dict[X, Y]`` annotations with ``X | None`` / ``dict[X, Y]``,
+  upgraded a handful of ``open(...)`` redundant modes, sorted
+  ``__all__`` blocks, and dropped now-unused ``typing`` imports.
+- **Stricter TypeScript flags.** ``frontend/tsconfig.json`` now
+  enables ``noUncheckedIndexedAccess``, ``noUnusedLocals``,
+  ``noUnusedParameters``, and ``noImplicitReturns``. Index-access
+  callsites in ``useRecentEvents``, ``useSwipeNavigation``,
+  ``i18n``, and the ``FONT_SCALES`` lookup in ``App.tsx`` were
+  hardened. A new ``DEFAULT_FONT_SCALE`` export in
+  ``frontend/src/theme.ts`` provides a fallback that doesn't
+  flow through indexed access.
+
+### Fixed
+
+- **Material Icons no longer blocked by CSP.** The control UI used to
+  load the icon font from ``https://fonts.googleapis.com/icon?family=Material+Icons``,
+  which the security-headers CSP (``style-src 'self' 'unsafe-inline'``,
+  ``font-src 'self' data:``) blocks on fresh page loads — leaving the
+  timeout / serve / bottom-bar buttons rendered as text ligatures.
+  The font is now bundled with the frontend via the ``material-icons``
+  npm package (filled variant only) and served same-origin from
+  ``/assets/``, so no third-party network request is made and the
+  default CSP is unchanged. Side benefit: the UI now works in
+  airgapped / firewalled deployments.
+- **Overlay templates' Google Fonts allowed by CSP.** Several overlay
+  styles (``clear_jersey``, ``neo_jersey``, ``split_jersey``,
+  ``compact``, ``original``, ``esports``, ``glass``, ``mosaic``,
+  ``pill``, ``ribbon``, ``shield``, ``vertical``, ``style``,
+  ``style_reference``, ``split``, ``diagonal``) load Outfit / Inter /
+  Roboto / Oswald / Montserrat / Rajdhani / Barlow Condensed / Chakra
+  Petch / Rubik from ``fonts.googleapis.com``. The strict default CSP
+  blocked them and OBS browser sources fell back to system sans-serif.
+  ``SecurityHeadersMiddleware._build_html_csp`` now appends
+  ``https://fonts.googleapis.com`` to ``style-src`` and
+  ``https://fonts.gstatic.com`` to ``font-src`` **only on
+  ``/overlay/*`` paths** (alongside the existing
+  ``frame-ancestors *`` relaxation). The control UI, ``/manage``, and
+  ``/match/{id}/report`` keep the strict 'self'-only CSP.
+- **Dialog accessibility.** ``SetValueDialog`` and ``LinksDialog``
+  now share a new ``frontend/src/components/Dialog.tsx`` primitive
+  that renders ``role="dialog" aria-modal="true"``, focuses the
+  card on open, listens for the ESC key to dismiss, and replaces
+  the previous ``<div onClick>`` backdrop with a real ``<button>``
+  so keyboard users can dismiss the dialog without a mouse. CSS is
+  unchanged (same ``.dialog-overlay`` / ``.dialog-card`` classes
+  plus a new transparent ``.dialog-backdrop`` button) so the
+  visual appearance is identical and screenshot regeneration is
+  not required.
+- **Silent exception swallowing in overlay state I/O.**
+  ``OverlayStateStore._read_state_sync``,
+  ``save_persisted_state[_async]``, ``_iter_persisted_ids`` and
+  ``_migrate_legacy_files_locked`` now narrow their previously
+  blanket ``except Exception`` to the specific
+  ``OSError | json.JSONDecodeError`` they actually recover from. A
+  programming error inside the read path no longer gets logged as
+  a warning and masked. Two new tests cover the corrupt-JSON and
+  unreadable-file fallback paths.
+- **Stale-client drop visibility.**
+  ``ObsBroadcastHub._send_to_clients`` now logs the dropped client
+  at debug level, and ``WSControlClient.disconnect`` /
+  ``WSControlClient._listen`` log close/heartbeat failures so a
+  disconnect storm shows up in the log instead of being silently
+  swallowed.
+- **Lost broadcast tasks.** ``WSHub.broadcast_sync`` and
+  ``broadcast_payload_json_sync`` now keep a strong reference to
+  the task they create via ``loop.create_task(...)``. Without it
+  the asyncio loop could garbage-collect the task before it
+  finished, silently dropping a state-update push to subscribed
+  WebSocket clients (RUF006).
+
+### Added
+
+- **Backfilled tests for ``app.api.dependencies`` and
+  ``app.bootstrap``.** ``tests/test_api_dependencies.py`` (24
+  tests) covers ``_strict_oid_access_enabled`` env-var parsing,
+  ``check_oid_access`` (auth disabled, missing header, invalid
+  token, allowed OID, mismatched OID, lenient vs strict modes,
+  malformed per-user config), and ``get_current_username``
+  edge cases. ``tests/test_bootstrap.py`` (4 tests) verifies that
+  ``create_app`` boots gracefully when ``frontend/dist`` and/or
+  ``overlay_templates`` directories are missing, and exercises
+  ``_split_csv_env``. Total backend tests grew from 853 → 883;
+  ``--cov=app`` is at 82%.
+- **Repository hygiene.** Added ``.editorconfig`` (LF endings,
+  4-space Python, 2-space JS/TS/MD), ``.gitattributes`` (text=auto
+  eol=lf with explicit binary classification and
+  ``linguist-generated`` markers for lockfiles and the generated
+  OpenAPI types), ``CONTRIBUTING.md`` summarising the dev loop and
+  PR checklist, plus issue templates
+  (``.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}``)
+  and a ``.github/pull_request_template.md``. ``dependabot.yml``
+  now also tracks ``npm`` updates for ``frontend/`` (grouped by
+  eslint / vitest / testing-library / react).
+- **Frontend linting.** Added ESLint (flat config) with
+  ``typescript-eslint``, ``eslint-plugin-react``,
+  ``eslint-plugin-react-hooks``, and ``eslint-plugin-jsx-a11y``,
+  plus Prettier and ``eslint-config-prettier``. New scripts in
+  ``frontend/package.json``: ``lint``, ``lint:fix``, ``format``,
+  ``format:check``. The ``lint`` step is now wired into
+  ``.github/workflows/ci.yml`` (frontend job) and into
+  ``.pre-commit-config.yaml`` as a ``local`` hook that runs
+  ``npx eslint`` on changed ``.ts``/``.tsx`` files under
+  ``frontend/src/``. Known dialog a11y findings and unused-import
+  cleanups are intentionally kept as warnings so this lint baseline
+  passes today; tightening lands in subsequent PRs.
+
 ### Security
 
 - **Webhook SSRF guard.** ``app/api/webhooks.py`` now refuses to POST

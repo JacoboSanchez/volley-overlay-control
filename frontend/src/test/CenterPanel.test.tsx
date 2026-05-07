@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
-import React from 'react';
 import CenterPanel from '../components/CenterPanel';
 import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
 

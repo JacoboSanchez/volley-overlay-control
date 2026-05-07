@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/JacoboSanchez/volley-overlay-control/blob/main/SECURITY.md
+    about: Please follow the responsible disclosure policy in SECURITY.md instead of filing a public issue.

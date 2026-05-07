@@ -204,6 +204,9 @@ export default function OverlayPreview({
           height={iframeHeight}
           style={{ border: 0, background: 'transparent', position: 'absolute', top: -topPx, left: -leftPx }}
           sandbox="allow-scripts allow-same-origin"
+          // ``allowTransparency`` is a non-standard iframe attribute that
+          // React's typings model as boolean, but Chromium honours the
+          // string ``"true"`` more reliably; pass it through as-is.
           allowTransparency={'true' as unknown as boolean}
           title={t('preview.title')}
           data-testid="overlay-preview"

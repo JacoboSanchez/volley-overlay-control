@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo, Dispatch, SetStateAction } from 'react';
 import * as api from '../api/client';
-import type { GameState, ActionResponse, Team } from '../api/client';
-import type { components } from '../api/schema';
+import type { GameState, ActionResponse, Team, TeamState } from '../api/client';
 import { createWebSocket } from '../api/websocket';
 import {
   WS_RECONNECT_BASE_MS,
@@ -10,7 +9,6 @@ import {
 } from '../constants';
 
 type Customization = Record<string, unknown>;
-type TeamState = components['schemas']['TeamState'];
 
 // Optimistic prediction of the next state after a successful addPoint. The
 // scoring team gains one point and takes the serve; the server later sends the

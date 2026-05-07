@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useI18n } from '../i18n';
+import Dialog from './Dialog';
 
 export interface SetValueDialogProps {
   open: boolean;
@@ -33,8 +34,6 @@ export default function SetValueDialog({
     }
   }, [open, initialValue]);
 
-  if (!open) return null;
-
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const num = Number(value);
@@ -44,32 +43,30 @@ export default function SetValueDialog({
   };
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className="dialog-card" onClick={(e) => e.stopPropagation()}>
-        <form onSubmit={handleSubmit}>
-          <h3 className="dialog-title">{title}</h3>
-          <input
-            ref={inputRef}
-            type="number"
-            className="dialog-input"
-            min={0}
-            max={maxValue}
-            step={1}
-            value={value}
-            onChange={(e) => setValue(e.target.value === '' ? '' : Number(e.target.value))}
-          />
-          <div className="dialog-actions">
-            <button type="submit" className="dialog-btn dialog-btn-ok">
-              <span className="material-icons">done</span>
-              {t('dialog.ok')}
-            </button>
-            <button type="button" className="dialog-btn dialog-btn-cancel" onClick={onClose}>
-              <span className="material-icons">close</span>
-              {t('dialog.cancel')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Dialog open={open} onClose={onClose} ariaLabelledBy="set-value-dialog-title">
+      <form onSubmit={handleSubmit}>
+        <h3 className="dialog-title" id="set-value-dialog-title">{title}</h3>
+        <input
+          ref={inputRef}
+          type="number"
+          className="dialog-input"
+          min={0}
+          max={maxValue}
+          step={1}
+          value={value}
+          onChange={(e) => setValue(e.target.value === '' ? '' : Number(e.target.value))}
+        />
+        <div className="dialog-actions">
+          <button type="submit" className="dialog-btn dialog-btn-ok">
+            <span className="material-icons">done</span>
+            {t('dialog.ok')}
+          </button>
+          <button type="button" className="dialog-btn dialog-btn-cancel" onClick={onClose}>
+            <span className="material-icons">close</span>
+            {t('dialog.cancel')}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

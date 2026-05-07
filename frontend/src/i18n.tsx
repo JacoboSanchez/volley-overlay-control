@@ -909,7 +909,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback<Translate>((key, params) => {
-    let str = translations[lang]?.[key] ?? translations.en[key] ?? key;
+    let str = translations[lang]?.[key] ?? translations.en?.[key] ?? key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         str = str.replaceAll(`{${k}}`, () => String(v));

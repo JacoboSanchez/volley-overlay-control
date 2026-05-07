@@ -34,7 +34,6 @@ import os
 import re
 import tempfile
 import threading
-from typing import Optional
 
 from app.api import action_log
 from app.api.oid_validation import OID_PATTERN
@@ -85,14 +84,13 @@ def _index_append(summary: dict) -> None:
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         line = json.dumps(summary, ensure_ascii=False) + "\n"
-        with _index_lock:
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(line)
+        with _index_lock, open(path, "a", encoding="utf-8") as f:
+            f.write(line)
     except Exception as exc:
         logger.warning("Failed to append match index entry: %s", exc)
 
 
-def _read_index_locked() -> Optional[list[dict]]:
+def _read_index_locked() -> list[dict] | None:
     """Return parsed index entries or ``None`` if the index is absent.
 
     Caller must already hold ``_index_lock``.
@@ -101,7 +99,7 @@ def _read_index_locked() -> Optional[list[dict]]:
     if not os.path.exists(path):
         return None
     summaries: list[dict] = []
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -128,8 +126,7 @@ def _rebuild_index_locked() -> list[dict]:
         if m is None:
             continue
         try:
-            with open(os.path.join(_data_dir(), filename),
-                      "r", encoding="utf-8") as f:
+            with open(os.path.join(_data_dir(), filename), encoding="utf-8") as f:
                 payload = json.load(f)
         except Exception as exc:
             logger.warning("Skipping unreadable match file '%s': %s",
@@ -195,7 +192,7 @@ def _is_valid_oid(oid: str) -> bool:
 
 
 def _ts_for_now() -> str:
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     return now.strftime("%Y%m%dT%H%M%S") + f"_{now.microsecond:06d}Z"
 
 
@@ -206,13 +203,13 @@ def _path_for(oid: str, ts: str) -> str:
 def archive_match(
     oid: str,
     final_state: dict,
-    customization: Optional[dict] = None,
-    started_at: Optional[float] = None,
-    winning_team: Optional[int] = None,
-    points_limit: Optional[int] = None,
-    points_limit_last_set: Optional[int] = None,
-    sets_limit: Optional[int] = None,
-) -> Optional[str]:
+    customization: dict | None = None,
+    started_at: float | None = None,
+    winning_team: int | None = None,
+    points_limit: int | None = None,
+    points_limit_last_set: int | None = None,
+    sets_limit: int | None = None,
+) -> str | None:
     """Write a snapshot of *oid*'s match. Returns the match_id, or ``None``.
 
     The match_id is the basename without the ``.json`` suffix. Use it
@@ -222,7 +219,7 @@ def archive_match(
         return None
     ts = _ts_for_now()
     path = _path_for(oid, ts)
-    ended_at = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    ended_at = datetime.datetime.now(datetime.UTC).timestamp()
     payload = {
         "match_id": os.path.basename(path)[:-len(".json")],
         "oid": oid,
@@ -261,7 +258,7 @@ def archive_match(
     return payload["match_id"]
 
 
-def list_matches(oid: Optional[str] = None) -> list[dict]:
+def list_matches(oid: str | None = None) -> list[dict]:
     """Return summaries for archived matches, newest first.
 
     When *oid* is provided, only matches for that OID are returned.
@@ -288,7 +285,7 @@ def list_matches(oid: Optional[str] = None) -> list[dict]:
     return summaries
 
 
-def _safe_match_path(match_id: object) -> Optional[str]:
+def _safe_match_path(match_id: object) -> str | None:
     """Validate *match_id* and return the on-disk path, or ``None``.
 
     Three layers of defence stack here so the public ``load_match``
@@ -337,13 +334,13 @@ def _safe_match_path(match_id: object) -> Optional[str]:
     return candidate
 
 
-def load_match(match_id: str) -> Optional[dict]:
+def load_match(match_id: str) -> dict | None:
     """Return the full archived snapshot for *match_id*, or ``None``."""
     path = _safe_match_path(match_id)
     if path is None or not os.path.exists(path):
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception as exc:
         logger.warning("Failed to load match %r: %s", match_id, exc)

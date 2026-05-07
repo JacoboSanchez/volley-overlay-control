@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
 import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';

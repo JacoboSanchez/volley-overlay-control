@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import tempfile
-from typing import Optional
 
 from app.api.oid_validation import OID_PATTERN
 
@@ -41,7 +40,7 @@ def _data_dir() -> str:
     return os.path.normpath(os.path.join(base, "..", "..", "data"))
 
 
-def _state_path(oid: str) -> Optional[str]:
+def _state_path(oid: str) -> str | None:
     if not isinstance(oid, str) or _OID_PATTERN.match(oid) is None:
         return None
     return os.path.join(_data_dir(), _hashed_basename(oid))
@@ -70,13 +69,13 @@ def save_session_meta(oid: str, meta: dict) -> None:
         logger.warning("Failed to persist session meta for %r: %s", oid, exc)
 
 
-def load_session_meta(oid: str) -> Optional[dict]:
+def load_session_meta(oid: str) -> dict | None:
     """Read the persisted meta dict for *oid*, or ``None`` if absent."""
     path = _state_path(oid)
     if path is None or not os.path.exists(path):
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             payload = json.load(f)
     except Exception as exc:
         logger.warning("Failed to read session meta for %r: %s", oid, exc)

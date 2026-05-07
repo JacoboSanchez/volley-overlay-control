@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional
 
 from app.api import action_log, match_archive
 from app.api.match_rules import (
@@ -180,7 +179,7 @@ class GameService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _match_finished_response(session) -> Optional[ActionResponse]:
+    def _match_finished_response(session) -> ActionResponse | None:
         """Return the early-exit ``ActionResponse`` when the match is already over.
 
         ``add_point`` / ``add_set`` / ``add_timeout`` all share the same
@@ -479,10 +478,10 @@ class GameService:
     @staticmethod
     def set_rules(
         session,
-        mode: Optional[str] = None,
-        points_limit: Optional[int] = None,
-        points_limit_last_set: Optional[int] = None,
-        sets_limit: Optional[int] = None,
+        mode: str | None = None,
+        points_limit: int | None = None,
+        points_limit_last_set: int | None = None,
+        sets_limit: int | None = None,
         reset_to_defaults: bool = False,
     ) -> ActionResponse:
         """Update the match-rule preset for *session*.
@@ -688,7 +687,7 @@ class GameService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _save_and_broadcast(session, state_response: Optional[GameStateResponse] = None):
+    def _save_and_broadcast(session, state_response: GameStateResponse | None = None):
         """Persist state to the overlay backend and notify WS clients.
 
         Callers that already computed the post-mutation
@@ -703,7 +702,7 @@ class GameService:
         GameService._broadcast(session, state_response)
 
     @staticmethod
-    def _broadcast(session, state_response: Optional[GameStateResponse] = None):
+    def _broadcast(session, state_response: GameStateResponse | None = None):
         """Notify all WebSocket frontend clients about the new state.
 
         See :func:`_save_and_broadcast` for the *state_response* reuse
@@ -722,8 +721,8 @@ class GameService:
         session,
         was_finished_before: bool,
         winning_team: int,
-        state_response: Optional[GameStateResponse] = None,
-    ) -> Optional[str]:
+        state_response: GameStateResponse | None = None,
+    ) -> str | None:
         """Archive the match when it transitions to finished.
 
         Called from add_point and add_set after the mutation completes.
@@ -766,8 +765,8 @@ class GameService:
         session,
         action: str,
         params: dict,
-        popped_forward: Optional[dict] = None,
-        target_set: Optional[int] = None,
+        popped_forward: dict | None = None,
+        target_set: int | None = None,
     ) -> None:
         """Append an audit-log record for the action just performed
         and, atomically with the append, keep

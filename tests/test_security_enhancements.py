@@ -14,6 +14,8 @@ Pins:
 
 from __future__ import annotations
 
+import urllib.parse
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -100,6 +102,67 @@ def test_overlay_html_relaxes_frame_ancestors(headers_client):
     assert "frame-ancestors *" in csp
     # No legacy XFO that would block embedding either.
     assert "x-frame-options" not in res.headers
+
+
+def test_overlay_html_allows_google_fonts(headers_client):
+    """Overlay templates pull Google Fonts; the strict default CSP
+    blocks them on every other route, so /overlay/* must allow the two
+    Google Fonts hosts on style-src and font-src."""
+    res = headers_client.get("/overlay/x")
+    csp = res.headers.get("content-security-policy", "")
+    style_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("style-src")),
+        "",
+    )
+    font_directive = next(
+        (p.strip() for p in csp.split(";") if p.strip().startswith("font-src")),
+        "",
+    )
+    style_tokens = style_directive.split()
+    font_tokens = font_directive.split()
+    # Compare each CSP source by parsing its scheme + host with
+    # ``urllib.parse`` rather than putting a URL literal on the LHS of
+    # ``in``. This (a) actually verifies the host appears as an allowed
+    # source rather than as a path fragment of some other origin
+    # (e.g. ``https://fonts.googleapis.com.evil.example``), and (b)
+    # keeps CodeQL's ``py/incomplete-url-substring-sanitization`` rule
+    # quiet on test code — the rule flags any ``URL_LITERAL in
+    # something`` regardless of the RHS being a token list.
+    def _origins(tokens: list[str]) -> set[tuple[str, str]]:
+        out: set[tuple[str, str]] = set()
+        for tok in tokens:
+            if not tok.startswith(("http://", "https://")):
+                continue
+            parsed = urllib.parse.urlparse(tok)
+            out.add((parsed.scheme, parsed.netloc))
+        return out
+
+    assert ("https", "fonts.googleapis.com") in _origins(style_tokens)
+    assert ("https", "fonts.gstatic.com") in _origins(font_tokens)
+    # Pre-existing tokens must be preserved.
+    assert "'self'" in style_tokens
+    assert "'unsafe-inline'" in style_tokens
+    assert "'self'" in font_tokens
+
+
+def test_non_overlay_html_does_not_allow_google_fonts(headers_client):
+    """The control UI / manage page CSP stays strict — no third-party
+    font hosts leak in from the overlay branch."""
+    res = headers_client.get("/manage")
+    csp = res.headers.get("content-security-policy", "")
+    csp_tokens = {tok for part in csp.split(";") for tok in part.split()}
+    # Stronger and CodeQL-clean: assert *no* http(s) origin appears
+    # anywhere in the CSP for non-overlay pages (no need to spell
+    # specific hosts, which CodeQL flags as
+    # ``py/incomplete-url-substring-sanitization`` whenever a URL
+    # literal sits on the LHS of an ``in`` / ``not in``).
+    external_origins = {
+        tok for tok in csp_tokens
+        if tok.startswith(("http://", "https://"))
+    }
+    assert external_origins == set(), (
+        f"unexpected external origins in /manage CSP: {external_origins}"
+    )
 
 
 def test_existing_cache_control_is_preserved(headers_client, monkeypatch):

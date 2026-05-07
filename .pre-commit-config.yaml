@@ -28,3 +28,15 @@ repos:
         additional_dependencies: ["bandit[toml]"]
         files: ^app/
         exclude: ^tests/
+  - repo: local
+    hooks:
+      - id: frontend-eslint
+        name: frontend eslint
+        # Run from inside frontend/ so ESLint resolves the local config
+        # and plugins. The changed files arrive as repo-root paths
+        # (frontend/src/foo.tsx); strip the leading "frontend/" before
+        # invoking ESLint so it sees its own working-directory paths.
+        entry: bash -c 'paths=(); for f in "$@"; do paths+=("${f#frontend/}"); done; cd frontend && npx eslint "${paths[@]}"' --
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: true

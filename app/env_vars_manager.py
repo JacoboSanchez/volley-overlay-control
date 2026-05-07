@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class EnvVarsManager:
-    _remote_config_cache = {}
-    _cache_timestamp = 0
+    _remote_config_cache: dict[str, str] = {}
+    _cache_timestamp: float = 0
     _CACHE_EXPIRATION_SECONDS = 10
 
     @classmethod

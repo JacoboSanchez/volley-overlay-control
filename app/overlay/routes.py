@@ -10,7 +10,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
@@ -27,7 +27,7 @@ from app.password_hash import verify_password
 logger = logging.getLogger(__name__)
 
 
-def _get_overlay_server_credential() -> Optional[str]:
+def _get_overlay_server_credential() -> str | None:
     """Return the configured overlay-server credential, hash-preferred.
 
     ``OVERLAY_SERVER_TOKEN_HASH`` (a scrypt record from
@@ -91,60 +91,60 @@ def require_overlay_server_token(authorization: str = Header(None)) -> None:
 
 class TeamStateModel(BaseModel):
     model_config = ConfigDict(extra="allow")
-    name: Optional[str] = None
-    short_name: Optional[str] = None
-    color_primary: Optional[str] = None
-    color_secondary: Optional[str] = None
-    logo_url: Optional[str] = None
-    sets_won: Optional[int] = None
-    points: Optional[int] = None
-    serving: Optional[bool] = None
-    timeouts_taken: Optional[int] = None
-    set_history: Optional[Dict[str, int]] = None
+    name: str | None = None
+    short_name: str | None = None
+    color_primary: str | None = None
+    color_secondary: str | None = None
+    logo_url: str | None = None
+    sets_won: int | None = None
+    points: int | None = None
+    serving: bool | None = None
+    timeouts_taken: int | None = None
+    set_history: dict[str, int] | None = None
 
 
 class MatchInfoModel(BaseModel):
     model_config = ConfigDict(extra="allow")
-    tournament: Optional[str] = None
-    phase: Optional[str] = None
-    best_of_sets: Optional[int] = None
-    current_set: Optional[int] = None
-    show_only_current_set: Optional[bool] = None
+    tournament: str | None = None
+    phase: str | None = None
+    best_of_sets: int | None = None
+    current_set: int | None = None
+    show_only_current_set: bool | None = None
 
 
 class OverlayControlModel(BaseModel):
     model_config = ConfigDict(extra="allow")
-    show_main_scoreboard: Optional[bool] = None
-    show_bottom_ticker: Optional[bool] = None
-    ticker_message: Optional[str] = None
-    show_player_stats: Optional[bool] = None
-    player_stats_data: Optional[Any] = None
-    geometry: Optional[Dict[str, Any]] = None
-    colors: Optional[Dict[str, str]] = None
-    preferredStyle: Optional[str] = None
+    show_main_scoreboard: bool | None = None
+    show_bottom_ticker: bool | None = None
+    ticker_message: str | None = None
+    show_player_stats: bool | None = None
+    player_stats_data: Any | None = None
+    geometry: dict[str, Any] | None = None
+    colors: dict[str, str] | None = None
+    preferredStyle: str | None = None
 
 
 class OverlayStateUpdate(BaseModel):
     model_config = ConfigDict(extra="allow")
-    match_info: Optional[MatchInfoModel] = None
-    team_home: Optional[TeamStateModel] = None
-    team_away: Optional[TeamStateModel] = None
-    overlay_control: Optional[OverlayControlModel] = None
-    raw_remote_model: Optional[Any] = None
-    raw_remote_customization: Optional[Any] = None
+    match_info: MatchInfoModel | None = None
+    team_home: TeamStateModel | None = None
+    team_away: TeamStateModel | None = None
+    overlay_control: OverlayControlModel | None = None
+    raw_remote_model: Any | None = None
+    raw_remote_customization: Any | None = None
 
 
 class RawConfigPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
-    model: Optional[Any] = None
-    customization: Optional[Any] = None
+    model: Any | None = None
+    customization: Any | None = None
 
 
 # ---------------------------------------------------------------------------
 # Preset themes
 # ---------------------------------------------------------------------------
 
-PRESET_THEMES: Dict[str, dict] = {
+PRESET_THEMES: dict[str, dict] = {
     "dark": {
         "overlay_control": {
             "colors": {
