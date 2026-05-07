@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { I18nProvider } from './i18n';
 import { SettingsProvider } from './hooks/useSettings';
 import { installErrorReporter } from './utils/errorReporter';
+import 'material-icons/iconfont/filled.css';
 import './App.css';
 
 installErrorReporter();
