@@ -37,7 +37,6 @@ import hashlib
 import hmac
 import logging
 import time
-from typing import Optional
 
 from app.auth_utils import get_admin_password
 
@@ -53,7 +52,7 @@ MAX_TTL_SECONDS = 30 * 24 * 60 * 60       # 30 days
 MIN_TTL_SECONDS = 60                      # 1 minute
 
 
-def _signing_key() -> Optional[bytes]:
+def _signing_key() -> bytes | None:
     """Return the HMAC key derived from ``OVERLAY_MANAGER_PASSWORD``.
 
     Returns ``None`` when the password is unset — callers should fall
@@ -66,15 +65,15 @@ def _signing_key() -> Optional[bytes]:
     return pw.encode("utf-8")
 
 
-def _digest(match_id: str, exp_unix: int) -> Optional[str]:
+def _digest(match_id: str, exp_unix: int) -> str | None:
     key = _signing_key()
     if key is None:
         return None
-    msg = f"{match_id}|{exp_unix}".encode("utf-8")
+    msg = f"{match_id}|{exp_unix}".encode()
     return hmac.new(key, msg, hashlib.sha256).hexdigest()
 
 
-def clamp_ttl(ttl_seconds: Optional[int]) -> int:
+def clamp_ttl(ttl_seconds: int | None) -> int:
     """Bound *ttl_seconds* to ``[MIN_TTL_SECONDS, MAX_TTL_SECONDS]``.
 
     ``None`` and non-positive values fall back to ``DEFAULT_TTL_SECONDS``.
@@ -92,10 +91,10 @@ def clamp_ttl(ttl_seconds: Optional[int]) -> int:
 
 def make_signed_query(
     match_id: str,
-    ttl_seconds: Optional[int] = None,
+    ttl_seconds: int | None = None,
     *,
-    now: Optional[float] = None,
-) -> Optional[dict]:
+    now: float | None = None,
+) -> dict | None:
     """Return ``{exp, sig, expires_at}`` for the signed URL, or ``None``.
 
     ``None`` means signing is unavailable because the admin password
@@ -118,7 +117,7 @@ def verify_signed_query(
     exp: object,
     sig: object,
     *,
-    now: Optional[float] = None,
+    now: float | None = None,
 ) -> bool:
     """Return ``True`` iff ``(exp, sig)`` is a valid signature for *match_id*.
 

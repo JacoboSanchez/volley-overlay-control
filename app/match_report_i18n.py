@@ -14,7 +14,6 @@ in a non-English locale never breaks the page.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 # Locales the report explicitly supports — kept in sync with the
 # frontend selector. Any other ``Accept-Language`` value falls back
@@ -294,7 +293,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
 _LANG_TAG_RE = re.compile(r"^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$")
 
 
-def resolve_locale(accept_language: Optional[str]) -> str:
+def resolve_locale(accept_language: str | None) -> str:
     """Pick the best supported locale for an ``Accept-Language`` header.
 
     Splits on ``,``, parses ``q=`` weights, and matches against

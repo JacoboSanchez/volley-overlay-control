@@ -376,12 +376,11 @@ def test_ws_accepts_bearer_subprotocol(ws_client):
 def test_ws_rejects_invalid_bearer_subprotocol(ws_client):
     from starlette.websockets import WebSocketDisconnect
 
-    with pytest.raises(WebSocketDisconnect):
-        with ws_client.websocket_connect(
-            "/api/v1/ws?oid=test_overlay",
-            subprotocols=["bearer", "wrong-password"],
-        ):
-            pass
+    with pytest.raises(WebSocketDisconnect), ws_client.websocket_connect(
+        "/api/v1/ws?oid=test_overlay",
+        subprotocols=["bearer", "wrong-password"],
+    ):
+        pass
 
 
 def test_ws_legacy_query_token_still_works(ws_client):

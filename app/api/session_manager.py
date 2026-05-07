@@ -2,7 +2,6 @@ import asyncio
 import logging
 import threading
 import time
-from typing import Optional
 
 from app.api import action_log
 from app.api.match_rules import is_valid_mode
@@ -43,7 +42,7 @@ class GameSession:
         # before the first point so the timer in the HUD reflects the
         # actual whistle. ``GameService.reset`` clears it back to
         # ``None``. Persisted via session_meta so it survives restarts.
-        self.match_started_at: Optional[float] = None
+        self.match_started_at: float | None = None
         # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.

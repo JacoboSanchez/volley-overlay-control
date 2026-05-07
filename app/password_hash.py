@@ -51,7 +51,6 @@ import logging
 import re
 import secrets
 import sys
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,7 @@ def hash_password(
     n: int = DEFAULT_N,
     r: int = DEFAULT_R,
     p: int = DEFAULT_P,
-    salt: Optional[bytes] = None,
+    salt: bytes | None = None,
 ) -> str:
     """Return a freshly-salted hash string for *password*.
 

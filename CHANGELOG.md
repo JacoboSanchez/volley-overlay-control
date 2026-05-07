@@ -8,6 +8,33 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Stricter Ruff rule set.** ``pyproject.toml`` now selects ``UP``
+  (pyupgrade), ``C90`` (mccabe complexity, capped at 18), ``RUF``,
+  and ``SIM`` on top of the previous ``E/F/W/I/B``. The mass
+  modernization sweep replaced legacy ``Optional[X]`` /
+  ``Dict[X, Y]`` annotations with ``X | None`` / ``dict[X, Y]``,
+  upgraded a handful of ``open(...)`` redundant modes, sorted
+  ``__all__`` blocks, and dropped now-unused ``typing`` imports.
+- **Stricter TypeScript flags.** ``frontend/tsconfig.json`` now
+  enables ``noUncheckedIndexedAccess``, ``noUnusedLocals``,
+  ``noUnusedParameters``, and ``noImplicitReturns``. Index-access
+  callsites in ``useRecentEvents``, ``useSwipeNavigation``,
+  ``i18n``, and the ``FONT_SCALES`` lookup in ``App.tsx`` were
+  hardened. A new ``DEFAULT_FONT_SCALE`` export in
+  ``frontend/src/theme.ts`` provides a fallback that doesn't
+  flow through indexed access.
+
+### Fixed
+
+- **Lost broadcast tasks.** ``WSHub.broadcast_sync`` and
+  ``broadcast_payload_json_sync`` now keep a strong reference to
+  the task they create via ``loop.create_task(...)``. Without it
+  the asyncio loop could garbage-collect the task before it
+  finished, silently dropping a state-update push to subscribed
+  WebSocket clients (RUF006).
+
 ### Added
 
 - **Repository hygiene.** Added ``.editorconfig`` (LF endings,

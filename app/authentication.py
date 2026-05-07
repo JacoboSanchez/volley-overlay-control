@@ -161,10 +161,10 @@ class PasswordAuthenticator:
         users = PasswordAuthenticator._get_users()
         if not isinstance(users, dict):
             return False
-        for cfg in users.values():
-            if isinstance(cfg, dict) and is_hashed(cfg.get("password_hash")):
-                return True
-        return False
+        return any(
+            isinstance(cfg, dict) and is_hashed(cfg.get("password_hash"))
+            for cfg in users.values()
+        )
 
     @staticmethod
     def compose_output(output: str) -> str:

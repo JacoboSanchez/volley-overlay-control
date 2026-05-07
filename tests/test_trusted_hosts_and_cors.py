@@ -11,8 +11,8 @@ that are pinned here.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from importlib import reload
-from typing import Iterable
 
 import pytest
 from fastapi import FastAPI

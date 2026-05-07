@@ -19,7 +19,6 @@ from __future__ import annotations
 import copy
 import threading
 import time
-from typing import Optional
 
 
 class CustomizationCache:
@@ -29,7 +28,7 @@ class CustomizationCache:
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds must be positive")
         self._ttl = float(ttl_seconds)
-        self._data: Optional[dict] = None
+        self._data: dict | None = None
         self._timestamp: float = 0.0
         self._lock = threading.Lock()
 
@@ -37,7 +36,7 @@ class CustomizationCache:
     def ttl_seconds(self) -> float:
         return self._ttl
 
-    def remember(self, data: Optional[dict]) -> None:
+    def remember(self, data: dict | None) -> None:
         """Store *data* as the freshest snapshot. ``None`` clears the slot.
 
         The dict is deep-copied to insulate the cache from later
@@ -48,7 +47,7 @@ class CustomizationCache:
             self._data = copy.deepcopy(data) if data is not None else None
             self._timestamp = time.monotonic()
 
-    def fresh(self) -> Optional[dict]:
+    def fresh(self) -> dict | None:
         """Return a deep-copy of the cached dict if not stale, else ``None``."""
         with self._lock:
             if self._data is None:

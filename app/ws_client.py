@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class WSControlClient:
         self,
         overlay_id: str,
         ws_url: str,
-        on_event: Optional[Callable[[dict], None]] = None,
+        on_event: Callable[[dict], None] | None = None,
     ):
         self._overlay_id = overlay_id
         self._ws_url = ws_url
@@ -51,7 +51,7 @@ class WSControlClient:
         self._last_inbound_ts: float = 0.0
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
     # -- public properties --------------------------------------------------
 

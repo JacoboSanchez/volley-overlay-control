@@ -34,8 +34,14 @@ export interface FontScale {
   offset_y: number;
 }
 
+// Fallback used whenever a font name has no entry in FONT_SCALES; also the
+// value seeded under the ``Default`` key below. Exported so callers can
+// reach it without needing an indexed access (which is `T | undefined`
+// under noUncheckedIndexedAccess).
+export const DEFAULT_FONT_SCALE: FontScale = { scale: 1.0, offset_y: 0.0 };
+
 export const FONT_SCALES: Record<string, FontScale> = {
-  Default:           { scale: 1.0,  offset_y: 0.0 },
+  Default:           DEFAULT_FONT_SCALE,
   'Digital Dismay':  { scale: 1.16, offset_y: 0.01 },
   Aluminum:          { scale: 1.06, offset_y: 0.02 },
   Atlas:             { scale: 0.96, offset_y: 0.01 },

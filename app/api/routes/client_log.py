@@ -9,7 +9,7 @@ import asyncio
 import logging
 import time
 from collections import OrderedDict, deque
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field
@@ -75,10 +75,10 @@ def _reset_rate_limiter() -> None:
 class ClientLogRecord(BaseModel):
     level: Literal["error", "warn"] = "error"
     message: str = Field(..., min_length=1, max_length=2000)
-    stack: Optional[str] = Field(default=None, max_length=8000)
-    href: Optional[str] = Field(default=None, max_length=2000)
-    user_agent: Optional[str] = Field(default=None, max_length=500)
-    oid: Optional[str] = Field(default=None, max_length=200)
+    stack: str | None = Field(default=None, max_length=8000)
+    href: str | None = Field(default=None, max_length=2000)
+    user_agent: str | None = Field(default=None, max_length=500)
+    oid: str | None = Field(default=None, max_length=200)
 
 
 _LEVELS = {"error": logging.ERROR, "warn": logging.WARNING}

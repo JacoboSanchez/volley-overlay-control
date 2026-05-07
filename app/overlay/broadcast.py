@@ -7,7 +7,6 @@ overlay state updates with 50ms debouncing to coalesce rapid changes.
 import asyncio
 import json
 import logging
-from typing import Dict, List
 
 from fastapi import WebSocket
 
@@ -18,8 +17,8 @@ class ObsBroadcastHub:
     """Tracks OBS browser source WebSocket connections and broadcasts state."""
 
     def __init__(self):
-        self._clients: Dict[str, List[WebSocket]] = {}
-        self._broadcast_tasks: Dict[str, asyncio.Task] = {}
+        self._clients: dict[str, list[WebSocket]] = {}
+        self._broadcast_tasks: dict[str, asyncio.Task] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def capture_event_loop(self) -> None:
@@ -40,7 +39,7 @@ class ObsBroadcastHub:
         """Return the number of connected OBS sources for *overlay_id*."""
         return len(self._clients.get(overlay_id, []))
 
-    def get_clients(self, overlay_id: str) -> List[WebSocket]:
+    def get_clients(self, overlay_id: str) -> list[WebSocket]:
         """Return the list of connected WebSockets for *overlay_id*."""
         return list(self._clients.get(overlay_id, []))
 

@@ -75,7 +75,6 @@ function TeamPanel({
 
   const handleAddPoint = useCallback(() => onAddPoint(teamId), [onAddPoint, teamId]);
   const handleAddTimeout = useCallback(() => onAddTimeout(teamId), [onAddTimeout, teamId]);
-  const handleChangeServe = useCallback(() => onChangeServe(teamId), [onChangeServe, teamId]);
   const handleDoubleTap = useCallback(() => onDoubleTapScore(teamId), [onDoubleTapScore, teamId]);
   const handleDoubleTapTimeoutCb = useCallback(
     () => onDoubleTapTimeout(teamId),

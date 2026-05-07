@@ -37,7 +37,7 @@ import datetime
 import html
 import logging
 import re
-from typing import Optional, overload
+from typing import overload
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
@@ -76,12 +76,12 @@ def _public_delete_enabled() -> bool:
 
 
 def _check_access(
-    authorization: Optional[str],
-    token: Optional[str],
+    authorization: str | None,
+    token: str | None,
     *,
-    match_id: Optional[str] = None,
-    exp: Optional[str] = None,
-    sig: Optional[str] = None,
+    match_id: str | None = None,
+    exp: str | None = None,
+    sig: str | None = None,
 ) -> None:
     """Raise an ``HTTPException`` unless the caller is allowed to read.
 
@@ -121,7 +121,7 @@ def _check_access(
     )
 
 
-def _check_admin_access(authorization: Optional[str], token: Optional[str]) -> None:
+def _check_admin_access(authorization: str | None, token: str | None) -> None:
     """Stricter sibling of :func:`_check_access` for destructive actions.
 
     The public-mode shortcut from :func:`_check_access` deliberately does
@@ -464,7 +464,7 @@ _REPORT_TEMPLATE = """<!doctype html>
 """
 
 
-def _fmt_seconds(seconds: Optional[float]) -> str:
+def _fmt_seconds(seconds: float | None) -> str:
     if seconds is None:
         return "—"
     seconds = max(0, int(seconds))
@@ -475,11 +475,11 @@ def _fmt_seconds(seconds: Optional[float]) -> str:
     return f"{m}m {s:02d}s"
 
 
-def _fmt_ts(ts: Optional[float]) -> str:
+def _fmt_ts(ts: float | None) -> str:
     if ts is None:
         return "—"
     try:
-        dt = datetime.datetime.fromtimestamp(float(ts), datetime.timezone.utc)
+        dt = datetime.datetime.fromtimestamp(float(ts), datetime.UTC)
     except (TypeError, ValueError, OverflowError):
         return "—"
     return dt.strftime("%Y-%m-%d %H:%M UTC")
@@ -557,7 +557,7 @@ def _action_label(record: dict, locale: str) -> str:
 # Audit-log derived helpers (running score, undo collapse, stats, charts)
 # ---------------------------------------------------------------------------
 
-def _coerce_int(raw: object) -> Optional[int]:
+def _coerce_int(raw: object) -> int | None:
     """Best-effort ``int`` parse for audit-record numeric fields.
 
     Accepts a real ``int`` directly or a string of digits (some
@@ -572,14 +572,14 @@ def _coerce_int(raw: object) -> Optional[int]:
 
 
 @overload
-def _safe_int(value: object) -> Optional[int]: ...
+def _safe_int(value: object) -> int | None: ...
 @overload
 def _safe_int(value: object, default: int) -> int: ...
 @overload
-def _safe_int(value: object, default: None) -> Optional[int]: ...
+def _safe_int(value: object, default: None) -> int | None: ...
 
 
-def _safe_int(value: object, default: Optional[int] = None) -> Optional[int]:
+def _safe_int(value: object, default: int | None = None) -> int | None:
     """Lenient ``int`` parse: like ``int(value)`` but returns *default* on failure.
 
     Stricter callers should prefer :func:`_coerce_int`; this helper
@@ -592,13 +592,13 @@ def _safe_int(value: object, default: Optional[int] = None) -> Optional[int]:
         return default
 
 
-def _result_score(record: dict, team: int) -> Optional[int]:
+def _result_score(record: dict, team: int) -> int | None:
     """Pull the post-action score for *team* out of an audit ``result`` blob."""
     block = (record.get("result") or {}).get(f"team_{team}") or {}
     return _coerce_int(block.get("score"))
 
 
-def _result_set(record: dict) -> Optional[int]:
+def _result_set(record: dict) -> int | None:
     """Set number this audit record applies to (1-indexed).
 
     Prefers ``result.score_set`` when present: a set-winning
@@ -620,7 +620,7 @@ def _is_score_action(record: dict) -> bool:
     return record.get("action") in ("add_point", "set_score")
 
 
-def _first_scoring_index(audit: list[dict]) -> Optional[int]:
+def _first_scoring_index(audit: list[dict]) -> int | None:
     """Index of the first non-undo ``add_point`` / ``set_score`` record.
 
     The audit log starts with whatever the operator did first — often a
@@ -755,7 +755,7 @@ def _set_durations_from_audit(audit: list[dict]) -> dict[int, float]:
     return durations
 
 
-def _running_score_pair(record: dict) -> Optional[tuple[int, int]]:
+def _running_score_pair(record: dict) -> tuple[int, int] | None:
     """``(team1, team2)`` running score after this audit record, if known."""
     s1 = _result_score(record, 1)
     s2 = _result_score(record, 2)
@@ -764,7 +764,7 @@ def _running_score_pair(record: dict) -> Optional[tuple[int, int]]:
     return (s1, s2)
 
 
-def _format_relative_ts(ts: Optional[float], base_ts: Optional[float]) -> str:
+def _format_relative_ts(ts: float | None, base_ts: float | None) -> str:
     """``+0:15`` / ``+1:23:45`` style offset from the match start.
 
     Returns ``"—"`` for missing inputs and ``"+0:00"`` for the very
@@ -782,7 +782,7 @@ def _format_relative_ts(ts: Optional[float], base_ts: Optional[float]) -> str:
     return f"+{m}:{s:02d}"
 
 
-def _logo_url(customization: dict, team: int) -> Optional[str]:
+def _logo_url(customization: dict, team: int) -> str | None:
     """Return a sanitised logo URL for *team*, or ``None`` if missing.
 
     Only ``http(s):`` and ``data:`` schemes are accepted — the URL is
@@ -853,7 +853,7 @@ def _compute_stats(audit: list[dict]) -> dict:
     for set_num, set_records in by_set.items():
         # Longest streak: count consecutive ``add_point`` actions by
         # the same team. Manual set_score breaks the streak.
-        streak_team: Optional[int] = None
+        streak_team: int | None = None
         streak_n = 0
         for r in set_records:
             if r.get("action") != "add_point":
@@ -938,7 +938,7 @@ _CHART_FALLBACK = ("#0047AB", "#E21836")
 _LIGHTNESS_REJECT = 0.85
 
 
-def _hex_to_rgb(hex_color: str) -> Optional[tuple[int, int, int]]:
+def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
     """Parse ``#RGB`` / ``#RRGGBB`` into ``(r, g, b)`` ∈ [0, 255]."""
     if not isinstance(hex_color, str) or not _HEX_COLOR_RE.match(hex_color):
         return None
@@ -948,7 +948,7 @@ def _hex_to_rgb(hex_color: str) -> Optional[tuple[int, int, int]]:
     return (int(body[0:2], 16), int(body[2:4], 16), int(body[4:6], 16))
 
 
-def _relative_luminance(hex_color: str) -> Optional[float]:
+def _relative_luminance(hex_color: str) -> float | None:
     """WCAG relative luminance for *hex_color*, or ``None`` on failure."""
     rgb = _hex_to_rgb(hex_color)
     if rgb is None:
@@ -1029,7 +1029,7 @@ def _render_score_chart(
     set has fewer than two scoring records (nothing to plot).
     """
     points: list[tuple[int, int]] = []
-    timestamps: list[Optional[float]] = []
+    timestamps: list[float | None] = []
     for r in set_records:
         pair = _running_score_pair(r)
         if not pair:
@@ -1056,7 +1056,7 @@ def _render_score_chart(
     # AFK and the wallclock no longer tracks play, so we fall back
     # to rally-number indexing rather than compress the whole set
     # into a thin slice on the left.
-    times: Optional[list[float]] = None
+    times: list[float] | None = None
     if all(t is not None for t in timestamps):
         # ``timestamps`` is structurally ``list[Optional[float]]``;
         # the ``all(...)`` check above narrows it but mypy can't see
@@ -1183,7 +1183,7 @@ def _render_highlights(
     """
     cards: list[str] = []
 
-    def _team_label(team: Optional[int]) -> str:
+    def _team_label(team: int | None) -> str:
         if team == 1:
             return team1_name
         if team == 2:
@@ -1300,7 +1300,7 @@ def _render_charts(
 
 def _render_timeline(
     audit: list[dict], locale: str, set_count: int,
-    *, base_ts: Optional[float] = None,
+    *, base_ts: float | None = None,
 ) -> str:
     """Group the audit by set and emit running-score-aware list items.
 
@@ -1393,15 +1393,15 @@ def _render_logo(customization: dict, team: int) -> str:
 )
 async def match_report(
     match_id: str,
-    authorization: Optional[str] = Header(default=None),
-    token: Optional[str] = Query(default=None,
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None,
                                  description="OVERLAY_MANAGER_PASSWORD; "
                                              "alternative to Bearer header."),
-    exp: Optional[str] = Query(default=None,
+    exp: str | None = Query(default=None,
                                description="Signed-URL expiry (unix seconds)."),
-    sig: Optional[str] = Query(default=None,
+    sig: str | None = Query(default=None,
                                description="Signed-URL HMAC-SHA256 hex digest."),
-    accept_language: Optional[str] = Header(default=None),
+    accept_language: str | None = Header(default=None),
 ):
     _check_access(
         authorization, token, match_id=match_id, exp=exp, sig=sig,
@@ -1477,7 +1477,7 @@ async def match_report(
     # the moment the *match* really began; we just trust it. Legacy
     # snapshots (no anchor stored) fall back to the first scoring
     # action so the report still has something honest to show.
-    first_scoring_ts: Optional[float] = None
+    first_scoring_ts: float | None = None
     for record in audit:
         ts = record.get("ts")
         if isinstance(ts, (int, float)):
@@ -1485,7 +1485,7 @@ async def match_report(
             break
     payload_started = payload.get("started_at")
     if isinstance(payload_started, (int, float)):
-        effective_started_at: Optional[float] = float(payload_started)
+        effective_started_at: float | None = float(payload_started)
     else:
         effective_started_at = first_scoring_ts
     ended_at = payload.get("ended_at")
@@ -1826,8 +1826,8 @@ _INDEX_SCRIPT = """
 )
 async def matches_index(
     oid: str = Query(..., description="Overlay ID to list matches for."),
-    authorization: Optional[str] = Header(default=None),
-    token: Optional[str] = Query(default=None,
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None,
                                  description="OVERLAY_MANAGER_PASSWORD; "
                                              "alternative to Bearer header."),
 ):
@@ -1891,8 +1891,8 @@ async def matches_index(
 )
 async def delete_archived_match(
     match_id: str,
-    authorization: Optional[str] = Header(default=None),
-    token: Optional[str] = Query(default=None,
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None,
                                  description="OVERLAY_MANAGER_PASSWORD; "
                                              "alternative to Bearer header."),
 ):

@@ -23,8 +23,6 @@ pin the key to the hash bytes instead, which keeps the same
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import HTTPException
 
 from app.env_vars_manager import EnvVarsManager
@@ -43,7 +41,7 @@ _DEFAULT_INVALID_TOKEN_DETAIL = "Invalid token."  # nosec B105
 _ADMIN_WWW_AUTH = {"WWW-Authenticate": 'Bearer realm="admin"'}
 
 
-def get_admin_credential() -> Optional[str]:
+def get_admin_credential() -> str | None:
     """Return the configured admin credential, hash-preferred.
 
     Returns ``OVERLAY_MANAGER_PASSWORD_HASH`` when set (the verifier
@@ -63,7 +61,7 @@ def get_admin_credential() -> Optional[str]:
     return raw or None
 
 
-def get_admin_password() -> Optional[str]:
+def get_admin_password() -> str | None:
     """Return the legacy plaintext admin password, or ``None``.
 
     Kept for the match-report signing flow, which uses the password
@@ -86,8 +84,8 @@ def get_admin_password() -> Optional[str]:
 
 
 def require_admin_token(
-    authorization: Optional[str],
-    token: Optional[str] = None,
+    authorization: str | None,
+    token: str | None = None,
     *,
     missing_password_detail: str,
     missing_token_detail: str = _DEFAULT_MISSING_TOKEN_DETAIL,
@@ -112,7 +110,7 @@ def require_admin_token(
     expected = get_admin_credential()
     if expected is None:
         raise HTTPException(status_code=503, detail=missing_password_detail)
-    provided: Optional[str] = None
+    provided: str | None = None
     if authorization and authorization.startswith("Bearer "):
         provided = authorization.removeprefix("Bearer ").strip() or None
     if provided is None and token:

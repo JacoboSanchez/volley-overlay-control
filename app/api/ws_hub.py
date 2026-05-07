@@ -17,6 +17,10 @@ class WSHub:
 
     # {oid: set[WebSocket]}
     _connections: dict = {}
+    # Strong references to in-flight fire-and-forget broadcast tasks. Without
+    # this, the asyncio event loop may garbage-collect a task created via
+    # ``loop.create_task(...)`` before it finishes, dropping the broadcast.
+    _pending_tasks: set = set()
 
     @classmethod
     async def connect(cls, ws: WebSocket, oid: str, *,
@@ -120,7 +124,9 @@ class WSHub:
         """
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(cls.broadcast(oid, data))
+            task = loop.create_task(cls.broadcast(oid, data))
+            cls._pending_tasks.add(task)
+            task.add_done_callback(cls._pending_tasks.discard)
         except RuntimeError:
             logger.debug("No running event loop — skipping broadcast for OID=%s", oid)
 
@@ -130,7 +136,9 @@ class WSHub:
         synchronous code paths (the ``GameService`` action methods)."""
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(cls.broadcast_payload_json(oid, payload_json))
+            task = loop.create_task(cls.broadcast_payload_json(oid, payload_json))
+            cls._pending_tasks.add(task)
+            task.add_done_callback(cls._pending_tasks.discard)
         except RuntimeError:
             logger.debug("No running event loop — skipping broadcast for OID=%s", oid)
 

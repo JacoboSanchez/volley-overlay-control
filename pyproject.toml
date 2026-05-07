@@ -16,13 +16,53 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Close to ruff defaults (E, F) plus whitespace (W), import order (I), and
-# the bugbear ruleset (B) for likely-bug patterns. E501 stays off because long
-# URLs/fixture strings are common in tests and overlay payloads.
-select = ["E", "F", "W", "I", "B"]
+# Active rule families:
+#   E/F/W       — pycodestyle + pyflakes basics
+#   I           — import order
+#   B           — flake8-bugbear (likely-bug patterns)
+#   UP          — pyupgrade (modern Python idioms)
+#   C90         — mccabe complexity (high cap, only catches egregious cases)
+#   RUF         — ruff-specific (dangling tasks, unsorted ``__all__`` …)
+#   SIM         — flake8-simplify (collapsible ifs, redundant code)
+#
+# E501 stays off because long URLs and fixture strings are common in tests and
+# overlay payloads.
+select = ["E", "F", "W", "I", "B", "UP", "C90", "RUF", "SIM"]
 ignore = [
     "E501",
+    # Codepoints the author actually intends (em dashes, smart quotes, the
+    # 169.254.169.254 etc. literals we use in security tests). Manual triage
+    # is more useful than a global rename so we keep these off.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # Mutable default class attributes (mostly the existing
+    # ``_connections: dict = {}`` pattern on classmethod-only registries).
+    # Real but pre-existing; tighten in a follow-up.
+    "RUF012",
+    # Implicit Optional in function signatures — large mechanical sweep.
+    # Kept off until a dedicated typing pass.
+    "RUF013",
+    # ``str, Enum`` → ``StrEnum`` is a behaviour change (str() output) and
+    # would need test coverage of the enum boundary; defer to refactor PR.
+    "UP042",
+    # Style preferences inside SIM that produce one-line ternaries which can
+    # be harder to read than the original if/else.
+    "SIM108",
+    "SIM102",
+    "SIM103",
+    # try/except/pass → contextlib.suppress: the existing blocks carry
+    # ``# nosec B110`` annotations consumed by Bandit and explanatory
+    # comments; rewriting them mechanically would drop both.
+    "SIM105",
 ]
+
+[tool.ruff.lint.mccabe]
+# Generous cap — flags only the genuinely-too-complex functions. The two
+# pre-existing offenders (``app/match_report.py::_compute_stats``,
+# ``app/overlay/routes.py::create_overlay_router``) are silenced via
+# per-file-ignores below until the structural-refactor PR lands.
+max-complexity = 18
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's dependency-injection helpers are intentionally called in default
@@ -46,6 +86,12 @@ extend-immutable-calls = [
 # ``pytest.raises(Exception)`` is used in a websocket-close smoke test where
 # the exact Starlette exception is an implementation detail.
 "tests/test_api_routes.py" = ["B017"]
+# Two pre-existing god-functions exceed the mccabe cap. They are tracked
+# for a structural refactor (``match_report.py`` split, overlay router
+# decomposition); ignore C901 here so the rule still gates the rest of
+# the codebase.
+"app/match_report.py" = ["C901"]
+"app/overlay/routes.py" = ["C901"]
 
 [tool.mypy]
 # Core API + routes + middleware are now clean; keep the list explicit so we

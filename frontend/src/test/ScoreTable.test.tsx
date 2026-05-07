@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import React from 'react';
 import ScoreTable from '../components/ScoreTable';
 import { renderWithI18n, mockGameState } from './helpers';
 

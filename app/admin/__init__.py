@@ -13,6 +13,6 @@ helpful error message.
 from app.admin.routes import admin_page_router, admin_router
 
 __all__ = [
-    "admin_router",
     "admin_page_router",
+    "admin_router",
 ]

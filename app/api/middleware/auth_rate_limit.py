@@ -32,7 +32,7 @@ import asyncio
 import os
 import time
 from collections import OrderedDict, deque
-from typing import Iterable
+from collections.abc import Iterable
 
 # Tunables — kept generous so legitimate operator workflows
 # (e.g. opening /manage in three tabs) never trip the limit, but
@@ -65,14 +65,14 @@ _WATCHED_PREFIXES: tuple[str, ...] = (
 
 
 class _Bucket:
-    __slots__ = ("failures", "blocked_until")
+    __slots__ = ("blocked_until", "failures")
 
     def __init__(self) -> None:
         self.failures: deque[float] = deque()
         self.blocked_until: float = 0.0
 
 
-_buckets: "OrderedDict[str, _Bucket]" = OrderedDict()
+_buckets: OrderedDict[str, _Bucket] = OrderedDict()
 _lock = asyncio.Lock()
 
 

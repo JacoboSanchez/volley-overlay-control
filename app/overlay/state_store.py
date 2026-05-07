@@ -14,7 +14,7 @@ import os
 import re
 import tempfile
 import threading
-from typing import Callable, Dict, Optional
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -144,15 +144,15 @@ class OverlayStateStore:
     def __init__(self, data_dir: str, templates_dir: str):
         self._data_dir = data_dir
         self._templates_dir = templates_dir
-        self._overlays: Dict[str, dict] = {}
+        self._overlays: dict[str, dict] = {}
         self._lock = threading.RLock()
-        self._broadcast_callback: Optional[Callable] = None
-        self._available_styles: Optional[list] = None
-        self._renderable_styles: Optional[list] = None
+        self._broadcast_callback: Callable | None = None
+        self._available_styles: list | None = None
+        self._renderable_styles: list | None = None
         # Maps any accepted URL token (output_key or raw overlay_id) to the
         # real overlay id. Populated lazily by resolve_overlay_id and kept
         # in sync by create/copy/delete.
-        self._output_key_cache: Dict[str, str] = {}
+        self._output_key_cache: dict[str, str] = {}
         self._all_overlays_scanned = False
         os.makedirs(data_dir, exist_ok=True)
         self._migrate_legacy_files_locked()
@@ -194,11 +194,11 @@ class OverlayStateStore:
         safe_id = self._sanitize_id(overlay_id)
         return os.path.join(self._data_dir, self._hashed_basename(safe_id))
 
-    def _read_state_sync(self, path: str) -> Optional[dict]:
+    def _read_state_sync(self, path: str) -> dict | None:
         """Read state from disk synchronously."""
         if os.path.exists(path):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     return json.load(f)
             except Exception as exc:
                 logger.warning("Failed to load state from '%s': %s", path, exc)
@@ -299,7 +299,7 @@ class OverlayStateStore:
         """Return a short deterministic hash of the overlay name."""
         return hashlib.sha256(overlay_id.encode()).hexdigest()[:12]
 
-    def resolve_overlay_id(self, token: str) -> Optional[str]:
+    def resolve_overlay_id(self, token: str) -> str | None:
         """Resolve a URL path segment to its real overlay ID.
 
         Accepts either the SHA-256 output key or the raw overlay id.
@@ -336,7 +336,7 @@ class OverlayStateStore:
                 continue
             path = os.path.join(self._data_dir, filename)
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     payload = json.load(f)
             except Exception as exc:
                 logger.warning("Skipping unreadable state file '%s': %s", filename, exc)
@@ -383,7 +383,7 @@ class OverlayStateStore:
             if os.path.exists(new_path):
                 continue
             try:
-                with open(legacy_path, "r", encoding="utf-8") as f:
+                with open(legacy_path, encoding="utf-8") as f:
                     payload = json.load(f)
             except Exception as exc:
                 logger.warning("Skipping legacy state file '%s': %s", filename, exc)
@@ -530,8 +530,8 @@ class OverlayStateStore:
 
     def set_raw_config(
         self, overlay_id: str,
-        model: Optional[dict] = None,
-        customization: Optional[dict] = None,
+        model: dict | None = None,
+        customization: dict | None = None,
     ) -> None:
         """Persist raw model/customization data into the overlay state."""
         with self._lock:

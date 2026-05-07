@@ -33,7 +33,7 @@ describe('errorReporter', () => {
     });
     reportClientError({ level: 'error', message: 'kapow', stack: 'at foo' });
     expect(beacon).toHaveBeenCalledTimes(1);
-    const [endpoint, blob] = beacon.mock.calls[0];
+    const [endpoint, blob] = beacon.mock.calls[0]!;
     expect(endpoint).toBe('/api/v1/_log');
     return (blob as Blob).text().then((body) => {
       const parsed = JSON.parse(body);
