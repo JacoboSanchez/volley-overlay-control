@@ -16,8 +16,8 @@ async function maybeCompression() {
     const mod = await import('vite-plugin-compression2');
     const compression = mod.compression || mod.default;
     return [
-      compression({ algorithm: 'gzip', threshold: 1024 }),
-      compression({ algorithm: 'brotliCompress', threshold: 1024 }),
+      compression({ algorithm: 'gzip', algorithms: ['gzip'], threshold: 1024 }),
+      compression({ algorithm: 'brotliCompress', algorithms: ['brotliCompress'], threshold: 1024 }),
     ];
   } catch {
     return [];
