@@ -10,6 +10,16 @@ once a first tagged release ships.
 
 ### Added
 
+- **Repository hygiene.** Added ``.editorconfig`` (LF endings,
+  4-space Python, 2-space JS/TS/MD), ``.gitattributes`` (text=auto
+  eol=lf with explicit binary classification and
+  ``linguist-generated`` markers for lockfiles and the generated
+  OpenAPI types), ``CONTRIBUTING.md`` summarising the dev loop and
+  PR checklist, plus issue templates
+  (``.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}``)
+  and a ``.github/pull_request_template.md``. ``dependabot.yml``
+  now also tracks ``npm`` updates for ``frontend/`` (grouped by
+  eslint / vitest / testing-library / react).
 - **Frontend linting.** Added ESLint (flat config) with
   ``typescript-eslint``, ``eslint-plugin-react``,
   ``eslint-plugin-react-hooks``, and ``eslint-plugin-jsx-a11y``,
