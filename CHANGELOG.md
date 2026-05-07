@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.1.3] - 2026-05-07
+
 ### Changed
 
 - **Type-safer settings persistence.**
