@@ -296,14 +296,20 @@ def _safe_match_path(match_id: object) -> Optional[str]:
 
     1. ``isinstance`` + ``_MATCH_FILENAME_RE`` reject anything whose
        shape is not ``match_<20-hex>_<UTC-ISO>.json``.
-    2. The basename is rebuilt from the regex's named groups, so no
-       caller-controlled bytes flow into the filename.
+    2. The basename is rebuilt from the regex's named groups
+       (``oid_hash`` is fixed-length hex; ``ts`` is a fixed-shape
+       timestamp), so no caller-controlled bytes flow into the
+       filename.
     3. The canonicalized realpath is checked to live directly inside
-       the canonicalized data dir. This last step is the pattern
-       CodeQL's ``py/path-injection`` query recognizes as a
-       sanitizer — without it the prior two layers were correct but
-       still flagged because the static analyser cannot trace the
-       regex-as-sanitizer relationship.
+       the canonicalized data dir using **two redundant CodeQL-
+       recognized sanitizers**: ``os.path.commonpath`` (the
+       ``py/path-injection`` query's documented sanitizer pattern)
+       plus a ``startswith(base + os.sep)`` guard. Either one alone
+       is sufficient for correctness; both together silence the
+       static analyzer's data-flow tracker, which previously didn't
+       follow the ``os.path.dirname(...) != base`` form through and
+       still flagged the call sites at ``load_match`` /
+       ``delete_match``.
     """
     if not isinstance(match_id, str):
         return None
@@ -315,7 +321,18 @@ def _safe_match_path(match_id: object) -> Optional[str]:
     )
     base = os.path.realpath(_data_dir())
     candidate = os.path.realpath(os.path.join(base, safe_basename))
+    # ``commonpath`` raises ``ValueError`` if the candidate and base
+    # are on different drives (Windows) or share no prefix; treat
+    # that as a rejection too.
+    try:
+        if os.path.commonpath([candidate, base]) != base:
+            return None
+    except ValueError:
+        return None
+    if not candidate.startswith(base + os.sep):
+        return None
     if os.path.dirname(candidate) != base:
+        # No subdirectories under data/matches/ — only direct children.
         return None
     return candidate
 
