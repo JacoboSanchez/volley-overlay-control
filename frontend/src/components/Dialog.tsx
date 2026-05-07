@@ -31,18 +31,54 @@ export default function Dialog({
 }: DialogProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Focus the card on the open transition only. Splitting this from the
+  // keydown effect below matters: parents often pass an inline ``onClose``
+  // arrow, so re-running on every ``onClose`` identity change would steal
+  // focus back to the card on every parent render — losing in-flight
+  // input as the App re-renders on every WebSocket update.
+  useEffect(() => {
+    if (open) {
+      cardRef.current?.focus();
+    }
+  }, [open]);
+
+  // ESC-to-dismiss + a basic focus trap on Tab/Shift+Tab. The trap keeps
+  // keyboard users from leaking out of the modal into the background page
+  // (``aria-modal="true"`` only signals the modal state to assistive tech
+  // — browsers don't enforce it).
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const card = cardRef.current;
+      if (!card) return;
+      const focusable = card.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), '
+          + 'input:not([disabled]), select:not([disabled]), '
+          + '[tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) {
+        e.preventDefault();
+        card.focus();
+        return;
+      }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === card)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
     document.addEventListener('keydown', onKey);
-    // Focus the dialog card so screen readers announce it and tab order
-    // starts inside the dialog rather than on the page below.
-    cardRef.current?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
     };
