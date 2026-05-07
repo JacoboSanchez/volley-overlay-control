@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import TeamPanel, { TeamPanelProps } from '../components/TeamPanel';
-import type { components } from '../api/schema';
+import type { TeamState } from '../api/client';
 import { mockGameState } from './helpers';
-
-type TeamState = components['schemas']['TeamState'];
 
 const baseTeamState: TeamState = {
   sets: 1,

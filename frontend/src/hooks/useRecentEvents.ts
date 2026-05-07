@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
-import type { GameState, AuditRecord } from '../api/client';
-import type { components } from '../api/schema';
-
-type TeamState = components['schemas']['TeamState'];
+import type { GameState, AuditRecord, TeamState } from '../api/client';
 
 export type RecentEventKind =
   | 'point_add'

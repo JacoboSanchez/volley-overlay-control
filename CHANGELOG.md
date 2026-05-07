@@ -10,6 +10,20 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Type-safer settings persistence.**
+  ``frontend/src/hooks/useSettings.tsx::readAll`` no longer needs the
+  ``as unknown as Record<string, unknown>`` double-cast to write
+  parsed JSON back into the typed ``Settings`` object — it routes
+  through ``Object.assign`` instead. The remaining ``as unknown as``
+  cast in ``OverlayPreview.tsx`` is now documented inline (it is
+  required because Chromium's iframe ``allowTransparency`` honours
+  the string form more reliably than the boolean React types model).
+- **Centralised TeamState re-imports.** ``TeamState`` now lives in
+  ``frontend/src/api/client.ts`` alongside the other generated-schema
+  type aliases. The four call sites
+  (``useGameState.ts``, ``useRecentEvents.ts``, ``TeamPanel.tsx``,
+  ``test/TeamPanel.test.tsx``) import from there instead of digging
+  into ``./schema`` directly.
 - **Expanded mypy coverage.** ``[tool.mypy] files`` in
   ``pyproject.toml`` grew from 6 to ~17 modules. ``app/state.py``,
   ``app/customization.py``, ``app/game_manager.py``,

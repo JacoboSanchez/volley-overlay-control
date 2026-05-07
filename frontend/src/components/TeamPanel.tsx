@@ -1,13 +1,10 @@
 import { CSSProperties, ReactElement, memo, useCallback } from 'react';
 import ScoreButton, { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
-import type { GameState } from '../api/client';
-import type { components } from '../api/schema';
+import type { GameState, TeamState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import { toNumber, asString } from '../utils/coerce';
 import { useDoubleTap } from '../hooks/useDoubleTap';
-
-type TeamState = components['schemas']['TeamState'];
 
 export interface TeamPanelProps {
   teamId: 1 | 2;
