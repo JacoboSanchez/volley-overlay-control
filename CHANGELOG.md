@@ -58,6 +58,16 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Dialog accessibility.** ``SetValueDialog`` and ``LinksDialog``
+  now share a new ``frontend/src/components/Dialog.tsx`` primitive
+  that renders ``role="dialog" aria-modal="true"``, focuses the
+  card on open, listens for the ESC key to dismiss, and replaces
+  the previous ``<div onClick>`` backdrop with a real ``<button>``
+  so keyboard users can dismiss the dialog without a mouse. CSS is
+  unchanged (same ``.dialog-overlay`` / ``.dialog-card`` classes
+  plus a new transparent ``.dialog-backdrop`` button) so the
+  visual appearance is identical and screenshot regeneration is
+  not required.
 - **Silent exception swallowing in overlay state I/O.**
   ``OverlayStateStore._read_state_sync``,
   ``save_persisted_state[_async]``, ``_iter_persisted_ids`` and

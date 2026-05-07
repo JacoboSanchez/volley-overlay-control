@@ -45,13 +45,31 @@ describe('SetValueDialog', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('calls onClose when overlay clicked', () => {
+  it('calls onClose when backdrop clicked', () => {
     const onClose = vi.fn();
     const { container } = renderWithI18n(
       <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
     );
-    fireEvent.click(container.querySelector('.dialog-overlay')!);
+    fireEvent.click(container.querySelector('.dialog-backdrop')!);
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('calls onClose when Escape pressed', () => {
+    const onClose = vi.fn();
+    renderWithI18n(
+      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('renders with role="dialog" and aria-modal', () => {
+    const { container } = renderWithI18n(
+      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={vi.fn()} />
+    );
+    const card = container.querySelector('[role="dialog"]');
+    expect(card).not.toBeNull();
+    expect(card!.getAttribute('aria-modal')).toBe('true');
   });
 
   it('clamps value to maxValue', () => {
