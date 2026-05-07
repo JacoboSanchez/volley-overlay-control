@@ -200,7 +200,11 @@ class OverlayStateStore:
             try:
                 with open(path, encoding="utf-8") as f:
                     return json.load(f)
-            except Exception as exc:
+            except (OSError, json.JSONDecodeError) as exc:
+                # Narrow on purpose: a bad file or unreadable disk is
+                # something we recover from by falling back to defaults,
+                # but a programming error (KeyError, AttributeError…)
+                # should surface, not be silently downgraded.
                 logger.warning("Failed to load state from '%s': %s", path, exc)
         return None
 
@@ -246,7 +250,9 @@ class OverlayStateStore:
         self._stamp_meta(state, overlay_id)
         try:
             self._write_state_sync(path, state)
-        except Exception as exc:
+        except OSError as exc:
+            # _write_state_sync uses tempfile + os.replace; failure modes
+            # are filesystem-level (no space, permissions, missing dir).
             logger.warning("Failed to save state for '%s': %s", overlay_id, exc)
 
     async def save_persisted_state_async(self, overlay_id: str, state: dict) -> None:
@@ -254,7 +260,7 @@ class OverlayStateStore:
         self._stamp_meta(state, overlay_id)
         try:
             await asyncio.to_thread(self._write_state_sync, path, state)
-        except Exception as exc:
+        except OSError as exc:
             logger.warning("Failed to save state for '%s': %s", overlay_id, exc)
 
     # -- In-memory context -------------------------------------------------
@@ -338,7 +344,7 @@ class OverlayStateStore:
             try:
                 with open(path, encoding="utf-8") as f:
                     payload = json.load(f)
-            except Exception as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 logger.warning("Skipping unreadable state file '%s': %s", filename, exc)
                 continue
             oid = (payload or {}).get("_meta", {}).get("overlay_id")
@@ -385,7 +391,7 @@ class OverlayStateStore:
             try:
                 with open(legacy_path, encoding="utf-8") as f:
                     payload = json.load(f)
-            except Exception as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 logger.warning("Skipping legacy state file '%s': %s", filename, exc)
                 continue
             if not isinstance(payload, dict):
@@ -398,7 +404,7 @@ class OverlayStateStore:
                     "Migrated legacy state file '%s' -> '%s'",
                     filename, new_basename,
                 )
-            except Exception as exc:
+            except OSError as exc:
                 logger.warning("Failed to migrate '%s': %s", filename, exc)
 
     # -- Available styles --------------------------------------------------

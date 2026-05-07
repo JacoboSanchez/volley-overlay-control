@@ -91,11 +91,15 @@ class WSControlClient:
         with self._lock:
             if self._ws:
                 # close() races the receiver thread; the socket may already
-                # be torn down on the remote side. Swallow.
+                # be torn down on the remote side. Swallow but log so a
+                # disconnect storm is visible at debug level.
                 try:
                     self._ws.close()
-                except Exception:  # nosec B110
-                    pass
+                except Exception as exc:  # nosec B110
+                    logger.debug(
+                        "WS close raced for overlay '%s': %s",
+                        self._overlay_id, exc,
+                    )
                 self._ws = None
             self._connected = False
         if self._thread:
@@ -219,7 +223,8 @@ class WSControlClient:
                 try:
                     sock.send(json.dumps({"type": "ping"}))
                     last_ping = now
-                except Exception:
+                except Exception as exc:
+                    logger.debug("WS heartbeat send failed: %s", exc)
                     break
 
     def _handle_message(self, msg: dict) -> None:

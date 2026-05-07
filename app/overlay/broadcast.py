@@ -75,7 +75,16 @@ class ObsBroadcastHub:
             try:
                 await client.send_text(message)
                 return None
-            except Exception:
+            except Exception as exc:
+                # WebSocket frameworks raise a range of exceptions on a
+                # disconnected client (WebSocketDisconnect, RuntimeError,
+                # ConnectionClosed depending on stack); catch broadly so
+                # one stale client doesn't kill the broadcast, but log so
+                # we can tell drops apart from "no clients".
+                logger.debug(
+                    "Dropping stale client for overlay '%s': %s",
+                    overlay_id, exc,
+                )
                 return client
 
         results = await asyncio.gather(*(_send(c) for c in clients))

@@ -44,6 +44,21 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Silent exception swallowing in overlay state I/O.**
+  ``OverlayStateStore._read_state_sync``,
+  ``save_persisted_state[_async]``, ``_iter_persisted_ids`` and
+  ``_migrate_legacy_files_locked`` now narrow their previously
+  blanket ``except Exception`` to the specific
+  ``OSError | json.JSONDecodeError`` they actually recover from. A
+  programming error inside the read path no longer gets logged as
+  a warning and masked. Two new tests cover the corrupt-JSON and
+  unreadable-file fallback paths.
+- **Stale-client drop visibility.**
+  ``ObsBroadcastHub._send_to_clients`` now logs the dropped client
+  at debug level, and ``WSControlClient.disconnect`` /
+  ``WSControlClient._listen`` log close/heartbeat failures so a
+  disconnect storm shows up in the log instead of being silently
+  swallowed.
 - **Lost broadcast tasks.** ``WSHub.broadcast_sync`` and
   ``broadcast_payload_json_sync`` now keep a strong reference to
   the task they create via ``loop.create_task(...)``. Without it
