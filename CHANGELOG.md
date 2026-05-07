@@ -8,6 +8,21 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Frontend linting.** Added ESLint (flat config) with
+  ``typescript-eslint``, ``eslint-plugin-react``,
+  ``eslint-plugin-react-hooks``, and ``eslint-plugin-jsx-a11y``,
+  plus Prettier and ``eslint-config-prettier``. New scripts in
+  ``frontend/package.json``: ``lint``, ``lint:fix``, ``format``,
+  ``format:check``. The ``lint`` step is now wired into
+  ``.github/workflows/ci.yml`` (frontend job) and into
+  ``.pre-commit-config.yaml`` as a ``local`` hook that runs
+  ``npx eslint`` on changed ``.ts``/``.tsx`` files under
+  ``frontend/src/``. Known dialog a11y findings and unused-import
+  cleanups are intentionally kept as warnings so this lint baseline
+  passes today; tightening lands in subsequent PRs.
+
 ### Security
 
 - **Webhook SSRF guard.** ``app/api/webhooks.py`` now refuses to POST
