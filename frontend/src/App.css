@@ -1990,9 +1990,13 @@ body {
 }
 
 /*
-  Backdrop is now a real <button> so keyboard users can dismiss the dialog
-  via Tab+Space/Enter. Strip the native button chrome but keep it covering
-  the full overlay so click-outside-to-close still works visually.
+  Backdrop is a real <button> (rather than a <div onClick>) so the linter
+  is happy and assistive tech sees an explicit close target. Strip the
+  native button chrome but keep it covering the full overlay so
+  click-outside-to-close still works visually. Keyboard users dismiss
+  via ESC or the in-card Cancel button — the backdrop itself is outside
+  the tab order (``tabIndex={-1}``) to avoid landing on an invisible
+  element.
 */
 .dialog-backdrop {
   position: absolute;

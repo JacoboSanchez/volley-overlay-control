@@ -137,10 +137,19 @@ def test_non_overlay_html_does_not_allow_google_fonts(headers_client):
     font hosts leak in from the overlay branch."""
     res = headers_client.get("/manage")
     csp = res.headers.get("content-security-policy", "")
-    # Token-based check (see the overlay test for rationale).
     csp_tokens = {tok for part in csp.split(";") for tok in part.split()}
-    assert "https://fonts.googleapis.com" not in csp_tokens
-    assert "https://fonts.gstatic.com" not in csp_tokens
+    # Stronger and CodeQL-clean: assert *no* http(s) origin appears
+    # anywhere in the CSP for non-overlay pages (no need to spell
+    # specific hosts, which CodeQL flags as
+    # ``py/incomplete-url-substring-sanitization`` whenever a URL
+    # literal sits on the LHS of an ``in`` / ``not in``).
+    external_origins = {
+        tok for tok in csp_tokens
+        if tok.startswith(("http://", "https://"))
+    }
+    assert external_origins == set(), (
+        f"unexpected external origins in /manage CSP: {external_origins}"
+    )
 
 
 def test_existing_cache_control_is_preserved(headers_client, monkeypatch):

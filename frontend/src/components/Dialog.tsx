@@ -89,10 +89,13 @@ export default function Dialog({
   return (
     <div className="dialog-overlay">
       {/*
-        A real <button> behind the card lets keyboard users close the
-        dialog with Enter/Space, satisfies jsx-a11y, and gives us a
-        click-target for "click outside to dismiss" without abusing a
-        <div onClick>.
+        Backdrop is a real <button> so we can have a click-target for
+        "click outside to dismiss" without an onClick on a <div> (which
+        the linter rightly rejects). It is intentionally outside the tab
+        order (``tabIndex={-1}``): keyboard users dismiss the dialog with
+        ESC or the explicit Cancel button rather than tabbing to an
+        invisible region. The button still carries an aria-label so
+        assistive tech announces a meaningful close target.
       */}
       <button
         type="button"
