@@ -48,6 +48,7 @@ volley-overlay-control/
 │   └── public/                # Static assets (icons, fonts)
 │
 ├── app/                       # Backend source code
+│   ├── bootstrap.py           # FastAPI factory — wires routers, middleware stack, SPA mount
 │   ├── state.py               # Data model — match state dictionary
 │   ├── game_manager.py        # Business logic — volleyball rules & score mutations
 │   ├── backend.py             # Coordinator — delegates to overlay backend strategies
@@ -55,7 +56,11 @@ volley-overlay-control/
 │   ├── ws_client.py           # Persistent WebSocket client for external overlay servers (optional)
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
-│   ├── authentication.py      # PasswordAuthenticator (API-key validation)
+│   ├── authentication.py      # PasswordAuthenticator (API-key validation; verify cache for hashed creds)
+│   ├── auth_utils.py          # Shared admin-token verifier (Bearer + ?token=, hash or plaintext)
+│   ├── password_hash.py       # scrypt-based credential hashing (CLI: `python -m app.password_hash`)
+│   ├── security_bootstrap.py  # Startup credential resolution (auto-mints OVERLAY_SERVER_TOKEN, warns on open SCOREBOARD_USERS)
+│   ├── match_report_signing.py # HMAC-signed capability URLs for /match/{id}/report
 │   ├── app_storage.py         # In-memory key-value storage
 │   ├── oid_utils.py           # OID parsing utilities (extract_oid, compose_output)
 │   ├── env_vars_manager.py    # Centralized env var access with remote config caching
@@ -65,7 +70,8 @@ volley-overlay-control/
 │   │
 │   ├── api/                   # REST API + WebSocket layer for frontends
 │   │   ├── __init__.py        # Exports api_router
-│   │   ├── routes.py          # FastAPI endpoints under /api/v1/
+│   │   ├── routes/            # Domain-split FastAPI endpoints under /api/v1/ (game, session, customization, …)
+│   │   ├── middleware/        # ASGI middlewares — errors, logging, auth_rate_limit, security_headers
 │   │   ├── schemas.py         # Pydantic request/response models
 │   │   ├── game_service.py    # Service layer — single entry point for all game actions
 │   │   ├── session_manager.py # Thread-safe game session management by OID
@@ -73,7 +79,7 @@ volley-overlay-control/
 │   │   ├── action_log.py      # Append-only per-OID audit log (data/audit_<hash>.jsonl)
 │   │   ├── match_archive.py   # Per-match snapshot writer (data/matches/match_<hash>_<UTC>.json)
 │   │   ├── match_rules.py     # Indoor/beach presets + beach side-switch helpers
-│   │   ├── webhooks.py        # Outbound HTTP webhooks fired on game events (set_end, match_end, timeout, serve_change)
+│   │   ├── webhooks.py        # Outbound HTTP webhooks fired on game events (set_end, match_end, timeout, serve_change); SSRF-guarded by default
 │   │   ├── ws_hub.py          # WebSocket notification hub for real-time state push
 │   │   └── dependencies.py    # Auth + session FastAPI dependencies
 │   │
@@ -94,7 +100,7 @@ volley-overlay-control/
 │
 ├── overlay_templates/         # Jinja2 HTML templates for overlay styles (16 templates)
 ├── overlay_static/            # Static assets for overlays (JS, CSS, images)
-├── data/                      # Persisted custom overlay state (overlay_state_{id}.json)
+├── data/                      # Persisted runtime state — overlay_state_{id}.json, audit_<hash>.jsonl, matches/, .overlay_server_token (auto-generated, mode 0o600)
 │
 ├── tests/                     # Pytest suite (181 tests)
 │   ├── conftest.py            # Shared fixtures: load_test_env
@@ -222,6 +228,7 @@ Full list in [README.md](README.md).
 | `/manage` | Custom overlay manager page (password-protected via `OVERLAY_MANAGER_PASSWORD`) |
 | `/api/v1/*` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
 | `/api/v1/admin/custom-overlays` | List / create (optionally clone) / delete custom overlays (`Authorization: Bearer $OVERLAY_MANAGER_PASSWORD`) |
+| `/api/v1/admin/match/{match_id}/sign-url` | `POST` — mint an HMAC-signed capability URL for `/match/{id}/report` (admin Bearer required; replaces the legacy `?token=<password>` share flow) |
 | `/api/v1/admin/login`, `/api/v1/admin/status` | Admin auth check + feature-enabled probe |
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (mode, points, sets) for the session. |
 | `/api/v1/audit?oid=X[&limit=N]` | Most-recent records from the per-OID action audit log |
@@ -290,6 +297,8 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 - **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`.
 - **Do not skip `GameManager.save()`** — after any mutation, save must be called.
 - **Custom overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
+- **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `OVERLAY_SERVER_TOKEN` is auto-generated / loaded and `os.environ` is populated before the auth dependencies read it. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect the token-persistence path to a per-test temp dir; do not call `ensure_overlay_server_token` directly without that isolation.
+- **Credentials never compare with `==`.** All three auth surfaces (`PasswordAuthenticator`, `auth_utils.require_admin_token`, `overlay/routes.require_overlay_server_token`) go through `app.password_hash.verify_password`, which accepts either a scrypt hash record or the legacy plaintext value with a constant-time compare. The hash form (`password_hash` per user, `OVERLAY_MANAGER_PASSWORD_HASH`, `OVERLAY_SERVER_TOKEN_HASH`) wins when both are set — see `AUTHENTICATION.md` §8.
 - **Undo is a per-call flag, not a stack** — `add_game`, `add_set`, and `add_timeout` reverse only the most recent action of that type. `add_game(undo=True)` additionally falls back to `current_set - 1` when the current set has no score for the requested team, so a set-winning point can be undone after the session has advanced. The bundled React UI tracks its own short history of forward actions in `App.tsx` to drive the bottom-bar undo button — that stack is client-side only and does not survive page reloads or other clients.
 
 ---
@@ -317,6 +326,8 @@ The SPA mount uses a custom `SPAStaticFiles` class that falls back to `index.htm
 | `FRONTEND_DEVELOPMENT.md` | REST API reference + guide for building JS frontends |
 | `CUSTOM_OVERLAY.md` | Guide for building a custom overlay server |
 | `CUSTOM_OVERLAY_API.yaml` | OpenAPI 3.0 spec for the custom overlay REST contract |
+| `AUTHENTICATION.md` | Auth coverage audit — per-route inventory, defence-in-depth middleware, hashed-credential migration |
+| `SECURITY.md` | Vulnerability disclosure policy and supported-versions matrix |
 | `CHANGELOG.md` | User-facing change log (Keep a Changelog format) |
 | `AGENTS.md` | This file — AI agent guide |
 

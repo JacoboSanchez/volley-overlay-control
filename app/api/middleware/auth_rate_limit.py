@@ -13,8 +13,12 @@ This guards the four credential-bearing surfaces against brute force:
 * every ``/api/v1/`` route protected by ``verify_api_key``.
 * ``/manage`` (admin password used by the static page).
 
-A successful response (anything outside 401/403) clears the bucket
-so a legitimate operator who mistyped once isn't penalised.
+A successful response is intentionally ignored — the bucket is reset
+only by the sliding window expiring old failures. This prevents an
+attacker from laundering failed login attempts by interleaving them
+with hits to a public endpoint under the same prefix (e.g.
+``/api/v1/admin/status``). See ``_record_outcome`` for the full
+rationale.
 
 All state is process-local — clusters with multiple replicas should
 front the app with a layer-7 limiter (Cloudflare, Nginx, etc.) that
