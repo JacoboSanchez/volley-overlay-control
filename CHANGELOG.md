@@ -10,6 +10,45 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **PWA service-worker no longer requires a force-reload after a
+  release for routes like ``/manage``.** ``frontend/vite.config.js``
+  now sets ``workbox.skipWaiting: true`` and
+  ``workbox.clientsClaim: true``. The previous default kept the old
+  service worker active until every tab closed, so on a fresh deploy
+  operators would land on the SPA shell at ``/manage`` (a route that
+  is in the ``navigateFallbackDenylist`` of the new SW but was not
+  in the old one) until they hit Ctrl+Shift+R. Operators are
+  internal users — there's no consumer-side flow that the immediate
+  SW takeover would break — so claiming clients on activation is
+  the right tradeoff for an admin app.
+
+### Removed
+
+- **Theme selector pulled from the ``/manage`` detail drawer.**
+  Validating against real overlay templates after merge revealed
+  the colour keys the dropdown wrote (``set_bg``, ``game_bg``,
+  ``set_text``, ``game_text``) are not consumed by **any** Jinja
+  template in ``overlay_templates/`` — applying ``dark`` or
+  ``light`` produced a silent no-op while ``esports`` /
+  ``neo_jersey`` / ``split_jersey`` / ``clear_jersey`` happened to
+  work only because they also flip ``preferredStyle``. Rather than
+  ship a half-working surface the dropdown was removed; the drawer
+  now exposes the live preview iframe and the Live-usage panel
+  only, and the per-row button is renamed to **Info** to match
+  the inspect-only nature of the panel.
+
+  The backend ``PATCH /api/v1/admin/custom-overlays/{name}``
+  endpoint is **kept**: it is still useful for automation
+  (especially the ``preferred_style`` field, which does drive the
+  template selection at render time and works end-to-end). The
+  manager UI just no longer wires a button to it. ``GET
+  /api/themes`` and the legacy ``POST /api/theme/{id}/{name}``
+  carry on unchanged. A future iteration that genuinely consumes
+  the colour keys in the templates can re-introduce the selector
+  without further backend changes.
+
+### Fixed
+
 - **Code-review follow-ups on Fase 4 (CR-3, CR-4, M-1).** Three
   issues surfaced in the post-fase code review:
   * **Webhook replay was a self-DoS waiting to happen.**

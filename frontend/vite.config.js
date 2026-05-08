@@ -83,6 +83,17 @@ export default defineConfig(async () => ({
         ],
       },
       workbox: {
+        // Apply the new SW immediately on install and take control of
+        // every open client without waiting for tabs to close. The
+        // manager UI is operator-facing (no consumer flows that would
+        // break mid-action from a hot swap), and the previous
+        // wait-for-tab-close default meant operators had to force-reload
+        // /manage after every release before the new bundle's denylist
+        // and route surface took effect. Pair with
+        // ``registerType: 'autoUpdate'`` above so the SW upgrade is
+        // genuinely automatic rather than only-in-theory.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,svg,ttf,otf}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [
