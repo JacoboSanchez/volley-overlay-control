@@ -520,9 +520,9 @@ def get_custom_overlay_usage(name: str):
     from app.overlay import obs_broadcast_hub
 
     obs_count = obs_broadcast_hub.get_client_count(name)
-    frontend_count = len(WSHub._connections.get(name, set()))
+    frontend_count = WSHub.connection_count(name)
 
-    session = SessionManager._sessions.get(name)
+    session = SessionManager.peek(name)
     has_session = session is not None
     seconds_since: int | None = None
     if session is not None:

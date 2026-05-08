@@ -45,10 +45,9 @@ class MetricsMiddleware:
             # bucket under ``unmatched`` to keep the label cardinality
             # bounded even on a hostile probe storm.
             route_obj = scope.get("route")
-            route = (
-                getattr(route_obj, "path", None)
-                or scope.get("path", "unmatched")
-            )
+            route = "unmatched"
+            if route_obj is not None:
+                route = getattr(route_obj, "path", "unmatched")
             method = scope.get("method", "UNKNOWN")
             http_request_duration_seconds.labels(
                 route=route,
