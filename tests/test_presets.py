@@ -184,6 +184,36 @@ class TestPresetsStore:
             with pytest.raises(ValueError):
                 presets_store.slugify(bad)
 
+    def test_slugify_strips_trailing_dash_after_truncation(self, monkeypatch):
+        # Cut-point lands inside a run of non-alphanumerics that the
+        # initial sub() already collapsed to ``-``. Without the
+        # post-truncation ``rstrip("-")`` the slug would end in ``-``
+        # and the validator would reject it with a misleading
+        # "cannot derive" error instead of the silent-trim that the
+        # operator expects when their name is over the cap.
+        monkeypatch.setattr(presets_store, "PRESETS_MAX_NAME_LEN", 9)
+        # "Real Madrid" → "real-madrid"; truncated to 9 → "real-madr"
+        # (cleanly cut). Pick a name whose 9-char prefix ends in a
+        # collapsed dash to exercise the strip:
+        name = "Real M  drid"  # double-space → "-" → "real-m--drid"
+        # Actually re.sub collapses any run of non-alnum to a single
+        # "-", so "Real M  drid" → "real-m-drid". Truncate to 7 →
+        # "real-m-" (trailing dash). ``[:7].strip("-")`` → "real-m".
+        monkeypatch.setattr(presets_store, "PRESETS_MAX_NAME_LEN", 7)
+        slug = presets_store.slugify(name)
+        assert slug == "real-m", slug
+        assert presets_store._SLUG_PATTERN.match(slug)
+
+    def test_slugify_respects_configured_max_above_default(self, monkeypatch):
+        # The legacy regex hardcoded a 64-char ceiling. After the
+        # decoupling fix, raising PRESETS_MAX_NAME_LEN to 100 must
+        # let a 90-char slug through without the regex rejecting it.
+        monkeypatch.setattr(presets_store, "PRESETS_MAX_NAME_LEN", 100)
+        name = "a" * 90
+        slug = presets_store.slugify(name)
+        assert len(slug) == 90
+        assert presets_store._SLUG_PATTERN.match(slug)
+
     def test_create_persists_and_round_trips(self):
         rec = presets_store.create(
             name="Real Madrid as home",

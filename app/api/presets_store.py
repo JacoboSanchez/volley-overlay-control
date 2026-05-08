@@ -42,11 +42,14 @@ logger = logging.getLogger(__name__)
 # Slug + filename helpers
 # ---------------------------------------------------------------------------
 
-# A slug is at most ``PRESETS_MAX_NAME_LEN`` characters of lowercase
-# alphanumerics plus dashes. The hash-based filename means the slug
-# never reaches the filesystem directly, but keeping it well-formed
-# helps the admin UI render legible URLs and JSON.
-_SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
+# A slug is lowercase ASCII alphanumerics plus dashes, beginning and
+# ending with an alphanumeric. Length is **not** baked into the regex
+# on purpose: it's enforced by ``slugify`` against
+# ``PRESETS_MAX_NAME_LEN`` so changing the env-overridable cap does
+# not require also editing this pattern (and so the cap can grow above
+# the legacy 64-char ceiling without the regex silently rejecting
+# valid slugs).
+_SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 _FILENAME_HASH_LEN = 20
 _HASHED_FILENAME_PATTERN = re.compile(
     r"^preset_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$",
@@ -69,8 +72,14 @@ def slugify(name: str) -> str:
     # too, but the operator-facing audit trail benefits from keeping
     # the original ``name`` separate from the slug. We just normalise
     # what makes a valid filesystem-and-URL-safe identifier.
-    cleaned = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
-    cleaned = cleaned[:max(1, PRESETS_MAX_NAME_LEN)]
+    cleaned = re.sub(r"[^a-z0-9]+", "-", name.strip().lower())
+    # ``strip("-")`` runs *after* truncation so a name whose cut
+    # point falls inside a run of non-alphanumeric characters
+    # (which collapse to a single ``-``) does not yield a slug
+    # that ends in ``-`` and would otherwise be rejected by
+    # ``_SLUG_PATTERN`` with a misleading "cannot derive a valid
+    # slug" error.
+    cleaned = cleaned[:max(1, PRESETS_MAX_NAME_LEN)].strip("-")
     if not cleaned or _SLUG_PATTERN.match(cleaned) is None:
         raise ValueError(f"Cannot derive a valid slug from {name!r}.")
     return cleaned
