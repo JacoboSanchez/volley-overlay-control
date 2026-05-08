@@ -8,20 +8,6 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
-### Fixed
-
-- **PWA service-worker no longer requires a force-reload after a
-  release for routes like ``/manage``.** ``frontend/vite.config.js``
-  now sets ``workbox.skipWaiting: true`` and
-  ``workbox.clientsClaim: true``. The previous default kept the old
-  service worker active until every tab closed, so on a fresh deploy
-  operators would land on the SPA shell at ``/manage`` (a route that
-  is in the ``navigateFallbackDenylist`` of the new SW but was not
-  in the old one) until they hit Ctrl+Shift+R. Operators are
-  internal users — there's no consumer-side flow that the immediate
-  SW takeover would break — so claiming clients on activation is
-  the right tradeoff for an admin app.
-
 ### Removed
 
 - **Theme selector pulled from the ``/manage`` detail drawer.**
@@ -48,6 +34,21 @@ once a first tagged release ships.
   without further backend changes.
 
 ### Fixed
+
+- **PWA service-worker no longer requires a force-reload after a
+  release for routes like ``/manage``.** ``frontend/vite.config.js``
+  now sets ``workbox.skipWaiting: true`` and
+  ``workbox.clientsClaim: true``. The previous default kept the old
+  service worker active until every tab closed, so on a fresh deploy
+  operators would land on the SPA shell at ``/manage`` (a route that
+  is in the ``navigateFallbackDenylist`` of the new SW but was not
+  in the old one) until they hit Ctrl+Shift+R. Operators are
+  internal users — there's no consumer-side flow that the immediate
+  SW takeover would break — so claiming clients on activation is
+  the right tradeoff for an admin app. Same SW config also adds
+  ``/metrics`` to the ``navigateFallbackDenylist`` so manual
+  inspection from a browser with the PWA installed hits the
+  Prometheus exposition rather than the SPA shell.
 
 - **Code-review follow-ups on Fase 4 (CR-3, CR-4, M-1).** Three
   issues surfaced in the post-fase code review:
