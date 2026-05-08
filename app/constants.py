@@ -118,6 +118,13 @@ WEBHOOK_DEAD_LETTER_MAX_RECORDS = _env_int(
     "WEBHOOK_DEAD_LETTER_MAX_RECORDS", 1000,
 )
 
+# Preset catalogue caps. ``MAX_NAME_LEN`` keeps slugs to a
+# reasonable filesystem-friendly length; ``MAX_RECORDS`` is a
+# defensive limit on the global preset count so a buggy automation
+# script cannot fill the disk with files. Both override via env.
+PRESETS_MAX_NAME_LEN = _env_int("PRESETS_MAX_NAME_LEN", 80)
+PRESETS_MAX_RECORDS = _env_int("PRESETS_MAX_RECORDS", 500)
+
 # ``WSControlClient`` reconnect/heartbeat tuning. ``WS_ZOMBIE_DEADLINE``
 # must stay > 2 * ``WS_HEARTBEAT_INTERVAL`` so a single dropped pong
 # does not churn the connection.
