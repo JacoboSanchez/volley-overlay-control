@@ -8,6 +8,49 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Admin endpoints for editing and inspecting custom overlays
+  (Fase 1 — backend half).** Two new routes under
+  ``/api/v1/admin/custom-overlays/{name}``:
+  * **``PATCH``** — partial update of a custom overlay's appearance.
+    The body accepts any combination of ``theme`` (preset name from
+    ``GET /api/themes``), ``colors`` (dict deep-merged into
+    ``overlay_control.colors``) and ``preferred_style`` (validated
+    against the renderable templates plus ``default``). When both
+    ``theme`` and explicit overrides are sent, the theme is applied
+    first so user-supplied values win on the second merge — that's
+    the operator's mental model. Empty patches are rejected with
+    400 to flag accidental form submissions instead of silently
+    no-op'ing. The mutation flows through
+    ``OverlayStateStore.update_state`` so OBS browser sources
+    receive the broadcast in real time (50 ms debounce).
+  * **``GET /usage``** — snapshot of how many live consumers a
+    custom overlay has: ``obs_clients`` (browser-source viewers),
+    ``frontend_ws_clients`` (scoreboard control tabs subscribed via
+    ``WSHub``), ``has_active_session`` (live ``GameSession``) and
+    ``seconds_since_last_activity`` (clamped at the session TTL).
+    The relative duration intentionally avoids confusing
+    ``time.monotonic`` timestamps with epoch wall-clock —
+    ``GameSession.touch`` uses monotonic and the operator's
+    question is "is this still live?", not "when exactly".
+  Both routes require ``OVERLAY_MANAGER_PASSWORD`` and feed the
+  drawer/usage indicator scheduled for the frontend half of Fase 1.
+
+### Refactored
+
+- **``PRESET_THEMES`` extracted to ``app.overlay.themes``.** The
+  static catalogue used to live inside ``app/overlay/routes.py``,
+  which made it inaccessible to ``app/admin/routes.py`` without a
+  circular import (overlay → admin already exists for
+  ``require_admin``). Moving it to a dedicated module breaks the
+  cycle, exposes a stable ``get_theme_names()`` helper to both
+  routers, and prepares the seam M8 (Fase 2) will widen when
+  themes become directory-backed under ``data/themes/``. The
+  ``GET /api/themes`` and ``POST /api/theme/{id}/{name}`` public
+  routes are unchanged on the wire — they now read through
+  ``themes.PRESET_THEMES`` instead of the local dict.
+
 ### Changed
 
 - **`/manage` — auth-error handling unified across every admin call.**

@@ -22,6 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from app.admin.routes import require_admin
 from app.env_vars_manager import EnvVarsManager
 from app.overlay.state_store import OverlayStateStore
+from app.overlay.themes import PRESET_THEMES, get_theme_names
 from app.password_hash import verify_password
 
 logger = logging.getLogger(__name__)
@@ -138,54 +139,6 @@ class RawConfigPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     model: Any | None = None
     customization: Any | None = None
-
-
-# ---------------------------------------------------------------------------
-# Preset themes
-# ---------------------------------------------------------------------------
-
-PRESET_THEMES: dict[str, dict] = {
-    "dark": {
-        "overlay_control": {
-            "colors": {
-                "set_bg": "#222222", "set_text": "#FFFFFF",
-                "game_bg": "#111111", "game_text": "#FFFFFF",
-            }
-        }
-    },
-    "light": {
-        "overlay_control": {
-            "colors": {
-                "set_bg": "#EEEEEE", "set_text": "#222222",
-                "game_bg": "#F5F5F5", "game_text": "#111111",
-            }
-        }
-    },
-    "esports": {
-        "overlay_control": {
-            "preferredStyle": "esports",
-            "colors": {
-                "set_bg": "#0d0d1a", "set_text": "#00FFFF",
-                "game_bg": "#0a0a0f", "game_text": "#00FFFF",
-            },
-        }
-    },
-    "neo_jersey": {
-        "overlay_control": {
-            "preferredStyle": "neo_jersey",
-        }
-    },
-    "split_jersey": {
-        "overlay_control": {
-            "preferredStyle": "split_jersey",
-        }
-    },
-    "clear_jersey": {
-        "overlay_control": {
-            "preferredStyle": "clear_jersey",
-        }
-    },
-}
 
 
 # ---------------------------------------------------------------------------
@@ -397,7 +350,7 @@ def create_overlay_router(
 
     @router.get("/api/themes")
     async def list_themes():
-        return {"themes": list(PRESET_THEMES.keys())}
+        return {"themes": get_theme_names()}
 
     @router.post(
         "/api/theme/{overlay_id}/{theme_name}",
@@ -409,7 +362,7 @@ def create_overlay_router(
                 status_code=404,
                 detail=(
                     f"Theme '{theme_name}' not found. "
-                    f"Available: {list(PRESET_THEMES.keys())}"
+                    f"Available: {get_theme_names()}"
                 ),
             )
         if not store.overlay_exists(overlay_id):

@@ -58,6 +58,64 @@ class CustomOverlayCreate(BaseModel):
     )
 
 
+class CustomOverlayPatch(BaseModel):
+    """Partial update for a custom overlay's appearance.
+
+    Every field is optional — the patch is a thin admin-side wrapper around
+    ``OverlayStateStore.update_state``. When ``theme`` is set, the matching
+    preset from ``app.overlay.themes`` is applied first; ``colors`` and
+    ``preferred_style`` are then merged on top so explicit overrides win
+    over the theme defaults.
+    """
+
+    theme: str | None = Field(
+        None,
+        description=(
+            "Apply a preset theme (e.g. 'dark', 'esports'). "
+            "Available themes are listed by GET /api/themes."
+        ),
+    )
+    colors: dict[str, str] | None = Field(
+        None,
+        description=(
+            "Color overrides merged into overlay_control.colors. "
+            "Common keys: set_bg, set_text, game_bg, game_text."
+        ),
+    )
+    preferred_style: str | None = Field(
+        None,
+        description=(
+            "Switch the Jinja template served at /overlay/{output_key}. "
+            "Must match an entry in GET /api/config/{id}.availableStyles."
+        ),
+    )
+
+
+class CustomOverlayUsage(BaseModel):
+    """Snapshot of how many live consumers a custom overlay has."""
+
+    obs_clients: int = Field(
+        ..., description="Connected OBS / browser-source viewers."
+    )
+    frontend_ws_clients: int = Field(
+        ...,
+        description=(
+            "Connected scoreboard control tabs (frontend WebSocket "
+            "subscribers)."
+        ),
+    )
+    has_active_session: bool = Field(
+        ..., description="True when SessionManager has a live GameSession."
+    )
+    seconds_since_last_activity: int | None = Field(
+        None,
+        description=(
+            "Seconds elapsed since the session was last touched; "
+            "null when no session is active."
+        ),
+    )
+
+
 class MatchSignUrlRequest(BaseModel):
     ttl_seconds: int | None = Field(
         default=None,
@@ -263,6 +321,147 @@ def sign_match_report_url(
         url=url,
         expires_at=signed["expires_at"],
         expires_in=max(0, signed["expires_at"] - int(time.time())),
+    )
+
+
+@admin_router.patch(
+    "/custom-overlays/{name}",
+    dependencies=[Depends(require_admin)],
+    summary="Edit a custom overlay's theme / colors / preferred style",
+)
+async def patch_custom_overlay(name: str, payload: CustomOverlayPatch):
+    """Apply a preset theme and/or merge colors / preferredStyle.
+
+    Layering order matches the operator's mental model: the theme acts
+    as a baseline, then explicit ``colors`` and ``preferred_style`` are
+    merged on top. Empty patches are rejected with 400 so the operator
+    sees a clear error rather than a silent no-op (which would mask
+    accidental empty form submissions from the manager UI).
+    """
+    name = _validate_overlay_id(name)
+    store = _overlay_store()
+
+    if not store.overlay_exists(name):
+        raise HTTPException(
+            status_code=404, detail=f"Overlay '{name}' not found.",
+        )
+
+    if payload.theme is None and payload.colors is None and payload.preferred_style is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Patch must specify at least one of: theme, colors, "
+                "preferred_style."
+            ),
+        )
+
+    # Apply the theme baseline first so user-supplied colors / preferred_style
+    # win on subsequent merges.
+    if payload.theme is not None:
+        # Lazy import to avoid forcing the overlay package onto every test
+        # path that imports the admin router.
+        from app.overlay.themes import PRESET_THEMES, get_theme_names
+        if payload.theme not in PRESET_THEMES:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Theme '{payload.theme}' not found. "
+                    f"Available: {get_theme_names()}"
+                ),
+            )
+        await store.update_state(name, PRESET_THEMES[payload.theme])
+
+    overrides: dict = {}
+    overlay_control: dict = {}
+    if payload.colors is not None:
+        overlay_control["colors"] = payload.colors
+    if payload.preferred_style is not None:
+        # Validate against the renderable templates so a typo can't park the
+        # overlay on a 404 the next time it's served.
+        renderable = store.get_renderable_styles()
+        # ``default`` maps to ``index.html`` and is always present, but it's
+        # not in get_available_styles_list because it's also the implicit
+        # fallback. Accept it explicitly.
+        if (
+            payload.preferred_style != "default"
+            and payload.preferred_style not in renderable
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"preferred_style '{payload.preferred_style}' is not a "
+                    f"known overlay style. Available: {renderable}"
+                ),
+            )
+        overlay_control["preferredStyle"] = payload.preferred_style
+    if overlay_control:
+        overrides["overlay_control"] = overlay_control
+    if overrides:
+        await store.update_state(name, overrides)
+
+    logger.info(
+        "Patched custom overlay '%s' (theme=%s, colors=%s, preferred_style=%s)",
+        name,
+        payload.theme,
+        "yes" if payload.colors else "no",
+        payload.preferred_style,
+    )
+    return {
+        "id": name,
+        "oid": name,
+        "output_key": store.get_output_key(name),
+    }
+
+
+@admin_router.get(
+    "/custom-overlays/{name}/usage",
+    response_model=CustomOverlayUsage,
+    dependencies=[Depends(require_admin)],
+    summary="Inspect how many live consumers a custom overlay has",
+)
+def get_custom_overlay_usage(name: str):
+    """Report live OBS / scoreboard / session counts for *name*.
+
+    The response gives the operator enough information to decide whether
+    deleting (or re-theming) the overlay will disrupt an in-progress
+    broadcast — currently surfaced in the ``/manage`` UI as a dot next to
+    each row.
+    """
+    name = _validate_overlay_id(name)
+    store = _overlay_store()
+    if not store.overlay_exists(name):
+        raise HTTPException(
+            status_code=404, detail=f"Overlay '{name}' not found.",
+        )
+
+    # Lazy imports — these modules carry heavy dependencies (asyncio task
+    # registries, Backend) that we don't want loaded for every test that
+    # imports admin.routes.
+    from app.api.session_manager import SESSION_TTL_SECONDS, SessionManager
+    from app.api.ws_hub import WSHub
+    from app.overlay import obs_broadcast_hub
+
+    obs_count = obs_broadcast_hub.get_client_count(name)
+    frontend_count = len(WSHub._connections.get(name, set()))
+
+    session = SessionManager._sessions.get(name)
+    has_session = session is not None
+    seconds_since: int | None = None
+    if session is not None:
+        # ``last_accessed`` uses ``time.monotonic`` (see GameSession.touch)
+        # so we report a relative duration rather than a wall-clock
+        # timestamp — matches the operator's question ("is this still
+        # live?") and avoids the epoch-vs-monotonic confusion.
+        elapsed = time.monotonic() - session.last_accessed
+        # Clamp at the eviction TTL — anything older is considered stale
+        # and should be GC'd by the next ``SessionManager.cleanup_expired``.
+        seconds_since = max(0, min(int(elapsed), SESSION_TTL_SECONDS))
+
+    return CustomOverlayUsage(
+        obs_clients=obs_count,
+        frontend_ws_clients=frontend_count,
+        has_active_session=has_session,
+        seconds_since_last_activity=seconds_since,
     )
 
 

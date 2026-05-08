@@ -177,6 +177,205 @@ def test_create_copy_missing_source(client):
     assert res.status_code == 404
 
 
+# ---------------------------------------------------------------------------
+# PATCH /custom-overlays/{name}  (M4 — Fase 1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def overlay_named(client):
+    """Create a fresh custom overlay and yield its id."""
+    name = "patchme"
+    res = client.post(
+        "/api/v1/admin/custom-overlays",
+        json={"name": name}, headers=_auth(),
+    )
+    assert res.status_code == 200
+    yield name
+
+
+class TestPatchCustomOverlay:
+    def test_requires_auth(self, client, overlay_named):
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"theme": "dark"},
+        )
+        assert res.status_code == 401
+
+    def test_unknown_overlay_returns_404(self, client):
+        res = client.patch(
+            "/api/v1/admin/custom-overlays/ghost",
+            json={"theme": "dark"}, headers=_auth(),
+        )
+        assert res.status_code == 404
+
+    def test_empty_patch_rejected(self, client, overlay_named):
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={}, headers=_auth(),
+        )
+        assert res.status_code == 400
+        assert "at least one of" in res.json()["detail"]
+
+    def test_invalid_id_rejected(self, client):
+        res = client.patch(
+            "/api/v1/admin/custom-overlays/bad..name",
+            json={"theme": "dark"}, headers=_auth(),
+        )
+        # ``..`` is filtered by _validate_overlay_id (rejects ".." stem).
+        # The pattern actually allows dots, so ``bad..name`` matches the
+        # admin-side allow-list — the failure comes from "not found".
+        assert res.status_code in (400, 404)
+
+    def test_unknown_theme_returns_404(self, client, overlay_named):
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"theme": "no-such-theme"}, headers=_auth(),
+        )
+        assert res.status_code == 404
+        assert "no-such-theme" in res.json()["detail"]
+
+    def test_apply_theme_persists_colors(self, client, overlay_named):
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"theme": "dark"}, headers=_auth(),
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["id"] == overlay_named
+        state = overlay_state_store.get_state(overlay_named)
+        # ``dark`` theme sets specific bg/text colors — verify a couple.
+        colors = state["overlay_control"]["colors"]
+        assert colors["set_bg"] == "#222222"
+        assert colors["game_text"] == "#FFFFFF"
+
+    def test_apply_theme_with_preferred_style(self, client, overlay_named):
+        # ``esports`` includes preferredStyle on top of colors.
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"theme": "esports"}, headers=_auth(),
+        )
+        assert res.status_code == 200
+        state = overlay_state_store.get_state(overlay_named)
+        assert state["overlay_control"]["preferredStyle"] == "esports"
+        assert state["overlay_control"]["colors"]["set_text"] == "#00FFFF"
+
+    def test_colors_only_merge(self, client, overlay_named):
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"colors": {"set_bg": "#123456", "team_home": "#abcdef"}},
+            headers=_auth(),
+        )
+        assert res.status_code == 200
+        state = overlay_state_store.get_state(overlay_named)
+        assert state["overlay_control"]["colors"]["set_bg"] == "#123456"
+        assert state["overlay_control"]["colors"]["team_home"] == "#abcdef"
+
+    def test_explicit_colors_override_theme(self, client, overlay_named):
+        # Theme baseline + override on top: the operator's explicit color
+        # must win, not the theme's.
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"theme": "dark", "colors": {"set_bg": "#FF00FF"}},
+            headers=_auth(),
+        )
+        assert res.status_code == 200
+        state = overlay_state_store.get_state(overlay_named)
+        assert state["overlay_control"]["colors"]["set_bg"] == "#FF00FF"
+        # The other theme colors survive (deep-merge, not replace).
+        assert state["overlay_control"]["colors"]["game_text"] == "#FFFFFF"
+
+    def test_invalid_preferred_style_rejected(self, client, overlay_named):
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"preferred_style": "non-existent-template"},
+            headers=_auth(),
+        )
+        assert res.status_code == 400
+        assert "preferred_style" in res.json()["detail"]
+
+    def test_default_preferred_style_accepted(self, client, overlay_named):
+        # ``default`` is the implicit fallback (index.html) and not in
+        # get_available_styles_list — the handler must accept it explicitly.
+        res = client.patch(
+            f"/api/v1/admin/custom-overlays/{overlay_named}",
+            json={"preferred_style": "default"}, headers=_auth(),
+        )
+        assert res.status_code == 200
+        state = overlay_state_store.get_state(overlay_named)
+        assert state["overlay_control"]["preferredStyle"] == "default"
+
+
+# ---------------------------------------------------------------------------
+# GET /custom-overlays/{name}/usage  (M7 — Fase 1)
+# ---------------------------------------------------------------------------
+
+
+class TestCustomOverlayUsage:
+    def test_requires_auth(self, client, overlay_named):
+        res = client.get(
+            f"/api/v1/admin/custom-overlays/{overlay_named}/usage",
+        )
+        assert res.status_code == 401
+
+    def test_unknown_overlay_returns_404(self, client):
+        res = client.get(
+            "/api/v1/admin/custom-overlays/ghost/usage",
+            headers=_auth(),
+        )
+        assert res.status_code == 404
+
+    def test_idle_overlay_reports_zero(self, client, overlay_named):
+        res = client.get(
+            f"/api/v1/admin/custom-overlays/{overlay_named}/usage",
+            headers=_auth(),
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body == {
+            "obs_clients": 0,
+            "frontend_ws_clients": 0,
+            "has_active_session": False,
+            "seconds_since_last_activity": None,
+        }
+
+    def test_reports_active_session(self, client, overlay_named):
+        # Materialise a GameSession for the overlay — ``SessionManager.get``
+        # is the same path the WS / API routes take, so this exercises the
+        # real registry rather than a mock.
+        from app.api.session_manager import SessionManager
+        SessionManager.get_or_create(overlay_named)
+        try:
+            res = client.get(
+                f"/api/v1/admin/custom-overlays/{overlay_named}/usage",
+                headers=_auth(),
+            )
+            assert res.status_code == 200
+            body = res.json()
+            assert body["has_active_session"] is True
+            assert isinstance(body["seconds_since_last_activity"], int)
+            assert body["seconds_since_last_activity"] >= 0
+        finally:
+            SessionManager.remove(overlay_named)
+
+    def test_reports_obs_client_count(self, client, overlay_named):
+        # The hub treats ``add_client`` as the canonical way to register
+        # an OBS source — fake one with a sentinel object since we only
+        # care about the count, not real WebSocket I/O.
+        from app.overlay import obs_broadcast_hub
+        sentinel = object()
+        obs_broadcast_hub._clients.setdefault(overlay_named, []).append(sentinel)
+        try:
+            res = client.get(
+                f"/api/v1/admin/custom-overlays/{overlay_named}/usage",
+                headers=_auth(),
+            )
+            assert res.status_code == 200
+            assert res.json()["obs_clients"] == 1
+        finally:
+            obs_broadcast_hub._clients.pop(overlay_named, None)
+
+
 def test_delete_custom_overlay(client):
     client.post(
         "/api/v1/admin/custom-overlays",
