@@ -11,6 +11,8 @@ import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
+import ConfirmDialog from './components/ConfirmDialog';
+import ConnectionStatus from './components/ConnectionStatus';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
 import {
@@ -86,11 +88,14 @@ export default function App() {
     state,
     confirmedState,
     customization,
+    connected,
     error,
     initialize,
     actions,
     refreshCustomization,
   } = useGameState(oid);
+
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
@@ -257,10 +262,12 @@ export default function App() {
   }, [setSetting, settings.showPreview]);
 
   const handleReset = useCallback(() => {
-    if (window.confirm(t('config.resetConfirm'))) {
-      actions.reset();
-    }
-  }, [actions, t]);
+    setResetConfirmOpen(true);
+  }, []);
+
+  const confirmReset = useCallback(() => {
+    actions.reset();
+  }, [actions]);
 
   const handleStartMatch = useCallback(() => {
     actions.startMatch();
@@ -391,6 +398,7 @@ export default function App() {
 
   return (
     <div className="app-container" {...swipeHandlers}>
+      <ConnectionStatus connected={connected} />
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
         <ScoreboardView
@@ -468,6 +476,15 @@ export default function App() {
         maxValue={dialog.maxValue}
         onSubmit={handleDialogSubmit}
         onClose={() => setDialog((d) => ({ ...d, open: false }))}
+      />
+
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        message={t('config.resetConfirm')}
+        confirmLabel={t('config.resetMatch')}
+        danger
+        onConfirm={confirmReset}
+        onClose={() => setResetConfirmOpen(false)}
       />
     </div>
   );

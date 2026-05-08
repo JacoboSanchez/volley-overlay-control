@@ -36,6 +36,19 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.reset': 'Reset',
     'ctrl.config': 'Configuration',
 
+    // Connection status
+    'conn.online': 'Live updates connected',
+    'conn.reconnecting': 'Reconnecting…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Are you sure?',
+    'confirm.confirm': 'Confirm',
+    'confirm.cancel': 'Cancel',
+
+    // Preview fallback
+    'preview.unavailable': 'Preview unavailable',
+    'preview.retry': 'Retry',
+
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Back to scoreboard',
@@ -181,6 +194,19 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Iniciar partido',
     'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuración',
+
+    // Connection status
+    'conn.online': 'Sincronización en directo',
+    'conn.reconnecting': 'Reconectando…',
+
+    // Confirmation dialogs
+    'confirm.title': '¿Confirmas?',
+    'confirm.confirm': 'Confirmar',
+    'confirm.cancel': 'Cancelar',
+
+    // Preview fallback
+    'preview.unavailable': 'Vista previa no disponible',
+    'preview.retry': 'Reintentar',
 
     // Config panel
     'config.title': 'Config',
@@ -328,6 +354,19 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuração',
 
+    // Connection status
+    'conn.online': 'Sincronização em direto',
+    'conn.reconnecting': 'A reconectar…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Confirmas?',
+    'confirm.confirm': 'Confirmar',
+    'confirm.cancel': 'Cancelar',
+
+    // Preview fallback
+    'preview.unavailable': 'Pré-visualização indisponível',
+    'preview.retry': 'Tentar novamente',
+
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Voltar ao marcador',
@@ -473,6 +512,19 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Inizia partita',
     'ctrl.reset': 'Reimposta',
     'ctrl.config': 'Configurazione',
+
+    // Connection status
+    'conn.online': 'Sincronizzazione in diretta',
+    'conn.reconnecting': 'Riconnessione…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Confermi?',
+    'confirm.confirm': 'Conferma',
+    'confirm.cancel': 'Annulla',
+
+    // Preview fallback
+    'preview.unavailable': 'Anteprima non disponibile',
+    'preview.retry': 'Riprova',
 
     // Config panel
     'config.title': 'Config',
@@ -620,6 +672,19 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.reset': 'Réinitialiser',
     'ctrl.config': 'Configuration',
 
+    // Connection status
+    'conn.online': 'Synchronisation en direct',
+    'conn.reconnecting': 'Reconnexion…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Confirmer ?',
+    'confirm.confirm': 'Confirmer',
+    'confirm.cancel': 'Annuler',
+
+    // Preview fallback
+    'preview.unavailable': 'Aperçu indisponible',
+    'preview.retry': 'Réessayer',
+
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Retour au tableau',
@@ -765,6 +830,19 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Spiel starten',
     'ctrl.reset': 'Zurücksetzen',
     'ctrl.config': 'Einstellungen',
+
+    // Connection status
+    'conn.online': 'Live-Synchronisation aktiv',
+    'conn.reconnecting': 'Verbindung wird wiederhergestellt…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Sicher?',
+    'confirm.confirm': 'Bestätigen',
+    'confirm.cancel': 'Abbrechen',
+
+    // Preview fallback
+    'preview.unavailable': 'Vorschau nicht verfügbar',
+    'preview.retry': 'Erneut versuchen',
 
     // Config panel
     'config.title': 'Config',

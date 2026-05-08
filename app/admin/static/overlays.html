@@ -439,9 +439,11 @@
           <label for="field-name">Name *</label>
           <input type="text" id="field-name" required
                  pattern="[A-Za-z0-9_.\-]+"
+                 maxlength="64"
+                 autocomplete="off"
                  placeholder="mybroadcast" />
           <small class="muted">
-            Letters, digits, '-', '_' and '.' only. The name is used directly as the OID.
+            Letters, digits, '-', '_' and '.' only — up to 64 characters. The name is used directly as the OID.
           </small>
         </div>
         <div class="field">
@@ -1101,6 +1103,10 @@
     };
     if (!body.name) {
       showError(createError, 'Name is required.');
+      return;
+    }
+    if (body.name.length > 64) {
+      showError(createError, 'Name must be 64 characters or fewer.');
       return;
     }
     try {

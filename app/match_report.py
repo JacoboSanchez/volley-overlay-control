@@ -294,6 +294,20 @@ _REPORT_TEMPLATE = """<!doctype html>
     text-decoration: line-through;
     color: var(--muted);
   }}
+  .timeline-set li.undone .undone-badge {{
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255, 152, 0, 0.18);
+    color: #b76b00;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    vertical-align: baseline;
+    white-space: nowrap;
+  }}
   .timeline-set li .ts {{
     font-variant-numeric: tabular-nums;
     color: var(--muted);
@@ -303,6 +317,13 @@ _REPORT_TEMPLATE = """<!doctype html>
     font-variant-numeric: tabular-nums;
     color: var(--muted);
     margin-left: 6px;
+  }}
+  @media print {{
+    .timeline-set li.undone .undone-badge {{
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }}
   }}
   .footer {{
     margin-top: 32px;
@@ -1351,10 +1372,19 @@ def _render_timeline(
             f' <span class="running">({running[0]}–{running[1]})</span>'
             if running and _is_score_action(record) else ""
         )
-        cls = " class=\"undone\"" if record.get("_was_undone") else ""
+        was_undone = bool(record.get("_was_undone"))
+        cls = " class=\"undone\"" if was_undone else ""
+        # Surface a non-strikethrough chip alongside the line-through so
+        # the undone marker is legible at a glance even on dense
+        # timelines and print-friendly contrast.
+        undone_badge = (
+            '<span class="undone-badge" aria-hidden="true">'
+            f'↶ {html.escape(_t(locale, "undoneBadge"))}</span>'
+            if was_undone else ""
+        )
         return (
             f'<li{cls}><span class="ts">{html.escape(rel)}</span>'
-            f'{html.escape(label)}{running_html}</li>'
+            f'{html.escape(label)}{running_html}{undone_badge}</li>'
         )
 
     for set_num in ordered_keys:

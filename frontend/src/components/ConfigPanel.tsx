@@ -5,6 +5,7 @@ import { useOrientation } from '../hooks/useOrientation';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import * as api from '../api/client';
 import ConfigSkeleton from './ConfigSkeleton';
+import ConfirmDialog from './ConfirmDialog';
 import type { ConfigModel, PredefinedTeams } from './TeamCard';
 import type { LinksSectionLinks } from './config/LinksSection';
 import type { ButtonsSectionProps } from './config/ButtonsSection';
@@ -121,6 +122,7 @@ export default function ConfigPanel({
   const [links, setLinks] = useState<LinksData>(null);
   const [selectedTheme, setSelectedTheme] = useState('');
   const [activeSection, setActiveSection] = useState<Section | null>('teams');
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -340,7 +342,7 @@ export default function ConfigPanel({
           <span className="material-icons">{themeIcon(darkMode)}</span>
         </button>
         <button className="config-bottom-btn config-bottom-btn-logout"
-          onClick={() => { if (window.confirm(t('config.logoutConfirm'))) onLogout(); }}
+          onClick={() => setLogoutConfirmOpen(true)}
           title={t('config.logout')} data-testid="logout-button">
           <span className="material-icons">logout</span>
         </button>
@@ -349,6 +351,15 @@ export default function ConfigPanel({
       {saveError && (
         <div className="config-save-error">{saveError}</div>
       )}
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        message={t('config.logoutConfirm')}
+        confirmLabel={t('config.logout')}
+        danger
+        onConfirm={onLogout}
+        onClose={() => setLogoutConfirmOpen(false)}
+      />
 
     </div>
   );

@@ -147,18 +147,19 @@ describe('ConfigPanel', () => {
     expect(defaultProps.onToggleFullscreen).toHaveBeenCalledOnce();
   });
 
-  it('shows logout confirmation', () => {
-    window.confirm = vi.fn().mockReturnValue(true);
+  it('shows logout confirmation dialog', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     fireEvent.click(screen.getByTestId('logout-button'));
-    expect(window.confirm).toHaveBeenCalled();
+    const confirmBtn = await screen.findByTestId('confirm-dialog-ok');
+    fireEvent.click(confirmBtn);
     expect(defaultProps.onLogout).toHaveBeenCalledOnce();
   });
 
-  it('does not logout if confirm cancelled', () => {
-    window.confirm = vi.fn().mockReturnValue(false);
+  it('does not logout if dialog cancelled', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     fireEvent.click(screen.getByTestId('logout-button'));
+    const cancelBtn = await screen.findByTestId('confirm-dialog-cancel');
+    fireEvent.click(cancelBtn);
     expect(defaultProps.onLogout).not.toHaveBeenCalled();
   });
 

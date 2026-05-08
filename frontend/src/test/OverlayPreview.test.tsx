@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import OverlayPreview, { OverlayPreviewProps } from '../components/OverlayPreview';
 import { renderWithI18n } from './helpers';
 
@@ -181,6 +181,80 @@ describe('OverlayPreview', () => {
       />
     );
     expect(container.innerHTML).toBe('');
+  });
+
+  // ── Fallback when the iframe never loads ──────────────────────────────
+
+  it('surfaces a retryable fallback when the load timeout elapses', () => {
+    vi.useFakeTimers();
+    try {
+      renderWithI18n(
+        <OverlayPreview
+          overlayUrl="https://overlays.uno/output/abc"
+          x={0}
+          y={0}
+          width={30}
+          height={10}
+          layoutId=""
+          cardWidth={300}
+        />
+      );
+      expect(screen.queryByTestId('overlay-preview-fallback')).toBeNull();
+      act(() => { vi.advanceTimersByTime(7000); });
+      const fallback = screen.getByTestId('overlay-preview-fallback');
+      expect(fallback).toBeInTheDocument();
+      expect(fallback).toHaveTextContent(/unavailable/i);
+      expect(fallback.querySelector('button')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('hides the fallback as soon as the iframe load event fires', () => {
+    vi.useFakeTimers();
+    try {
+      renderWithI18n(
+        <OverlayPreview
+          overlayUrl="https://overlays.uno/output/abc"
+          x={0}
+          y={0}
+          width={30}
+          height={10}
+          layoutId=""
+          cardWidth={300}
+        />
+      );
+      const iframe = screen.getByTestId('overlay-preview');
+      fireEvent.load(iframe);
+      act(() => { vi.advanceTimersByTime(7000); });
+      expect(screen.queryByTestId('overlay-preview-fallback')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears the fallback when retry is pressed', () => {
+    vi.useFakeTimers();
+    try {
+      renderWithI18n(
+        <OverlayPreview
+          overlayUrl="https://overlays.uno/output/abc"
+          x={0}
+          y={0}
+          width={30}
+          height={10}
+          layoutId=""
+          cardWidth={300}
+        />
+      );
+      act(() => { vi.advanceTimersByTime(7000); });
+      const fallback = screen.getByTestId('overlay-preview-fallback');
+      const retryBtn = fallback.querySelector('button')!;
+      fireEvent.click(retryBtn);
+      expect(screen.queryByTestId('overlay-preview-fallback')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // Domain-spoof guard: a hostname that merely ends with 'overlays.uno'
