@@ -403,6 +403,18 @@
     loggedInHint.classList.toggle('hidden', which !== 'admin');
   }
 
+  // 401/403 from any admin call means the password rotated (or expired).
+  // Clear it from memory and bounce the operator back to the login view —
+  // every entry point that calls ``apiCall`` should reuse this helper.
+  function handleAuthError(err) {
+    if (err.status !== 401 && err.status !== 403) return false;
+    setPassword('');
+    if (_activeModal) closeModal(_activeModal);
+    showView('login');
+    setTimeout(() => passwordInput.focus(), 30);
+    return true;
+  }
+
   // Lightweight modal a11y: restore focus to the opener on close, trap
   // TAB inside the dialog, and let ESC dismiss it.
   let _activeModal = null;
@@ -503,11 +515,7 @@
       cachedOverlays = Array.isArray(overlays) ? overlays : [];
       renderOverlays(cachedOverlays);
     } catch (err) {
-      if (err.status === 401 || err.status === 403) {
-        setPassword('');
-        showView('login');
-        return;
-      }
+      if (handleAuthError(err)) return;
       overlayList.innerHTML = '<p class="status error">' + escapeHtml(err.message) + '</p>';
     }
   }
@@ -609,6 +617,7 @@
       showStatus('Overlay deleted.', 'success');
       await loadOverlays();
     } catch (err) {
+      if (handleAuthError(err)) return;
       showError(deleteError, err.message || 'Could not delete overlay.');
       deleteConfirmBtn.disabled = false;
     }
@@ -631,6 +640,7 @@
       closeCreate();
       await loadOverlays();
     } catch (err) {
+      if (handleAuthError(err)) return;
       showError(createError, err.message || 'Could not create overlay.');
     }
   });

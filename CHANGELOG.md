@@ -10,6 +10,33 @@ once a first tagged release ships.
 
 ### Changed
 
+- **`/manage` — auth-error handling unified across every admin call.**
+  The custom-overlay manager page previously only bounced the operator
+  back to the login view when ``loadOverlays`` got a 401/403; the
+  delete and create flows logged the raw error inside the dialog and
+  left the now-stale password in memory. A shared ``handleAuthError``
+  helper now clears the cached password, dismisses any open modal,
+  shows the login view and re-focuses the password input from
+  ``loadOverlays``, ``performDelete`` and the ``createForm`` submit
+  alike. Symptom: rotating ``OVERLAY_MANAGER_PASSWORD`` while a
+  manager tab was open used to leave the operator stuck inside a
+  half-broken modal until they refreshed.
+
+### Tests
+
+- **Coverage for the new env-var overrides in ``app.constants``.**
+  ``tests/test_constants.py`` (14 tests) reloads ``app.constants``
+  under each ``monkeypatch.setenv`` and verifies the ``SESSION_TTL_*``
+  / ``WS_*_SECONDS`` overrides honour the env, fall back to defaults
+  on garbage / empty / non-positive input, and that the legacy
+  re-exports in ``app.api.session_manager`` and ``app.ws_client`` see
+  the same value after a matching reload. Without these the only
+  thing protecting the override contract was the implicit "defaults
+  match legacy values" coincidence; a regression in the ``_env_int``
+  / ``_env_float`` parsers would have been silent.
+
+### Changed
+
 - **`/manage` quick wins (Fase 0 del roadmap de mejoras).** Three
   small but operator-visible improvements to the custom-overlay
   manager page (`app/admin/static/overlays.html`):
