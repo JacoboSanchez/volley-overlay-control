@@ -94,6 +94,11 @@ class WSHub:
             oid, len(cls._connections[oid]))
 
     @classmethod
+    def connection_count(cls, oid: str) -> int:
+        """Return the number of frontend WS clients subscribed to *oid*."""
+        return len(cls._connections.get(oid, ()))
+
+    @classmethod
     def mark_active(cls, ws: WebSocket) -> None:
         """Record that *ws* sent or received traffic just now.
 

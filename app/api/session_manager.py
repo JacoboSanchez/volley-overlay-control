@@ -238,6 +238,16 @@ class SessionManager:
             return session
 
     @classmethod
+    def peek(cls, oid):
+        """Return an existing session without bumping ``last_accessed``.
+
+        Used by inspect-only paths (admin usage endpoint) that need to
+        report liveness without resetting the eviction TTL.
+        """
+        with cls._lock:
+            return cls._sessions.get(oid)
+
+    @classmethod
     def remove(cls, oid):
         """Remove a session (e.g. on disconnect)."""
         with cls._lock:
