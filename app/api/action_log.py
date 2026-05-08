@@ -45,6 +45,7 @@ import time
 from collections.abc import Set as AbstractSet
 
 from app.api.oid_validation import OID_PATTERN
+from app.constants import AUDIT_LOG_MAX_BYTES, AUDIT_LOG_MAX_FILES
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,108 @@ def _lock_for(oid: str) -> threading.Lock:
     return _locks_pool[idx]
 
 
+# ---------------------------------------------------------------------------
+# Log rotation
+# ---------------------------------------------------------------------------
+#
+# The active file lives at ``audit_<hash>.jsonl``. When ``append`` finds it
+# above ``AUDIT_LOG_MAX_BYTES``, the file is rotated logrotate-style:
+# ``.{N-1} -> .N`` (oldest first to avoid clobbering), then active -> .1,
+# and anything that would land beyond ``.MAX_FILES-1`` is deleted.
+# ``MAX_FILES`` counts the active file plus the rotated set, matching the
+# operator's "keep N audit files per OID" mental model.
+#
+# Rotation runs inside the per-OID lock (same lock that serializes
+# appends / pops / clears) so a concurrent reader never sees a torn rename.
+
+
+def _rotated_path(path: str, index: int) -> str:
+    """Return the on-disk path of the *index*-th rotated file (1-based)."""
+    return f"{path}.{index}"
+
+
+def _existing_rotated_indices(path: str) -> list[int]:
+    """Return rotated-file indices that exist on disk, ascending order.
+
+    1 is the most recently rotated; higher indices are older. Used by
+    ``_iter_log_paths_oldest_first`` to walk the full per-OID log without
+    forcing every caller to ``os.path.exists`` the same set of files.
+    """
+    indices = []
+    for i in range(1, AUDIT_LOG_MAX_FILES):
+        if os.path.exists(_rotated_path(path, i)):
+            indices.append(i)
+    return indices
+
+
+def _iter_log_paths_oldest_first(path: str) -> list[str]:
+    """Return [oldest_rotated, ..., active] for the OID at *path*.
+
+    Active appears last so callers (``read_all``) can concatenate
+    records in chronological order without a separate sort pass.
+    """
+    paths: list[str] = []
+    # Rotated files: the largest index is the oldest.
+    for i in reversed(_existing_rotated_indices(path)):
+        paths.append(_rotated_path(path, i))
+    if os.path.exists(path):
+        paths.append(path)
+    return paths
+
+
+def _rotate_if_needed_locked(path: str) -> None:
+    """Rotate ``path`` when it exceeds ``AUDIT_LOG_MAX_BYTES``.
+
+    Caller must hold ``_lock_for(oid)``. No-op when the file is missing
+    or under the threshold, or when ``AUDIT_LOG_MAX_FILES <= 1`` (in
+    which case the operator has effectively disabled rotation history
+    and we just truncate by deletion on overflow).
+    """
+    if AUDIT_LOG_MAX_FILES <= 1:
+        # No rotated slots configured — fall back to truncating the
+        # active file when it overflows so it cannot grow without bound.
+        if os.path.exists(path) and os.path.getsize(path) > AUDIT_LOG_MAX_BYTES:
+            try:
+                os.remove(path)
+            except OSError as exc:
+                logger.warning("Failed to truncate oversized audit '%s': %s", path, exc)
+        return
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        return
+    if size <= AUDIT_LOG_MAX_BYTES:
+        return
+    # Drop the oldest slot if it would exceed the cap after the shift.
+    oldest = _rotated_path(path, AUDIT_LOG_MAX_FILES - 1)
+    try:
+        os.remove(oldest)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        logger.warning("Failed to drop oldest rotated audit '%s': %s", oldest, exc)
+    # Shift .{i} -> .{i+1} from oldest survivor down so renames never
+    # overwrite an existing file (.replace would, but the explicit walk
+    # makes the intent obvious in the dominator code path).
+    for i in range(AUDIT_LOG_MAX_FILES - 2, 0, -1):
+        src = _rotated_path(path, i)
+        dst = _rotated_path(path, i + 1)
+        if os.path.exists(src):
+            try:
+                os.replace(src, dst)
+            except OSError as exc:
+                logger.warning(
+                    "Failed to shift rotated audit '%s' -> '%s': %s",
+                    src, dst, exc,
+                )
+                return
+    # Active -> .1.
+    try:
+        os.replace(path, _rotated_path(path, 1))
+    except OSError as exc:
+        logger.warning("Failed to rotate active audit '%s': %s", path, exc)
+
+
 def append(oid: str, action: str, params: dict, result: dict) -> None:
     """Atomically append one record. Best-effort: never raises."""
     path = _path(oid)
@@ -136,6 +239,7 @@ def append(oid: str, action: str, params: dict, result: dict) -> None:
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with _lock_for(oid):
+            _rotate_if_needed_locked(path)
             record = {
                 "ts": _next_ts(oid),
                 "action": action,
@@ -151,13 +255,8 @@ def append(oid: str, action: str, params: dict, result: dict) -> None:
         logger.warning("Failed to append audit log for %r: %s", oid, exc)
 
 
-def _read_raw_locked(path: str, oid: str) -> list[dict]:
-    """Read every JSON line at *path*, skipping malformed ones.
-
-    Caller must already hold ``_lock_for(oid)``. Tombstone records and
-    the records they reference are returned as-is — filtering happens
-    in :func:`_apply_tombstones`.
-    """
+def _read_one_file_locked(path: str, oid: str) -> list[dict]:
+    """Read every JSON line at *path*, skipping malformed ones."""
     records: list[dict] = []
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -171,6 +270,22 @@ def _read_raw_locked(path: str, oid: str) -> list[dict]:
                     "Skipping malformed audit line for %r: %s",
                     oid, exc,
                 )
+    return records
+
+
+def _read_raw_locked(path: str, oid: str) -> list[dict]:
+    """Read every JSON line in the OID's full log, oldest first.
+
+    Walks ``audit_<hash>.jsonl.{N-1}`` down to ``.1`` and finally the
+    active ``audit_<hash>.jsonl`` so chronological order is preserved
+    across rotation boundaries. Caller must already hold
+    ``_lock_for(oid)``. Tombstone records and the records they
+    reference are returned as-is — filtering happens in
+    :func:`_apply_tombstones`.
+    """
+    records: list[dict] = []
+    for p in _iter_log_paths_oldest_first(path):
+        records.extend(_read_one_file_locked(p, oid))
     return records
 
 
@@ -199,15 +314,30 @@ def _apply_tombstones(raw: list[dict]) -> list[dict]:
     ]
 
 
+def _has_any_log_file(path: str) -> bool:
+    """True when the active file or any rotated file exists for *path*."""
+    if os.path.exists(path):
+        return True
+    return any(
+        os.path.exists(_rotated_path(path, i))
+        for i in range(1, AUDIT_LOG_MAX_FILES)
+    )
+
+
 def read_all(oid: str) -> list[dict]:
     """Return every record for *oid* in append order. Empty list if absent.
+
+    Walks the active file plus every rotated file so consumers
+    (``match_archive``, the ``/audit`` endpoint, the undo path) see
+    the full per-OID history regardless of how many rotations have
+    occurred since the match started.
 
     Pop tombstones (and the forward records they cancel) are filtered
     out so callers see the same logical view a full rewrite would
     produce.
     """
     path = _path(oid)
-    if path is None or not os.path.exists(path):
+    if path is None or not _has_any_log_file(path):
         return []
     try:
         with _lock_for(oid):
@@ -218,6 +348,46 @@ def read_all(oid: str) -> list[dict]:
     return _apply_tombstones(raw)
 
 
+def read_page(
+    oid: str,
+    limit: int,
+    before_ts: float | None = None,
+) -> tuple[list[dict], float | None]:
+    """Return up to *limit* records older than *before_ts*, plus a cursor.
+
+    Cursor-based pagination over the per-OID audit log, walking forward
+    from the newest entry and serving fixed-size pages so a long-running
+    match (50 K+ records) does not force the operator to ship the whole
+    history on every dashboard refresh.
+
+    Parameters:
+      * ``limit`` — max number of records to return; clamped to >= 1.
+      * ``before_ts`` — when set, only records with ``ts < before_ts``
+        are considered. Use ``None`` for the first page (newest
+        ``limit`` records).
+
+    Returns ``(records, next_cursor)``:
+      * ``records`` is in chronological order (oldest first within the
+        returned window — same convention as ``read_recent``).
+      * ``next_cursor`` is the ``ts`` of the **oldest** returned record
+        when more pages remain (caller passes it as ``before_ts`` for
+        the next call), or ``None`` when the page is the final one.
+
+    Tombstoned records are invisible to the cursor so paging never
+    skips past visible records because of an undo that happened
+    between calls.
+    """
+    if limit <= 0:
+        return [], None
+    records = read_all(oid)
+    if before_ts is not None:
+        records = [r for r in records if r.get("ts", 0) < before_ts]
+    page = records[-limit:]
+    has_more = len(records) > len(page)
+    next_cursor = page[0].get("ts") if (page and has_more) else None
+    return page, next_cursor
+
+
 def read_recent(oid: str, limit: int = 100) -> list[dict]:
     """Return up to *limit* most-recent records (chronological order)."""
     if limit <= 0:
@@ -226,33 +396,61 @@ def read_recent(oid: str, limit: int = 100) -> list[dict]:
     return records[-limit:]
 
 
+def _remove_all_log_files_locked(path: str) -> bool:
+    """Delete the active log and every rotated file for *path*.
+
+    Returns True when at least one file was removed. Caller must hold
+    the per-OID lock.
+    """
+    removed = False
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+            removed = True
+        except OSError as exc:
+            logger.warning("Failed to remove active audit '%s': %s", path, exc)
+    for i in range(1, AUDIT_LOG_MAX_FILES):
+        rp = _rotated_path(path, i)
+        if os.path.exists(rp):
+            try:
+                os.remove(rp)
+                removed = True
+            except OSError as exc:
+                logger.warning("Failed to remove rotated audit '%s': %s", rp, exc)
+    return removed
+
+
 def clear(oid: str) -> None:
-    """Truncate the audit log for *oid* if it exists. No-op otherwise."""
+    """Truncate the audit log for *oid* if it exists. No-op otherwise.
+
+    Removes both the active file and every rotated file so a match
+    reset starts from a genuinely empty log even if rotation happened
+    earlier in the same process.
+    """
     path = _path(oid)
     if path is None:
         return
     try:
         with _lock_for(oid):
-            if os.path.exists(path):
-                os.remove(path)
+            _remove_all_log_files_locked(path)
             _last_ts_per_oid.pop(oid, None)
     except Exception as exc:
         logger.warning("Failed to clear audit log for %r: %s", oid, exc)
 
 
 def delete(oid: str) -> bool:
-    """Remove the audit file. Returns True if a file was removed."""
+    """Remove every audit file for *oid* (active + rotated).
+
+    Returns True when at least one file existed and was removed.
+    """
     path = _path(oid)
     if path is None:
         return False
     try:
         with _lock_for(oid):
-            os.remove(path)
+            removed = _remove_all_log_files_locked(path)
             _last_ts_per_oid.pop(oid, None)
-        return True
-    except FileNotFoundError:
-        _last_ts_per_oid.pop(oid, None)
-        return False
+        return removed
     except OSError as exc:
         logger.warning("Failed to delete audit log for %r: %s", oid, exc)
         return False
@@ -304,7 +502,7 @@ def pop_last_forward(
     Returns ``None`` when no matching forward record exists.
     """
     path = _path(oid)
-    if path is None or not os.path.exists(path):
+    if path is None or not _has_any_log_file(path):
         return None
     try:
         with _lock_for(oid):
@@ -328,6 +526,11 @@ def pop_last_forward(
             line = json.dumps(
                 tombstone, separators=(",", ":"), ensure_ascii=False,
             ) + "\n"
+            # The tombstone always lands on the active file; even when
+            # the target lives in a rotated archive the read paths
+            # (``read_all`` / ``_apply_tombstones``) walk the whole
+            # set together, so a forward record in ``.3`` can be
+            # cancelled by a tombstone in the active file.
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
             return target
@@ -348,7 +551,7 @@ def peek_last_forward(
     dispatch — the dispatched call performs the actual pop.
     """
     path = _path(oid)
-    if path is None or not os.path.exists(path):
+    if path is None or not _has_any_log_file(path):
         return None
     try:
         with _lock_for(oid):

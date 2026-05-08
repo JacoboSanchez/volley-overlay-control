@@ -8,6 +8,389 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Code-review follow-ups on Fase 4 (CR-3, CR-4, M-1).** Three
+  issues surfaced in the post-fase code review:
+  * **Webhook replay was a self-DoS waiting to happen.**
+    ``POST /api/v1/admin/webhooks/replay`` ran synchronously and
+    iterated every dead-letter record with up to ~25 s of blocking
+    retries each — a fully-loaded DL would pin the handler for
+    tens of minutes, well past any sensible HTTP timeout, and tie
+    up an entire FastAPI thread. The endpoint now (a) accepts a
+    ``max_records`` query param (default 50, cap 500) and replays
+    only the oldest-eligible slice, (b) runs the blocking work
+    via ``run_in_threadpool`` so the event loop stays free for
+    other handlers, and (c) reports ``remaining_in_dl`` so the
+    operator can iterate (``while remaining > 0: replay``)
+    without guesswork. Records held back by ``since`` /
+    ``max_records`` are preserved untouched.
+  * **The dead-letter file had no size cap.** A misbehaving
+    target during a multi-day outage could grow
+    ``data/webhooks_dead_letter.jsonl`` without bound — the same
+    anti-pattern Fase 4 just fixed for the audit log. ``append``
+    now enforces ``WEBHOOK_DEAD_LETTER_MAX_RECORDS`` (default
+    1000) by dropping the oldest entries via an atomic rewrite
+    when the cap is breached, so even a runaway producer stays
+    inside a bounded disk footprint. A new
+    ``voc_webhook_dead_letter_size`` Prometheus gauge tracks the
+    current count so dashboards can alert before the cap is
+    reached.
+  * **Heartbeat tick walked clients serially.** With
+    ``WSHUB_HEARTBEAT_INTERVAL_SECONDS > 0`` and a busy OID, a
+    200-client sweep could take 200 × ``BROADCAST_SEND_TIMEOUT``
+    of wall time. ``_heartbeat_tick`` now classifies clients
+    once, fans the zombie closes and healthy pings out via
+    ``asyncio.gather`` (with ``return_exceptions=True`` so a
+    single stuck socket cannot wedge the rest), and applies the
+    bookkeeping after the gather lands — so 200 clients finish
+    in roughly ``BROADCAST_SEND_TIMEOUT``.
+  Tests: 7 new cases — DL ``count``/cap eviction/gauge updates
+  in ``tests/test_webhooks.py``, ``max_records`` paginated
+  replay + ``remaining_in_dl`` in ``tests/test_admin.py``, and
+  the concurrent + mixed-zombie heartbeat sweeps in
+  ``tests/test_api_routes.py``. Full suite: 960 passing.
+
+### Added
+
+- **Prometheus ``/metrics`` endpoint + instrumentation
+  (Fase 4 / M15).** A new ``app.metrics`` module wires
+  ``prometheus_client`` (now in ``requirements.txt``) into the
+  hot paths and surfaces the result at ``GET /metrics``. The
+  endpoint speaks the standard Prometheus text-exposition format
+  (``text/plain; version=0.0.4``) and is mounted at the app
+  root rather than under ``/api/v1`` so it lines up with every
+  other Prometheus-instrumented service the operator might be
+  scraping.
+
+  Metrics emitted:
+  * ``voc_http_request_duration_seconds`` — histogram of
+    end-to-end HTTP latency, labelled by ``route`` (the FastAPI
+    route template — bounded by the OpenAPI surface, not the
+    raw path), ``method`` and ``status``. Wired through a new
+    ``MetricsMiddleware`` placed inside ``ExceptionLogging``
+    but outside ``RequestContext`` so the bucket reflects the
+    full handler cost.
+  * ``voc_webhook_delivery_total{event, status}`` — counter
+    with ``status`` ∈ ``success`` / ``client_error`` /
+    ``server_error`` / ``exception`` / ``ssrf_blocked`` /
+    ``dead_letter``. ``dead_letter`` is incremented in
+    addition to the per-attempt status so an alert can fire on
+    "X events landed in the DL" without subtracting other
+    buckets.
+  * ``voc_ws_clients_total`` — total open frontend WebSocket
+    connections across all OIDs (unlabelled).
+  * ``voc_ws_oids_active`` — number of distinct OIDs with at
+    least one open subscriber (unlabelled).
+  * ``voc_active_sessions`` — live ``GameSession`` count
+    tracked by ``SessionManager`` (unlabelled).
+
+  The plan called for ``ws_clients_per_oid`` as a labelled
+  gauge; that label would be unbounded in OID space (textbook
+  Prometheus anti-pattern). The two unlabelled gauges above
+  give the operator the same dashboard story (total fan-out
+  plus breadth) without the cardinality risk.
+
+  Auth ladder mirrors ``/manage``: by default the endpoint is
+  unauthenticated (the exposed values are aggregates, no
+  payloads, no per-OID labels — safe to scrape from the cluster
+  service mesh). Operators that prefer to gate it set
+  ``METRICS_REQUIRE_ADMIN=true``, which checks the same Bearer
+  token as ``/api/v1/admin/*``. The auth check fires *before*
+  the library-availability check so an unauthenticated probe
+  cannot use the 503-vs-200 difference to fingerprint whether
+  the metrics backend is loaded.
+
+  Graceful degradation: if ``prometheus_client`` is missing
+  (older deploys that have not run ``pip install -r
+  requirements.txt``), every helper becomes a no-op, the rest
+  of the app boots normally, and ``/metrics`` returns a 503
+  with a clear "install prometheus-client" message instead of
+  a confusing 404.
+
+  Tests: 7 new in ``tests/test_metrics.py`` covering the
+  exposition format + content, the route-template label, the
+  default-no-auth path, ``METRICS_REQUIRE_ADMIN`` gate,
+  503-when-password-unset, the webhook counter increment, and
+  the WS gauges tracking ``WSHub.connect`` / ``disconnect``.
+  Suite at 953 passing.
+
+- **Webhook retries + dead-letter queue + operator replay
+  (Fase 4 / M16).** The outbound webhook dispatcher used to be
+  fire-and-forget: a single 503 from a flaky receiver dropped
+  the event on the floor with nothing more than a log warning.
+  Three changes:
+  * **Retries with exponential backoff.** ``_attempt_with_retries``
+    runs the configured ``WEBHOOK_RETRY_ATTEMPTS`` (default 3)
+    additional POSTs after the first failure, sleeping
+    ``WEBHOOK_RETRY_BASE_SECONDS * 2**(attempt-1)`` between them
+    (capped at ``WEBHOOK_RETRY_MAX_SECONDS``). Defaults give the
+    classic 1 / 2 / 4 / 8 progression. Retries fire on 5xx and
+    on ``requests.RequestException`` (timeouts, connect errors);
+    **4xx is treated as permanent client rejection** — no retry,
+    no dead-letter, just a warning, because retrying a "bad
+    request" never converges.
+  * **Dead-letter queue.** When retries are exhausted on a
+    transient failure, the delivery is appended to
+    ``data/webhooks_dead_letter.jsonl`` with the URL, event,
+    OID, body (as a UTF-8 string for human inspection), last
+    error string and attempt count. The HMAC ``secret`` is
+    deliberately **not** persisted — replay re-resolves the
+    target's secret from the live config, so rotating
+    ``WEBHOOKS_SECRET`` does not strand legacy entries with
+    stale signatures and a leaked DL file does not leak signing
+    keys. SSRF blocks and 4xx rejections are also kept out of
+    the DL because they are not replay-recoverable. The DL file
+    is rewritten atomically (tempfile + ``os.replace``) so a
+    crash mid-write cannot leave it half-written.
+  * **Operator replay endpoint.** New
+    ``POST /api/v1/admin/webhooks/replay`` (gated by
+    ``OVERLAY_MANAGER_PASSWORD``) reads the DL, optionally
+    filters by ``since=<unix-seconds>``, redelivers each record
+    against the current target config, and rewrites the file
+    with only the entries that still failed (plus those whose
+    URL no longer matches any configured target — kept so the
+    operator can fix the config and retry). The response carries
+    counts only (``considered`` / ``succeeded`` /
+    ``still_failing`` / ``skipped_unknown_url``); the payloads
+    themselves are never echoed through the admin surface.
+
+  Tests: 8 new in ``tests/test_webhooks.py`` (first-attempt
+  success, 5xx-then-success, 5xx-exhausts-retries, 4xx-no-retry,
+  RequestException retries, ``replay_records`` happy path,
+  unknown-URL preservation, attempts-counter increment) plus
+  4 endpoint-level cases in ``tests/test_admin.py`` (auth,
+  empty-DL no-op, success path pruning, ``since`` filter
+  preserving older entries). Suite at 946 passing.
+
+- **WebSocket connection cap + opt-in server heartbeat
+  (Fase 4 / M14).** Two complementary defences against runaway
+  ``WSHub`` registries:
+  * **Connection cap.** ``WSHub.connect`` now refuses upgrades
+    when an OID already has ``WSHUB_MAX_CLIENTS_PER_OID`` (default
+    200) subscribers. The reject path raises a new
+    ``WSHubFull`` exception **before** ``ws.accept()``, and the
+    ``/api/v1/ws`` endpoint translates it into a WebSocket close
+    with code ``1013`` ("Try Again Later") — the conventional
+    server-side back-pressure signal. The cap protects the box
+    from a runaway tab loop or a misconfigured load test eating
+    file descriptors. Configurable via the
+    ``WSHUB_MAX_CLIENTS_PER_OID`` env var.
+  * **Server heartbeat (opt-in).** When the operator sets
+    ``WSHUB_HEARTBEAT_INTERVAL_SECONDS > 0``, a background task
+    started from ``router_lifespan`` sweeps every connection
+    every ``INTERVAL`` seconds, sends an application-level
+    ``{"type":"ping"}`` frame, and evicts any client whose
+    ``mark_active`` timestamp is older than
+    ``WSHUB_CLIENT_TIMEOUT_SECONDS`` (default 60 s) with a 1011
+    close ("server error") and a clean ``disconnect``. Default
+    interval is **0 (disabled)** because the existing browser
+    client does not yet ack application-level pings — turning
+    this on without first updating the frontend would churn live
+    tabs every timeout. A new ``_env_float_nonneg`` helper in
+    ``app.constants`` lets ``KEY=0`` survive the validation as a
+    genuine "off" signal (the strict ``> 0`` filter on
+    ``_env_float`` would otherwise upgrade it to the default).
+  Tests: 6 new cases in ``tests/test_api_routes.py`` covering
+  ``WSHubFull`` raise-before-accept, the endpoint's 1013 close,
+  zombie eviction past the timeout, healthy-client ping
+  dispatch, ``mark_active`` bumping ``_last_seen``, and the
+  ``start_heartbeat`` no-op path. Suite at 934 passing.
+
+- **Audit log rotation + cursor-based pagination
+  (Fase 4 / M13).** The per-OID action audit
+  (``data/audit_<hash>.jsonl``) used to grow without bound — a
+  long tournament could leave a single file with hundreds of
+  thousands of lines, every read of which (``match_archive``,
+  ``GET /audit``, undo) walked the whole thing. Two changes:
+  * **Logrotate-style rotation.** Once the active file exceeds
+    ``AUDIT_LOG_MAX_BYTES`` (default 5 MiB), it rotates to
+    ``audit_<hash>.jsonl.1``, bumping older rotations down by one
+    suffix; anything past ``AUDIT_LOG_MAX_FILES - 1`` rotated
+    slots (default 5 total files counting the active) is dropped.
+    Rotation runs inside the existing per-OID lock so concurrent
+    appends never see a torn rename. ``read_all`` /
+    ``pop_last_forward`` / ``peek_last_forward`` walk the active
+    file plus every rotated file in chronological order, so
+    ``match_archive`` and the undo path keep seeing the full
+    visible history regardless of how many rotations have
+    occurred. ``clear`` and ``delete`` now sweep the whole family
+    (active + rotated) so a match reset starts genuinely empty.
+    Both knobs respect the same env-var override pattern as the
+    other tunables in ``app.constants``.
+  * **Cursor-based pagination on ``GET /audit``.** New optional
+    ``before_ts`` query parameter; the response now carries a
+    ``next_cursor`` field that the caller passes back to walk
+    history one window at a time. Older calls without
+    ``before_ts`` keep returning the most recent ``limit``
+    records, so the existing dashboard contract is preserved —
+    only new clients pay attention to ``next_cursor``. Tombstones
+    are honoured by the cursor so an undo between two pages does
+    not leak the cancelled record.
+  Tests: ``tests/test_action_log.py`` adds 13 new cases covering
+  no-rotation-under-threshold, single-rotation cross-file reads,
+  cap eviction (oldest records dropped), ``clear``/``delete``
+  sweeping the rotated set, undo tombstones spanning rotation,
+  cursor walks across all records, null-cursor on final page,
+  and pagination respecting tombstones. Suite at 928 passing.
+
+- **`/manage` — bulk delete, filter and per-overlay detail drawer
+  (Fase 1 — frontend half).** Three sizeable additions to the
+  custom-overlay manager UI:
+  * **Filter input** above the toolbar: live, case-insensitive
+    substring match against the overlay's name, OID and output
+    key. The result count (`23 of 50`) sits next to the input
+    with `aria-live="polite"` so screen readers announce the
+    new total when the operator types.
+  * **Bulk delete.** A new "Select" column adds a checkbox per
+    row, and a "Select all visible" checkbox in the header. The
+    toolbar gains a "Delete `<N>` selected" button (disabled
+    when nothing is checked); clicking it reuses the existing
+    confirmation modal, which now switches between the original
+    1-overlay layout and a list of up to 10 OIDs (with "… and N
+    more" tail) for multi-deletes. Deletes run sequentially so a
+    401 mid-run bounces back to login instead of fanning out N
+    parallel failures, and the status line summarises partial
+    successes ("`5 of 8 deleted; stopped at error: …`"). Selections
+    that point at OIDs no longer present after a server-side
+    refresh are dropped automatically.
+  * **Detail drawer.** A new "Edit" button on every row opens a
+    right-hand `<aside role="dialog">` that shows: a live
+    preview iframe (`/overlay/<output_key>?style=mosaic`,
+    `sandbox="allow-scripts allow-same-origin"`), a theme
+    dropdown wired to `GET /api/themes` and the new
+    `PATCH /api/v1/admin/custom-overlays/{name}` endpoint, and
+    a "Live usage" panel fed by `GET /usage` with a green/grey
+    dot ("Live" vs "Idle"), OBS viewer count, scoreboard tab
+    count, active-session flag and human-readable
+    "last activity 30s ago / 4m ago / 2h ago" string. The drawer
+    uses `inert` + `aria-hidden` instead of `display: none` so
+    the slide-in transition is meaningful, ESC closes it, and
+    focus returns to the originating button. After a theme is
+    applied, the iframe `src` is bumped with a cache-busting
+    `t=<now>` query so the operator immediately sees the new
+    look.
+
+  ⚠️ Screenshot regeneration: the `/manage` page now shows three
+  buttons in the toolbar (`+ New overlay`, `Refresh`, `Delete N
+  selected`) and a checkbox column. Run
+  `bash scripts/screenshots/run.sh` to refresh
+  `docs/screenshots/05-manage-page.png`. Skipped in this commit
+  because it needs Node + Playwright + a live server.
+
+### Added
+
+- **Admin endpoints for editing and inspecting custom overlays
+  (Fase 1 — backend half).** Two new routes under
+  ``/api/v1/admin/custom-overlays/{name}``:
+  * **``PATCH``** — partial update of a custom overlay's appearance.
+    The body accepts any combination of ``theme`` (preset name from
+    ``GET /api/themes``), ``colors`` (dict deep-merged into
+    ``overlay_control.colors``) and ``preferred_style`` (validated
+    against the renderable templates plus ``default``). When both
+    ``theme`` and explicit overrides are sent, the theme is applied
+    first so user-supplied values win on the second merge — that's
+    the operator's mental model. Empty patches are rejected with
+    400 to flag accidental form submissions instead of silently
+    no-op'ing. The mutation flows through
+    ``OverlayStateStore.update_state`` so OBS browser sources
+    receive the broadcast in real time (50 ms debounce).
+  * **``GET /usage``** — snapshot of how many live consumers a
+    custom overlay has: ``obs_clients`` (browser-source viewers),
+    ``frontend_ws_clients`` (scoreboard control tabs subscribed via
+    ``WSHub``), ``has_active_session`` (live ``GameSession``) and
+    ``seconds_since_last_activity`` (clamped at the session TTL).
+    The relative duration intentionally avoids confusing
+    ``time.monotonic`` timestamps with epoch wall-clock —
+    ``GameSession.touch`` uses monotonic and the operator's
+    question is "is this still live?", not "when exactly".
+  Both routes require ``OVERLAY_MANAGER_PASSWORD`` and feed the
+  drawer/usage indicator scheduled for the frontend half of Fase 1.
+
+### Refactored
+
+- **``PRESET_THEMES`` extracted to ``app.overlay.themes``.** The
+  static catalogue used to live inside ``app/overlay/routes.py``,
+  which made it inaccessible to ``app/admin/routes.py`` without a
+  circular import (overlay → admin already exists for
+  ``require_admin``). Moving it to a dedicated module breaks the
+  cycle, exposes a stable ``get_theme_names()`` helper to both
+  routers, and prepares the seam M8 (Fase 2) will widen when
+  themes become directory-backed under ``data/themes/``. The
+  ``GET /api/themes`` and ``POST /api/theme/{id}/{name}`` public
+  routes are unchanged on the wire — they now read through
+  ``themes.PRESET_THEMES`` instead of the local dict.
+
+### Changed
+
+- **`/manage` — auth-error handling unified across every admin call.**
+  The custom-overlay manager page previously only bounced the operator
+  back to the login view when ``loadOverlays`` got a 401/403; the
+  delete and create flows logged the raw error inside the dialog and
+  left the now-stale password in memory. A shared ``handleAuthError``
+  helper now clears the cached password, dismisses any open modal,
+  shows the login view and re-focuses the password input from
+  ``loadOverlays``, ``performDelete`` and the ``createForm`` submit
+  alike. Symptom: rotating ``OVERLAY_MANAGER_PASSWORD`` while a
+  manager tab was open used to leave the operator stuck inside a
+  half-broken modal until they refreshed.
+
+### Tests
+
+- **Coverage for the new env-var overrides in ``app.constants``.**
+  ``tests/test_constants.py`` (14 tests) reloads ``app.constants``
+  under each ``monkeypatch.setenv`` and verifies the ``SESSION_TTL_*``
+  / ``WS_*_SECONDS`` overrides honour the env, fall back to defaults
+  on garbage / empty / non-positive input, and that the legacy
+  re-exports in ``app.api.session_manager`` and ``app.ws_client`` see
+  the same value after a matching reload. Without these the only
+  thing protecting the override contract was the implicit "defaults
+  match legacy values" coincidence; a regression in the ``_env_int``
+  / ``_env_float`` parsers would have been silent.
+
+### Changed
+
+- **`/manage` quick wins (Fase 0 del roadmap de mejoras).** Three
+  small but operator-visible improvements to the custom-overlay
+  manager page (`app/admin/static/overlays.html`):
+  * **Accessible delete confirmation.** The custom-overlay delete
+    flow no longer uses `window.confirm`. It now opens a
+    `role="dialog" aria-modal="true"` overlay that shows the
+    overlay's name, OID and output key, traps TAB inside the
+    dialog, restores focus to the originating button on close, and
+    dismisses on ESC. The Cancel button is default-focused so a
+    stray ENTER cannot delete by accident. The pre-existing "New
+    custom overlay" modal received the same `aria-modal` /
+    `aria-labelledby` annotations.
+  * **Descriptive ARIA labels on the action buttons.** Screen-reader
+    users now hear "Copy overlay `mybroadcast`" / "Delete overlay
+    `mybroadcast`" instead of bare "Copy" / "Delete".
+  * **Mobile-friendly overlay table.** Below 600 px the overlay
+    list collapses into a stacked card layout (each row labelled
+    via `data-label` `::before` pseudo-elements), so the manager
+    is usable from a phone in a courtside operator workflow.
+
+  No API contract changes; `tests/test_admin.py` keeps passing.
+
+- **Centralised tunable constants in `app.constants`.** The
+  hardcoded `SESSION_TTL_SECONDS` (idle session eviction),
+  `WSHub._BROADCAST_SEND_TIMEOUT` (per-socket broadcast timeout)
+  and the `WSControlClient` reconnect/heartbeat parameters
+  (`_RECONNECT_BASE` / `_RECONNECT_MAX` / `_HEARTBEAT_INTERVAL` /
+  `_ZOMBIE_DEADLINE`) now load from `app.constants` and accept
+  env-var overrides (`SESSION_TTL_SECONDS`,
+  `WS_BROADCAST_SEND_TIMEOUT_SECONDS`, `WS_RECONNECT_BASE_SECONDS`,
+  `WS_RECONNECT_MAX_SECONDS`, `WS_HEARTBEAT_INTERVAL_SECONDS`,
+  `WS_ZOMBIE_DEADLINE_SECONDS`). Non-numeric or non-positive values
+  fall back to the previous defaults so a misconfigured environment
+  degrades gracefully. The legacy module-level names
+  (`app.api.session_manager.SESSION_TTL_SECONDS`,
+  `app.api.ws_hub.WSHub._BROADCAST_SEND_TIMEOUT`,
+  `app.ws_client._ZOMBIE_DEADLINE`…) are preserved as
+  re-exports/initialisers so the existing monkeypatch in
+  `tests/test_api_routes.py` and the deadline read in
+  `tests/test_ws_client.py` keep working untouched.
+
 ## [5.1.4] - 2026-05-07
 
 ### Fixed

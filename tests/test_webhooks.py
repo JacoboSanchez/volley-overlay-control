@@ -1,6 +1,7 @@
 """Tests for app/api/webhooks.py and the GameService firing path."""
 import json
-from unittest.mock import patch
+import time
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -226,6 +227,247 @@ class TestDispatch:
         assert any(
             target_url in (r.args or ()) for r in records
         )
+
+
+# ---------------------------------------------------------------------------
+# Retries + dead-letter (M16 — Fase 4)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def fast_retries(monkeypatch, tmp_path):
+    """Shrink retry timing and isolate the dead-letter file to *tmp_path*.
+
+    The retry loop calls ``time.sleep`` between attempts; with the
+    production defaults (1 / 2 / 4 s) a single failing test would
+    take seven seconds. ``WEBHOOK_RETRY_BASE_SECONDS=0`` skips that
+    entirely so the tests stay snappy.
+
+    The DL helper writes to ``data/webhooks_dead_letter.jsonl``
+    relative to the repo, which would persist across tests; redirect
+    its ``_data_dir`` at the module level so each test gets a clean
+    file inside ``tmp_path``.
+    """
+    from app.api import webhook_dead_letter, webhooks
+
+    monkeypatch.setattr(webhooks, "WEBHOOK_RETRY_ATTEMPTS", 2)
+    monkeypatch.setattr(webhooks, "WEBHOOK_RETRY_BASE_SECONDS", 0)
+    monkeypatch.setattr(webhooks, "WEBHOOK_RETRY_MAX_SECONDS", 0)
+    monkeypatch.setenv("WEBHOOKS_ALLOW_PRIVATE_IPS", "true")
+    monkeypatch.setattr(webhook_dead_letter, "_data_dir", lambda: str(tmp_path))
+    yield
+
+
+def _drain(dispatcher):
+    if dispatcher._executor is not None:
+        dispatcher._executor.shutdown(wait=True)
+        dispatcher._executor = None
+
+
+class TestWebhookRetries:
+    def test_first_attempt_success_is_not_retried(self, monkeypatch, fast_retries):
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        with patch("app.api.webhooks.requests.post") as post:
+            post.return_value.status_code = 200
+            d.dispatch("set_end", "oid", {})
+            _drain(d)
+            assert post.call_count == 1
+
+    def test_5xx_retries_then_succeeds(self, monkeypatch, fast_retries):
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        # First two attempts return 503, third returns 200 — total
+        # ATTEMPTS+1 = 3 POSTs (the dispatcher's view).
+        responses = [
+            MagicMock(status_code=503),
+            MagicMock(status_code=503),
+            MagicMock(status_code=200),
+        ]
+        with patch("app.api.webhooks.requests.post", side_effect=responses) as post:
+            d.dispatch("set_end", "oid", {})
+            _drain(d)
+            assert post.call_count == 3
+        # Nothing should have landed in the DL since the final attempt
+        # succeeded.
+        from app.api import webhook_dead_letter
+        assert webhook_dead_letter.read_all() == []
+
+    def test_5xx_exhausts_retries_writes_to_dead_letter(
+        self, monkeypatch, fast_retries,
+    ):
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        with patch(
+            "app.api.webhooks.requests.post",
+            return_value=MagicMock(status_code=503),
+        ) as post:
+            d.dispatch("set_end", "oid-X", {"k": "v"})
+            _drain(d)
+            # ATTEMPTS=2 → 3 total POSTs.
+            assert post.call_count == 3
+        from app.api import webhook_dead_letter
+        records = webhook_dead_letter.read_all()
+        assert len(records) == 1
+        rec = records[0]
+        assert rec["url"] == "https://hooks.example.com/x"
+        assert rec["event"] == "set_end"
+        assert rec["oid"] == "oid-X"
+        assert rec["last_error"] == "HTTP 503"
+        assert rec["attempts"] == 3
+        # Body is round-tripped as the JSON string that would have been sent.
+        body = json.loads(rec["body"])
+        assert body["event"] == "set_end"
+        assert body["oid"] == "oid-X"
+        assert body["k"] == "v"
+
+    def test_4xx_does_not_retry_or_dead_letter(self, monkeypatch, fast_retries):
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        with patch(
+            "app.api.webhooks.requests.post",
+            return_value=MagicMock(status_code=403),
+        ) as post:
+            d.dispatch("set_end", "oid", {})
+            _drain(d)
+            # 4xx is permanent → exactly one attempt.
+            assert post.call_count == 1
+        from app.api import webhook_dead_letter
+        assert webhook_dead_letter.read_all() == []
+
+    def test_request_exception_retries_then_dead_letters(
+        self, monkeypatch, fast_retries,
+    ):
+        import requests
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        with patch(
+            "app.api.webhooks.requests.post",
+            side_effect=requests.ConnectTimeout("nope"),
+        ) as post:
+            d.dispatch("set_end", "oid", {})
+            _drain(d)
+            assert post.call_count == 3
+        from app.api import webhook_dead_letter
+        records = webhook_dead_letter.read_all()
+        assert len(records) == 1
+        assert "ConnectTimeout" in records[0]["last_error"]
+
+
+class TestDeadLetterCap:
+    """``append`` must keep the DL file under the configured cap."""
+
+    @pytest.fixture
+    def small_cap(self, monkeypatch, tmp_path):
+        from app.api import webhook_dead_letter
+
+        monkeypatch.setattr(
+            webhook_dead_letter, "WEBHOOK_DEAD_LETTER_MAX_RECORDS", 3,
+        )
+        monkeypatch.setattr(
+            webhook_dead_letter, "_data_dir", lambda: str(tmp_path),
+        )
+        yield
+
+    def test_under_cap_appends_normally(self, small_cap):
+        from app.api import webhook_dead_letter
+
+        for i in range(3):
+            webhook_dead_letter.append({"url": "u", "event": "e", "oid": f"o{i}"})
+        records = webhook_dead_letter.read_all()
+        assert [r["oid"] for r in records] == ["o0", "o1", "o2"]
+
+    def test_overflow_evicts_oldest(self, small_cap):
+        from app.api import webhook_dead_letter
+
+        for i in range(5):
+            webhook_dead_letter.append({"url": "u", "event": "e", "oid": f"o{i}"})
+        records = webhook_dead_letter.read_all()
+        # Cap=3 and we wrote 5 → the two oldest (o0, o1) were evicted.
+        assert len(records) == 3
+        assert [r["oid"] for r in records] == ["o2", "o3", "o4"]
+
+    def test_count_reflects_disk_state(self, small_cap):
+        from app.api import webhook_dead_letter
+
+        assert webhook_dead_letter.count() == 0
+        webhook_dead_letter.append({"url": "u", "event": "e", "oid": "x"})
+        assert webhook_dead_letter.count() == 1
+
+    def test_gauge_tracks_size(self, small_cap):
+        from app.api import webhook_dead_letter
+        from app.metrics import webhook_dead_letter_size
+
+        webhook_dead_letter_size.set(0)  # reset for test isolation
+        webhook_dead_letter.append({"url": "u", "event": "e", "oid": "g0"})
+        assert webhook_dead_letter_size._value.get() == 1
+        webhook_dead_letter.append({"url": "u", "event": "e", "oid": "g1"})
+        assert webhook_dead_letter_size._value.get() == 2
+        webhook_dead_letter.clear()
+        assert webhook_dead_letter_size._value.get() == 0
+
+
+class TestReplayRecords:
+    def test_replay_redelivers_on_success(self, monkeypatch, fast_retries):
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        # Seed a DL record manually.
+        record = {
+            "ts": time.time(),
+            "url": "https://hooks.example.com/x",
+            "event": "set_end",
+            "oid": "oid-1",
+            "body": json.dumps({"event": "set_end", "oid": "oid-1"}),
+            "last_error": "HTTP 503",
+            "attempts": 3,
+        }
+        with patch(
+            "app.api.webhooks.requests.post",
+            return_value=MagicMock(status_code=200),
+        ) as post:
+            succeeded, still_failing, skipped = d.replay_records([record])
+        assert succeeded == 1
+        assert still_failing == []
+        assert skipped == 0
+        assert post.call_count == 1
+
+    def test_replay_keeps_records_with_unknown_url(
+        self, monkeypatch, fast_retries,
+    ):
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        record = {
+            "ts": time.time(),
+            "url": "https://stale.example.com/old-target",
+            "event": "set_end", "oid": "oid", "body": "{}",
+        }
+        with patch("app.api.webhooks.requests.post") as post:
+            succeeded, still_failing, skipped = d.replay_records([record])
+        assert succeeded == 0
+        assert skipped == 1
+        assert len(still_failing) == 1
+        assert post.call_count == 0
+
+    def test_replay_failure_increments_attempts(self, monkeypatch, fast_retries):
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        d = WebhookDispatcher()
+        record = {
+            "ts": time.time(),
+            "url": "https://hooks.example.com/x",
+            "event": "set_end", "oid": "o", "body": "{}",
+            "attempts": 3,
+        }
+        with patch(
+            "app.api.webhooks.requests.post",
+            return_value=MagicMock(status_code=503),
+        ):
+            succeeded, still_failing, skipped = d.replay_records([record])
+        assert succeeded == 0
+        assert skipped == 0
+        assert len(still_failing) == 1
+        # original 3 + (ATTEMPTS=2 + 1) = 6
+        assert still_failing[0]["attempts"] == 6
+        assert still_failing[0]["last_error"] == "HTTP 503"
 
 
 # ---------------------------------------------------------------------------
