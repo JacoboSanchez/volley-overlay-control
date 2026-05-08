@@ -393,6 +393,107 @@ def test_delete_missing(client):
 
 
 # ---------------------------------------------------------------------------
+# POST /webhooks/replay  (M16 — Fase 4)
+# ---------------------------------------------------------------------------
+
+
+class TestWebhookReplayEndpoint:
+    """Operator-triggered redelivery of dead-lettered webhooks."""
+
+    @pytest.fixture
+    def replay_env(self, monkeypatch, tmp_path):
+        """Isolate the dead-letter file and shrink retry timing."""
+        from app.api import webhook_dead_letter, webhooks
+
+        monkeypatch.setattr(webhooks, "WEBHOOK_RETRY_ATTEMPTS", 0)
+        monkeypatch.setattr(webhooks, "WEBHOOK_RETRY_BASE_SECONDS", 0)
+        monkeypatch.setattr(webhooks, "WEBHOOK_RETRY_MAX_SECONDS", 0)
+        monkeypatch.setattr(webhook_dead_letter, "_data_dir", lambda: str(tmp_path))
+        monkeypatch.setenv("WEBHOOKS_ALLOW_PRIVATE_IPS", "true")
+        monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")
+        webhooks.webhook_dispatcher.reload()
+        yield
+
+    def test_requires_auth(self, client, replay_env):
+        res = client.post("/api/v1/admin/webhooks/replay")
+        assert res.status_code == 401
+
+    def test_empty_dead_letter_is_a_clean_no_op(self, client, replay_env):
+        res = client.post(
+            "/api/v1/admin/webhooks/replay", headers=_auth(),
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body == {
+            "considered": 0,
+            "succeeded": 0,
+            "still_failing": 0,
+            "skipped_unknown_url": 0,
+        }
+
+    def test_redelivers_and_prunes_successes(self, client, replay_env):
+        from unittest.mock import MagicMock, patch
+
+        from app.api import webhook_dead_letter
+        webhook_dead_letter.append({
+            "url": "https://hooks.example.com/x",
+            "event": "set_end", "oid": "o", "body": "{}",
+            "last_error": "HTTP 503", "attempts": 4,
+        })
+        with patch(
+            "app.api.webhooks.requests.post",
+            return_value=MagicMock(status_code=200),
+        ):
+            res = client.post(
+                "/api/v1/admin/webhooks/replay", headers=_auth(),
+            )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["considered"] == 1
+        assert body["succeeded"] == 1
+        assert body["still_failing"] == 0
+        # The DL file is now empty.
+        assert webhook_dead_letter.read_all() == []
+
+    def test_since_filter_keeps_older_records_untouched(self, client, replay_env):
+        import time as _time
+        from unittest.mock import MagicMock, patch
+
+        from app.api import webhook_dead_letter
+
+        old_ts = _time.time() - 3600
+        recent_ts = _time.time()
+        webhook_dead_letter.append({
+            "ts": old_ts,
+            "url": "https://hooks.example.com/x",
+            "event": "set_end", "oid": "old", "body": "{}",
+        })
+        webhook_dead_letter.append({
+            "ts": recent_ts,
+            "url": "https://hooks.example.com/x",
+            "event": "set_end", "oid": "new", "body": "{}",
+        })
+        with patch(
+            "app.api.webhooks.requests.post",
+            return_value=MagicMock(status_code=200),
+        ):
+            # Replay only the recent one.
+            res = client.post(
+                "/api/v1/admin/webhooks/replay",
+                params={"since": recent_ts - 1},
+                headers=_auth(),
+            )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["considered"] == 1
+        assert body["succeeded"] == 1
+        # The old record is still on disk.
+        remaining = webhook_dead_letter.read_all()
+        assert len(remaining) == 1
+        assert remaining[0]["oid"] == "old"
+
+
+# ---------------------------------------------------------------------------
 # Public overlays endpoint no longer merges managed overlays
 # ---------------------------------------------------------------------------
 

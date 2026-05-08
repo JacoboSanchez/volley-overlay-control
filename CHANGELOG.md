@@ -10,6 +10,54 @@ once a first tagged release ships.
 
 ### Added
 
+- **Webhook retries + dead-letter queue + operator replay
+  (Fase 4 / M16).** The outbound webhook dispatcher used to be
+  fire-and-forget: a single 503 from a flaky receiver dropped
+  the event on the floor with nothing more than a log warning.
+  Three changes:
+  * **Retries with exponential backoff.** ``_attempt_with_retries``
+    runs the configured ``WEBHOOK_RETRY_ATTEMPTS`` (default 3)
+    additional POSTs after the first failure, sleeping
+    ``WEBHOOK_RETRY_BASE_SECONDS * 2**(attempt-1)`` between them
+    (capped at ``WEBHOOK_RETRY_MAX_SECONDS``). Defaults give the
+    classic 1 / 2 / 4 / 8 progression. Retries fire on 5xx and
+    on ``requests.RequestException`` (timeouts, connect errors);
+    **4xx is treated as permanent client rejection** — no retry,
+    no dead-letter, just a warning, because retrying a "bad
+    request" never converges.
+  * **Dead-letter queue.** When retries are exhausted on a
+    transient failure, the delivery is appended to
+    ``data/webhooks_dead_letter.jsonl`` with the URL, event,
+    OID, body (as a UTF-8 string for human inspection), last
+    error string and attempt count. The HMAC ``secret`` is
+    deliberately **not** persisted — replay re-resolves the
+    target's secret from the live config, so rotating
+    ``WEBHOOKS_SECRET`` does not strand legacy entries with
+    stale signatures and a leaked DL file does not leak signing
+    keys. SSRF blocks and 4xx rejections are also kept out of
+    the DL because they are not replay-recoverable. The DL file
+    is rewritten atomically (tempfile + ``os.replace``) so a
+    crash mid-write cannot leave it half-written.
+  * **Operator replay endpoint.** New
+    ``POST /api/v1/admin/webhooks/replay`` (gated by
+    ``OVERLAY_MANAGER_PASSWORD``) reads the DL, optionally
+    filters by ``since=<unix-seconds>``, redelivers each record
+    against the current target config, and rewrites the file
+    with only the entries that still failed (plus those whose
+    URL no longer matches any configured target — kept so the
+    operator can fix the config and retry). The response carries
+    counts only (``considered`` / ``succeeded`` /
+    ``still_failing`` / ``skipped_unknown_url``); the payloads
+    themselves are never echoed through the admin surface.
+
+  Tests: 8 new in ``tests/test_webhooks.py`` (first-attempt
+  success, 5xx-then-success, 5xx-exhausts-retries, 4xx-no-retry,
+  RequestException retries, ``replay_records`` happy path,
+  unknown-URL preservation, attempts-counter increment) plus
+  4 endpoint-level cases in ``tests/test_admin.py`` (auth,
+  empty-DL no-op, success path pruning, ``since`` filter
+  preserving older entries). Suite at 946 passing.
+
 - **WebSocket connection cap + opt-in server heartbeat
   (Fase 4 / M14).** Two complementary defences against runaway
   ``WSHub`` registries:

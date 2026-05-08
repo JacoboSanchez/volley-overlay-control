@@ -43,6 +43,12 @@ from urllib.parse import urlparse
 
 import requests
 
+from app.api import webhook_dead_letter
+from app.constants import (
+    WEBHOOK_RETRY_ATTEMPTS,
+    WEBHOOK_RETRY_BASE_SECONDS,
+    WEBHOOK_RETRY_MAX_SECONDS,
+)
 from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger(__name__)
@@ -296,9 +302,12 @@ class WebhookDispatcher:
             if executor is None:
                 # Synchronous fallback (used by tests when the executor
                 # is mocked away). Keeps semantics identical.
-                self._deliver(target, body_bytes)
+                self._deliver(target, body_bytes, event=event, oid=oid)
             else:
-                executor.submit(self._deliver, target, body_bytes)
+                executor.submit(
+                    self._deliver, target, body_bytes,
+                    event=event, oid=oid,
+                )
         return queued
 
     @staticmethod
@@ -308,45 +317,167 @@ class WebhookDispatcher:
         ).hexdigest()
         return f"sha256={digest}"
 
-    def _deliver(self, target: WebhookTarget, body: bytes) -> None:
-        # SSRF guard: refuse to call URLs that resolve to private,
-        # loopback, link-local, or otherwise non-public IPs unless
-        # the operator explicitly opted in. Resolution happens here
-        # rather than at config time so a target whose DNS rotates
-        # between deliveries is still vetted on every send. This
-        # does not fully mitigate DNS rebinding (the IP at delivery
-        # could differ from the one ``requests.post`` ultimately
-        # connects to), but it stops the most common foot-guns:
-        # accidental ``http://localhost/...`` typos and cloud
-        # metadata endpoints (``http://169.254.169.254``).
-        if not _allow_private_targets():
-            safe, reason = _is_target_safe(target.url)
-            if not safe:
-                logger.warning(
-                    "Webhook %s blocked by SSRF guard: %s. Set "
-                    "WEBHOOKS_ALLOW_PRIVATE_IPS=true to opt into "
-                    "private-network targets.",
-                    target.url, reason,
-                )
-                return
+    @staticmethod
+    def _ssrf_check(target: WebhookTarget) -> bool:
+        """Return True if *target* passes the SSRF allow-list.
 
+        Mirrors the original guard in ``_deliver``: refuses URLs whose
+        host resolves to a private/loopback/link-local/multicast/
+        reserved IP unless the operator opted into private targets.
+        """
+        if _allow_private_targets():
+            return True
+        safe, reason = _is_target_safe(target.url)
+        if not safe:
+            logger.warning(
+                "Webhook %s blocked by SSRF guard: %s. Set "
+                "WEBHOOKS_ALLOW_PRIVATE_IPS=true to opt into "
+                "private-network targets.",
+                target.url, reason,
+            )
+            return False
+        return True
+
+    def _attempt_with_retries(
+        self, target: WebhookTarget, body: bytes,
+    ) -> tuple[bool, str]:
+        """Try delivery with up to ``WEBHOOK_RETRY_ATTEMPTS`` retries.
+
+        Retries on 5xx and ``requests.RequestException`` (timeouts,
+        connect errors). 4xx is treated as a permanent client
+        rejection — no retry, no dead-letter, just a warning.
+
+        Backoff: ``WEBHOOK_RETRY_BASE_SECONDS * 2**(attempt-1)``,
+        capped at ``WEBHOOK_RETRY_MAX_SECONDS``. Default is
+        1 / 2 / 4 seconds between attempts (then capped at 8).
+
+        Returns ``(success, last_error_string)``. ``last_error`` is
+        empty when ``success`` is True or when the failure was a 4xx
+        (the 4xx body is logged but not re-surfaced).
+        """
+        if not self._ssrf_check(target):
+            # SSRF block is permanent: do not retry, do not DL, do not
+            # leak the URL in the error string returned to the caller.
+            return False, ""
         headers = {"Content-Type": "application/json"}
         if target.secret:
             headers["X-Webhook-Signature"] = self._sign(target.secret, body)
-        try:
-            response = requests.post(
-                target.url,
-                data=body,
-                headers=headers,
-                timeout=target.timeout_s,
-            )
-            if response.status_code >= 400:
+        last_err = ""
+        total_attempts = WEBHOOK_RETRY_ATTEMPTS + 1
+        for attempt in range(total_attempts):
+            if attempt > 0:
+                delay = min(
+                    WEBHOOK_RETRY_BASE_SECONDS * (2 ** (attempt - 1)),
+                    WEBHOOK_RETRY_MAX_SECONDS,
+                )
+                time.sleep(delay)
+            try:
+                response = requests.post(
+                    target.url,
+                    data=body,
+                    headers=headers,
+                    timeout=target.timeout_s,
+                )
+            except requests.RequestException as exc:
+                last_err = f"{type(exc).__name__}: {exc}"
                 logger.warning(
-                    "Webhook %s returned %s",
+                    "Webhook %s failed on attempt %d/%d: %s",
+                    target.url, attempt + 1, total_attempts, exc,
+                )
+                continue
+            if response.status_code < 400:
+                return True, ""
+            if 400 <= response.status_code < 500:
+                # Client-side rejection: not retriable, not dead-letter
+                # material — the receiver will keep saying no.
+                logger.warning(
+                    "Webhook %s returned %d (not retried)",
                     target.url, response.status_code,
                 )
-        except requests.RequestException as exc:
-            logger.warning("Webhook %s failed: %s", target.url, exc)
+                return False, ""
+            last_err = f"HTTP {response.status_code}"
+            logger.warning(
+                "Webhook %s returned %d on attempt %d/%d",
+                target.url, response.status_code, attempt + 1, total_attempts,
+            )
+        return False, last_err
+
+    def _deliver(
+        self,
+        target: WebhookTarget,
+        body: bytes,
+        event: str = "",
+        oid: str = "",
+    ) -> None:
+        """Deliver *body* with retries; dead-letter on terminal failure.
+
+        Called from the dispatch thread pool. Successes return
+        silently; permanent 4xx / SSRF rejections also return silently
+        (their warnings live in the logger). Only retriable failures
+        that exhaust ``WEBHOOK_RETRY_ATTEMPTS`` end up in the
+        dead-letter file for operator-initiated replay.
+        """
+        ok, last_err = self._attempt_with_retries(target, body)
+        if ok or not last_err:
+            return
+        try:
+            body_str = body.decode("utf-8")
+        except UnicodeDecodeError:
+            body_str = body.decode("utf-8", errors="replace")
+        webhook_dead_letter.append({
+            "url": target.url,
+            "event": event,
+            "oid": oid,
+            "body": body_str,
+            "last_error": last_err,
+            "attempts": WEBHOOK_RETRY_ATTEMPTS + 1,
+        })
+
+    def replay_records(
+        self, records: list[dict],
+    ) -> tuple[int, list[dict], int]:
+        """Re-attempt *records* against the current target config.
+
+        Used by the admin replay endpoint. Each record is matched to a
+        configured ``WebhookTarget`` by URL; missing matches mean the
+        operator changed the config since the entry landed in the DL,
+        and those records are kept in the DL for manual triage.
+
+        Returns ``(succeeded, still_failing, skipped_unknown_url)``:
+
+        * ``succeeded`` — count of records re-delivered cleanly.
+        * ``still_failing`` — records to write back to the DL (failed
+          deliveries plus skipped ones, so the operator does not lose
+          them on replay).
+        * ``skipped_unknown_url`` — count of records whose URL no
+          longer matches any configured target. They're included in
+          ``still_failing`` so the operator can rewrite their config
+          and retry.
+        """
+        targets = self._ensure_loaded()
+        targets_by_url = {t.url: t for t in targets}
+        succeeded = 0
+        still_failing: list[dict] = []
+        skipped = 0
+        for r in records:
+            target = targets_by_url.get(r.get("url"))
+            if target is None:
+                skipped += 1
+                still_failing.append(r)
+                continue
+            body_str = r.get("body") or ""
+            body = body_str.encode("utf-8")
+            ok, last_err = self._attempt_with_retries(target, body)
+            if ok:
+                succeeded += 1
+                continue
+            updated = dict(r)
+            updated["last_error"] = last_err or r.get("last_error", "")
+            updated["attempts"] = (
+                int(r.get("attempts", 0)) + WEBHOOK_RETRY_ATTEMPTS + 1
+            )
+            still_failing.append(updated)
+        return succeeded, still_failing, skipped
 
 
 # Module-level singleton — mirrors the overlay/store/hub pattern.

@@ -22,7 +22,7 @@ import os
 import re
 import time
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
@@ -463,6 +463,61 @@ def get_custom_overlay_usage(name: str):
         has_active_session=has_session,
         seconds_since_last_activity=seconds_since,
     )
+
+
+@admin_router.post(
+    "/webhooks/replay",
+    dependencies=[Depends(require_admin)],
+    summary="Re-deliver dead-lettered webhook records",
+)
+def replay_dead_letter_webhooks(
+    since: float | None = Query(
+        None,
+        description=(
+            "Only replay records whose ``ts`` is >= this Unix-seconds "
+            "value. Useful for restricting replay to entries that "
+            "landed after the receiving service came back online."
+        ),
+    ),
+):
+    """Replay every record currently in the webhook dead-letter file.
+
+    Each record is matched to a configured ``WebhookTarget`` by URL,
+    re-signed with the *current* HMAC secret (so rotating
+    ``WEBHOOKS_SECRET`` doesn't strand legacy records with stale
+    signatures), and re-attempted with the standard retry policy.
+
+    * Successful redeliveries are removed from the file.
+    * Records whose URL no longer matches any configured target are
+      kept on disk so the operator can fix the config and retry.
+    * Records that fail again are kept with their ``attempts``
+      counter bumped and the latest ``last_error`` recorded.
+
+    Returns counts only — the body itself is never echoed back to
+    avoid leaking match payloads through the admin surface.
+    """
+    # Lazy imports keep ``app.admin.routes`` light for tests that just
+    # exercise overlay CRUD; pulling in ``requests`` (via webhooks)
+    # eagerly would tax those test paths.
+    from app.api import webhook_dead_letter, webhooks
+    records = webhook_dead_letter.read_all()
+    if since is not None:
+        # Anything older than ``since`` stays in the file untouched.
+        replay_set = [r for r in records if r.get("ts", 0) >= since]
+        keep_set = [r for r in records if r.get("ts", 0) < since]
+    else:
+        replay_set = list(records)
+        keep_set = []
+    succeeded, still_failing, skipped = (
+        webhooks.webhook_dispatcher.replay_records(replay_set)
+    )
+    webhook_dead_letter.replace_all(keep_set + still_failing)
+    return {
+        "considered": len(replay_set),
+        "succeeded": succeeded,
+        "still_failing": len(still_failing),
+        "skipped_unknown_url": skipped,
+    }
 
 
 @admin_router.delete("/custom-overlays/{name}", dependencies=[Depends(require_admin)])

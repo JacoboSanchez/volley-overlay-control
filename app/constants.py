@@ -97,6 +97,18 @@ WSHUB_CLIENT_TIMEOUT_SECONDS = _env_float(
     "WSHUB_CLIENT_TIMEOUT_SECONDS", 60.0,
 )
 
+# Outbound webhook retry policy. Exponential backoff between attempts:
+# ``RETRY_BASE * 2**attempt`` capped at ``RETRY_MAX``. Only 5xx
+# responses and ``requests.RequestException`` (timeouts, connect
+# errors) trigger a retry — 4xx is treated as a permanent client
+# rejection and goes straight to the dead-letter (well, it does not:
+# 4xx is logged and dropped, see ``app/api/webhooks.py``).
+# ``RETRY_ATTEMPTS`` counts retries *after* the first attempt, so
+# the default of 3 means up to 4 total POSTs per delivery.
+WEBHOOK_RETRY_ATTEMPTS = _env_int("WEBHOOK_RETRY_ATTEMPTS", 3)
+WEBHOOK_RETRY_BASE_SECONDS = _env_float("WEBHOOK_RETRY_BASE_SECONDS", 1.0)
+WEBHOOK_RETRY_MAX_SECONDS = _env_float("WEBHOOK_RETRY_MAX_SECONDS", 8.0)
+
 # ``WSControlClient`` reconnect/heartbeat tuning. ``WS_ZOMBIE_DEADLINE``
 # must stay > 2 * ``WS_HEARTBEAT_INTERVAL`` so a single dropped pong
 # does not churn the connection.
