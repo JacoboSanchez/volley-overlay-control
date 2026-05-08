@@ -47,6 +47,15 @@ WS_BROADCAST_SEND_TIMEOUT_SECONDS = _env_float(
     "WS_BROADCAST_SEND_TIMEOUT_SECONDS", 2.0,
 )
 
+# Per-OID audit log file rotation. The active log rotates to
+# ``audit_<hash>.jsonl.1`` once it exceeds ``AUDIT_LOG_MAX_BYTES``,
+# bumping older rotations down by one suffix; anything above
+# ``AUDIT_LOG_MAX_FILES`` (counting the active file) is dropped.
+# Keeps long-running per-OID logs from growing unbounded while still
+# letting ``read_all`` / ``read_page`` walk the rotated set transparently.
+AUDIT_LOG_MAX_BYTES = _env_int("AUDIT_LOG_MAX_BYTES", 5 * 1024 * 1024)
+AUDIT_LOG_MAX_FILES = _env_int("AUDIT_LOG_MAX_FILES", 5)
+
 # ``WSControlClient`` reconnect/heartbeat tuning. ``WS_ZOMBIE_DEADLINE``
 # must stay > 2 * ``WS_HEARTBEAT_INTERVAL`` so a single dropped pong
 # does not churn the connection.

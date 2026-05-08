@@ -10,6 +10,43 @@ once a first tagged release ships.
 
 ### Added
 
+- **Audit log rotation + cursor-based pagination
+  (Fase 4 / M13).** The per-OID action audit
+  (``data/audit_<hash>.jsonl``) used to grow without bound — a
+  long tournament could leave a single file with hundreds of
+  thousands of lines, every read of which (``match_archive``,
+  ``GET /audit``, undo) walked the whole thing. Two changes:
+  * **Logrotate-style rotation.** Once the active file exceeds
+    ``AUDIT_LOG_MAX_BYTES`` (default 5 MiB), it rotates to
+    ``audit_<hash>.jsonl.1``, bumping older rotations down by one
+    suffix; anything past ``AUDIT_LOG_MAX_FILES - 1`` rotated
+    slots (default 5 total files counting the active) is dropped.
+    Rotation runs inside the existing per-OID lock so concurrent
+    appends never see a torn rename. ``read_all`` /
+    ``pop_last_forward`` / ``peek_last_forward`` walk the active
+    file plus every rotated file in chronological order, so
+    ``match_archive`` and the undo path keep seeing the full
+    visible history regardless of how many rotations have
+    occurred. ``clear`` and ``delete`` now sweep the whole family
+    (active + rotated) so a match reset starts genuinely empty.
+    Both knobs respect the same env-var override pattern as the
+    other tunables in ``app.constants``.
+  * **Cursor-based pagination on ``GET /audit``.** New optional
+    ``before_ts`` query parameter; the response now carries a
+    ``next_cursor`` field that the caller passes back to walk
+    history one window at a time. Older calls without
+    ``before_ts`` keep returning the most recent ``limit``
+    records, so the existing dashboard contract is preserved —
+    only new clients pay attention to ``next_cursor``. Tombstones
+    are honoured by the cursor so an undo between two pages does
+    not leak the cancelled record.
+  Tests: ``tests/test_action_log.py`` adds 13 new cases covering
+  no-rotation-under-threshold, single-rotation cross-file reads,
+  cap eviction (oldest records dropped), ``clear``/``delete``
+  sweeping the rotated set, undo tombstones spanning rotation,
+  cursor walks across all records, null-cursor on final page,
+  and pagination respecting tombstones. Suite at 928 passing.
+
 - **`/manage` — bulk delete, filter and per-overlay detail drawer
   (Fase 1 — frontend half).** Three sizeable additions to the
   custom-overlay manager UI:
