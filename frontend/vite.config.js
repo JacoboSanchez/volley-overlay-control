@@ -97,7 +97,7 @@ export default defineConfig(async () => ({
         globPatterns: ['**/*.{js,css,html,svg,ttf,otf}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [
-          /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/,
+          /^\/api/, /^\/fonts/, /^\/pwa/, /^\/health/, /^\/metrics(\/|\?|$)/,
           /^\/overlay/, /^\/ws(\/|\?|$)/, /^\/static/,
           /^\/(create|delete|list|manage)(\/|\?|$)/,
           // Server-rendered match-history surfaces. Without these the SW
