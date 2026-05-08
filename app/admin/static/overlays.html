@@ -146,6 +146,139 @@
   }
   .modal h2 { margin-top: 0; }
   .modal p.muted { margin: 0.4rem 0 1rem; }
+  .manage-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+  }
+  .manage-controls input[type="search"] {
+    flex: 1;
+    min-width: 220px;
+    max-width: 360px;
+  }
+  #resultCount { font-size: 0.85rem; }
+  #bulkCount { font-variant-numeric: tabular-nums; }
+  th.select-col, td.select-col { width: 36px; padding-right: 0; }
+  .bulk-list {
+    margin: 0.5rem 0 1rem;
+    padding-left: 1.25rem;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .bulk-list li { font-family: monospace; font-size: 0.85rem; }
+  .link-btn {
+    background: transparent;
+    color: var(--accent);
+    padding: 0.25rem 0.5rem;
+    text-align: left;
+    font-weight: inherit;
+  }
+  .link-btn:hover { background: var(--surface-alt); }
+  .row-name-btn {
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* Drawer (overlay detail panel) */
+  .drawer {
+    position: fixed;
+    top: 0; right: 0;
+    width: 100%;
+    max-width: 480px;
+    height: 100dvh;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    z-index: 8;
+    transform: translateX(100%);
+    transition: transform 0.18s ease-out;
+    visibility: hidden;
+  }
+  .drawer.open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .drawer-header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    word-break: break-all;
+  }
+  .drawer-close {
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0.1rem 0.55rem;
+  }
+  .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+  }
+  .drawer-section { margin-bottom: 1.5rem; }
+  .drawer-section h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .drawer-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .drawer-preview iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  #drawerUsage dl.usage-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.3rem 0.75rem;
+    margin: 0;
+    font-size: 0.9rem;
+  }
+  #drawerUsage dt { color: var(--muted); }
+  #drawerUsage dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-right: 0.4rem;
+    vertical-align: middle;
+  }
+  .dot.live { background: #2e7d32; }
+  .row-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
   .modal dl.meta {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -200,6 +333,9 @@
     }
     table td.actions { justify-content: flex-end; padding-top: 0.5rem; }
     table td.actions::before { display: none; }
+    table td.select-col { justify-content: flex-end; padding: 0.2rem 0; }
+    table td.select-col::before { display: none; }
+    .manage-controls input[type="search"] { max-width: 100%; }
   }
 </style>
 </head>
@@ -246,9 +382,19 @@
         <code>/overlay/&lt;output_key&gt;</code>. Use the OID shown below when
         pointing the scoreboard controller at an overlay.
       </p>
+      <div class="manage-controls">
+        <input type="search" id="filterInput"
+               placeholder="Filter by name or OID…"
+               aria-label="Filter overlays" />
+        <span id="resultCount" class="muted" aria-live="polite"></span>
+      </div>
       <div class="toolbar" style="justify-content: flex-start;">
         <button id="newBtn">+ New overlay</button>
         <button id="refreshBtn" class="secondary">Refresh</button>
+        <button id="bulkDeleteBtn" class="danger" disabled
+                aria-label="Delete selected overlays">
+          Delete <span id="bulkCount">0</span> selected
+        </button>
       </div>
       <div id="overlayList"></div>
     </div>
@@ -287,6 +433,55 @@
     </div>
   </div>
 
+  <!-- Detail drawer (M5): live preview, theme apply, usage indicator -->
+  <aside id="overlayDrawer" class="drawer" aria-hidden="true" inert
+         aria-labelledby="drawerTitle">
+    <header class="drawer-header">
+      <h2 id="drawerTitle">Overlay</h2>
+      <button id="drawerCloseBtn" class="secondary drawer-close"
+              aria-label="Close overlay drawer" type="button">×</button>
+    </header>
+    <div class="drawer-body">
+      <section class="drawer-section">
+        <h3>Preview</h3>
+        <div class="drawer-preview">
+          <iframe id="drawerPreview"
+                  title="Overlay live preview"
+                  sandbox="allow-scripts allow-same-origin"
+                  referrerpolicy="same-origin"></iframe>
+        </div>
+        <p class="muted" style="margin: 0.5rem 0 0;">
+          <a id="drawerOpenInTab" href="#" target="_blank" rel="noopener">
+            Open preview in new tab ↗
+          </a>
+        </p>
+      </section>
+
+      <section class="drawer-section">
+        <h3>Theme</h3>
+        <p class="muted" style="margin: 0 0 0.5rem;">
+          Applies a preset theme to the overlay. The change reaches OBS
+          browser sources in real time via the broadcast hub.
+        </p>
+        <div class="field">
+          <label for="drawerTheme">Preset</label>
+          <select id="drawerTheme">
+            <option value="">— Keep current —</option>
+          </select>
+        </div>
+        <div id="drawerError" class="status error hidden"></div>
+        <div class="toolbar">
+          <button id="drawerApplyBtn" type="button">Apply theme</button>
+        </div>
+      </section>
+
+      <section class="drawer-section">
+        <h3>Live usage</h3>
+        <div id="drawerUsage" class="muted">Loading…</div>
+      </section>
+    </div>
+  </aside>
+
   <!-- Delete confirmation modal -->
   <div id="deleteModal" class="modal-backdrop hidden"
        role="dialog" aria-modal="true"
@@ -296,13 +491,9 @@
       <p id="deleteDesc" class="muted">
         This permanently removes the overlay's persisted state, disconnects
         any broadcast clients, and deletes the saved match archive entries
-        for this OID. This action cannot be undone.
+        for the affected OIDs. This action cannot be undone.
       </p>
-      <dl class="meta">
-        <dt>Name</dt><dd><strong id="deleteName"></strong></dd>
-        <dt>OID</dt><dd><code id="deleteOid"></code></dd>
-        <dt>Output key</dt><dd><code id="deleteOutputKey"></code></dd>
-      </dl>
+      <div id="deleteSummary"></div>
       <div id="deleteError" class="status error hidden"></div>
       <div class="toolbar">
         <button type="button" id="deleteCancelBtn" class="secondary">Cancel</button>
@@ -343,12 +534,28 @@
   const fieldName = $('field-name');
   const fieldCopy = $('field-copy');
   const deleteModal = $('deleteModal');
-  const deleteName = $('deleteName');
-  const deleteOid = $('deleteOid');
-  const deleteOutputKey = $('deleteOutputKey');
+  const deleteSummary = $('deleteSummary');
   const deleteError = $('deleteError');
   const deleteCancelBtn = $('deleteCancelBtn');
   const deleteConfirmBtn = $('deleteConfirmBtn');
+  const filterInput = $('filterInput');
+  const resultCount = $('resultCount');
+  const bulkDeleteBtn = $('bulkDeleteBtn');
+  const bulkCount = $('bulkCount');
+  const drawer = $('overlayDrawer');
+  const drawerTitle = $('drawerTitle');
+  const drawerCloseBtn = $('drawerCloseBtn');
+  const drawerPreview = $('drawerPreview');
+  const drawerOpenInTab = $('drawerOpenInTab');
+  const drawerTheme = $('drawerTheme');
+  const drawerError = $('drawerError');
+  const drawerApplyBtn = $('drawerApplyBtn');
+  const drawerUsage = $('drawerUsage');
+
+  let _filterText = '';
+  const _selectedIds = new Set();
+  let _drawerOverlay = null;
+  let _themesCache = null;
 
   function showStatus(text, kind) {
     statusMsg.textContent = text;
@@ -410,6 +617,7 @@
     if (err.status !== 401 && err.status !== 403) return false;
     setPassword('');
     if (_activeModal) closeModal(_activeModal);
+    if (drawer && drawer.classList.contains('open')) closeDrawer();
     showView('login');
     setTimeout(() => passwordInput.focus(), 30);
     return true;
@@ -503,6 +711,8 @@
 
   logoutBtn.addEventListener('click', () => {
     setPassword('');
+    if (_activeModal) closeModal(_activeModal);
+    if (drawer && drawer.classList.contains('open')) closeDrawer();
     showView('login');
     passwordInput.value = '';
     passwordInput.focus();
@@ -513,24 +723,75 @@
     try {
       const overlays = await apiCall('GET', '/custom-overlays');
       cachedOverlays = Array.isArray(overlays) ? overlays : [];
-      renderOverlays(cachedOverlays);
+      // Drop selections that point at overlays which no longer exist —
+      // otherwise a stale id from before a server-side delete would
+      // re-appear in the next bulk delete.
+      for (const id of [..._selectedIds]) {
+        if (!cachedOverlays.some((o) => o.id === id)) _selectedIds.delete(id);
+      }
+      applyFilter();
     } catch (err) {
       if (handleAuthError(err)) return;
       overlayList.innerHTML = '<p class="status error">' + escapeHtml(err.message) + '</p>';
     }
   }
 
-  function renderOverlays(overlays) {
-    if (!overlays || overlays.length === 0) {
-      overlayList.innerHTML = '<p class="empty">No custom overlays yet. Click “New overlay” to add one.</p>';
+  function applyFilter() {
+    if (!_filterText) {
+      renderOverlays(cachedOverlays);
       return;
     }
+    const needle = _filterText.toLowerCase();
+    const filtered = cachedOverlays.filter((o) =>
+      o.id.toLowerCase().includes(needle)
+      || o.oid.toLowerCase().includes(needle)
+      || o.output_key.toLowerCase().includes(needle));
+    renderOverlays(filtered);
+  }
+
+  function updateResultCount(visibleCount) {
+    if (cachedOverlays.length === 0) {
+      resultCount.textContent = '';
+    } else if (visibleCount === cachedOverlays.length) {
+      resultCount.textContent = cachedOverlays.length === 1
+        ? '1 overlay'
+        : `${cachedOverlays.length} overlays`;
+    } else {
+      resultCount.textContent = `${visibleCount} of ${cachedOverlays.length}`;
+    }
+  }
+
+  function updateBulkButton() {
+    bulkCount.textContent = String(_selectedIds.size);
+    bulkDeleteBtn.disabled = _selectedIds.size === 0;
+  }
+
+  function renderOverlays(overlays) {
+    updateResultCount(overlays.length);
+    if (cachedOverlays.length === 0) {
+      overlayList.innerHTML = '<p class="empty">No custom overlays yet. Click “New overlay” to add one.</p>';
+      updateBulkButton();
+      return;
+    }
+    if (overlays.length === 0) {
+      overlayList.innerHTML = '<p class="empty">No overlays match the current filter.</p>';
+      updateBulkButton();
+      return;
+    }
+    const allVisibleSelected = overlays.every((o) => _selectedIds.has(o.id));
     const rows = overlays.map((o) => `
         <tr data-id="${escapeAttr(o.id)}">
+          <td class="select-col">
+            <input type="checkbox" class="row-select"
+                   aria-label="Select overlay ${escapeAttr(o.id)}"
+                   ${_selectedIds.has(o.id) ? 'checked' : ''} />
+          </td>
           <td data-label="Name"><strong>${escapeHtml(o.id)}</strong></td>
           <td data-label="OID"><code>${escapeHtml(o.oid)}</code></td>
           <td data-label="Output key"><code>${escapeHtml(o.output_key)}</code></td>
           <td class="actions">
+            <button class="secondary" data-action="edit"
+                    aria-label="Edit overlay ${escapeAttr(o.id)}">Edit</button>
             <button class="secondary" data-action="copy"
                     aria-label="Copy overlay ${escapeAttr(o.id)}">Copy</button>
             <button class="danger" data-action="delete"
@@ -541,22 +802,51 @@
     overlayList.innerHTML = `
       <table>
         <thead>
-          <tr><th>Name</th><th>OID</th><th>Output key</th><th></th></tr>
+          <tr>
+            <th class="select-col">
+              <input type="checkbox" id="selectAll"
+                     aria-label="Select all visible overlays"
+                     ${allVisibleSelected ? 'checked' : ''} />
+            </th>
+            <th>Name</th><th>OID</th><th>Output key</th><th></th>
+          </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
     `;
+    overlayList.querySelectorAll('input.row-select').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const id = cb.closest('tr').getAttribute('data-id');
+        if (cb.checked) _selectedIds.add(id); else _selectedIds.delete(id);
+        // Keep the select-all checkbox in sync with the actual visible set.
+        const sa = overlayList.querySelector('#selectAll');
+        if (sa) sa.checked = overlays.every((o) => _selectedIds.has(o.id));
+        updateBulkButton();
+      });
+    });
+    const selectAll = overlayList.querySelector('#selectAll');
+    if (selectAll) {
+      selectAll.addEventListener('change', () => {
+        const visibleIds = overlays.map((o) => o.id);
+        if (selectAll.checked) {
+          visibleIds.forEach((id) => _selectedIds.add(id));
+        } else {
+          visibleIds.forEach((id) => _selectedIds.delete(id));
+        }
+        applyFilter();
+      });
+    }
     overlayList.querySelectorAll('button[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const tr = btn.closest('tr');
         const id = tr.getAttribute('data-id');
+        const overlay = cachedOverlays.find((o) => o.id === id);
+        if (btn.dataset.action === 'edit' && overlay) openDrawer(overlay, btn);
         if (btn.dataset.action === 'copy') openCreate(id, btn);
-        if (btn.dataset.action === 'delete') {
-          const overlay = cachedOverlays.find((o) => o.id === id);
-          if (overlay) openDelete(overlay, btn);
-        }
+        if (btn.dataset.action === 'delete' && overlay) openDelete([overlay], btn);
       });
     });
+    updateBulkButton();
   }
 
   newBtn.addEventListener('click', () => openCreate(null, newBtn));
@@ -570,6 +860,14 @@
     if (e.target === deleteModal) closeDelete();
   });
   deleteConfirmBtn.addEventListener('click', performDelete);
+  filterInput.addEventListener('input', () => {
+    _filterText = filterInput.value.trim();
+    applyFilter();
+  });
+  bulkDeleteBtn.addEventListener('click', () => {
+    const targets = cachedOverlays.filter((o) => _selectedIds.has(o.id));
+    if (targets.length) openDelete(targets, bulkDeleteBtn);
+  });
 
   function openCreate(copyFromId, opener) {
     clearError(createError);
@@ -590,12 +888,35 @@
     closeModal(createModal);
   }
 
-  let _pendingDelete = null;
-  function openDelete(overlay, opener) {
-    _pendingDelete = overlay;
-    deleteName.textContent = overlay.id;
-    deleteOid.textContent = overlay.oid;
-    deleteOutputKey.textContent = overlay.output_key;
+  let _pendingDelete = [];
+
+  function openDelete(overlays, opener) {
+    if (!overlays || overlays.length === 0) return;
+    _pendingDelete = overlays.slice();
+    if (overlays.length === 1) {
+      const o = overlays[0];
+      deleteSummary.innerHTML = `
+        <dl class="meta">
+          <dt>Name</dt><dd><strong>${escapeHtml(o.id)}</strong></dd>
+          <dt>OID</dt><dd><code>${escapeHtml(o.oid)}</code></dd>
+          <dt>Output key</dt><dd><code>${escapeHtml(o.output_key)}</code></dd>
+        </dl>`;
+      deleteConfirmBtn.textContent = 'Delete overlay';
+    } else {
+      // Cap the visible list at 10 entries so the modal does not run off
+      // the viewport for a "delete everything" selection. The total count
+      // sits in the heading line so the operator still sees the impact.
+      const head = overlays.slice(0, 10);
+      const tail = overlays.length - head.length;
+      const items = head.map((o) =>
+        `<li>${escapeHtml(o.id)}</li>`).join('');
+      const more = tail > 0
+        ? `<li class="muted">… and ${tail} more</li>` : '';
+      deleteSummary.innerHTML = `
+        <p><strong>${overlays.length}</strong> overlays will be permanently deleted:</p>
+        <ul class="bulk-list">${items}${more}</ul>`;
+      deleteConfirmBtn.textContent = `Delete ${overlays.length} overlays`;
+    }
     clearError(deleteError);
     deleteConfirmBtn.disabled = false;
     // Cancel is default-focused so ENTER does not delete by accident.
@@ -603,24 +924,46 @@
   }
 
   function closeDelete() {
-    _pendingDelete = null;
+    _pendingDelete = [];
     closeModal(deleteModal);
   }
 
   async function performDelete() {
-    const overlay = _pendingDelete;
-    if (!overlay) return;
+    const targets = _pendingDelete;
+    if (!targets.length) return;
     deleteConfirmBtn.disabled = true;
-    try {
-      await apiCall('DELETE', '/custom-overlays/' + encodeURIComponent(overlay.id));
-      closeDelete();
-      showStatus('Overlay deleted.', 'success');
-      await loadOverlays();
-    } catch (err) {
-      if (handleAuthError(err)) return;
-      showError(deleteError, err.message || 'Could not delete overlay.');
-      deleteConfirmBtn.disabled = false;
+    let succeeded = 0;
+    let lastError = null;
+    // Sequential rather than concurrent: a 401 on the first call
+    // (password rotated) should bounce immediately to login instead
+    // of fanning out N parallel failures.
+    for (const overlay of targets) {
+      try {
+        await apiCall(
+          'DELETE',
+          '/custom-overlays/' + encodeURIComponent(overlay.id));
+        _selectedIds.delete(overlay.id);
+        succeeded++;
+      } catch (err) {
+        if (handleAuthError(err)) return;
+        lastError = err;
+        break;
+      }
     }
+    closeDelete();
+    if (lastError && succeeded === 0) {
+      showStatus(lastError.message || 'Could not delete overlay.', 'error');
+    } else if (lastError) {
+      showStatus(
+        `${succeeded} of ${targets.length} deleted; stopped at error: `
+        + (lastError.message || 'unknown error'),
+        'error');
+    } else if (succeeded === 1) {
+      showStatus('Overlay deleted.', 'success');
+    } else {
+      showStatus(`${succeeded} overlays deleted.`, 'success');
+    }
+    await loadOverlays();
   }
 
   createForm.addEventListener('submit', async (e) => {
@@ -644,6 +987,139 @@
       showError(createError, err.message || 'Could not create overlay.');
     }
   });
+
+  // ---- Drawer (M5) -------------------------------------------------------
+
+  drawerCloseBtn.addEventListener('click', closeDrawer);
+  drawerApplyBtn.addEventListener('click', applyDrawerTheme);
+  // ESC also closes the drawer when no modal is on top of it.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (_activeModal) return;  // modal handler above already deals with it
+    if (drawer.classList.contains('open')) {
+      e.stopPropagation();
+      closeDrawer();
+    }
+  });
+
+  async function openDrawer(overlay, opener) {
+    _drawerOverlay = overlay;
+    drawerTitle.textContent = overlay.id;
+    // Re-point the iframe even when reopening on the same overlay so the
+    // operator sees a fresh state (and so a previously closed drawer
+    // releases the about:blank loaded by closeDrawer).
+    const previewUrl = '/overlay/' + encodeURIComponent(overlay.output_key)
+      + '?style=mosaic';
+    drawerPreview.src = previewUrl;
+    drawerOpenInTab.href = '/overlay/' + encodeURIComponent(overlay.output_key);
+    clearError(drawerError);
+    drawer.classList.add('open');
+    drawer.removeAttribute('inert');
+    drawer.setAttribute('aria-hidden', 'false');
+    drawer._opener = opener || null;
+    setTimeout(() => drawerCloseBtn.focus(), 30);
+    await loadDrawerThemes();
+    drawerTheme.value = '';  // start at "keep current" each time
+    loadDrawerUsage(overlay.id);
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    drawer.setAttribute('inert', '');
+    // Release the live preview so the WS in the iframe disconnects.
+    drawerPreview.src = 'about:blank';
+    const opener = drawer._opener;
+    drawer._opener = null;
+    _drawerOverlay = null;
+    if (opener && typeof opener.focus === 'function') opener.focus();
+  }
+
+  async function loadDrawerThemes() {
+    if (_themesCache) return _themesCache;
+    try {
+      // /api/themes is unauthenticated and returns {themes: [...]}.
+      const res = await fetch('/api/themes', { method: 'GET' });
+      if (!res.ok) throw new Error('Could not list themes (' + res.status + ').');
+      const body = await res.json();
+      _themesCache = Array.isArray(body && body.themes) ? body.themes : [];
+    } catch (err) {
+      _themesCache = [];
+      showError(drawerError, err.message || 'Could not load themes.');
+    }
+    // Rebuild the dropdown.
+    const opts = ['<option value="">— Keep current —</option>']
+      .concat(_themesCache.map((t) =>
+        `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`));
+    drawerTheme.innerHTML = opts.join('');
+    return _themesCache;
+  }
+
+  async function loadDrawerUsage(overlayId) {
+    drawerUsage.textContent = 'Loading…';
+    try {
+      const u = await apiCall(
+        'GET', '/custom-overlays/' + encodeURIComponent(overlayId) + '/usage');
+      const live = (u.has_active_session
+        || u.obs_clients > 0
+        || u.frontend_ws_clients > 0);
+      const elapsed = u.seconds_since_last_activity;
+      const elapsedLabel = (elapsed === null || elapsed === undefined)
+        ? '—'
+        : (elapsed < 60 ? `${elapsed}s ago`
+           : elapsed < 3600 ? `${Math.floor(elapsed / 60)}m ago`
+           : `${Math.floor(elapsed / 3600)}h ago`);
+      drawerUsage.innerHTML = `
+        <p style="margin: 0 0 0.5rem;">
+          <span class="dot${live ? ' live' : ''}" aria-hidden="true"></span>
+          <strong>${live ? 'Live' : 'Idle'}</strong>
+        </p>
+        <dl class="usage-grid">
+          <dt>OBS viewers</dt><dd>${u.obs_clients}</dd>
+          <dt>Scoreboard tabs</dt><dd>${u.frontend_ws_clients}</dd>
+          <dt>Active session</dt><dd>${u.has_active_session ? 'yes' : 'no'}</dd>
+          <dt>Last activity</dt><dd>${escapeHtml(elapsedLabel)}</dd>
+        </dl>`;
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      drawerUsage.innerHTML =
+        '<p class="status error">'
+        + escapeHtml(err.message || 'Could not load usage.')
+        + '</p>';
+    }
+  }
+
+  async function applyDrawerTheme() {
+    const overlay = _drawerOverlay;
+    if (!overlay) return;
+    const theme = drawerTheme.value;
+    if (!theme) {
+      showError(drawerError, 'Pick a theme to apply, or close the drawer.');
+      return;
+    }
+    clearError(drawerError);
+    drawerApplyBtn.disabled = true;
+    try {
+      await apiCall(
+        'PATCH',
+        '/custom-overlays/' + encodeURIComponent(overlay.id),
+        { theme });
+      showStatus(`Theme “${theme}” applied.`, 'success');
+      // Bust the iframe cache so the operator sees the new theme right
+      // away — without this, the same URL would be served from cache and
+      // only the WebSocket-pushed state would refresh.
+      const u = new URL(drawerPreview.src, window.location.origin);
+      u.searchParams.set('t', String(Date.now()));
+      drawerPreview.src = u.pathname + u.search;
+      // Refresh the usage panel — the apply broadcast bumps last_activity.
+      loadDrawerUsage(overlay.id);
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      showError(drawerError, err.message || 'Could not apply theme.');
+    } finally {
+      drawerApplyBtn.disabled = false;
+    }
+  }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({

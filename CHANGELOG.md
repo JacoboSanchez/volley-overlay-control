@@ -10,6 +10,52 @@ once a first tagged release ships.
 
 ### Added
 
+- **`/manage` — bulk delete, filter and per-overlay detail drawer
+  (Fase 1 — frontend half).** Three sizeable additions to the
+  custom-overlay manager UI:
+  * **Filter input** above the toolbar: live, case-insensitive
+    substring match against the overlay's name, OID and output
+    key. The result count (`23 of 50`) sits next to the input
+    with `aria-live="polite"` so screen readers announce the
+    new total when the operator types.
+  * **Bulk delete.** A new "Select" column adds a checkbox per
+    row, and a "Select all visible" checkbox in the header. The
+    toolbar gains a "Delete `<N>` selected" button (disabled
+    when nothing is checked); clicking it reuses the existing
+    confirmation modal, which now switches between the original
+    1-overlay layout and a list of up to 10 OIDs (with "… and N
+    more" tail) for multi-deletes. Deletes run sequentially so a
+    401 mid-run bounces back to login instead of fanning out N
+    parallel failures, and the status line summarises partial
+    successes ("`5 of 8 deleted; stopped at error: …`"). Selections
+    that point at OIDs no longer present after a server-side
+    refresh are dropped automatically.
+  * **Detail drawer.** A new "Edit" button on every row opens a
+    right-hand `<aside role="dialog">` that shows: a live
+    preview iframe (`/overlay/<output_key>?style=mosaic`,
+    `sandbox="allow-scripts allow-same-origin"`), a theme
+    dropdown wired to `GET /api/themes` and the new
+    `PATCH /api/v1/admin/custom-overlays/{name}` endpoint, and
+    a "Live usage" panel fed by `GET /usage` with a green/grey
+    dot ("Live" vs "Idle"), OBS viewer count, scoreboard tab
+    count, active-session flag and human-readable
+    "last activity 30s ago / 4m ago / 2h ago" string. The drawer
+    uses `inert` + `aria-hidden` instead of `display: none` so
+    the slide-in transition is meaningful, ESC closes it, and
+    focus returns to the originating button. After a theme is
+    applied, the iframe `src` is bumped with a cache-busting
+    `t=<now>` query so the operator immediately sees the new
+    look.
+
+  ⚠️ Screenshot regeneration: the `/manage` page now shows three
+  buttons in the toolbar (`+ New overlay`, `Refresh`, `Delete N
+  selected`) and a checkbox column. Run
+  `bash scripts/screenshots/run.sh` to refresh
+  `docs/screenshots/05-manage-page.png`. Skipped in this commit
+  because it needs Node + Playwright + a live server.
+
+### Added
+
 - **Admin endpoints for editing and inspecting custom overlays
   (Fase 1 — backend half).** Two new routes under
   ``/api/v1/admin/custom-overlays/{name}``:
