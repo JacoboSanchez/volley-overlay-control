@@ -19,9 +19,9 @@ export const VISIBLE_ON_COLOR = '#4caf50'; // Bright green for better contrast
 export const VISIBLE_OFF_COLOR = '#f44336'; // Bright red for better contrast
 export const FULL_SCOREBOARD_COLOR = '#ff9800'; // orange-500
 export const SIMPLE_SCOREBOARD_COLOR = '#e65100'; // orange-700
-export const UNDO_COLOR = '#5c6bc0'; // indigo-400
-export const PREVIEW_ON_COLOR = '#9c27b0'; // purple-500
-export const PREVIEW_OFF_COLOR = '#7b1fa2'; // purple-700
+export const UNDO_COLOR = '#b0bcff'; // light periwinkle, high contrast on dark navy
+export const PREVIEW_ON_COLOR = '#e040fb'; // purple-A200, vivid magenta
+export const PREVIEW_OFF_COLOR = '#ab47bc'; // purple-400, dimmer but still visible on dark
 
 // Default button colors
 export const DEFAULT_BUTTON_A_COLOR = '#2196f3';
