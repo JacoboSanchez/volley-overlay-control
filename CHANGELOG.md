@@ -8,6 +8,83 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Configuration presets — replaces the originally planned
+  Fase 2 (themes editables).** Operators can now save subsets of an
+  overlay's current state under a name and reapply them — to the
+  same overlay or any other — without going through the legacy
+  hardcoded ``PRESET_THEMES`` catalogue. Five scopes shipped:
+  * ``team_home`` / ``team_away`` — name, short name, primary /
+    secondary colors and logo URL. Live-match keys (``points``,
+    ``sets_won``, ``set_history``, ``serving``, ``timeouts_taken``)
+    are intentionally excluded so a preset apply can never
+    silently rewind a match.
+  * ``overlay_layout`` — ``overlay_control.geometry``.
+  * ``overlay_colors`` — ``overlay_control.colors`` (set_bg /
+    set_text / game_bg / game_text). These keys do reach the
+    rendered overlay end-to-end via
+    ``overlay_static/js/app.js:123-126`` — apologies for the earlier
+    rollout note that flagged them as no-op; the original PR #281
+    diagnosis missed the JavaScript layer that consumes them as CSS
+    custom properties (``--set-bg`` / ``--game-bg`` / etc.). Twelve
+    of the sixteen overlay templates render them.
+  * ``overlay_style`` — ``overlay_control.preferredStyle`` (which
+    Jinja template is served).
+
+  Storage lives at ``data/presets/preset_<sha20(slug)>.json`` —
+  same hex-only-basename pattern as overlay state, so a
+  user-supplied name never flows into a filesystem path.
+  ``PRESETS_MAX_NAME_LEN`` (default 80) and ``PRESETS_MAX_RECORDS``
+  (default 500) cap slug length and catalogue size; both override
+  via env. Duplicate slugs collide loudly on create (HTTP 409),
+  but on re-import they suffix ``-2``, ``-3``... up to ``-99`` so a
+  reimport of the same JSON does not silently overwrite the
+  catalogue.
+
+  Seven new admin endpoints under ``/api/v1/admin/presets``:
+  ``GET`` (list), ``POST`` (create from a source OID's state),
+  ``GET /{slug}`` (full record incl. snapshots), ``DELETE /{slug}``,
+  ``POST /{slug}/apply`` (target_oid + optional scope subset),
+  ``GET /{slug}/export`` (portable JSON), ``POST /import``
+  (round-trips ``export`` + tolerates unknown future scopes).
+
+  All apply paths coalesce: a single ``OverlayStateStore.update_state``
+  per request, regardless of how many scopes ride along. Same
+  one-write/one-broadcast invariant the M4 PATCH endpoint locked in.
+
+  Manager UI ships two new buttons in the Info drawer ("Save as
+  preset…" and "Apply preset…"), each backed by an a11y modal
+  reusing the existing focus trap / ESC dismissal / opener-restore
+  scaffolding. Save-modal pre-selects ``overlay_layout`` /
+  ``overlay_colors`` / ``overlay_style`` (the most common
+  "tournament template" combo); apply-modal pre-selects every
+  scope the chosen preset carries and greys out the ones it
+  doesn't.
+
+  Tests: 38 new in ``tests/test_presets.py`` covering scope
+  extract / apply / merge invariants, store CRUD with cap and
+  collision suffixing, the seven endpoints and an export →
+  import round-trip. ``team_home`` snapshot's no-leak guarantee
+  is pinned by name (``test_team_home_excludes_match_state``)
+  so a future scope edit cannot regress the live-match
+  protection. Full suite: 999 passed (was 961 + 38 new).
+
+### Fixed
+
+- **`/metrics` was being shadowed by the SPA catch-all when a
+  ``frontend/dist`` was present.** ``include_router(metrics_router)``
+  in ``app/bootstrap.py`` ran *after* ``_register_spa(application)``
+  so any deployment that ships a built frontend (i.e. production)
+  would see the SPA shell ``index.html`` returned for
+  ``GET /metrics`` instead of the Prometheus exposition. CI runs
+  built without the frontend and never tripped, but local +
+  production setups did. Same symptom class as the ``/manage``
+  bug fixed in PR #281: server-rendered route mounted after the
+  catch-all. Moved the include to ``_register_api_routes`` next
+  to admin / match-report so the metrics endpoint is reachable
+  before the SPA fallback inspects the path.
+
 ### Removed
 
 - **Theme selector pulled from the ``/manage`` detail drawer.**
