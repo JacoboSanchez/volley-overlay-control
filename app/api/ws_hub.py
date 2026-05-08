@@ -4,6 +4,8 @@ import logging
 
 from fastapi import WebSocket
 
+from app.constants import WS_BROADCAST_SEND_TIMEOUT_SECONDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +56,8 @@ class WSHub:
 
     # Per-socket send timeout. A slow/hung client must not stall broadcasts
     # to the rest of the subscribers (nor the main state-update path).
-    _BROADCAST_SEND_TIMEOUT = 2.0
+    # Configure via ``WS_BROADCAST_SEND_TIMEOUT_SECONDS``.
+    _BROADCAST_SEND_TIMEOUT = WS_BROADCAST_SEND_TIMEOUT_SECONDS
 
     @classmethod
     async def _broadcast_text(cls, oid: str, message: str):

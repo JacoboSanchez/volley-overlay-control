@@ -1,3 +1,6 @@
+import os
+
+
 class Constants:
     """
     Centralized location for hardcoded strings, configuration constants, and URLs.
@@ -9,3 +12,49 @@ class Constants:
 
     # Base URL for the overlays.uno API
     API_BASE_URL = 'https://app.overlays.uno/apiv2/controlapps'
+
+
+def _env_float(key: str, default: float) -> float:
+    raw = os.environ.get(key)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+def _env_int(key: str, default: int) -> int:
+    raw = os.environ.get(key)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+# Idle game sessions are evicted after this many seconds. Override with
+# the ``SESSION_TTL_SECONDS`` env var.
+SESSION_TTL_SECONDS = _env_int("SESSION_TTL_SECONDS", 24 * 60 * 60)
+
+# Per-socket WebSocket broadcast timeout used by ``WSHub``. A slow
+# subscriber must not stall delivery to the rest. Override with
+# ``WS_BROADCAST_SEND_TIMEOUT_SECONDS``.
+WS_BROADCAST_SEND_TIMEOUT_SECONDS = _env_float(
+    "WS_BROADCAST_SEND_TIMEOUT_SECONDS", 2.0,
+)
+
+# ``WSControlClient`` reconnect/heartbeat tuning. ``WS_ZOMBIE_DEADLINE``
+# must stay > 2 * ``WS_HEARTBEAT_INTERVAL`` so a single dropped pong
+# does not churn the connection.
+WS_RECONNECT_BASE_SECONDS = _env_float("WS_RECONNECT_BASE_SECONDS", 1.0)
+WS_RECONNECT_MAX_SECONDS = _env_float("WS_RECONNECT_MAX_SECONDS", 30.0)
+WS_HEARTBEAT_INTERVAL_SECONDS = _env_float(
+    "WS_HEARTBEAT_INTERVAL_SECONDS", 25.0,
+)
+WS_ZOMBIE_DEADLINE_SECONDS = _env_float(
+    "WS_ZOMBIE_DEADLINE_SECONDS", 55.0,
+)

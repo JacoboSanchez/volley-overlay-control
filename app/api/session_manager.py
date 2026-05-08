@@ -11,13 +11,11 @@ from app.api.session_persistence import (
 )
 from app.backend import Backend
 from app.conf import Conf
+from app.constants import SESSION_TTL_SECONDS  # re-exported
 from app.customization import Customization
 from app.game_manager import GameManager
 
 logger = logging.getLogger(__name__)
-
-# Sessions expire after 24 hours of inactivity
-SESSION_TTL_SECONDS = 24 * 60 * 60
 
 
 class GameSession:

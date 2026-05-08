@@ -145,6 +145,62 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
   }
   .modal h2 { margin-top: 0; }
+  .modal p.muted { margin: 0.4rem 0 1rem; }
+  .modal dl.meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 0.75rem;
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+  }
+  .modal dl.meta dt { color: var(--muted); }
+  .modal dl.meta dd { margin: 0; word-break: break-all; }
+  .modal dl.meta dd code {
+    background: var(--surface-alt);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 600px) {
+    main { padding: 1rem 0.5rem; }
+    header { padding: 0.75rem 1rem; }
+    header h1 { font-size: 1.1rem; }
+    .card { padding: 1rem; }
+    .toolbar { flex-wrap: wrap; }
+    table thead { display: none; }
+    table, table tbody { display: block; width: 100%; }
+    table tr {
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface-alt);
+    }
+    table td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      border-bottom: none;
+      padding: 0.3rem 0;
+      text-align: right;
+      word-break: break-all;
+    }
+    table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      flex-shrink: 0;
+      text-align: left;
+    }
+    table td.actions { justify-content: flex-end; padding-top: 0.5rem; }
+    table td.actions::before { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -199,9 +255,10 @@
   </div>
 
   <!-- Create modal -->
-  <div id="createModal" class="modal-backdrop hidden">
+  <div id="createModal" class="modal-backdrop hidden"
+       role="dialog" aria-modal="true" aria-labelledby="createTitle">
     <div class="modal">
-      <h2>New custom overlay</h2>
+      <h2 id="createTitle">New custom overlay</h2>
       <form id="createForm">
         <div class="field">
           <label for="field-name">Name *</label>
@@ -227,6 +284,30 @@
           <button type="submit" id="saveBtn">Create</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Delete confirmation modal -->
+  <div id="deleteModal" class="modal-backdrop hidden"
+       role="dialog" aria-modal="true"
+       aria-labelledby="deleteTitle" aria-describedby="deleteDesc">
+    <div class="modal">
+      <h2 id="deleteTitle">Delete custom overlay?</h2>
+      <p id="deleteDesc" class="muted">
+        This permanently removes the overlay's persisted state, disconnects
+        any broadcast clients, and deletes the saved match archive entries
+        for this OID. This action cannot be undone.
+      </p>
+      <dl class="meta">
+        <dt>Name</dt><dd><strong id="deleteName"></strong></dd>
+        <dt>OID</dt><dd><code id="deleteOid"></code></dd>
+        <dt>Output key</dt><dd><code id="deleteOutputKey"></code></dd>
+      </dl>
+      <div id="deleteError" class="status error hidden"></div>
+      <div class="toolbar">
+        <button type="button" id="deleteCancelBtn" class="secondary">Cancel</button>
+        <button type="button" id="deleteConfirmBtn" class="danger">Delete overlay</button>
+      </div>
     </div>
   </div>
 </main>
@@ -261,6 +342,13 @@
   const cancelBtn = $('cancelBtn');
   const fieldName = $('field-name');
   const fieldCopy = $('field-copy');
+  const deleteModal = $('deleteModal');
+  const deleteName = $('deleteName');
+  const deleteOid = $('deleteOid');
+  const deleteOutputKey = $('deleteOutputKey');
+  const deleteError = $('deleteError');
+  const deleteCancelBtn = $('deleteCancelBtn');
+  const deleteConfirmBtn = $('deleteConfirmBtn');
 
   function showStatus(text, kind) {
     statusMsg.textContent = text;
@@ -314,6 +402,52 @@
     logoutBtn.classList.toggle('hidden', which !== 'admin');
     loggedInHint.classList.toggle('hidden', which !== 'admin');
   }
+
+  // Lightweight modal a11y: restore focus to the opener on close, trap
+  // TAB inside the dialog, and let ESC dismiss it.
+  let _activeModal = null;
+  let _modalReturnFocus = null;
+  function openModal(modal, opener, focusEl) {
+    _modalReturnFocus = opener || document.activeElement;
+    _activeModal = modal;
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      const target = focusEl
+        || modal.querySelector('input, select, button, textarea, [tabindex]:not([tabindex="-1"])');
+      if (target && typeof target.focus === 'function') target.focus();
+    }, 30);
+  }
+  function closeModal(modal) {
+    if (modal !== _activeModal) return;
+    modal.classList.add('hidden');
+    _activeModal = null;
+    const ret = _modalReturnFocus;
+    _modalReturnFocus = null;
+    if (ret && typeof ret.focus === 'function') ret.focus();
+  }
+  document.addEventListener('keydown', (e) => {
+    if (!_activeModal) return;
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeModal(_activeModal);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const focusables = Array.from(_activeModal.querySelectorAll(
+      'input:not([disabled]), select:not([disabled]), '
+      + 'button:not([disabled]), textarea:not([disabled]), '
+      + '[tabindex]:not([tabindex="-1"])'));
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
 
   async function bootstrap() {
     let statusInfo;
@@ -385,12 +519,14 @@
     }
     const rows = overlays.map((o) => `
         <tr data-id="${escapeAttr(o.id)}">
-          <td><strong>${escapeHtml(o.id)}</strong></td>
-          <td><code>${escapeHtml(o.oid)}</code></td>
-          <td><code>${escapeHtml(o.output_key)}</code></td>
+          <td data-label="Name"><strong>${escapeHtml(o.id)}</strong></td>
+          <td data-label="OID"><code>${escapeHtml(o.oid)}</code></td>
+          <td data-label="Output key"><code>${escapeHtml(o.output_key)}</code></td>
           <td class="actions">
-            <button class="secondary" data-action="copy">Copy</button>
-            <button class="danger" data-action="delete">Delete</button>
+            <button class="secondary" data-action="copy"
+                    aria-label="Copy overlay ${escapeAttr(o.id)}">Copy</button>
+            <button class="danger" data-action="delete"
+                    aria-label="Delete overlay ${escapeAttr(o.id)}">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -406,20 +542,28 @@
       btn.addEventListener('click', () => {
         const tr = btn.closest('tr');
         const id = tr.getAttribute('data-id');
-        if (btn.dataset.action === 'copy') openCreate(id);
-        if (btn.dataset.action === 'delete') confirmDelete(id);
+        if (btn.dataset.action === 'copy') openCreate(id, btn);
+        if (btn.dataset.action === 'delete') {
+          const overlay = cachedOverlays.find((o) => o.id === id);
+          if (overlay) openDelete(overlay, btn);
+        }
       });
     });
   }
 
-  newBtn.addEventListener('click', () => openCreate(null));
+  newBtn.addEventListener('click', () => openCreate(null, newBtn));
   refreshBtn.addEventListener('click', loadOverlays);
   cancelBtn.addEventListener('click', closeCreate);
   createModal.addEventListener('click', (e) => {
     if (e.target === createModal) closeCreate();
   });
+  deleteCancelBtn.addEventListener('click', closeDelete);
+  deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) closeDelete();
+  });
+  deleteConfirmBtn.addEventListener('click', performDelete);
 
-  function openCreate(copyFromId) {
+  function openCreate(copyFromId, opener) {
     clearError(createError);
     fieldName.value = '';
     // Rebuild the copy-from dropdown from the current list.
@@ -431,12 +575,43 @@
       fieldCopy.appendChild(opt);
     });
     fieldCopy.value = copyFromId || '';
-    createModal.classList.remove('hidden');
-    setTimeout(() => fieldName.focus(), 50);
+    openModal(createModal, opener, fieldName);
   }
 
   function closeCreate() {
-    createModal.classList.add('hidden');
+    closeModal(createModal);
+  }
+
+  let _pendingDelete = null;
+  function openDelete(overlay, opener) {
+    _pendingDelete = overlay;
+    deleteName.textContent = overlay.id;
+    deleteOid.textContent = overlay.oid;
+    deleteOutputKey.textContent = overlay.output_key;
+    clearError(deleteError);
+    deleteConfirmBtn.disabled = false;
+    // Cancel is default-focused so ENTER does not delete by accident.
+    openModal(deleteModal, opener, deleteCancelBtn);
+  }
+
+  function closeDelete() {
+    _pendingDelete = null;
+    closeModal(deleteModal);
+  }
+
+  async function performDelete() {
+    const overlay = _pendingDelete;
+    if (!overlay) return;
+    deleteConfirmBtn.disabled = true;
+    try {
+      await apiCall('DELETE', '/custom-overlays/' + encodeURIComponent(overlay.id));
+      closeDelete();
+      showStatus('Overlay deleted.', 'success');
+      await loadOverlays();
+    } catch (err) {
+      showError(deleteError, err.message || 'Could not delete overlay.');
+      deleteConfirmBtn.disabled = false;
+    }
   }
 
   createForm.addEventListener('submit', async (e) => {
@@ -459,17 +634,6 @@
       showError(createError, err.message || 'Could not create overlay.');
     }
   });
-
-  async function confirmDelete(id) {
-    if (!window.confirm(`Delete overlay “${id}”? This removes its persisted state.`)) return;
-    try {
-      await apiCall('DELETE', '/custom-overlays/' + encodeURIComponent(id));
-      showStatus('Overlay deleted.', 'success');
-      await loadOverlays();
-    } catch (err) {
-      showStatus(err.message || 'Could not delete overlay.', 'error');
-    }
-  }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({

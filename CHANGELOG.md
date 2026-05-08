@@ -8,6 +8,49 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **`/manage` quick wins (Fase 0 del roadmap de mejoras).** Three
+  small but operator-visible improvements to the custom-overlay
+  manager page (`app/admin/static/overlays.html`):
+  * **Accessible delete confirmation.** The custom-overlay delete
+    flow no longer uses `window.confirm`. It now opens a
+    `role="dialog" aria-modal="true"` overlay that shows the
+    overlay's name, OID and output key, traps TAB inside the
+    dialog, restores focus to the originating button on close, and
+    dismisses on ESC. The Cancel button is default-focused so a
+    stray ENTER cannot delete by accident. The pre-existing "New
+    custom overlay" modal received the same `aria-modal` /
+    `aria-labelledby` annotations.
+  * **Descriptive ARIA labels on the action buttons.** Screen-reader
+    users now hear "Copy overlay `mybroadcast`" / "Delete overlay
+    `mybroadcast`" instead of bare "Copy" / "Delete".
+  * **Mobile-friendly overlay table.** Below 600 px the overlay
+    list collapses into a stacked card layout (each row labelled
+    via `data-label` `::before` pseudo-elements), so the manager
+    is usable from a phone in a courtside operator workflow.
+
+  No API contract changes; `tests/test_admin.py` keeps passing.
+
+- **Centralised tunable constants in `app.constants`.** The
+  hardcoded `SESSION_TTL_SECONDS` (idle session eviction),
+  `WSHub._BROADCAST_SEND_TIMEOUT` (per-socket broadcast timeout)
+  and the `WSControlClient` reconnect/heartbeat parameters
+  (`_RECONNECT_BASE` / `_RECONNECT_MAX` / `_HEARTBEAT_INTERVAL` /
+  `_ZOMBIE_DEADLINE`) now load from `app.constants` and accept
+  env-var overrides (`SESSION_TTL_SECONDS`,
+  `WS_BROADCAST_SEND_TIMEOUT_SECONDS`, `WS_RECONNECT_BASE_SECONDS`,
+  `WS_RECONNECT_MAX_SECONDS`, `WS_HEARTBEAT_INTERVAL_SECONDS`,
+  `WS_ZOMBIE_DEADLINE_SECONDS`). Non-numeric or non-positive values
+  fall back to the previous defaults so a misconfigured environment
+  degrades gracefully. The legacy module-level names
+  (`app.api.session_manager.SESSION_TTL_SECONDS`,
+  `app.api.ws_hub.WSHub._BROADCAST_SEND_TIMEOUT`,
+  `app.ws_client._ZOMBIE_DEADLINE`…) are preserved as
+  re-exports/initialisers so the existing monkeypatch in
+  `tests/test_api_routes.py` and the deadline read in
+  `tests/test_ws_client.py` keep working untouched.
+
 ## [5.1.4] - 2026-05-07
 
 ### Fixed
