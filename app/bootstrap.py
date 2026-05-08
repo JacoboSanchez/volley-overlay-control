@@ -190,6 +190,14 @@ def _register_api_routes(application: FastAPI) -> None:
     # Print-friendly per-match HTML report. Mounted before the SPA
     # catch-all so /match/{id}/report is served by FastAPI.
     application.include_router(match_report_router)
+    # Prometheus exposition. Must be registered before the SPA mount
+    # for the same reason as ``/manage`` and ``/match/{id}/report``:
+    # otherwise the SPA catch-all serves index.html for /metrics in
+    # any deployment that ships a built ``frontend/dist`` (i.e.
+    # production), turning the Prometheus scrape into "200 OK +
+    # text/html" — which is exactly the kind of silent-misconfig
+    # ``METRICS_REQUIRE_ADMIN`` should not be needed to detect.
+    application.include_router(metrics_router)
 
 
 def _register_overlay_routes(application: FastAPI) -> None:
@@ -469,7 +477,6 @@ def create_app() -> FastAPI:
     #           GZip           (compresses after headers are decided)
     #             RequestContext (populates contextvars for logging)
     #               ExceptionLogging (innermost — sees raw handler exceptions)
-    application.include_router(metrics_router)
     application.add_middleware(ExceptionLoggingMiddleware)
     # Metrics observes every HTTP request — keep it inside ExceptionLogging
     # (so handler exceptions still surface as 500 + log) but outside

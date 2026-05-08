@@ -741,6 +741,98 @@
         "title": "OverlayStateUpdate",
         "type": "object"
       },
+      "PresetApplyRequest": {
+        "description": "Apply a preset to a target custom overlay.",
+        "properties": {
+          "scopes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional subset of the preset's scopes to actually apply. When omitted, every scope the preset carries is applied. Useful for cases where the operator only wants the ``team_home`` half of a 'club presets' record.",
+            "title": "Scopes"
+          },
+          "target_oid": {
+            "description": "Custom overlay id to apply the preset to.",
+            "title": "Target Oid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_oid"
+        ],
+        "title": "PresetApplyRequest",
+        "type": "object"
+      },
+      "PresetCreateRequest": {
+        "description": "Save the current state of a custom overlay as a named preset.",
+        "properties": {
+          "name": {
+            "description": "Human-readable preset name. The slug used in URLs and on disk is derived from this value (lowercase ASCII + dashes). Names that would slugify to an empty string are rejected.",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "description": "Subset of the catalogue (``team_home``, ``team_away``, ``overlay_layout``, ``overlay_colors``, ``overlay_style``) to capture. Scopes whose extractor returns an empty snapshot for the source state are dropped silently \u2014 the operator does not get a preset that no-ops on apply.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Scopes",
+            "type": "array"
+          },
+          "source_oid": {
+            "description": "Custom overlay id whose live state seeds the preset.",
+            "title": "Source Oid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "source_oid",
+          "scopes"
+        ],
+        "title": "PresetCreateRequest",
+        "type": "object"
+      },
+      "PresetImportRequest": {
+        "description": "Import a preset previously exported from this or another instance.",
+        "properties": {
+          "name_override": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When set, replaces the imported preset's ``_meta.name`` so the operator can re-tag the entry on the way in (e.g. for a per-tournament variant of a shared club preset).",
+            "title": "Name Override"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "description": "On-disk preset schema (with ``_meta``, ``scopes``, ``snapshots``). Slug collisions are resolved by suffixing ``-2``, ``-3``... up to ``-99``.",
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "required": [
+          "payload"
+        ],
+        "title": "PresetImportRequest",
+        "type": "object"
+      },
       "RawConfigPayload": {
         "additionalProperties": true,
         "properties": {
@@ -1822,6 +1914,354 @@
           }
         },
         "summary": "Mint a short-lived signed URL for a match report",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/presets": {
+      "get": {
+        "description": "Return the catalogue of saved presets, ordered by name.\n\nSnapshots are intentionally omitted from the list view to keep\nresponse sizes bounded \u2014 fetch a specific preset with\n``GET /presets/{slug}`` to inspect its payload.",
+        "operationId": "list_presets_api_v1_admin_presets_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List configuration presets",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "post": {
+        "description": "Capture the requested scopes from ``source_oid``'s live state.\n\nScopes whose extractor returns an empty dict are dropped from the\nsaved record so a preset never claims to cover a scope it actually\ncannot replay (e.g. ``overlay_layout`` saved off an overlay that\nnever had a ``geometry`` set).",
+        "operationId": "create_preset_api_v1_admin_presets_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresetCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save the current state of a custom overlay as a preset",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/presets/import": {
+      "post": {
+        "description": "Persist *payload* as a new preset.\n\nSlug collisions are resolved by appending ``-2``, ``-3``... up to\n``-99`` so re-importing the same JSON does not overwrite the\nexisting entry. Unknown scopes inside the payload are stripped\nsilently \u2014 same forward-compatibility stance as overlay state\nfields the consumer doesn't recognise.",
+        "operationId": "import_preset_api_v1_admin_presets_import_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresetImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import a preset from an exported JSON document",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/presets/{slug}": {
+      "delete": {
+        "operationId": "delete_preset_api_v1_admin_presets__slug__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a preset",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "get": {
+        "description": "Return the full preset record (including ``snapshots``) for *slug*.",
+        "operationId": "get_preset_api_v1_admin_presets__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect a preset's snapshots",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/presets/{slug}/apply": {
+      "post": {
+        "description": "Merge the preset's snapshots into ``target_oid``'s state.\n\nThe merge is coalesced: every selected scope contributes to a\nsingle ``OverlayStateStore.update_state`` call so the operator\ntriggers exactly one disk write and one WebSocket broadcast,\nregardless of how many scopes the preset covers.",
+        "operationId": "apply_preset_api_v1_admin_presets__slug__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresetApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply a preset to a custom overlay",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/presets/{slug}/export": {
+      "get": {
+        "description": "Return the on-disk preset schema for backup / cross-instance reuse.\n\nThe returned object round-trips through ``POST /presets/import`` \u2014\nthe schema is identical to what's persisted on disk.",
+        "operationId": "export_preset_api_v1_admin_presets__slug__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export a preset as a portable JSON document",
         "tags": [
           "Admin"
         ]

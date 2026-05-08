@@ -227,6 +227,35 @@
     overflow-y: auto;
     padding: 1rem 1.25rem;
   }
+  .scope-fieldset {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0 1rem;
+    min-width: 0;
+  }
+  .scope-fieldset legend {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    padding: 0 0.4rem;
+  }
+  .scope-fieldset[disabled] { opacity: 0.55; }
+  .scope-row {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+    padding: 0.3rem 0;
+    font-size: 0.92rem;
+  }
+  .scope-row input[type="checkbox"] {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+  }
+  .scope-row label { color: var(--text); }
+  .scope-row label small { display: block; color: var(--muted); }
+
   .drawer-section { margin-bottom: 1.5rem; }
   .drawer-section h3 {
     margin: 0 0 0.5rem;
@@ -461,8 +490,88 @@
         <h3>Live usage</h3>
         <div id="drawerUsage" class="muted">Loading…</div>
       </section>
+
+      <section class="drawer-section">
+        <h3>Configuration presets</h3>
+        <p class="muted" style="margin: 0 0 0.5rem;">
+          Capture parts of this overlay's current configuration as a
+          named preset, or apply a previously-saved one. Presets are
+          shared across overlays — no preset is tied to a single OID.
+        </p>
+        <div class="toolbar" style="justify-content: flex-start;">
+          <button id="drawerSavePresetBtn" type="button">
+            Save as preset…
+          </button>
+          <button id="drawerApplyPresetBtn" type="button" class="secondary">
+            Apply preset…
+          </button>
+        </div>
+      </section>
     </div>
   </aside>
+
+  <!-- Save preset modal -->
+  <div id="savePresetModal" class="modal-backdrop hidden"
+       role="dialog" aria-modal="true"
+       aria-labelledby="savePresetTitle">
+    <div class="modal">
+      <h2 id="savePresetTitle">Save as preset</h2>
+      <p class="muted">
+        Picks the selected parts of this overlay's current
+        configuration and stores them under a new name. Live match
+        state (points, sets, history, serving, timeouts) is never
+        captured — presets are configuration only.
+      </p>
+      <div class="field">
+        <label for="presetName">Name</label>
+        <input type="text" id="presetName"
+               placeholder="e.g. Liga ACB - Final"
+               autocomplete="off" maxlength="120" />
+      </div>
+      <fieldset class="scope-fieldset" id="saveScopeFieldset">
+        <legend>Include</legend>
+      </fieldset>
+      <div id="savePresetError" class="status error hidden"></div>
+      <div class="toolbar">
+        <button type="button" id="savePresetCancelBtn"
+                class="secondary">Cancel</button>
+        <button type="button" id="savePresetConfirmBtn">Save preset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apply preset modal -->
+  <div id="applyPresetModal" class="modal-backdrop hidden"
+       role="dialog" aria-modal="true"
+       aria-labelledby="applyPresetTitle">
+    <div class="modal">
+      <h2 id="applyPresetTitle">Apply preset</h2>
+      <p class="muted">
+        Restores the selected scopes from the chosen preset onto
+        this overlay. Other state (live match data, scopes you don't
+        select below) stays untouched.
+      </p>
+      <div class="field">
+        <label for="presetPicker">Preset</label>
+        <select id="presetPicker">
+          <option value="">— Loading… —</option>
+        </select>
+      </div>
+      <fieldset class="scope-fieldset" id="applyScopeFieldset" disabled>
+        <legend>Apply scopes</legend>
+        <p class="muted" style="margin: 0;">
+          Pick a preset above to choose which scopes to restore.
+        </p>
+      </fieldset>
+      <div id="applyPresetError" class="status error hidden"></div>
+      <div class="toolbar">
+        <button type="button" id="applyPresetCancelBtn"
+                class="secondary">Cancel</button>
+        <button type="button" id="applyPresetConfirmBtn"
+                disabled>Apply preset</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Delete confirmation modal -->
   <div id="deleteModal" class="modal-backdrop hidden"
@@ -530,6 +639,45 @@
   const drawerPreview = $('drawerPreview');
   const drawerOpenInTab = $('drawerOpenInTab');
   const drawerUsage = $('drawerUsage');
+  const drawerSavePresetBtn = $('drawerSavePresetBtn');
+  const drawerApplyPresetBtn = $('drawerApplyPresetBtn');
+  // Save preset modal
+  const savePresetModal = $('savePresetModal');
+  const presetName = $('presetName');
+  const saveScopeFieldset = $('saveScopeFieldset');
+  const savePresetError = $('savePresetError');
+  const savePresetCancelBtn = $('savePresetCancelBtn');
+  const savePresetConfirmBtn = $('savePresetConfirmBtn');
+  // Apply preset modal
+  const applyPresetModal = $('applyPresetModal');
+  const presetPicker = $('presetPicker');
+  const applyScopeFieldset = $('applyScopeFieldset');
+  const applyPresetError = $('applyPresetError');
+  const applyPresetCancelBtn = $('applyPresetCancelBtn');
+  const applyPresetConfirmBtn = $('applyPresetConfirmBtn');
+
+  // Hardcoded scope catalogue. Mirrors ``app.api.preset_scopes.SCOPES``;
+  // this is the only place the manager UI knows about scope IDs and
+  // labels. Adding a scope server-side here means re-syncing this list
+  // (or — TODO — sourcing it from a future ``GET /presets/scopes``
+  // endpoint when the catalogue grows past trivial size).
+  const _PRESET_SCOPES = [
+    { id: 'team_home',
+      label: 'Home team identity',
+      hint: 'name, short name, colors, logo_url' },
+    { id: 'team_away',
+      label: 'Away team identity',
+      hint: 'name, short name, colors, logo_url' },
+    { id: 'overlay_layout',
+      label: 'Overlay position and size',
+      hint: 'overlay_control.geometry (x, y, w, h)' },
+    { id: 'overlay_colors',
+      label: 'Overlay colors',
+      hint: 'set/game backgrounds and text colors' },
+    { id: 'overlay_style',
+      label: 'Overlay style',
+      hint: 'preferredStyle (which Jinja template is served)' },
+  ];
 
   let _filterText = '';
   const _selectedIds = new Set();
@@ -1047,6 +1195,216 @@
         '<p class="status error">'
         + escapeHtml(err.message || 'Could not load usage.')
         + '</p>';
+    }
+  }
+
+  // ---- Configuration presets --------------------------------------------
+  // Two flows: "Save as preset" captures parts of the current overlay
+  // state under a name (POST /presets); "Apply preset" pulls a saved
+  // record and merges the selected scopes onto the current overlay
+  // (POST /presets/{slug}/apply). Both share the same scope checkbox
+  // pattern via ``_renderScopeRows``.
+
+  drawerSavePresetBtn.addEventListener('click', () => {
+    if (!_drawerOverlay) return;
+    openSavePresetModal(drawerSavePresetBtn);
+  });
+  drawerApplyPresetBtn.addEventListener('click', () => {
+    if (!_drawerOverlay) return;
+    openApplyPresetModal(drawerApplyPresetBtn);
+  });
+
+  savePresetCancelBtn.addEventListener('click', () => closeModal(savePresetModal));
+  savePresetModal.addEventListener('click', (e) => {
+    if (e.target === savePresetModal) closeModal(savePresetModal);
+  });
+  savePresetConfirmBtn.addEventListener('click', performSavePreset);
+
+  applyPresetCancelBtn.addEventListener('click', () => closeModal(applyPresetModal));
+  applyPresetModal.addEventListener('click', (e) => {
+    if (e.target === applyPresetModal) closeModal(applyPresetModal);
+  });
+  applyPresetConfirmBtn.addEventListener('click', performApplyPreset);
+  presetPicker.addEventListener('change', onApplyPresetPicked);
+
+  function _renderScopeRows(container, options) {
+    // options: { allowedScopes (array|null), checkedScopes (array|null), idPrefix }
+    const allowed = options.allowedScopes;
+    const checked = new Set(options.checkedScopes || []);
+    const rows = _PRESET_SCOPES.map((scope) => {
+      const allowedHere = !allowed || allowed.includes(scope.id);
+      const id = options.idPrefix + scope.id;
+      return `
+        <div class="scope-row">
+          <input type="checkbox" id="${id}"
+                 data-scope-id="${escapeAttr(scope.id)}"
+                 ${checked.has(scope.id) ? 'checked' : ''}
+                 ${allowedHere ? '' : 'disabled'} />
+          <label for="${id}">
+            ${escapeHtml(scope.label)}
+            <small>${escapeHtml(scope.hint)}</small>
+          </label>
+        </div>`;
+    }).join('');
+    container.innerHTML = '<legend>'
+      + (options.legend || 'Scopes') + '</legend>' + rows;
+  }
+
+  function _readSelectedScopes(container) {
+    return Array.from(
+      container.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)'),
+    ).map((cb) => cb.getAttribute('data-scope-id'));
+  }
+
+  function openSavePresetModal(opener) {
+    presetName.value = '';
+    clearError(savePresetError);
+    savePresetConfirmBtn.disabled = false;
+    // Default: pre-select the three scopes most commonly captured at
+    // the start of a tournament (overlay layout, colors, style). The
+    // operator can opt into team_* explicitly when the preset is
+    // intended as branding.
+    _renderScopeRows(saveScopeFieldset, {
+      legend: 'Include',
+      idPrefix: 'save-scope-',
+      checkedScopes: ['overlay_layout', 'overlay_colors', 'overlay_style'],
+    });
+    openModal(savePresetModal, opener, presetName);
+  }
+
+  async function performSavePreset() {
+    const overlay = _drawerOverlay;
+    if (!overlay) return;
+    clearError(savePresetError);
+    const name = (presetName.value || '').trim();
+    if (!name) {
+      showError(savePresetError, 'Name is required.');
+      return;
+    }
+    const scopes = _readSelectedScopes(saveScopeFieldset);
+    if (scopes.length === 0) {
+      showError(savePresetError, 'Pick at least one scope to save.');
+      return;
+    }
+    savePresetConfirmBtn.disabled = true;
+    try {
+      const body = await apiCall('POST', '/presets', {
+        name, source_oid: overlay.id, scopes,
+      });
+      closeModal(savePresetModal);
+      const skipped = scopes.length - (body.scopes || []).length;
+      const skippedHint = skipped > 0
+        ? ` (${skipped} scope${skipped === 1 ? '' : 's'} dropped — empty on this overlay)`
+        : '';
+      showStatus('Preset saved as “' + body.name + '”' + skippedHint + '.', 'success');
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      showError(savePresetError, err.message || 'Could not save preset.');
+      savePresetConfirmBtn.disabled = false;
+    }
+  }
+
+  let _applyPresetCache = null;  // last full record fetched, keyed by slug
+  async function openApplyPresetModal(opener) {
+    clearError(applyPresetError);
+    applyScopeFieldset.disabled = true;
+    applyPresetConfirmBtn.disabled = true;
+    presetPicker.innerHTML = '<option value="">— Loading… —</option>';
+    applyScopeFieldset.innerHTML = `
+      <legend>Apply scopes</legend>
+      <p class="muted" style="margin: 0;">
+        Pick a preset above to choose which scopes to restore.
+      </p>`;
+    openModal(applyPresetModal, opener, presetPicker);
+    try {
+      const records = await apiCall('GET', '/presets');
+      const list = Array.isArray(records) ? records : [];
+      if (list.length === 0) {
+        presetPicker.innerHTML = '<option value="">— No presets saved yet —</option>';
+        applyPresetConfirmBtn.disabled = true;
+        return;
+      }
+      const opts = ['<option value="">— Pick one —</option>']
+        .concat(list.map((r) =>
+          `<option value="${escapeAttr(r.slug)}">${escapeHtml(r.name || r.slug)}</option>`));
+      presetPicker.innerHTML = opts.join('');
+      _applyPresetCache = null;
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      presetPicker.innerHTML = '<option value="">— Error loading —</option>';
+      showError(applyPresetError, err.message || 'Could not load presets.');
+    }
+  }
+
+  async function onApplyPresetPicked() {
+    const slug = presetPicker.value;
+    clearError(applyPresetError);
+    if (!slug) {
+      applyScopeFieldset.disabled = true;
+      applyScopeFieldset.innerHTML = `
+        <legend>Apply scopes</legend>
+        <p class="muted" style="margin: 0;">
+          Pick a preset above to choose which scopes to restore.
+        </p>`;
+      applyPresetConfirmBtn.disabled = true;
+      return;
+    }
+    try {
+      const detail = await apiCall(
+        'GET', '/presets/' + encodeURIComponent(slug));
+      _applyPresetCache = detail;
+      const scopesIn = Array.isArray(detail.scopes) ? detail.scopes : [];
+      _renderScopeRows(applyScopeFieldset, {
+        legend: 'Apply scopes',
+        idPrefix: 'apply-scope-',
+        allowedScopes: scopesIn,   // greys out scopes the preset does not carry
+        checkedScopes: scopesIn,    // pre-select all available
+      });
+      applyScopeFieldset.disabled = false;
+      applyPresetConfirmBtn.disabled = false;
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      showError(applyPresetError, err.message || 'Could not load preset.');
+      applyPresetConfirmBtn.disabled = true;
+    }
+  }
+
+  async function performApplyPreset() {
+    const overlay = _drawerOverlay;
+    if (!overlay) return;
+    const slug = presetPicker.value;
+    if (!slug) return;
+    clearError(applyPresetError);
+    const scopes = _readSelectedScopes(applyScopeFieldset);
+    if (scopes.length === 0) {
+      showError(applyPresetError, 'Pick at least one scope to apply.');
+      return;
+    }
+    applyPresetConfirmBtn.disabled = true;
+    try {
+      const body = await apiCall(
+        'POST', '/presets/' + encodeURIComponent(slug) + '/apply',
+        { target_oid: overlay.id, scopes });
+      closeModal(applyPresetModal);
+      const applied = body.applied_scopes || [];
+      showStatus(
+        applied.length === 1
+          ? 'Preset applied (1 scope restored).'
+          : `Preset applied (${applied.length} scopes restored).`,
+        'success');
+      // Bust the iframe cache so the operator sees the new look right
+      // away — same trick as the old apply-theme flow.
+      try {
+        const u = new URL(drawerPreview.src, window.location.origin);
+        u.searchParams.set('t', String(Date.now()));
+        drawerPreview.src = u.pathname + u.search;
+      } catch (_) { /* preview not loaded yet — ignore */ }
+      // Refresh usage panel; apply triggered a state-update broadcast.
+      loadDrawerUsage(overlay.id);
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      showError(applyPresetError, err.message || 'Could not apply preset.');
+      applyPresetConfirmBtn.disabled = false;
     }
   }
 
