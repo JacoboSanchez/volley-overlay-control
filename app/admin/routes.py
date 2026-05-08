@@ -17,6 +17,7 @@ variable to be set and the request to include a matching
 ``Authorization: Bearer <password>`` header.
 """
 
+import copy
 import logging
 import os
 import re
@@ -355,8 +356,11 @@ async def patch_custom_overlay(name: str, payload: CustomOverlayPatch):
             ),
         )
 
-    # Apply the theme baseline first so user-supplied colors / preferred_style
-    # win on subsequent merges.
+    # Validate first, then build a single merged payload so we hit
+    # ``update_state`` exactly once — every call is one disk write plus
+    # one WebSocket broadcast, so the previous "theme then overrides"
+    # two-step doubled both costs for the common "apply a theme with
+    # one tweak on top" flow.
     if payload.theme is not None:
         # Lazy import to avoid forcing the overlay package onto every test
         # path that imports the admin router.
@@ -369,35 +373,44 @@ async def patch_custom_overlay(name: str, payload: CustomOverlayPatch):
                     f"Available: {get_theme_names()}"
                 ),
             )
-        await store.update_state(name, PRESET_THEMES[payload.theme])
+        # Deep-copy the baseline so we can mutate it freely without
+        # corrupting the shared catalogue entry.
+        to_apply: dict = copy.deepcopy(PRESET_THEMES[payload.theme])
+    else:
+        to_apply = {}
 
-    overrides: dict = {}
-    overlay_control: dict = {}
-    if payload.colors is not None:
-        overlay_control["colors"] = payload.colors
-    if payload.preferred_style is not None:
-        # Validate against the renderable templates so a typo can't park the
-        # overlay on a 404 the next time it's served.
-        renderable = store.get_renderable_styles()
-        # ``default`` maps to ``index.html`` and is always present, but it's
-        # not in get_available_styles_list because it's also the implicit
-        # fallback. Accept it explicitly.
-        if (
-            payload.preferred_style != "default"
-            and payload.preferred_style not in renderable
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"preferred_style '{payload.preferred_style}' is not a "
-                    f"known overlay style. Available: {renderable}"
-                ),
-            )
-        overlay_control["preferredStyle"] = payload.preferred_style
-    if overlay_control:
-        overrides["overlay_control"] = overlay_control
-    if overrides:
-        await store.update_state(name, overrides)
+    if payload.colors is not None or payload.preferred_style is not None:
+        overlay_control = to_apply.setdefault("overlay_control", {})
+        if payload.colors is not None:
+            # Shallow-merge so explicit color keys override the theme's
+            # values without erasing the ones the operator did not
+            # supply. ``overlay_control["colors"] = payload.colors``
+            # would lose ``set_text`` / ``game_text`` / etc. from the
+            # theme baseline.
+            base_colors = overlay_control.get("colors") or {}
+            overlay_control["colors"] = {**base_colors, **payload.colors}
+        if payload.preferred_style is not None:
+            # Validate against the renderable templates so a typo can't
+            # park the overlay on a 404 the next time it's served.
+            renderable = store.get_renderable_styles()
+            # ``default`` maps to ``index.html`` and is always present,
+            # but it's not in get_available_styles_list because it's
+            # also the implicit fallback. Accept it explicitly.
+            if (
+                payload.preferred_style != "default"
+                and payload.preferred_style not in renderable
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"preferred_style '{payload.preferred_style}' is not a "
+                        f"known overlay style. Available: {renderable}"
+                    ),
+                )
+            overlay_control["preferredStyle"] = payload.preferred_style
+
+    if to_apply:
+        await store.update_state(name, to_apply)
 
     logger.info(
         "Patched custom overlay '%s' (theme=%s, colors=%s, preferred_style=%s)",

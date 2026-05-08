@@ -294,6 +294,43 @@ class TestPatchCustomOverlay:
         assert res.status_code == 400
         assert "preferred_style" in res.json()["detail"]
 
+    def test_combined_patch_writes_state_once(self, client, overlay_named):
+        """Theme + overrides must collapse into a single ``update_state``.
+
+        Two ``update_state`` calls would mean two disk writes plus two
+        WebSocket broadcasts for one logical edit. Mock the store call
+        directly to prove the call count.
+        """
+        from unittest.mock import AsyncMock
+
+        from app.overlay import overlay_state_store
+
+        original = overlay_state_store.update_state
+        mock = AsyncMock(side_effect=original)
+        overlay_state_store.update_state = mock
+        try:
+            res = client.patch(
+                f"/api/v1/admin/custom-overlays/{overlay_named}",
+                json={
+                    "theme": "dark",
+                    "colors": {"set_bg": "#FF00FF"},
+                    "preferred_style": "default",
+                },
+                headers=_auth(),
+            )
+        finally:
+            overlay_state_store.update_state = original
+        assert res.status_code == 200
+        # Single coalesced write — used to be two (theme then overrides).
+        assert mock.call_count == 1
+        merged = mock.call_args.args[1]
+        # Theme baseline survived (game_text from "dark"); explicit
+        # set_bg won; preferred_style folded into the same payload.
+        oc = merged["overlay_control"]
+        assert oc["colors"]["set_bg"] == "#FF00FF"
+        assert oc["colors"]["game_text"] == "#FFFFFF"
+        assert oc["preferredStyle"] == "default"
+
     def test_default_preferred_style_accepted(self, client, overlay_named):
         # ``default`` is the implicit fallback (index.html) and not in
         # get_available_styles_list — the handler must accept it explicitly.
