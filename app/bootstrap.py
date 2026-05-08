@@ -28,7 +28,9 @@ from app.api import api_router
 from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
+from app.api.middleware.metrics import MetricsMiddleware
 from app.api.middleware.security_headers import SecurityHeadersMiddleware
+from app.api.routes.metrics import router as metrics_router
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
 from app.match_report import match_report_router
@@ -467,7 +469,13 @@ def create_app() -> FastAPI:
     #           GZip           (compresses after headers are decided)
     #             RequestContext (populates contextvars for logging)
     #               ExceptionLogging (innermost — sees raw handler exceptions)
+    application.include_router(metrics_router)
     application.add_middleware(ExceptionLoggingMiddleware)
+    # Metrics observes every HTTP request — keep it inside ExceptionLogging
+    # (so handler exceptions still surface as 500 + log) but outside
+    # RequestContext so the latency reflects the full handler cost
+    # including contextvar setup.
+    application.add_middleware(MetricsMiddleware)
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(GZipMiddleware, minimum_size=1024)
     application.add_middleware(SecurityHeadersMiddleware)

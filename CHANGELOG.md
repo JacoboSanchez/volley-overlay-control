@@ -10,6 +10,68 @@ once a first tagged release ships.
 
 ### Added
 
+- **Prometheus ``/metrics`` endpoint + instrumentation
+  (Fase 4 / M15).** A new ``app.metrics`` module wires
+  ``prometheus_client`` (now in ``requirements.txt``) into the
+  hot paths and surfaces the result at ``GET /metrics``. The
+  endpoint speaks the standard Prometheus text-exposition format
+  (``text/plain; version=0.0.4``) and is mounted at the app
+  root rather than under ``/api/v1`` so it lines up with every
+  other Prometheus-instrumented service the operator might be
+  scraping.
+
+  Metrics emitted:
+  * ``voc_http_request_duration_seconds`` — histogram of
+    end-to-end HTTP latency, labelled by ``route`` (the FastAPI
+    route template — bounded by the OpenAPI surface, not the
+    raw path), ``method`` and ``status``. Wired through a new
+    ``MetricsMiddleware`` placed inside ``ExceptionLogging``
+    but outside ``RequestContext`` so the bucket reflects the
+    full handler cost.
+  * ``voc_webhook_delivery_total{event, status}`` — counter
+    with ``status`` ∈ ``success`` / ``client_error`` /
+    ``server_error`` / ``exception`` / ``ssrf_blocked`` /
+    ``dead_letter``. ``dead_letter`` is incremented in
+    addition to the per-attempt status so an alert can fire on
+    "X events landed in the DL" without subtracting other
+    buckets.
+  * ``voc_ws_clients_total`` — total open frontend WebSocket
+    connections across all OIDs (unlabelled).
+  * ``voc_ws_oids_active`` — number of distinct OIDs with at
+    least one open subscriber (unlabelled).
+  * ``voc_active_sessions`` — live ``GameSession`` count
+    tracked by ``SessionManager`` (unlabelled).
+
+  The plan called for ``ws_clients_per_oid`` as a labelled
+  gauge; that label would be unbounded in OID space (textbook
+  Prometheus anti-pattern). The two unlabelled gauges above
+  give the operator the same dashboard story (total fan-out
+  plus breadth) without the cardinality risk.
+
+  Auth ladder mirrors ``/manage``: by default the endpoint is
+  unauthenticated (the exposed values are aggregates, no
+  payloads, no per-OID labels — safe to scrape from the cluster
+  service mesh). Operators that prefer to gate it set
+  ``METRICS_REQUIRE_ADMIN=true``, which checks the same Bearer
+  token as ``/api/v1/admin/*``. The auth check fires *before*
+  the library-availability check so an unauthenticated probe
+  cannot use the 503-vs-200 difference to fingerprint whether
+  the metrics backend is loaded.
+
+  Graceful degradation: if ``prometheus_client`` is missing
+  (older deploys that have not run ``pip install -r
+  requirements.txt``), every helper becomes a no-op, the rest
+  of the app boots normally, and ``/metrics`` returns a 503
+  with a clear "install prometheus-client" message instead of
+  a confusing 404.
+
+  Tests: 7 new in ``tests/test_metrics.py`` covering the
+  exposition format + content, the route-template label, the
+  default-no-auth path, ``METRICS_REQUIRE_ADMIN`` gate,
+  503-when-password-unset, the webhook counter increment, and
+  the WS gauges tracking ``WSHub.connect`` / ``disconnect``.
+  Suite at 953 passing.
+
 - **Webhook retries + dead-letter queue + operator replay
   (Fase 4 / M16).** The outbound webhook dispatcher used to be
   fire-and-forget: a single 503 from a flaky receiver dropped

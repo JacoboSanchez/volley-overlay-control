@@ -50,6 +50,7 @@ from app.constants import (
     WEBHOOK_RETRY_MAX_SECONDS,
 )
 from app.env_vars_manager import EnvVarsManager
+from app.metrics import record_webhook_outcome
 
 logger = logging.getLogger(__name__)
 
@@ -340,7 +341,7 @@ class WebhookDispatcher:
 
     def _attempt_with_retries(
         self, target: WebhookTarget, body: bytes,
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool, str, str]:
         """Try delivery with up to ``WEBHOOK_RETRY_ATTEMPTS`` retries.
 
         Retries on 5xx and ``requests.RequestException`` (timeouts,
@@ -351,14 +352,16 @@ class WebhookDispatcher:
         capped at ``WEBHOOK_RETRY_MAX_SECONDS``. Default is
         1 / 2 / 4 seconds between attempts (then capped at 8).
 
-        Returns ``(success, last_error_string)``. ``last_error`` is
-        empty when ``success`` is True or when the failure was a 4xx
-        (the 4xx body is logged but not re-surfaced).
+        Returns ``(success, last_error_string, status_kind)``.
+        ``status_kind`` is one of ``success`` / ``client_error`` /
+        ``server_error`` / ``exception`` / ``ssrf_blocked`` so the
+        caller can drive the Prometheus counter without re-deriving
+        the bucket from a string match on ``last_error``.
         """
         if not self._ssrf_check(target):
             # SSRF block is permanent: do not retry, do not DL, do not
             # leak the URL in the error string returned to the caller.
-            return False, ""
+            return False, "", "ssrf_blocked"
         headers = {"Content-Type": "application/json"}
         if target.secret:
             headers["X-Webhook-Signature"] = self._sign(target.secret, body)
@@ -386,7 +389,7 @@ class WebhookDispatcher:
                 )
                 continue
             if response.status_code < 400:
-                return True, ""
+                return True, "", "success"
             if 400 <= response.status_code < 500:
                 # Client-side rejection: not retriable, not dead-letter
                 # material — the receiver will keep saying no.
@@ -394,13 +397,16 @@ class WebhookDispatcher:
                     "Webhook %s returned %d (not retried)",
                     target.url, response.status_code,
                 )
-                return False, ""
+                return False, "", "client_error"
             last_err = f"HTTP {response.status_code}"
             logger.warning(
                 "Webhook %s returned %d on attempt %d/%d",
                 target.url, response.status_code, attempt + 1, total_attempts,
             )
-        return False, last_err
+        # Exhausted retries on a transient failure. ``last_err`` differentiates
+        # exception vs HTTP 5xx via its ``HTTP `` prefix.
+        kind = "server_error" if last_err.startswith("HTTP ") else "exception"
+        return False, last_err, kind
 
     def _deliver(
         self,
@@ -417,7 +423,8 @@ class WebhookDispatcher:
         that exhaust ``WEBHOOK_RETRY_ATTEMPTS`` end up in the
         dead-letter file for operator-initiated replay.
         """
-        ok, last_err = self._attempt_with_retries(target, body)
+        ok, last_err, status_kind = self._attempt_with_retries(target, body)
+        record_webhook_outcome(event, status_kind)
         if ok or not last_err:
             return
         try:
@@ -432,6 +439,10 @@ class WebhookDispatcher:
             "last_error": last_err,
             "attempts": WEBHOOK_RETRY_ATTEMPTS + 1,
         })
+        # Counted in addition to the per-attempt status above so the
+        # operator can alert on "X events landed in the DL" without
+        # subtracting success/4xx/etc. from the total.
+        record_webhook_outcome(event, "dead_letter")
 
     def replay_records(
         self, records: list[dict],
@@ -467,7 +478,8 @@ class WebhookDispatcher:
                 continue
             body_str = r.get("body") or ""
             body = body_str.encode("utf-8")
-            ok, last_err = self._attempt_with_retries(target, body)
+            ok, last_err, status_kind = self._attempt_with_retries(target, body)
+            record_webhook_outcome(r.get("event", ""), status_kind)
             if ok:
                 succeeded += 1
                 continue

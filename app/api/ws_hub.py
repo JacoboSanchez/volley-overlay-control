@@ -11,6 +11,7 @@ from app.constants import (
     WSHUB_HEARTBEAT_INTERVAL_SECONDS,
     WSHUB_MAX_CLIENTS_PER_OID,
 )
+from app.metrics import set_ws_gauges
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ class WSHub:
             await ws.accept()
         cls._connections.setdefault(oid, set()).add(ws)
         cls._last_seen[ws] = time.monotonic()
+        cls._refresh_gauges()
         logger.info(
             "WS client connected for OID=%s (total=%d)",
             oid, len(cls._connections[oid]))
@@ -103,6 +105,17 @@ class WSHub:
             cls._last_seen[ws] = time.monotonic()
 
     @classmethod
+    def _refresh_gauges(cls) -> None:
+        """Publish the current ``_connections`` snapshot to the Prometheus gauges.
+
+        Cheap (one ``sum`` over a small dict). Centralises the metric
+        update so the cardinality story stays in one place — neither
+        gauge takes per-OID labels by design.
+        """
+        total = sum(len(s) for s in cls._connections.values())
+        set_ws_gauges(total, len(cls._connections))
+
+    @classmethod
     def disconnect(cls, ws: WebSocket, oid: str):
         conns = cls._connections.get(oid)
         if conns:
@@ -110,6 +123,7 @@ class WSHub:
             if not conns:
                 del cls._connections[oid]
         cls._last_seen.pop(ws, None)
+        cls._refresh_gauges()
         logger.info("WS client disconnected for OID=%s", oid)
 
     # Per-socket send timeout. A slow/hung client must not stall broadcasts
@@ -146,15 +160,21 @@ class WSHub:
             return_exceptions=False,
         )
 
+        evicted_any = False
         for ws in results:
             if ws is not None:
                 conns.discard(ws)
+                cls._last_seen.pop(ws, None)
+                evicted_any = True
         # Only drop the OID entry if the registry still holds *our* set.
         # A concurrent ``disconnect`` could have removed it and a concurrent
         # ``connect`` could have installed a new set in the meantime; popping
         # in that case would silently lose the new client.
         if not conns and cls._connections.get(oid) is conns:
             cls._connections.pop(oid, None)
+            evicted_any = True
+        if evicted_any:
+            cls._refresh_gauges()
 
     @classmethod
     async def broadcast(cls, oid: str, data: dict):
@@ -208,6 +228,7 @@ class WSHub:
         """Remove all connections (for testing)."""
         cls._connections.clear()
         cls._last_seen.clear()
+        cls._refresh_gauges()
 
     # ----- Heartbeat (opt-in via WSHUB_HEARTBEAT_INTERVAL_SECONDS > 0) ---
 
