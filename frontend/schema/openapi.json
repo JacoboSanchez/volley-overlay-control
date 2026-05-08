@@ -181,6 +181,91 @@
         "title": "CustomOverlayCreate",
         "type": "object"
       },
+      "CustomOverlayPatch": {
+        "description": "Partial update for a custom overlay's appearance.\n\nEvery field is optional \u2014 the patch is a thin admin-side wrapper around\n``OverlayStateStore.update_state``. When ``theme`` is set, the matching\npreset from ``app.overlay.themes`` is applied first; ``colors`` and\n``preferred_style`` are then merged on top so explicit overrides win\nover the theme defaults.",
+        "properties": {
+          "colors": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Color overrides merged into overlay_control.colors. Common keys: set_bg, set_text, game_bg, game_text.",
+            "title": "Colors"
+          },
+          "preferred_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Switch the Jinja template served at /overlay/{output_key}. Must match an entry in GET /api/config/{id}.availableStyles.",
+            "title": "Preferred Style"
+          },
+          "theme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Apply a preset theme (e.g. 'dark', 'esports'). Available themes are listed by GET /api/themes.",
+            "title": "Theme"
+          }
+        },
+        "title": "CustomOverlayPatch",
+        "type": "object"
+      },
+      "CustomOverlayUsage": {
+        "description": "Snapshot of how many live consumers a custom overlay has.",
+        "properties": {
+          "frontend_ws_clients": {
+            "description": "Connected scoreboard control tabs (frontend WebSocket subscribers).",
+            "title": "Frontend Ws Clients",
+            "type": "integer"
+          },
+          "has_active_session": {
+            "description": "True when SessionManager has a live GameSession.",
+            "title": "Has Active Session",
+            "type": "boolean"
+          },
+          "obs_clients": {
+            "description": "Connected OBS / browser-source viewers.",
+            "title": "Obs Clients",
+            "type": "integer"
+          },
+          "seconds_since_last_activity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds elapsed since the session was last touched; null when no session is active.",
+            "title": "Seconds Since Last Activity"
+          }
+        },
+        "required": [
+          "obs_clients",
+          "frontend_ws_clients",
+          "has_active_session"
+        ],
+        "title": "CustomOverlayUsage",
+        "type": "object"
+      },
       "GameStateResponse": {
         "properties": {
           "beach_side_switch": {
@@ -1527,6 +1612,116 @@
         "tags": [
           "Admin"
         ]
+      },
+      "patch": {
+        "description": "Apply a preset theme and/or merge colors / preferredStyle.\n\nLayering order matches the operator's mental model: the theme acts\nas a baseline, then explicit ``colors`` and ``preferred_style`` are\nmerged on top. Empty patches are rejected with 400 so the operator\nsees a clear error rather than a silent no-op (which would mask\naccidental empty form submissions from the manager UI).",
+        "operationId": "patch_custom_overlay_api_v1_admin_custom_overlays__name__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomOverlayPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit a custom overlay's theme / colors / preferred style",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/custom-overlays/{name}/usage": {
+      "get": {
+        "description": "Report live OBS / scoreboard / session counts for *name*.\n\nThe response gives the operator enough information to decide whether\ndeleting (or re-theming) the overlay will disrupt an in-progress\nbroadcast \u2014 currently surfaced in the ``/manage`` UI as a dot next to\neach row.",
+        "operationId": "get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomOverlayUsage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect how many live consumers a custom overlay has",
+        "tags": [
+          "Admin"
+        ]
       }
     },
     "/api/v1/admin/login": {
@@ -1652,6 +1847,79 @@
         ]
       }
     },
+    "/api/v1/admin/webhooks/replay": {
+      "post": {
+        "description": "Replay (a slice of) the webhook dead-letter file.\n\nEach record is matched to a configured ``WebhookTarget`` by URL,\nre-signed with the *current* HMAC secret (so rotating\n``WEBHOOKS_SECRET`` doesn't strand legacy records with stale\nsignatures), and re-attempted with the standard retry policy.\n\n* Successful redeliveries are removed from the file.\n* Records whose URL no longer matches any configured target are\n  kept on disk so the operator can fix the config and retry.\n* Records that fail again are kept with their ``attempts``\n  counter bumped and the latest ``last_error`` recorded.\n\nSelection order: oldest records (lowest ``ts``) within the\neligible window go first, so iterative calls drain the file\nfront-to-back. The blocking work runs on the FastAPI threadpool\nvia ``run_in_threadpool`` so the event loop stays free for other\nhandlers while a long replay is in flight.\n\nReturns counts only \u2014 the bodies are never echoed back so the\nadmin surface cannot leak match payloads. ``remaining_in_dl``\nis the count of records still on disk after the call (ones held\nback by ``since`` / ``max_records`` plus the ``still_failing``\nbucket that just got re-written) so the operator knows whether\nto call again.",
+        "operationId": "replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post",
+        "parameters": [
+          {
+            "description": "Only replay records whose ``ts`` is >= this Unix-seconds value. Useful for restricting replay to entries that landed after the receiving service came back online.",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only replay records whose ``ts`` is >= this Unix-seconds value. Useful for restricting replay to entries that landed after the receiving service came back online.",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "Cap the number of records redelivered in this call. ``replay_records`` blocks on per-record retries with exponential backoff (~25 s worst case per record), so a fully-loaded dead-letter would otherwise pin the handler for tens of minutes. Use the ``remaining_in_dl`` field in the response to decide whether to call again.",
+            "in": "query",
+            "name": "max_records",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Cap the number of records redelivered in this call. ``replay_records`` blocks on per-record retries with exponential backoff (~25 s worst case per record), so a fully-loaded dead-letter would otherwise pin the handler for tens of minutes. Use the ``remaining_in_dl`` field in the response to decide whether to call again.",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Max Records",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Re-deliver dead-lettered webhook records",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/v1/app-config": {
       "get": {
         "description": "Return runtime app configuration consumed by the SPA on boot.",
@@ -1676,7 +1944,7 @@
     },
     "/api/v1/audit": {
       "get": {
-        "description": "Return up to *limit* most-recent records from the action log.\n\nRecords are ordered chronologically (oldest first within the\nreturned window). Each entry has the shape::\n\n    {\"ts\": 1714508400.123,\n     \"action\": \"add_point\",\n     \"params\": {\"team\": 1, \"undo\": false},\n     \"result\": {\"current_set\": 2, \"team_1\": {...}, ...}}",
+        "description": "Return one page of audit records, newest page first.\n\nFirst call (``before_ts`` omitted) returns the most recent\n``limit`` records. Subsequent calls pass the previous response's\n``next_cursor`` to walk back through history one window at a time.\n\nRecords are ordered chronologically (oldest first **within** the\nreturned window \u2014 same convention as ``read_recent``). Each entry\nhas the shape::\n\n    {\"ts\": 1714508400.123,\n     \"action\": \"add_point\",\n     \"params\": {\"team\": 1, \"undo\": false},\n     \"result\": {\"current_set\": 2, \"team_1\": {...}, ...}}\n\nThe response carries:\n\n* ``records`` \u2014 the page itself.\n* ``count`` \u2014 ``len(records)``.\n* ``next_cursor`` \u2014 the ``ts`` to pass as ``before_ts`` for the\n  next page, or ``null`` when this is the last page.",
         "operationId": "get_audit_log_api_v1_audit_get",
         "parameters": [
           {
@@ -1689,6 +1957,24 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination cursor: only return records strictly older than this timestamp. Use the ``next_cursor`` value from the previous response. Omit for the first page.",
+            "in": "query",
+            "name": "before_ts",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Pagination cursor: only return records strictly older than this timestamp. Use the ``next_cursor`` value from the previous response. Omit for the first page.",
+              "title": "Before Ts"
             }
           },
           {
@@ -1757,7 +2043,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Recent action audit log",
+        "summary": "Recent action audit log (cursor-paginated)",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -4164,6 +4450,39 @@
           }
         },
         "summary": "Delete an archived match snapshot"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "description": "Return the registry's current exposition in Prometheus text format.\n\n``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth at the same\nladder as ``/api/v1/admin/*``. The check fires *before* the\nlibrary-availability check so an unauthenticated probe cannot use\nthe 503-vs-200 difference to fingerprint whether the metrics\nbackend is loaded.",
+        "operationId": "metrics_endpoint_metrics_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prometheus exposition"
       }
     },
     "/overlay/{overlay_id}": {

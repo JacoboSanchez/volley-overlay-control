@@ -156,6 +156,41 @@ export interface paths {
         delete: operations["delete_custom_overlay_api_v1_admin_custom_overlays__name__delete"];
         options?: never;
         head?: never;
+        /**
+         * Edit a custom overlay's theme / colors / preferred style
+         * @description Apply a preset theme and/or merge colors / preferredStyle.
+         *
+         *     Layering order matches the operator's mental model: the theme acts
+         *     as a baseline, then explicit ``colors`` and ``preferred_style`` are
+         *     merged on top. Empty patches are rejected with 400 so the operator
+         *     sees a clear error rather than a silent no-op (which would mask
+         *     accidental empty form submissions from the manager UI).
+         */
+        patch: operations["patch_custom_overlay_api_v1_admin_custom_overlays__name__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/custom-overlays/{name}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inspect how many live consumers a custom overlay has
+         * @description Report live OBS / scoreboard / session counts for *name*.
+         *
+         *     The response gives the operator enough information to decide whether
+         *     deleting (or re-theming) the overlay will disrupt an in-progress
+         *     broadcast — currently surfaced in the ``/manage`` UI as a dot next to
+         *     each row.
+         */
+        get: operations["get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -237,6 +272,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/webhooks/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-deliver dead-lettered webhook records
+         * @description Replay (a slice of) the webhook dead-letter file.
+         *
+         *     Each record is matched to a configured ``WebhookTarget`` by URL,
+         *     re-signed with the *current* HMAC secret (so rotating
+         *     ``WEBHOOKS_SECRET`` doesn't strand legacy records with stale
+         *     signatures), and re-attempted with the standard retry policy.
+         *
+         *     * Successful redeliveries are removed from the file.
+         *     * Records whose URL no longer matches any configured target are
+         *       kept on disk so the operator can fix the config and retry.
+         *     * Records that fail again are kept with their ``attempts``
+         *       counter bumped and the latest ``last_error`` recorded.
+         *
+         *     Selection order: oldest records (lowest ``ts``) within the
+         *     eligible window go first, so iterative calls drain the file
+         *     front-to-back. The blocking work runs on the FastAPI threadpool
+         *     via ``run_in_threadpool`` so the event loop stays free for other
+         *     handlers while a long replay is in flight.
+         *
+         *     Returns counts only — the bodies are never echoed back so the
+         *     admin surface cannot leak match payloads. ``remaining_in_dl``
+         *     is the count of records still on disk after the call (ones held
+         *     back by ``since`` / ``max_records`` plus the ``still_failing``
+         *     bucket that just got re-written) so the operator knows whether
+         *     to call again.
+         */
+        post: operations["replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/app-config": {
         parameters: {
             query?: never;
@@ -265,16 +344,28 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Recent action audit log
-         * @description Return up to *limit* most-recent records from the action log.
+         * Recent action audit log (cursor-paginated)
+         * @description Return one page of audit records, newest page first.
          *
-         *     Records are ordered chronologically (oldest first within the
-         *     returned window). Each entry has the shape::
+         *     First call (``before_ts`` omitted) returns the most recent
+         *     ``limit`` records. Subsequent calls pass the previous response's
+         *     ``next_cursor`` to walk back through history one window at a time.
+         *
+         *     Records are ordered chronologically (oldest first **within** the
+         *     returned window — same convention as ``read_recent``). Each entry
+         *     has the shape::
          *
          *         {"ts": 1714508400.123,
          *          "action": "add_point",
          *          "params": {"team": 1, "undo": false},
          *          "result": {"current_set": 2, "team_1": {...}, ...}}
+         *
+         *     The response carries:
+         *
+         *     * ``records`` — the page itself.
+         *     * ``count`` — ``len(records)``.
+         *     * ``next_cursor`` — the ``ts`` to pass as ``before_ts`` for the
+         *       next page, or ``null`` when this is the last page.
          */
         get: operations["get_audit_log_api_v1_audit_get"];
         put?: never;
@@ -936,6 +1027,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prometheus exposition
+         * @description Return the registry's current exposition in Prometheus text format.
+         *
+         *     ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth at the same
+         *     ladder as ``/api/v1/admin/*``. The check fires *before* the
+         *     library-availability check so an unauthenticated probe cannot use
+         *     the 503-vs-200 difference to fingerprint whether the metrics
+         *     backend is loaded.
+         */
+        get: operations["metrics_endpoint_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/overlay/{overlay_id}": {
         parameters: {
             query?: never;
@@ -1038,6 +1155,61 @@ export interface components {
              * @description Overlay id used as OID
              */
             name: string;
+        };
+        /**
+         * CustomOverlayPatch
+         * @description Partial update for a custom overlay's appearance.
+         *
+         *     Every field is optional — the patch is a thin admin-side wrapper around
+         *     ``OverlayStateStore.update_state``. When ``theme`` is set, the matching
+         *     preset from ``app.overlay.themes`` is applied first; ``colors`` and
+         *     ``preferred_style`` are then merged on top so explicit overrides win
+         *     over the theme defaults.
+         */
+        CustomOverlayPatch: {
+            /**
+             * Colors
+             * @description Color overrides merged into overlay_control.colors. Common keys: set_bg, set_text, game_bg, game_text.
+             */
+            colors?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Preferred Style
+             * @description Switch the Jinja template served at /overlay/{output_key}. Must match an entry in GET /api/config/{id}.availableStyles.
+             */
+            preferred_style?: string | null;
+            /**
+             * Theme
+             * @description Apply a preset theme (e.g. 'dark', 'esports'). Available themes are listed by GET /api/themes.
+             */
+            theme?: string | null;
+        };
+        /**
+         * CustomOverlayUsage
+         * @description Snapshot of how many live consumers a custom overlay has.
+         */
+        CustomOverlayUsage: {
+            /**
+             * Frontend Ws Clients
+             * @description Connected scoreboard control tabs (frontend WebSocket subscribers).
+             */
+            frontend_ws_clients: number;
+            /**
+             * Has Active Session
+             * @description True when SessionManager has a live GameSession.
+             */
+            has_active_session: boolean;
+            /**
+             * Obs Clients
+             * @description Connected OBS / browser-source viewers.
+             */
+            obs_clients: number;
+            /**
+             * Seconds Since Last Activity
+             * @description Seconds elapsed since the session was last touched; null when no session is active.
+             */
+            seconds_since_last_activity?: number | null;
         };
         /** GameStateResponse */
         GameStateResponse: {
@@ -1671,6 +1843,76 @@ export interface operations {
             };
         };
     };
+    patch_custom_overlay_api_v1_admin_custom_overlays__name__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomOverlayPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomOverlayUsage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_login_api_v1_admin_login_post: {
         parameters: {
             query?: never;
@@ -1759,6 +2001,42 @@ export interface operations {
             };
         };
     };
+    replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post: {
+        parameters: {
+            query?: {
+                /** @description Only replay records whose ``ts`` is >= this Unix-seconds value. Useful for restricting replay to entries that landed after the receiving service came back online. */
+                since?: number | null;
+                /** @description Cap the number of records redelivered in this call. ``replay_records`` blocks on per-record retries with exponential backoff (~25 s worst case per record), so a fully-loaded dead-letter would otherwise pin the handler for tens of minutes. Use the ``remaining_in_dl`` field in the response to decide whether to call again. */
+                max_records?: number;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     app_config_api_v1_app_config_get: {
         parameters: {
             query?: never;
@@ -1783,6 +2061,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                /** @description Pagination cursor: only return records strictly older than this timestamp. Use the ``next_cursor`` value from the previous response. Omit for the first page. */
+                before_ts?: number | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
@@ -3072,6 +3352,35 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_endpoint_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
