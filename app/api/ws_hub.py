@@ -234,17 +234,31 @@ class WSHub:
 
     @classmethod
     async def _heartbeat_tick(cls) -> None:
-        """One pass: ping every client and evict the stale ones.
+        """One pass: ping every healthy client and evict the stale ones.
 
         Stale = no inbound traffic recorded for more than
         ``WSHUB_CLIENT_TIMEOUT_SECONDS``. Eviction sends an explicit
         close so the client receives a proper handshake termination
         instead of a TCP reset; the disconnect bookkeeping then runs
-        from the endpoint's ``finally`` clause when ``receive_text``
-        raises.
+        either inline here or from the endpoint's ``finally`` clause
+        when ``receive_text`` raises.
 
-        Errors per-client are caught individually so one stuck socket
-        cannot wedge the whole heartbeat sweep.
+        Phases:
+
+        1. Snapshot ``_connections`` and classify each client into
+           "zombie" or "healthy" using a single ``time.monotonic()``
+           reading.
+        2. Run zombie ``close`` calls and healthy ``send_text(ping)``
+           calls concurrently via ``asyncio.gather`` so a 200-client
+           OID does not turn into 200 × ``BROADCAST_SEND_TIMEOUT`` of
+           wall time. Each task is wrapped in
+           ``return_exceptions=True`` so one stuck socket cannot wedge
+           the rest of the sweep — and the per-task timeout still
+           fires per-socket via ``asyncio.wait_for``.
+        3. Apply the bookkeeping (``disconnect`` for zombies and for
+           healthy sockets that failed the ping send) after the
+           gather, so the registry is mutated under predictable
+           conditions rather than mid-iteration.
         """
         now = time.monotonic()
         # Snapshot to avoid mutating the registry mid-iteration.
@@ -254,37 +268,67 @@ class WSHub:
                 targets.append((oid, ws))
         if not targets:
             return
-        ping_msg = '{"type":"ping"}'
+
+        zombies: list[tuple[str, WebSocket]] = []
+        healthy: list[tuple[str, WebSocket]] = []
         for oid, ws in targets:
             last_seen = cls._last_seen.get(ws, now)
             if (now - last_seen) > WSHUB_CLIENT_TIMEOUT_SECONDS:
-                logger.info(
-                    "Evicting WS zombie for OID=%s (idle %.0fs)",
-                    oid, now - last_seen,
-                )
-                try:
-                    await ws.close(
-                        code=1011, reason="heartbeat timeout")
-                except Exception:  # nosec B110 — best-effort close
-                    pass
-                cls.disconnect(ws, oid)
-                continue
+                zombies.append((oid, ws))
+            else:
+                healthy.append((oid, ws))
+
+        ping_msg = '{"type":"ping"}'
+
+        async def _close_zombie(oid: str, ws: WebSocket) -> None:
+            logger.info(
+                "Evicting WS zombie for OID=%s (idle %.0fs)",
+                oid, now - cls._last_seen.get(ws, now),
+            )
+            try:
+                await ws.close(code=1011, reason="heartbeat timeout")
+            except Exception:  # nosec B110 — best-effort close
+                pass
+
+        async def _ping_healthy(_oid: str, ws: WebSocket) -> bool:
+            """Return True iff the ping was delivered cleanly."""
             try:
                 await asyncio.wait_for(
                     ws.send_text(ping_msg),
                     timeout=cls._BROADCAST_SEND_TIMEOUT,
                 )
             except Exception:
-                # The send raised — treat as the same evict path so we
-                # do not keep retrying a doomed socket. The client may
-                # already be gone; just log at debug.
-                logger.debug(
-                    "Heartbeat send failed for OID=%s; evicting", oid)
-                try:
-                    await ws.close(code=1011, reason="ping failed")
-                except Exception:  # nosec B110
-                    pass
-                cls.disconnect(ws, oid)
+                return False
+            return True
+
+        # Fan out: zombie closes and healthy pings run concurrently.
+        # Capturing ``return_exceptions`` defends against an awaitable
+        # that raises despite the inner try/except (e.g. a future
+        # cancelled out from under us during shutdown).
+        zombie_coros = [_close_zombie(oid, ws) for oid, ws in zombies]
+        healthy_coros = [_ping_healthy(oid, ws) for oid, ws in healthy]
+        if zombie_coros:
+            await asyncio.gather(*zombie_coros, return_exceptions=True)
+        ping_results: list = []
+        if healthy_coros:
+            ping_results = await asyncio.gather(
+                *healthy_coros, return_exceptions=True,
+            )
+
+        # Apply bookkeeping: every zombie disconnects, every healthy
+        # client that failed the ping is also evicted.
+        for oid, ws in zombies:
+            cls.disconnect(ws, oid)
+        for (oid, ws), ok in zip(healthy, ping_results, strict=False):
+            if ok is True:
+                continue
+            logger.debug(
+                "Heartbeat send failed for OID=%s; evicting", oid)
+            try:
+                await ws.close(code=1011, reason="ping failed")
+            except Exception:  # nosec B110
+                pass
+            cls.disconnect(ws, oid)
 
     @classmethod
     async def _heartbeat_loop(cls, interval: float) -> None:

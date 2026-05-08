@@ -8,6 +8,49 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Code-review follow-ups on Fase 4 (CR-3, CR-4, M-1).** Three
+  issues surfaced in the post-fase code review:
+  * **Webhook replay was a self-DoS waiting to happen.**
+    ``POST /api/v1/admin/webhooks/replay`` ran synchronously and
+    iterated every dead-letter record with up to ~25 s of blocking
+    retries each — a fully-loaded DL would pin the handler for
+    tens of minutes, well past any sensible HTTP timeout, and tie
+    up an entire FastAPI thread. The endpoint now (a) accepts a
+    ``max_records`` query param (default 50, cap 500) and replays
+    only the oldest-eligible slice, (b) runs the blocking work
+    via ``run_in_threadpool`` so the event loop stays free for
+    other handlers, and (c) reports ``remaining_in_dl`` so the
+    operator can iterate (``while remaining > 0: replay``)
+    without guesswork. Records held back by ``since`` /
+    ``max_records`` are preserved untouched.
+  * **The dead-letter file had no size cap.** A misbehaving
+    target during a multi-day outage could grow
+    ``data/webhooks_dead_letter.jsonl`` without bound — the same
+    anti-pattern Fase 4 just fixed for the audit log. ``append``
+    now enforces ``WEBHOOK_DEAD_LETTER_MAX_RECORDS`` (default
+    1000) by dropping the oldest entries via an atomic rewrite
+    when the cap is breached, so even a runaway producer stays
+    inside a bounded disk footprint. A new
+    ``voc_webhook_dead_letter_size`` Prometheus gauge tracks the
+    current count so dashboards can alert before the cap is
+    reached.
+  * **Heartbeat tick walked clients serially.** With
+    ``WSHUB_HEARTBEAT_INTERVAL_SECONDS > 0`` and a busy OID, a
+    200-client sweep could take 200 × ``BROADCAST_SEND_TIMEOUT``
+    of wall time. ``_heartbeat_tick`` now classifies clients
+    once, fans the zombie closes and healthy pings out via
+    ``asyncio.gather`` (with ``return_exceptions=True`` so a
+    single stuck socket cannot wedge the rest), and applies the
+    bookkeeping after the gather lands — so 200 clients finish
+    in roughly ``BROADCAST_SEND_TIMEOUT``.
+  Tests: 7 new cases — DL ``count``/cap eviction/gauge updates
+  in ``tests/test_webhooks.py``, ``max_records`` paginated
+  replay + ``remaining_in_dl`` in ``tests/test_admin.py``, and
+  the concurrent + mixed-zombie heartbeat sweeps in
+  ``tests/test_api_routes.py``. Full suite: 960 passing.
+
 ### Added
 
 - **Prometheus ``/metrics`` endpoint + instrumentation

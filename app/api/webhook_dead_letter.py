@@ -35,6 +35,9 @@ import tempfile
 import threading
 import time
 
+from app.constants import WEBHOOK_DEAD_LETTER_MAX_RECORDS
+from app.metrics import set_dead_letter_size
+
 logger = logging.getLogger(__name__)
 
 _lock = threading.Lock()
@@ -51,28 +54,78 @@ def _path() -> str:
     return os.path.join(_data_dir(), _FILENAME)
 
 
+def _count_lines_locked(path: str) -> int:
+    """Return the current record count in *path* (caller holds ``_lock``).
+
+    Counts non-empty lines so partially-written tails (the writer crashed
+    between ``write`` and ``\n``) are forgiven. Used by ``append`` to
+    decide whether to evict and by ``set_dead_letter_size`` callers.
+    """
+    if not os.path.exists(path):
+        return 0
+    n = 0
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    n += 1
+    except OSError as exc:
+        logger.warning("Failed to count webhook DL records: %s", exc)
+    return n
+
+
 def append(record: dict) -> None:
-    """Append a JSON record to the dead-letter file. Best-effort."""
+    """Append a JSON record to the dead-letter file.
+
+    When the resulting record count would exceed
+    ``WEBHOOK_DEAD_LETTER_MAX_RECORDS``, the oldest entries are dropped
+    so the file stays bounded. Eviction is FIFO (preserving the most
+    recent failures, which are most likely to still be relevant for a
+    replay) and runs under the same lock that serialises every other
+    mutation, so a concurrent ``read_all`` or ``replay_records`` can
+    never observe a torn rewrite.
+
+    Best-effort: filesystem errors are logged but never raised so a
+    write failure here cannot kill the GameService action that fired
+    the webhook.
+    """
     record = dict(record)
     record.setdefault("ts", time.time())
     path = _path()
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        line = json.dumps(record, ensure_ascii=False) + "\n"
-        with _lock, open(path, "a", encoding="utf-8") as f:
-            f.write(line)
+        with _lock:
+            current = _count_lines_locked(path)
+            cap = max(1, WEBHOOK_DEAD_LETTER_MAX_RECORDS)
+            if current + 1 > cap:
+                # Need to drop ``overflow`` of the oldest records to make
+                # room for the new one. Read everything, slice the tail,
+                # and rewrite atomically (tempfile + os.replace).
+                overflow = current + 1 - cap
+                kept = _read_records_locked(path)[overflow:]
+                kept.append(record)
+                _write_records_atomic_locked(path, kept)
+                logger.warning(
+                    "Webhook DL evicted %d oldest records (cap=%d)",
+                    overflow, cap,
+                )
+                set_dead_letter_size(len(kept))
+                return
+            line = json.dumps(record, ensure_ascii=False) + "\n"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+            set_dead_letter_size(current + 1)
     except OSError as exc:
         logger.warning("Failed to append webhook dead-letter: %s", exc)
 
 
-def read_all() -> list[dict]:
-    """Return every record in append order. Empty list when the file is missing."""
-    path = _path()
-    if not os.path.exists(path):
-        return []
+def _read_records_locked(path: str) -> list[dict]:
+    """Read every JSON record at *path* (caller holds ``_lock``)."""
     records: list[dict] = []
+    if not os.path.exists(path):
+        return records
     try:
-        with _lock, open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -82,8 +135,40 @@ def read_all() -> list[dict]:
                 except json.JSONDecodeError as exc:
                     logger.debug("Skipping malformed DL line: %s", exc)
     except OSError as exc:
-        logger.warning("Failed to read webhook dead-letter: %s", exc)
+        logger.warning("Failed to read webhook DL: %s", exc)
     return records
+
+
+def _write_records_atomic_locked(path: str, records: list[dict]) -> None:
+    """Tempfile + ``os.replace`` rewrite (caller holds ``_lock``)."""
+    fd, tmp_path = tempfile.mkstemp(
+        dir=os.path.dirname(path), suffix=".tmp",
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def read_all() -> list[dict]:
+    """Return every record in append order. Empty list when the file is missing."""
+    path = _path()
+    with _lock:
+        return _read_records_locked(path)
+
+
+def count() -> int:
+    """Return the current record count without parsing every line."""
+    path = _path()
+    with _lock:
+        return _count_lines_locked(path)
 
 
 def replace_all(records: list[dict]) -> None:
@@ -98,20 +183,8 @@ def replace_all(records: list[dict]) -> None:
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with _lock:
-            fd, tmp_path = tempfile.mkstemp(
-                dir=os.path.dirname(path), suffix=".tmp",
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    for r in records:
-                        f.write(json.dumps(r, ensure_ascii=False) + "\n")
-                os.replace(tmp_path, path)
-            except BaseException:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-                raise
+            _write_records_atomic_locked(path, records)
+        set_dead_letter_size(len(records))
     except OSError as exc:
         logger.warning("Failed to rewrite webhook dead-letter: %s", exc)
 
@@ -123,6 +196,7 @@ def clear() -> None:
         with _lock:
             if os.path.exists(path):
                 os.remove(path)
+        set_dead_letter_size(0)
     except OSError as exc:
         logger.warning("Failed to clear webhook dead-letter: %s", exc)
 

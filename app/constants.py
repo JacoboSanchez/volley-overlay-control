@@ -109,6 +109,15 @@ WEBHOOK_RETRY_ATTEMPTS = _env_int("WEBHOOK_RETRY_ATTEMPTS", 3)
 WEBHOOK_RETRY_BASE_SECONDS = _env_float("WEBHOOK_RETRY_BASE_SECONDS", 1.0)
 WEBHOOK_RETRY_MAX_SECONDS = _env_float("WEBHOOK_RETRY_MAX_SECONDS", 8.0)
 
+# Hard cap on the dead-letter file. ``append`` evicts the oldest
+# records once the file would exceed this many entries, so a
+# misbehaving target / runaway producer cannot grow ``data/
+# webhooks_dead_letter.jsonl`` without bound between operator
+# replays. Override with ``WEBHOOK_DEAD_LETTER_MAX_RECORDS``.
+WEBHOOK_DEAD_LETTER_MAX_RECORDS = _env_int(
+    "WEBHOOK_DEAD_LETTER_MAX_RECORDS", 1000,
+)
+
 # ``WSControlClient`` reconnect/heartbeat tuning. ``WS_ZOMBIE_DEADLINE``
 # must stay > 2 * ``WS_HEARTBEAT_INTERVAL`` so a single dropped pong
 # does not churn the connection.

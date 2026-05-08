@@ -354,6 +354,59 @@ class TestWebhookRetries:
         assert "ConnectTimeout" in records[0]["last_error"]
 
 
+class TestDeadLetterCap:
+    """``append`` must keep the DL file under the configured cap."""
+
+    @pytest.fixture
+    def small_cap(self, monkeypatch, tmp_path):
+        from app.api import webhook_dead_letter
+
+        monkeypatch.setattr(
+            webhook_dead_letter, "WEBHOOK_DEAD_LETTER_MAX_RECORDS", 3,
+        )
+        monkeypatch.setattr(
+            webhook_dead_letter, "_data_dir", lambda: str(tmp_path),
+        )
+        yield
+
+    def test_under_cap_appends_normally(self, small_cap):
+        from app.api import webhook_dead_letter
+
+        for i in range(3):
+            webhook_dead_letter.append({"url": "u", "event": "e", "oid": f"o{i}"})
+        records = webhook_dead_letter.read_all()
+        assert [r["oid"] for r in records] == ["o0", "o1", "o2"]
+
+    def test_overflow_evicts_oldest(self, small_cap):
+        from app.api import webhook_dead_letter
+
+        for i in range(5):
+            webhook_dead_letter.append({"url": "u", "event": "e", "oid": f"o{i}"})
+        records = webhook_dead_letter.read_all()
+        # Cap=3 and we wrote 5 → the two oldest (o0, o1) were evicted.
+        assert len(records) == 3
+        assert [r["oid"] for r in records] == ["o2", "o3", "o4"]
+
+    def test_count_reflects_disk_state(self, small_cap):
+        from app.api import webhook_dead_letter
+
+        assert webhook_dead_letter.count() == 0
+        webhook_dead_letter.append({"url": "u", "event": "e", "oid": "x"})
+        assert webhook_dead_letter.count() == 1
+
+    def test_gauge_tracks_size(self, small_cap):
+        from app.api import webhook_dead_letter
+        from app.metrics import webhook_dead_letter_size
+
+        webhook_dead_letter_size.set(0)  # reset for test isolation
+        webhook_dead_letter.append({"url": "u", "event": "e", "oid": "g0"})
+        assert webhook_dead_letter_size._value.get() == 1
+        webhook_dead_letter.append({"url": "u", "event": "e", "oid": "g1"})
+        assert webhook_dead_letter_size._value.get() == 2
+        webhook_dead_letter.clear()
+        assert webhook_dead_letter_size._value.get() == 0
+
+
 class TestReplayRecords:
     def test_replay_redelivers_on_success(self, monkeypatch, fast_retries):
         monkeypatch.setenv("WEBHOOKS_URL", "https://hooks.example.com/x")

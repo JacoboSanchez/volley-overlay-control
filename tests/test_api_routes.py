@@ -407,3 +407,73 @@ class TestWSHubHeartbeat:
         # Default is 0 — no task should be scheduled.
         WSHub.start_heartbeat()
         assert WSHub._heartbeat_task is None
+
+    def test_tick_runs_pings_concurrently(self, monkeypatch):
+        """A 200-client OID must not turn into 200 × timeout of wall time.
+
+        Five mock clients each take 0.1 s to respond to ``send_text``.
+        Serial would be ~0.5 s; concurrent must be ~0.1 s. Cut the
+        threshold at 0.3 s to absorb scheduler jitter while still
+        catching a regression to the serial loop.
+        """
+        import asyncio as _asyncio
+        import time as _time
+        from unittest.mock import AsyncMock
+
+        from app.api import ws_hub
+        from app.api.ws_hub import WSHub
+
+        WSHub.clear()
+        monkeypatch.setattr(ws_hub, "WSHUB_CLIENT_TIMEOUT_SECONDS", 60.0)
+        monkeypatch.setattr(WSHub, "_BROADCAST_SEND_TIMEOUT", 1.0)
+
+        async def _slow_send(_msg):
+            await _asyncio.sleep(0.1)
+
+        clients = []
+        for _ in range(5):
+            c = AsyncMock()
+            c.send_text.side_effect = _slow_send
+            clients.append(c)
+        WSHub._connections["oid-c"] = set(clients)
+        for c in clients:
+            WSHub._last_seen[c] = _time.monotonic()
+
+        start = _time.monotonic()
+        _asyncio.run(WSHub._heartbeat_tick())
+        elapsed = _time.monotonic() - start
+        assert elapsed < 0.3, (
+            f"heartbeat tick ran serially ({elapsed:.2f}s for 5 clients)"
+        )
+        # All five clients got their ping.
+        for c in clients:
+            c.send_text.assert_called_once_with('{"type":"ping"}')
+        WSHub.clear()
+
+    def test_tick_evicts_only_zombie_when_mixed_with_healthy(self, monkeypatch):
+        """Healthy + zombie clients in the same tick: zombie evicted, healthy kept."""
+        import asyncio as _asyncio
+        import time as _time
+        from unittest.mock import AsyncMock
+
+        from app.api import ws_hub
+        from app.api.ws_hub import WSHub
+
+        WSHub.clear()
+        monkeypatch.setattr(ws_hub, "WSHUB_CLIENT_TIMEOUT_SECONDS", 1.0)
+
+        zombie = AsyncMock()
+        healthy = AsyncMock()
+        WSHub._connections["oid-mix"] = {zombie, healthy}
+        WSHub._last_seen[zombie] = _time.monotonic() - 5.0
+        WSHub._last_seen[healthy] = _time.monotonic()
+
+        _asyncio.run(WSHub._heartbeat_tick())
+
+        # Zombie gone, healthy stayed and was pinged.
+        assert "oid-mix" in WSHub._connections
+        assert healthy in WSHub._connections["oid-mix"]
+        assert zombie not in WSHub._connections["oid-mix"]
+        zombie.close.assert_called_once()
+        healthy.send_text.assert_called_once_with('{"type":"ping"}')
+        WSHub.clear()

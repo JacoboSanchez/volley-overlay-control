@@ -429,6 +429,7 @@ class TestWebhookReplayEndpoint:
             "succeeded": 0,
             "still_failing": 0,
             "skipped_unknown_url": 0,
+            "remaining_in_dl": 0,
         }
 
     def test_redelivers_and_prunes_successes(self, client, replay_env):
@@ -454,6 +455,43 @@ class TestWebhookReplayEndpoint:
         assert body["still_failing"] == 0
         # The DL file is now empty.
         assert webhook_dead_letter.read_all() == []
+
+    def test_max_records_caps_per_call_and_reports_remaining(
+        self, client, replay_env,
+    ):
+        from unittest.mock import MagicMock, patch
+
+        from app.api import webhook_dead_letter
+
+        # Seed 5 records — all targeting the same configured URL.
+        for i in range(5):
+            webhook_dead_letter.append({
+                "url": "https://hooks.example.com/x",
+                "event": "set_end", "oid": f"o{i}", "body": "{}",
+            })
+        with patch(
+            "app.api.webhooks.requests.post",
+            return_value=MagicMock(status_code=200),
+        ) as post:
+            res = client.post(
+                "/api/v1/admin/webhooks/replay",
+                params={"max_records": 2},
+                headers=_auth(),
+            )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["considered"] == 2
+        assert body["succeeded"] == 2
+        # 3 remaining records (5 seeded - 2 redelivered) stayed in
+        # the file, untouched by this call.
+        assert body["remaining_in_dl"] == 3
+        # Two redeliveries hit the network.
+        assert post.call_count == 2
+        # File content matches: 3 oldest-eligible records were
+        # consumed by replay, so the 3 newest remain.
+        remaining = webhook_dead_letter.read_all()
+        assert len(remaining) == 3
+        assert [r["oid"] for r in remaining] == ["o2", "o3", "o4"]
 
     def test_since_filter_keeps_older_records_untouched(self, client, replay_env):
         import time as _time

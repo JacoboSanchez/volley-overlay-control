@@ -127,6 +127,11 @@ active_sessions = Gauge(
     "Number of live GameSession instances tracked by SessionManager.",
 )
 
+webhook_dead_letter_size = Gauge(
+    "voc_webhook_dead_letter_size",
+    "Records currently parked in data/webhooks_dead_letter.jsonl.",
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers used from hot paths (kept tiny so the bookkeeping cost stays
@@ -154,3 +159,8 @@ def set_ws_gauges(total_clients: int, oid_count: int) -> None:
 
 def set_active_sessions(count: int) -> None:
     active_sessions.set(count)
+
+
+def set_dead_letter_size(count: int) -> None:
+    """Refresh the webhook dead-letter gauge after a write/clear."""
+    webhook_dead_letter_size.set(count)

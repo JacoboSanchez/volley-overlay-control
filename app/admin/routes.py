@@ -470,7 +470,7 @@ def get_custom_overlay_usage(name: str):
     dependencies=[Depends(require_admin)],
     summary="Re-deliver dead-lettered webhook records",
 )
-def replay_dead_letter_webhooks(
+async def replay_dead_letter_webhooks(
     since: float | None = Query(
         None,
         description=(
@@ -479,8 +479,21 @@ def replay_dead_letter_webhooks(
             "landed after the receiving service came back online."
         ),
     ),
+    max_records: int = Query(
+        50,
+        ge=1,
+        le=500,
+        description=(
+            "Cap the number of records redelivered in this call. "
+            "``replay_records`` blocks on per-record retries with "
+            "exponential backoff (~25 s worst case per record), so a "
+            "fully-loaded dead-letter would otherwise pin the handler "
+            "for tens of minutes. Use the ``remaining_in_dl`` field in "
+            "the response to decide whether to call again."
+        ),
+    ),
 ):
-    """Replay every record currently in the webhook dead-letter file.
+    """Replay (a slice of) the webhook dead-letter file.
 
     Each record is matched to a configured ``WebhookTarget`` by URL,
     re-signed with the *current* HMAC secret (so rotating
@@ -493,8 +506,18 @@ def replay_dead_letter_webhooks(
     * Records that fail again are kept with their ``attempts``
       counter bumped and the latest ``last_error`` recorded.
 
-    Returns counts only — the body itself is never echoed back to
-    avoid leaking match payloads through the admin surface.
+    Selection order: oldest records (lowest ``ts``) within the
+    eligible window go first, so iterative calls drain the file
+    front-to-back. The blocking work runs on the FastAPI threadpool
+    via ``run_in_threadpool`` so the event loop stays free for other
+    handlers while a long replay is in flight.
+
+    Returns counts only — the bodies are never echoed back so the
+    admin surface cannot leak match payloads. ``remaining_in_dl``
+    is the count of records still on disk after the call (ones held
+    back by ``since`` / ``max_records`` plus the ``still_failing``
+    bucket that just got re-written) so the operator knows whether
+    to call again.
     """
     # Lazy imports keep ``app.admin.routes`` light for tests that just
     # exercise overlay CRUD; pulling in ``requests`` (via webhooks)
@@ -502,21 +525,28 @@ def replay_dead_letter_webhooks(
     from app.api import webhook_dead_letter, webhooks
     records = webhook_dead_letter.read_all()
     if since is not None:
-        # Anything older than ``since`` stays in the file untouched.
-        replay_set = [r for r in records if r.get("ts", 0) >= since]
-        keep_set = [r for r in records if r.get("ts", 0) < since]
+        eligible = [r for r in records if r.get("ts", 0) >= since]
+        held_back = [r for r in records if r.get("ts", 0) < since]
     else:
-        replay_set = list(records)
-        keep_set = []
-    succeeded, still_failing, skipped = (
-        webhooks.webhook_dispatcher.replay_records(replay_set)
+        eligible = list(records)
+        held_back = []
+    # Replay the oldest-eligible slice so successive calls drain the
+    # file front-to-back; what doesn't fit in this call stays in the
+    # DL (``deferred``) and shows up in ``remaining_in_dl``.
+    replay_set = eligible[:max_records]
+    deferred = eligible[max_records:]
+    dispatcher = webhooks.webhook_dispatcher
+    succeeded, still_failing, skipped = await run_in_threadpool(
+        dispatcher.replay_records, replay_set,
     )
-    webhook_dead_letter.replace_all(keep_set + still_failing)
+    new_dl = held_back + deferred + still_failing
+    webhook_dead_letter.replace_all(new_dl)
     return {
         "considered": len(replay_set),
         "succeeded": succeeded,
         "still_failing": len(still_failing),
         "skipped_unknown_url": skipped,
+        "remaining_in_dl": len(new_dl),
     }
 
 
