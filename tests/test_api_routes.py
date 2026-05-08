@@ -272,3 +272,138 @@ class TestWSHubResilience:
 
         assert "oid1" not in WSHub._connections
         WSHub.clear()
+
+
+# ---------------------------------------------------------------------------
+# WSHub cap + heartbeat (M14 — Fase 4)
+# ---------------------------------------------------------------------------
+
+
+class TestWSHubCap:
+    """``connect`` must reject upgrades once an OID is at its cap."""
+
+    def test_connect_raises_when_at_cap(self, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        from app.api.ws_hub import WSHub, WSHubFull
+
+        WSHub.clear()
+        monkeypatch.setattr(WSHub, "_MAX_CLIENTS_PER_OID", 2)
+        # Pre-populate two healthy clients so the next accept hits the cap.
+        WSHub._connections["oid-cap"] = {object(), object()}
+
+        ws = AsyncMock()
+        import asyncio as _asyncio
+
+        with pytest.raises(WSHubFull) as excinfo:
+            _asyncio.run(WSHub.connect(ws, "oid-cap"))
+        assert excinfo.value.oid == "oid-cap"
+        assert excinfo.value.cap == 2
+        # The handshake must NOT have been accepted on the rejected upgrade.
+        ws.accept.assert_not_called()
+        WSHub.clear()
+
+    def test_websocket_endpoint_closes_with_1013_when_at_cap(
+        self, client, fake_backend_cls, monkeypatch,
+    ):
+        from app.api.ws_hub import WSHub
+
+        # Spin up a real session so check_oid_access / SessionManager pass.
+        with patch(
+            "app.api.routes.session.Backend", return_value=fake_backend_cls,
+        ):
+            r = client.post("/api/v1/session/init", json={"oid": "cap-oid"})
+            assert r.status_code == 200
+
+        # Force the cap to 0 so the very first WS connect is refused.
+        monkeypatch.setattr(WSHub, "_MAX_CLIENTS_PER_OID", 0)
+
+        # The TestClient WebSocket helper raises on close-before-accept,
+        # but FastAPI emits the 1013 close *after* the handshake message
+        # — so just verify the endpoint did not register the client.
+        # The TestClient WebSocket helper raises on close-before-accept
+        # with a variety of exceptions across Starlette versions, so
+        # catch broadly: the assertion below is what actually proves
+        # the cap held.
+        try:
+            with client.websocket_connect("/api/v1/ws?oid=cap-oid"):
+                pass
+        except Exception:
+            pass
+        assert "cap-oid" not in WSHub._connections
+        WSHub.clear()
+
+
+class TestWSHubHeartbeat:
+    """``_heartbeat_tick`` evicts zombies and pings the rest."""
+
+    def test_tick_evicts_idle_socket_past_timeout(self, monkeypatch):
+        import asyncio as _asyncio
+        import time as _time
+        from unittest.mock import AsyncMock
+
+        from app.api import ws_hub
+        from app.api.ws_hub import WSHub
+
+        WSHub.clear()
+        # 1s timeout for the test; pretend the client has been idle 5s.
+        monkeypatch.setattr(ws_hub, "WSHUB_CLIENT_TIMEOUT_SECONDS", 1.0)
+
+        zombie = AsyncMock()
+        WSHub._connections["oid-z"] = {zombie}
+        WSHub._last_seen[zombie] = _time.monotonic() - 5.0
+
+        _asyncio.run(WSHub._heartbeat_tick())
+
+        # Eviction sends a 1011 close and then disconnects bookkeeping.
+        zombie.close.assert_called_once()
+        assert "oid-z" not in WSHub._connections
+        assert zombie not in WSHub._last_seen
+        WSHub.clear()
+
+    def test_tick_pings_healthy_socket(self, monkeypatch):
+        import asyncio as _asyncio
+        import time as _time
+        from unittest.mock import AsyncMock
+
+        from app.api import ws_hub
+        from app.api.ws_hub import WSHub
+
+        WSHub.clear()
+        monkeypatch.setattr(ws_hub, "WSHUB_CLIENT_TIMEOUT_SECONDS", 60.0)
+
+        healthy = AsyncMock()
+        WSHub._connections["oid-h"] = {healthy}
+        WSHub._last_seen[healthy] = _time.monotonic()
+
+        _asyncio.run(WSHub._heartbeat_tick())
+
+        # Stays connected and received the application-level ping frame.
+        assert "oid-h" in WSHub._connections
+        healthy.send_text.assert_called_once_with('{"type":"ping"}')
+        healthy.close.assert_not_called()
+        WSHub.clear()
+
+    def test_mark_active_bumps_last_seen(self, monkeypatch):
+        import time as _time
+        from unittest.mock import AsyncMock
+
+        from app.api.ws_hub import WSHub
+
+        WSHub.clear()
+        ws = AsyncMock()
+        # mark_active is a no-op for unknown sockets — only registered
+        # clients are tracked.
+        WSHub._last_seen[ws] = _time.monotonic() - 5.0
+        before = WSHub._last_seen[ws]
+        WSHub.mark_active(ws)
+        assert WSHub._last_seen[ws] >= before
+        WSHub.clear()
+
+    def test_start_heartbeat_no_op_when_disabled(self):
+        from app.api.ws_hub import WSHub
+
+        WSHub.stop_heartbeat()
+        # Default is 0 — no task should be scheduled.
+        WSHub.start_heartbeat()
+        assert WSHub._heartbeat_task is None

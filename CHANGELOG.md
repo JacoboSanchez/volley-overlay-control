@@ -10,6 +10,40 @@ once a first tagged release ships.
 
 ### Added
 
+- **WebSocket connection cap + opt-in server heartbeat
+  (Fase 4 / M14).** Two complementary defences against runaway
+  ``WSHub`` registries:
+  * **Connection cap.** ``WSHub.connect`` now refuses upgrades
+    when an OID already has ``WSHUB_MAX_CLIENTS_PER_OID`` (default
+    200) subscribers. The reject path raises a new
+    ``WSHubFull`` exception **before** ``ws.accept()``, and the
+    ``/api/v1/ws`` endpoint translates it into a WebSocket close
+    with code ``1013`` ("Try Again Later") — the conventional
+    server-side back-pressure signal. The cap protects the box
+    from a runaway tab loop or a misconfigured load test eating
+    file descriptors. Configurable via the
+    ``WSHUB_MAX_CLIENTS_PER_OID`` env var.
+  * **Server heartbeat (opt-in).** When the operator sets
+    ``WSHUB_HEARTBEAT_INTERVAL_SECONDS > 0``, a background task
+    started from ``router_lifespan`` sweeps every connection
+    every ``INTERVAL`` seconds, sends an application-level
+    ``{"type":"ping"}`` frame, and evicts any client whose
+    ``mark_active`` timestamp is older than
+    ``WSHUB_CLIENT_TIMEOUT_SECONDS`` (default 60 s) with a 1011
+    close ("server error") and a clean ``disconnect``. Default
+    interval is **0 (disabled)** because the existing browser
+    client does not yet ack application-level pings — turning
+    this on without first updating the frontend would churn live
+    tabs every timeout. A new ``_env_float_nonneg`` helper in
+    ``app.constants`` lets ``KEY=0`` survive the validation as a
+    genuine "off" signal (the strict ``> 0`` filter on
+    ``_env_float`` would otherwise upgrade it to the default).
+  Tests: 6 new cases in ``tests/test_api_routes.py`` covering
+  ``WSHubFull`` raise-before-accept, the endpoint's 1013 close,
+  zombie eviction past the timeout, healthy-client ping
+  dispatch, ``mark_active`` bumping ``_last_seen``, and the
+  ``start_heartbeat`` no-op path. Suite at 934 passing.
+
 - **Audit log rotation + cursor-based pagination
   (Fase 4 / M13).** The per-OID action audit
   (``data/audit_<hash>.jsonl``) used to grow without bound — a

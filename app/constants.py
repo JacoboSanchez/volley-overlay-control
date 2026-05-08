@@ -36,6 +36,24 @@ def _env_int(key: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def _env_float_nonneg(key: str, default: float) -> float:
+    """Like :func:`_env_float` but accepts 0 as a valid disable signal.
+
+    Used by knobs where ``0`` has a meaningful "off" interpretation
+    (heartbeat interval, optional rate-limit window) — the strict
+    ``> 0`` filter on :func:`_env_float` would otherwise silently
+    upgrade ``KEY=0`` to the default and confuse the operator.
+    """
+    raw = os.environ.get(key)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
 # Idle game sessions are evicted after this many seconds. Override with
 # the ``SESSION_TTL_SECONDS`` env var.
 SESSION_TTL_SECONDS = _env_int("SESSION_TTL_SECONDS", 24 * 60 * 60)
@@ -55,6 +73,29 @@ WS_BROADCAST_SEND_TIMEOUT_SECONDS = _env_float(
 # letting ``read_all`` / ``read_page`` walk the rotated set transparently.
 AUDIT_LOG_MAX_BYTES = _env_int("AUDIT_LOG_MAX_BYTES", 5 * 1024 * 1024)
 AUDIT_LOG_MAX_FILES = _env_int("AUDIT_LOG_MAX_FILES", 5)
+
+# Maximum number of concurrent WebSocket subscribers per OID. Once an
+# OID hits this cap, ``WSHub.connect`` rejects further upgrades with a
+# 1013 ("Try Again Later") close so a runaway tab loop or scripted
+# attacker cannot exhaust file descriptors on the box. Override with
+# ``WSHUB_MAX_CLIENTS_PER_OID``.
+WSHUB_MAX_CLIENTS_PER_OID = _env_int("WSHUB_MAX_CLIENTS_PER_OID", 200)
+
+# Server-side WebSocket heartbeat. ``WSHUB_HEARTBEAT_INTERVAL_SECONDS``
+# defaults to 0 (disabled) because the existing browser client does not
+# yet respond to application-level pings — enabling without first
+# updating the frontend would churn live tabs every
+# ``WSHUB_CLIENT_TIMEOUT_SECONDS``. Operators that have a heartbeat-
+# aware client (e.g. a custom OBS bridge) can opt in by setting
+# ``WSHUB_HEARTBEAT_INTERVAL_SECONDS=30`` and tuning the timeout.
+# Constraint: ``CLIENT_TIMEOUT > 2 * INTERVAL`` so a single dropped
+# pong does not churn the connection (mirrors the WSControlClient rule).
+WSHUB_HEARTBEAT_INTERVAL_SECONDS = _env_float_nonneg(
+    "WSHUB_HEARTBEAT_INTERVAL_SECONDS", 0.0,
+)
+WSHUB_CLIENT_TIMEOUT_SECONDS = _env_float(
+    "WSHUB_CLIENT_TIMEOUT_SECONDS", 60.0,
+)
 
 # ``WSControlClient`` reconnect/heartbeat tuning. ``WS_ZOMBIE_DEADLINE``
 # must stay > 2 * ``WS_HEARTBEAT_INTERVAL`` so a single dropped pong

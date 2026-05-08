@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 from app.api.dependencies import check_oid_access
 from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
-from app.api.ws_hub import WSHub
+from app.api.ws_hub import WSHub, WSHubFull
 from app.logging_utils import redact_oid
 
 logger = logging.getLogger(__name__)
@@ -84,13 +84,25 @@ async def websocket_endpoint(
         await ws.close(code=4004, reason="No active session for this OID.")
         return
 
-    await WSHub.connect(ws, resolved, subprotocol=selected_subprotocol)
+    try:
+        await WSHub.connect(ws, resolved, subprotocol=selected_subprotocol)
+    except WSHubFull as exc:
+        # 1013 = Try Again Later. Reason stays generic so a probing
+        # client cannot use the close text to enumerate which OIDs are
+        # at the cap.
+        logger.warning(
+            "Refused WS connect for OID %s — at cap %d",
+            redact_oid(resolved), exc.cap,
+        )
+        await ws.close(code=1013, reason="Too many clients for this OID.")
+        return
     try:
         state_data = GameService.get_state(session).model_dump()
         await ws.send_json({"type": "state_update", "data": state_data})
 
         while True:
             data = await ws.receive_text()
+            WSHub.mark_active(ws)
             # Actions go through REST; WS is state-stream + ping/pong only.
             if data == "ping":
                 await ws.send_text("pong")
