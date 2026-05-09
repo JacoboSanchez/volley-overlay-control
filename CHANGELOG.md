@@ -10,6 +10,72 @@ once a first tagged release ships.
 
 ### Added
 
+- **UX Phase 1 — sensory feedback and loading state.** Closes the
+  perceptual loop so the operator knows *what just happened*
+  without having to watch the scoreboard. Sound cues were
+  intentionally deferred to a later phase to keep this PR
+  focused on the silent-but-visible failure modes.
+
+  * **`useHaptics` hook + per-event patterns.** New
+    ``frontend/src/hooks/useHaptics.ts`` wraps ``navigator.vibrate``
+    behind a 50 ms throttle, a settings toggle (``haptics``,
+    default ``true``), and a feature detect that no-ops on
+    runtimes without the Vibration API (desktop browsers, JSDOM,
+    pre-18.4 iOS Safari). Five named patterns: ``tap`` (10 ms),
+    ``confirm`` (10-30-10), ``alert`` (15-35-15), ``matchPoint``
+    (5-pulse), ``finished`` (40-60-40).
+  * **`useMatchAlertHaptics` transition watcher.** Hoisted
+    ``pickAlert`` out of ``MatchAlertIndicator`` so the new hook
+    in ``frontend/src/hooks/useMatchAlertHaptics.ts`` can subscribe
+    to the same set / match / finished transitions the indicator
+    pill reads. Re-broadcasts of the same alert kind/team are
+    suppressed so a stable WS frame can't replay the cue.
+  * **Wired into the existing operator gestures.** Server-side
+    LIFO undo (HUD button) and per-team double-tap-undo
+    (``handleDoubleTapScore`` / ``handleDoubleTapTimeout``) now
+    fire the ``confirm`` pattern; the alert watcher lights up on
+    set / match / finished transitions. New
+    ``behavior.haptics`` toggle in the Behavior section of the
+    config panel, translated across the six supported locales.
+  * **`ScoreboardSkeleton` placeholder.** New
+    ``frontend/src/components/ScoreboardSkeleton.tsx`` mirrors the
+    scoreboard's three-pane layout (team A / centre / team B) so
+    the "post-OID, pre-first-WS-frame" gap no longer flashes the
+    InitScreen with a prefilled value before swapping to the real
+    UI. Reuses the ``config-skeleton-shimmer`` keyframes for
+    tonal consistency and honours ``prefers-reduced-motion``. The
+    InitScreen path is now reserved for the no-OID and post-error
+    cases. Carries the realtime-sync pill in its first frame so
+    a slow connect is observable end-to-end.
+  * **Persistent save-error banner with Retry.** The old
+    transient ``.config-save-error`` banner now exposes a real
+    Retry button bound directly to ``handleSave``; pending saves
+    surface a ``cloud_upload`` "Saving…" pill next to the Save
+    button (``role="status"``, ``aria-live="polite"``). The
+    success path still navigates back as before, so happy-path
+    behaviour is unchanged. New i18n keys: ``config.saving`` and
+    ``config.retry`` across all six locales.
+  * **Floating toast in the `/manage` admin page.** The inline
+    ``.status`` panel was promoted to a fixed top-right pill with
+    icon glyphs from Material Icons (``check_circle`` /
+    ``error_outline`` / ``info``), a slide-in transition, and
+    ``prefers-reduced-motion`` support. Modal-scoped errors opt
+    out via the new ``.status-inline`` modifier so login / create-
+    overlay / preset modals keep their existing in-flow panels.
+    No JS contract change — ``showStatus`` callers (create,
+    delete, bulk-delete, preset save, preset apply) emit toasts
+    automatically via the styling switch.
+
+  Tests: ``useHaptics.test.tsx`` (7 cases),
+  ``useMatchAlertHaptics.test.tsx`` (5 cases),
+  ``ScoreboardSkeleton.test.tsx`` (4 cases), 1 new
+  ``surfaces a retryable error banner`` case in
+  ``ConfigPanel.test.tsx``. ``App.test.tsx`` updated where the
+  seeded-OID path no longer flashes an InitScreen input. Full
+  suites: backend 1002 passed, frontend 358 passed.
+
+### Added
+
 - **UX Phase 0 — quick wins across the four operator surfaces.** Five
   small, low-risk fixes that close visible gaps in the control UI,
   the ``/manage`` admin page, the public match report and the

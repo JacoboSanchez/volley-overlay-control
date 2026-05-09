@@ -326,6 +326,17 @@ export default function ConfigPanel({
           <span className="material-icons">save</span>
           <span>{saving ? '...' : t('config.save')}</span>
         </button>
+        {saving && (
+          <span
+            className="config-save-status config-save-status-pending"
+            role="status"
+            aria-live="polite"
+            data-testid="save-status-pending"
+          >
+            <span className="material-icons">cloud_upload</span>
+            {t('config.saving')}
+          </span>
+        )}
         <div className="spacer" />
         <button className="config-bottom-btn config-bottom-btn-fullscreen"
           onClick={onToggleFullscreen}
@@ -349,7 +360,24 @@ export default function ConfigPanel({
       </div>
 
       {saveError && (
-        <div className="config-save-error">{saveError}</div>
+        <div
+          className="config-save-error"
+          role="alert"
+          data-testid="save-error-banner"
+        >
+          <span className="material-icons" aria-hidden="true">error_outline</span>
+          <span className="config-save-error-message">{saveError}</span>
+          <button
+            type="button"
+            className="config-save-error-retry"
+            onClick={handleSave}
+            disabled={saving}
+            data-testid="save-error-retry"
+          >
+            <span className="material-icons" aria-hidden="true">refresh</span>
+            {t('config.retry')}
+          </button>
+        </div>
       )}
 
       <ConfirmDialog

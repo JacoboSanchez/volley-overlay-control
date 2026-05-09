@@ -1197,6 +1197,76 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── Scoreboard skeleton (post-OID, pre-first-WS frame) ────────────── */
+
+/*
+  Mirrors the scoreboard's 3-pane layout (team / centre / team) so the
+  upcoming render swap doesn't shift the operator's eye target. Shares
+  the shimmer keyframes with ``.config-skeleton-line`` to stay
+  tonally consistent with the other loading states in the app.
+*/
+.scoreboard-skeleton {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.75rem;
+  padding: 1rem 0.75rem;
+  width: 100%;
+}
+
+.scoreboard-skeleton-landscape {
+  flex-direction: row;
+}
+
+.scoreboard-skeleton-portrait {
+  flex-direction: column;
+  align-items: center;
+}
+
+.scoreboard-skeleton-team,
+.scoreboard-skeleton-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-height: 200px;
+}
+
+.scoreboard-skeleton-block {
+  border-radius: 12px;
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 100%);
+  background-size: 200% 100%;
+  animation: config-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.scoreboard-skeleton-score {
+  width: min(70%, 220px);
+  height: 120px;
+}
+
+.scoreboard-skeleton-sets {
+  width: min(60%, 180px);
+  height: 80px;
+}
+
+.scoreboard-skeleton-meta {
+  width: min(60%, 180px);
+  height: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scoreboard-skeleton-block {
+    animation: none;
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
 /* ── Config lazy-load skeleton ──────────────────────────────────────── */
 
 .config-skeleton {
@@ -1271,18 +1341,75 @@ body {
   cursor: pointer;
 }
 
+/* ── Save status (pending) ──────────────────────────────────────────── */
+
+.config-save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.config-save-status .material-icons {
+  font-size: 1rem;
+}
+
+.config-save-status-pending {
+  color: var(--blue, #2196f3);
+}
+
 /* ── Save error banner ──────────────────────────────────────────────── */
 
 .config-save-error {
   color: var(--red);
   font-size: 0.875rem;
-  text-align: center;
-  padding: 0.25rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.4rem 0.75rem;
   position: absolute;
   bottom: 52px;
   left: 0;
   right: 0;
   background: var(--bg);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.config-save-error .material-icons {
+  font-size: 1.1rem;
+}
+
+.config-save-error-message {
+  flex: 1;
+  text-align: left;
+}
+
+.config-save-error-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--red);
+  background: transparent;
+  color: var(--red);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.config-save-error-retry:hover,
+.config-save-error-retry:focus-visible {
+  background: rgba(244, 67, 54, 0.08);
+  outline: none;
+}
+
+.config-save-error-retry:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── Shared config form elements ────────────────────────────────────── */

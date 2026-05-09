@@ -6,6 +6,7 @@ export interface BehaviorSettings {
   autoHideSeconds: number;
   autoSimple: boolean;
   autoSimpleOnTimeout: boolean;
+  haptics: boolean;
 }
 
 export interface BehaviorSectionProps {
@@ -55,6 +56,11 @@ export default function BehaviorSection({ settings, setSetting }: BehaviorSectio
           </label>
         </div>
       )}
+      <ConfigSwitch
+        label={t('behavior.haptics')}
+        checked={settings.haptics}
+        onChange={(v) => setSetting('haptics', v)}
+      />
 
       <div className="config-separator" />
       <div className="config-field-row">

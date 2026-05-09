@@ -25,6 +25,14 @@ export interface Settings {
   team2BtnText: string;
   autoHide: boolean;
   autoHideSeconds: number;
+  /**
+   * Haptic feedback toggle. When ``true`` the operator's device
+   * vibrates briefly on confirmed double-tap-undo gestures and on
+   * set / match / finished transitions. Defaults to ``true`` because
+   * the patterns are short (10–60 ms) and devices without
+   * ``navigator.vibrate`` no-op silently.
+   */
+  haptics: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -42,6 +50,7 @@ const DEFAULTS: Settings = {
   team2BtnText: '#ffffff',
   autoHide: false,
   autoHideSeconds: 5,
+  haptics: true,
 };
 
 /**

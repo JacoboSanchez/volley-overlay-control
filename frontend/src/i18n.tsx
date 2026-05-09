@@ -12,6 +12,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Select Overlay',
     'app.selectOverlayPlaceholder': '— Select —',
     'app.orManualOid': 'or enter OID manually',
+    'app.connecting': 'Connecting…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -55,6 +56,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Save',
     'config.saveCustomization': 'Save customization',
     'config.failedToSave': 'Failed to save customization',
+    'config.saving': 'Saving…',
+    'config.retry': 'Retry',
     'config.reloadFromServer': 'Reload from server',
     'config.reloadConfirm': 'Reload customization from server?',
     'config.resetMatch': 'Reset match',
@@ -145,6 +148,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Hide after {value}s',
     'behavior.autoSimple': 'Auto simple mode',
     'behavior.fullOnTimeout': 'Full mode on timeout',
+    'behavior.haptics': 'Haptic feedback',
     'behavior.showPreview': 'Show overlay preview',
 
     // Preview
@@ -171,6 +175,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Seleccionar Overlay',
     'app.selectOverlayPlaceholder': '— Elegir —',
     'app.orManualOid': 'o introducir OID manualmente',
+    'app.connecting': 'Conectando…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -214,6 +219,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Guardar',
     'config.saveCustomization': 'Guardar personalización',
     'config.failedToSave': 'Error al guardar la personalización',
+    'config.saving': 'Guardando…',
+    'config.retry': 'Reintentar',
     'config.reloadFromServer': 'Recargar del servidor',
     'config.reloadConfirm': '¿Recargar personalización del servidor?',
     'config.resetMatch': 'Reiniciar partido',
@@ -304,6 +311,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Ocultar después de {value}s',
     'behavior.autoSimple': 'Modo simple automático',
     'behavior.fullOnTimeout': 'Modo completo en tiempo muerto',
+    'behavior.haptics': 'Vibración táctil',
     'behavior.showPreview': 'Mostrar vista previa del overlay',
 
     // Preview
@@ -330,6 +338,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Selecionar Overlay',
     'app.selectOverlayPlaceholder': '— Selecionar —',
     'app.orManualOid': 'ou introduzir o OID manualmente',
+    'app.connecting': 'A ligar…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -373,6 +382,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Guardar',
     'config.saveCustomization': 'Guardar personalização',
     'config.failedToSave': 'Falha ao guardar a personalização',
+    'config.saving': 'A guardar…',
+    'config.retry': 'Tentar novamente',
     'config.reloadFromServer': 'Recarregar do servidor',
     'config.reloadConfirm': 'Recarregar personalização do servidor?',
     'config.resetMatch': 'Reiniciar jogo',
@@ -463,6 +474,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Ocultar após {value}s',
     'behavior.autoSimple': 'Modo simples automático',
     'behavior.fullOnTimeout': 'Modo completo no desconto de tempo',
+    'behavior.haptics': 'Vibração tátil',
     'behavior.showPreview': 'Mostrar pré-visualização do overlay',
 
     // Preview
@@ -489,6 +501,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Seleziona Overlay',
     'app.selectOverlayPlaceholder': '— Seleziona —',
     'app.orManualOid': 'o inserisci l’OID manualmente',
+    'app.connecting': 'Connessione…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -532,6 +545,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Salva',
     'config.saveCustomization': 'Salva personalizzazione',
     'config.failedToSave': 'Errore nel salvataggio della personalizzazione',
+    'config.saving': 'Salvataggio…',
+    'config.retry': 'Riprova',
     'config.reloadFromServer': 'Ricarica dal server',
     'config.reloadConfirm': 'Ricaricare la personalizzazione dal server?',
     'config.resetMatch': 'Reimposta partita',
@@ -622,6 +637,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Nascondi dopo {value}s',
     'behavior.autoSimple': 'Modalità semplice automatica',
     'behavior.fullOnTimeout': 'Modalità completa al time-out',
+    'behavior.haptics': 'Feedback aptico',
     'behavior.showPreview': 'Mostra anteprima overlay',
 
     // Preview
@@ -648,6 +664,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Sélectionner l’overlay',
     'app.selectOverlayPlaceholder': '— Sélectionner —',
     'app.orManualOid': 'ou saisir l’OID manuellement',
+    'app.connecting': 'Connexion…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -691,6 +708,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Enregistrer',
     'config.saveCustomization': 'Enregistrer la personnalisation',
     'config.failedToSave': 'Échec de l’enregistrement de la personnalisation',
+    'config.saving': 'Enregistrement…',
+    'config.retry': 'Réessayer',
     'config.reloadFromServer': 'Recharger depuis le serveur',
     'config.reloadConfirm': 'Recharger la personnalisation depuis le serveur ?',
     'config.resetMatch': 'Réinitialiser le match',
@@ -781,6 +800,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Masquer après {value}s',
     'behavior.autoSimple': 'Mode simple automatique',
     'behavior.fullOnTimeout': 'Mode complet au temps mort',
+    'behavior.haptics': 'Retour haptique',
     'behavior.showPreview': 'Afficher l’aperçu de l’overlay',
 
     // Preview
@@ -807,6 +827,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Overlay auswählen',
     'app.selectOverlayPlaceholder': '— Auswählen —',
     'app.orManualOid': 'oder OID manuell eingeben',
+    'app.connecting': 'Verbinde…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -850,6 +871,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Speichern',
     'config.saveCustomization': 'Anpassung speichern',
     'config.failedToSave': 'Anpassung konnte nicht gespeichert werden',
+    'config.saving': 'Speichert…',
+    'config.retry': 'Erneut versuchen',
     'config.reloadFromServer': 'Vom Server neu laden',
     'config.reloadConfirm': 'Anpassung vom Server neu laden?',
     'config.resetMatch': 'Spiel zurücksetzen',
@@ -940,6 +963,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Nach {value}s ausblenden',
     'behavior.autoSimple': 'Automatischer Einfachmodus',
     'behavior.fullOnTimeout': 'Vollmodus bei Auszeit',
+    'behavior.haptics': 'Haptisches Feedback',
     'behavior.showPreview': 'Overlay-Vorschau anzeigen',
 
     // Preview

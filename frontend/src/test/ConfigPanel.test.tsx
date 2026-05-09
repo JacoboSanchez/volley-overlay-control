@@ -198,6 +198,31 @@ describe('ConfigPanel', () => {
     });
   });
 
+  it('surfaces a retryable error banner when save fails', async () => {
+    vi.mocked(api.updateCustomization).mockRejectedValueOnce(
+      new Error('Server is on fire'),
+    );
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    const saveBtn = screen.getByTestId('save-button');
+    await waitFor(() => {
+      expect(saveBtn).not.toBeDisabled();
+    });
+    fireEvent.click(saveBtn);
+    const banner = await screen.findByTestId('save-error-banner');
+    expect(banner).toHaveTextContent('Server is on fire');
+    expect(banner.getAttribute('role')).toBe('alert');
+    const retryBtn = screen.getByTestId('save-error-retry');
+    expect(retryBtn).toHaveTextContent('Retry');
+
+    vi.mocked(api.updateCustomization).mockResolvedValueOnce({ success: true });
+    fireEvent.click(retryBtn);
+    await waitFor(() => {
+      expect(api.updateCustomization).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('hides gradient toggle for custom overlays', async () => {
     vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: 'http://custom-overlay.example.com/output', preview: '' });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
