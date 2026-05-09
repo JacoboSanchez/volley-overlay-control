@@ -541,8 +541,11 @@ class TestMatchReportRichSections:
         # streak / comeback / total / set-duration cards all qualify.
         assert "Highlights" in response.text
         assert ">5 pts<" in response.text or "5 pts" in response.text  # 5-0 streak
-        # Biggest comeback in this audit is 6 (team 2 trailed 0-6).
+        # Biggest set-winning comeback in this audit is 6 (team 2
+        # trailed 0-6 in set 2 and won it 25-22), well above the
+        # 5-point threshold.
         assert "down 6" in response.text or ">6<" in response.text
+        assert "Biggest set-winning comeback" in response.text
 
     def test_charts_render_inline_svg_per_set(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
@@ -955,6 +958,214 @@ class TestMatchReportRichSections:
         assert "15m 00s" in response.text
         # The row label is i18n-driven.
         assert "Set durations" in response.text
+
+
+class TestMatchReportComebacks:
+    """The Highlights block surfaces two comeback flavours.
+
+    * *Set-winning comeback*: only when the erased deficit was 5 pts
+      or more. Smaller "comebacks" by the eventual winner are noise
+      (a 2-point swing inside a tight set is nothing remarkable).
+    * *Partial comeback*: the largest deficit a team trimmed but
+      ultimately couldn't close, threshold > 3 pts.
+
+    When team 1 and team 2 share the same maximum the card swaps to
+    a "tied between both teams" detail rather than picking a winner.
+    """
+
+    def _seed(self, oid: str, sets: list[list[tuple[int, int]]]) -> None:
+        """Write a deterministic JSONL audit for a sequence of sets.
+
+        Each set is a list of ``(team_1_score, team_2_score)`` running
+        scores after every ``add_point`` action; the team that scored
+        is inferred from the diff vs. the previous record.
+        """
+        from app.api import action_log as _al
+        records: list[dict] = []
+        ts = 1700000000.0
+        for set_idx, scores in enumerate(sets, start=1):
+            prev = (0, 0)
+            for s1, s2 in scores:
+                team = 1 if s1 > prev[0] else 2
+                records.append({
+                    "ts": ts,
+                    "action": "add_point",
+                    "params": {"team": team, "undo": False},
+                    "result": {
+                        "current_set": set_idx,
+                        "score_set": set_idx,
+                        "team_1": {"score": s1},
+                        "team_2": {"score": s2},
+                    },
+                })
+                ts += 30.0
+                prev = (s1, s2)
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+
+    def _archive(self, oid: str, *, winning_team: int = 1) -> str:
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 1 if winning_team == 1 else 0},
+                "team_2": {"sets": 1 if winning_team == 2 else 0},
+            },
+            customization={"Team 1 Name": "Alpha", "Team 2 Name": "Bravo"},
+            winning_team=winning_team,
+            sets_limit=3,
+        )
+        assert match_id is not None
+        return match_id
+
+    def test_set_win_comeback_below_5_is_suppressed(self, client):
+        # Team 1 trailed 0-3 then won 25-23 — comeback of 3 pts, below
+        # the 5-point threshold. The card must not appear.
+        scores = [(0, 1), (0, 2), (0, 3), (1, 3), (24, 3), (25, 23)]
+        oid = "cb-small"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "set-winning comeback" not in body.lower()
+
+    @staticmethod
+    def _highlights_block(body: str) -> str:
+        start = body.index('<div class="highlights">')
+        depth, cursor = 1, start + len('<div class="highlights">')
+        while depth and cursor < len(body):
+            no = body.find('<div', cursor)
+            nc = body.find('</div>', cursor)
+            if nc == -1:
+                break
+            if no != -1 and no < nc:
+                depth += 1
+                cursor = no + 4
+            else:
+                depth -= 1
+                cursor = nc + 6
+        return body[start:cursor]
+
+    @classmethod
+    def _highlight_card(cls, body: str, label: str) -> str:
+        """Return the single ``<div class="highlight">`` that owns ``label``."""
+        block = cls._highlights_block(body)
+        marker = f'<div class="label">{label}</div>'
+        label_at = block.index(marker)
+        # Walk backwards to find the enclosing ``<div class="highlight">``.
+        card_start = block.rfind('<div class="highlight">', 0, label_at)
+        # Each card is exactly one nested ``<div>`` deep so the closing
+        # ``</div>`` of the card itself is the *fourth* one after start.
+        cursor = card_start + len('<div class="highlight">')
+        depth = 1
+        while depth and cursor < len(block):
+            no = block.find('<div', cursor)
+            nc = block.find('</div>', cursor)
+            if nc == -1:
+                break
+            if no != -1 and no < nc:
+                depth += 1
+                cursor = no + 4
+            else:
+                depth -= 1
+                cursor = nc + 6
+        return block[card_start:cursor]
+
+    def test_set_win_comeback_at_5_renders(self, client):
+        # Team 2 trailed 0-5 in set 1 and won 25-23 — comeback of 5.
+        scores = [(i, 0) for i in range(1, 6)] + [(5, 23), (5, 25)]
+        oid = "cb-five"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=2)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "Biggest set-winning comeback" in body
+        assert "down 5" in body
+        # Only the eventual set winner can credit a set-winning comeback.
+        assert "Bravo" in self._highlights_block(body)
+
+    def test_set_win_comeback_tie_renders_message(self, client):
+        # Set 1: team 1 wins from 0-5 down. Set 2: team 2 wins from
+        # 0-5 down. Both maxima are 5 → tie message.
+        s1 = [(0, i) for i in range(1, 6)] + [(23, 5), (25, 5)]
+        s2 = [(i, 0) for i in range(1, 6)] + [(5, 23), (5, 25)]
+        oid = "cb-tie"
+        self._seed(oid, [s1, s2])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        # On a tie, the card collapses to the magnitude alone ("5 pts")
+        # and the per-team detail is replaced by the tie text.
+        card = self._highlight_card(body, "Biggest set-winning comeback")
+        assert "5 pts" in card
+        assert "Tied between both teams" in card
+        assert "Alpha" not in card and "Bravo" not in card
+
+    def test_partial_comeback_below_4_is_suppressed(self, client):
+        # Team 2 trailed 0-3 then crawled back to 1-3 (recovery of 1
+        # pt), still lost 25-22. The 1-point recovery is below the
+        # >3 threshold; partial card must not appear.
+        scores = [(1, 0), (2, 0), (3, 0), (3, 1), (25, 22)]
+        oid = "pc-small"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "partial comeback" not in body.lower()
+
+    def test_partial_comeback_above_3_renders_for_loser(self, client):
+        # Team 2 trailed 0-10, fought back to 4-10 (recovery of 4),
+        # then lost 25-14. 4 > 3 → partial card surfaces and must
+        # credit the *losing* team (Bravo).
+        scores = [(i, 0) for i in range(1, 11)]
+        scores += [(10, j) for j in range(1, 5)]
+        scores += [(25, 14)]
+        oid = "pc-loser"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest partial comeback")
+        assert "made up 4 pts" in card
+        # The card credits the *losing* team for the partial recovery.
+        assert "Bravo" in card
+        assert "Alpha" not in card
+
+    def test_loser_who_only_led_then_collapsed_is_not_a_comeback(self, client):
+        # Team 2 leads 5-0 from the opening and then bleeds the lead
+        # without ever trailing → final 5-25. Team 2 was *never*
+        # behind, so neither a set-winning nor a partial comeback
+        # should be credited (the bug was that the diff between
+        # ``loser_deficit = -5`` and the initial ``loser_min_after_peak
+        # = 0`` was being read as a 5-point recovery).
+        scores = [(0, i) for i in range(1, 6)]
+        scores += [(j, 5) for j in range(1, 26)]
+        oid = "pc-led-then-lost"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "partial comeback" not in body.lower()
+        # The set-winning side gets a 5-pt comeback for team 1
+        # (trailed 0-5 then won) — that one *is* legit and stays.
+        assert "Biggest set-winning comeback" in body
+
+    def test_partial_comeback_tie_renders_message(self, client):
+        # Set 1 won by team 1: team 2 trims a 0-10 deficit to 4-10
+        # (partial recovery of 4) before losing 25-14.
+        # Set 2 won by team 2: team 1 trims a 0-10 deficit to 4-10
+        # (partial recovery of 4) before losing 14-25.
+        # Maxima are tied at 4 → expect the tie message.
+        s1 = [(i, 0) for i in range(1, 11)]
+        s1 += [(10, j) for j in range(1, 5)]
+        s1 += [(25, 14)]
+        s2 = [(0, i) for i in range(1, 11)]
+        s2 += [(j, 10) for j in range(1, 5)]
+        s2 += [(14, 25)]
+        oid = "pc-tie"
+        self._seed(oid, [s1, s2])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest partial comeback")
+        assert "4 pts" in card
+        assert "Tied between both teams" in card
+        assert "Alpha" not in card and "Bravo" not in card
 
 
 class TestMatchReportPregameTrim:

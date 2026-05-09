@@ -1073,11 +1073,31 @@ def _compute_stats(audit: list[dict]) -> dict:
 
     All metrics derive purely from the audit log so the report stays
     consistent with the "scoring trajectory" the audit promises. Set
-    points are scored per-set; biggest comeback is computed per-set
-    too (the largest deficit overcome by the eventual set winner).
+    points are scored per-set. Comebacks are tracked per-team and
+    split into two flavours:
+
+    * ``set_win``: the largest deficit a team erased *and* went on to
+      win the set with — i.e. the deficit faced by the eventual set
+      winner.
+    * ``partial``: the largest deficit reduction (peak deficit minus
+      the smallest subsequent deficit) achieved by a team that
+      ultimately *lost* the set. This surfaces near-comebacks that
+      didn't quite finish.
+
+    Storing both per team lets the renderer detect a tie when both
+    sides happen to share the same maximum.
     """
     longest_streak = {"team": None, "n": 0, "set": None}
-    biggest_comeback = {"team": None, "deficit": 0, "set": None}
+    # Per-team peak deficit erased by the eventual set winner.
+    set_win_comeback: dict[int, dict] = {
+        1: {"deficit": 0, "set": None},
+        2: {"deficit": 0, "set": None},
+    }
+    # Per-team peak deficit reduction by a losing team (partial recovery).
+    partial_comeback: dict[int, dict] = {
+        1: {"deficit": 0, "set": None},
+        2: {"deficit": 0, "set": None},
+    }
     longest_rally = {"duration_s": 0.0, "set": None}
     total_points = 0
 
@@ -1108,28 +1128,51 @@ def _compute_stats(audit: list[dict]) -> dict:
                 longest_streak = {"team": team, "n": streak_n, "set": set_num}
             total_points += 1
 
-        # Biggest comeback: largest deficit faced by the eventual set
-        # winner. Determine the winner from the final score state for
-        # this set, then walk the running scores tracking the maximum
-        # opponent-lead the winner ever sat at.
+        # Comebacks. Walk the running scores once, then split:
+        #   * winner's peak deficit  → set_win comeback for the winner
+        #   * loser's peak deficit minus the smallest subsequent deficit
+        #     → partial comeback for the loser (they trimmed the gap
+        #     but didn't close it).
         if not set_records:
             continue
         last_score = _running_score_pair(set_records[-1])
         if not last_score:
             continue
         winner = 1 if last_score[0] > last_score[1] else 2
-        max_deficit = 0
+        loser = 2 if winner == 1 else 1
+        winner_peak_deficit = 0
+        loser_peak_deficit = 0
+        loser_min_after_peak = 0
+        loser_max_recovery = 0
         for r in set_records:
             pair = _running_score_pair(r)
             if not pair:
                 continue
             t1, t2 = pair
-            deficit = (t2 - t1) if winner == 1 else (t1 - t2)
-            if deficit > max_deficit:
-                max_deficit = deficit
-        if max_deficit > biggest_comeback["deficit"]:
-            biggest_comeback = {
-                "team": winner, "deficit": max_deficit, "set": set_num,
+            winner_deficit = (t2 - t1) if winner == 1 else (t1 - t2)
+            loser_deficit = -winner_deficit
+            if winner_deficit > winner_peak_deficit:
+                winner_peak_deficit = winner_deficit
+            if loser_deficit > loser_peak_deficit:
+                loser_peak_deficit = loser_deficit
+                loser_min_after_peak = loser_deficit
+            elif loser_peak_deficit > 0 and loser_deficit < loser_min_after_peak:
+                # Only count "recovery" once the loser has actually
+                # trailed. Otherwise a team that led 5-0 from the
+                # start and then collapsed would post a phantom
+                # 5-point partial comeback — they never erased
+                # anything, they just bled their early lead.
+                loser_min_after_peak = loser_deficit
+                recovery = loser_peak_deficit - loser_min_after_peak
+                if recovery > loser_max_recovery:
+                    loser_max_recovery = recovery
+        if winner_peak_deficit > set_win_comeback[winner]["deficit"]:
+            set_win_comeback[winner] = {
+                "deficit": winner_peak_deficit, "set": set_num,
+            }
+        if loser_max_recovery > partial_comeback[loser]["deficit"]:
+            partial_comeback[loser] = {
+                "deficit": loser_max_recovery, "set": set_num,
             }
 
         # Longest rally: the gap between consecutive scoring actions
@@ -1155,7 +1198,8 @@ def _compute_stats(audit: list[dict]) -> dict:
 
     return {
         "longest_streak": longest_streak,
-        "biggest_comeback": biggest_comeback,
+        "set_win_comeback": set_win_comeback,
+        "partial_comeback": partial_comeback,
         "longest_rally": longest_rally,
         "total_points": total_points,
         "set_durations": _set_durations_from_audit(audit),
@@ -1526,14 +1570,52 @@ def _render_highlights(
             + _t(locale, "setLabel", n=streak.get("set") or "?"),
         )
 
-    comeback = stats.get("biggest_comeback") or {}
-    if comeback.get("deficit", 0) >= 2 and comeback.get("team"):
-        _card(
-            _t(locale, "highlightComeback"),
-            _t(locale, "deltaValue",
-               n=comeback["deficit"], set=comeback.get("set") or "?"),
-            _team_label(comeback["team"]),
-        )
+    # Set-winning comeback: surface only big erased deficits (≥5 pts).
+    # When both teams' best erased deficit is the same, render a single
+    # tied-card instead of arbitrarily picking one team.
+    set_win = stats.get("set_win_comeback") or {}
+    sw1 = (set_win.get(1) or {}).get("deficit", 0)
+    sw2 = (set_win.get(2) or {}).get("deficit", 0)
+    sw_max = max(sw1, sw2)
+    if sw_max >= 5:
+        if sw1 == sw2:
+            _card(
+                _t(locale, "highlightComeback"),
+                _t(locale, "pointsValue", n=sw_max),
+                _t(locale, "comebackTie"),
+            )
+        else:
+            winner_team = 1 if sw1 > sw2 else 2
+            entry = set_win[winner_team]
+            _card(
+                _t(locale, "highlightComeback"),
+                _t(locale, "deltaValue",
+                   n=entry["deficit"], set=entry.get("set") or "?"),
+                _team_label(winner_team),
+            )
+
+    # Partial comeback: a deficit a team trimmed but couldn't close.
+    # Threshold > 3 pts so we don't celebrate a one-rally swing.
+    partial = stats.get("partial_comeback") or {}
+    p1 = (partial.get(1) or {}).get("deficit", 0)
+    p2 = (partial.get(2) or {}).get("deficit", 0)
+    p_max = max(p1, p2)
+    if p_max > 3:
+        if p1 == p2:
+            _card(
+                _t(locale, "highlightPartialComeback"),
+                _t(locale, "pointsValue", n=p_max),
+                _t(locale, "comebackTie"),
+            )
+        else:
+            loser_team = 1 if p1 > p2 else 2
+            entry = partial[loser_team]
+            _card(
+                _t(locale, "highlightPartialComeback"),
+                _t(locale, "partialDeltaValue",
+                   n=entry["deficit"], set=entry.get("set") or "?"),
+                _team_label(loser_team),
+            )
 
     rally = stats.get("longest_rally") or {}
     rally_duration = rally.get("duration_s") or 0
