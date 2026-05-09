@@ -18,8 +18,6 @@ const defaultProps = {
   onTogglePreview: vi.fn(),
   onStartMatch: vi.fn(),
   onReset: vi.fn(),
-  onOpenShare: vi.fn(),
-  onOpenHistory: vi.fn(),
 };
 
 describe('ControlButtons', () => {
@@ -71,28 +69,10 @@ describe('ControlButtons', () => {
     expect(defaultProps.onTogglePreview).toHaveBeenCalledOnce();
   });
 
-  it('renders the share button and calls onOpenShare when clicked', () => {
-    const onOpenShare = vi.fn();
-    renderWithI18n(
-      <ControlButtons {...defaultProps} onOpenShare={onOpenShare} />,
-    );
-    const btn = screen.getByTestId('share-button');
-    expect(btn).toBeInTheDocument();
-    expect(btn).toHaveTextContent('share');
-    fireEvent.click(btn);
-    expect(onOpenShare).toHaveBeenCalledOnce();
-  });
-
-  it('renders the history button and calls onOpenHistory when clicked', () => {
-    const onOpenHistory = vi.fn();
-    renderWithI18n(
-      <ControlButtons {...defaultProps} onOpenHistory={onOpenHistory} />,
-    );
-    const btn = screen.getByTestId('history-button');
-    expect(btn).toBeInTheDocument();
-    expect(btn).toHaveTextContent('history');
-    fireEvent.click(btn);
-    expect(onOpenHistory).toHaveBeenCalledOnce();
+  it('does not render share / history buttons — both moved to the top-right corner stack', () => {
+    renderWithI18n(<ControlButtons {...defaultProps} />);
+    expect(screen.queryByTestId('share-button')).toBeNull();
+    expect(screen.queryByTestId('history-button')).toBeNull();
   });
 
   it('shows visibility icon based on visible prop', () => {

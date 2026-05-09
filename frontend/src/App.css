@@ -794,7 +794,7 @@ body {
   transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
 
-.hud-controls.ui-hidden .top-right-config-btn {
+.hud-controls.ui-hidden .top-corner-stack {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-100%);
@@ -813,10 +813,14 @@ body {
   transform: translateY(100%);
 }
 
-.top-right-config-btn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+/*
+  Round, transparent icon buttons that pin to a top corner of the
+  scoreboard (config gear, share, history). Positioning is handled
+  by ``.top-corner-stack`` so the buttons can flow vertically with
+  consistent spacing without each one needing its own absolute
+  offsets.
+*/
+.top-corner-icon-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -829,13 +833,30 @@ body {
   cursor: pointer;
 }
 
-.top-right-config-btn:hover {
+.top-corner-icon-btn:hover {
   background: var(--hover-bg);
 }
 
-.top-right-config-btn:focus-visible {
+.top-corner-icon-btn:focus-visible {
   outline: 2px solid var(--blue, #2196f3);
   outline-offset: 2px;
+}
+
+/*
+  Vertical stack for the top-corner icon buttons. The wrapper owns
+  the absolute positioning + safe-area insets so adding a third or
+  fourth button doesn't need new per-button offsets.
+*/
+.top-corner-stack {
+  position: absolute;
+  top: max(1rem, env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.top-right-stack {
+  right: max(1rem, env(safe-area-inset-right));
 }
 
 .wakeup-handle {
@@ -2706,9 +2727,15 @@ body {
   behind the network round-trip.
 */
 .connection-status {
+  /*
+    Top-centre pinned so the pill clears the top-right stack of
+    corner buttons (config / share / history) when it becomes
+    visible during a reconnect.
+  */
   position: fixed;
   top: max(0.5rem, env(safe-area-inset-top));
-  left: max(0.5rem, env(safe-area-inset-left));
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1500;
   display: flex;
   align-items: center;

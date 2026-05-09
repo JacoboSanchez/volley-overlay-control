@@ -8,8 +8,6 @@ import {
   UNDO_COLOR,
   PREVIEW_ON_COLOR,
   PREVIEW_OFF_COLOR,
-  SHARE_COLOR,
-  HISTORY_COLOR,
 } from '../theme';
 
 export interface ControlButtonsProps {
@@ -39,19 +37,6 @@ export interface ControlButtonsProps {
   onTogglePreview: () => void;
   onStartMatch: () => void;
   onReset: () => void;
-  /**
-   * Opens the share / quick-links dialog. Lives in the secondary
-   * cluster on the right edge of the HUD next to undo, since it's
-   * an in-game ask ("send me the overlay link") rather than a
-   * once-per-session decision like theme or fullscreen.
-   */
-  onOpenShare: () => void;
-  /**
-   * Opens the recent-audit drawer. Sits next to share so the two
-   * "look at the match without leaving the score" affordances
-   * cluster together visually.
-   */
-  onOpenHistory: () => void;
 }
 
 /**
@@ -80,8 +65,6 @@ export default function ControlButtons({
   onTogglePreview,
   onStartMatch,
   onReset,
-  onOpenShare,
-  onOpenHistory,
 }: ControlButtonsProps) {
   const { t } = useI18n();
   // ``matchFinished`` keeps the Reset face up after a match ends —
@@ -131,28 +114,6 @@ export default function ControlButtons({
         data-testid="undo-button"
       >
         <span className="material-icons">undo</span>
-      </button>
-
-      <button
-        className="control-btn"
-        style={{ borderColor: HISTORY_COLOR, color: HISTORY_COLOR }}
-        onClick={onOpenHistory}
-        title={t('history.title')}
-        data-testid="history-button"
-        aria-label={t('history.title')}
-      >
-        <span className="material-icons">history</span>
-      </button>
-
-      <button
-        className="control-btn"
-        style={{ borderColor: SHARE_COLOR, color: SHARE_COLOR }}
-        onClick={onOpenShare}
-        title={t('share.title')}
-        data-testid="share-button"
-        aria-label={t('share.title')}
-      >
-        <span className="material-icons">share</span>
       </button>
 
       <button
