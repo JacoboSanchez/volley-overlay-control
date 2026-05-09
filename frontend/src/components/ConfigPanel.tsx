@@ -270,7 +270,8 @@ export default function ConfigPanel({
         </button>
         <span className="config-top-title">{t('config.title')}</span>
         <a className="config-top-btn" href="/manage" title={t('config.openManage')}
-          aria-label={t('config.openManage')} data-testid="manage-link-button">
+          aria-label={t('config.openManage')} data-testid="manage-link-button"
+          onClick={(e) => { if (!confirmExitIfDirtyRef.current()) e.preventDefault(); }}>
           <span className="material-icons">dashboard</span>
         </a>
       </div>
