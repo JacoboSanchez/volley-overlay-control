@@ -904,20 +904,19 @@ class TestMatchReportRichSections:
         assert 'chip-glyph-undone' not in response.text
         assert 'legendUndone' not in response.text
 
-    def test_set_byset_table_has_per_set_timeouts_row(
+    def test_set_byset_table_no_longer_has_timeouts_row(
         self, client, rich_match,
     ):
-        """The set-by-set table should expose a "Timeouts (T1/T2)"
-        row alongside the score and duration rows so a coach can
-        scan timeout usage without reading the timeline. Renders as
-        ``T1/T2`` per cell, ``—`` when neither side called any.
+        """The redundant per-set timeouts row was removed: the
+        score cells already show the timeout count in parentheses
+        (``25 (1)``), so a dedicated row was just a second pass at
+        the same data. Timeouts now render as marker glyphs on the
+        per-set score-evolution chart instead.
         """
         response = client.get(f"/match/{rich_match}/report")
-        # Header text from the i18n catalogue.
-        assert "Timeouts (T1/T2)" in response.text
-        # ``rich_match`` fixture doesn't add timeouts, so every
-        # cell should show the empty ``—`` marker. Defensive
-        # check: no ``N/M`` tuple slipped in by accident.
+        # The old row label must be gone.
+        assert "Timeouts (T1/T2)" not in response.text
+        # And so must the ``T1/T2`` cell shape it produced.
         import re
         assert not re.search(r'<td>\d+/\d+</td>', response.text)
 
@@ -1155,7 +1154,10 @@ class TestMatchReportTimeoutsInline:
             records.append({"ts": base_ts + off, "action": action,
                             "params": params, "result": result})
 
-        # Set 1 — team_1 wins, with 2 timeouts.
+        # Set 1 — team_1 wins, with 2 timeouts. Two scoring records
+        # so the per-set chart can actually draw a polyline (single
+        # points return "" and the timeout glyphs would have nowhere
+        # to live).
         _add("add_point", {"team": 1, "undo": False},
              {"current_set": 1,
               "team_1": {"score": 1}, "team_2": {"score": 0}}, off=5)
@@ -1163,20 +1165,33 @@ class TestMatchReportTimeoutsInline:
              {"current_set": 1,
               "team_1": {"score": 5, "timeouts": 1},
               "team_2": {"score": 3, "timeouts": 0}}, off=10)
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 25}, "team_2": {"score": 23}}, off=100)
         _add("add_timeout", {"team": 1, "undo": False},
              {"current_set": 1,
               "team_1": {"score": 18, "timeouts": 2},
               "team_2": {"score": 16, "timeouts": 0}}, off=120)
-        # Set 2 — team_2 takes 1 timeout.
+        # Set 2 — team_2 takes 1 timeout. Two scoring records again
+        # so the chart renders + the timeout glyph has a home.
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 0}, "team_2": {"score": 1}}, off=200)
         _add("add_timeout", {"team": 2, "undo": False},
              {"current_set": 2,
               "team_1": {"score": 12, "timeouts": 0},
               "team_2": {"score": 14, "timeouts": 1}}, off=300)
-        # Set 3 — no timeouts on either side; one scoring record
-        # grounds the set's timeline.
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 21}, "team_2": {"score": 25}}, off=400)
+        # Set 3 — no timeouts on either side. Two scoring records to
+        # confirm absence of timeout markers on a clean chart.
         _add("add_point", {"team": 1, "undo": False},
              {"current_set": 3,
               "team_1": {"score": 1}, "team_2": {"score": 0}}, off=600)
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 3,
+              "team_1": {"score": 25}, "team_2": {"score": 19}}, off=700)
         self._seed_audit(oid, records)
 
         match_id = match_archive.archive_match(
@@ -1205,15 +1220,22 @@ class TestMatchReportTimeoutsInline:
         # The legacy "Timeouts (final set)" row must be gone.
         assert "Timeouts (final set)" not in response.text
 
-        # New: a dedicated "Timeouts (T1/T2)" row in the set-by-set
-        # table summarises both teams' counts side-by-side.
-        assert "Timeouts (T1/T2)" in response.text
-        # Set 1: T1 took 2, T2 took 0 → "2/0"
-        assert "<td>2/0</td>" in response.text
-        # Set 2: T1 took 0, T2 took 1 → "0/1"
-        assert "<td>0/1</td>" in response.text
-        # Set 3: neither side → empty marker.
-        assert "<td>—</td>" in response.text
+        # The redundant "Timeouts (T1/T2)" row was retired — the score
+        # cells already carry the count in parentheses, and timeouts
+        # now render as marker glyphs on the per-set chart.
+        assert "Timeouts (T1/T2)" not in response.text
+        import re
+        assert not re.search(r'<td>\d+/\d+</td>', response.text)
+
+        # The chart picks up the timeouts as dashed-guide markers,
+        # one per ``add_timeout``. team-1 took 2 in set 1, team-2
+        # took 1 in set 2 — three glyphs total.
+        glyphs = re.findall(
+            r'class="set-chart-timeout-glyph"\s+data-team="(\d+)"',
+            response.text,
+        )
+        assert glyphs.count("1") == 2
+        assert glyphs.count("2") == 1
 
     def test_undone_timeout_does_not_count(self, client):
         """An ``add_timeout`` that was undone must not contribute to
@@ -1233,10 +1255,10 @@ class TestMatchReportTimeoutsInline:
             records.append({"ts": base_ts + off, "action": action,
                             "params": params, "result": result})
 
-        # Set 1: a single point grounds the set, then T1 takes a
-        # timeout and immediately undoes it. Expected: every cell
-        # in the timeouts row reads "—" and no score cell carries
-        # a "(1)" suffix.
+        # Set 1: two scoring records ground the set so the per-set
+        # chart actually renders, then T1 takes a timeout and
+        # immediately undoes it. Expected: no inline ``(1)`` suffix
+        # on the score cells AND no chart timeout glyph.
         _add("add_point", {"team": 1, "undo": False},
              {"current_set": 1,
               "team_1": {"score": 1}, "team_2": {"score": 0}}, off=5)
@@ -1248,10 +1270,17 @@ class TestMatchReportTimeoutsInline:
              {"current_set": 1,
               "team_1": {"score": 1, "timeouts": 0},
               "team_2": {"score": 0, "timeouts": 0}}, off=15)
-        # Set 2 grounding score so the table has at least two sets.
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 25}, "team_2": {"score": 23}}, off=100)
+        # Set 2 grounding scores so the table has at least two sets
+        # and the chart can draw a polyline there too.
         _add("add_point", {"team": 2, "undo": False},
              {"current_set": 2,
               "team_1": {"score": 1}, "team_2": {"score": 1}}, off=200)
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 23}, "team_2": {"score": 25}}, off=300)
         self._seed_audit(oid, records)
 
         match_id = match_archive.archive_match(
@@ -1273,6 +1302,9 @@ class TestMatchReportTimeoutsInline:
         # No ``N/M`` tuple anywhere in the table — every set row is "—".
         import re
         assert not re.search(r'<td>\d+/\d+</td>', response.text)
+        # Chart must not surface a dashed guide for the undone timeout.
+        assert 'class="set-chart-timeout"' not in response.text
+        assert 'class="set-chart-timeout-glyph"' not in response.text
 
 
 class TestMatchReportEmptySets:
