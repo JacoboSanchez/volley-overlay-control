@@ -10,6 +10,12 @@ once a first tagged release ships.
 
 ### Added
 
+- **Cross-navigation between Config and `/manage`.** The config
+  panel's top bar now shows a `dashboard` button on the right
+  (mirroring the back-arrow on the left) that links to `/manage`,
+  and the Custom Overlay Manager header gains a back-arrow on the
+  left of its title that returns the operator to the scoreboard.
+  Both surfaces previously required typing the URL by hand.
 - **Rapid-pair undo correction (5 s window).** Two opposite
   ``add_point`` actions on the same team within
   ``RAPID_PAIR_WINDOW_S`` (5 s) now collapse to a no-op at the

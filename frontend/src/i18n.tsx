@@ -99,6 +99,7 @@ const translations: Record<string, TranslationDict> = {
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Back to scoreboard',
+    'config.openManage': 'Open Custom Overlay Manager',
     'config.save': 'Save',
     'config.saveCustomization': 'Save customization',
     'config.failedToSave': 'Failed to save customization',
@@ -308,6 +309,7 @@ const translations: Record<string, TranslationDict> = {
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Volver al marcador',
+    'config.openManage': 'Abrir gestor de overlays',
     'config.save': 'Guardar',
     'config.saveCustomization': 'Guardar personalización',
     'config.failedToSave': 'Error al guardar la personalización',
