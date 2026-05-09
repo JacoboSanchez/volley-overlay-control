@@ -23,10 +23,10 @@ const PresetPicker = lazy(() => import('./PresetPicker'));
 type Section = 'presets' | 'teams' | 'overlay' | 'position' | 'buttons' | 'rules' | 'behavior' | 'links';
 
 // ``presets`` sits at the top so the operator notices the
-// admin-curated bundles before drilling into individual fields. The
-// section absorbed the env-var theme dropdown that used to live inside
-// ``OverlaySection`` — both env themes and user presets now flow
-// through the unified picker.
+// saved-configuration entry point before drilling into individual
+// fields. ``OverlaySection`` keeps the env-var ``APP_THEMES``
+// dropdown — those are sysadmin-defined defaults and live next to
+// the colour and style controls they affect.
 const SECTIONS: readonly Section[] = [
   'presets', 'teams', 'overlay', 'position', 'buttons', 'rules', 'behavior', 'links',
 ];
@@ -51,6 +51,7 @@ const SECTION_ICONS: Record<Section, string> = {
   links: 'link',
 };
 
+type Themes = Record<string, ConfigModel>;
 type LinksData = LinksSectionLinks | null;
 
 function themeIcon(pref: ThemePreference): string {
@@ -124,14 +125,17 @@ export default function ConfigPanel({
   useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
+  const [themes, setThemes] = useState<Themes>({});
   const [styles, setStyles] = useState<string[]>([]);
   const [links, setLinks] = useState<LinksData>(null);
+  const [selectedTheme, setSelectedTheme] = useState('');
   const [activeSection, setActiveSection] = useState<Section | null>('teams');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     api.getTeams().then((d) => { if (!cancelled) setPredefinedTeams(d as PredefinedTeams); }).catch(console.warn);
+    api.getThemes().then((d) => { if (!cancelled) setThemes(d as Themes); }).catch(console.warn);
     api.getLinks(oid).then((d) => { if (!cancelled) setLinks(d as LinksData); }).catch(console.warn);
     api.getStyles(oid).then((d) => { if (!cancelled) setStyles(d); }).catch(console.warn);
     return () => { cancelled = true; };
@@ -203,14 +207,21 @@ export default function ConfigPanel({
     };
   }, []);
 
-  // Operator picks a preset / env-var theme via ``PresetPicker``; the
-  // patch is shallow-merged into the local ``model`` and the panel goes
-  // dirty so the existing Save button persists the result. Same staging
-  // semantics as direct field edits — apply does NOT write through.
-  const handleApplyPreset = useCallback((patch: ConfigModel) => {
+  // ``PresetPicker`` (apply) and the env-theme dropdown share the same
+  // staging semantics as direct field edits: shallow-merge the patch
+  // into ``model``, mark the panel dirty, and let the existing Save
+  // button persist. Avoids racing the operator's unsaved changes.
+  const handleApplyPatch = useCallback((patch: ConfigModel) => {
     setModel((m) => ({ ...m, ...patch }));
     setIsDirty(true);
   }, []);
+
+  const handleApplyTheme = useCallback((themeName: string) => {
+    const themeData = themes[themeName];
+    if (themeData) {
+      handleApplyPatch(themeData);
+    }
+  }, [themes, handleApplyPatch]);
 
   const isCustomOverlay = !!(
     links?.overlay && typeof links.overlay === 'string' && !links.overlay.includes('overlays.uno')
@@ -219,7 +230,7 @@ export default function ConfigPanel({
   function renderSection(sec: Section | null) {
     switch (sec) {
       case 'presets':
-        return <PresetPicker oid={oid} onApplyPatch={handleApplyPreset} />;
+        return <PresetPicker model={model} onApplyPatch={handleApplyPatch} />;
       case 'teams':
         return <TeamsSection model={model} updateField={updateField} predefinedTeams={predefinedTeams} />;
       case 'overlay':
@@ -227,7 +238,11 @@ export default function ConfigPanel({
           <OverlaySection
             model={model}
             updateField={updateField}
+            themes={themes}
             styles={styles}
+            selectedTheme={selectedTheme}
+            setSelectedTheme={setSelectedTheme}
+            onApplyTheme={handleApplyTheme}
             isCustomOverlay={isCustomOverlay}
           />
         );
