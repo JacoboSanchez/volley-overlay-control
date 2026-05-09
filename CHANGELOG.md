@@ -10,6 +10,124 @@ once a first tagged release ships.
 
 ### Added
 
+- **UX Phase 0 — quick wins across the four operator surfaces.** Five
+  small, low-risk fixes that close visible gaps in the control UI,
+  the ``/manage`` admin page, the public match report and the
+  preview iframe. Each is independently revertable.
+
+  * **Realtime sync indicator (``ConnectionStatus``).** New pinned
+    pill at the top-left of the control UI that surfaces an amber
+    "Reconnecting…" badge whenever the WebSocket from
+    ``hooks/useGameState.ts`` drops for more than 1.5 s
+    (``graceMs`` configurable). Healthy connections render no
+    visible chrome — only an off-screen ``role="status"`` /
+    ``aria-live="polite"`` element so assistive tech still picks
+    up the transition. Honours ``prefers-reduced-motion``.
+  * **Stylised confirm dialogs (``ConfirmDialog``).** Replaces
+    ``window.confirm`` in App reset and ConfigPanel logout with a
+    focus-trapped modal layered on the existing ``Dialog`` primitive.
+    Native confirm broke theme/zoom on mobile and skipped the focus
+    trap that the rest of the app already depends on. The unsaved-
+    changes ``confirm`` in ConfigPanel stays — its synchronous
+    return value is what the popstate handler hangs off, and that
+    flow is rebuilt in Phase 4 (history rework, not a Phase 0 swap).
+  * **/manage create-overlay name length cap.** ``app/admin/static/
+    overlays.html`` now enforces ``maxlength="64"`` on the create
+    form's name input plus a JS-side guard for paste paths, with an
+    inline help-text update. Pre-empts the table-layout breakage that
+    arbitrarily long names produced.
+  * **Preview iframe failure fallback.** ``OverlayPreview`` now binds
+    ``onLoad`` / ``onError`` and starts a 6 s ``PREVIEW_LOAD_TIMEOUT_MS``
+    timer per mount. If neither fires, an overlay placeholder
+    ("Preview unavailable" + Retry button) covers the iframe so the
+    operator can recover without unmounting. Retry busts cache via a
+    new ``cacheBust`` token so the second attempt isn't served from
+    the still-broken response.
+  * **Match-report timeline ↶ Undone badge.** ``app/match_report.py``
+    ``_render_li`` now appends a non-strikethrough chip to undone
+    rows so the marker survives dense timelines and the print
+    stylesheet (where the line-through alone is hard to read).
+    Localised in all six report locales as ``undoneBadge``.
+
+  i18n: 5 new keys (``conn.online``, ``conn.reconnecting``,
+  ``confirm.title``, ``confirm.confirm``, ``confirm.cancel``,
+  ``preview.unavailable``, ``preview.retry``) translated across all
+  six frontend locales (en/es/pt/it/fr/de). 1 new backend report key
+  (``undoneBadge``) translated across the same six locales.
+
+  Tests: ``ConnectionStatus.test.tsx`` (4 cases), ``ConfirmDialog
+  .test.tsx`` (6 cases), 3 new fallback cases in ``OverlayPreview
+  .test.tsx``, 1 new ``test_undone_rows_carry_visible_badge`` in
+  ``tests/test_match_report.py``. ConfigPanel logout tests rewritten
+  to assert against the new ``confirm-dialog-ok`` /
+  ``confirm-dialog-cancel`` test ids instead of mocking
+  ``window.confirm``. Full suites: backend 1002 passed, frontend
+  341 passed.
+
+- **UX Phase 1 — sensory feedback and loading state.** Closes the
+  perceptual loop so the operator knows *what just happened*
+  without having to watch the scoreboard. Sound cues were
+  intentionally deferred to a later phase to keep this PR
+  focused on the silent-but-visible failure modes.
+
+  * **`useHaptics` hook + per-event patterns.** New
+    ``frontend/src/hooks/useHaptics.ts`` wraps ``navigator.vibrate``
+    behind a 50 ms throttle, a settings toggle (``haptics``,
+    default ``true``), and a feature detect that no-ops on
+    runtimes without the Vibration API (desktop browsers, JSDOM,
+    pre-18.4 iOS Safari). Five named patterns: ``tap`` (10 ms),
+    ``confirm`` (10-30-10), ``alert`` (15-35-15), ``matchPoint``
+    (5-pulse), ``finished`` (40-60-40).
+  * **`useMatchAlertHaptics` transition watcher.** Hoisted
+    ``pickAlert`` out of ``MatchAlertIndicator`` so the new hook
+    in ``frontend/src/hooks/useMatchAlertHaptics.ts`` can subscribe
+    to the same set / match / finished transitions the indicator
+    pill reads. Re-broadcasts of the same alert kind/team are
+    suppressed so a stable WS frame can't replay the cue.
+  * **Wired into the existing operator gestures.** Server-side
+    LIFO undo (HUD button) and per-team double-tap-undo
+    (``handleDoubleTapScore`` / ``handleDoubleTapTimeout``) now
+    fire the ``confirm`` pattern; the alert watcher lights up on
+    set / match / finished transitions. New
+    ``behavior.haptics`` toggle in the Behavior section of the
+    config panel, translated across the six supported locales.
+  * **`ScoreboardSkeleton` placeholder.** New
+    ``frontend/src/components/ScoreboardSkeleton.tsx`` mirrors the
+    scoreboard's three-pane layout (team A / centre / team B) so
+    the "post-OID, pre-first-WS-frame" gap no longer flashes the
+    InitScreen with a prefilled value before swapping to the real
+    UI. Reuses the ``config-skeleton-shimmer`` keyframes for
+    tonal consistency and honours ``prefers-reduced-motion``. The
+    InitScreen path is now reserved for the no-OID and post-error
+    cases. Carries the realtime-sync pill in its first frame so
+    a slow connect is observable end-to-end.
+  * **Persistent save-error banner with Retry.** The old
+    transient ``.config-save-error`` banner now exposes a real
+    Retry button bound directly to ``handleSave``; pending saves
+    surface a ``cloud_upload`` "Saving…" pill next to the Save
+    button (``role="status"``, ``aria-live="polite"``). The
+    success path still navigates back as before, so happy-path
+    behaviour is unchanged. New i18n keys: ``config.saving`` and
+    ``config.retry`` across all six locales.
+  * **Floating toast in the `/manage` admin page.** The inline
+    ``.status`` panel was promoted to a fixed top-right pill with
+    icon glyphs from Material Icons (``check_circle`` /
+    ``error_outline`` / ``info``), a slide-in transition, and
+    ``prefers-reduced-motion`` support. Modal-scoped errors opt
+    out via the new ``.status-inline`` modifier so login / create-
+    overlay / preset modals keep their existing in-flow panels.
+    No JS contract change — ``showStatus`` callers (create,
+    delete, bulk-delete, preset save, preset apply) emit toasts
+    automatically via the styling switch.
+
+  Tests: ``useHaptics.test.tsx`` (7 cases),
+  ``useMatchAlertHaptics.test.tsx`` (5 cases),
+  ``ScoreboardSkeleton.test.tsx`` (4 cases), 1 new
+  ``surfaces a retryable error banner`` case in
+  ``ConfigPanel.test.tsx``. ``App.test.tsx`` updated where the
+  seeded-OID path no longer flashes an InitScreen input. Full
+  suites: backend 1002 passed, frontend 358 passed.
+
 - **Configuration presets — replaces the originally planned
   Fase 2 (themes editables).** Operators can now save subsets of an
   overlay's current state under a name and reapply them — to the

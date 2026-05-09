@@ -1,5 +1,12 @@
-import { useRef, useEffect, useState, useMemo, CSSProperties } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback, CSSProperties } from 'react';
 import { useI18n } from '../i18n';
+
+// Fallback timeout for the standard (overlays.uno) preview, where the iframe
+// is cross-origin and cannot postMessage its render bounds back to us. If we
+// haven't received a single ``load`` event within this window the network is
+// almost certainly blocking the request (DNS, CSP, firewall) — surface a
+// retryable placeholder so the operator isn't staring at a blank rectangle.
+const PREVIEW_LOAD_TIMEOUT_MS = 6000;
 
 // Allow only http(s) iframe sources. Rejects javascript:, data:, file:, and
 // similar schemes that would let a malicious overlayUrl execute script or
@@ -57,7 +64,44 @@ export default function OverlayPreview({
   // Unique token per mount — forces the browser to bypass cache when the iframe
   // is recreated (e.g. after page reload or navigating back from ConfigPanel),
   // ensuring the overlay page re-establishes its WebSocket connection immediately.
-  const [cacheBust] = useState<number>(() => Date.now());
+  const [cacheBust, setCacheBust] = useState<number>(() => Date.now());
+  // Tracks whether the iframe ever fired ``load`` (or the custom-overlay
+  // path posted bounds) so we can show a retryable placeholder when the
+  // network silently blocks the request.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  const handleIframeLoad = useCallback(() => {
+    setIframeLoaded(true);
+    setLoadFailed(false);
+  }, []);
+
+  const handleIframeError = useCallback(() => {
+    setLoadFailed(true);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setLoadFailed(false);
+    setIframeLoaded(false);
+    setCustomBounds(null);
+    setCacheBust(Date.now());
+  }, []);
+
+  useEffect(() => {
+    setIframeLoaded(false);
+    setLoadFailed(false);
+  }, [overlayUrl, cacheBust]);
+
+  useEffect(() => {
+    if (iframeLoaded || loadFailed) return undefined;
+    const timer = setTimeout(() => {
+      // Custom overlays signal readiness via postMessage instead of
+      // ``load``; only the standard (cross-origin) iframe needs the
+      // timeout fallback.
+      if (!iframeLoaded) setLoadFailed(true);
+    }, PREVIEW_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [iframeLoaded, loadFailed, cacheBust]);
 
   // Parse + scheme-check once; every iframe src downstream derives from this
   // validated URL, so an untrusted overlayUrl (javascript:, data:, …) can
@@ -101,6 +145,25 @@ export default function OverlayPreview({
   // visual slot so a UNO scoreboard isn't squeezed into a tiny strip
   // jammed up against the match-point / side-switch pills above.
   const cardHeight = cardWidth * 9 / 16;
+
+  const fallbackOverlay = loadFailed ? (
+    <div
+      className="preview-fallback"
+      role="status"
+      aria-live="polite"
+      data-testid="overlay-preview-fallback"
+    >
+      <span className="material-icons" aria-hidden="true">cloud_off</span>
+      <span className="preview-fallback-message">{t('preview.unavailable')}</span>
+      <button
+        type="button"
+        className="preview-fallback-retry"
+        onClick={handleRetry}
+      >
+        {t('preview.retry')}
+      </button>
+    </div>
+  ) : null;
 
   if (isCustomOverlay) {
     const iframeW = 1920;
@@ -152,9 +215,12 @@ export default function OverlayPreview({
             sandbox="allow-scripts allow-same-origin"
             allowTransparency
             title={t('preview.title')}
+            onLoad={handleIframeLoad}
+            onError={handleIframeError}
             data-testid="overlay-preview"
           />
         </div>
+        {fallbackOverlay}
       </div>
     );
   }
@@ -186,7 +252,7 @@ export default function OverlayPreview({
   return (
     <div
       className="preview-container"
-      style={{ width: cardWidth, height: cardHeight, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+      style={{ width: cardWidth, height: cardHeight, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}
     >
       <div
         style={{
@@ -209,9 +275,12 @@ export default function OverlayPreview({
           // string ``"true"`` more reliably; pass it through as-is.
           allowTransparency={'true' as unknown as boolean}
           title={t('preview.title')}
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
           data-testid="overlay-preview"
         />
       </div>
+      {fallbackOverlay}
     </div>
   );
 }

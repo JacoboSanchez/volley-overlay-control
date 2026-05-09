@@ -96,15 +96,76 @@
   button.danger { background: var(--danger); }
   button.danger:hover { background: var(--danger-hover); }
   .toolbar { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+  /* Floating toast — pinned to the top-right of the viewport so a
+     successful create / delete / preset action surfaces above the
+     table without shifting the layout. Slides in on show; fades
+     out via the .hidden toggle that the existing showStatus()
+     helper already manages. */
   .status {
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 8px;
     font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    max-width: min(420px, calc(100vw - 2rem));
+    pointer-events: none;
+    transform: translateY(0);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    opacity: 1;
   }
-  .status.error { background: rgba(198, 40, 40, 0.12); color: var(--danger); }
-  .status.success { background: rgba(56, 142, 60, 0.12); color: #2e7d32; }
-  .status.info { background: rgba(25, 118, 210, 0.12); color: var(--accent); }
+  .status.hidden {
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+  }
+  .status::before {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  .status.error {
+    background: rgba(198, 40, 40, 0.14);
+    color: var(--danger);
+    border-color: rgba(198, 40, 40, 0.45);
+  }
+  .status.error::before { content: 'error_outline'; }
+  .status.success {
+    background: rgba(56, 142, 60, 0.14);
+    color: #2e7d32;
+    border-color: rgba(56, 142, 60, 0.45);
+  }
+  .status.success::before { content: 'check_circle'; }
+  .status.info {
+    background: rgba(25, 118, 210, 0.14);
+    color: var(--accent);
+    border-color: rgba(25, 118, 210, 0.45);
+  }
+  .status.info::before { content: 'info'; }
+  @media (prefers-reduced-motion: reduce) {
+    .status { transition: opacity 0.15s ease; }
+  }
+  /* Inline status (errors inside modals, etc.) opt out of the
+     floating layout via the .status-inline modifier so the create-
+     overlay / preset modals keep their existing in-flow error
+     panels. */
+  .status-inline {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .status-inline::before { display: none; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -394,7 +455,7 @@
         <label for="password">Password</label>
         <input type="password" id="password" autocomplete="current-password" required />
       </div>
-      <div id="loginError" class="status error hidden"></div>
+      <div id="loginError" class="status status-inline error hidden"></div>
       <div class="toolbar">
         <button type="submit" id="loginBtn">Unlock</button>
       </div>
@@ -439,9 +500,11 @@
           <label for="field-name">Name *</label>
           <input type="text" id="field-name" required
                  pattern="[A-Za-z0-9_.\-]+"
+                 maxlength="64"
+                 autocomplete="off"
                  placeholder="mybroadcast" />
           <small class="muted">
-            Letters, digits, '-', '_' and '.' only. The name is used directly as the OID.
+            Letters, digits, '-', '_' and '.' only — up to 64 characters. The name is used directly as the OID.
           </small>
         </div>
         <div class="field">
@@ -453,7 +516,7 @@
             Clones the selected overlay's colors, layout and current state.
           </small>
         </div>
-        <div id="createError" class="status error hidden"></div>
+        <div id="createError" class="status status-inline error hidden"></div>
         <div class="toolbar">
           <button type="button" id="cancelBtn" class="secondary">Cancel</button>
           <button type="submit" id="saveBtn">Create</button>
@@ -531,7 +594,7 @@
       <fieldset class="scope-fieldset" id="saveScopeFieldset">
         <legend>Include</legend>
       </fieldset>
-      <div id="savePresetError" class="status error hidden"></div>
+      <div id="savePresetError" class="status status-inline error hidden"></div>
       <div class="toolbar">
         <button type="button" id="savePresetCancelBtn"
                 class="secondary">Cancel</button>
@@ -563,7 +626,7 @@
           Pick a preset above to choose which scopes to restore.
         </p>
       </fieldset>
-      <div id="applyPresetError" class="status error hidden"></div>
+      <div id="applyPresetError" class="status status-inline error hidden"></div>
       <div class="toolbar">
         <button type="button" id="applyPresetCancelBtn"
                 class="secondary">Cancel</button>
@@ -585,7 +648,7 @@
         for the affected OIDs. This action cannot be undone.
       </p>
       <div id="deleteSummary"></div>
-      <div id="deleteError" class="status error hidden"></div>
+      <div id="deleteError" class="status status-inline error hidden"></div>
       <div class="toolbar">
         <button type="button" id="deleteCancelBtn" class="secondary">Cancel</button>
         <button type="button" id="deleteConfirmBtn" class="danger">Delete overlay</button>
@@ -858,7 +921,7 @@
       applyFilter();
     } catch (err) {
       if (handleAuthError(err)) return;
-      overlayList.innerHTML = '<p class="status error">' + escapeHtml(err.message) + '</p>';
+      overlayList.innerHTML = '<p class="status status-inline error">' + escapeHtml(err.message) + '</p>';
     }
   }
 
@@ -1103,6 +1166,10 @@
       showError(createError, 'Name is required.');
       return;
     }
+    if (body.name.length > 64) {
+      showError(createError, 'Name must be 64 characters or fewer.');
+      return;
+    }
     try {
       await apiCall('POST', '/custom-overlays', body);
       showStatus('Overlay created.', 'success');
@@ -1192,7 +1259,7 @@
     } catch (err) {
       if (handleAuthError(err)) return;
       drawerUsage.innerHTML =
-        '<p class="status error">'
+        '<p class="status status-inline error">'
         + escapeHtml(err.message || 'Could not load usage.')
         + '</p>';
     }

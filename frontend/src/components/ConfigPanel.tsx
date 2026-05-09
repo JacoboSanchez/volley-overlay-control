@@ -5,6 +5,7 @@ import { useOrientation } from '../hooks/useOrientation';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import * as api from '../api/client';
 import ConfigSkeleton from './ConfigSkeleton';
+import ConfirmDialog from './ConfirmDialog';
 import type { ConfigModel, PredefinedTeams } from './TeamCard';
 import type { LinksSectionLinks } from './config/LinksSection';
 import type { ButtonsSectionProps } from './config/ButtonsSection';
@@ -121,6 +122,7 @@ export default function ConfigPanel({
   const [links, setLinks] = useState<LinksData>(null);
   const [selectedTheme, setSelectedTheme] = useState('');
   const [activeSection, setActiveSection] = useState<Section | null>('teams');
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -324,6 +326,17 @@ export default function ConfigPanel({
           <span className="material-icons">save</span>
           <span>{saving ? '...' : t('config.save')}</span>
         </button>
+        {saving && (
+          <span
+            className="config-save-status config-save-status-pending"
+            role="status"
+            aria-live="polite"
+            data-testid="save-status-pending"
+          >
+            <span className="material-icons">cloud_upload</span>
+            {t('config.saving')}
+          </span>
+        )}
         <div className="spacer" />
         <button className="config-bottom-btn config-bottom-btn-fullscreen"
           onClick={onToggleFullscreen}
@@ -340,15 +353,44 @@ export default function ConfigPanel({
           <span className="material-icons">{themeIcon(darkMode)}</span>
         </button>
         <button className="config-bottom-btn config-bottom-btn-logout"
-          onClick={() => { if (window.confirm(t('config.logoutConfirm'))) onLogout(); }}
+          onClick={() => setLogoutConfirmOpen(true)}
           title={t('config.logout')} data-testid="logout-button">
           <span className="material-icons">logout</span>
         </button>
       </div>
 
       {saveError && (
-        <div className="config-save-error">{saveError}</div>
+        <div
+          className="config-save-error"
+          role="alert"
+          data-testid="save-error-banner"
+        >
+          <span className="material-icons" aria-hidden="true">error_outline</span>
+          <span className="config-save-error-message">{saveError}</span>
+          <button
+            type="button"
+            className="config-save-error-retry"
+            onClick={handleSave}
+            disabled={saving}
+            data-testid="save-error-retry"
+          >
+            <span className="material-icons" aria-hidden="true">refresh</span>
+            {t('config.retry')}
+          </button>
+        </div>
       )}
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        message={t('config.logoutConfirm')}
+        confirmLabel={t('config.logout')}
+        danger
+        onConfirm={() => {
+          onLogout();
+          setLogoutConfirmOpen(false);
+        }}
+        onClose={() => setLogoutConfirmOpen(false)}
+      />
 
     </div>
   );

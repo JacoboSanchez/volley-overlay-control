@@ -7,10 +7,15 @@ import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
 import { useSwipeNavigation } from './hooks/useSwipeNavigation';
+import { useHaptics } from './hooks/useHaptics';
+import { useMatchAlertHaptics } from './hooks/useMatchAlertHaptics';
 import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
+import ScoreboardSkeleton from './components/ScoreboardSkeleton';
 import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
+import ConfirmDialog from './components/ConfirmDialog';
+import ConnectionStatus from './components/ConnectionStatus';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
 import {
@@ -86,11 +91,20 @@ export default function App() {
     state,
     confirmedState,
     customization,
+    connected,
     error,
     initialize,
     actions,
     refreshCustomization,
   } = useGameState(oid);
+
+  const { pulse } = useHaptics();
+  // Set / match / finished transitions vibrate via the shared
+  // useHaptics throttle so the operator gets a confirmed signal
+  // even when the HUD has auto-hidden behind the play.
+  useMatchAlertHaptics(state);
+
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
@@ -238,8 +252,9 @@ export default function App() {
   // entry points (this and the per-team double-tap below) share
   // the same stack on the server and cannot drift.
   const handleUndoLast = useCallback(() => {
+    pulse('confirm');
     actions.undoLast();
-  }, [actions]);
+  }, [actions, pulse]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -257,10 +272,12 @@ export default function App() {
   }, [setSetting, settings.showPreview]);
 
   const handleReset = useCallback(() => {
-    if (window.confirm(t('config.resetConfirm'))) {
-      actions.reset();
-    }
-  }, [actions, t]);
+    setResetConfirmOpen(true);
+  }, []);
+
+  const confirmReset = useCallback(() => {
+    actions.reset();
+  }, [actions]);
 
   const handleStartMatch = useCallback(() => {
     actions.startMatch();
@@ -279,16 +296,18 @@ export default function App() {
   // no client-side bookkeeping is required.
   const handleDoubleTapScore = useCallback(
     (team: Team) => {
+      pulse('confirm');
       actions.addPoint(team, true);
     },
-    [actions]
+    [actions, pulse]
   );
 
   const handleDoubleTapTimeout = useCallback(
     (team: Team) => {
+      pulse('confirm');
       actions.addTimeout(team, true);
     },
-    [actions]
+    [actions, pulse]
   );
 
   const handleLongPressScore = useCallback(
@@ -376,7 +395,7 @@ export default function App() {
       : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
   }, [settings.selectedFont]);
 
-  if (!oid || !state) {
+  if (!oid || (error && !state)) {
     return (
       <InitScreen
         oidInput={oidInput}
@@ -388,9 +407,21 @@ export default function App() {
       />
     );
   }
+  // OID is set, no error, but the first authoritative state hasn't
+  // arrived yet — show a structurally-matched skeleton instead of the
+  // InitScreen so the next render swap doesn't flash unrelated UI.
+  if (!state) {
+    return (
+      <div className="app-container">
+        <ConnectionStatus connected={connected} />
+        <ScoreboardSkeleton isPortrait={isPortrait} />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container" {...swipeHandlers}>
+      <ConnectionStatus connected={connected} />
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
         <ScoreboardView
@@ -468,6 +499,18 @@ export default function App() {
         maxValue={dialog.maxValue}
         onSubmit={handleDialogSubmit}
         onClose={() => setDialog((d) => ({ ...d, open: false }))}
+      />
+
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        message={t('config.resetConfirm')}
+        confirmLabel={t('config.resetMatch')}
+        danger
+        onConfirm={() => {
+          confirmReset();
+          setResetConfirmOpen(false);
+        }}
+        onClose={() => setResetConfirmOpen(false)}
       />
     </div>
   );

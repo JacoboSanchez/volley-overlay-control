@@ -773,6 +773,20 @@ class TestMatchReportRichSections:
         assert response.text.count('(undone)') <= 1
         assert response.text.count("(undo)") == 0
 
+    def test_undone_rows_carry_visible_badge(self, client, rich_match):
+        """Strike-through alone is hard to spot in dense timelines.
+
+        Each ``class="undone"`` row should also carry a ``↶ Undone``
+        badge so the operator/viewer notices the reversal at a glance,
+        including on the print-friendly stylesheet.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        # One badge per undone row, no orphans on the non-undone rows.
+        undone_rows = response.text.count('class="undone"')
+        badges = response.text.count('class="undone-badge"')
+        assert undone_rows >= 1
+        assert badges == undone_rows
+
     def test_orphan_undo_records_are_dropped(self):
         """Unified-undo logs only carry the trailing undo record (the
         forward was popped by ``action_log.pop_last_forward``). The

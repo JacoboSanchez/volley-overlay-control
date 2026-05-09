@@ -148,7 +148,7 @@ describe('App', () => {
     });
   });
 
-  it('seeds initial OID from ?control= query alias', () => {
+  it('seeds initial OID from ?control= query alias', async () => {
     Object.defineProperty(window, 'location', {
       value: {
         protocol: 'https:',
@@ -159,8 +159,17 @@ describe('App', () => {
       writable: true,
     });
     renderWithI18n(<App />);
-    const input = screen.getByPlaceholderText('my-overlay') as HTMLInputElement;
-    expect(input.value).toBe('alias-oid');
+    // OID seeded from the URL skips the InitScreen entirely — the
+    // operator goes straight from URL → scoreboard via the
+    // connecting skeleton. We assert the OID was honoured by
+    // checking it reached initSession + localStorage, not by
+    // digging for an InitScreen input that no longer renders.
+    await waitFor(() => {
+      expect(api.initSession).toHaveBeenCalledWith('alias-oid');
+    });
+    await waitFor(() => {
+      expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'alias-oid');
+    });
   });
 
   describe('HUD auto-hide', () => {
