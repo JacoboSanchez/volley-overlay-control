@@ -794,7 +794,7 @@ body {
   transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
 
-.hud-controls.ui-hidden .top-right-config-btn {
+.hud-controls.ui-hidden .top-corner-icon-btn {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-100%);
@@ -813,10 +813,16 @@ body {
   transform: translateY(100%);
 }
 
-.top-right-config-btn {
+/*
+  Shared base for the round, transparent icon buttons that pin to
+  the top corners of the scoreboard (config gear top-right, share
+  icon top-left). The visual identity stays consistent across both
+  corners; per-corner modifiers below set only the horizontal
+  edge.
+*/
+.top-corner-icon-btn {
   position: absolute;
   top: 1rem;
-  right: 1rem;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -829,13 +835,21 @@ body {
   cursor: pointer;
 }
 
-.top-right-config-btn:hover {
+.top-corner-icon-btn:hover {
   background: var(--hover-bg);
 }
 
-.top-right-config-btn:focus-visible {
+.top-corner-icon-btn:focus-visible {
   outline: 2px solid var(--blue, #2196f3);
   outline-offset: 2px;
+}
+
+.top-right-config-btn {
+  right: 1rem;
+}
+
+.top-left-share-btn {
+  left: 1rem;
 }
 
 .wakeup-handle {
@@ -2706,9 +2720,15 @@ body {
   behind the network round-trip.
 */
 .connection-status {
+  /*
+    Top-centre pinned so the pill clears both top-corner icon
+    buttons (share at top-left, settings at top-right) when it
+    becomes visible during a reconnect.
+  */
   position: fixed;
   top: max(0.5rem, env(safe-area-inset-top));
-  left: max(0.5rem, env(safe-area-inset-left));
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1500;
   display: flex;
   align-items: center;

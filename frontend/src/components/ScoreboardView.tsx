@@ -177,7 +177,16 @@ export default function ScoreboardView({
 
       <div className={`hud-controls ${!showControls ? 'ui-hidden' : ''}`}>
         <button
-          className="top-right-config-btn"
+          className="top-corner-icon-btn top-left-share-btn"
+          onClick={onOpenShare}
+          title={t('share.title')}
+          aria-label={t('share.title')}
+          data-testid="share-button"
+        >
+          <span className="material-icons" aria-hidden="true">share</span>
+        </button>
+        <button
+          className="top-corner-icon-btn top-right-config-btn"
           onClick={onOpenConfig}
           title={t('ctrl.configHint')}
           aria-label={t('ctrl.config')}
@@ -207,7 +216,6 @@ export default function ScoreboardView({
             onTogglePreview={onTogglePreview}
             onStartMatch={onStartMatch}
             onReset={onReset}
-            onOpenShare={onOpenShare}
             onOpenHistory={onOpenHistory}
           />
         </div>
