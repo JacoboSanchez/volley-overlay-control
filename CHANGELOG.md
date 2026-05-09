@@ -10,6 +10,20 @@ once a first tagged release ships.
 
 ### Added
 
+- **Screen Wake Lock during a live match.** New
+  ``frontend/src/hooks/useScreenWakeLock.ts`` holds a screen wake
+  lock while ``state.match_started_at != null && !state
+  .match_finished`` so the operator's phone doesn't dim or lock
+  between rallies. Released deliberately on match end / reset
+  and on unmount; transient releases driven by the platform
+  (tab hidden, lock screen) re-acquire automatically when the
+  page becomes visible again. Silent no-op on runtimes without
+  ``navigator.wakeLock`` (desktop browsers, iOS Safari pre-16.4).
+  Wired in ``App.tsx`` immediately after ``useMatchAlertHaptics``.
+  Tests: ``useScreenWakeLock.test.tsx`` (8 cases: enable / disable
+  / unmount / visibility round-trip / unsupported / permission
+  rejection / hidden-on-mount / re-acquire).
+
 - **UX Phase 4.2 — recent-audit drawer accessible from the
   scoreboard.** The per-OID action log was previously only
   reachable via the post-match HTML report; during a live match the
@@ -345,6 +359,30 @@ once a first tagged release ships.
   is pinned by name (``test_team_home_excludes_match_state``)
   so a future scope edit cannot regress the live-match
   protection. Full suite: 999 passed (was 961 + 38 new).
+
+### Changed
+
+- **Haptic feedback default flipped to `false`.** A fresh install
+  no longer surprises the operator with vibration on the first
+  scoring tap; the toggle in BehaviorSection opts in. Existing
+  operators with ``volley_haptics: true`` already saved in
+  ``localStorage`` keep that — only new sessions land on the new
+  default. Test scaffolds in ``useHaptics.test.tsx`` and
+  ``useMatchAlertHaptics.test.tsx`` flip the flag on explicitly
+  in their ``beforeEach`` so the active-path assertions still
+  exercise the vibration code path.
+
+### Removed
+
+- **"Replay tour" button + ``behavior.replayTour`` /
+  ``behavior.replayTourAction`` i18n keys.** The Behavior section
+  no longer exposes a manual re-arm for the gesture coachmark.
+  ``gestureTourSeen`` still gates the first-run trigger and
+  persists across sessions; rerunning the tour now requires
+  clearing the ``volley_gestureTourSeen`` localStorage entry
+  (or installing in a fresh browser profile). Cleaner
+  BehaviorSection UI: only autoHide / autoSimple / haptics +
+  language live there now.
 
 ### Fixed
 

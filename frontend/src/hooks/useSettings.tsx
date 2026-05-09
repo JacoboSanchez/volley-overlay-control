@@ -28,9 +28,11 @@ export interface Settings {
   /**
    * Haptic feedback toggle. When ``true`` the operator's device
    * vibrates briefly on confirmed double-tap-undo gestures and on
-   * set / match / finished transitions. Defaults to ``true`` because
-   * the patterns are short (10–60 ms) and devices without
-   * ``navigator.vibrate`` no-op silently.
+   * set / match / finished transitions. Defaults to ``false`` so a
+   * fresh install doesn't surprise the operator with vibration on
+   * the first scoring tap; the toggle in BehaviorSection opts in.
+   * Devices without ``navigator.vibrate`` (desktop browsers, iOS
+   * Safari pre-18.4) no-op silently regardless of the toggle.
    */
   haptics: boolean;
   /**
@@ -57,7 +59,7 @@ const DEFAULTS: Settings = {
   team2BtnText: '#ffffff',
   autoHide: false,
   autoHideSeconds: 5,
-  haptics: true,
+  haptics: false,
   gestureTourSeen: false,
 };
 

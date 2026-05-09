@@ -195,8 +195,6 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Auto simple mode',
     'behavior.fullOnTimeout': 'Full mode on timeout',
     'behavior.haptics': 'Haptic feedback',
-    'behavior.replayTour': 'First-use tour',
-    'behavior.replayTourAction': 'Replay tour',
     'behavior.showPreview': 'Show overlay preview',
 
     // Preview
@@ -406,8 +404,6 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Modo simple automático',
     'behavior.fullOnTimeout': 'Modo completo en tiempo muerto',
     'behavior.haptics': 'Vibración táctil',
-    'behavior.replayTour': 'Tour de uso',
-    'behavior.replayTourAction': 'Repetir tour',
     'behavior.showPreview': 'Mostrar vista previa del overlay',
 
     // Preview
@@ -617,8 +613,6 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Modo simples automático',
     'behavior.fullOnTimeout': 'Modo completo no desconto de tempo',
     'behavior.haptics': 'Vibração tátil',
-    'behavior.replayTour': 'Tour de utilização',
-    'behavior.replayTourAction': 'Repetir tour',
     'behavior.showPreview': 'Mostrar pré-visualização do overlay',
 
     // Preview
@@ -828,8 +822,6 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Modalità semplice automatica',
     'behavior.fullOnTimeout': 'Modalità completa al time-out',
     'behavior.haptics': 'Feedback aptico',
-    'behavior.replayTour': 'Tour iniziale',
-    'behavior.replayTourAction': 'Riavvia il tour',
     'behavior.showPreview': 'Mostra anteprima overlay',
 
     // Preview
@@ -1039,8 +1031,6 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Mode simple automatique',
     'behavior.fullOnTimeout': 'Mode complet au temps mort',
     'behavior.haptics': 'Retour haptique',
-    'behavior.replayTour': 'Visite guidée',
-    'behavior.replayTourAction': 'Rejouer la visite',
     'behavior.showPreview': 'Afficher l’aperçu de l’overlay',
 
     // Preview
@@ -1250,8 +1240,6 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Automatischer Einfachmodus',
     'behavior.fullOnTimeout': 'Vollmodus bei Auszeit',
     'behavior.haptics': 'Haptisches Feedback',
-    'behavior.replayTour': 'Einführungstour',
-    'behavior.replayTourAction': 'Tour wiederholen',
     'behavior.showPreview': 'Overlay-Vorschau anzeigen',
 
     // Preview

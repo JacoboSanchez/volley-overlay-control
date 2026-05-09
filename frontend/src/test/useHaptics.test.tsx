@@ -18,6 +18,12 @@ describe('useHaptics', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    // Haptics defaults to ``false`` in production so a fresh
+    // install doesn't surprise the operator with vibration on
+    // the first scoring tap. Tests in this suite exercise the
+    // active path, so flip the flag on explicitly. The "no-ops
+    // when disabled" case overrides it back to ``false``.
+    localStorage.setItem('volley_haptics', 'true');
     vibrateMock = vi.fn().mockReturnValue(true);
     Object.defineProperty(navigator, 'vibrate', {
       configurable: true,
