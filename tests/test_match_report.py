@@ -836,18 +836,29 @@ class TestMatchReportRichSections:
         assert "+0:00" in response.text
         assert "+3:00" in response.text
 
-    def test_undo_collapses_to_strikethrough(self, client, rich_match):
-        response = client.get(f"/match/{rich_match}/report")
-        # The original team-2 forward record at 5-3 is paired with the
-        # explicit undo right after it; the collapsed timeline marks
-        # the original with the ``undone`` modifier inside the chip-
-        # composite class (CSS draws strike-through).
+    def test_undo_pairs_disappear_from_timeline(self, client, rich_match):
+        """Both halves of an undo pair (the forward action and the
+        explicit undo) should be stripped from the rendered timeline
+        — the report reads as if the action never happened. Replaces
+        the legacy strikethrough behaviour, which left the forward
+        line struck-through with an "↶ Undone" badge.
+        """
         import re
-        assert re.search(r'class="timeline-li[^"]*\bundone\b', response.text)
-        # The standalone undo entry must NOT be rendered as its own row
-        # — pairing collapses both into one editorial line.
-        assert response.text.count('(undone)') <= 1
-        assert response.text.count("(undo)") == 0
+        response = client.get(f"/match/{rich_match}/report")
+        text = response.text
+        # No row carries the ``undone`` modifier any more.
+        assert not re.search(r'class="timeline-li[^"]*\bundone\b', text)
+        assert 'class="undone-badge"' not in text
+        assert 'chip-undone' not in text
+        # No "(undone)" / "(undo)" suffix from the old i18n key.
+        assert '(undone)' not in text
+        assert '(undo)' not in text
+        # The fixture's undone team-2 add_point was paired with an
+        # explicit undo (see ``_seed_realistic_audit``). Set 1's
+        # team-2 score should never reach 3 in the timeline running
+        # tally — the running-score chip on team-2's last surviving
+        # record should be ``(5–2)`` or earlier, not ``(5–3)``.
+        assert '(5–3)' not in text
 
     def test_footer_carries_permalink_and_generated_at(self, client, rich_match):
         """Phase 3 enriches the report footer with the canonical
@@ -881,22 +892,34 @@ class TestMatchReportRichSections:
         assert 'class="timeline-legend"' in response.text
         assert 'class="timeline-legend-item"' in response.text
 
-    def test_undone_rows_carry_visible_badge(self, client, rich_match):
-        """Strike-through alone is hard to spot in dense timelines.
-
-        Each undone row should also carry a ``↶ Undone`` badge so
-        the operator/viewer notices the reversal at a glance,
-        including on the print-friendly stylesheet.
+    def test_no_undone_artefacts_in_rendered_html(self, client, rich_match):
+        """Defensive: confirm the report ships none of the legacy
+        undo affordances. A future regression that re-introduces
+        strikethrough rows (``.undone`` modifier) or the
+        ``↶ Undone`` badge should fail this case loudly.
         """
-        import re
         response = client.get(f"/match/{rich_match}/report")
-        # One badge per undone row, no orphans on the non-undone rows.
-        undone_rows = len(
-            re.findall(r'class="timeline-li[^"]*\bundone\b', response.text),
-        )
-        badges = response.text.count('class="undone-badge"')
-        assert undone_rows >= 1
-        assert badges == undone_rows
+        assert 'undone-badge' not in response.text
+        assert 'chip-undone' not in response.text
+        assert 'chip-glyph-undone' not in response.text
+        assert 'legendUndone' not in response.text
+
+    def test_set_byset_table_has_per_set_timeouts_row(
+        self, client, rich_match,
+    ):
+        """The set-by-set table should expose a "Timeouts (T1/T2)"
+        row alongside the score and duration rows so a coach can
+        scan timeout usage without reading the timeline. Renders as
+        ``T1/T2`` per cell, ``—`` when neither side called any.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        # Header text from the i18n catalogue.
+        assert "Timeouts (T1/T2)" in response.text
+        # ``rich_match`` fixture doesn't add timeouts, so every
+        # cell should show the empty ``—`` marker. Defensive
+        # check: no ``N/M`` tuple slipped in by accident.
+        import re
+        assert not re.search(r'<td>\d+/\d+</td>', response.text)
 
     def test_orphan_undo_records_are_dropped(self):
         """Unified-undo logs only carry the trailing undo record (the
@@ -924,10 +947,12 @@ class TestMatchReportRichSections:
 
     def test_set_durations_row_shows_seconds(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
-        # Set 1 last forward record sits at offset 240 (the offset-260
-        # entry is the explicit undo, which we skip). Set 2 spans
-        # 600..1500. The exact text comes from ``_fmt_seconds``.
-        assert "4m 00s" in response.text
+        # Set 1 last surviving record is the offset-210 team-2 point
+        # (the offset-240 forward + its offset-260 undo are both
+        # dropped by the up-front ``_collapse_undos`` pass, so the
+        # set-1 duration spans 0..210). Set 2 still spans 600..1500.
+        # The exact text comes from ``_fmt_seconds``.
+        assert "3m 30s" in response.text
         assert "15m 00s" in response.text
         # The row label is i18n-driven.
         assert "Set durations" in response.text
@@ -1179,6 +1204,75 @@ class TestMatchReportTimeoutsInline:
         assert "(0)" not in response.text
         # The legacy "Timeouts (final set)" row must be gone.
         assert "Timeouts (final set)" not in response.text
+
+        # New: a dedicated "Timeouts (T1/T2)" row in the set-by-set
+        # table summarises both teams' counts side-by-side.
+        assert "Timeouts (T1/T2)" in response.text
+        # Set 1: T1 took 2, T2 took 0 → "2/0"
+        assert "<td>2/0</td>" in response.text
+        # Set 2: T1 took 0, T2 took 1 → "0/1"
+        assert "<td>0/1</td>" in response.text
+        # Set 3: neither side → empty marker.
+        assert "<td>—</td>" in response.text
+
+    def test_undone_timeout_does_not_count(self, client):
+        """An ``add_timeout`` that was undone must not contribute to
+        either the inline ``25 (N)`` suffix or the new
+        "Timeouts (T1/T2)" summary row. Regression:
+        ``_timeouts_per_set`` only skipped records where
+        ``params.undo`` is truthy, but the *forward* of an undone
+        pair still slipped through. The report pipeline now feeds
+        every reducer a ``_collapse_undos`` slice so the forward
+        and the undo both disappear.
+        """
+        base_ts = time.time() - 1000
+        oid = "to-undone-1"
+        records = []
+
+        def _add(action, params, result, off):
+            records.append({"ts": base_ts + off, "action": action,
+                            "params": params, "result": result})
+
+        # Set 1: a single point grounds the set, then T1 takes a
+        # timeout and immediately undoes it. Expected: every cell
+        # in the timeouts row reads "—" and no score cell carries
+        # a "(1)" suffix.
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 1}, "team_2": {"score": 0}}, off=5)
+        _add("add_timeout", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 1, "timeouts": 1},
+              "team_2": {"score": 0, "timeouts": 0}}, off=10)
+        _add("add_timeout", {"team": 1, "undo": True},
+             {"current_set": 1,
+              "team_1": {"score": 1, "timeouts": 0},
+              "team_2": {"score": 0, "timeouts": 0}}, off=15)
+        # Set 2 grounding score so the table has at least two sets.
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 1}, "team_2": {"score": 1}}, off=200)
+        self._seed_audit(oid, records)
+
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "current_set": 2,
+                "team_1": {"sets": 1, "timeouts": 0,
+                           "scores": {"set_1": 25, "set_2": 0}},
+                "team_2": {"sets": 0, "timeouts": 0,
+                           "scores": {"set_1": 23, "set_2": 1}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3, started_at=base_ts + 5,
+        )
+        response = client.get(f"/match/{match_id}/report")
+
+        # Inline suffix must stay bare for the score cells.
+        assert "(1)" not in response.text
+        # No ``N/M`` tuple anywhere in the table — every set row is "—".
+        import re
+        assert not re.search(r'<td>\d+/\d+</td>', response.text)
 
 
 class TestMatchReportEmptySets:
