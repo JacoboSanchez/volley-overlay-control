@@ -108,10 +108,11 @@ export function useAuditLog(
       .then((res) => {
         if (controller.signal.aborted) return;
         // Backend returns records oldest-first within the page;
-        // reverse so the drawer renders newest at the top.
-        const sorted = [...(res.records ?? [])].sort(
-          (a, b) => b.ts - a.ts,
-        );
+        // reverse so the drawer renders newest at the top. ``reverse``
+        // is O(n) where a comparison sort would be O(n log n) — same
+        // result given the page is already monotonically ordered by
+        // the backend.
+        const sorted = [...(res.records ?? [])].reverse();
         setRecords(sorted);
         setLoading(false);
       })

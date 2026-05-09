@@ -45,6 +45,10 @@ function actionLabel(record: AuditRecord, t: Translate): string {
   const team = teamLabel((params as Record<string, unknown>).team);
   const undo = (params as Record<string, unknown>).undo === true;
   const undoSuffix = undo ? t('history.action.undoSuffix') : '';
+  // Every branch appends ``undoSuffix`` so the row label stays
+  // consistent with the visual strikethrough — without it, an
+  // undone change_serve / set_score / reset would render struck-
+  // through but read as if it were a fresh action.
   switch (record.action) {
     case 'add_point':
       return t('history.action.point', { team }) + undoSuffix;
@@ -53,16 +57,16 @@ function actionLabel(record: AuditRecord, t: Translate): string {
     case 'add_timeout':
       return t('history.action.timeout', { team }) + undoSuffix;
     case 'change_serve':
-      return t('history.action.serve', { team });
+      return t('history.action.serve', { team }) + undoSuffix;
     case 'set_score': {
       const setNum = safeNumber((params as Record<string, unknown>).set_number);
       const value = safeNumber((params as Record<string, unknown>).value);
-      return t('history.action.edit', { team, set: setNum, value });
+      return t('history.action.edit', { team, set: setNum, value }) + undoSuffix;
     }
     case 'reset':
-      return t('history.action.reset');
+      return t('history.action.reset') + undoSuffix;
     default:
-      return record.action || t('history.action.unknown');
+      return (record.action || t('history.action.unknown')) + undoSuffix;
   }
 }
 

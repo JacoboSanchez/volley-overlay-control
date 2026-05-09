@@ -42,6 +42,32 @@
   --overlay-bg: rgba(0, 0, 0, 0.6);
   --hover-bg: rgba(255, 255, 255, 0.05);
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23999' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+
+  /*
+    Action-chip palette — single source of truth shared by the
+    recent-audit drawer rows (``.recent-audit-row-*``) and the chip
+    glyph cells (``.action-chip .chip-glyph-*``). Mirrors the colour
+    set in ``frontend/src/utils/chipCatalogue.ts`` and the report-
+    side stylesheet emitted from ``app/match_report.py``.
+  */
+  --chip-point-t1: #2196f3;
+  --chip-point-t2: #f44336;
+  --chip-point: #607d8b;
+  --chip-set: #2e7d32;
+  --chip-timeout: #ff9800;
+  --chip-serve: #5c6bc0;
+  --chip-edit: #ab47bc;
+  --chip-reset: #9e9e9e;
+  /* Tints used as background washes on row strips — kept slightly
+     muted so the row label stays readable on top. */
+  --chip-bg-point-t1: rgba(33, 150, 243, 0.07);
+  --chip-bg-point-t2: rgba(244, 67, 54, 0.07);
+  --chip-bg-point:    rgba(96, 125, 139, 0.07);
+  --chip-bg-set:      rgba(46, 125, 50, 0.10);
+  --chip-bg-timeout:  rgba(255, 152, 0, 0.10);
+  --chip-bg-serve:    rgba(92, 107, 192, 0.07);
+  --chip-bg-edit:     rgba(171, 71, 188, 0.08);
+  --chip-bg-reset:    rgba(158, 158, 158, 0.10);
 }
 
 :root.light {
@@ -2586,14 +2612,14 @@ body {
   color: var(--text-muted);
 }
 
-.recent-audit-row-point-t1 { border-left-color: #2196f3; background: rgba(33, 150, 243, 0.07); }
-.recent-audit-row-point-t2 { border-left-color: #f44336; background: rgba(244, 67, 54, 0.07); }
-.recent-audit-row-point    { border-left-color: #607d8b; background: rgba(96, 125, 139, 0.07); }
-.recent-audit-row-set      { border-left-color: #2e7d32; background: rgba(46, 125, 50, 0.10); }
-.recent-audit-row-timeout  { border-left-color: #ff9800; background: rgba(255, 152, 0, 0.10); }
-.recent-audit-row-serve    { border-left-color: #5c6bc0; background: rgba(92, 107, 192, 0.07); }
-.recent-audit-row-edit     { border-left-color: #ab47bc; background: rgba(171, 71, 188, 0.08); }
-.recent-audit-row-reset    { border-left-color: #9e9e9e; background: rgba(158, 158, 158, 0.10); }
+.recent-audit-row-point-t1 { border-left-color: var(--chip-point-t1); background: var(--chip-bg-point-t1); }
+.recent-audit-row-point-t2 { border-left-color: var(--chip-point-t2); background: var(--chip-bg-point-t2); }
+.recent-audit-row-point    { border-left-color: var(--chip-point);    background: var(--chip-bg-point); }
+.recent-audit-row-set      { border-left-color: var(--chip-set);      background: var(--chip-bg-set); }
+.recent-audit-row-timeout  { border-left-color: var(--chip-timeout);  background: var(--chip-bg-timeout); }
+.recent-audit-row-serve    { border-left-color: var(--chip-serve);    background: var(--chip-bg-serve); }
+.recent-audit-row-edit     { border-left-color: var(--chip-edit);     background: var(--chip-bg-edit); }
+.recent-audit-row-reset    { border-left-color: var(--chip-reset);    background: var(--chip-bg-reset); }
 .recent-audit-row-undone,
 .recent-audit-row-other    { border-left-color: var(--text-muted); }
 
@@ -2648,14 +2674,14 @@ body {
   background: var(--text-muted);
 }
 
-.action-chip .chip-glyph-point-t1 { background: #2196f3; }
-.action-chip .chip-glyph-point-t2 { background: #f44336; }
-.action-chip .chip-glyph-point    { background: #607d8b; }
-.action-chip .chip-glyph-set      { background: #2e7d32; }
-.action-chip .chip-glyph-timeout  { background: #ff9800; color: #1f1300; }
-.action-chip .chip-glyph-serve    { background: #5c6bc0; }
-.action-chip .chip-glyph-edit     { background: #ab47bc; }
-.action-chip .chip-glyph-reset    { background: #9e9e9e; color: #1a1a2e; }
+.action-chip .chip-glyph-point-t1 { background: var(--chip-point-t1); }
+.action-chip .chip-glyph-point-t2 { background: var(--chip-point-t2); }
+.action-chip .chip-glyph-point    { background: var(--chip-point); }
+.action-chip .chip-glyph-set      { background: var(--chip-set); }
+.action-chip .chip-glyph-timeout  { background: var(--chip-timeout); color: #1f1300; }
+.action-chip .chip-glyph-serve    { background: var(--chip-serve); }
+.action-chip .chip-glyph-edit     { background: var(--chip-edit); }
+.action-chip .chip-glyph-reset    { background: var(--chip-reset); color: #1a1a2e; }
 .action-chip .chip-glyph-undone,
 .action-chip .chip-glyph-other    {
   background: transparent;
