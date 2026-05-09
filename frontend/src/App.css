@@ -822,7 +822,7 @@ body {
 */
 .top-corner-icon-btn {
   position: absolute;
-  top: 1rem;
+  top: max(1rem, env(safe-area-inset-top));
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -845,11 +845,11 @@ body {
 }
 
 .top-right-config-btn {
-  right: 1rem;
+  right: max(1rem, env(safe-area-inset-right));
 }
 
 .top-left-share-btn {
-  left: 1rem;
+  left: max(1rem, env(safe-area-inset-left));
 }
 
 .wakeup-handle {
