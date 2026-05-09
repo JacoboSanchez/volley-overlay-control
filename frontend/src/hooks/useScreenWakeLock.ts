@@ -67,7 +67,14 @@ export function useScreenWakeLock(enabled: boolean): void {
   // lifetime of the consumer. The acquire/release toggle lives in
   // a separate effect below.
   useEffect(() => {
-    const nav = navigator as WakeLockNavigator;
+    // ``navigator`` is undefined under Node-side SSR / static
+    // pre-render. Guard the access the same way the
+    // ``document`` checks below do, so the hook can be imported
+    // without blowing up before hydration. After hydration the
+    // browser globals are populated and the effect re-runs.
+    const nav = (typeof navigator !== 'undefined'
+      ? (navigator as WakeLockNavigator)
+      : ({} as WakeLockNavigator));
     if (!nav.wakeLock || typeof nav.wakeLock.request !== 'function') {
       return undefined;
     }
