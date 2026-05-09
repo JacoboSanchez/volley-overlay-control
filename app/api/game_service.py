@@ -27,6 +27,20 @@ from app.state import State
 
 logger = logging.getLogger(__name__)
 
+# Window for the rapid-pair "undo correction" flow. Two opposite
+# ``add_point`` actions on the same team that land within this many
+# seconds of each other collapse into a no-op:
+#
+#   * tap → double-tap-undo within 5 s ⇒ neither lands in the audit
+#     log (the just-added forward is tombstoned, no undo is appended).
+#   * double-tap-undo → tap within 5 s ⇒ the original forward (which
+#     the undo had hidden) is restored and the undo is tombstoned.
+#
+# Outside the window the actions stay separate. Tuned to match the
+# operator's "wait, that wasn't right" reflex without being so wide
+# that a deliberate next-rally tap could be mistaken for a recovery.
+RAPID_PAIR_WINDOW_S = 5.0
+
 # Short TTL for the customization read-through cache. The overlay server is
 # authoritative, but the React UI polls this endpoint on every config panel
 # open; coalescing into a 5 s window avoids a burst of redundant round-trips
@@ -221,6 +235,119 @@ class GameService:
             )
 
     @staticmethod
+    def _consume_rapid_pair(session, team: int, undo: bool) -> bool:
+        """Return ``True`` when the incoming ``add_point`` collapses
+        with the most recent opposite-kind action on the same team
+        within :data:`RAPID_PAIR_WINDOW_S`.
+
+        On a hit the cache is cleared, the audit log is rewritten so
+        neither half of the pair surfaces (the original forward, if
+        any, is restored from its tombstone), and the caller can
+        assume the audit-log side of the action is already done — it
+        only needs to apply the state-level mutation and skip the
+        normal ``_audit`` append.
+
+        On a miss returns ``False`` and leaves the cache untouched
+        so the caller can update it after the normal flow completes.
+        """
+        cached = session.rapid_pair_cache.get(team)
+        if not cached:
+            return False
+        if cached.get("kind") == ("undo" if undo else "forward"):
+            # Same direction as the cached entry — not a pair. Treat
+            # as a fresh action; the caller will overwrite the cache.
+            return False
+        now = time.time()
+        ts = cached.get("ts")
+        if not isinstance(ts, (int, float)) or now - ts > RAPID_PAIR_WINDOW_S:
+            # Stale cache: drop it so the caller starts fresh.
+            session.rapid_pair_cache.pop(team, None)
+            return False
+
+        audit_ts = cached.get("audit_ts")
+        if undo:
+            # Case A — tap, then double-tap-undo within the window.
+            # The just-added forward is tombstoned and no undo is
+            # appended. Net audit: nothing for the pair. The counter
+            # only follows the on-disk state: a failed tombstone
+            # write would leave the forward visible, so we hold off
+            # decrementing until the tombstone landed.
+            if audit_ts is not None and action_log.tombstone_ts(
+                session.oid, audit_ts,
+            ):
+                session.undoable_forward_count = max(
+                    0, session.undoable_forward_count - 1,
+                )
+        else:
+            # Case B — double-tap-undo, then tap within the window.
+            # Tombstone the undo we just wrote and resurrect the
+            # forward the undo had originally hidden so the timeline
+            # reads as if neither happened. Same atomicity rule
+            # applies: the counter only goes back up when the
+            # restore actually wrote — otherwise the forward is
+            # still tombstoned on disk and ``can_undo`` would lie.
+            if audit_ts is not None:
+                action_log.tombstone_ts(session.oid, audit_ts)
+            popped_ref = cached.get("popped_ref_ts")
+            if popped_ref is not None and action_log.restore_popped(
+                session.oid, popped_ref,
+            ):
+                # The recovered forward is undoable again — increment
+                # the counter we decremented when the undo landed.
+                session.undoable_forward_count += 1
+
+        session.rapid_pair_cache.pop(team, None)
+        return True
+
+    @staticmethod
+    def _record_rapid_pair_seed(
+        session,
+        team: int,
+        undo: bool,
+        audit_record: dict | None,
+        popped: dict | None,
+    ) -> None:
+        """Stash the action that just landed so a near-future
+        opposite-kind action on the same team can collapse with it.
+
+        Called after a *normal* ``add_point`` flow completes — i.e.
+        when no rapid pair was consumed. The cache is per-team so a
+        deliberate forward on team 1 doesn't accidentally pair with
+        a stray double-tap on team 2.
+        """
+        if not isinstance(audit_record, dict):
+            # The audit-append failed; nothing to refer back to.
+            session.rapid_pair_cache.pop(team, None)
+            return
+        ts = audit_record.get("ts")
+        if not isinstance(ts, (int, float)):
+            session.rapid_pair_cache.pop(team, None)
+            return
+        entry: dict = {
+            "kind": "undo" if undo else "forward",
+            "ts": time.time(),
+            "audit_ts": ts,
+        }
+        if undo and isinstance(popped, dict):
+            popped_ts = popped.get("ts")
+            if isinstance(popped_ts, (int, float)):
+                entry["popped_ref_ts"] = popped_ts
+        session.rapid_pair_cache[team] = entry
+
+    @staticmethod
+    def _invalidate_rapid_pair_cache(session) -> None:
+        """Drop every per-team rapid-pair cache entry.
+
+        Called from the non-``add_point`` mutation paths
+        (``add_set``, ``add_timeout``, ``change_serve``,
+        ``set_score``, ``set_sets_value``, ``reset``,
+        ``set_rules``) so a tap that follows an unrelated action
+        can never trigger a false-positive recovery.
+        """
+        if session.rapid_pair_cache:
+            session.rapid_pair_cache.clear()
+
+    @staticmethod
     def add_point(session, team: int, undo: bool = False) -> ActionResponse:
         if not undo:
             blocked = GameService._match_finished_response(session)
@@ -243,16 +370,27 @@ class GameService:
         # ended rather than the next set's empty 0-0.
         target_set_before_advance = session.current_set
 
-        # Per-type undo shares the audit-log stack with POST /game/undo:
-        # pop the matching forward record so a follow-up generic undo
-        # cannot double-revert the same action. State-undo runs
-        # regardless of pop result so callers manipulating state
-        # without a corresponding audit record (e.g. via ``set_score``)
-        # keep their backward-compatible no-op-on-zero semantics.
+        # Rapid-pair recovery: if the operator just performed the
+        # opposite action on the same team within
+        # ``RAPID_PAIR_WINDOW_S``, fold the pair into a no-op at the
+        # audit-log level. The state still mutates normally (set-end
+        # / match-end / serve-change side effects re-fire) so a
+        # set-winning recovery is honoured the same as any forward.
+        rapid_pair = GameService._consume_rapid_pair(session, team, undo)
+
+        # When the audit-log half is handled by the rapid-pair path
+        # we skip the normal ``pop_last_forward`` (the forward was
+        # already tombstoned via the cache). Otherwise — for fresh
+        # undos — the pop tombstones the matching forward so a
+        # follow-up generic undo cannot double-revert the same
+        # action. State-undo runs regardless of pop result so
+        # callers manipulating state without a corresponding audit
+        # record (e.g. via ``set_score``) keep their backward-
+        # compatible no-op-on-zero semantics.
         popped = (
             action_log.pop_last_forward(
                 session.oid, allowed_actions={"add_point"}, team=team,
-            ) if undo else None
+            ) if undo and not rapid_pair else None
         )
 
         set_won = session.game_manager.add_game(
@@ -277,13 +415,21 @@ class GameService:
         # call sites into one is a measurable per-action win.
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
-        GameService._audit(
-            session, "add_point", {"team": team, "undo": undo},
-            popped_forward=popped,
-            target_set=target_set_before_advance,
-        )
+        if not rapid_pair:
+            audit_record = GameService._audit(
+                session, "add_point", {"team": team, "undo": undo},
+                popped_forward=popped,
+                target_set=target_set_before_advance,
+            )
+            GameService._record_rapid_pair_seed(
+                session, team, undo, audit_record, popped,
+            )
 
         # Fire after persistence so consumers always see the post-state.
+        # Set-end / match-end webhooks fire whether or not a rapid pair
+        # absorbed the audit half — the underlying state transition
+        # really happened (operator saw the set close + reopen) and
+        # downstream consumers should see the same effective edge.
         if not undo:
             if set_won:
                 GameService._fire(session, "set_end", state_response, {
@@ -308,6 +454,10 @@ class GameService:
             if blocked is not None:
                 return blocked
 
+        # Any action other than ``add_point`` invalidates the rapid-
+        # pair cache so a tap that follows can never trigger a false-
+        # positive recovery against an unrelated prior action.
+        GameService._invalidate_rapid_pair_cache(session)
         was_finished_before = session.game_manager.match_finished(session.sets_limit)
         # Same reasoning as add_point: capture before advance so the
         # audit log records the final score of the set that ended.
@@ -354,6 +504,7 @@ class GameService:
             if blocked is not None:
                 return blocked
 
+        GameService._invalidate_rapid_pair_cache(session)
         popped = (
             action_log.pop_last_forward(
                 session.oid, allowed_actions={"add_timeout"}, team=team,
@@ -379,6 +530,7 @@ class GameService:
 
     @staticmethod
     def change_serve(session, team: int) -> ActionResponse:
+        GameService._invalidate_rapid_pair_cache(session)
         serve_before = session.game_manager.get_current_state().get_current_serve()
         session.game_manager.change_serve(team)
         state_response = GameService.get_state(session)
@@ -400,6 +552,7 @@ class GameService:
                     f"(1-{session.sets_limit})."
                 ),
             )
+        GameService._invalidate_rapid_pair_cache(session)
         session.game_manager.set_game_value(team, value, set_number)
         set_won = session.game_manager.check_set_won(
             team, set_number,
@@ -420,6 +573,7 @@ class GameService:
 
     @staticmethod
     def set_sets_value(session, team: int, value: int) -> ActionResponse:
+        GameService._invalidate_rapid_pair_cache(session)
         session.game_manager.set_sets_value(team, value)
         session.current_set = session._compute_current_set()
         state_response = GameService.get_state(session)
@@ -563,6 +717,9 @@ class GameService:
 
     @staticmethod
     def reset(session) -> ActionResponse:
+        # Reset wipes the audit log; the rapid-pair cache that
+        # references audit timestamps must vanish with it.
+        GameService._invalidate_rapid_pair_cache(session)
         session.game_manager.reset()
         session.current_set = session._compute_current_set()
         # Reset wipes the match — clear the start clock so the next
@@ -767,7 +924,7 @@ class GameService:
         params: dict,
         popped_forward: dict | None = None,
         target_set: int | None = None,
-    ) -> None:
+    ) -> dict | None:
         """Append an audit-log record for the action just performed
         and, atomically with the append, keep
         ``session.undoable_forward_count`` in sync.
@@ -794,7 +951,9 @@ class GameService:
         0-0. The ``current_set`` field in the result still reports
         the post-action value so a reader can see the advance.
 
-        Best-effort — file errors don't propagate.
+        Best-effort — file errors don't propagate. Returns the
+        record that was written (so the caller can read its
+        assigned ``ts``) or ``None`` when the append failed.
         """
         try:
             state = session.game_manager.get_current_state()
@@ -826,10 +985,19 @@ class GameService:
                 },
                 "serve": serve.value if hasattr(serve, "value") else str(serve),
             }
-            action_log.append(session.oid, action, params, result)
+            written = action_log.append(session.oid, action, params, result)
         except Exception as exc:
             logger.warning("Audit append failed: %s", exc)
-            return
+            return None
+
+        # ``action_log.append`` swallows internal write errors and
+        # returns ``None`` instead of raising. The counter must only
+        # follow the on-disk truth, so skip the bookkeeping in that
+        # case — a future ``count_undoable_forwards`` rehydration
+        # will reconcile the in-memory state with whatever actually
+        # landed on disk.
+        if written is None:
+            return None
 
         if action in action_log.UNDOABLE_ACTIONS:
             if params.get("undo"):
@@ -839,6 +1007,7 @@ class GameService:
                     )
             else:
                 session.undoable_forward_count += 1
+        return written
 
     @staticmethod
     def _fire(session, event: str, state_response, details: dict) -> None:

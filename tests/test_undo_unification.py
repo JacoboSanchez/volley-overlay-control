@@ -208,22 +208,52 @@ class TestAuditLogTimeline:
     """Lock down the exact log shape after pop+audit so a regression
     in the order of operations would fail loudly here."""
 
+    @staticmethod
+    def _step_past_rapid_window(monkeypatch, clock_holder):
+        """Advance the mocked clock past the rapid-pair window so a
+        following undo lands on the legacy unified-undo path
+        instead of the rapid-pair Case A collapse.
+        """
+        from app.api import game_service as gs
+
+        clock_holder[0] += gs.RAPID_PAIR_WINDOW_S + 0.1
+
+    @staticmethod
+    def _freeze_clock(monkeypatch):
+        """Replace ``time.time`` with a steppable holder so each test
+        can advance time deterministically across rapid-pair windows.
+        """
+        import time as _time
+
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+        return clock
+
     def test_per_type_undo_leaves_only_undo_record(
-            self, mock_conf, api_backend):
+            self, mock_conf, api_backend, monkeypatch):
+        clock = self._freeze_clock(monkeypatch)
         s = SessionManager.get_or_create("tl-1", mock_conf, api_backend)
         GameService.add_point(s, team=1)
+        self._step_past_rapid_window(monkeypatch, clock)
         GameService.add_point(s, team=1, undo=True)
 
         records = action_log.read_all("tl-1")
-        # Forward was popped; only the undo record survives.
+        # Forward was popped; only the undo record survives. Within
+        # the rapid-pair window both halves would collapse — that
+        # path is covered in tests/test_rapid_pair_undo.py.
         assert len(records) == 1
         assert records[0]["action"] == "add_point"
         assert records[0]["params"] == {"team": 1, "undo": True}
 
     def test_generic_undo_leaves_only_undo_record(
-            self, mock_conf, api_backend):
+            self, mock_conf, api_backend, monkeypatch):
+        clock = self._freeze_clock(monkeypatch)
         s = SessionManager.get_or_create("tl-2", mock_conf, api_backend)
         GameService.add_point(s, team=1)
+        self._step_past_rapid_window(monkeypatch, clock)
         GameService.undo_last(s)
 
         records = action_log.read_all("tl-2")
@@ -232,11 +262,17 @@ class TestAuditLogTimeline:
         assert records[0]["params"] == {"team": 1, "undo": True}
 
     def test_non_undoable_actions_stay_in_log_after_undo(
-            self, mock_conf, api_backend):
+            self, mock_conf, api_backend, monkeypatch):
+        clock = self._freeze_clock(monkeypatch)
         s = SessionManager.get_or_create("tl-3", mock_conf, api_backend)
         GameService.add_point(s, team=1)
+        # ``change_serve`` invalidates the rapid-pair cache so the
+        # add_point(team=2) below seeds a fresh entry. We still
+        # need a time gap before ``undo_last`` so the legacy path
+        # — not Case A — handles the undo.
         GameService.change_serve(s, team=2)
         GameService.add_point(s, team=2)
+        self._step_past_rapid_window(monkeypatch, clock)
         GameService.undo_last(s)  # pops the team=2 add_point fwd
 
         actions = [r["action"] for r in action_log.read_all("tl-3")]
@@ -255,10 +291,23 @@ class TestCounterLogAtomicity:
 
     def test_counter_unchanged_when_audit_append_fails(
             self, mock_conf, api_backend, monkeypatch):
+        # Mock time so the team=1 undo at the end lands beyond the
+        # rapid-pair window — the test exercises the legacy unified-
+        # undo / append-fail path, not the rapid-pair collapse.
+        import time as _time
+
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
         s = SessionManager.get_or_create("atom-1", mock_conf, api_backend)
         GameService.add_point(s, team=1)
         baseline = s.undoable_forward_count
         assert baseline == 1
+
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 0.1
 
         # Make the next append fail.
         def boom(*args, **kwargs):
@@ -280,6 +329,27 @@ class TestCounterLogAtomicity:
         # since that one's append failed) so on-disk count is 0.
         assert action_log.count_undoable_forwards("atom-1") == 0
         # Counter stays at baseline because _audit never set it.
+        assert s.undoable_forward_count == baseline
+
+    def test_counter_unchanged_when_audit_append_returns_none(
+            self, mock_conf, api_backend, monkeypatch):
+        """``action_log.append`` swallows internal failures and
+        returns ``None`` (rather than raising), so the previous
+        ``try/except`` guard alone wasn't enough — the explicit
+        ``if written is None: return None`` short-circuit keeps
+        the counter aligned with on-disk truth in that path too.
+        """
+        s = SessionManager.get_or_create("atom-2", mock_conf, api_backend)
+        GameService.add_point(s, team=1)
+        baseline = s.undoable_forward_count
+        assert baseline == 1
+
+        # Make the next append silently drop the write.
+        monkeypatch.setattr(action_log, "append", lambda *a, **kw: None)
+
+        # Forward path: state mutates, log write returns None,
+        # counter must not have moved past baseline.
+        GameService.add_point(s, team=2)
         assert s.undoable_forward_count == baseline
 
 
