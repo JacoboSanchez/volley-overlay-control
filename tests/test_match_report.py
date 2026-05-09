@@ -766,23 +766,60 @@ class TestMatchReportRichSections:
         response = client.get(f"/match/{rich_match}/report")
         # The original team-2 forward record at 5-3 is paired with the
         # explicit undo right after it; the collapsed timeline marks
-        # the original with class="undone" (CSS draws strike-through).
-        assert 'class="undone"' in response.text
+        # the original with the ``undone`` modifier inside the chip-
+        # composite class (CSS draws strike-through).
+        import re
+        assert re.search(r'class="timeline-li[^"]*\bundone\b', response.text)
         # The standalone undo entry must NOT be rendered as its own row
         # — pairing collapses both into one editorial line.
         assert response.text.count('(undone)') <= 1
         assert response.text.count("(undo)") == 0
 
+    def test_footer_carries_permalink_and_generated_at(self, client, rich_match):
+        """Phase 3 enriches the report footer with the canonical
+        ``/match/{id}/report`` permalink and a "Generated at" line so
+        a shared print/PDF stays self-describing.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        assert 'class="footer-permalink"' in response.text
+        assert f'/match/{rich_match}/report' in response.text
+        assert 'class="footer-line"' in response.text
+        # English locale is the default; the permalink + generated
+        # labels both render as standalone <strong> headings on
+        # their own line.
+        assert 'Permalink' in response.text
+        assert 'Generated at' in response.text
+
+    def test_timeline_emits_typed_chips_per_action(self, client, rich_match):
+        """Phase 3 styles each timeline ``<li>`` with a per-action chip
+        modifier (``chip-point-t1``, ``chip-set``, …) plus a glyph
+        cell. The legend at the bottom of the timeline should also
+        be present so the colour palette is decodable at a glance.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        # Both team chips appear (rich fixture has add_point for both).
+        assert 'class="timeline-li chip-point-t1"' in response.text
+        assert 'class="timeline-li chip-point-t2"' in response.text
+        # Glyph cell rendered for each row.
+        assert 'class="chip-glyph chip-glyph-point-t1"' in response.text
+        assert 'class="chip-glyph chip-glyph-point-t2"' in response.text
+        # Mini legend renders once per timeline.
+        assert 'class="timeline-legend"' in response.text
+        assert 'class="timeline-legend-item"' in response.text
+
     def test_undone_rows_carry_visible_badge(self, client, rich_match):
         """Strike-through alone is hard to spot in dense timelines.
 
-        Each ``class="undone"`` row should also carry a ``↶ Undone``
-        badge so the operator/viewer notices the reversal at a glance,
+        Each undone row should also carry a ``↶ Undone`` badge so
+        the operator/viewer notices the reversal at a glance,
         including on the print-friendly stylesheet.
         """
+        import re
         response = client.get(f"/match/{rich_match}/report")
         # One badge per undone row, no orphans on the non-undone rows.
-        undone_rows = response.text.count('class="undone"')
+        undone_rows = len(
+            re.findall(r'class="timeline-li[^"]*\bundone\b', response.text),
+        )
         badges = response.text.count('class="undone-badge"')
         assert undone_rows >= 1
         assert badges == undone_rows
