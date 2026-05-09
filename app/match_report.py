@@ -1398,10 +1398,14 @@ def _render_score_chart(
     def _timeout_markers() -> str:
         if not timeouts:
             return ""
-        score_ts = [
-            float(r["ts"]) for r in set_records
-            if isinstance(r.get("ts"), (int, float))
-        ]
+        # Reuse ``timestamps`` (1:1 with the plotted ``points``)
+        # rather than rebuilding from ``set_records`` — the polyline
+        # already filters out records that lack a ``_running_score_pair``,
+        # so a parallel rebuild here would drift the rally indices.
+        # Some entries may still be ``None`` when the chart fell back
+        # to rally mode because of missing timestamps; those score
+        # records simply don't contribute to the timeout's rally
+        # position.
         items: list[str] = []
         for record in timeouts:
             params = record.get("params") or {}
@@ -1420,13 +1424,16 @@ def _render_score_chart(
                 x_val = max(0.0, ts_float - times[0])
                 x_val = min(x_val, x_max)
             else:
-                # Rally mode: count score records up to (and
-                # including) this timeout's timestamp. ``idx`` is
-                # the rally number after which the timeout was
-                # called; clamp into ``[0, last_idx]`` so a
-                # post-final-point timeout still renders on the
-                # right edge.
-                idx = sum(1 for t in score_ts if t <= ts_float) - 1
+                # Rally mode: count plotted score records whose
+                # timestamp is ``<= ts_float``. ``idx`` is the rally
+                # number after which the timeout was called; clamp
+                # into ``[0, last_idx]`` so a post-final-point
+                # timeout still renders on the right edge. Skip
+                # ``None`` entries (records without a timestamp)
+                # rather than letting the comparison raise.
+                idx = sum(
+                    1 for t in timestamps if t is not None and t <= ts_float
+                ) - 1
                 idx = max(0, min(idx, last_idx))
                 x_val = float(idx)
             x_norm = x_val / x_max if x_max else 0.0
