@@ -1003,6 +1003,7 @@ body {
 .config-top-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   background: none;
   border: none;
@@ -1013,6 +1014,7 @@ body {
   min-height: 44px;
   min-width: 44px;
   border-radius: 8px;
+  text-decoration: none;
 }
 
 .config-top-btn:hover {

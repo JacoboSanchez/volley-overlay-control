@@ -269,7 +269,11 @@ export default function ConfigPanel({
           <span className="material-icons">arrow_back</span>
         </button>
         <span className="config-top-title">{t('config.title')}</span>
-        <div style={{ minWidth: 44 }} />
+        <a className="config-top-btn" href="/manage" title={t('config.openManage')}
+          aria-label={t('config.openManage')} data-testid="manage-link-button"
+          onClick={(e) => { if (!confirmExitIfDirtyRef.current()) e.preventDefault(); }}>
+          <span className="material-icons">dashboard</span>
+        </a>
       </div>
 
       <div className={`config-body ${isPortrait ? 'config-body-portrait' : 'config-body-landscape'}`}>
