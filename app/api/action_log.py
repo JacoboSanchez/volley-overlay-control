@@ -237,6 +237,45 @@ def _rotate_if_needed_locked(path: str) -> None:
         logger.warning("Failed to rotate active audit '%s': %s", path, exc)
 
 
+def _append_log_line(
+    oid: str, body: dict, error_msg: str,
+) -> dict | None:
+    """Resolve the OID's log path, take the per-OID lock, rotate
+    if needed, stamp ``body`` with a fresh monotonic ``ts`` and
+    append the resulting record as a single JSON line.
+
+    Returns the written record (with its ``ts``) on success, or
+    ``None`` when the OID is invalid or the write fails. The
+    public ``append``, ``tombstone_ts`` and ``restore_popped``
+    helpers all share this shell — keeping the path / lock /
+    rotation / error-handling boilerplate in one place so future
+    storage tweaks (e.g. fsync, batched writes) only land here.
+
+    *body* must NOT contain a ``ts`` key — the helper assigns one
+    via :func:`_next_ts` so caller-supplied timestamps can't drift
+    out of monotonic order. *error_msg* is a ``logger.warning``
+    format string accepting two ``%`` parameters: the OID and the
+    captured exception.
+    """
+    path = _path(oid)
+    if path is None:
+        return None
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with _lock_for(oid):
+            _rotate_if_needed_locked(path)
+            record = {"ts": _next_ts(oid), **body}
+            line = json.dumps(
+                record, separators=(",", ":"), ensure_ascii=False,
+            ) + "\n"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+        return record
+    except Exception as exc:
+        logger.warning(error_msg, oid, exc)
+        return None
+
+
 def append(oid: str, action: str, params: dict, result: dict) -> dict | None:
     """Atomically append one record. Best-effort: never raises.
 
@@ -246,28 +285,11 @@ def append(oid: str, action: str, params: dict, result: dict) -> dict | None:
     bookkeeping (e.g. the rapid-pair cache) read it from the
     returned dict.
     """
-    path = _path(oid)
-    if path is None:
-        return None
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with _lock_for(oid):
-            _rotate_if_needed_locked(path)
-            record = {
-                "ts": _next_ts(oid),
-                "action": action,
-                "params": params,
-                "result": result,
-            }
-            line = json.dumps(
-                record, separators=(",", ":"), ensure_ascii=False,
-            ) + "\n"
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(line)
-        return record
-    except Exception as exc:
-        logger.warning("Failed to append audit log for %r: %s", oid, exc)
-        return None
+    return _append_log_line(
+        oid,
+        {"action": action, "params": params, "result": result},
+        "Failed to append audit log for %r: %s",
+    )
 
 
 def _read_one_file_locked(path: str, oid: str) -> list[dict]:
@@ -582,27 +604,12 @@ def tombstone_ts(oid: str, ref_ts: float) -> bool:
     Returns ``True`` on success, ``False`` if the OID is invalid
     or the write fails.
     """
-    path = _path(oid)
-    if path is None:
-        return False
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with _lock_for(oid):
-            _rotate_if_needed_locked(path)
-            tombstone = {
-                "ts": _next_ts(oid),
-                "action": _POP_TOMBSTONE_ACTION,
-                "ref_ts": ref_ts,
-            }
-            line = json.dumps(
-                tombstone, separators=(",", ":"), ensure_ascii=False,
-            ) + "\n"
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(line)
-        return True
-    except Exception as exc:
-        logger.warning("Failed to tombstone ts for %r: %s", oid, exc)
-        return False
+    written = _append_log_line(
+        oid,
+        {"action": _POP_TOMBSTONE_ACTION, "ref_ts": ref_ts},
+        "Failed to tombstone ts for %r: %s",
+    )
+    return written is not None
 
 
 def restore_popped(oid: str, ref_ts: float) -> bool:
@@ -619,27 +626,12 @@ def restore_popped(oid: str, ref_ts: float) -> bool:
     Returns ``True`` on success, ``False`` if the OID is invalid
     or the write fails.
     """
-    path = _path(oid)
-    if path is None:
-        return False
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with _lock_for(oid):
-            _rotate_if_needed_locked(path)
-            restore = {
-                "ts": _next_ts(oid),
-                "action": _RESTORE_TOMBSTONE_ACTION,
-                "ref_ts": ref_ts,
-            }
-            line = json.dumps(
-                restore, separators=(",", ":"), ensure_ascii=False,
-            ) + "\n"
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(line)
-        return True
-    except Exception as exc:
-        logger.warning("Failed to restore popped record for %r: %s", oid, exc)
-        return False
+    written = _append_log_line(
+        oid,
+        {"action": _RESTORE_TOMBSTONE_ACTION, "ref_ts": ref_ts},
+        "Failed to restore popped record for %r: %s",
+    )
+    return written is not None
 
 
 def peek_last_forward(
