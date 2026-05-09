@@ -1156,7 +1156,12 @@ def _compute_stats(audit: list[dict]) -> dict:
             if loser_deficit > loser_peak_deficit:
                 loser_peak_deficit = loser_deficit
                 loser_min_after_peak = loser_deficit
-            elif loser_deficit < loser_min_after_peak:
+            elif loser_peak_deficit > 0 and loser_deficit < loser_min_after_peak:
+                # Only count "recovery" once the loser has actually
+                # trailed. Otherwise a team that led 5-0 from the
+                # start and then collapsed would post a phantom
+                # 5-point partial comeback — they never erased
+                # anything, they just bled their early lead.
                 loser_min_after_peak = loser_deficit
                 recovery = loser_peak_deficit - loser_min_after_peak
                 if recovery > loser_max_recovery:

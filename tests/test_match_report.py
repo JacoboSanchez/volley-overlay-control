@@ -1128,6 +1128,24 @@ class TestMatchReportComebacks:
         assert "Bravo" in card
         assert "Alpha" not in card
 
+    def test_loser_who_only_led_then_collapsed_is_not_a_comeback(self, client):
+        # Team 2 leads 5-0 from the opening and then bleeds the lead
+        # without ever trailing → final 5-25. Team 2 was *never*
+        # behind, so neither a set-winning nor a partial comeback
+        # should be credited (the bug was that the diff between
+        # ``loser_deficit = -5`` and the initial ``loser_min_after_peak
+        # = 0`` was being read as a 5-point recovery).
+        scores = [(0, i) for i in range(1, 6)]
+        scores += [(j, 5) for j in range(1, 26)]
+        oid = "pc-led-then-lost"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "partial comeback" not in body.lower()
+        # The set-winning side gets a 5-pt comeback for team 1
+        # (trailed 0-5 then won) — that one *is* legit and stays.
+        assert "Biggest set-winning comeback" in body
+
     def test_partial_comeback_tie_renders_message(self, client):
         # Set 1 won by team 1: team 2 trims a 0-10 deficit to 4-10
         # (partial recovery of 4) before losing 25-14.
