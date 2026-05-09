@@ -1454,20 +1454,20 @@ def _render_score_chart(
                 f'x2="{x:.1f}" y2="{pad_y_top + plot_h:.1f}" '
                 f'stroke="{color_safe}" stroke-width="1" '
                 f'stroke-dasharray="3,3" opacity="0.55" />'
-                f'<g class="set-chart-timeout-glyph" data-team="{team}">'
+                # Lift the shared stroke attributes to the ``<g>`` so
+                # the children only override what they need (the face
+                # gets a slightly thicker border than the hands).
+                f'<g class="set-chart-timeout-glyph" data-team="{team}" '
+                f'stroke="{color_safe}" stroke-width="1" '
+                f'stroke-linecap="round">'
                 f'<circle cx="{x:.1f}" cy="{cy:.1f}" r="3.5" '
-                f'fill="none" stroke="{color_safe}" '
-                f'stroke-width="1.2" />'
+                f'fill="none" stroke-width="1.2" />'
                 # Minute hand: pointing up to "12".
                 f'<line x1="{x:.1f}" y1="{cy:.1f}" '
-                f'x2="{x:.1f}" y2="{cy - 2.2:.1f}" '
-                f'stroke="{color_safe}" stroke-width="1" '
-                f'stroke-linecap="round" />'
+                f'x2="{x:.1f}" y2="{cy - 2.2:.1f}" />'
                 # Hour hand: pointing right to "3".
                 f'<line x1="{x:.1f}" y1="{cy:.1f}" '
-                f'x2="{x + 1.7:.1f}" y2="{cy:.1f}" '
-                f'stroke="{color_safe}" stroke-width="1" '
-                f'stroke-linecap="round" />'
+                f'x2="{x + 1.7:.1f}" y2="{cy:.1f}" />'
                 f'</g>'
             )
         return "".join(items)
