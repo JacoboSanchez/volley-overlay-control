@@ -140,4 +140,62 @@ describe('useScreenWakeLock', () => {
     await Promise.resolve();
     expect(request).not.toHaveBeenCalled();
   });
+
+  it('does not re-bind the visibility listener when enabled flips', async () => {
+    const addSpy = vi.spyOn(document, 'addEventListener');
+    const removeSpy = vi.spyOn(document, 'removeEventListener');
+    const { rerender } = renderHook(
+      ({ on }: { on: boolean }) => useScreenWakeLock(on),
+      { initialProps: { on: true } },
+    );
+    const visibilityAdds = addSpy.mock.calls.filter(
+      ([type]) => type === 'visibilitychange',
+    ).length;
+    expect(visibilityAdds).toBe(1);
+    rerender({ on: false });
+    rerender({ on: true });
+    rerender({ on: false });
+    // No further binds — listener stays mounted.
+    const finalAdds = addSpy.mock.calls.filter(
+      ([type]) => type === 'visibilitychange',
+    ).length;
+    expect(finalAdds).toBe(1);
+    expect(removeSpy.mock.calls.filter(
+      ([type]) => type === 'visibilitychange',
+    )).toHaveLength(0);
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
+  });
+
+  it('does not leak sentinels when acquire is invoked concurrently', async () => {
+    // Drag out the wakeLock.request resolve so two acquire calls
+    // overlap. Without the isRequestingRef guard the second would
+    // race the first and orphan a sentinel.
+    let resolveFirst: ((s: ReturnType<typeof makeSentinel>) => void) | undefined;
+    request.mockImplementationOnce(() => new Promise((resolve) => {
+      const s = makeSentinel();
+      sentinels.push(s);
+      resolveFirst = resolve;
+    }));
+    const { rerender } = renderHook(
+      ({ on }: { on: boolean }) => useScreenWakeLock(on),
+      { initialProps: { on: true } },
+    );
+    // Mount triggers acquire #1 (still pending).
+    expect(request).toHaveBeenCalledTimes(1);
+    // Visibility flip → would normally call acquire #2; the guard
+    // should drop it on the floor while #1 is in flight.
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      writable: true,
+      value: 'visible',
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(request).toHaveBeenCalledTimes(1);
+    // Resolve the in-flight request → only one sentinel is created.
+    resolveFirst?.(sentinels[0] as ReturnType<typeof makeSentinel>);
+    await waitFor(() => expect(sentinels).toHaveLength(1));
+    rerender({ on: false });
+    await waitFor(() => expect(sentinels[0]!.release).toHaveBeenCalledTimes(1));
+  });
 });

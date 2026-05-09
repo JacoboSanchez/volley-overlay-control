@@ -19,6 +19,11 @@ interface WakeLockNavigator {
   };
 }
 
+interface Handlers {
+  acquire: () => Promise<void>;
+  release: () => Promise<void>;
+}
+
 /**
  * Holds a screen wake lock while ``enabled`` is ``true`` so the
  * device doesn't dim or lock during a live match.
@@ -34,25 +39,38 @@ interface WakeLockNavigator {
  * Silent no-op on unsupported runtimes — desktop browsers and the
  * ~2% of iOS still on <16.4 simply don't get the lock and the rest
  * of the app keeps working.
+ *
+ * Implementation notes:
+ *
+ * * The visibility listener is bound once on mount via a stable
+ *   ``[]`` effect — toggling ``enabled`` does **not** re-bind it.
+ *   Latest ``enabled`` value reaches the handler through
+ *   ``enabledRef`` so a stale closure can't leak past a flip.
+ * * ``isRequestingRef`` blocks concurrent ``acquire()`` calls so
+ *   simultaneous mount-time + visibility-change triggers can't
+ *   race the async ``request('screen')`` and leak a sentinel
+ *   that no one releases.
  */
 export function useScreenWakeLock(enabled: boolean): void {
   const sentinelRef = useRef<WakeLockSentinelLike | null>(null);
-  // ``enabled`` mirrored on a ref so the visibilitychange handler
-  // can read the latest value without having to re-bind on every
-  // ``enabled`` flip.
   const enabledRef = useRef(enabled);
+  const isRequestingRef = useRef(false);
+  const handlersRef = useRef<Handlers | null>(null);
 
+  // Mirror ``enabled`` on a ref so the visibility handler reads
+  // the latest value without forcing a re-bind.
   useEffect(() => {
     enabledRef.current = enabled;
   }, [enabled]);
 
+  // Bind the visibility handler once and keep it bound for the
+  // lifetime of the consumer. The acquire/release toggle lives in
+  // a separate effect below.
   useEffect(() => {
     const nav = navigator as WakeLockNavigator;
     if (!nav.wakeLock || typeof nav.wakeLock.request !== 'function') {
       return undefined;
     }
-
-    let cancelled = false;
 
     const release = async () => {
       const sentinel = sentinelRef.current;
@@ -67,17 +85,25 @@ export function useScreenWakeLock(enabled: boolean): void {
     };
 
     const acquire = async () => {
-      if (cancelled || !enabledRef.current) return;
+      if (!enabledRef.current) return;
       if (sentinelRef.current && !sentinelRef.current.released) return;
+      // Race guard: a simultaneous mount-time toggle + visibility
+      // change can both call acquire() while the first
+      // ``request('screen')`` is still in flight. Without this
+      // guard the second resolve would overwrite ``sentinelRef``
+      // and orphan the first sentinel — the platform would then
+      // have two locks open and only release one.
+      if (isRequestingRef.current) return;
       // Skip while the page is hidden — the request would resolve
       // but the platform would release immediately, leaving us
       // racing the visibilitychange handler.
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
         return;
       }
+      isRequestingRef.current = true;
       try {
         const sentinel = await nav.wakeLock!.request('screen');
-        if (cancelled || !enabledRef.current) {
+        if (!enabledRef.current) {
           await sentinel.release().catch(() => undefined);
           return;
         }
@@ -95,14 +121,12 @@ export function useScreenWakeLock(enabled: boolean): void {
         // Permission denied / no user activation / unsupported
         // policy. No-op — the toggle would have done the same
         // thing on a non-supporting browser.
+      } finally {
+        isRequestingRef.current = false;
       }
     };
 
-    if (enabled) {
-      void acquire();
-    } else {
-      void release();
-    }
+    handlersRef.current = { acquire, release };
 
     const onVisibilityChange = () => {
       if (typeof document === 'undefined') return;
@@ -116,11 +140,30 @@ export function useScreenWakeLock(enabled: boolean): void {
     }
 
     return () => {
-      cancelled = true;
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', onVisibilityChange);
       }
+      handlersRef.current = null;
+      // Final release on unmount uses the latest local closure so
+      // any half-set sentinel from a still-in-flight ``request``
+      // can't outlive the consumer.
       void release();
     };
+    // Mount-once binding. ``enabled`` is read via ref above; the
+    // toggle effect below drives acquire/release on each flip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Drive acquire/release from the latest ``enabled`` value
+  // without disturbing the visibility listener bound in the
+  // mount effect above.
+  useEffect(() => {
+    const handlers = handlersRef.current;
+    if (!handlers) return;
+    if (enabled) {
+      void handlers.acquire();
+    } else {
+      void handlers.release();
+    }
   }, [enabled]);
 }
