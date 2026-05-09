@@ -45,6 +45,9 @@ describe('useMatchAlertHaptics', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    // Default-off haptics — flip on explicitly for the transition
+    // assertions below.
+    localStorage.setItem('volley_haptics', 'true');
     vibrateMock = vi.fn().mockReturnValue(true);
     Object.defineProperty(navigator, 'vibrate', {
       configurable: true,

@@ -9,6 +9,7 @@ import { usePreview } from './hooks/usePreview';
 import { useSwipeNavigation } from './hooks/useSwipeNavigation';
 import { useHaptics } from './hooks/useHaptics';
 import { useMatchAlertHaptics } from './hooks/useMatchAlertHaptics';
+import { useScreenWakeLock } from './hooks/useScreenWakeLock';
 import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ScoreboardSkeleton from './components/ScoreboardSkeleton';
@@ -107,6 +108,17 @@ export default function App() {
   // useHaptics throttle so the operator gets a confirmed signal
   // even when the HUD has auto-hidden behind the play.
   useMatchAlertHaptics(state);
+
+  // Hold a Screen Wake Lock for the operator's device while a
+  // match is actively in progress, so the phone doesn't dim or
+  // lock between rallies. Released on match end, on reset, and
+  // when the page is hidden — re-acquired automatically when the
+  // operator returns to the tab. No-op on unsupported runtimes
+  // (desktop browsers, pre-iOS-16.4 Safari).
+  const matchInProgress = !!state
+    && state.match_started_at != null
+    && !state.match_finished;
+  useScreenWakeLock(matchInProgress);
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   // Coachmark fires once the first authoritative state lands and the

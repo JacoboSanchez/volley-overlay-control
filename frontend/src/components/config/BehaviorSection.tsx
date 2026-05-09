@@ -7,7 +7,6 @@ export interface BehaviorSettings {
   autoSimple: boolean;
   autoSimpleOnTimeout: boolean;
   haptics: boolean;
-  gestureTourSeen: boolean;
 }
 
 export interface BehaviorSectionProps {
@@ -62,19 +61,6 @@ export default function BehaviorSection({ settings, setSetting }: BehaviorSectio
         checked={settings.haptics}
         onChange={(v) => setSetting('haptics', v)}
       />
-      <div className="config-field-row">
-        <label className="config-label">{t('behavior.replayTour')}</label>
-        <button
-          type="button"
-          className="config-bottom-btn"
-          onClick={() => setSetting('gestureTourSeen', false)}
-          disabled={!settings.gestureTourSeen}
-          data-testid="replay-tour-button"
-        >
-          <span className="material-icons">replay</span>
-          {t('behavior.replayTourAction')}
-        </button>
-      </div>
 
       <div className="config-separator" />
       <div className="config-field-row">
