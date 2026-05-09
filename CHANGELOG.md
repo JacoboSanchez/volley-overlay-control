@@ -79,6 +79,36 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Match report comeback highlight split into "set-winning" and
+  "partial" cards with new thresholds.** Used to: a single
+  "Biggest comeback" card surfaced any deficit ≥ 2 pts erased by
+  the eventual set winner — so a team that briefly trailed 0-2
+  before cruising to 25-10 was still credited with a "comeback".
+  Now:
+
+  * **Biggest set-winning comeback** renders only when the erased
+    deficit is **5 pts or more**, suppressing the trivial 2-4
+    point swings that aren't really comebacks.
+  * **Biggest partial comeback** is a new card that surfaces the
+    largest deficit *reduction* (peak deficit minus the smallest
+    subsequent deficit) achieved by a team that ultimately *lost*
+    the set — useful for spotting near-comebacks. Threshold
+    `> 3 pts` so a one-rally swing doesn't qualify.
+  * When team 1 and team 2 share the same maximum on either card
+    the value collapses to the magnitude alone and the per-team
+    detail is replaced by "Tied between both teams" rather than
+    arbitrarily picking one side.
+
+  ``_compute_stats`` now returns ``set_win_comeback`` and
+  ``partial_comeback`` per-team dicts (replacing the old
+  single-team ``biggest_comeback``); ``_render_highlights``
+  combines them with the new tie-detection logic. New i18n keys
+  ``highlightPartialComeback``, ``partialDeltaValue`` and
+  ``comebackTie`` across all six locales (en/es/pt/it/fr/de),
+  and ``highlightComeback`` rewords to "set-winning". Pinned by
+  six new tests in ``TestMatchReportComebacks`` covering the
+  per-card threshold, the team-credited side, and both tie paths.
+
 - **Match report timeline drops both halves of every ``undo``
   pair.** Used to: undo records were rendered as a struck-through
   line carrying an "↶ Undone" badge — visible but visually noisy.
