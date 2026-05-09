@@ -8,7 +8,6 @@ import {
   UNDO_COLOR,
   PREVIEW_ON_COLOR,
   PREVIEW_OFF_COLOR,
-  HISTORY_COLOR,
 } from '../theme';
 
 export interface ControlButtonsProps {
@@ -38,12 +37,6 @@ export interface ControlButtonsProps {
   onTogglePreview: () => void;
   onStartMatch: () => void;
   onReset: () => void;
-  /**
-   * Opens the recent-audit drawer. Sits in the bottom HUD cluster
-   * near undo so the operator can confirm "what just happened"
-   * without leaving the scoreboard.
-   */
-  onOpenHistory: () => void;
 }
 
 /**
@@ -72,7 +65,6 @@ export default function ControlButtons({
   onTogglePreview,
   onStartMatch,
   onReset,
-  onOpenHistory,
 }: ControlButtonsProps) {
   const { t } = useI18n();
   // ``matchFinished`` keeps the Reset face up after a match ends —
@@ -122,17 +114,6 @@ export default function ControlButtons({
         data-testid="undo-button"
       >
         <span className="material-icons">undo</span>
-      </button>
-
-      <button
-        className="control-btn"
-        style={{ borderColor: HISTORY_COLOR, color: HISTORY_COLOR }}
-        onClick={onOpenHistory}
-        title={t('history.title')}
-        data-testid="history-button"
-        aria-label={t('history.title')}
-      >
-        <span className="material-icons">history</span>
       </button>
 
       <button

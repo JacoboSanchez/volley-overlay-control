@@ -22,7 +22,6 @@ export const SIMPLE_SCOREBOARD_COLOR = '#e65100'; // orange-700
 export const UNDO_COLOR = '#b0bcff'; // light periwinkle, high contrast on dark navy
 export const PREVIEW_ON_COLOR = '#e040fb'; // purple-A200, vivid magenta
 export const PREVIEW_OFF_COLOR = '#ab47bc'; // purple-400, dimmer but still visible on dark
-export const HISTORY_COLOR = '#9575cd'; // deep-purple-300, distinct from undo periwinkle
 
 // Default button colors
 export const DEFAULT_BUTTON_A_COLOR = '#2196f3';

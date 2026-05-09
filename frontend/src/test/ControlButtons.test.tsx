@@ -18,7 +18,6 @@ const defaultProps = {
   onTogglePreview: vi.fn(),
   onStartMatch: vi.fn(),
   onReset: vi.fn(),
-  onOpenHistory: vi.fn(),
 };
 
 describe('ControlButtons', () => {
@@ -70,21 +69,10 @@ describe('ControlButtons', () => {
     expect(defaultProps.onTogglePreview).toHaveBeenCalledOnce();
   });
 
-  it('does not render a share button — moved to the top-left corner of the scoreboard', () => {
+  it('does not render share / history buttons — both moved to the top-right corner stack', () => {
     renderWithI18n(<ControlButtons {...defaultProps} />);
     expect(screen.queryByTestId('share-button')).toBeNull();
-  });
-
-  it('renders the history button and calls onOpenHistory when clicked', () => {
-    const onOpenHistory = vi.fn();
-    renderWithI18n(
-      <ControlButtons {...defaultProps} onOpenHistory={onOpenHistory} />,
-    );
-    const btn = screen.getByTestId('history-button');
-    expect(btn).toBeInTheDocument();
-    expect(btn).toHaveTextContent('history');
-    fireEvent.click(btn);
-    expect(onOpenHistory).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId('history-button')).toBeNull();
   });
 
   it('shows visibility icon based on visible prop', () => {
