@@ -1484,22 +1484,35 @@ def _render_score_chart(
             x = pad_x_left + x_norm * plot_w
             color = t1_color if team == 1 else t2_color
             color_safe = html.escape(color)
-            # Dashed guide spanning the plot height + a small
-            # downward triangle perched 6 px above the plot area
-            # so it doesn't collide with the polylines or the
-            # ``max_score`` Y label.
+            # Dashed guide spanning the plot height + a small clock
+            # face perched ~9 px above the plot area so it doesn't
+            # collide with the polylines or the ``max_score`` Y label.
+            # The glyph is a hand-rolled inline SVG (circle + two
+            # hands) rather than a Material Icons font ref so the
+            # report keeps surviving "Save as PDF" with no external
+            # font load.
+            cy = pad_y_top - 5
             items.append(
                 f'<line class="set-chart-timeout" data-team="{team}" '
                 f'x1="{x:.1f}" y1="{pad_y_top:.1f}" '
                 f'x2="{x:.1f}" y2="{pad_y_top + plot_h:.1f}" '
                 f'stroke="{color_safe}" stroke-width="1" '
                 f'stroke-dasharray="3,3" opacity="0.55" />'
-                f'<polygon class="set-chart-timeout-glyph" '
-                f'data-team="{team}" '
-                f'points="{x - 3:.1f},{pad_y_top - 6:.1f} '
-                f'{x + 3:.1f},{pad_y_top - 6:.1f} '
-                f'{x:.1f},{pad_y_top:.1f}" '
-                f'fill="{color_safe}" />'
+                # Lift the shared stroke attributes to the ``<g>`` so
+                # the children only override what they need (the face
+                # gets a slightly thicker border than the hands).
+                f'<g class="set-chart-timeout-glyph" data-team="{team}" '
+                f'stroke="{color_safe}" stroke-width="1" '
+                f'stroke-linecap="round">'
+                f'<circle cx="{x:.1f}" cy="{cy:.1f}" r="3.5" '
+                f'fill="none" stroke-width="1.2" />'
+                # Minute hand: pointing up to "12".
+                f'<line x1="{x:.1f}" y1="{cy:.1f}" '
+                f'x2="{x:.1f}" y2="{cy - 2.2:.1f}" />'
+                # Hour hand: pointing right to "3".
+                f'<line x1="{x:.1f}" y1="{cy:.1f}" '
+                f'x2="{x + 1.7:.1f}" y2="{cy:.1f}" />'
+                f'</g>'
             )
         return "".join(items)
 
