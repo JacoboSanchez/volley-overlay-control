@@ -2418,6 +2418,256 @@ body {
   .gesture-coachmark { animation: none; }
 }
 
+/* ── Recent-audit drawer (Phase 4.2) ────────────────────────────────── */
+
+/*
+  Non-modal slide-in panel that surfaces the per-OID action log so
+  the operator can verify what just happened without leaving the
+  scoreboard. The transparent backdrop is a real <button> for
+  click-outside-to-close, sized to the part of the viewport the
+  drawer doesn't occupy. Pointer events on the team panels behind
+  the drawer stay live so the operator can keep scoring.
+*/
+.recent-audit-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  pointer-events: none;
+}
+
+.recent-audit-backdrop {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  /* Sit *below* the card so the card grabs clicks first. The
+     backdrop catches taps on the rest of the viewport for
+     click-outside dismissal. */
+  z-index: 0;
+}
+
+.recent-audit-card {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: var(--surface);
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  box-shadow: 0 -4px 20px var(--shadow-heavy);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+  /* Mobile / portrait: sticks to the bottom of the viewport,
+     occupies up to 60% of the height. */
+  width: 100%;
+  max-height: 60vh;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  animation: recent-audit-slide-up 0.22s ease-out;
+}
+
+@media (min-width: 720px) {
+  .recent-audit-card {
+    /* Tablet / desktop: side panel on the right edge so the
+       team panels behind it stay readable. */
+    top: 0;
+    width: 380px;
+    max-width: 95vw;
+    max-height: none;
+    border-radius: 0;
+    border-top: 0;
+    animation: recent-audit-slide-right 0.22s ease-out;
+  }
+}
+
+@keyframes recent-audit-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes recent-audit-slide-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recent-audit-card { animation: none; }
+}
+
+.recent-audit-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.recent-audit-title {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.recent-audit-toolbar {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.recent-audit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recent-audit-btn .material-icons { font-size: 1.1rem; }
+
+.recent-audit-btn:hover { background: var(--hover-bg); }
+
+.recent-audit-btn:focus-visible {
+  outline: 2px solid var(--blue, #2196f3);
+  outline-offset: 2px;
+}
+
+.recent-audit-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.5rem 1rem;
+}
+
+.recent-audit-empty,
+.recent-audit-error {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.recent-audit-error {
+  color: var(--red);
+}
+
+.recent-audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recent-audit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid var(--border);
+  background: rgba(127, 127, 127, 0.04);
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.recent-audit-row-undo {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.recent-audit-row-point-t1 { border-left-color: #2196f3; background: rgba(33, 150, 243, 0.07); }
+.recent-audit-row-point-t2 { border-left-color: #f44336; background: rgba(244, 67, 54, 0.07); }
+.recent-audit-row-point    { border-left-color: #607d8b; background: rgba(96, 125, 139, 0.07); }
+.recent-audit-row-set      { border-left-color: #2e7d32; background: rgba(46, 125, 50, 0.10); }
+.recent-audit-row-timeout  { border-left-color: #ff9800; background: rgba(255, 152, 0, 0.10); }
+.recent-audit-row-serve    { border-left-color: #5c6bc0; background: rgba(92, 107, 192, 0.07); }
+.recent-audit-row-edit     { border-left-color: #ab47bc; background: rgba(171, 71, 188, 0.08); }
+.recent-audit-row-reset    { border-left-color: #9e9e9e; background: rgba(158, 158, 158, 0.10); }
+.recent-audit-row-undone,
+.recent-audit-row-other    { border-left-color: var(--text-muted); }
+
+.recent-audit-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-audit-row-score {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.recent-audit-row-ts {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Action chip primitive ─────────────────────────────────────────── */
+
+/*
+  Reusable chip surfaced both in the recent-audit drawer and the
+  match report's timeline rows. Visual contract mirrors
+  ``app.match_report._CHIP_CATALOGUE`` so the operator and the
+  spectator see the same palette.
+*/
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-chip .chip-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--text-muted);
+}
+
+.action-chip .chip-glyph-point-t1 { background: #2196f3; }
+.action-chip .chip-glyph-point-t2 { background: #f44336; }
+.action-chip .chip-glyph-point    { background: #607d8b; }
+.action-chip .chip-glyph-set      { background: #2e7d32; }
+.action-chip .chip-glyph-timeout  { background: #ff9800; color: #1f1300; }
+.action-chip .chip-glyph-serve    { background: #5c6bc0; }
+.action-chip .chip-glyph-edit     { background: #ab47bc; }
+.action-chip .chip-glyph-reset    { background: #9e9e9e; color: #1a1a2e; }
+.action-chip .chip-glyph-undone,
+.action-chip .chip-glyph-other    {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.action-chip-label {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
 /* ── Connection status ──────────────────────────────────────────────── */
 
 /*

@@ -18,6 +18,7 @@ import ConfirmDialog from './components/ConfirmDialog';
 import ConnectionStatus from './components/ConnectionStatus';
 import GestureCoachmark from './components/GestureCoachmark';
 import LinksDialog from './components/LinksDialog';
+import RecentAuditDrawer from './components/RecentAuditDrawer';
 import * as api from './api/client';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
@@ -124,6 +125,12 @@ export default function App() {
   const [shareLinks, setShareLinks] = useState<{
     control?: string; overlay?: string; preview?: string;
   } | null>(null);
+
+  // Recent-audit drawer: a non-modal slide-in panel that surfaces
+  // the per-OID action log so the operator can verify what just
+  // happened without leaving the scoreboard. Lazy-fetched on open
+  // by ``useAuditLog`` inside the component itself.
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
@@ -522,6 +529,7 @@ export default function App() {
           onReset={handleReset}
           onOpenConfig={() => setActiveTab('config')}
           onOpenShare={handleOpenShare}
+          onOpenHistory={() => setHistoryOpen(true)}
         />
         </ErrorBoundary>
       )}
@@ -576,6 +584,13 @@ export default function App() {
           onClose={() => setShareOpen(false)}
         />
       )}
+
+      <RecentAuditDrawer
+        oid={oid}
+        open={historyOpen}
+        confirmedState={confirmedState}
+        onClose={() => setHistoryOpen(false)}
+      />
 
       <GestureCoachmark
         open={coachmarkOpen}

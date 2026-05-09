@@ -59,6 +59,7 @@ export interface ScoreboardViewProps {
   onReset: () => void;
   onOpenConfig: () => void;
   onOpenShare: () => void;
+  onOpenHistory: () => void;
 }
 
 export default function ScoreboardView({
@@ -100,6 +101,7 @@ export default function ScoreboardView({
   onReset,
   onOpenConfig,
   onOpenShare,
+  onOpenHistory,
 }: ScoreboardViewProps) {
   const { t } = useI18n();
 
@@ -206,6 +208,7 @@ export default function ScoreboardView({
             onStartMatch={onStartMatch}
             onReset={onReset}
             onOpenShare={onOpenShare}
+            onOpenHistory={onOpenHistory}
           />
         </div>
       </div>

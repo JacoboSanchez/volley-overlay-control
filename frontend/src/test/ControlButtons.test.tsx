@@ -19,6 +19,7 @@ const defaultProps = {
   onStartMatch: vi.fn(),
   onReset: vi.fn(),
   onOpenShare: vi.fn(),
+  onOpenHistory: vi.fn(),
 };
 
 describe('ControlButtons', () => {
@@ -80,6 +81,18 @@ describe('ControlButtons', () => {
     expect(btn).toHaveTextContent('share');
     fireEvent.click(btn);
     expect(onOpenShare).toHaveBeenCalledOnce();
+  });
+
+  it('renders the history button and calls onOpenHistory when clicked', () => {
+    const onOpenHistory = vi.fn();
+    renderWithI18n(
+      <ControlButtons {...defaultProps} onOpenHistory={onOpenHistory} />,
+    );
+    const btn = screen.getByTestId('history-button');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent('history');
+    fireEvent.click(btn);
+    expect(onOpenHistory).toHaveBeenCalledOnce();
   });
 
   it('shows visibility icon based on visible prop', () => {
