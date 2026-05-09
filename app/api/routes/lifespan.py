@@ -7,6 +7,7 @@ from weakref import WeakValueDictionary
 
 from app.api.session_manager import SessionManager
 from app.api.webhooks import webhook_dispatcher
+from app.api.ws_hub import WSHub
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,12 @@ async def _session_cleanup_loop():
 async def router_lifespan(app):
     global _cleanup_task
     _cleanup_task = asyncio.create_task(_session_cleanup_loop())
+    # No-op when WSHUB_HEARTBEAT_INTERVAL_SECONDS == 0 (the default).
+    WSHub.start_heartbeat()
     yield
     if _cleanup_task:
         _cleanup_task.cancel()
+    WSHub.stop_heartbeat()
     SessionManager.clear()
     # Drain in-flight deliveries with cancel_futures=True so a hung
     # outbound webhook can't keep the process alive past shutdown.

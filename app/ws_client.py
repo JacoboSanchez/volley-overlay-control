@@ -10,19 +10,26 @@ import threading
 import time
 from collections.abc import Callable
 
+from app.constants import (
+    WS_HEARTBEAT_INTERVAL_SECONDS,
+    WS_RECONNECT_BASE_SECONDS,
+    WS_RECONNECT_MAX_SECONDS,
+    WS_ZOMBIE_DEADLINE_SECONDS,
+)
+
 logger = logging.getLogger(__name__)
 
 # Protocol version this client supports
 WS_CONTROL_PROTOCOL_VERSION = 1
 
-# Reconnection parameters
-_RECONNECT_BASE = 1.0      # seconds
-_RECONNECT_MAX = 30.0       # seconds
-_HEARTBEAT_INTERVAL = 25.0  # seconds (inside the server's 30s timeout)
-# If no inbound traffic (pong or otherwise) lands within this many seconds,
-# assume the socket is a zombie and force a reconnect. Must be > 2 *
-# _HEARTBEAT_INTERVAL so a single dropped pong does not churn the connection.
-_ZOMBIE_DEADLINE = 55.0
+# Reconnection / heartbeat parameters. Defaults can be overridden via the
+# matching ``WS_*_SECONDS`` env vars (see ``app.constants``).
+_RECONNECT_BASE = WS_RECONNECT_BASE_SECONDS
+_RECONNECT_MAX = WS_RECONNECT_MAX_SECONDS
+_HEARTBEAT_INTERVAL = WS_HEARTBEAT_INTERVAL_SECONDS
+# Zombie deadline must stay > 2 * _HEARTBEAT_INTERVAL so a single dropped
+# pong does not churn the connection.
+_ZOMBIE_DEADLINE = WS_ZOMBIE_DEADLINE_SECONDS
 
 
 class WSControlClient:

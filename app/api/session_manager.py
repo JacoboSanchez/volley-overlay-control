@@ -11,13 +11,12 @@ from app.api.session_persistence import (
 )
 from app.backend import Backend
 from app.conf import Conf
+from app.constants import SESSION_TTL_SECONDS  # re-exported
 from app.customization import Customization
 from app.game_manager import GameManager
+from app.metrics import set_active_sessions
 
 logger = logging.getLogger(__name__)
-
-# Sessions expire after 24 hours of inactivity
-SESSION_TTL_SECONDS = 24 * 60 * 60
 
 
 class GameSession:
@@ -226,6 +225,7 @@ class SessionManager:
             # rehydrate without requiring any mutation in between.
             new_session.persist_meta()
             cls._sessions[oid] = new_session
+            set_active_sessions(len(cls._sessions))
             return new_session
 
     @classmethod
@@ -238,12 +238,23 @@ class SessionManager:
             return session
 
     @classmethod
+    def peek(cls, oid):
+        """Return an existing session without bumping ``last_accessed``.
+
+        Used by inspect-only paths (admin usage endpoint) that need to
+        report liveness without resetting the eviction TTL.
+        """
+        with cls._lock:
+            return cls._sessions.get(oid)
+
+    @classmethod
     def remove(cls, oid):
         """Remove a session (e.g. on disconnect)."""
         with cls._lock:
             session = cls._sessions.pop(oid, None)
             if session:
                 session.shutdown()
+            set_active_sessions(len(cls._sessions))
 
     @classmethod
     def clear(cls):
@@ -252,6 +263,7 @@ class SessionManager:
             for session in cls._sessions.values():
                 session.shutdown()
             cls._sessions.clear()
+            set_active_sessions(0)
 
     @classmethod
     def cleanup_expired(cls):
@@ -266,4 +278,6 @@ class SessionManager:
                 session = cls._sessions.pop(oid)
                 session.shutdown()
                 logger.info("Expired session for OID=%s", oid)
+            if expired:
+                set_active_sessions(len(cls._sessions))
         return len(expired)

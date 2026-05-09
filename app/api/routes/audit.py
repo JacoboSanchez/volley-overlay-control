@@ -12,21 +12,48 @@ router = APIRouter()
 @router.get(
     "/audit",
     dependencies=[Depends(verify_api_key)],
-    summary="Recent action audit log",
+    summary="Recent action audit log (cursor-paginated)",
 )
 async def get_audit_log(
     session: GameSession = Depends(get_session),
     limit: int = Query(100, ge=1, le=1000),
+    before_ts: float | None = Query(
+        None,
+        description=(
+            "Pagination cursor: only return records strictly older "
+            "than this timestamp. Use the ``next_cursor`` value from "
+            "the previous response. Omit for the first page."
+        ),
+    ),
 ):
-    """Return up to *limit* most-recent records from the action log.
+    """Return one page of audit records, newest page first.
 
-    Records are ordered chronologically (oldest first within the
-    returned window). Each entry has the shape::
+    First call (``before_ts`` omitted) returns the most recent
+    ``limit`` records. Subsequent calls pass the previous response's
+    ``next_cursor`` to walk back through history one window at a time.
+
+    Records are ordered chronologically (oldest first **within** the
+    returned window — same convention as ``read_recent``). Each entry
+    has the shape::
 
         {"ts": 1714508400.123,
          "action": "add_point",
          "params": {"team": 1, "undo": false},
          "result": {"current_set": 2, "team_1": {...}, ...}}
+
+    The response carries:
+
+    * ``records`` — the page itself.
+    * ``count`` — ``len(records)``.
+    * ``next_cursor`` — the ``ts`` to pass as ``before_ts`` for the
+      next page, or ``null`` when this is the last page.
     """
-    records = action_log.read_recent(session.oid, limit=limit)
-    return {"oid": session.oid, "count": len(records), "records": records}
+    records, next_cursor = action_log.read_page(
+        session.oid, limit=limit, before_ts=before_ts,
+    )
+    return {
+        "oid": session.oid,
+        "count": len(records),
+        "records": records,
+        "next_cursor": next_cursor,
+    }

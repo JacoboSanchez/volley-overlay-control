@@ -184,6 +184,173 @@ class TestActionLog:
 
 
 # ---------------------------------------------------------------------------
+# Rotation (M13)
+# ---------------------------------------------------------------------------
+
+
+class TestActionLogRotation:
+    """Verify size-based rotation, cross-file reads, and cleanup."""
+
+    @pytest.fixture
+    def small_rotation(self, monkeypatch):
+        """Shrink AUDIT_LOG_MAX_BYTES so rotation is reachable from a test.
+
+        The constant is read at import time; setting the env var afterwards
+        is too late. Patch the module attribute directly instead so the
+        next ``append`` sees the new threshold.
+        """
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_BYTES", 200)
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_FILES", 3)
+        yield
+
+    def _spam(self, oid: str, n: int) -> None:
+        for i in range(n):
+            action_log.append(oid, "add_point", {"team": 1, "i": i}, {"x": i})
+
+    def test_no_rotation_under_threshold(self, small_rotation):
+        # Two small records stay well under 200 bytes — file should not rotate.
+        action_log.append("rot-1", "add_point", {"team": 1}, {"x": 1})
+        action_log.append("rot-1", "add_point", {"team": 2}, {"x": 2})
+        path = action_log._path("rot-1")
+        assert os.path.exists(path)
+        assert not os.path.exists(action_log._rotated_path(path, 1))
+        assert len(action_log.read_all("rot-1")) == 2
+
+    def test_rotates_when_active_exceeds_threshold(self, monkeypatch):
+        # Cap=10 is generous enough that 10 records (~95 B each, threshold
+        # 200 B → rotation every ~3 records → ~4 files) all survive. This
+        # specifically exercises read_all stitching across the rotation
+        # boundary; the cap-eviction case is covered by
+        # test_oldest_records_dropped_when_cap_hit below.
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_BYTES", 200)
+        monkeypatch.setattr(action_log, "AUDIT_LOG_MAX_FILES", 10)
+        self._spam("rot-2", 10)
+        path = action_log._path("rot-2")
+        assert os.path.exists(action_log._rotated_path(path, 1))
+        records = action_log.read_all("rot-2")
+        assert len(records) == 10
+        assert [r["params"]["i"] for r in records] == list(range(10))
+
+    def test_rotation_caps_at_max_files(self, small_rotation):
+        # AUDIT_LOG_MAX_FILES=3 means active + .1 + .2 (3 files total).
+        self._spam("rot-3", 60)
+        path = action_log._path("rot-3")
+        # Slot .3 must never appear.
+        assert not os.path.exists(action_log._rotated_path(path, 3))
+        # Slot .2 (oldest survivor) and .1 (newest rotated) may exist.
+        assert os.path.exists(action_log._rotated_path(path, 2))
+        assert os.path.exists(action_log._rotated_path(path, 1))
+
+    def test_oldest_records_dropped_when_cap_hit(self, small_rotation):
+        self._spam("rot-4", 60)
+        records = action_log.read_all("rot-4")
+        # Some prefix of records was lost to the cap; every surviving
+        # record's index must be strictly increasing (no shuffling).
+        ids = [r["params"]["i"] for r in records]
+        assert ids == sorted(ids)
+        # The newest record (i=59) must always survive — it's in the
+        # active file.
+        assert ids[-1] == 59
+
+    def test_clear_removes_all_rotated_files(self, small_rotation):
+        self._spam("rot-5", 60)
+        path = action_log._path("rot-5")
+        assert os.path.exists(action_log._rotated_path(path, 1))
+        action_log.clear("rot-5")
+        assert not os.path.exists(path)
+        for i in range(1, 5):
+            assert not os.path.exists(action_log._rotated_path(path, i))
+        assert action_log.read_all("rot-5") == []
+
+    def test_delete_removes_all_rotated_files(self, small_rotation):
+        self._spam("rot-6", 60)
+        path = action_log._path("rot-6")
+        assert action_log.delete("rot-6") is True
+        assert not os.path.exists(path)
+        for i in range(1, 5):
+            assert not os.path.exists(action_log._rotated_path(path, i))
+        # Second delete returns False (idempotent).
+        assert action_log.delete("rot-6") is False
+
+    def test_pop_can_tombstone_record_in_rotated_file(self, small_rotation):
+        # Forward record lands in rotated archive after enough spam;
+        # tombstone goes to the active file. read_all must hide both.
+        self._spam("rot-7", 30)
+        path = action_log._path("rot-7")
+        assert os.path.exists(action_log._rotated_path(path, 1))
+        # Pop the most recent forward; target may live in the active
+        # file but the cross-file machinery is exercised regardless.
+        target = action_log.pop_last_forward("rot-7")
+        assert target is not None
+        records = action_log.read_all("rot-7")
+        # The popped record must not appear in the visible view.
+        assert target not in records
+        # The tombstone itself must also be hidden.
+        assert all(r["action"] != "_pop" for r in records)
+
+
+# ---------------------------------------------------------------------------
+# Cursor pagination (M13)
+# ---------------------------------------------------------------------------
+
+
+class TestReadPage:
+    """``read_page`` is the cursor-based building block of GET /audit."""
+
+    def _seed(self, oid: str, n: int) -> None:
+        for i in range(n):
+            action_log.append(oid, "add_point", {"team": 1, "i": i}, {"x": i})
+
+    def test_first_page_returns_newest_records(self):
+        self._seed("page-1", 50)
+        page, cursor = action_log.read_page("page-1", limit=10)
+        assert len(page) == 10
+        # Chronological within window: i=40..49.
+        assert [r["params"]["i"] for r in page] == list(range(40, 50))
+        assert cursor == page[0]["ts"]
+
+    def test_walking_pages_covers_every_record(self):
+        self._seed("page-2", 25)
+        seen: list[int] = []
+        cursor = None
+        # Cap iterations defensively so a bug cannot hang the test.
+        for _ in range(20):
+            page, cursor = action_log.read_page(
+                "page-2", limit=7, before_ts=cursor,
+            )
+            seen = [r["params"]["i"] for r in page] + seen
+            if cursor is None:
+                break
+        assert seen == list(range(25))
+        assert cursor is None
+
+    def test_cursor_null_on_final_page(self):
+        self._seed("page-3", 5)
+        page, cursor = action_log.read_page("page-3", limit=10)
+        assert len(page) == 5
+        assert cursor is None  # no more records remain
+
+    def test_empty_log_returns_empty_with_null_cursor(self):
+        page, cursor = action_log.read_page("never-written", limit=10)
+        assert page == []
+        assert cursor is None
+
+    def test_invalid_limit_returns_empty(self):
+        page, cursor = action_log.read_page("page-3", limit=0)
+        assert page == []
+        assert cursor is None
+
+    def test_pagination_skips_tombstoned_records(self):
+        self._seed("page-4", 5)
+        # Pop the most recent forward — i=4 should disappear from the page.
+        action_log.pop_last_forward("page-4")
+        page, _ = action_log.read_page("page-4", limit=10)
+        ids = [r["params"]["i"] for r in page]
+        assert 4 not in ids
+        assert ids == [0, 1, 2, 3]
+
+
+# ---------------------------------------------------------------------------
 # GameService write path
 # ---------------------------------------------------------------------------
 

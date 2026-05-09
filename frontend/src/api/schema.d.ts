@@ -156,6 +156,41 @@ export interface paths {
         delete: operations["delete_custom_overlay_api_v1_admin_custom_overlays__name__delete"];
         options?: never;
         head?: never;
+        /**
+         * Edit a custom overlay's theme / colors / preferred style
+         * @description Apply a preset theme and/or merge colors / preferredStyle.
+         *
+         *     Layering order matches the operator's mental model: the theme acts
+         *     as a baseline, then explicit ``colors`` and ``preferred_style`` are
+         *     merged on top. Empty patches are rejected with 400 so the operator
+         *     sees a clear error rather than a silent no-op (which would mask
+         *     accidental empty form submissions from the manager UI).
+         */
+        patch: operations["patch_custom_overlay_api_v1_admin_custom_overlays__name__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/custom-overlays/{name}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inspect how many live consumers a custom overlay has
+         * @description Report live OBS / scoreboard / session counts for *name*.
+         *
+         *     The response gives the operator enough information to decide whether
+         *     deleting (or re-theming) the overlay will disrupt an in-progress
+         *     broadcast — currently surfaced in the ``/manage`` UI as a dot next to
+         *     each row.
+         */
+        get: operations["get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -217,6 +252,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List configuration presets
+         * @description Return the catalogue of saved presets, ordered by name.
+         *
+         *     Snapshots are intentionally omitted from the list view to keep
+         *     response sizes bounded — fetch a specific preset with
+         *     ``GET /presets/{slug}`` to inspect its payload.
+         */
+        get: operations["list_presets_api_v1_admin_presets_get"];
+        put?: never;
+        /**
+         * Save the current state of a custom overlay as a preset
+         * @description Capture the requested scopes from ``source_oid``'s live state.
+         *
+         *     Scopes whose extractor returns an empty dict are dropped from the
+         *     saved record so a preset never claims to cover a scope it actually
+         *     cannot replay (e.g. ``overlay_layout`` saved off an overlay that
+         *     never had a ``geometry`` set).
+         */
+        post: operations["create_preset_api_v1_admin_presets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/presets/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a preset from an exported JSON document
+         * @description Persist *payload* as a new preset.
+         *
+         *     Slug collisions are resolved by appending ``-2``, ``-3``... up to
+         *     ``-99`` so re-importing the same JSON does not overwrite the
+         *     existing entry. Unknown scopes inside the payload are stripped
+         *     silently — same forward-compatibility stance as overlay state
+         *     fields the consumer doesn't recognise.
+         */
+        post: operations["import_preset_api_v1_admin_presets_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/presets/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inspect a preset's snapshots
+         * @description Return the full preset record (including ``snapshots``) for *slug*.
+         */
+        get: operations["get_preset_api_v1_admin_presets__slug__get"];
+        put?: never;
+        post?: never;
+        /** Delete a preset */
+        delete: operations["delete_preset_api_v1_admin_presets__slug__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/presets/{slug}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a preset to a custom overlay
+         * @description Merge the preset's snapshots into ``target_oid``'s state.
+         *
+         *     The merge is coalesced: every selected scope contributes to a
+         *     single ``OverlayStateStore.update_state`` call so the operator
+         *     triggers exactly one disk write and one WebSocket broadcast,
+         *     regardless of how many scopes the preset covers.
+         */
+        post: operations["apply_preset_api_v1_admin_presets__slug__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/presets/{slug}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export a preset as a portable JSON document
+         * @description Return the on-disk preset schema for backup / cross-instance reuse.
+         *
+         *     The returned object round-trips through ``POST /presets/import`` —
+         *     the schema is identical to what's persisted on disk.
+         */
+        get: operations["export_preset_api_v1_admin_presets__slug__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/status": {
         parameters: {
             query?: never;
@@ -231,6 +394,50 @@ export interface paths {
         get: operations["admin_status_api_v1_admin_status_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/webhooks/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-deliver dead-lettered webhook records
+         * @description Replay (a slice of) the webhook dead-letter file.
+         *
+         *     Each record is matched to a configured ``WebhookTarget`` by URL,
+         *     re-signed with the *current* HMAC secret (so rotating
+         *     ``WEBHOOKS_SECRET`` doesn't strand legacy records with stale
+         *     signatures), and re-attempted with the standard retry policy.
+         *
+         *     * Successful redeliveries are removed from the file.
+         *     * Records whose URL no longer matches any configured target are
+         *       kept on disk so the operator can fix the config and retry.
+         *     * Records that fail again are kept with their ``attempts``
+         *       counter bumped and the latest ``last_error`` recorded.
+         *
+         *     Selection order: oldest records (lowest ``ts``) within the
+         *     eligible window go first, so iterative calls drain the file
+         *     front-to-back. The blocking work runs on the FastAPI threadpool
+         *     via ``run_in_threadpool`` so the event loop stays free for other
+         *     handlers while a long replay is in flight.
+         *
+         *     Returns counts only — the bodies are never echoed back so the
+         *     admin surface cannot leak match payloads. ``remaining_in_dl``
+         *     is the count of records still on disk after the call (ones held
+         *     back by ``since`` / ``max_records`` plus the ``still_failing``
+         *     bucket that just got re-written) so the operator knows whether
+         *     to call again.
+         */
+        post: operations["replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -265,16 +472,28 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Recent action audit log
-         * @description Return up to *limit* most-recent records from the action log.
+         * Recent action audit log (cursor-paginated)
+         * @description Return one page of audit records, newest page first.
          *
-         *     Records are ordered chronologically (oldest first within the
-         *     returned window). Each entry has the shape::
+         *     First call (``before_ts`` omitted) returns the most recent
+         *     ``limit`` records. Subsequent calls pass the previous response's
+         *     ``next_cursor`` to walk back through history one window at a time.
+         *
+         *     Records are ordered chronologically (oldest first **within** the
+         *     returned window — same convention as ``read_recent``). Each entry
+         *     has the shape::
          *
          *         {"ts": 1714508400.123,
          *          "action": "add_point",
          *          "params": {"team": 1, "undo": false},
          *          "result": {"current_set": 2, "team_1": {...}, ...}}
+         *
+         *     The response carries:
+         *
+         *     * ``records`` — the page itself.
+         *     * ``count`` — ``len(records)``.
+         *     * ``next_cursor`` — the ``ts`` to pass as ``before_ts`` for the
+         *       next page, or ``null`` when this is the last page.
          */
         get: operations["get_audit_log_api_v1_audit_get"];
         put?: never;
@@ -936,6 +1155,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prometheus exposition
+         * @description Return the registry's current exposition in Prometheus text format.
+         *
+         *     ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth at the same
+         *     ladder as ``/api/v1/admin/*``. The check fires *before* the
+         *     library-availability check so an unauthenticated probe cannot use
+         *     the 503-vs-200 difference to fingerprint whether the metrics
+         *     backend is loaded.
+         */
+        get: operations["metrics_endpoint_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/overlay/{overlay_id}": {
         parameters: {
             query?: never;
@@ -1038,6 +1283,61 @@ export interface components {
              * @description Overlay id used as OID
              */
             name: string;
+        };
+        /**
+         * CustomOverlayPatch
+         * @description Partial update for a custom overlay's appearance.
+         *
+         *     Every field is optional — the patch is a thin admin-side wrapper around
+         *     ``OverlayStateStore.update_state``. When ``theme`` is set, the matching
+         *     preset from ``app.overlay.themes`` is applied first; ``colors`` and
+         *     ``preferred_style`` are then merged on top so explicit overrides win
+         *     over the theme defaults.
+         */
+        CustomOverlayPatch: {
+            /**
+             * Colors
+             * @description Color overrides merged into overlay_control.colors. Common keys: set_bg, set_text, game_bg, game_text.
+             */
+            colors?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Preferred Style
+             * @description Switch the Jinja template served at /overlay/{output_key}. Must match an entry in GET /api/config/{id}.availableStyles.
+             */
+            preferred_style?: string | null;
+            /**
+             * Theme
+             * @description Apply a preset theme (e.g. 'dark', 'esports'). Available themes are listed by GET /api/themes.
+             */
+            theme?: string | null;
+        };
+        /**
+         * CustomOverlayUsage
+         * @description Snapshot of how many live consumers a custom overlay has.
+         */
+        CustomOverlayUsage: {
+            /**
+             * Frontend Ws Clients
+             * @description Connected scoreboard control tabs (frontend WebSocket subscribers).
+             */
+            frontend_ws_clients: number;
+            /**
+             * Has Active Session
+             * @description True when SessionManager has a live GameSession.
+             */
+            has_active_session: boolean;
+            /**
+             * Obs Clients
+             * @description Connected OBS / browser-source viewers.
+             */
+            obs_clients: number;
+            /**
+             * Seconds Since Last Activity
+             * @description Seconds elapsed since the session was last touched; null when no session is active.
+             */
+            seconds_since_last_activity?: number | null;
         };
         /** GameStateResponse */
         GameStateResponse: {
@@ -1198,6 +1498,61 @@ export interface components {
             team_home?: components["schemas"]["TeamStateModel"] | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * PresetApplyRequest
+         * @description Apply a preset to a target custom overlay.
+         */
+        PresetApplyRequest: {
+            /**
+             * Scopes
+             * @description Optional subset of the preset's scopes to actually apply. When omitted, every scope the preset carries is applied. Useful for cases where the operator only wants the ``team_home`` half of a 'club presets' record.
+             */
+            scopes?: string[] | null;
+            /**
+             * Target Oid
+             * @description Custom overlay id to apply the preset to.
+             */
+            target_oid: string;
+        };
+        /**
+         * PresetCreateRequest
+         * @description Save the current state of a custom overlay as a named preset.
+         */
+        PresetCreateRequest: {
+            /**
+             * Name
+             * @description Human-readable preset name. The slug used in URLs and on disk is derived from this value (lowercase ASCII + dashes). Names that would slugify to an empty string are rejected.
+             */
+            name: string;
+            /**
+             * Scopes
+             * @description Subset of the catalogue (``team_home``, ``team_away``, ``overlay_layout``, ``overlay_colors``, ``overlay_style``) to capture. Scopes whose extractor returns an empty snapshot for the source state are dropped silently — the operator does not get a preset that no-ops on apply.
+             */
+            scopes: string[];
+            /**
+             * Source Oid
+             * @description Custom overlay id whose live state seeds the preset.
+             */
+            source_oid: string;
+        };
+        /**
+         * PresetImportRequest
+         * @description Import a preset previously exported from this or another instance.
+         */
+        PresetImportRequest: {
+            /**
+             * Name Override
+             * @description When set, replaces the imported preset's ``_meta.name`` so the operator can re-tag the entry on the way in (e.g. for a per-tournament variant of a shared club preset).
+             */
+            name_override?: string | null;
+            /**
+             * Payload
+             * @description On-disk preset schema (with ``_meta``, ``scopes``, ``snapshots``). Slug collisions are resolved by suffixing ``-2``, ``-3``... up to ``-99``.
+             */
+            payload: {
+                [key: string]: unknown;
+            };
         };
         /** RawConfigPayload */
         RawConfigPayload: {
@@ -1671,6 +2026,76 @@ export interface operations {
             };
         };
     };
+    patch_custom_overlay_api_v1_admin_custom_overlays__name__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomOverlayPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomOverlayUsage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_login_api_v1_admin_login_post: {
         parameters: {
             query?: never;
@@ -1739,6 +2164,243 @@ export interface operations {
             };
         };
     };
+    list_presets_api_v1_admin_presets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_preset_api_v1_admin_presets_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_preset_api_v1_admin_presets_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preset_api_v1_admin_presets__slug__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_preset_api_v1_admin_presets__slug__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_preset_api_v1_admin_presets__slug__apply_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_preset_api_v1_admin_presets__slug__export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_status_api_v1_admin_status_get: {
         parameters: {
             query?: never;
@@ -1755,6 +2417,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post: {
+        parameters: {
+            query?: {
+                /** @description Only replay records whose ``ts`` is >= this Unix-seconds value. Useful for restricting replay to entries that landed after the receiving service came back online. */
+                since?: number | null;
+                /** @description Cap the number of records redelivered in this call. ``replay_records`` blocks on per-record retries with exponential backoff (~25 s worst case per record), so a fully-loaded dead-letter would otherwise pin the handler for tens of minutes. Use the ``remaining_in_dl`` field in the response to decide whether to call again. */
+                max_records?: number;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1783,6 +2481,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                /** @description Pagination cursor: only return records strictly older than this timestamp. Use the ``next_cursor`` value from the previous response. Omit for the first page. */
+                before_ts?: number | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
@@ -3072,6 +3772,35 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_endpoint_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -28,7 +28,9 @@ from app.api import api_router
 from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
+from app.api.middleware.metrics import MetricsMiddleware
 from app.api.middleware.security_headers import SecurityHeadersMiddleware
+from app.api.routes.metrics import router as metrics_router
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
 from app.match_report import match_report_router
@@ -188,6 +190,14 @@ def _register_api_routes(application: FastAPI) -> None:
     # Print-friendly per-match HTML report. Mounted before the SPA
     # catch-all so /match/{id}/report is served by FastAPI.
     application.include_router(match_report_router)
+    # Prometheus exposition. Must be registered before the SPA mount
+    # for the same reason as ``/manage`` and ``/match/{id}/report``:
+    # otherwise the SPA catch-all serves index.html for /metrics in
+    # any deployment that ships a built ``frontend/dist`` (i.e.
+    # production), turning the Prometheus scrape into "200 OK +
+    # text/html" — which is exactly the kind of silent-misconfig
+    # ``METRICS_REQUIRE_ADMIN`` should not be needed to detect.
+    application.include_router(metrics_router)
 
 
 def _register_overlay_routes(application: FastAPI) -> None:
@@ -468,6 +478,11 @@ def create_app() -> FastAPI:
     #             RequestContext (populates contextvars for logging)
     #               ExceptionLogging (innermost — sees raw handler exceptions)
     application.add_middleware(ExceptionLoggingMiddleware)
+    # Metrics observes every HTTP request — keep it inside ExceptionLogging
+    # (so handler exceptions still surface as 500 + log) but outside
+    # RequestContext so the latency reflects the full handler cost
+    # including contextvar setup.
+    application.add_middleware(MetricsMiddleware)
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(GZipMiddleware, minimum_size=1024)
     application.add_middleware(SecurityHeadersMiddleware)

@@ -28,10 +28,13 @@ const DEMO_OID = process.env.SCREENSHOT_DEMO_OID || 'centercourt';
 // The overlay engine's <img> sanitizer (overlay_static/js/app.js,
 // `sanitizeImageUrl`) intentionally rejects everything except http(s)
 // to defend against javascript:/data:/vbscript: XSS, so the logos must
-// be served as http URLs. We use a synthetic localhost-style host and
-// intercept the request inside Playwright (see `installLogoRouter`)
-// so no actual network call is made.
-const LOGO_HOST = 'http://volley-screenshot-logos.local';
+// be served as http URLs. We anchor them at the backend's own origin
+// so the control UI's strict CSP (`img-src 'self' data: https:`) treats
+// them as same-origin; Playwright's route handler intercepts the
+// request and returns the inline SVG, so no actual network call is
+// made and no real /screenshot-logos/* path needs to exist on the
+// backend.
+const LOGO_HOST = `${BASE}/screenshot-logos`;
 const TEAM_1 = {
   name: 'Thunder Wolves',
   color: '#1e3a8a',
