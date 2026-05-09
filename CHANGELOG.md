@@ -8,6 +8,69 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Rapid-pair undo correction (5 s window).** Two opposite
+  ``add_point`` actions on the same team within
+  ``RAPID_PAIR_WINDOW_S`` (5 s) now collapse to a no-op at the
+  audit-log level — neither half surfaces in the report, the
+  post-match drawer, or the live history strip. Both directions
+  are handled:
+
+  * **Case A** — tap to score, then double-tap-undo within 5 s:
+    the just-added forward is tombstoned and no undo record is
+    appended. Net audit: nothing for the pair.
+  * **Case B** — double-tap-undo, then tap within 5 s: the
+    fresh undo record is tombstoned and the forward the undo
+    had originally hidden is **restored from its tombstone** via
+    a new ``_restore`` audit marker so the timeline keeps the
+    original ts. Net audit: as if neither the undo nor the
+    recovery happened.
+
+  Outside the 5 s window the actions remain separate (legacy
+  unified-undo flow). On a different team the cache stays per-
+  team so a deliberate forward on team 2 can't accidentally
+  pair with a stray double-tap on team 1. Any non-``add_point``
+  mutation (``add_set``, ``add_timeout``, ``change_serve``,
+  ``set_score``, ``set_sets_value``, ``reset``) invalidates the
+  cache so a follow-up tap can never trigger a false-positive
+  recovery. State-level effects (set-end / match-end / serve-
+  change webhooks) still fire on the recovery side — the
+  underlying state transition really happened (the operator
+  briefly closed the set, then reopened it).
+
+  Implementation:
+
+  * New ``RAPID_PAIR_WINDOW_S = 5.0`` module constant on
+    ``app/api/game_service.py``.
+  * New ``GameSession.rapid_pair_cache: dict[int, dict]`` —
+    per-team trace of the most recent ``add_point`` (kind, ts,
+    audit_ts, optional popped_ref_ts) used to detect the pair
+    on the next call.
+  * New ``action_log.tombstone_ts`` and
+    ``action_log.restore_popped`` helpers plus
+    ``_RESTORE_TOMBSTONE_ACTION = "_restore"``.
+    ``_apply_tombstones`` now processes ``_pop`` and ``_restore``
+    together so a restore cancels an earlier pop with the same
+    ``ref_ts``. ``action_log.append`` returns the written record
+    so the caller can capture its assigned ``ts`` for the cache.
+  * ``GameService.add_point`` consults
+    ``_consume_rapid_pair`` before the normal pop / state-mutate
+    / audit-append cycle. On a rapid hit the audit half is
+    handled by the cache (no ``_audit`` call); on a miss the
+    seed is refreshed via ``_record_rapid_pair_seed``.
+
+  Tests: 11 new in ``tests/test_rapid_pair_undo.py`` covering
+  Case A collapse, Case B recovery (with mocked time so the
+  prior forwards lie outside the window), different-team
+  isolation, every cache invalidation path, and a set-winning
+  recovery that re-advances ``current_set``. Pre-existing
+  legacy-unified-undo tests (``tests/test_undo_stack.py``,
+  ``tests/test_action_log.py``, ``tests/test_undo_unification
+  .py``) were updated to mock time past the rapid-pair window
+  so they continue exercising the legacy path. Full backend
+  suite: 1021 passed (was 1009 + 12 new).
+
 ### Changed
 
 - **Match report timeline drops both halves of every ``undo``

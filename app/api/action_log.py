@@ -62,6 +62,12 @@ UNDOABLE_ACTIONS = frozenset({"add_point", "add_set", "add_timeout"})
 # guarantees no collision with real ``GameService`` actions.
 _POP_TOMBSTONE_ACTION = "_pop"
 
+# Sentinel ``action`` value for restore tombstones — they cancel a
+# previously-applied ``_pop`` referencing the same ``ref_ts``. Used by
+# the rapid-pair recovery path so an undo that gets reverted within
+# the 5 s window leaves no trace in the audit log.
+_RESTORE_TOMBSTONE_ACTION = "_restore"
+
 # Per-OID writers serialize through a fixed-size pool of locks keyed
 # by hash(oid). A pool gives bounded memory without the eviction
 # race that an LRU dict would create: if an LRU lock were evicted
@@ -231,11 +237,18 @@ def _rotate_if_needed_locked(path: str) -> None:
         logger.warning("Failed to rotate active audit '%s': %s", path, exc)
 
 
-def append(oid: str, action: str, params: dict, result: dict) -> None:
-    """Atomically append one record. Best-effort: never raises."""
+def append(oid: str, action: str, params: dict, result: dict) -> dict | None:
+    """Atomically append one record. Best-effort: never raises.
+
+    Returns the record that was written (with its assigned ``ts``)
+    on success, or ``None`` when the OID is invalid / the write
+    fails. Callers that need the assigned ``ts`` for follow-up
+    bookkeeping (e.g. the rapid-pair cache) read it from the
+    returned dict.
+    """
     path = _path(oid)
     if path is None:
-        return
+        return None
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with _lock_for(oid):
@@ -251,8 +264,10 @@ def append(oid: str, action: str, params: dict, result: dict) -> None:
             ) + "\n"
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
+        return record
     except Exception as exc:
         logger.warning("Failed to append audit log for %r: %s", oid, exc)
+        return None
 
 
 def _read_one_file_locked(path: str, oid: str) -> list[dict]:
@@ -293,23 +308,39 @@ def _apply_tombstones(raw: list[dict]) -> list[dict]:
     """Return *raw* with pop tombstones (and their targets) removed.
 
     Tombstone records carry ``action == _POP_TOMBSTONE_ACTION`` and
-    reference the timestamp of the forward record they cancel via
+    reference the timestamp of the record they cancel via
     ``ref_ts``. Both the tombstone and the referenced record are
     elided from the returned list.
+
+    Restore tombstones (``_RESTORE_TOMBSTONE_ACTION``) cancel an
+    earlier ``_pop`` with the same ``ref_ts`` — used by the rapid-
+    pair recovery flow when an undo is reverted within 5 s. The
+    forward originally hidden by the ``_pop`` becomes visible
+    again. Restores are processed in document order so a later
+    ``_pop`` for the same ``ref_ts`` (e.g. a fresh undo of the
+    same forward) wins over the prior cancellation.
     """
     tombstoned_ts: set = set()
     has_tombstone = False
     for r in raw:
-        if r.get("action") == _POP_TOMBSTONE_ACTION:
+        action = r.get("action")
+        if action == _POP_TOMBSTONE_ACTION:
             has_tombstone = True
             ref_ts = r.get("ref_ts")
             if ref_ts is not None:
                 tombstoned_ts.add(ref_ts)
+        elif action == _RESTORE_TOMBSTONE_ACTION:
+            has_tombstone = True
+            ref_ts = r.get("ref_ts")
+            if ref_ts is not None:
+                tombstoned_ts.discard(ref_ts)
     if not has_tombstone:
         return raw
     return [
         r for r in raw
-        if r.get("action") != _POP_TOMBSTONE_ACTION
+        if r.get("action") not in (
+            _POP_TOMBSTONE_ACTION, _RESTORE_TOMBSTONE_ACTION,
+        )
         and r.get("ts") not in tombstoned_ts
     ]
 
@@ -537,6 +568,78 @@ def pop_last_forward(
     except Exception as exc:
         logger.warning("Failed to pop last forward record for %r: %s", oid, exc)
         return None
+
+
+def tombstone_ts(oid: str, ref_ts: float) -> bool:
+    """Append a ``_pop`` tombstone for an arbitrary ``ts``.
+
+    Unlike :func:`pop_last_forward` this does not search for a
+    matching forward — it just records "the entry whose ts is
+    *ref_ts* is hidden from now on". Used by the rapid-pair flow
+    to retroactively hide an undo audit record that was just
+    written when the operator immediately reverses the undo.
+
+    Returns ``True`` on success, ``False`` if the OID is invalid
+    or the write fails.
+    """
+    path = _path(oid)
+    if path is None:
+        return False
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with _lock_for(oid):
+            _rotate_if_needed_locked(path)
+            tombstone = {
+                "ts": _next_ts(oid),
+                "action": _POP_TOMBSTONE_ACTION,
+                "ref_ts": ref_ts,
+            }
+            line = json.dumps(
+                tombstone, separators=(",", ":"), ensure_ascii=False,
+            ) + "\n"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+        return True
+    except Exception as exc:
+        logger.warning("Failed to tombstone ts for %r: %s", oid, exc)
+        return False
+
+
+def restore_popped(oid: str, ref_ts: float) -> bool:
+    """Append a ``_restore`` tombstone that cancels a prior ``_pop``.
+
+    The restore re-surfaces a record previously hidden by
+    :func:`pop_last_forward` (or :func:`tombstone_ts`) carrying
+    the same ``ref_ts``. Used by the rapid-pair recovery flow:
+    when the operator un-does an undo within 5 s, the original
+    forward that was tombstoned during the undo is revealed
+    again so the audit looks like neither the undo nor the
+    recovery happened.
+
+    Returns ``True`` on success, ``False`` if the OID is invalid
+    or the write fails.
+    """
+    path = _path(oid)
+    if path is None:
+        return False
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with _lock_for(oid):
+            _rotate_if_needed_locked(path)
+            restore = {
+                "ts": _next_ts(oid),
+                "action": _RESTORE_TOMBSTONE_ACTION,
+                "ref_ts": ref_ts,
+            }
+            line = json.dumps(
+                restore, separators=(",", ":"), ensure_ascii=False,
+            ) + "\n"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+        return True
+    except Exception as exc:
+        logger.warning("Failed to restore popped record for %r: %s", oid, exc)
+        return False
 
 
 def peek_last_forward(

@@ -366,13 +366,28 @@ class TestGameServiceWritesAudit:
         assert records[0]["result"]["match_finished"] is False
 
     def test_per_type_undo_pops_matching_forward_and_records_undo(
-            self, mock_conf, api_backend):
-        """Per-type undo (``add_point(undo=True)`` etc.) now shares the
-        audit-log stack with ``POST /game/undo``: the matching forward
-        record is popped, an undo record is appended, so a follow-up
-        generic undo cannot double-revert the same action."""
+            self, mock_conf, api_backend, monkeypatch):
+        """Per-type undo (``add_point(undo=True)`` etc.) outside the
+        rapid-pair window: the matching forward record is popped and
+        an undo record is appended so a follow-up generic undo
+        cannot double-revert the same action.
+
+        Time is mocked so the undo lands beyond
+        ``RAPID_PAIR_WINDOW_S`` — otherwise the rapid-pair flow
+        would collapse both halves into a no-op (covered by
+        ``tests/test_rapid_pair_undo.py``).
+        """
+        import time as _time
+
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
         session = SessionManager.get_or_create("audit-2", mock_conf, api_backend)
         GameService.add_point(session, team=1)
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 0.1
         GameService.add_point(session, team=1, undo=True)
         records = action_log.read_all("audit-2")
         assert len(records) == 1

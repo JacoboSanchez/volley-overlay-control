@@ -52,6 +52,18 @@ class GameSession:
         # the log. Rehydrated from disk here so a restart picks up
         # whatever forwards survived from a previous process.
         self.undoable_forward_count: int = action_log.count_undoable_forwards(oid)
+        # Per-team trace of the most recent ``add_point`` action so the
+        # rapid-pair flow can collapse a tap+double-tap (or vice-versa)
+        # within ``RAPID_PAIR_WINDOW_S`` into a no-op. Each entry is
+        # ``{kind, ts, audit_ts, popped_ref_ts}`` where
+        # ``audit_ts`` is the timestamp of the audit record we wrote
+        # for the action and ``popped_ref_ts`` is the ``ts`` of the
+        # forward record we tombstoned (only set on undos). Cleared on
+        # any non-add_point mutation (reset, add_set, add_timeout,
+        # set_score, change_serve, set_sets_value) so a stale cache
+        # can't trigger a false-positive recovery after the operator
+        # moved on.
+        self.rapid_pair_cache: dict[int, dict] = {}
         self.points_limit = points_limit if points_limit is not None else conf.points
         self.points_limit_last_set = (
             points_limit_last_set if points_limit_last_set is not None
