@@ -1556,32 +1556,31 @@ def _render_timeline(
 ) -> str:
     """Group the audit by set and emit running-score-aware list items.
 
-    *base_ts* is the explicit match-start anchor (Start-match button
-    or first-point auto-arm). When supplied, relative timestamps are
-    measured from there — so a point scored 5 min after Start-match
-    reads ``+5:00``, not ``+0:00``. Falls back to the first audit
-    record's ts for legacy snapshots without an anchor.
+    *audit* is expected to already be collapsed via
+    ``_collapse_undos`` upstream — every consumer in the report
+    pipeline shares the same collapsed slice so the timeline,
+    timeouts row, highlights and charts stay coherent.
+
+    *base_ts* is the explicit match-start anchor (Start-match
+    button or first-point auto-arm). When supplied, relative
+    timestamps are measured from there — so a point scored 5 min
+    after Start-match reads ``+5:00``, not ``+0:00``. Falls back
+    to the first audit record's ts for legacy snapshots without
+    an anchor.
     """
     if not audit:
         return f'<em>{html.escape(_t(locale, "noAudit"))}</em>'
 
-    collapsed = _collapse_undos(audit)
     if base_ts is None:
         base_ts = next(
-            (r.get("ts") for r in collapsed
+            (r.get("ts") for r in audit
              if isinstance(r.get("ts"), (int, float))),
             None,
         )
 
     by_set: dict[int, list[dict]] = {}
     orphans: list[dict] = []
-    for record in collapsed:
-        # ``_collapse_undos`` drops both halves of an undo: the
-        # explicit-undo half of paired records (the forward sibling
-        # renders with ``_was_undone=True`` strikethrough) AND any
-        # orphan undo whose forward was already physically popped by
-        # the unified ``action_log.pop_last_forward`` flow. So
-        # nothing reaching here should still be marked ``undo``.
+    for record in audit:
         set_num = _result_set(record)
         target = by_set.setdefault(set_num, []) if set_num else orphans
         target.append(record)
@@ -1731,7 +1730,13 @@ async def match_report(
     # ``_first_scoring_index`` for the rationale. Every audit consumer
     # below operates on the trimmed slice so pre-game noise (resets,
     # stray clicks) doesn't skew durations, charts, or relative times.
-    audit = _trim_pregame(raw_audit)
+    # ``_collapse_undos`` then drops both halves of every undo pair so
+    # the report's reducers (timeouts row, highlights, charts, …) all
+    # see the same final-state narrative the timeline renders. Without
+    # this single collapse pass each reducer would have to re-derive
+    # the post-undo view, and at least one (``_timeouts_per_set``)
+    # was leaking undone forward-counts into the per-set row.
+    audit = _collapse_undos(_trim_pregame(raw_audit))
 
     team1_name = _team_name(customization, 1)
     team2_name = _team_name(customization, 2)

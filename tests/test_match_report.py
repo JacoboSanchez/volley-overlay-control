@@ -947,10 +947,12 @@ class TestMatchReportRichSections:
 
     def test_set_durations_row_shows_seconds(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
-        # Set 1 last forward record sits at offset 240 (the offset-260
-        # entry is the explicit undo, which we skip). Set 2 spans
-        # 600..1500. The exact text comes from ``_fmt_seconds``.
-        assert "4m 00s" in response.text
+        # Set 1 last surviving record is the offset-210 team-2 point
+        # (the offset-240 forward + its offset-260 undo are both
+        # dropped by the up-front ``_collapse_undos`` pass, so the
+        # set-1 duration spans 0..210). Set 2 still spans 600..1500.
+        # The exact text comes from ``_fmt_seconds``.
+        assert "3m 30s" in response.text
         assert "15m 00s" in response.text
         # The row label is i18n-driven.
         assert "Set durations" in response.text
@@ -1212,6 +1214,65 @@ class TestMatchReportTimeoutsInline:
         assert "<td>0/1</td>" in response.text
         # Set 3: neither side → empty marker.
         assert "<td>—</td>" in response.text
+
+    def test_undone_timeout_does_not_count(self, client):
+        """An ``add_timeout`` that was undone must not contribute to
+        either the inline ``25 (N)`` suffix or the new
+        "Timeouts (T1/T2)" summary row. Regression:
+        ``_timeouts_per_set`` only skipped records where
+        ``params.undo`` is truthy, but the *forward* of an undone
+        pair still slipped through. The report pipeline now feeds
+        every reducer a ``_collapse_undos`` slice so the forward
+        and the undo both disappear.
+        """
+        base_ts = time.time() - 1000
+        oid = "to-undone-1"
+        records = []
+
+        def _add(action, params, result, off):
+            records.append({"ts": base_ts + off, "action": action,
+                            "params": params, "result": result})
+
+        # Set 1: a single point grounds the set, then T1 takes a
+        # timeout and immediately undoes it. Expected: every cell
+        # in the timeouts row reads "—" and no score cell carries
+        # a "(1)" suffix.
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 1}, "team_2": {"score": 0}}, off=5)
+        _add("add_timeout", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 1, "timeouts": 1},
+              "team_2": {"score": 0, "timeouts": 0}}, off=10)
+        _add("add_timeout", {"team": 1, "undo": True},
+             {"current_set": 1,
+              "team_1": {"score": 1, "timeouts": 0},
+              "team_2": {"score": 0, "timeouts": 0}}, off=15)
+        # Set 2 grounding score so the table has at least two sets.
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 1}, "team_2": {"score": 1}}, off=200)
+        self._seed_audit(oid, records)
+
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "current_set": 2,
+                "team_1": {"sets": 1, "timeouts": 0,
+                           "scores": {"set_1": 25, "set_2": 0}},
+                "team_2": {"sets": 0, "timeouts": 0,
+                           "scores": {"set_1": 23, "set_2": 1}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3, started_at=base_ts + 5,
+        )
+        response = client.get(f"/match/{match_id}/report")
+
+        # Inline suffix must stay bare for the score cells.
+        assert "(1)" not in response.text
+        # No ``N/M`` tuple anywhere in the table — every set row is "—".
+        import re
+        assert not re.search(r'<td>\d+/\d+</td>', response.text)
 
 
 class TestMatchReportEmptySets:
