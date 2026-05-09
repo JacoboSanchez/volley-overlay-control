@@ -205,6 +205,61 @@ class TestRapidPairCacheInvalidation:
 # ---------------------------------------------------------------------------
 
 
+class TestRapidPairCounterAtomicity:
+    """The in-memory ``undoable_forward_count`` must never drift
+    from the on-disk audit log. The rapid-pair flow writes via
+    ``tombstone_ts`` / ``restore_popped`` which return ``False``
+    on I/O failure (instead of raising); the counter follows that
+    return value so a failed write doesn't leave the cached count
+    out of sync.
+    """
+
+    def test_case_a_skips_decrement_on_tombstone_failure(
+        self, api_session, monkeypatch,
+    ):
+        from app.api import action_log as al
+
+        GameService.add_point(api_session, team=1)
+        baseline = api_session.undoable_forward_count
+        assert baseline == 1
+
+        # Force the rapid-pair Case A tombstone write to fail.
+        monkeypatch.setattr(al, "tombstone_ts", lambda *a, **kw: False)
+
+        GameService.add_point(api_session, team=1, undo=True)
+        # The forward record stayed visible on disk because the
+        # tombstone never landed; the counter must reflect that.
+        assert api_session.undoable_forward_count == baseline
+
+    def test_case_b_skips_increment_on_restore_failure(
+        self, api_session, monkeypatch,
+    ):
+        import time as _time
+
+        from app.api import action_log as al
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
+        GameService.add_point(api_session, team=1)
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 0.1
+        GameService.add_point(api_session, team=1, undo=True)
+        baseline = api_session.undoable_forward_count
+        # The (legacy) undo decremented the counter to zero.
+        assert baseline == 0
+
+        # Simulate a restore-write failure on the recovery tap.
+        monkeypatch.setattr(al, "restore_popped", lambda *a, **kw: False)
+        clock[0] += 1.0  # within the rapid-pair window of the undo
+        GameService.add_point(api_session, team=1, undo=False)
+
+        # Without a successful restore the original forward stays
+        # tombstoned — the counter must not pretend it's undoable.
+        assert api_session.undoable_forward_count == baseline
+
+
 class TestRapidPairSetWinning:
     def test_set_winning_recovery_re_advances_current_set(self, api_session):
         """A set-winning point that gets undone then immediately

@@ -268,9 +268,13 @@ class GameService:
         if undo:
             # Case A — tap, then double-tap-undo within the window.
             # The just-added forward is tombstoned and no undo is
-            # appended. Net audit: nothing for the pair.
-            if audit_ts is not None:
-                action_log.tombstone_ts(session.oid, audit_ts)
+            # appended. Net audit: nothing for the pair. The counter
+            # only follows the on-disk state: a failed tombstone
+            # write would leave the forward visible, so we hold off
+            # decrementing until the tombstone landed.
+            if audit_ts is not None and action_log.tombstone_ts(
+                session.oid, audit_ts,
+            ):
                 session.undoable_forward_count = max(
                     0, session.undoable_forward_count - 1,
                 )
@@ -278,12 +282,16 @@ class GameService:
             # Case B — double-tap-undo, then tap within the window.
             # Tombstone the undo we just wrote and resurrect the
             # forward the undo had originally hidden so the timeline
-            # reads as if neither happened.
+            # reads as if neither happened. Same atomicity rule
+            # applies: the counter only goes back up when the
+            # restore actually wrote — otherwise the forward is
+            # still tombstoned on disk and ``can_undo`` would lie.
             if audit_ts is not None:
                 action_log.tombstone_ts(session.oid, audit_ts)
             popped_ref = cached.get("popped_ref_ts")
-            if popped_ref is not None:
-                action_log.restore_popped(session.oid, popped_ref)
+            if popped_ref is not None and action_log.restore_popped(
+                session.oid, popped_ref,
+            ):
                 # The recovered forward is undoable again — increment
                 # the counter we decremented when the undo landed.
                 session.undoable_forward_count += 1
@@ -980,6 +988,15 @@ class GameService:
             written = action_log.append(session.oid, action, params, result)
         except Exception as exc:
             logger.warning("Audit append failed: %s", exc)
+            return None
+
+        # ``action_log.append`` swallows internal write errors and
+        # returns ``None`` instead of raising. The counter must only
+        # follow the on-disk truth, so skip the bookkeeping in that
+        # case — a future ``count_undoable_forwards`` rehydration
+        # will reconcile the in-memory state with whatever actually
+        # landed on disk.
+        if written is None:
             return None
 
         if action in action_log.UNDOABLE_ACTIONS:

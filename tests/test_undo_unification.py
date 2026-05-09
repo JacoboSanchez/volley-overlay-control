@@ -331,6 +331,27 @@ class TestCounterLogAtomicity:
         # Counter stays at baseline because _audit never set it.
         assert s.undoable_forward_count == baseline
 
+    def test_counter_unchanged_when_audit_append_returns_none(
+            self, mock_conf, api_backend, monkeypatch):
+        """``action_log.append`` swallows internal failures and
+        returns ``None`` (rather than raising), so the previous
+        ``try/except`` guard alone wasn't enough — the explicit
+        ``if written is None: return None`` short-circuit keeps
+        the counter aligned with on-disk truth in that path too.
+        """
+        s = SessionManager.get_or_create("atom-2", mock_conf, api_backend)
+        GameService.add_point(s, team=1)
+        baseline = s.undoable_forward_count
+        assert baseline == 1
+
+        # Make the next append silently drop the write.
+        monkeypatch.setattr(action_log, "append", lambda *a, **kw: None)
+
+        # Forward path: state mutates, log write returns None,
+        # counter must not have moved past baseline.
+        GameService.add_point(s, team=2)
+        assert s.undoable_forward_count == baseline
+
 
 class TestSetWinningUndo:
     def test_per_type_undo_unwinds_set_win(self, mock_conf, api_backend):
