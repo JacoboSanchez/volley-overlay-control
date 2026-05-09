@@ -8,6 +8,40 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Match report rendered "Team 1" / "Team 2" instead of the real
+  team names when the OID was UNO-backed.** ``app.match_report
+  ._team_name`` only checked the canonical ``Team {n} Name`` key,
+  but the rest of the codebase (``Customization.A_TEAM`` /
+  ``B_TEAM``) and the overlays.uno cloud customization API both
+  round-trip the legacy ``Team {n} Text Name`` alias. Custom
+  overlays happened to land on the canonical key because the
+  React control UI writes that one, so the bug was invisible in
+  custom-overlay coverage. Added the legacy alias to the lookup
+  list (and pinned the regression in
+  ``test_renders_team_names_from_legacy_text_name_alias``).
+
+- **Match report locale ignored the operator's app language —
+  always followed ``Accept-Language``.** Sharing the report from
+  a Spanish-set control UI to a browser that advertised English
+  rendered in English. Reasonable when the report is a public
+  permalink; surprising when the operator was the one shaping
+  the link. Added a ``?lang=<code>`` query parameter to
+  ``GET /match/{id}/report`` that wins over ``Accept-Language``
+  when the value is one of the supported locales (en/es/pt/it/
+  fr/de). Unknown ``?lang=xx`` values fall through to
+  ``Accept-Language`` so the cap can't lock the report into the
+  default. ``LinksSection`` in the React control panel appends
+  ``?lang=<active-locale>`` to the ``latest_match_report`` and
+  ``match_history`` URLs before display / copy; control /
+  overlay / preview URLs are passed through unchanged. New
+  helper ``frontend/src/components/config/LinksSection.tsx``
+  ``withLang`` + a five-case ``LinksSection.test.tsx`` plus two
+  backend regression cases (``test_lang_query_overrides_accept
+  _language``, ``test_lang_query_falls_back_to_accept_language
+  _when_unknown``).
+
 ### Added
 
 - **Screen Wake Lock during a live match.** New

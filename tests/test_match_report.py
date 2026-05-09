@@ -221,6 +221,80 @@ class TestMatchReport:
         assert "Thunder Wolves" in response.text
         assert "Solar Hawks" in response.text
 
+    def test_renders_team_names_from_legacy_text_name_alias(self, client):
+        """Customization that uses the legacy ``Team {n} Text Name``
+        alias (``Customization.A_TEAM`` / ``B_TEAM``) instead of the
+        canonical ``Team {n} Name`` should still surface the names
+        in the report. Regression: UNO-backed sessions round-trip
+        the legacy form via the overlays.uno cloud customization
+        API, and an earlier version of ``_team_name`` only checked
+        the canonical key — so UNO match reports rendered the
+        literal ``Team 1`` / ``Team 2`` fallback strings.
+        """
+        action_log.append(
+            "legacy-1", "add_point", {"team": 1, "undo": False},
+            {"team_1": {"score": 1}},
+        )
+        match_id = match_archive.archive_match(
+            oid="legacy-1",
+            final_state={
+                "current_set": 1,
+                "team_1": {"sets": 0, "timeouts": 0,
+                           "scores": {"set_1": 1}},
+                "team_2": {"sets": 0, "timeouts": 0,
+                           "scores": {"set_1": 0}},
+            },
+            customization={
+                # Legacy alias only — no canonical key.
+                "Team 1 Text Name": "Aurora",
+                "Team 2 Text Name": "Boreal",
+            },
+            started_at=time.time() - 60,
+            sets_limit=3,
+        )
+        assert match_id is not None
+        response = client.get(f"/match/{match_id}/report")
+        assert response.status_code == 200
+        assert "Aurora" in response.text
+        assert "Boreal" in response.text
+        # Sanity: the literal fallback strings should NOT appear.
+        assert ">Team 1<" not in response.text
+        assert ">Team 2<" not in response.text
+
+    def test_lang_query_overrides_accept_language(self, client, archived_match):
+        """An explicit ``?lang=`` should win over the browser's
+        ``Accept-Language`` header so an operator who shares the
+        report from a Spanish-set control UI doesn't get an
+        English render at the receiving end (browser default).
+        """
+        # Browser advertises French; operator's link forces ``es``.
+        response = client.get(
+            f"/match/{archived_match}/report?lang=es",
+            headers={"Accept-Language": "fr"},
+        )
+        assert response.status_code == 200
+        # Spanish ``setByset`` heading is unique enough to be a
+        # cheap locale fingerprint.
+        assert "Set a set" in response.text
+        # Defensive — no stray French / English heading from a
+        # half-applied locale override.
+        assert "Set par set" not in response.text
+
+    def test_lang_query_falls_back_to_accept_language_when_unknown(
+        self, client, archived_match,
+    ):
+        """An unknown ``?lang=`` value falls through to
+        ``Accept-Language`` rather than locking the report into
+        the default. Mirrors how ``resolve_locale`` already
+        handles malformed ``Accept-Language`` tokens.
+        """
+        response = client.get(
+            f"/match/{archived_match}/report?lang=xx",
+            headers={"Accept-Language": "es"},
+        )
+        assert response.status_code == 200
+        assert "Set a set" in response.text
+
     def test_renders_final_score(self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")
         # Set scores 3-1; the winner is implicit from those plus the

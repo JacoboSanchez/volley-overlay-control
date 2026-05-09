@@ -17,6 +17,28 @@ const LINK_KEYS: Array<keyof LinksSectionLinks> = [
   'control', 'overlay', 'preview', 'latest_match_report', 'match_history',
 ];
 
+// Keys whose URL targets a server-rendered, locale-aware HTML
+// surface (the match report and the matches index). We append the
+// operator's selected app locale as ``?lang=<code>`` so the
+// spectator sees the same language the operator was using when
+// they shared the link, rather than whatever ``Accept-Language``
+// the spectator's browser happens to advertise.
+const LOCALE_AWARE_KEYS: ReadonlySet<keyof LinksSectionLinks> = new Set([
+  'latest_match_report',
+  'match_history',
+]);
+
+function withLang(url: string, lang: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    parsed.searchParams.set('lang', lang);
+    return parsed.toString();
+  } catch {
+    // Malformed URL — leave untouched rather than corrupt it.
+    return url;
+  }
+}
+
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text).catch(() => {
     const ta = document.createElement('textarea');
@@ -31,7 +53,7 @@ function copyToClipboard(text: string) {
 }
 
 export default function LinksSection({ links }: LinksSectionProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [copiedKey, setCopiedKey] = useState<keyof LinksSectionLinks | null>(null);
   const availableLinks = LINK_KEYS.filter((key) => links?.[key]);
 
@@ -43,7 +65,12 @@ export default function LinksSection({ links }: LinksSectionProps) {
             {t('links.noLinks')}
           </p>
         ) : availableLinks.map((key) => {
-          const url = links?.[key] as string;
+          const raw = links?.[key] as string;
+          // Only the locale-aware surfaces get the ``?lang=`` tag;
+          // overlay / preview / control URLs are passed through
+          // unchanged so we don't bloat them with a query param the
+          // target service has no use for.
+          const url = LOCALE_AWARE_KEYS.has(key) ? withLang(raw, lang) : raw;
           return (
             <div key={key} className="link-row">
               <a href={url} target="_blank" rel="noopener noreferrer" className="link-text">

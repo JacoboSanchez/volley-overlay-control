@@ -46,8 +46,26 @@ from fastapi.responses import HTMLResponse
 from app.api import match_archive
 from app.auth_utils import require_admin_token as _require_admin_token
 from app.env_vars_manager import EnvVarsManager
-from app.match_report_i18n import resolve_locale
+from app.match_report_i18n import (
+    SUPPORTED_LOCALES,
+    resolve_locale,
+)
 from app.match_report_i18n import t as _t
+
+
+def _is_supported_locale_tag(value: str | None) -> bool:
+    """``True`` when *value*'s primary tag matches a supported locale.
+
+    Used to disambiguate between a ``?lang=en`` that legitimately
+    requested English and a ``?lang=xx`` that fell through to
+    English by accident — the latter should defer to the
+    ``Accept-Language`` header instead of locking the report into
+    the default.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return False
+    primary = value.strip().split("-", 1)[0].split(",", 1)[0].lower()
+    return primary in SUPPORTED_LOCALES
 
 logger = logging.getLogger(__name__)
 
@@ -653,7 +671,21 @@ def _team_color(customization: dict, team: int, primary: bool) -> str:
 
 
 def _team_name(customization: dict, team: int) -> str:
-    for key in (f"Team {team} Name", f"team_{team}_name", f"name{team}"):
+    # ``Team {n} Name`` is the canonical key the React control UI
+    # writes; ``Team {n} Text Name`` is the legacy alias the rest
+    # of the codebase still honours via ``Customization.A_TEAM`` /
+    # ``B_TEAM``. The overlays.uno cloud customization is also
+    # known to round-trip the legacy form depending on what the
+    # operator typed into the UNO panel — without the alias here
+    # the report falls back to the literal ``Team 1`` / ``Team 2``
+    # strings for any UNO-backed match. Snake-case and ``name{n}``
+    # cover older / external archives.
+    for key in (
+        f"Team {team} Name",
+        f"Team {team} Text Name",
+        f"team_{team}_name",
+        f"name{team}",
+    ):
         value = customization.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -1654,6 +1686,18 @@ async def match_report(
                                description="Signed-URL expiry (unix seconds)."),
     sig: str | None = Query(default=None,
                                description="Signed-URL HMAC-SHA256 hex digest."),
+    lang: str | None = Query(
+        default=None,
+        description=(
+            "Force the report locale (en/es/pt/it/fr/de). When the "
+            "operator shares the report from the React control UI, "
+            "the share dialog appends ``?lang=<active-locale>`` so "
+            "the spectator sees the same language the operator was "
+            "using. Falls back to the request's ``Accept-Language`` "
+            "header (browser preference) when omitted, then to "
+            "English. Unsupported values fall back the same way."
+        ),
+    ),
     accept_language: str | None = Header(default=None),
 ):
     _check_access(
@@ -1663,7 +1707,17 @@ async def match_report(
     if payload is None:
         raise HTTPException(status_code=404, detail="Match not found.")
 
-    locale = resolve_locale(accept_language)
+    # Explicit ``?lang=`` wins over the browser's ``Accept-Language``.
+    # Without this, a report shared from a Spanish-set control UI to
+    # a browser with an English Accept-Language would render in
+    # English — surprising the operator who set the locale.
+    # An unsupported ``?lang=xx`` falls through to ``Accept-Language``
+    # rather than locking the report into the default — otherwise
+    # the cap would silently override a usable browser preference.
+    if lang and _is_supported_locale_tag(lang):
+        locale = resolve_locale(lang)
+    else:
+        locale = resolve_locale(accept_language)
     customization = payload.get("customization", {}) or {}
     final = payload.get("final_state", {}) or {}
     config = payload.get("config", {}) or {}

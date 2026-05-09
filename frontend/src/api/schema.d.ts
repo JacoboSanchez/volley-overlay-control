@@ -3686,6 +3686,8 @@ export interface operations {
                 exp?: string | null;
                 /** @description Signed-URL HMAC-SHA256 hex digest. */
                 sig?: string | null;
+                /** @description Force the report locale (en/es/pt/it/fr/de). When the operator shares the report from the React control UI, the share dialog appends ``?lang=<active-locale>`` so the spectator sees the same language the operator was using. Falls back to the request's ``Accept-Language`` header (browser preference) when omitted, then to English. Unsupported values fall back the same way. */
+                lang?: string | null;
             };
             header?: {
                 authorization?: string | null;
