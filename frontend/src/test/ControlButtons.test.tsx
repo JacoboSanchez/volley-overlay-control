@@ -18,6 +18,7 @@ const defaultProps = {
   onTogglePreview: vi.fn(),
   onStartMatch: vi.fn(),
   onReset: vi.fn(),
+  onOpenShare: vi.fn(),
 };
 
 describe('ControlButtons', () => {
@@ -67,6 +68,18 @@ describe('ControlButtons', () => {
     renderWithI18n(<ControlButtons {...defaultProps} />);
     fireEvent.click(screen.getByTestId('preview-button'));
     expect(defaultProps.onTogglePreview).toHaveBeenCalledOnce();
+  });
+
+  it('renders the share button and calls onOpenShare when clicked', () => {
+    const onOpenShare = vi.fn();
+    renderWithI18n(
+      <ControlButtons {...defaultProps} onOpenShare={onOpenShare} />,
+    );
+    const btn = screen.getByTestId('share-button');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent('share');
+    fireEvent.click(btn);
+    expect(onOpenShare).toHaveBeenCalledOnce();
   });
 
   it('shows visibility icon based on visible prop', () => {

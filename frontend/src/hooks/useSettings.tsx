@@ -33,6 +33,13 @@ export interface Settings {
    * ``navigator.vibrate`` no-op silently.
    */
   haptics: boolean;
+  /**
+   * Whether the operator has dismissed the first-use gesture tour.
+   * Persists across sessions so the coachmark only fires once per
+   * device/profile by default. The Behavior section exposes a
+   * "Replay tour" affordance that flips this back to ``false``.
+   */
+  gestureTourSeen: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -51,6 +58,7 @@ const DEFAULTS: Settings = {
   autoHide: false,
   autoHideSeconds: 5,
   haptics: true,
+  gestureTourSeen: false,
 };
 
 /**

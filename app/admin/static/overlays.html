@@ -288,6 +288,39 @@
     overflow-y: auto;
     padding: 1rem 1.25rem;
   }
+  /*
+    Last-applied preset chip pinned at the top of the drawer body.
+    Storage is client-side (localStorage keyed by OID) so the colour
+    is deliberately tertiary — this is a memory aid, not an
+    authoritative state marker.
+  */
+  .preset-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.35rem 0.65rem;
+    margin: 0 0 1rem;
+    border-radius: 999px;
+    background: rgba(25, 118, 210, 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(25, 118, 210, 0.35);
+    font-size: 0.85rem;
+    max-width: 100%;
+  }
+  .preset-pill .material-icons { font-size: 1rem; }
+  .preset-pill-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .preset-pill-clear {
+    margin-left: auto;
+    padding: 0;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: inherit;
+  }
+  .preset-pill-clear:hover { background: transparent; }
   .scope-fieldset {
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -534,6 +567,26 @@
               aria-label="Close overlay drawer" type="button">×</button>
     </header>
     <div class="drawer-body">
+      <!--
+        Last-applied preset hint. Tracked client-side via localStorage
+        keyed by OID — the backend doesn't currently persist a "last
+        applied" marker on overlay state, so this is a per-browser
+        affordance to remind the operator which preset is in flight
+        on this overlay. Cleared automatically when the overlay is
+        deleted.
+      -->
+      <div id="drawerPresetPill" class="preset-pill hidden"
+           role="status" aria-live="polite">
+        <span class="material-icons" aria-hidden="true">bookmark</span>
+        <span class="preset-pill-label">
+          Last applied:
+          <strong id="drawerPresetPillSlug"></strong>
+        </span>
+        <button id="drawerPresetPillClear" type="button"
+                class="link-btn preset-pill-clear"
+                aria-label="Forget last applied preset">×</button>
+      </div>
+
       <section class="drawer-section">
         <h3>Preview</h3>
         <div class="drawer-preview">
@@ -704,6 +757,9 @@
   const drawerUsage = $('drawerUsage');
   const drawerSavePresetBtn = $('drawerSavePresetBtn');
   const drawerApplyPresetBtn = $('drawerApplyPresetBtn');
+  const drawerPresetPill = $('drawerPresetPill');
+  const drawerPresetPillSlug = $('drawerPresetPillSlug');
+  const drawerPresetPillClear = $('drawerPresetPillClear');
   // Save preset modal
   const savePresetModal = $('savePresetModal');
   const presetName = $('presetName');
@@ -745,6 +801,45 @@
   let _filterText = '';
   const _selectedIds = new Set();
   let _drawerOverlay = null;
+
+  // Last-applied preset memory (client-side only). The backend
+  // doesn't currently mark "this preset was applied to this OID" on
+  // overlay state, so the operator gets a per-browser hint via
+  // localStorage. Keys are prefixed so they survive shared scopes.
+  const LAST_PRESET_LS_PREFIX = 'volley_last_preset:';
+  function readLastPreset(overlayId) {
+    if (!overlayId) return '';
+    try {
+      return localStorage.getItem(LAST_PRESET_LS_PREFIX + overlayId) || '';
+    } catch (_) {
+      return '';
+    }
+  }
+  function writeLastPreset(overlayId, slug) {
+    if (!overlayId) return;
+    try {
+      if (slug) {
+        localStorage.setItem(LAST_PRESET_LS_PREFIX + overlayId, slug);
+      } else {
+        localStorage.removeItem(LAST_PRESET_LS_PREFIX + overlayId);
+      }
+    } catch (_) { /* Storage full / private mode — ignore. */ }
+  }
+  function refreshDrawerPresetPill(overlayId) {
+    const slug = readLastPreset(overlayId);
+    if (!slug) {
+      drawerPresetPill.classList.add('hidden');
+      drawerPresetPillSlug.textContent = '';
+      return;
+    }
+    drawerPresetPillSlug.textContent = slug;
+    drawerPresetPill.classList.remove('hidden');
+  }
+  drawerPresetPillClear.addEventListener('click', () => {
+    if (!_drawerOverlay) return;
+    writeLastPreset(_drawerOverlay.id, '');
+    refreshDrawerPresetPill(_drawerOverlay.id);
+  });
 
   function showStatus(text, kind) {
     statusMsg.textContent = text;
@@ -1132,6 +1227,9 @@
           'DELETE',
           '/custom-overlays/' + encodeURIComponent(overlay.id));
         _selectedIds.delete(overlay.id);
+        // Forget any per-OID UI state we'd been hanging onto so a
+        // future overlay re-using the same id starts fresh.
+        writeLastPreset(overlay.id, '');
         succeeded++;
       } catch (err) {
         if (handleAuthError(err)) return;
@@ -1217,6 +1315,7 @@
     drawer._opener = opener || null;
     setTimeout(() => drawerCloseBtn.focus(), 30);
     loadDrawerUsage(overlay.id);
+    refreshDrawerPresetPill(overlay.id);
   }
 
   function closeDrawer() {
@@ -1459,6 +1558,11 @@
           ? 'Preset applied (1 scope restored).'
           : `Preset applied (${applied.length} scopes restored).`,
         'success');
+      // Remember the preset on this OID so reopening the drawer
+      // surfaces the "Last applied" pill without having to dig
+      // through the modal again.
+      writeLastPreset(overlay.id, slug);
+      refreshDrawerPresetPill(overlay.id);
       // Bust the iframe cache so the operator sees the new look right
       // away — same trick as the old apply-theme flow.
       try {

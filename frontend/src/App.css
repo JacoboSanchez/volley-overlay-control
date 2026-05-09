@@ -807,6 +807,11 @@ body {
   background: var(--hover-bg);
 }
 
+.top-right-config-btn:focus-visible {
+  outline: 2px solid var(--blue, #2196f3);
+  outline-offset: 2px;
+}
+
 .wakeup-handle {
   position: absolute;
   top: -24px;
@@ -2275,6 +2280,142 @@ body {
   color: var(--text);
   font-size: 0.95rem;
   line-height: 1.4;
+}
+
+/* ── First-run gesture coachmark ──────────────────────────────────── */
+
+/*
+  Lightweight first-run tour — full-screen scrim plus a centred card
+  that walks the operator through the four non-obvious gestures
+  (tap, double-tap, long-press, swipe-to-config). Sits on top of the
+  scoreboard so the focus trap inside the card doesn't fight the
+  team panels underneath.
+*/
+.gesture-coachmark {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  animation: coachmark-fade-in 0.2s ease-out;
+}
+
+.gesture-coachmark-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem 1.25rem;
+  box-shadow: 0 12px 32px var(--shadow-heavy);
+  text-align: center;
+  outline: none;
+}
+
+.gesture-coachmark-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(33, 150, 243, 0.15);
+  color: var(--blue, #2196f3);
+  margin-bottom: 0.75rem;
+}
+
+.gesture-coachmark-icon .material-icons {
+  font-size: 2rem;
+}
+
+.gesture-coachmark-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.gesture-coachmark-body {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-muted, var(--text));
+}
+
+.gesture-coachmark-progress {
+  display: inline-flex;
+  gap: 6px;
+  margin-bottom: 1rem;
+}
+
+.gesture-coachmark-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.gesture-coachmark-dot-active {
+  background: var(--blue, #2196f3);
+}
+
+.gesture-coachmark-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.gesture-coachmark-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.5rem 0.95rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--blue, #2196f3);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.gesture-coachmark-btn:hover { opacity: 0.92; }
+
+.gesture-coachmark-btn-skip {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.gesture-coachmark-btn-skip:hover {
+  background: var(--hover-bg);
+  opacity: 1;
+}
+
+.gesture-coachmark-btn-prev {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.gesture-coachmark-btn-prev:hover { background: var(--hover-bg); }
+
+.gesture-coachmark-btn .material-icons { font-size: 1rem; }
+
+@keyframes coachmark-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gesture-coachmark { animation: none; }
 }
 
 /* ── Connection status ──────────────────────────────────────────────── */

@@ -37,6 +37,7 @@ import datetime
 import html
 import logging
 import re
+import time
 from typing import overload
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
@@ -288,11 +289,103 @@ _REPORT_TEMPLATE = """<!doctype html>
   }}
   .timeline-set {{ margin-bottom: 12px; }}
   .timeline-set h3 {{ margin: 0 0 6px; }}
-  .timeline-set ol {{ margin: 0; padding-left: 22px; }}
-  .timeline-set li {{ margin: 2px 0; }}
+  .timeline-set ol {{
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }}
+  .timeline-set li {{
+    margin: 0;
+    padding: 4px 8px 4px 10px;
+    border-radius: 6px;
+    border-left: 3px solid var(--border);
+    background: rgba(127, 127, 127, 0.04);
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+  }}
   .timeline-set li.undone {{
     text-decoration: line-through;
     color: var(--muted);
+  }}
+  /* Per-action accent strip + glyph. Colours stay legible on both
+     the dark and light schemes the rest of the report uses, and the
+     glyph stays ASCII / a single emoji so the print stylesheet
+     doesn't depend on a Material Icons font being loaded. */
+  .timeline-set li.chip-point-t1 {{ border-left-color: #2196f3;
+    background: rgba(33, 150, 243, 0.07); }}
+  .timeline-set li.chip-point-t2 {{ border-left-color: #f44336;
+    background: rgba(244, 67, 54, 0.07); }}
+  .timeline-set li.chip-point    {{ border-left-color: #607d8b;
+    background: rgba(96, 125, 139, 0.07); }}
+  .timeline-set li.chip-set      {{ border-left-color: #2e7d32;
+    background: rgba(46, 125, 50, 0.10); }}
+  .timeline-set li.chip-timeout  {{ border-left-color: #ff9800;
+    background: rgba(255, 152, 0, 0.10); }}
+  .timeline-set li.chip-serve    {{ border-left-color: #5c6bc0;
+    background: rgba(92, 107, 192, 0.07); }}
+  .timeline-set li.chip-edit     {{ border-left-color: #ab47bc;
+    background: rgba(171, 71, 188, 0.08); }}
+  .timeline-set li.chip-reset    {{ border-left-color: #9e9e9e;
+    background: rgba(158, 158, 158, 0.10); }}
+  .timeline-set li.chip-undone,
+  .timeline-set li.chip-other    {{ border-left-color: var(--muted);
+    background: rgba(127, 127, 127, 0.05); }}
+  .chip-glyph {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    color: #fff;
+    background: var(--muted);
+    text-decoration: none;
+  }}
+  .chip-glyph-point-t1 {{ background: #2196f3; }}
+  .chip-glyph-point-t2 {{ background: #f44336; }}
+  .chip-glyph-point    {{ background: #607d8b; }}
+  .chip-glyph-set      {{ background: #2e7d32; }}
+  .chip-glyph-timeout  {{ background: #ff9800; color: #1f1300; }}
+  .chip-glyph-serve    {{ background: #5c6bc0; }}
+  .chip-glyph-edit     {{ background: #ab47bc; }}
+  .chip-glyph-reset    {{ background: #9e9e9e; color: #1a1a2e; }}
+  .chip-glyph-undone,
+  .chip-glyph-other    {{ background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border); }}
+  .timeline-legend {{
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 11px;
+    color: var(--muted);
+  }}
+  .timeline-legend-item {{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }}
+  @media print {{
+    .timeline-set li {{
+      background: transparent !important;
+      border-left-style: solid;
+    }}
+    .chip-glyph {{
+      background: transparent !important;
+      color: var(--muted) !important;
+      border: 1px solid var(--border);
+    }}
   }}
   .timeline-set li.undone .undone-badge {{
     display: inline-block;
@@ -331,6 +424,15 @@ _REPORT_TEMPLATE = """<!doctype html>
     color: var(--muted);
     border-top: 1px solid var(--border);
     padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }}
+  .footer-line {{ word-break: break-word; }}
+  .footer-permalink {{
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }}
   @media print {{
     body {{ padding: 0; max-width: none; }}
@@ -413,7 +515,16 @@ _REPORT_TEMPLATE = """<!doctype html>
 <div class="timeline">{timeline_html}</div>
 </section>
 
-<div class="footer">{footer_text}</div>
+<footer class="footer">
+  <div class="footer-line">{footer_text}</div>
+  <div class="footer-line">
+    <strong>{permalink_label}:</strong>
+    <a href="{permalink}" class="footer-permalink">{permalink_display}</a>
+  </div>
+  <div class="footer-line">
+    <strong>{generated_label}:</strong> {generated_at_display}
+  </div>
+</footer>
 
 <script>
 (function() {{
@@ -572,6 +683,81 @@ def _action_label(record: dict, locale: str) -> str:
     if action == "reset":
         return _t(locale, "actionReset")
     return action or _t(locale, "actionUnknown")
+
+
+# Single source of truth for the timeline chip palette. Each entry
+# pairs the chip kind (used as a CSS modifier ``chip-{kind}``) with
+# the glyph rendered inside the accent strip and, when applicable,
+# the i18n key that names it in the bottom legend.
+#
+# Order matters — the legend section iterates the catalogue in the
+# order entries appear here, so the operator scans them top-to-
+# bottom (per-team points, then set / timeout / serve / edit /
+# reset, then the cross-cutting ``undone`` marker).
+_CHIP_CATALOGUE: dict[str, dict[str, str | None]] = {
+    "point-t1": {"glyph": "+1", "legend_key": "legendPointT1"},
+    "point-t2": {"glyph": "+1", "legend_key": "legendPointT2"},
+    # Generic point chip used for legacy/missing-team rows. Not
+    # surfaced in the legend because the per-team variants already
+    # cover the shared semantics.
+    "point":    {"glyph": "+1", "legend_key": None},
+    "set":      {"glyph": "🏆", "legend_key": "legendSet"},
+    "timeout":  {"glyph": "⏸", "legend_key": "legendTimeout"},
+    "serve":    {"glyph": "⇄", "legend_key": "legendServe"},
+    "edit":     {"glyph": "✎", "legend_key": "legendEdit"},
+    "reset":    {"glyph": "⟲", "legend_key": "legendReset"},
+    "undone":   {"glyph": "↶", "legend_key": "legendUndone"},
+    # Final fallback — keeps unknown actions from rendering a blank
+    # accent strip. Intentionally unlabelled in the legend.
+    "other":    {"glyph": "•", "legend_key": None},
+}
+
+
+def _chip_glyph(kind: str) -> str:
+    """Glyph shown inside the chip accent strip for a given kind."""
+    entry = _CHIP_CATALOGUE.get(kind, _CHIP_CATALOGUE["other"])
+    glyph = entry["glyph"]
+    return glyph if isinstance(glyph, str) else "•"
+
+
+# Classifier-driven chip metadata. Returns the (modifier, glyph) pair
+# the timeline ``<li>`` and its accent strip use to differentiate
+# action kinds at a glance. Glyphs come from ``_CHIP_CATALOGUE`` so
+# the legend, the per-row strip and any future surface that needs
+# the same palette stay consistent without manual sync.
+def _chip_classifier(
+    action: str, team: object, was_undone: bool,
+) -> tuple[str, str]:
+    """Map an audit-record action+team to a chip ``(modifier, glyph)``.
+
+    ``modifier`` keys the chip's CSS class (``chip-{modifier}``) so
+    the stylesheet can paint a different accent and background per
+    action kind. Team-bound rows use ``point-t1`` / ``point-t2`` so
+    the running score reads alongside its team colour without
+    requiring per-team chip glyphs.
+    """
+    if action == "add_point":
+        if team == 1:
+            kind = "point-t1"
+        elif team == 2:
+            kind = "point-t2"
+        else:
+            kind = "point"
+    elif action == "add_set":
+        kind = "set"
+    elif action == "add_timeout":
+        kind = "timeout"
+    elif action == "change_serve":
+        kind = "serve"
+    elif action == "set_score":
+        kind = "edit"
+    elif action == "reset":
+        kind = "reset"
+    elif was_undone:
+        kind = "undone"
+    else:
+        kind = "other"
+    return (kind, _chip_glyph(kind))
 
 
 # ---------------------------------------------------------------------------
@@ -1373,7 +1559,17 @@ def _render_timeline(
             if running and _is_score_action(record) else ""
         )
         was_undone = bool(record.get("_was_undone"))
-        cls = " class=\"undone\"" if was_undone else ""
+        # Per-action-type chip: gives the timeline visual hierarchy
+        # without changing the editorial text. Colour is keyed off
+        # the action kind, not the team — team identity is already
+        # encoded in the label and would clash with the
+        # add_set/timeout / serve / reset / score-edit chip palette
+        # if we tried to layer both.
+        action = record.get("action", "")
+        params = record.get("params") or {}
+        team = params.get("team")
+        chip_kind, chip_icon = _chip_classifier(action, team, was_undone)
+        cls = f'class="timeline-li chip-{chip_kind}{" undone" if was_undone else ""}"'
         # Surface a non-strikethrough chip alongside the line-through so
         # the undone marker is legible at a glance even on dense
         # timelines and print-friendly contrast.
@@ -1382,8 +1578,13 @@ def _render_timeline(
             f'↶ {html.escape(_t(locale, "undoneBadge"))}</span>'
             if was_undone else ""
         )
+        chip_glyph = (
+            f'<span class="chip-glyph chip-glyph-{chip_kind}" '
+            f'aria-hidden="true">{html.escape(chip_icon)}</span>'
+        )
         return (
-            f'<li{cls}><span class="ts">{html.escape(rel)}</span>'
+            f'<li {cls}>{chip_glyph}'
+            f'<span class="ts">{html.escape(rel)}</span>'
             f'{html.escape(label)}{running_html}{undone_badge}</li>'
         )
 
@@ -1402,6 +1603,28 @@ def _render_timeline(
             f'<section class="timeline-set">'
             f'<ol>{items}</ol></section>'
         )
+
+    # Mini legend so the per-action chip palette is decodable at a
+    # glance. The order is the catalogue's declaration order; each
+    # ``legend_key=None`` entry is skipped (e.g. the generic
+    # ``point`` and the ``other`` fallback don't earn a row of
+    # their own — they overlap semantically with the team-bound
+    # points and an unrenderable action respectively).
+    legend_html_parts: list[str] = []
+    for kind, meta in _CHIP_CATALOGUE.items():
+        legend_key = meta.get("legend_key")
+        if not legend_key:
+            continue
+        label = _t(locale, legend_key)
+        legend_html_parts.append(
+            '<span class="timeline-legend-item">'
+            f'<span class="chip-glyph chip-glyph-{kind}" aria-hidden="true">'
+            f'{html.escape(_chip_glyph(kind))}</span>'
+            f'{html.escape(label)}</span>'
+        )
+    blocks.append(
+        f'<div class="timeline-legend">{"".join(legend_html_parts)}</div>',
+    )
 
     return "".join(blocks) or f'<em>{html.escape(_t(locale, "noAudit"))}</em>'
 
@@ -1601,6 +1824,13 @@ async def match_report(
         h_timeline=html.escape(_t(locale, "timeline")),
         timeline_hint=html.escape(_t(locale, "timelineHint")),
         footer_text=html.escape(_t(locale, "footer")),
+        permalink_label=html.escape(_t(locale, "permalinkLabel")),
+        permalink_display=html.escape(permalink),
+        generated_label=html.escape(_t(locale, "generatedLabel")),
+        # ``_fmt_ts`` reuses the same human format as the started /
+        # ended cells in the match-facts table, so the footer reads
+        # in the same shape regardless of locale.
+        generated_at_display=_fmt_ts(time.time()),
         btn_print=html.escape(_t(locale, "print")),
         btn_print_include_prompt=html.escape(
             _t(locale, "printIncludeLogPrompt"), quote=True,
