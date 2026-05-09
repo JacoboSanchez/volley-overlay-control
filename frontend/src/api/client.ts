@@ -194,6 +194,22 @@ export function getThemes(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('GET', '/themes');
 }
 
+export interface PresetOption {
+  source: 'env' | 'user';
+  id: string;
+  name: string;
+  scopes: string[];
+  patch: Record<string, unknown>;
+  read_only: boolean;
+}
+
+export function getPresetOptions(oid: string): Promise<{ items: PresetOption[] }> {
+  return request<{ items: PresetOption[] }>(
+    'GET',
+    `/customization/preset-options?oid=${encodeURIComponent(oid)}`,
+  );
+}
+
 export function getLinks(oid: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('GET', `/links?oid=${encodeURIComponent(oid)}`);
 }

@@ -539,6 +539,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customization/preset-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List presets and themes the operator can apply to the panel.
+         * @description Return env-var themes + user presets in a single feed.
+         *
+         *     Each item carries the flat-key patch the operator's React panel
+         *     deep-merges into its in-memory edit model — no second round-trip
+         *     is needed to apply. Snapshots from the original preset record are
+         *     intentionally not surfaced here; they remain admin-only via
+         *     ``GET /api/v1/admin/presets/{slug}``.
+         */
+        get: operations["list_preset_options_api_v1_customization_preset_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/display/simple-mode": {
         parameters: {
             query?: never;
@@ -1553,6 +1579,43 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+        };
+        /** PresetOptionItem */
+        PresetOptionItem: {
+            /**
+             * Id
+             * @description Stable identifier — ``theme:<key>`` for env themes, ``preset:<slug>`` for user presets.
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Patch
+             * @description Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React panel deep-merges into its edit model. Empty patches are filtered before the response is built.
+             */
+            patch: {
+                [key: string]: unknown;
+            };
+            /**
+             * Read Only
+             * @description ``true`` when the operator cannot manage this entry (env-var themes need a backend restart to change).
+             */
+            read_only: boolean;
+            /**
+             * Scopes
+             * @description Scopes the patch covers. Synthesised for env themes (``overlay_colors`` since they always carry colour keys); the subset of the record's own scopes that translated to non-empty flat-key writes for user presets.
+             */
+            scopes: string[];
+            /**
+             * Source
+             * @description ``env`` for env-var ``APP_THEMES``, ``user`` for admin-curated presets persisted in ``data/presets/``.
+             */
+            source: string;
+        };
+        /** PresetOptionsResponse */
+        PresetOptionsResponse: {
+            /** Items */
+            items: components["schemas"]["PresetOptionItem"][];
         };
         /** RawConfigPayload */
         RawConfigPayload: {
@@ -2617,6 +2680,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_preset_options_api_v1_customization_preset_options_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetOptionsResponse"];
                 };
             };
             /** @description Validation Error */

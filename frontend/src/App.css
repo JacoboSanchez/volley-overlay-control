@@ -1714,6 +1714,158 @@ body {
   margin-bottom: 0.75rem;
 }
 
+/*
+  Operator-facing preset picker — env-var ``APP_THEMES`` and admin
+  presets unified into one list, grouped by source. Lives at the top
+  of the ``ConfigPanel`` (``presets`` section) and absorbs the legacy
+  theme dropdown that used to sit in ``OverlaySection``.
+*/
+.preset-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.preset-picker-loading,
+.preset-picker-empty,
+.preset-picker-error {
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.preset-picker-loading,
+.preset-picker-error {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preset-picker-empty-msg {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.preset-picker-empty-hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.preset-picker-last {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  color: var(--muted);
+  font-size: 0.75rem;
+  align-self: flex-start;
+}
+
+.preset-picker-group-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.preset-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* Two columns on wider panes; collapses to 1 below 480 px so the
+     scope chips and apply button never overflow on a phone. */
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+.preset-picker-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--surface);
+}
+
+.preset-picker-item-active {
+  border-color: var(--blue, #2196f3);
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
+}
+
+.preset-picker-item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.preset-picker-item-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.preset-picker-readonly-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: var(--hover-bg);
+  color: var(--muted);
+  /* No interactivity (advisory tag); screen readers will read the
+     ``title`` we set on the element. */
+}
+
+.preset-picker-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.preset-picker-scope-chip {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  color: var(--muted);
+}
+
+.preset-picker-apply-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--blue, #2196f3);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--blue, #2196f3);
+  font: inherit;
+  cursor: pointer;
+}
+
+.preset-picker-apply-btn:hover {
+  background: var(--hover-bg);
+}
+
+.preset-picker-apply-btn:focus-visible {
+  outline: 2px solid var(--blue, #2196f3);
+  outline-offset: 2px;
+}
+
 .config-switch-row {
   display: flex;
   gap: 1rem;
