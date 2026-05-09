@@ -123,8 +123,32 @@ describe('PresetPicker', () => {
     expect(window.localStorage.getItem('volley_last_preset:op-1')).toBe(
       'preset:default-position',
     );
+    // The pill renders the human-readable name from the live feed,
+    // not the raw id, via i18n interpolation (``Last applied: {name}``).
     expect(screen.getByTestId('preset-picker-last')).toHaveTextContent(
+      'Default Position',
+    );
+    expect(screen.getByTestId('preset-picker-last')).not.toHaveTextContent(
       'preset:default-position',
+    );
+  });
+
+  it('falls back to the raw id when the last-applied entry is no longer in the feed', async () => {
+    window.localStorage.setItem(
+      'volley_last_preset:op-1',
+      'preset:legacy-but-deleted',
+    );
+    vi.mocked(api.getPresetOptions).mockResolvedValue({ items: [USER_PRESET] });
+    renderWithI18n(
+      <PresetPicker oid="op-1" onApplyPatch={vi.fn()} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('preset-picker-last')).toBeInTheDocument(),
+    );
+    // Lookup misses → render the id verbatim so the operator at least
+    // sees something stable, not an empty pill.
+    expect(screen.getByTestId('preset-picker-last')).toHaveTextContent(
+      'preset:legacy-but-deleted',
     );
   });
 

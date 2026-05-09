@@ -166,6 +166,11 @@ async def list_preset_options() -> PresetOptionsResponse:
     intentionally not surfaced here; they remain admin-only via
     ``GET /api/v1/admin/presets/{slug}``.
     """
+    # Both helpers can do blocking I/O — ``_user_preset_options`` walks
+    # the disk catalogue and ``_theme_options`` may trigger
+    # ``EnvVarsManager._load_remote_config_if_needed`` which fetches
+    # over HTTP when ``REMOTE_CONFIG_URL`` is set. Run both off the
+    # event loop so a slow remote config can't stall the broadcast.
+    theme_items = await run_in_threadpool(_theme_options)
     user_items = await run_in_threadpool(_user_preset_options)
-    items = _theme_options() + user_items
-    return PresetOptionsResponse(items=items)
+    return PresetOptionsResponse(items=theme_items + user_items)

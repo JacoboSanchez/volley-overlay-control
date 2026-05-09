@@ -133,7 +133,12 @@ export default function PresetPicker({ oid, onApplyPatch }: PresetPickerProps) {
       {lastApplied && (
         <div className="preset-picker-last" data-testid="preset-picker-last">
           <span className="material-icons" aria-hidden="true">history</span>
-          {t('presets.lastApplied')}: {lastApplied}
+          {/* Prefer the human label from the live feed; fall back to
+              the raw id when the saved last-applied no longer exists
+              (preset deleted upstream, locale switched, …). */}
+          {t('presets.lastApplied', {
+            name: items.find((it) => it.id === lastApplied)?.name ?? lastApplied,
+          })}
         </div>
       )}
 
