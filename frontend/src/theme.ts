@@ -22,6 +22,7 @@ export const SIMPLE_SCOREBOARD_COLOR = '#e65100'; // orange-700
 export const UNDO_COLOR = '#b0bcff'; // light periwinkle, high contrast on dark navy
 export const PREVIEW_ON_COLOR = '#e040fb'; // purple-A200, vivid magenta
 export const PREVIEW_OFF_COLOR = '#ab47bc'; // purple-400, dimmer but still visible on dark
+export const SHARE_COLOR = '#26c6da'; // cyan-400, distinct from team / preview / visibility palettes
 
 // Default button colors
 export const DEFAULT_BUTTON_A_COLOR = '#2196f3';

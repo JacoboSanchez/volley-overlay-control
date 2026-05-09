@@ -601,6 +601,19 @@ def test_manage_page_served(client):
     assert res.status_code == 200
     assert "Custom Overlay Manager" in res.text
     # The admin password must not be persisted client-side — the page keeps
-    # it in a JS closure variable only.
+    # it in a JS closure variable only. We allow other localStorage writes
+    # for opaque per-overlay UI state (e.g. the "last applied preset" hint
+    # introduced in Phase 2), so the password-leak guard is now expressed
+    # by name rather than as a blanket setItem ban.
     assert "sessionStorage.setItem" not in res.text
-    assert "localStorage.setItem" not in res.text
+    assert "localStorage.setItem('password'" not in res.text
+    assert "localStorage.setItem(\"password\"" not in res.text
+    assert "localStorage.setItem(`password`" not in res.text
+    # Defensive — also reject obvious aliases. ``password`` flows
+    # through a single closure variable named ``password`` in the
+    # script, so any setItem call referencing that token would be a
+    # regression.
+    for forbidden in ("setItem(password",
+                      "sessionStorage.password",
+                      "localStorage.password"):
+        assert forbidden not in res.text

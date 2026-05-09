@@ -10,6 +10,56 @@ once a first tagged release ships.
 
 ### Added
 
+- **UX Phase 2 — discoverability and onboarding.** Surfaces the
+  power features that already shipped (gestures, presets, share
+  links) so a new operator finds them on the first session instead
+  of from the docs.
+
+  * **First-run gesture coachmark.** New
+    ``frontend/src/components/GestureCoachmark.tsx`` walks four
+    steps — tap to score, double-tap to undo, long-press to edit,
+    swipe / gear icon for config — once per browser/profile.
+    Persists dismissal via a new ``gestureTourSeen`` setting.
+    Keyboard-driven (ArrowLeft / ArrowRight / Enter / Escape) and
+    skip / back / next buttons for pointer users. Auto-fires on
+    the first authoritative ``state`` arrival; the Behavior config
+    section gains a "Replay tour" affordance that flips the flag
+    back to ``false`` so the operator can re-watch without
+    refreshing. Honours ``prefers-reduced-motion``.
+  * **HUD config button gets a discoverability hint.** The
+    ``.top-right-config-btn`` now carries a longer ``title``
+    ("Configuration — or swipe left") plus an explicit
+    ``aria-label`` so screen-reader users hear the canonical
+    action while pointer users learn about the gesture, and a
+    ``focus-visible`` outline so keyboard navigation never lands
+    on it invisibly.
+  * **Share button in the HUD.** New cyan share button next to
+    Undo opens the existing ``LinksDialog`` (control / overlay /
+    preview links with copy buttons) without requiring the
+    operator to detour through the configuration panel.
+    ``api.getLinks`` is fetched lazily on first open and cached
+    for the session.
+  * **Active preset hint pill in `/manage`.** The drawer now
+    surfaces a "Last applied: <slug>" pill when the operator has
+    applied a preset to the overlay in this browser. Storage is
+    intentionally client-side (``localStorage`` keyed by OID,
+    cleared on overlay delete) — the backend doesn't currently
+    pin a "last applied" marker on overlay state, so this is a
+    per-browser memory aid rather than authoritative state. A ``×``
+    affordance in the pill clears the memory.
+
+  i18n: 17 new frontend keys (``tour.*`` × 12, ``share.title``,
+  ``ctrl.configHint``, ``behavior.replayTour``, ``behavior
+  .replayTourAction``) plus an extended ``ctrl.configHint``,
+  translated across all six supported locales (en/es/pt/it/fr/de).
+
+  Tests: ``GestureCoachmark.test.tsx`` (8 cases),
+  ``ControlButtons`` gains a share-button case, ``test_admin
+  .test_manage_page_served`` updated to allow client-side opaque
+  ``localStorage.setItem`` calls (preset-pill memory) while
+  keeping the password-leak guard expressed by name. Full suites:
+  backend 1002 passed, frontend 367 passed.
+
 - **UX Phase 0 — quick wins across the four operator surfaces.** Five
   small, low-risk fixes that close visible gaps in the control UI,
   the ``/manage`` admin page, the public match report and the

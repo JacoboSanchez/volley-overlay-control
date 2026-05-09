@@ -36,6 +36,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Start match',
     'ctrl.reset': 'Reset',
     'ctrl.config': 'Configuration',
+    'ctrl.configHint': 'Configuration — or swipe left',
 
     // Connection status
     'conn.online': 'Live updates connected',
@@ -49,6 +50,24 @@ const translations: Record<string, TranslationDict> = {
     // Preview fallback
     'preview.unavailable': 'Preview unavailable',
     'preview.retry': 'Retry',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Skip',
+    'tour.prev': 'Back',
+    'tour.next': 'Next',
+    'tour.done': 'Got it',
+    'tour.progress': 'Step {step} of {total}',
+    'tour.tap.title': 'Tap to score',
+    'tour.tap.body': 'Tap a team panel to add a point. The serve switches automatically.',
+    'tour.doubletap.title': 'Double-tap to undo',
+    'tour.doubletap.body': 'Double-tap a team panel — or use the undo button — to revert the last point or timeout for that team.',
+    'tour.longpress.title': 'Long-press to edit',
+    'tour.longpress.body': 'Press and hold a score or set count to set a custom value when something needs a manual fix.',
+    'tour.config.title': 'Open configuration',
+    'tour.config.body': 'Swipe left, or tap the gear icon top-right, for teams, colors, rules and links.',
+
+    // Share / quick links
+    'share.title': 'Share match',
 
     // Config panel
     'config.title': 'Config',
@@ -149,6 +168,8 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Auto simple mode',
     'behavior.fullOnTimeout': 'Full mode on timeout',
     'behavior.haptics': 'Haptic feedback',
+    'behavior.replayTour': 'First-use tour',
+    'behavior.replayTourAction': 'Replay tour',
     'behavior.showPreview': 'Show overlay preview',
 
     // Preview
@@ -199,6 +220,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Iniciar partido',
     'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuración',
+    'ctrl.configHint': 'Configuración — o desliza a la izquierda',
 
     // Connection status
     'conn.online': 'Sincronización en directo',
@@ -212,6 +234,24 @@ const translations: Record<string, TranslationDict> = {
     // Preview fallback
     'preview.unavailable': 'Vista previa no disponible',
     'preview.retry': 'Reintentar',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Omitir',
+    'tour.prev': 'Atrás',
+    'tour.next': 'Siguiente',
+    'tour.done': 'Entendido',
+    'tour.progress': 'Paso {step} de {total}',
+    'tour.tap.title': 'Toca para sumar punto',
+    'tour.tap.body': 'Toca el panel de un equipo para sumar un punto. El saque cambia automáticamente.',
+    'tour.doubletap.title': 'Doble toque para deshacer',
+    'tour.doubletap.body': 'Doble toque sobre el panel de un equipo — o el botón Deshacer — para revertir el último punto o tiempo muerto de ese equipo.',
+    'tour.longpress.title': 'Mantén pulsado para editar',
+    'tour.longpress.body': 'Mantén pulsado el marcador o el contador de sets para establecer un valor personalizado cuando haga falta corregir manualmente.',
+    'tour.config.title': 'Abrir configuración',
+    'tour.config.body': 'Desliza a la izquierda, o pulsa el engranaje arriba-derecha, para equipos, colores, reglas y enlaces.',
+
+    // Share / quick links
+    'share.title': 'Compartir partido',
 
     // Config panel
     'config.title': 'Config',
@@ -312,6 +352,8 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Modo simple automático',
     'behavior.fullOnTimeout': 'Modo completo en tiempo muerto',
     'behavior.haptics': 'Vibración táctil',
+    'behavior.replayTour': 'Tour de uso',
+    'behavior.replayTourAction': 'Repetir tour',
     'behavior.showPreview': 'Mostrar vista previa del overlay',
 
     // Preview
@@ -362,6 +404,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Iniciar jogo',
     'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuração',
+    'ctrl.configHint': 'Configuração — ou desliza para a esquerda',
 
     // Connection status
     'conn.online': 'Sincronização em direto',
@@ -375,6 +418,24 @@ const translations: Record<string, TranslationDict> = {
     // Preview fallback
     'preview.unavailable': 'Pré-visualização indisponível',
     'preview.retry': 'Tentar novamente',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Saltar',
+    'tour.prev': 'Anterior',
+    'tour.next': 'Seguinte',
+    'tour.done': 'Entendi',
+    'tour.progress': 'Passo {step} de {total}',
+    'tour.tap.title': 'Toca para somar ponto',
+    'tour.tap.body': 'Toca no painel de uma equipa para somar um ponto. O saque muda automaticamente.',
+    'tour.doubletap.title': 'Toque duplo para desfazer',
+    'tour.doubletap.body': 'Toque duplo no painel de uma equipa — ou o botão Desfazer — para reverter o último ponto ou desconto de tempo dessa equipa.',
+    'tour.longpress.title': 'Mantém premido para editar',
+    'tour.longpress.body': 'Mantém premido a pontuação ou o contador de sets para definir um valor personalizado quando for preciso corrigir manualmente.',
+    'tour.config.title': 'Abrir configuração',
+    'tour.config.body': 'Desliza para a esquerda, ou toca na engrenagem em cima à direita, para equipas, cores, regras e ligações.',
+
+    // Share / quick links
+    'share.title': 'Partilhar jogo',
 
     // Config panel
     'config.title': 'Config',
@@ -475,6 +536,8 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Modo simples automático',
     'behavior.fullOnTimeout': 'Modo completo no desconto de tempo',
     'behavior.haptics': 'Vibração tátil',
+    'behavior.replayTour': 'Tour de utilização',
+    'behavior.replayTourAction': 'Repetir tour',
     'behavior.showPreview': 'Mostrar pré-visualização do overlay',
 
     // Preview
@@ -525,6 +588,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Inizia partita',
     'ctrl.reset': 'Reimposta',
     'ctrl.config': 'Configurazione',
+    'ctrl.configHint': 'Configurazione — o scorri a sinistra',
 
     // Connection status
     'conn.online': 'Sincronizzazione in diretta',
@@ -538,6 +602,24 @@ const translations: Record<string, TranslationDict> = {
     // Preview fallback
     'preview.unavailable': 'Anteprima non disponibile',
     'preview.retry': 'Riprova',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Salta',
+    'tour.prev': 'Indietro',
+    'tour.next': 'Avanti',
+    'tour.done': 'Ho capito',
+    'tour.progress': 'Passo {step} di {total}',
+    'tour.tap.title': 'Tocca per segnare',
+    'tour.tap.body': 'Tocca il pannello di una squadra per aggiungere un punto. La battuta cambia automaticamente.',
+    'tour.doubletap.title': 'Doppio tocco per annullare',
+    'tour.doubletap.body': 'Doppio tocco sul pannello di una squadra — o il pulsante Annulla — per annullare l\'ultimo punto o time-out di quella squadra.',
+    'tour.longpress.title': 'Tieni premuto per modificare',
+    'tour.longpress.body': 'Tieni premuto il punteggio o il contatore set per impostare un valore personalizzato quando serve correggere a mano.',
+    'tour.config.title': 'Apri la configurazione',
+    'tour.config.body': 'Scorri a sinistra, o tocca l\'ingranaggio in alto a destra, per squadre, colori, regole e link.',
+
+    // Share / quick links
+    'share.title': 'Condividi partita',
 
     // Config panel
     'config.title': 'Config',
@@ -638,6 +720,8 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Modalità semplice automatica',
     'behavior.fullOnTimeout': 'Modalità completa al time-out',
     'behavior.haptics': 'Feedback aptico',
+    'behavior.replayTour': 'Tour iniziale',
+    'behavior.replayTourAction': 'Riavvia il tour',
     'behavior.showPreview': 'Mostra anteprima overlay',
 
     // Preview
@@ -688,6 +772,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Démarrer le match',
     'ctrl.reset': 'Réinitialiser',
     'ctrl.config': 'Configuration',
+    'ctrl.configHint': 'Configuration — ou glissez vers la gauche',
 
     // Connection status
     'conn.online': 'Synchronisation en direct',
@@ -701,6 +786,24 @@ const translations: Record<string, TranslationDict> = {
     // Preview fallback
     'preview.unavailable': 'Aperçu indisponible',
     'preview.retry': 'Réessayer',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Passer',
+    'tour.prev': 'Précédent',
+    'tour.next': 'Suivant',
+    'tour.done': 'Compris',
+    'tour.progress': 'Étape {step} sur {total}',
+    'tour.tap.title': 'Touchez pour marquer',
+    'tour.tap.body': 'Touchez le panneau d\'une équipe pour ajouter un point. Le service bascule automatiquement.',
+    'tour.doubletap.title': 'Double-tap pour annuler',
+    'tour.doubletap.body': 'Double-tap sur le panneau d\'une équipe — ou le bouton Annuler — pour annuler le dernier point ou temps mort de cette équipe.',
+    'tour.longpress.title': 'Appui long pour modifier',
+    'tour.longpress.body': 'Appui long sur le score ou le compteur de sets pour définir une valeur personnalisée quand une correction manuelle est nécessaire.',
+    'tour.config.title': 'Ouvrir la configuration',
+    'tour.config.body': 'Glissez vers la gauche, ou touchez l\'engrenage en haut à droite, pour équipes, couleurs, règles et liens.',
+
+    // Share / quick links
+    'share.title': 'Partager le match',
 
     // Config panel
     'config.title': 'Config',
@@ -801,6 +904,8 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Mode simple automatique',
     'behavior.fullOnTimeout': 'Mode complet au temps mort',
     'behavior.haptics': 'Retour haptique',
+    'behavior.replayTour': 'Visite guidée',
+    'behavior.replayTourAction': 'Rejouer la visite',
     'behavior.showPreview': 'Afficher l’aperçu de l’overlay',
 
     // Preview
@@ -851,6 +956,7 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Spiel starten',
     'ctrl.reset': 'Zurücksetzen',
     'ctrl.config': 'Einstellungen',
+    'ctrl.configHint': 'Einstellungen — oder nach links wischen',
 
     // Connection status
     'conn.online': 'Live-Synchronisation aktiv',
@@ -864,6 +970,24 @@ const translations: Record<string, TranslationDict> = {
     // Preview fallback
     'preview.unavailable': 'Vorschau nicht verfügbar',
     'preview.retry': 'Erneut versuchen',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Überspringen',
+    'tour.prev': 'Zurück',
+    'tour.next': 'Weiter',
+    'tour.done': 'Verstanden',
+    'tour.progress': 'Schritt {step} von {total}',
+    'tour.tap.title': 'Tippen für Punkt',
+    'tour.tap.body': 'Tippe auf das Team-Panel, um einen Punkt zu vergeben. Der Aufschlag wechselt automatisch.',
+    'tour.doubletap.title': 'Doppeltippen zum Rückgängig machen',
+    'tour.doubletap.body': 'Doppeltippen auf das Team-Panel — oder die Rückgängig-Taste — macht den letzten Punkt oder die letzte Auszeit dieses Teams rückgängig.',
+    'tour.longpress.title': 'Lange drücken zum Bearbeiten',
+    'tour.longpress.body': 'Halte den Punktestand oder Satzzähler gedrückt, um einen eigenen Wert zu setzen, falls eine manuelle Korrektur nötig ist.',
+    'tour.config.title': 'Einstellungen öffnen',
+    'tour.config.body': 'Wische nach links, oder tippe das Zahnrad oben rechts, für Teams, Farben, Regeln und Links.',
+
+    // Share / quick links
+    'share.title': 'Spiel teilen',
 
     // Config panel
     'config.title': 'Config',
@@ -964,6 +1088,8 @@ const translations: Record<string, TranslationDict> = {
     'behavior.autoSimple': 'Automatischer Einfachmodus',
     'behavior.fullOnTimeout': 'Vollmodus bei Auszeit',
     'behavior.haptics': 'Haptisches Feedback',
+    'behavior.replayTour': 'Einführungstour',
+    'behavior.replayTourAction': 'Tour wiederholen',
     'behavior.showPreview': 'Overlay-Vorschau anzeigen',
 
     // Preview

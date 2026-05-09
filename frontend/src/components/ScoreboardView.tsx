@@ -58,6 +58,7 @@ export interface ScoreboardViewProps {
   onStartMatch: () => void;
   onReset: () => void;
   onOpenConfig: () => void;
+  onOpenShare: () => void;
 }
 
 export default function ScoreboardView({
@@ -98,6 +99,7 @@ export default function ScoreboardView({
   onStartMatch,
   onReset,
   onOpenConfig,
+  onOpenShare,
 }: ScoreboardViewProps) {
   const { t } = useI18n();
 
@@ -175,10 +177,11 @@ export default function ScoreboardView({
         <button
           className="top-right-config-btn"
           onClick={onOpenConfig}
-          title={t('ctrl.config')}
+          title={t('ctrl.configHint')}
+          aria-label={t('ctrl.config')}
           data-testid="config-tab-button"
         >
-          <span className="material-icons">settings</span>
+          <span className="material-icons" aria-hidden="true">settings</span>
         </button>
 
         <div className="control-buttons-wrapper">
@@ -202,6 +205,7 @@ export default function ScoreboardView({
             onTogglePreview={onTogglePreview}
             onStartMatch={onStartMatch}
             onReset={onReset}
+            onOpenShare={onOpenShare}
           />
         </div>
       </div>
