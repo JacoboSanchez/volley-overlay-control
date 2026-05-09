@@ -8,6 +8,45 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Match report timeline drops both halves of every ``undo``
+  pair.** Used to: undo records were rendered as a struck-through
+  line carrying an "↶ Undone" badge — visible but visually noisy.
+  Now: ``_collapse_undos`` removes both the forward action and
+  its undo so the timeline reads "as if the undone action never
+  happened". Live unified-undo logs already had this shape (the
+  forward was popped physically, leaving an orphan undo we
+  dropped); legacy paired logs now collapse the same way.
+  Removed: ``.undone`` / ``.undone-badge`` / ``.chip-undone``
+  CSS, the ``undone`` entry in ``_CHIP_CATALOGUE``, the
+  ``was_undone`` parameter on ``_chip_classifier``, and the
+  ``undo`` / ``undoneBadge`` / ``legendUndone`` i18n keys across
+  all six locales. Existing legacy tests
+  (``test_undo_collapses_to_strikethrough``,
+  ``test_undone_rows_carry_visible_badge``) replaced with
+  ``test_undo_pairs_disappear_from_timeline`` and
+  ``test_no_undone_artefacts_in_rendered_html`` that pin the new
+  invisibility invariant. The frontend live operator drawer
+  (``RecentAuditDrawer``) is unchanged: it still surfaces undo
+  records as their own rows because that surface is a transcript
+  of operator actions, not a final-state report.
+
+- **Match-report set-by-set table grows a "Timeouts (T1/T2)"
+  row.** The per-set timeout count was already shown inline as
+  ``25 (2)`` next to the score, but the suffix is easy to miss
+  on dense matches. The new row sits below "Set durations" and
+  spells out both teams' counts side-by-side as ``2/0`` /
+  ``0/1`` / ``—``. Reuses the existing ``_timeouts_per_set``
+  audit reducer so a coach can scan timeout usage per set
+  without trawling the timeline. New i18n key ``timeoutsRow``
+  across all six locales (en/es/pt/it/fr/de). Pinned by
+  ``test_set_byset_table_has_per_set_timeouts_row`` and the
+  existing ``test_set_score_cell_appends_timeout_count`` was
+  extended to assert the new row alongside the inline suffix.
+
+  Full suites: backend 1008 passed, frontend 405 passed.
+
 ### Fixed
 
 - **Match report rendered "Team 1" / "Team 2" instead of the real

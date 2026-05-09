@@ -326,14 +326,13 @@ _REPORT_TEMPLATE = """<!doctype html>
     gap: 6px;
     flex-wrap: wrap;
   }}
-  .timeline-set li.undone {{
-    text-decoration: line-through;
-    color: var(--muted);
-  }}
   /* Per-action accent strip + glyph. Colours stay legible on both
      the dark and light schemes the rest of the report uses, and the
      glyph stays ASCII / a single emoji so the print stylesheet
-     doesn't depend on a Material Icons font being loaded. */
+     doesn't depend on a Material Icons font being loaded.
+     Undo records are stripped upstream (``_collapse_undos`` drops
+     both halves of every pair) so no ``undone`` modifier is
+     emitted. */
   .timeline-set li.chip-point-t1 {{ border-left-color: #2196f3;
     background: rgba(33, 150, 243, 0.07); }}
   .timeline-set li.chip-point-t2 {{ border-left-color: #f44336;
@@ -350,7 +349,6 @@ _REPORT_TEMPLATE = """<!doctype html>
     background: rgba(171, 71, 188, 0.08); }}
   .timeline-set li.chip-reset    {{ border-left-color: #9e9e9e;
     background: rgba(158, 158, 158, 0.10); }}
-  .timeline-set li.chip-undone,
   .timeline-set li.chip-other    {{ border-left-color: var(--muted);
     background: rgba(127, 127, 127, 0.05); }}
   .chip-glyph {{
@@ -375,7 +373,6 @@ _REPORT_TEMPLATE = """<!doctype html>
   .chip-glyph-serve    {{ background: #5c6bc0; }}
   .chip-glyph-edit     {{ background: #ab47bc; }}
   .chip-glyph-reset    {{ background: #9e9e9e; color: #1a1a2e; }}
-  .chip-glyph-undone,
   .chip-glyph-other    {{ background: transparent;
     color: var(--muted);
     border: 1px solid var(--border); }}
@@ -405,20 +402,6 @@ _REPORT_TEMPLATE = """<!doctype html>
       border: 1px solid var(--border);
     }}
   }}
-  .timeline-set li.undone .undone-badge {{
-    display: inline-block;
-    margin-left: 6px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: rgba(255, 152, 0, 0.18);
-    color: #b76b00;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-decoration: none;
-    vertical-align: baseline;
-    white-space: nowrap;
-  }}
   .timeline-set li .ts {{
     font-variant-numeric: tabular-nums;
     color: var(--muted);
@@ -428,13 +411,6 @@ _REPORT_TEMPLATE = """<!doctype html>
     font-variant-numeric: tabular-nums;
     color: var(--muted);
     margin-left: 6px;
-  }}
-  @media print {{
-    .timeline-set li.undone .undone-badge {{
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }}
   }}
   .footer {{
     margin-top: 32px;
@@ -505,6 +481,7 @@ _REPORT_TEMPLATE = """<!doctype html>
     <tr><td>{team1_name}</td>{team1_set_cells}</tr>
     <tr><td>{team2_name}</td>{team2_set_cells}</tr>
     <tr><td>{h_set_durations}</td>{set_duration_cells}</tr>
+    <tr><td>{h_timeouts_row}</td>{timeouts_row_cells}</tr>
   </tbody>
 </table>
 
@@ -693,16 +670,22 @@ def _team_name(customization: dict, team: int) -> str:
 
 
 def _action_label(record: dict, locale: str) -> str:
+    """Human-readable label for an audit-log row in the report.
+
+    No ``(undone)`` suffix is emitted: ``_collapse_undos`` strips
+    every undo record (and its forward pair) before this function
+    runs, so a row reaching here always represents an action that
+    survived to the final state.
+    """
     action = record.get("action", "")
     params = record.get("params") or {}
     team = params.get("team")
-    undo_suffix = _t(locale, "undo") if params.get("undo") else ""
     if action == "add_point":
-        return _t(locale, "actionPoint", team=team) + undo_suffix
+        return _t(locale, "actionPoint", team=team)
     if action == "add_set":
-        return _t(locale, "actionSet", team=team) + undo_suffix
+        return _t(locale, "actionSet", team=team)
     if action == "add_timeout":
-        return _t(locale, "actionTimeout", team=team) + undo_suffix
+        return _t(locale, "actionTimeout", team=team)
     if action == "change_serve":
         return _t(locale, "actionServe", team=team)
     if action == "set_score":
@@ -725,7 +708,14 @@ def _action_label(record: dict, locale: str) -> str:
 # Order matters — the legend section iterates the catalogue in the
 # order entries appear here, so the operator scans them top-to-
 # bottom (per-team points, then set / timeout / serve / edit /
-# reset, then the cross-cutting ``undone`` marker).
+# reset).
+#
+# There is intentionally no ``undone`` entry: ``_collapse_undos``
+# strips both halves of every undo pair upstream, so no row that
+# reaches the timeline carries an undone state. The frontend
+# audit drawer's ``chipCatalogue.ts`` keeps an ``undone`` entry
+# because the live operator transcript still surfaces individual
+# undo records as their own rows.
 _CHIP_CATALOGUE: dict[str, dict[str, str | None]] = {
     "point-t1": {"glyph": "+1", "legend_key": "legendPointT1"},
     "point-t2": {"glyph": "+1", "legend_key": "legendPointT2"},
@@ -738,7 +728,6 @@ _CHIP_CATALOGUE: dict[str, dict[str, str | None]] = {
     "serve":    {"glyph": "⇄", "legend_key": "legendServe"},
     "edit":     {"glyph": "✎", "legend_key": "legendEdit"},
     "reset":    {"glyph": "⟲", "legend_key": "legendReset"},
-    "undone":   {"glyph": "↶", "legend_key": "legendUndone"},
     # Final fallback — keeps unknown actions from rendering a blank
     # accent strip. Intentionally unlabelled in the legend.
     "other":    {"glyph": "•", "legend_key": None},
@@ -757,16 +746,15 @@ def _chip_glyph(kind: str) -> str:
 # action kinds at a glance. Glyphs come from ``_CHIP_CATALOGUE`` so
 # the legend, the per-row strip and any future surface that needs
 # the same palette stay consistent without manual sync.
-def _chip_classifier(
-    action: str, team: object, was_undone: bool,
-) -> tuple[str, str]:
+def _chip_classifier(action: str, team: object) -> tuple[str, str]:
     """Map an audit-record action+team to a chip ``(modifier, glyph)``.
 
     ``modifier`` keys the chip's CSS class (``chip-{modifier}``) so
     the stylesheet can paint a different accent and background per
     action kind. Team-bound rows use ``point-t1`` / ``point-t2`` so
     the running score reads alongside its team colour without
-    requiring per-team chip glyphs.
+    requiring per-team chip glyphs. ``_collapse_undos`` upstream
+    guarantees no undone records reach this function.
     """
     if action == "add_point":
         if team == 1:
@@ -785,8 +773,6 @@ def _chip_classifier(
         kind = "edit"
     elif action == "reset":
         kind = "reset"
-    elif was_undone:
-        kind = "undone"
     else:
         kind = "other"
     return (kind, _chip_glyph(kind))
@@ -924,23 +910,27 @@ def _played_set_count(final_state: dict, fallback: int) -> int:
 
 
 def _collapse_undos(audit: list[dict]) -> list[dict]:
-    """Mark forward audit records whose effect was reverted by a later ``undo``.
+    """Drop both halves of every ``undo`` pair from the rendered
+    timeline so undone actions never appear in the report.
 
     Two cases reach this function:
 
+    * Live unified-undo logs (the common case), where
+      ``action_log.pop_last_forward`` already removed the original
+      forward physically and the audit-log just carries the
+      trailing undo record. The orphan undo is dropped because
+      the action it referenced no longer exists.
     * Legacy / archived audit logs that still hold both a forward
-      record and the explicit undo that reversed it — typically from
-      pre-unification snapshots or replay-style fixtures. Match each
-      undo to the most recent matching forward record by
-      ``(action, team)``, mark the forward with ``_was_undone=True``
-      and drop the explicit undo from the rendered timeline.
-    * Live unified-undo logs, where ``action_log.pop_last_forward``
-      already removed the original forward physically and the
-      audit-log just carries the trailing undo record. With no
-      forward to mark, an orphan undo conveys nothing the report
-      can render meaningfully — the action it referenced no longer
-      exists in the timeline — so we drop it. Otherwise the report
-      would show "undo team-1 add_point" rows with no anchor.
+      record and the explicit undo that reversed it — typically
+      from pre-unification snapshots or replay-style fixtures. We
+      walk back to the most recent matching forward by
+      ``(action, team)`` and remove **both** the forward and the
+      undo, mirroring the live behaviour.
+
+    Net result: the report renders "as if the undone action never
+    happened". State-level aggregates already reflect the inverse
+    (the score / set / timeout counters never recorded the popped
+    increment), so the timeline can stay equally clean.
     """
     out: list[dict] = []
     for record in audit:
@@ -949,24 +939,22 @@ def _collapse_undos(audit: list[dict]) -> list[dict]:
             out.append(dict(record))
             continue
         # Walk back for the most recent forward record with the same
-        # ``(action, team)``. Skip already-paired entries.
+        # ``(action, team)`` and remove it. The undo itself never
+        # reaches the output either — both halves disappear.
         action = record.get("action")
         team = params.get("team")
-        for prior in reversed(out):
-            if prior.get("_was_undone"):
-                continue
+        for index in range(len(out) - 1, -1, -1):
+            prior = out[index]
             prior_params = prior.get("params") or {}
             if (
                 prior.get("action") == action
                 and prior_params.get("team") == team
                 and not prior_params.get("undo")
             ):
-                prior["_was_undone"] = True
+                del out[index]
                 break
-        # else-branch (no pair found): orphan undo. Drop it — see
-        # docstring. The for/else here would have executed if the
-        # loop completed without a break, but we no longer want to
-        # surface unanchored undo rows.
+        # No matching forward → orphan undo. Already not appended
+        # above; nothing else to do.
     return out
 
 
@@ -1409,6 +1397,31 @@ def _render_set_durations_row(durations: dict[int, float], set_count: int) -> st
     return "".join(cells)
 
 
+def _render_timeouts_row(
+    timeouts_by_set: dict[int, dict[int, int]], set_count: int,
+) -> str:
+    """Per-set timeouts row for the set-by-set table.
+
+    Each cell renders the per-team counters as ``T1/T2`` (e.g.
+    ``2/1`` means team 1 took two timeouts, team 2 took one). Sets
+    with no timeouts on either side render as ``—`` so the cell
+    matches the empty-cell style used in the score and duration
+    rows above. Reuses the same ``_timeouts_per_set`` map the
+    score-cell suffix already consumes — this row just gives the
+    operator a more prominent at-a-glance summary.
+    """
+    cells = []
+    for i in range(1, set_count + 1):
+        per_team = timeouts_by_set.get(i, {})
+        t1 = int(per_team.get(1, 0))
+        t2 = int(per_team.get(2, 0))
+        if t1 == 0 and t2 == 0:
+            cells.append("<td>—</td>")
+        else:
+            cells.append(f"<td>{t1}/{t2}</td>")
+    return "".join(cells)
+
+
 def _render_highlights(
     stats: dict, locale: str,
     *, team1_name: str, team2_name: str,
@@ -1590,34 +1603,26 @@ def _render_timeline(
             f' <span class="running">({running[0]}–{running[1]})</span>'
             if running and _is_score_action(record) else ""
         )
-        was_undone = bool(record.get("_was_undone"))
         # Per-action-type chip: gives the timeline visual hierarchy
         # without changing the editorial text. Colour is keyed off
         # the action kind, not the team — team identity is already
         # encoded in the label and would clash with the
         # add_set/timeout / serve / reset / score-edit chip palette
-        # if we tried to layer both.
+        # if we tried to layer both. ``_collapse_undos`` already
+        # removed every undo pair upstream, so no row that reaches
+        # this function carries an undone state.
         action = record.get("action", "")
         params = record.get("params") or {}
         team = params.get("team")
-        chip_kind, chip_icon = _chip_classifier(action, team, was_undone)
-        cls = f'class="timeline-li chip-{chip_kind}{" undone" if was_undone else ""}"'
-        # Surface a non-strikethrough chip alongside the line-through so
-        # the undone marker is legible at a glance even on dense
-        # timelines and print-friendly contrast.
-        undone_badge = (
-            '<span class="undone-badge" aria-hidden="true">'
-            f'↶ {html.escape(_t(locale, "undoneBadge"))}</span>'
-            if was_undone else ""
-        )
+        chip_kind, chip_icon = _chip_classifier(action, team)
         chip_glyph = (
             f'<span class="chip-glyph chip-glyph-{chip_kind}" '
             f'aria-hidden="true">{html.escape(chip_icon)}</span>'
         )
         return (
-            f'<li {cls}>{chip_glyph}'
+            f'<li class="timeline-li chip-{chip_kind}">{chip_glyph}'
             f'<span class="ts">{html.escape(rel)}</span>'
-            f'{html.escape(label)}{running_html}{undone_badge}</li>'
+            f'{html.escape(label)}{running_html}</li>'
         )
 
     for set_num in ordered_keys:
@@ -1834,6 +1839,7 @@ async def match_report(
         team1_set_cells=_team_set_cells(team1, 1),
         team2_set_cells=_team_set_cells(team2, 2),
         set_duration_cells=_render_set_durations_row(set_durations, played_sets),
+        timeouts_row_cells=_render_timeouts_row(timeouts_by_set, played_sets),
         # ``config`` values are operator-controlled — escape the
         # interpolated string defensively even though the formatter
         # only sees ints in the happy path. ``Best of {sets_limit}`` is
@@ -1867,6 +1873,7 @@ async def match_report(
         h_team=html.escape(_t(locale, "team")),
         h_set_byset=html.escape(_t(locale, "setByset")),
         h_set_durations=html.escape(_t(locale, "setDurations")),
+        h_timeouts_row=html.escape(_t(locale, "timeoutsRow")),
         h_highlights=html.escape(_t(locale, "highlights")),
         h_score_evolution=html.escape(_t(locale, "scoreEvolution")),
         h_match_facts=html.escape(_t(locale, "matchFacts")),
