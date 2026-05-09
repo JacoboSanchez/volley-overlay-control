@@ -1715,10 +1715,12 @@ body {
 }
 
 /*
-  Operator-facing preset picker — env-var ``APP_THEMES`` and admin
-  presets unified into one list, grouped by source. Lives at the top
-  of the ``ConfigPanel`` (``presets`` section) and absorbs the legacy
-  theme dropdown that used to sit in ``OverlaySection``.
+  Operator-facing preset picker. Shows the operator's saved presets
+  (CRUD lives at /api/v1/customization/presets/*) with category chips
+  + apply / delete actions, and an inline "Save current" disclosure
+  with category checkboxes. Env-var APP_THEMES live separately in
+  ``OverlaySection`` (next to the colour and style controls they
+  affect), so the picker only deals with user-curated entries.
 */
 .preset-picker {
   display: flex;
@@ -1728,54 +1730,133 @@ body {
   color: var(--text);
 }
 
+.preset-picker-toolbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.preset-picker-create-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.preset-picker-create-toggle:hover { background: var(--hover-bg); }
+
+.preset-picker-create {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.preset-picker-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.preset-picker-input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.preset-picker-fieldset {
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.preset-picker-fieldset legend {
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.preset-picker-cat-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.preset-picker-cat-toggle .material-icons {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.preset-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.preset-picker-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--blue, #2196f3);
+  border-radius: 4px;
+  background: var(--blue, #2196f3);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.preset-picker-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.preset-picker-action-error,
 .preset-picker-loading,
 .preset-picker-empty,
 .preset-picker-error {
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border: 1px dashed var(--border);
   border-radius: 6px;
   color: var(--muted);
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-}
-
-.preset-picker-loading,
-.preset-picker-error {
-  flex-direction: row;
   align-items: center;
   gap: 0.5rem;
 }
 
+.preset-picker-action-error,
+.preset-picker-error {
+  border-style: solid;
+  border-color: var(--danger, #d32f2f);
+  color: var(--danger, #d32f2f);
+}
+
+.preset-picker-empty {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .preset-picker-empty-msg {
   margin: 0;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.preset-picker-empty-hint {
-  margin: 0;
-  color: var(--muted);
-}
-
-.preset-picker-last {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  background: var(--hover-bg);
-  color: var(--muted);
-  font-size: 0.75rem;
-  align-self: flex-start;
-}
-
-.preset-picker-group-title {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--muted);
 }
 
@@ -1785,66 +1866,55 @@ body {
   padding: 0;
   display: grid;
   /* Two columns on wider panes; collapses to 1 below 480 px so the
-     scope chips and apply button never overflow on a phone. */
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+     category chips and action buttons never overflow on a phone. */
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 0.6rem;
 }
 
 .preset-picker-item {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
   background: var(--surface);
 }
 
-.preset-picker-item-active {
-  border-color: var(--blue, #2196f3);
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
-}
-
-.preset-picker-item-head {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
+.preset-picker-item-head { display: flex; align-items: center; }
 
 .preset-picker-item-name {
   font-weight: 600;
   color: var(--text);
 }
 
-.preset-picker-readonly-badge {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-  background: var(--hover-bg);
-  color: var(--muted);
-  /* No interactivity (advisory tag); screen readers will read the
-     ``title`` we set on the element. */
-}
-
 .preset-picker-scopes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 .preset-picker-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.7rem;
-  padding: 0.1rem 0.4rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: var(--hover-bg);
   color: var(--muted);
 }
 
+.preset-picker-scope-chip .material-icons { font-size: 0.85rem; }
+
+.preset-picker-item-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .preset-picker-apply-btn {
-  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -1857,13 +1927,36 @@ body {
   cursor: pointer;
 }
 
-.preset-picker-apply-btn:hover {
-  background: var(--hover-bg);
-}
+.preset-picker-apply-btn:hover { background: var(--hover-bg); }
 
-.preset-picker-apply-btn:focus-visible {
+.preset-picker-apply-btn:focus-visible,
+.preset-picker-delete-btn:focus-visible {
   outline: 2px solid var(--blue, #2196f3);
   outline-offset: 2px;
+}
+
+.preset-picker-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.preset-picker-delete-btn:hover {
+  background: var(--hover-bg);
+  color: var(--danger, #d32f2f);
+}
+
+.preset-picker-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .config-switch-row {

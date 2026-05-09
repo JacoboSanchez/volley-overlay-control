@@ -1,30 +1,28 @@
-"""GET/PUT /customization — team names, colors, logos, theme overrides."""
+"""GET/PUT /customization — team names, colors, logos, theme overrides.
+
+Plus an operator-facing preset CRUD that lives at
+``/api/v1/customization/presets/*``: anyone with the API key can list,
+save, or delete a named subset of the current customization model.
+Apply is intentionally client-side (the React panel deep-merges a
+preset's ``values`` into its in-memory edit model and persists with
+the existing ``Save`` flow), so the picker UX stays consistent with
+direct field edits and never races unsaved changes.
+"""
 
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from app.api import preset_translation, presets_store
+from app.api import presets_store
 from app.api.dependencies import get_session, verify_api_key
 from app.api.game_service import GameService
 from app.api.schemas import ActionResponse
 from app.api.session_manager import GameSession
 
 logger = logging.getLogger(__name__)
-
-
-def _customization_class():
-    # ``test_customization.py`` reloads the ``app.customization`` module
-    # via ``importlib.reload``. A module-level ``from app.customization
-    # import Customization`` would freeze a stale class reference past
-    # that reload, leaving our ``THEMES`` lookup pointing at an empty
-    # singleton in the rest of the test session. Resolving the class
-    # through the module on every call survives the reload.
-    import app.customization as _cust
-    return _cust.Customization
 router = APIRouter()
 
 
@@ -46,131 +44,103 @@ async def update_customization(data: dict,
 
 
 # ---------------------------------------------------------------------------
-# Operator-facing preset surface
+# Operator-facing preset CRUD
 # ---------------------------------------------------------------------------
-#
-# Admin-only preset CRUD continues to live under ``/api/v1/admin/presets/*``
-# (see :mod:`app.admin.routes`). The route below is the read-only
-# counterpart for the React control panel: an operator with the API key
-# lists applicable presets (env-var ``APP_THEMES`` + admin-curated user
-# presets, mixed in one feed with a ``read_only`` marker) and the patch
-# payload that the panel can deep-merge into its in-memory edit model.
-#
-# Apply is intentionally client-side: the panel already stages user
-# edits in its local ``model`` state and persists everything via the
-# existing ``PUT /customization`` save flow. Wiring a separate
-# server-side apply endpoint would diverge from that "stage then save"
-# UX (the operator could lose unsaved edits to an immediate apply, and
-# would now need to know whether each control writes through or not).
-# Returning the precomputed patch alongside the list keeps the existing
-# theme-dropdown semantics intact and eliminates a second round-trip.
 
 
-class PresetOptionItem(BaseModel):
-    source: str = Field(
-        description="``env`` for env-var ``APP_THEMES``, ``user`` for "
-        "admin-curated presets persisted in ``data/presets/``.",
-    )
-    id: str = Field(
-        description="Stable identifier — ``theme:<key>`` for env themes, "
-        "``preset:<slug>`` for user presets.",
-    )
+class PresetSummary(BaseModel):
+    slug: str
     name: str
-    scopes: list[str] = Field(
-        description="Scopes the patch covers. Synthesised for env themes "
-        "(``overlay_colors`` since they always carry colour keys); the "
-        "subset of the record's own scopes that translated to non-empty "
-        "flat-key writes for user presets.",
+    created_at: float
+    categories: list[str] = Field(
+        description="Category ids covered by the preset's values "
+        "(``team1_name``, ``team1_color``, ``team2_name``, "
+        "``team2_color``, ``position``, ``style``).",
     )
-    patch: dict[str, Any] = Field(
-        description="Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React "
-        "panel deep-merges into its edit model. Empty patches are "
-        "filtered before the response is built.",
-    )
-    read_only: bool = Field(
-        description="``true`` when the operator cannot manage this entry "
-        "(env-var themes need a backend restart to change).",
+    values: dict[str, Any] = Field(
+        description="Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the "
+        "React panel deep-merges into its edit model. Unknown keys "
+        "from older records are filtered out at read time.",
     )
 
 
-class PresetOptionsResponse(BaseModel):
-    items: list[PresetOptionItem]
+class PresetListResponse(BaseModel):
+    items: list[PresetSummary]
 
 
-def _theme_options() -> list[PresetOptionItem]:
-    cust = _customization_class()
-    cust.refresh()
-    items: list[PresetOptionItem] = []
-    for key, payload in cust.THEMES.items():
-        if not isinstance(key, str) or not key:
-            continue
-        if not isinstance(payload, dict) or not payload:
-            continue
-        items.append(
-            PresetOptionItem(
-                source="env",
-                id=f"theme:{key}",
-                name=key,
-                # Env-var themes are paint-only patches; surface that
-                # under the same scope label the user-preset side uses
-                # so the operator's "this changes colours" mental model
-                # holds across both sources.
-                scopes=["overlay_colors"],
-                patch=dict(payload),
-                read_only=True,
-            ),
-        )
-    items.sort(key=lambda i: i.name.lower())
-    return items
+class PresetCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    values: dict[str, Any] = Field(
+        ...,
+        description="Subset of the operator's flat customization model "
+        "to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are "
+        "dropped server-side; an empty result is rejected with 400.",
+    )
 
 
-def _user_preset_options() -> list[PresetOptionItem]:
-    items: list[PresetOptionItem] = []
-    for record in presets_store.list_all():
-        meta = record.get("_meta") or {}
-        slug = meta.get("slug")
-        name = meta.get("name") or slug
-        if not isinstance(slug, str) or not slug:
-            continue
-        patch, applied = preset_translation.translate_record(record)
-        if not patch:
-            # Preset captured nested keys with no flat counterpart
-            # (e.g. team_home.short_name only). Hide it from the
-            # operator's list rather than offer a no-op apply.
-            continue
-        items.append(
-            PresetOptionItem(
-                source="user",
-                id=f"preset:{slug}",
-                name=str(name),
-                scopes=applied,
-                patch=patch,
-                read_only=False,
-            ),
-        )
-    return items
+def _summarize(record: dict) -> PresetSummary:
+    meta = record.get("_meta") or {}
+    return PresetSummary(
+        slug=str(meta.get("slug") or ""),
+        name=str(meta.get("name") or meta.get("slug") or ""),
+        created_at=float(meta.get("created_at") or 0.0),
+        categories=list(record.get("categories") or []),
+        values=dict(record.get("values") or {}),
+    )
 
 
 @router.get(
-    "/customization/preset-options",
-    response_model=PresetOptionsResponse,
+    "/customization/presets",
+    response_model=PresetListResponse,
     dependencies=[Depends(verify_api_key)],
-    summary="List presets and themes the operator can apply to the panel.",
+    summary="List operator-saved presets.",
 )
-async def list_preset_options() -> PresetOptionsResponse:
-    """Return env-var themes + user presets in a single feed.
+async def list_presets() -> PresetListResponse:
+    """Return every preset on disk, ordered by name (case-insensitive)."""
+    records = await run_in_threadpool(presets_store.list_all)
+    return PresetListResponse(items=[_summarize(r) for r in records])
 
-    Each item carries the flat-key patch the operator's React panel
-    deep-merges into its in-memory edit model — no second round-trip
-    is needed to apply. Snapshots from the original preset record are
-    intentionally not surfaced here; they remain admin-only via
-    ``GET /api/v1/admin/presets/{slug}``.
+
+@router.post(
+    "/customization/presets",
+    response_model=PresetSummary,
+    dependencies=[Depends(verify_api_key)],
+    summary="Save the current configuration (or a subset) as a named preset.",
+)
+async def create_preset(payload: PresetCreateRequest) -> PresetSummary:
+    """Persist *payload.values* under a slugified version of *name*.
+
+    The React panel sends the values directly — it already has the
+    operator's flat customization in memory, so the server doesn't
+    need to round-trip through ``GameService.refresh_customization``.
     """
-    # Both helpers can do blocking I/O — ``_user_preset_options`` walks
-    # the disk catalogue and ``_theme_options`` may trigger
-    # ``EnvVarsManager._load_remote_config_if_needed`` which fetches
-    # over HTTP when ``REMOTE_CONFIG_URL`` is set. Run both off the
-    # event loop so a slow remote config can't stall the broadcast.
-    theme_items = await run_in_threadpool(_theme_options)
-    user_items = await run_in_threadpool(_user_preset_options)
-    return PresetOptionsResponse(items=theme_items + user_items)
+    try:
+        record = await run_in_threadpool(
+            presets_store.create, payload.name, payload.values,
+        )
+    except presets_store.PresetExists as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Preset '{exc!s}' already exists.",
+        ) from None
+    except presets_store.PresetCatalogueFull as exc:
+        raise HTTPException(status_code=507, detail=str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    return _summarize(record)
+
+
+@router.delete(
+    "/customization/presets/{slug}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(verify_api_key)],
+    summary="Delete an operator-saved preset.",
+)
+async def delete_preset(
+    slug: str = Path(..., min_length=1, max_length=120),
+) -> None:
+    removed = await run_in_threadpool(presets_store.delete, slug)
+    if not removed:
+        raise HTTPException(
+            status_code=404, detail=f"Preset '{slug}' not found.",
+        )

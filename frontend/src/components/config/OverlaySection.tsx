@@ -3,24 +3,31 @@ import type { ConfigModel } from './TeamsSection';
 import { asBool, asString } from '../../utils/coerce';
 import { ConfigColorField } from './fields';
 
+export type OverlayThemes = Record<string, unknown>;
+
 export interface OverlaySectionProps {
   model: ConfigModel;
   updateField: (key: string, value: unknown) => void;
+  themes: OverlayThemes;
   styles: string[];
+  selectedTheme: string;
+  setSelectedTheme: (name: string) => void;
+  onApplyTheme: (name: string) => void;
   isCustomOverlay: boolean;
 }
 
-// Theme dropdown (env-var ``APP_THEMES``) used to live here. It now
-// flows through the unified ``PresetPicker`` at the top of the panel,
-// alongside admin-curated user presets — both sources land on the same
-// flat-key merge path so the operator only sees one list.
 export default function OverlaySection({
   model,
   updateField,
+  themes,
   styles,
+  selectedTheme,
+  setSelectedTheme,
+  onApplyTheme,
   isCustomOverlay,
 }: OverlaySectionProps) {
   const { t } = useI18n();
+  const hasThemes = Object.keys(themes).length > 0;
   const hasStyles = Array.isArray(styles) && styles.length > 1;
 
   return (
@@ -67,19 +74,40 @@ export default function OverlaySection({
           onChange={(c) => updateField('Text Color 2', c)}
         />
       </div>
-      {hasStyles && (
+      {(hasStyles || hasThemes) && (
         <div className="config-theme-inline">
-          <div className="config-field-group">
-            <label className="config-field-group-label">{t('overlay.styleLabel')}</label>
-            <select className="config-select" value={asString(model['preferredStyle'], '')}
-              onChange={(e) => updateField('preferredStyle', e.target.value)}
-              data-testid="style-selector">
-              <option value="">{t('overlay.style')}</option>
-              {styles.map((name) => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
+          {hasStyles && (
+            <div className="config-field-group">
+              <label className="config-field-group-label">{t('overlay.styleLabel')}</label>
+              <select className="config-select" value={asString(model['preferredStyle'], '')}
+                onChange={(e) => updateField('preferredStyle', e.target.value)}
+                data-testid="style-selector">
+                <option value="">{t('overlay.style')}</option>
+                {styles.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {hasThemes && (
+            <div className="config-field-group">
+              <label className="config-field-group-label">{t('overlay.preloadedConfigLabel')}</label>
+              <div className="config-field-group-row">
+                <select className="config-select" value={selectedTheme}
+                  onChange={(e) => setSelectedTheme(e.target.value)} data-testid="theme-selector">
+                  <option value="">{t('overlay.selectAndLoad')}</option>
+                  {Object.keys(themes).map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                <button className="config-inline-btn" data-testid="theme-button"
+                  onClick={() => { if (selectedTheme) onApplyTheme(selectedTheme); }}
+                  disabled={!selectedTheme}>
+                  <span className="material-icons">download</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,25 +1,26 @@
-"""On-disk catalogue for overlay configuration presets.
+"""On-disk catalogue for operator-curated configuration presets.
 
-A *preset* is a named, scope-tagged subset of an overlay's state that
-the operator saves once and applies anywhere. The catalogue is global
-(presets are not per-OID) so the same "Real Madrid as home" preset
-can be applied to any overlay that needs it.
+A *preset* is a named subset of the operator's flat customization model
+(``Team 1 Color``, ``Height``, …). The operator captures the parts of
+the current overlay configuration they care about and applies them
+again later from the React control panel. There is no admin gate: any
+caller with the API key can list, create, and delete entries.
 
 Files live at ``data/presets/preset_<sha256(slug)[:20]>.json``. The
 hex-only basename keeps user-supplied names from flowing into
-filesystem paths (same security pattern ``OverlayStateStore`` uses
-for overlay state). The original name plus the slug are recorded in
-the JSON payload's ``_meta`` block so listings and lookups can
+filesystem paths (same security pattern :class:`OverlayStateStore`
+uses for overlay state). The original name plus the slug are recorded
+in the JSON payload's ``_meta`` block so listings and lookups can
 recover them.
 
 Concurrency: a single process-wide :class:`threading.RLock` guards
-every read and write. Presets are an admin surface — write rate is
-operator-keystroke, never hot-path — so the simpler global lock is
-preferable to the per-slug pool ``action_log`` uses for game events.
+every read and write. Write rate is operator-keystroke; the simpler
+global lock is preferable to the per-slug pool ``action_log`` uses for
+game events.
 
 All I/O is best-effort: filesystem failures are logged but never
-propagate, so a busted ``data/presets`` directory cannot wedge a
-live match by surfacing a 500 from the admin handler.
+propagate, so a busted ``data/presets`` directory cannot wedge a live
+match by surfacing a 500 from the API handler.
 """
 
 from __future__ import annotations
@@ -32,7 +33,9 @@ import re
 import tempfile
 import threading
 import time
+from typing import Any
 
+from app.api.preset_categories import categories_for_keys, filter_to_known
 from app.constants import PRESETS_MAX_NAME_LEN, PRESETS_MAX_RECORDS
 
 logger = logging.getLogger(__name__)
@@ -43,12 +46,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # A slug is lowercase ASCII alphanumerics plus dashes, beginning and
-# ending with an alphanumeric. Length is **not** baked into the regex
-# on purpose: it's enforced by ``slugify`` against
-# ``PRESETS_MAX_NAME_LEN`` so changing the env-overridable cap does
-# not require also editing this pattern (and so the cap can grow above
-# the legacy 64-char ceiling without the regex silently rejecting
-# valid slugs).
+# ending with an alphanumeric.
 _SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 _FILENAME_HASH_LEN = 20
 _HASHED_FILENAME_PATTERN = re.compile(
@@ -62,31 +60,20 @@ def slugify(name: str) -> str:
     Lowercase ASCII alphanumerics plus dashes; runs of any other
     character collapse to a single dash; leading and trailing dashes
     trimmed; empty result raises ``ValueError`` so the caller surfaces
-    a 400 instead of writing an unaddressable preset. Length is
-    clamped to ``PRESETS_MAX_NAME_LEN`` to keep slugs manageable in
-    URLs and JSON.
+    a 400 instead of writing an unaddressable preset. Length is clamped
+    to ``PRESETS_MAX_NAME_LEN`` to keep slugs manageable in URLs and
+    JSON.
     """
     if not isinstance(name, str):
         raise ValueError("Preset name must be a string.")
-    # Lower + ASCII fold via NFKD would catch accented characters
-    # too, but the operator-facing audit trail benefits from keeping
-    # the original ``name`` separate from the slug. We just normalise
-    # what makes a valid filesystem-and-URL-safe identifier.
     cleaned = re.sub(r"[^a-z0-9]+", "-", name.strip().lower())
-    # ``strip("-")`` runs *after* truncation so a name whose cut
-    # point falls inside a run of non-alphanumeric characters
-    # (which collapse to a single ``-``) does not yield a slug
-    # that ends in ``-`` and would otherwise be rejected by
-    # ``_SLUG_PATTERN`` with a misleading "cannot derive a valid
-    # slug" error.
-    cleaned = cleaned[:max(1, PRESETS_MAX_NAME_LEN)].strip("-")
+    cleaned = cleaned[: max(1, PRESETS_MAX_NAME_LEN)].strip("-")
     if not cleaned or _SLUG_PATTERN.match(cleaned) is None:
         raise ValueError(f"Cannot derive a valid slug from {name!r}.")
     return cleaned
 
 
 def _data_dir() -> str:
-    """Return the on-disk preset directory."""
     base = os.path.dirname(os.path.abspath(__file__))
     return os.path.normpath(os.path.join(base, "..", "..", "data", "presets"))
 
@@ -97,7 +84,6 @@ def _hashed_basename(slug: str) -> str:
 
 
 def _path(slug: str) -> str:
-    """Return the on-disk path for a preset *slug*. Caller must have validated."""
     return os.path.join(_data_dir(), _hashed_basename(slug))
 
 
@@ -106,6 +92,18 @@ def _path(slug: str) -> str:
 # ---------------------------------------------------------------------------
 
 _lock = threading.RLock()
+
+
+class PresetExists(Exception):
+    """A preset with the requested slug is already on disk."""
+
+
+class PresetNotFound(Exception):
+    """No preset matches the requested slug."""
+
+
+class PresetCatalogueFull(Exception):
+    """The catalogue would exceed ``PRESETS_MAX_RECORDS``."""
 
 
 def _validate_name(name: str) -> str:
@@ -121,12 +119,11 @@ def _validate_name(name: str) -> str:
     return name
 
 
-def _serialize(preset: dict) -> bytes:
-    return (json.dumps(preset, ensure_ascii=False) + "\n").encode("utf-8")
+def _serialize(record: dict) -> bytes:
+    return (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8")
 
 
 def _write_atomic_locked(path: str, payload: dict) -> None:
-    """Tempfile + ``os.replace`` write while holding ``_lock``."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
     try:
@@ -153,60 +150,53 @@ def _read_payload(path: str) -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _build_record(
-    name: str, slug: str, scopes: list[str], snapshots: dict[str, dict],
-) -> dict:
+def _build_record(name: str, slug: str, values: dict[str, Any]) -> dict:
+    # ``categories`` is derived from the keys in ``values`` so the
+    # field can never drift out of sync with the actual content.
     return {
         "_meta": {
             "name": name,
             "slug": slug,
             "created_at": time.time(),
         },
-        "scopes": list(scopes),
-        "snapshots": dict(snapshots),
+        "categories": categories_for_keys(values.keys()),
+        "values": dict(values),
     }
 
 
-class PresetExists(Exception):
-    """A preset with the requested slug is already on disk."""
-
-
-class PresetNotFound(Exception):
-    """No preset matches the requested slug."""
-
-
-class PresetCatalogueFull(Exception):
-    """The catalogue would exceed ``PRESETS_MAX_RECORDS``."""
-
-
-def create(
-    name: str, scopes: list[str], snapshots: dict[str, dict],
-) -> dict:
+def create(name: str, values: dict[str, Any]) -> dict:
     """Persist a new preset and return the saved record.
 
+    *values* is a flat dict of allow-listed customization keys
+    (``Team 1 Color``, ``Height``, …). Unknown keys are dropped before
+    persistence so the on-disk record only ever carries fields the
+    operator-side endpoint can apply.
+
     Raises:
-      * ``ValueError`` for invalid names / unknown scopes.
+      * ``ValueError`` for invalid names / empty values.
       * :class:`PresetExists` when the derived slug collides with an
-        existing preset (caller can offer a rename / overwrite).
+        existing preset.
       * :class:`PresetCatalogueFull` when the catalogue is at its cap.
     """
     name = _validate_name(name)
     slug = slugify(name)
+    cleaned = filter_to_known(values)
+    if not cleaned:
+        raise ValueError(
+            "Preset must contain at least one supported customization key.",
+        )
     path = _path(slug)
     with _lock:
         if os.path.exists(path):
             raise PresetExists(slug)
-        # Cheap cap check — counts the directory once on create. The
-        # admin surface is low-volume; an O(n) listdir per save is
-        # fine and simpler than maintaining a counter.
         if _count_locked() >= PRESETS_MAX_RECORDS:
             raise PresetCatalogueFull(
                 f"Preset catalogue is full ({PRESETS_MAX_RECORDS} entries). "
                 f"Delete unused presets before saving more.",
             )
-        record = _build_record(name, slug, scopes, snapshots)
+        record = _build_record(name, slug, cleaned)
         _write_atomic_locked(path, record)
-    logger.info("Preset '%s' (slug=%s) created", name, slug)
+    logger.info("Preset '%s' (slug=%s, %d keys)", name, slug, len(cleaned))
     return record
 
 
@@ -246,68 +236,9 @@ def list_all() -> list[dict]:
     return records
 
 
-def import_payload(payload: dict, *, override_name: str | None = None) -> dict:
-    """Persist a preset record sourced from an external JSON document.
-
-    The payload must already be the on-disk schema produced by
-    :func:`create` or :func:`export_payload`. Slug collisions are
-    resolved by appending ``-2``, ``-3``... up to ``-99`` so reimport
-    of the same export does not silently overwrite the existing
-    catalogue entry. ``override_name`` (when supplied by the operator)
-    wins over whatever ``_meta.name`` carries — useful when the same
-    preset is imported as a variant.
-    """
-    if not isinstance(payload, dict):
-        raise ValueError("Preset import payload must be a JSON object.")
-    snapshots = payload.get("snapshots") or {}
-    scopes = payload.get("scopes") or []
-    if not isinstance(snapshots, dict) or not isinstance(scopes, list):
-        raise ValueError("Preset payload is missing 'scopes' / 'snapshots'.")
-    name_source = override_name or payload.get("_meta", {}).get("name", "")
-    name = _validate_name(name_source)
-    base_slug = slugify(name)
-    slug = base_slug
-    suffix = 1
-    with _lock:
-        while os.path.exists(_path(slug)):
-            suffix += 1
-            if suffix > 99:
-                raise PresetExists(base_slug)
-            slug = f"{base_slug}-{suffix}"
-            # Re-validate the (longer) candidate slug; the suffix
-            # might push the original past ``MAX_NAME_LEN``.
-            if len(slug) > PRESETS_MAX_NAME_LEN:
-                raise ValueError(
-                    "Preset name too long to disambiguate on import.",
-                )
-        if _count_locked() >= PRESETS_MAX_RECORDS:
-            raise PresetCatalogueFull(
-                f"Preset catalogue is full ({PRESETS_MAX_RECORDS} entries).",
-            )
-        record = _build_record(name, slug, list(scopes), dict(snapshots))
-        _write_atomic_locked(_path(slug), record)
-    logger.info("Preset '%s' (slug=%s) imported", name, slug)
-    return record
-
-
-def export_payload(slug: str) -> dict:
-    """Return the on-disk record for *slug* as a portable JSON dict.
-
-    The returned dict is identical to what :func:`import_payload`
-    accepts — round-trip is guaranteed by sharing the schema.
-    """
-    return read(slug)
-
-
 def count() -> int:
-    """Return the current number of presets on disk."""
     with _lock:
         return _count_locked()
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _iter_payloads_locked():
