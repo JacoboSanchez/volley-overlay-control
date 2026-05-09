@@ -864,13 +864,27 @@ function _flashAlertOnTeam(team, className, durationMs) {
         document.getElementById(`${team}-sets`),
     ].filter(Boolean);
     targets.forEach((el) => {
+        // Cancel any in-flight removal for the same element so a
+        // rapid follow-up (e.g. operator un-does a set then re-applies
+        // it) doesn't get its animation cut short by the previous
+        // setTimeout. The id is stored per-class so concurrent
+        // alert kinds (set-won + match-finished landing on the same
+        // tick) coexist cleanly.
+        const timerKey = `_alertTimeout_${className}`;
+        if (el[timerKey]) {
+            clearTimeout(el[timerKey]);
+            el[timerKey] = null;
+        }
         el.classList.remove(className);
         // Re-apply on next frame to restart the keyframe animation
         // on repeated triggers (e.g. team won set 1 then set 2).
         // eslint-disable-next-line no-unused-expressions -- forces reflow
         void el.offsetWidth;
         el.classList.add(className);
-        setTimeout(() => el.classList.remove(className), durationMs + 50);
+        el[timerKey] = setTimeout(() => {
+            el.classList.remove(className);
+            el[timerKey] = null;
+        }, durationMs + 50);
     });
 }
 

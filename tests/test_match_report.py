@@ -908,8 +908,11 @@ class TestMatchReportPregameTrim:
         # later → +1:00.
         assert "+0:00" in response.text
         assert "+1:00" in response.text
-        # Reset entry is gone from the rendered timeline.
-        assert ">Reset<" not in response.text
+        # Reset entry is gone from the rendered timeline. Phase 3 added
+        # a "Reset" key in the legend, so the bare ``>Reset<`` substring
+        # is no longer load-bearing — pin to the chip-bearing ``<li>``
+        # the timeline emits for an actual reset action instead.
+        assert 'class="timeline-li chip-reset' not in response.text
         # ``Audit entries`` reflects the trimmed view (3 raw → 2 shown).
         assert ">2</td>" in response.text
 
@@ -1011,7 +1014,12 @@ class TestMatchReportPregameTrim:
         # ``score (N)`` rather than a separate row, so this match
         # match-substring isn't load-bearing against any other label.
         assert "Timeout — Team" not in response.text
-        assert ">Reset<" not in response.text
+        # Phase 3 added a "Reset" entry to the timeline legend, so we
+        # can no longer ban the bare ``>Reset<`` substring globally.
+        # Pin the assertion to the chip-bearing ``<li>`` rendered for
+        # an actual reset action — that's the only place a pregame
+        # reset would surface in the timeline.
+        assert 'class="timeline-li chip-reset' not in response.text
         assert "Point — Team 1" in response.text
 
 

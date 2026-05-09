@@ -56,9 +56,12 @@ export default function GestureCoachmark({ open, onDismiss }: GestureCoachmarkPr
     if (open) setStepIndex(0);
   }, [open]);
 
-  // Simple keyboard wiring: ESC dismisses, ArrowRight / Enter
-  // advances, ArrowLeft steps back. Reused across the whole tour
-  // so the operator can consume it without leaving the keyboard.
+  // Keyboard shortcuts on top of the focusable buttons. ESC
+  // dismisses, ArrowLeft / ArrowRight step. Enter is **deliberately
+  // not** intercepted here — letting the document listener swallow
+  // it would block the Skip / Back buttons' native click activation
+  // and force every keyboard user into "advance only" mode. The
+  // focused button handles Enter by itself.
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!open) return;
     if (e.key === 'Escape') {
@@ -66,7 +69,7 @@ export default function GestureCoachmark({ open, onDismiss }: GestureCoachmarkPr
       onDismiss();
       return;
     }
-    if (e.key === 'ArrowRight' || e.key === 'Enter') {
+    if (e.key === 'ArrowRight') {
       e.preventDefault();
       setStepIndex((i) => {
         if (i >= STEPS.length - 1) {

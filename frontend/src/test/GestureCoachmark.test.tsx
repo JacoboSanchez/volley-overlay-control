@@ -71,4 +71,18 @@ describe('GestureCoachmark', () => {
     fireEvent.keyDown(document, { key: 'ArrowLeft' });
     expect(screen.getByText(/tap to score/i)).toBeInTheDocument();
   });
+
+  it('does not intercept Enter on the document — focused button handles it', () => {
+    // Regression: a previous version of the global keydown listener
+    // intercepted Enter and called preventDefault, which blocked
+    // the Skip / Back buttons' native click activation for keyboard
+    // users. Enter is now exclusively the responsibility of whichever
+    // button currently holds focus.
+    const onDismiss = vi.fn();
+    renderWithI18n(<GestureCoachmark open={true} onDismiss={onDismiss} />);
+    fireEvent.keyDown(document, { key: 'Enter' });
+    // First step still showing — Enter on the document didn't advance.
+    expect(screen.getByText(/tap to score/i)).toBeInTheDocument();
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
 });

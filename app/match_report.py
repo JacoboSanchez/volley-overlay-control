@@ -1577,11 +1577,13 @@ def _render_timeline(
         ("timeout", _t(locale, "legendTimeout")),
         ("serve", _t(locale, "legendServe")),
         ("edit", _t(locale, "legendEdit")),
+        ("reset", _t(locale, "legendReset")),
         ("undone", _t(locale, "legendUndone")),
     ]
     chip_glyphs = {
         "point-t1": "+1", "point-t2": "+1", "set": "🏆",
-        "timeout": "⏸", "serve": "⇄", "edit": "✎", "undone": "↶",
+        "timeout": "⏸", "serve": "⇄", "edit": "✎",
+        "reset": "⟲", "undone": "↶",
     }
     legend_html = "".join(
         f'<span class="timeline-legend-item">'
