@@ -10,6 +10,60 @@ once a first tagged release ships.
 
 ### Added
 
+- **UX Phase 0 — quick wins across the four operator surfaces.** Five
+  small, low-risk fixes that close visible gaps in the control UI,
+  the ``/manage`` admin page, the public match report and the
+  preview iframe. Each is independently revertable.
+
+  * **Realtime sync indicator (``ConnectionStatus``).** New pinned
+    pill at the top-left of the control UI that surfaces an amber
+    "Reconnecting…" badge whenever the WebSocket from
+    ``hooks/useGameState.ts`` drops for more than 1.5 s
+    (``graceMs`` configurable). Healthy connections render no
+    visible chrome — only an off-screen ``role="status"`` /
+    ``aria-live="polite"`` element so assistive tech still picks
+    up the transition. Honours ``prefers-reduced-motion``.
+  * **Stylised confirm dialogs (``ConfirmDialog``).** Replaces
+    ``window.confirm`` in App reset and ConfigPanel logout with a
+    focus-trapped modal layered on the existing ``Dialog`` primitive.
+    Native confirm broke theme/zoom on mobile and skipped the focus
+    trap that the rest of the app already depends on. The unsaved-
+    changes ``confirm`` in ConfigPanel stays — its synchronous
+    return value is what the popstate handler hangs off, and that
+    flow is rebuilt in Phase 4 (history rework, not a Phase 0 swap).
+  * **/manage create-overlay name length cap.** ``app/admin/static/
+    overlays.html`` now enforces ``maxlength="64"`` on the create
+    form's name input plus a JS-side guard for paste paths, with an
+    inline help-text update. Pre-empts the table-layout breakage that
+    arbitrarily long names produced.
+  * **Preview iframe failure fallback.** ``OverlayPreview`` now binds
+    ``onLoad`` / ``onError`` and starts a 6 s ``PREVIEW_LOAD_TIMEOUT_MS``
+    timer per mount. If neither fires, an overlay placeholder
+    ("Preview unavailable" + Retry button) covers the iframe so the
+    operator can recover without unmounting. Retry busts cache via a
+    new ``cacheBust`` token so the second attempt isn't served from
+    the still-broken response.
+  * **Match-report timeline ↶ Undone badge.** ``app/match_report.py``
+    ``_render_li`` now appends a non-strikethrough chip to undone
+    rows so the marker survives dense timelines and the print
+    stylesheet (where the line-through alone is hard to read).
+    Localised in all six report locales as ``undoneBadge``.
+
+  i18n: 5 new keys (``conn.online``, ``conn.reconnecting``,
+  ``confirm.title``, ``confirm.confirm``, ``confirm.cancel``,
+  ``preview.unavailable``, ``preview.retry``) translated across all
+  six frontend locales (en/es/pt/it/fr/de). 1 new backend report key
+  (``undoneBadge``) translated across the same six locales.
+
+  Tests: ``ConnectionStatus.test.tsx`` (4 cases), ``ConfirmDialog
+  .test.tsx`` (6 cases), 3 new fallback cases in ``OverlayPreview
+  .test.tsx``, 1 new ``test_undone_rows_carry_visible_badge`` in
+  ``tests/test_match_report.py``. ConfigPanel logout tests rewritten
+  to assert against the new ``confirm-dialog-ok`` /
+  ``confirm-dialog-cancel`` test ids instead of mocking
+  ``window.confirm``. Full suites: backend 1002 passed, frontend
+  341 passed.
+
 - **UX Phase 1 — sensory feedback and loading state.** Closes the
   perceptual loop so the operator knows *what just happened*
   without having to watch the scoreboard. Sound cues were
@@ -73,62 +127,6 @@ once a first tagged release ships.
   ``ConfigPanel.test.tsx``. ``App.test.tsx`` updated where the
   seeded-OID path no longer flashes an InitScreen input. Full
   suites: backend 1002 passed, frontend 358 passed.
-
-### Added
-
-- **UX Phase 0 — quick wins across the four operator surfaces.** Five
-  small, low-risk fixes that close visible gaps in the control UI,
-  the ``/manage`` admin page, the public match report and the
-  preview iframe. Each is independently revertable.
-
-  * **Realtime sync indicator (``ConnectionStatus``).** New pinned
-    pill at the top-left of the control UI that surfaces an amber
-    "Reconnecting…" badge whenever the WebSocket from
-    ``hooks/useGameState.ts`` drops for more than 1.5 s
-    (``graceMs`` configurable). Healthy connections render no
-    visible chrome — only an off-screen ``role="status"`` /
-    ``aria-live="polite"`` element so assistive tech still picks
-    up the transition. Honours ``prefers-reduced-motion``.
-  * **Stylised confirm dialogs (``ConfirmDialog``).** Replaces
-    ``window.confirm`` in App reset and ConfigPanel logout with a
-    focus-trapped modal layered on the existing ``Dialog`` primitive.
-    Native confirm broke theme/zoom on mobile and skipped the focus
-    trap that the rest of the app already depends on. The unsaved-
-    changes ``confirm`` in ConfigPanel stays — its synchronous
-    return value is what the popstate handler hangs off, and that
-    flow is rebuilt in Phase 4 (history rework, not a Phase 0 swap).
-  * **/manage create-overlay name length cap.** ``app/admin/static/
-    overlays.html`` now enforces ``maxlength="64"`` on the create
-    form's name input plus a JS-side guard for paste paths, with an
-    inline help-text update. Pre-empts the table-layout breakage that
-    arbitrarily long names produced.
-  * **Preview iframe failure fallback.** ``OverlayPreview`` now binds
-    ``onLoad`` / ``onError`` and starts a 6 s ``PREVIEW_LOAD_TIMEOUT_MS``
-    timer per mount. If neither fires, an overlay placeholder
-    ("Preview unavailable" + Retry button) covers the iframe so the
-    operator can recover without unmounting. Retry busts cache via a
-    new ``cacheBust`` token so the second attempt isn't served from
-    the still-broken response.
-  * **Match-report timeline ↶ Undone badge.** ``app/match_report.py``
-    ``_render_li`` now appends a non-strikethrough chip to undone
-    rows so the marker survives dense timelines and the print
-    stylesheet (where the line-through alone is hard to read).
-    Localised in all six report locales as ``undoneBadge``.
-
-  i18n: 5 new keys (``conn.online``, ``conn.reconnecting``,
-  ``confirm.title``, ``confirm.confirm``, ``confirm.cancel``,
-  ``preview.unavailable``, ``preview.retry``) translated across all
-  six frontend locales (en/es/pt/it/fr/de). 1 new backend report key
-  (``undoneBadge``) translated across the same six locales.
-
-  Tests: ``ConnectionStatus.test.tsx`` (4 cases), ``ConfirmDialog
-  .test.tsx`` (6 cases), 3 new fallback cases in ``OverlayPreview
-  .test.tsx``, 1 new ``test_undone_rows_carry_visible_badge`` in
-  ``tests/test_match_report.py``. ConfigPanel logout tests rewritten
-  to assert against the new ``confirm-dialog-ok`` /
-  ``confirm-dialog-cancel`` test ids instead of mocking
-  ``window.confirm``. Full suites: backend 1002 passed, frontend
-  341 passed.
 
 - **Configuration presets — replaces the originally planned
   Fase 2 (themes editables).** Operators can now save subsets of an

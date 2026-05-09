@@ -385,7 +385,10 @@ export default function ConfigPanel({
         message={t('config.logoutConfirm')}
         confirmLabel={t('config.logout')}
         danger
-        onConfirm={onLogout}
+        onConfirm={() => {
+          onLogout();
+          setLogoutConfirmOpen(false);
+        }}
         onClose={() => setLogoutConfirmOpen(false)}
       />
 

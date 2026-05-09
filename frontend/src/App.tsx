@@ -506,7 +506,10 @@ export default function App() {
         message={t('config.resetConfirm')}
         confirmLabel={t('config.resetMatch')}
         danger
-        onConfirm={confirmReset}
+        onConfirm={() => {
+          confirmReset();
+          setResetConfirmOpen(false);
+        }}
         onClose={() => setResetConfirmOpen(false)}
       />
     </div>

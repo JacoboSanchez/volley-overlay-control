@@ -18,6 +18,13 @@ export interface ConfirmDialogProps {
    * autopilot.
    */
   danger?: boolean;
+  /**
+   * Fired when the operator clicks the confirm button. The dialog
+   * does **not** auto-close — the parent owns dismissal so an async
+   * confirm flow (e.g. server round-trip) can keep the dialog open
+   * while the action is in flight, then call ``onClose`` from its
+   * own success/failure path.
+   */
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -27,6 +34,12 @@ export interface ConfirmDialogProps {
  * ``Dialog`` primitive. Centralises the OK/Cancel layout so reset, logout
  * and similar destructive prompts share the same look, focus management
  * and i18n footprint.
+ *
+ * Confirm and close are deliberately decoupled: the OK button only
+ * invokes ``onConfirm``. Parents that want immediate dismissal call
+ * ``onClose`` from inside the same handler; parents that need to
+ * surface in-flight state keep the dialog open until their async
+ * action settles.
  */
 export default function ConfirmDialog({
   open,
@@ -51,7 +64,7 @@ export default function ConfirmDialog({
         <button
           type="button"
           className={`dialog-btn ${danger ? 'dialog-btn-danger' : 'dialog-btn-ok'}`}
-          onClick={() => { onConfirm(); onClose(); }}
+          onClick={onConfirm}
           data-testid="confirm-dialog-ok"
         >
           <span className="material-icons">{danger ? 'warning' : 'done'}</span>

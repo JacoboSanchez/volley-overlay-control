@@ -30,7 +30,11 @@ describe('ConfirmDialog', () => {
     expect(screen.getByTestId('confirm-dialog-cancel')).toHaveTextContent('Cancel');
   });
 
-  it('calls onConfirm and then onClose when OK is clicked', () => {
+  it('only calls onConfirm when OK is clicked — parent owns close', () => {
+    // Decoupled from onClose so async confirm flows can keep the
+    // dialog open (e.g. to show a loading state) until the parent
+    // explicitly dismisses. Synchronous parents call onClose
+    // themselves from inside the same handler.
     const onConfirm = vi.fn();
     const onClose = vi.fn();
     renderWithI18n(
@@ -43,7 +47,7 @@ describe('ConfirmDialog', () => {
     );
     fireEvent.click(screen.getByTestId('confirm-dialog-ok'));
     expect(onConfirm).toHaveBeenCalledOnce();
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('calls onClose only when Cancel is clicked', () => {
