@@ -18,13 +18,20 @@ const ButtonsSection = lazy(() => import('./config/ButtonsSection'));
 const BehaviorSection = lazy(() => import('./config/BehaviorSection'));
 const LinksSection = lazy(() => import('./config/LinksSection'));
 const MatchRulesSection = lazy(() => import('./config/MatchRulesSection'));
+const PresetPicker = lazy(() => import('./PresetPicker'));
 
-type Section = 'teams' | 'overlay' | 'position' | 'buttons' | 'rules' | 'behavior' | 'links';
+type Section = 'presets' | 'teams' | 'overlay' | 'position' | 'buttons' | 'rules' | 'behavior' | 'links';
 
+// ``presets`` sits at the top so the operator notices the
+// admin-curated bundles before drilling into individual fields. The
+// section absorbed the env-var theme dropdown that used to live inside
+// ``OverlaySection`` — both env themes and user presets now flow
+// through the unified picker.
 const SECTIONS: readonly Section[] = [
-  'teams', 'overlay', 'position', 'buttons', 'rules', 'behavior', 'links',
+  'presets', 'teams', 'overlay', 'position', 'buttons', 'rules', 'behavior', 'links',
 ];
 const SECTION_KEYS: Record<Section, string> = {
+  presets: 'section.presets',
   teams: 'section.teams',
   overlay: 'section.overlay',
   position: 'section.position',
@@ -34,6 +41,7 @@ const SECTION_KEYS: Record<Section, string> = {
   links: 'section.links',
 };
 const SECTION_ICONS: Record<Section, string> = {
+  presets: 'bookmarks',
   teams: 'groups',
   overlay: 'palette',
   position: 'open_with',
@@ -43,7 +51,6 @@ const SECTION_ICONS: Record<Section, string> = {
   links: 'link',
 };
 
-type Themes = Record<string, ConfigModel>;
 type LinksData = LinksSectionLinks | null;
 
 function themeIcon(pref: ThemePreference): string {
@@ -117,17 +124,14 @@ export default function ConfigPanel({
   useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
-  const [themes, setThemes] = useState<Themes>({});
   const [styles, setStyles] = useState<string[]>([]);
   const [links, setLinks] = useState<LinksData>(null);
-  const [selectedTheme, setSelectedTheme] = useState('');
   const [activeSection, setActiveSection] = useState<Section | null>('teams');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     api.getTeams().then((d) => { if (!cancelled) setPredefinedTeams(d as PredefinedTeams); }).catch(console.warn);
-    api.getThemes().then((d) => { if (!cancelled) setThemes(d as Themes); }).catch(console.warn);
     api.getLinks(oid).then((d) => { if (!cancelled) setLinks(d as LinksData); }).catch(console.warn);
     api.getStyles(oid).then((d) => { if (!cancelled) setStyles(d); }).catch(console.warn);
     return () => { cancelled = true; };
@@ -199,13 +203,14 @@ export default function ConfigPanel({
     };
   }, []);
 
-  const handleApplyTheme = useCallback((themeName: string) => {
-    const themeData = themes[themeName];
-    if (themeData) {
-      setModel((m) => ({ ...m, ...themeData }));
-      setIsDirty(true);
-    }
-  }, [themes]);
+  // Operator picks a preset / env-var theme via ``PresetPicker``; the
+  // patch is shallow-merged into the local ``model`` and the panel goes
+  // dirty so the existing Save button persists the result. Same staging
+  // semantics as direct field edits — apply does NOT write through.
+  const handleApplyPreset = useCallback((patch: ConfigModel) => {
+    setModel((m) => ({ ...m, ...patch }));
+    setIsDirty(true);
+  }, []);
 
   const isCustomOverlay = !!(
     links?.overlay && typeof links.overlay === 'string' && !links.overlay.includes('overlays.uno')
@@ -213,6 +218,8 @@ export default function ConfigPanel({
 
   function renderSection(sec: Section | null) {
     switch (sec) {
+      case 'presets':
+        return <PresetPicker oid={oid} onApplyPatch={handleApplyPreset} />;
       case 'teams':
         return <TeamsSection model={model} updateField={updateField} predefinedTeams={predefinedTeams} />;
       case 'overlay':
@@ -220,11 +227,7 @@ export default function ConfigPanel({
           <OverlaySection
             model={model}
             updateField={updateField}
-            themes={themes}
             styles={styles}
-            selectedTheme={selectedTheme}
-            setSelectedTheme={setSelectedTheme}
-            onApplyTheme={handleApplyTheme}
             isCustomOverlay={isCustomOverlay}
           />
         );

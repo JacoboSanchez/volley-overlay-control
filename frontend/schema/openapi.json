@@ -833,6 +833,69 @@
         "title": "PresetImportRequest",
         "type": "object"
       },
+      "PresetOptionItem": {
+        "properties": {
+          "id": {
+            "description": "Stable identifier \u2014 ``theme:<key>`` for env themes, ``preset:<slug>`` for user presets.",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "patch": {
+            "additionalProperties": true,
+            "description": "Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React panel deep-merges into its edit model. Empty patches are filtered before the response is built.",
+            "title": "Patch",
+            "type": "object"
+          },
+          "read_only": {
+            "description": "``true`` when the operator cannot manage this entry (env-var themes need a backend restart to change).",
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "scopes": {
+            "description": "Scopes the patch covers. Synthesised for env themes (``overlay_colors`` since they always carry colour keys); the subset of the record's own scopes that translated to non-empty flat-key writes for user presets.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "source": {
+            "description": "``env`` for env-var ``APP_THEMES``, ``user`` for admin-curated presets persisted in ``data/presets/``.",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "id",
+          "name",
+          "scopes",
+          "patch",
+          "read_only"
+        ],
+        "title": "PresetOptionItem",
+        "type": "object"
+      },
+      "PresetOptionsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PresetOptionItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PresetOptionsResponse",
+        "type": "object"
+      },
       "RawConfigPayload": {
         "additionalProperties": true,
         "properties": {
@@ -2724,6 +2787,49 @@
           }
         },
         "summary": "Update Customization",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/customization/preset-options": {
+      "get": {
+        "description": "Return env-var themes + user presets in a single feed.\n\nEach item carries the flat-key patch the operator's React panel\ndeep-merges into its in-memory edit model \u2014 no second round-trip\nis needed to apply. Snapshots from the original preset record are\nintentionally not surfaced here; they remain admin-only via\n``GET /api/v1/admin/presets/{slug}``.",
+        "operationId": "list_preset_options_api_v1_customization_preset_options_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetOptionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List presets and themes the operator can apply to the panel.",
         "tags": [
           "Scoreboard API v1"
         ]
