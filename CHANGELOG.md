@@ -10,6 +10,57 @@ once a first tagged release ships.
 
 ### Added
 
+- **UX Phase 4.2 — recent-audit drawer accessible from the
+  scoreboard.** The per-OID action log was previously only
+  reachable via the post-match HTML report; during a live match the
+  operator had to detour through the config tab or wait for the
+  match to finish to confirm "did I undo the right point?" /
+  "when was that timeout?". A new ``RecentAuditDrawer`` slides in
+  from the right (tablet/desktop) or up from the bottom (mobile)
+  on demand, lists the latest 20 records, and stays in sync with
+  state confirmations via the existing ``confirmedState`` channel
+  from ``useGameState``. Intentionally **not** a modal — the
+  team panels behind the drawer remain interactive so the operator
+  can keep scoring while reading the drawer. Dismiss via the
+  close button, ESC, or tapping the transparent backdrop. Honours
+  ``prefers-reduced-motion``.
+
+  * **`useAuditLog` hook.** New
+    ``frontend/src/hooks/useAuditLog.ts`` lazily fetches
+    ``GET /api/v1/audit?oid=…&limit=20`` when the drawer opens,
+    refetches when the trigger key (sums of points + sets +
+    timeouts + match-finished) changes, surfaces records
+    newest-first. Cancels in-flight requests on OID change /
+    drawer close.
+  * **`ActionChip` primitive + shared catalogue.** New
+    ``frontend/src/components/ActionChip.tsx`` paired with
+    ``frontend/src/utils/chipCatalogue.ts``. The TS catalogue
+    mirrors the Python ``_CHIP_CATALOGUE`` in
+    ``app/match_report.py`` so the live operator drawer and the
+    post-match HTML report share the same per-action palette
+    (point-t1 / point-t2 / set / timeout / serve / edit / reset /
+    undone). Both surfaces use the same glyphs and colours;
+    drift between them is now a single-file change instead of
+    two.
+  * **HUD share cluster grows a history button.** New
+    ``history`` icon (deep-purple-300) sits next to the share
+    button. Theme constant ``HISTORY_COLOR`` exported alongside
+    ``SHARE_COLOR``.
+
+  i18n: 22 new frontend keys (``history.title``, ``history.close``,
+  ``history.refresh``, ``history.empty``, ``history.loading``,
+  ``history.relative.{justNow,seconds,minutes,hours}``,
+  ``history.action.{point,set,timeout,serve,edit,reset,unknown
+  ,undoSuffix}``, ``history.legend.{pointT1,pointT2,set,timeout
+  ,serve,edit,reset,undone}``) translated across all six
+  supported locales (en/es/pt/it/fr/de).
+
+  Tests: ``ActionChip.test.tsx`` (7 cases),
+  ``useAuditLog.test.tsx`` (7 cases),
+  ``RecentAuditDrawer.test.tsx`` (6 cases),
+  ``ControlButtons.test.tsx`` gains a history-button case. Full
+  suites: backend 1004 passed, frontend 390 passed.
+
 - **UX Phase 3 — broadcast-side visual hierarchy.** Closes the
   perceptual gap between the operator's "I just won this set"
   feeling and the spectator-facing match report and OBS overlays.

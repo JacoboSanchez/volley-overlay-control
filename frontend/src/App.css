@@ -42,6 +42,32 @@
   --overlay-bg: rgba(0, 0, 0, 0.6);
   --hover-bg: rgba(255, 255, 255, 0.05);
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23999' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+
+  /*
+    Action-chip palette — single source of truth shared by the
+    recent-audit drawer rows (``.recent-audit-row-*``) and the chip
+    glyph cells (``.action-chip .chip-glyph-*``). Mirrors the colour
+    set in ``frontend/src/utils/chipCatalogue.ts`` and the report-
+    side stylesheet emitted from ``app/match_report.py``.
+  */
+  --chip-point-t1: #2196f3;
+  --chip-point-t2: #f44336;
+  --chip-point: #607d8b;
+  --chip-set: #2e7d32;
+  --chip-timeout: #ff9800;
+  --chip-serve: #5c6bc0;
+  --chip-edit: #ab47bc;
+  --chip-reset: #9e9e9e;
+  /* Tints used as background washes on row strips — kept slightly
+     muted so the row label stays readable on top. */
+  --chip-bg-point-t1: rgba(33, 150, 243, 0.07);
+  --chip-bg-point-t2: rgba(244, 67, 54, 0.07);
+  --chip-bg-point:    rgba(96, 125, 139, 0.07);
+  --chip-bg-set:      rgba(46, 125, 50, 0.10);
+  --chip-bg-timeout:  rgba(255, 152, 0, 0.10);
+  --chip-bg-serve:    rgba(92, 107, 192, 0.07);
+  --chip-bg-edit:     rgba(171, 71, 188, 0.08);
+  --chip-bg-reset:    rgba(158, 158, 158, 0.10);
 }
 
 :root.light {
@@ -2416,6 +2442,256 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .gesture-coachmark { animation: none; }
+}
+
+/* ── Recent-audit drawer (Phase 4.2) ────────────────────────────────── */
+
+/*
+  Non-modal slide-in panel that surfaces the per-OID action log so
+  the operator can verify what just happened without leaving the
+  scoreboard. The transparent backdrop is a real <button> for
+  click-outside-to-close, sized to the part of the viewport the
+  drawer doesn't occupy. Pointer events on the team panels behind
+  the drawer stay live so the operator can keep scoring.
+*/
+.recent-audit-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  pointer-events: none;
+}
+
+.recent-audit-backdrop {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  /* Sit *below* the card so the card grabs clicks first. The
+     backdrop catches taps on the rest of the viewport for
+     click-outside dismissal. */
+  z-index: 0;
+}
+
+.recent-audit-card {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: var(--surface);
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  box-shadow: 0 -4px 20px var(--shadow-heavy);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+  /* Mobile / portrait: sticks to the bottom of the viewport,
+     occupies up to 60% of the height. */
+  width: 100%;
+  max-height: 60vh;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  animation: recent-audit-slide-up 0.22s ease-out;
+}
+
+@media (min-width: 720px) {
+  .recent-audit-card {
+    /* Tablet / desktop: side panel on the right edge so the
+       team panels behind it stay readable. */
+    top: 0;
+    width: 380px;
+    max-width: 95vw;
+    max-height: none;
+    border-radius: 0;
+    border-top: 0;
+    animation: recent-audit-slide-right 0.22s ease-out;
+  }
+}
+
+@keyframes recent-audit-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes recent-audit-slide-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recent-audit-card { animation: none; }
+}
+
+.recent-audit-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.recent-audit-title {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.recent-audit-toolbar {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.recent-audit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recent-audit-btn .material-icons { font-size: 1.1rem; }
+
+.recent-audit-btn:hover { background: var(--hover-bg); }
+
+.recent-audit-btn:focus-visible {
+  outline: 2px solid var(--blue, #2196f3);
+  outline-offset: 2px;
+}
+
+.recent-audit-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.5rem 1rem;
+}
+
+.recent-audit-empty,
+.recent-audit-error {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.recent-audit-error {
+  color: var(--red);
+}
+
+.recent-audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recent-audit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid var(--border);
+  background: rgba(127, 127, 127, 0.04);
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.recent-audit-row-undo {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.recent-audit-row-point-t1 { border-left-color: var(--chip-point-t1); background: var(--chip-bg-point-t1); }
+.recent-audit-row-point-t2 { border-left-color: var(--chip-point-t2); background: var(--chip-bg-point-t2); }
+.recent-audit-row-point    { border-left-color: var(--chip-point);    background: var(--chip-bg-point); }
+.recent-audit-row-set      { border-left-color: var(--chip-set);      background: var(--chip-bg-set); }
+.recent-audit-row-timeout  { border-left-color: var(--chip-timeout);  background: var(--chip-bg-timeout); }
+.recent-audit-row-serve    { border-left-color: var(--chip-serve);    background: var(--chip-bg-serve); }
+.recent-audit-row-edit     { border-left-color: var(--chip-edit);     background: var(--chip-bg-edit); }
+.recent-audit-row-reset    { border-left-color: var(--chip-reset);    background: var(--chip-bg-reset); }
+.recent-audit-row-undone,
+.recent-audit-row-other    { border-left-color: var(--text-muted); }
+
+.recent-audit-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-audit-row-score {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.recent-audit-row-ts {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Action chip primitive ─────────────────────────────────────────── */
+
+/*
+  Reusable chip surfaced both in the recent-audit drawer and the
+  match report's timeline rows. Visual contract mirrors
+  ``app.match_report._CHIP_CATALOGUE`` so the operator and the
+  spectator see the same palette.
+*/
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-chip .chip-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--text-muted);
+}
+
+.action-chip .chip-glyph-point-t1 { background: var(--chip-point-t1); }
+.action-chip .chip-glyph-point-t2 { background: var(--chip-point-t2); }
+.action-chip .chip-glyph-point    { background: var(--chip-point); }
+.action-chip .chip-glyph-set      { background: var(--chip-set); }
+.action-chip .chip-glyph-timeout  { background: var(--chip-timeout); color: #1f1300; }
+.action-chip .chip-glyph-serve    { background: var(--chip-serve); }
+.action-chip .chip-glyph-edit     { background: var(--chip-edit); }
+.action-chip .chip-glyph-reset    { background: var(--chip-reset); color: #1a1a2e; }
+.action-chip .chip-glyph-undone,
+.action-chip .chip-glyph-other    {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.action-chip-label {
+  font-size: 0.85rem;
+  color: var(--text);
 }
 
 /* ── Connection status ──────────────────────────────────────────────── */
