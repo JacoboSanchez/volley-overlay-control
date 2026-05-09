@@ -685,12 +685,46 @@ def _action_label(record: dict, locale: str) -> str:
     return action or _t(locale, "actionUnknown")
 
 
+# Single source of truth for the timeline chip palette. Each entry
+# pairs the chip kind (used as a CSS modifier ``chip-{kind}``) with
+# the glyph rendered inside the accent strip and, when applicable,
+# the i18n key that names it in the bottom legend.
+#
+# Order matters — the legend section iterates the catalogue in the
+# order entries appear here, so the operator scans them top-to-
+# bottom (per-team points, then set / timeout / serve / edit /
+# reset, then the cross-cutting ``undone`` marker).
+_CHIP_CATALOGUE: dict[str, dict[str, str | None]] = {
+    "point-t1": {"glyph": "+1", "legend_key": "legendPointT1"},
+    "point-t2": {"glyph": "+1", "legend_key": "legendPointT2"},
+    # Generic point chip used for legacy/missing-team rows. Not
+    # surfaced in the legend because the per-team variants already
+    # cover the shared semantics.
+    "point":    {"glyph": "+1", "legend_key": None},
+    "set":      {"glyph": "🏆", "legend_key": "legendSet"},
+    "timeout":  {"glyph": "⏸", "legend_key": "legendTimeout"},
+    "serve":    {"glyph": "⇄", "legend_key": "legendServe"},
+    "edit":     {"glyph": "✎", "legend_key": "legendEdit"},
+    "reset":    {"glyph": "⟲", "legend_key": "legendReset"},
+    "undone":   {"glyph": "↶", "legend_key": "legendUndone"},
+    # Final fallback — keeps unknown actions from rendering a blank
+    # accent strip. Intentionally unlabelled in the legend.
+    "other":    {"glyph": "•", "legend_key": None},
+}
+
+
+def _chip_glyph(kind: str) -> str:
+    """Glyph shown inside the chip accent strip for a given kind."""
+    entry = _CHIP_CATALOGUE.get(kind, _CHIP_CATALOGUE["other"])
+    glyph = entry["glyph"]
+    return glyph if isinstance(glyph, str) else "•"
+
+
 # Classifier-driven chip metadata. Returns the (modifier, glyph) pair
 # the timeline ``<li>`` and its accent strip use to differentiate
-# action kinds at a glance. The glyphs are short ASCII / unicode so
-# they survive the print stylesheet without depending on Material
-# Icons being available — the report ships with no icon font of its
-# own and we don't want a print-time regression.
+# action kinds at a glance. Glyphs come from ``_CHIP_CATALOGUE`` so
+# the legend, the per-row strip and any future surface that needs
+# the same palette stay consistent without manual sync.
 def _chip_classifier(
     action: str, team: object, was_undone: bool,
 ) -> tuple[str, str]:
@@ -704,23 +738,26 @@ def _chip_classifier(
     """
     if action == "add_point":
         if team == 1:
-            return ("point-t1", "+1")
-        if team == 2:
-            return ("point-t2", "+1")
-        return ("point", "+1")
-    if action == "add_set":
-        return ("set", "🏆")
-    if action == "add_timeout":
-        return ("timeout", "⏸")
-    if action == "change_serve":
-        return ("serve", "⇄")
-    if action == "set_score":
-        return ("edit", "✎")
-    if action == "reset":
-        return ("reset", "⟲")
-    if was_undone:
-        return ("undone", "↶")
-    return ("other", "•")
+            kind = "point-t1"
+        elif team == 2:
+            kind = "point-t2"
+        else:
+            kind = "point"
+    elif action == "add_set":
+        kind = "set"
+    elif action == "add_timeout":
+        kind = "timeout"
+    elif action == "change_serve":
+        kind = "serve"
+    elif action == "set_score":
+        kind = "edit"
+    elif action == "reset":
+        kind = "reset"
+    elif was_undone:
+        kind = "undone"
+    else:
+        kind = "other"
+    return (kind, _chip_glyph(kind))
 
 
 # ---------------------------------------------------------------------------
@@ -1568,31 +1605,26 @@ def _render_timeline(
         )
 
     # Mini legend so the per-action chip palette is decodable at a
-    # glance — same key list the chip classifier emits, in the order
-    # the operator is most likely to scan for.
-    legend_items = [
-        ("point-t1", _t(locale, "legendPointT1")),
-        ("point-t2", _t(locale, "legendPointT2")),
-        ("set", _t(locale, "legendSet")),
-        ("timeout", _t(locale, "legendTimeout")),
-        ("serve", _t(locale, "legendServe")),
-        ("edit", _t(locale, "legendEdit")),
-        ("reset", _t(locale, "legendReset")),
-        ("undone", _t(locale, "legendUndone")),
-    ]
-    chip_glyphs = {
-        "point-t1": "+1", "point-t2": "+1", "set": "🏆",
-        "timeout": "⏸", "serve": "⇄", "edit": "✎",
-        "reset": "⟲", "undone": "↶",
-    }
-    legend_html = "".join(
-        f'<span class="timeline-legend-item">'
-        f'<span class="chip-glyph chip-glyph-{kind}" aria-hidden="true">'
-        f'{html.escape(chip_glyphs[kind])}</span>'
-        f'{html.escape(label)}</span>'
-        for kind, label in legend_items
+    # glance. The order is the catalogue's declaration order; each
+    # ``legend_key=None`` entry is skipped (e.g. the generic
+    # ``point`` and the ``other`` fallback don't earn a row of
+    # their own — they overlap semantically with the team-bound
+    # points and an unrenderable action respectively).
+    legend_html_parts: list[str] = []
+    for kind, meta in _CHIP_CATALOGUE.items():
+        legend_key = meta.get("legend_key")
+        if not legend_key:
+            continue
+        label = _t(locale, legend_key)
+        legend_html_parts.append(
+            '<span class="timeline-legend-item">'
+            f'<span class="chip-glyph chip-glyph-{kind}" aria-hidden="true">'
+            f'{html.escape(_chip_glyph(kind))}</span>'
+            f'{html.escape(label)}</span>'
+        )
+    blocks.append(
+        f'<div class="timeline-legend">{"".join(legend_html_parts)}</div>',
     )
-    blocks.append(f'<div class="timeline-legend">{legend_html}</div>')
 
     return "".join(blocks) or f'<em>{html.escape(_t(locale, "noAudit"))}</em>'
 

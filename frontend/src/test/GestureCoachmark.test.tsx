@@ -72,6 +72,25 @@ describe('GestureCoachmark', () => {
     expect(screen.getByText(/tap to score/i)).toBeInTheDocument();
   });
 
+  it('traps Tab focus inside the card', () => {
+    // Mirrors the Dialog primitive's trap so keyboard users cannot
+    // tab into the underlying scoreboard while the tour is open.
+    renderWithI18n(<GestureCoachmark open={true} onDismiss={vi.fn()} />);
+    const buttons = [
+      screen.getByTestId('gesture-coachmark-skip'),
+      screen.getByTestId('gesture-coachmark-next'),
+    ];
+    const last = buttons[buttons.length - 1]!;
+    last.focus();
+    expect(document.activeElement).toBe(last);
+    // Tab past the last focusable should bounce back to the first.
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(buttons[0]);
+    // Shift+Tab on the first should bounce to the last.
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
   it('does not intercept Enter on the document — focused button handles it', () => {
     // Regression: a previous version of the global keydown listener
     // intercepted Enter and called preventDefault, which blocked

@@ -57,7 +57,9 @@ export default function GestureCoachmark({ open, onDismiss }: GestureCoachmarkPr
   }, [open]);
 
   // Keyboard shortcuts on top of the focusable buttons. ESC
-  // dismisses, ArrowLeft / ArrowRight step. Enter is **deliberately
+  // dismisses, ArrowLeft / ArrowRight step, Tab/Shift+Tab is
+  // trapped inside the card so keyboard users don't leak focus
+  // back into the scoreboard underneath. Enter is **deliberately
   // not** intercepted here — letting the document listener swallow
   // it would block the Skip / Back buttons' native click activation
   // and force every keyboard user into "advance only" mode. The
@@ -83,6 +85,33 @@ export default function GestureCoachmark({ open, onDismiss }: GestureCoachmarkPr
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setStepIndex((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    // Focus trap. Mirrors ``Dialog`` (frontend/src/components/Dialog
+    // .tsx) so the coachmark behaves the same as every other modal
+    // surface when keyboard users tab past either edge.
+    const card = cardRef.current;
+    if (!card) return;
+    const focusable = card.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), '
+        + 'input:not([disabled]), select:not([disabled]), '
+        + '[tabindex]:not([tabindex="-1"])',
+    );
+    if (focusable.length === 0) {
+      e.preventDefault();
+      card.focus();
+      return;
+    }
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === card)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
     }
   }, [open, onDismiss]);
 
