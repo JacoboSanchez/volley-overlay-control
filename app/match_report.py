@@ -292,6 +292,20 @@ _REPORT_TEMPLATE = """<!doctype html>
     margin: 0 4px 0 8px;
     border-radius: 50%;
   }}
+  /* Timeout legend pip mirrors the chart's dashed guide: a thin
+     horizontal track of three dashes that visually echoes the
+     vertical guides drawn over the polylines. ``border-radius:0``
+     overrides the default round-pip style. */
+  .chart-card .legend .swatch-timeout {{
+    background: repeating-linear-gradient(
+      to right,
+      var(--muted) 0 2px,
+      transparent 2px 4px
+    );
+    border-radius: 0;
+    height: 2px;
+    width: 14px;
+  }}
   .set-chart {{
     width: 100%;
     height: auto;
@@ -481,7 +495,6 @@ _REPORT_TEMPLATE = """<!doctype html>
     <tr><td>{team1_name}</td>{team1_set_cells}</tr>
     <tr><td>{team2_name}</td>{team2_set_cells}</tr>
     <tr><td>{h_set_durations}</td>{set_duration_cells}</tr>
-    <tr><td>{h_timeouts_row}</td>{timeouts_row_cells}</tr>
   </tbody>
 </table>
 
@@ -1239,7 +1252,9 @@ def _format_mmss(seconds: float) -> str:
 
 
 def _render_score_chart(
-    set_records: list[dict], *, t1_color: str, t2_color: str,
+    set_records: list[dict], *,
+    t1_color: str, t2_color: str,
+    timeouts: list[dict] | None = None,
 ) -> str:
     """Inline SVG showing how each team's score evolved through a set.
 
@@ -1252,8 +1267,17 @@ def _render_score_chart(
     datapoint is marked with a small filled circle so single-point
     spikes are legible. One polyline per team, coloured via the
     contrast-safe palette resolved upstream. Pure SVG, no JS, so it
-    survives "Save as PDF". Returns a placeholder string when the
-    set has fewer than two scoring records (nothing to plot).
+    survives "Save as PDF".
+
+    *timeouts* (optional) is the list of ``add_timeout`` audit
+    records belonging to this set, already collapsed for undos by
+    the caller. Each one renders as a thin dashed vertical guide
+    line in the calling team's colour, with a small downward
+    triangle perched above the chart so the operator can correlate
+    "score stalled here" with "the team called timeout".
+
+    Returns a placeholder string when the set has fewer than two
+    scoring records (nothing to plot).
     """
     points: list[tuple[int, int]] = []
     timestamps: list[float | None] = []
@@ -1371,6 +1395,70 @@ def _render_score_chart(
             for x, y in (_project(i, p[team_idx]) for i, p in enumerate(points))
         )
 
+    def _timeout_markers() -> str:
+        if not timeouts:
+            return ""
+        # Reuse ``timestamps`` (1:1 with the plotted ``points``)
+        # rather than rebuilding from ``set_records`` — the polyline
+        # already filters out records that lack a ``_running_score_pair``,
+        # so a parallel rebuild here would drift the rally indices.
+        # Some entries may still be ``None`` when the chart fell back
+        # to rally mode because of missing timestamps; those score
+        # records simply don't contribute to the timeout's rally
+        # position.
+        items: list[str] = []
+        for record in timeouts:
+            params = record.get("params") or {}
+            team = params.get("team")
+            if team not in (1, 2):
+                continue
+            ts = record.get("ts")
+            if not isinstance(ts, (int, float)):
+                continue
+            ts_float = float(ts)
+            if use_time_axis and times is not None:
+                # Time mode: anchor to the same ``base_ts`` the score
+                # polyline uses. A timeout called *before* the first
+                # point of the set lands at x=0 (left edge) rather
+                # than off-canvas.
+                x_val = max(0.0, ts_float - times[0])
+                x_val = min(x_val, x_max)
+            else:
+                # Rally mode: count plotted score records whose
+                # timestamp is ``<= ts_float``. ``idx`` is the rally
+                # number after which the timeout was called; clamp
+                # into ``[0, last_idx]`` so a post-final-point
+                # timeout still renders on the right edge. Skip
+                # ``None`` entries (records without a timestamp)
+                # rather than letting the comparison raise.
+                idx = sum(
+                    1 for t in timestamps if t is not None and t <= ts_float
+                ) - 1
+                idx = max(0, min(idx, last_idx))
+                x_val = float(idx)
+            x_norm = x_val / x_max if x_max else 0.0
+            x = pad_x_left + x_norm * plot_w
+            color = t1_color if team == 1 else t2_color
+            color_safe = html.escape(color)
+            # Dashed guide spanning the plot height + a small
+            # downward triangle perched 6 px above the plot area
+            # so it doesn't collide with the polylines or the
+            # ``max_score`` Y label.
+            items.append(
+                f'<line class="set-chart-timeout" data-team="{team}" '
+                f'x1="{x:.1f}" y1="{pad_y_top:.1f}" '
+                f'x2="{x:.1f}" y2="{pad_y_top + plot_h:.1f}" '
+                f'stroke="{color_safe}" stroke-width="1" '
+                f'stroke-dasharray="3,3" opacity="0.55" />'
+                f'<polygon class="set-chart-timeout-glyph" '
+                f'data-team="{team}" '
+                f'points="{x - 3:.1f},{pad_y_top - 6:.1f} '
+                f'{x + 3:.1f},{pad_y_top - 6:.1f} '
+                f'{x:.1f},{pad_y_top:.1f}" '
+                f'fill="{color_safe}" />'
+            )
+        return "".join(items)
+
     # ``data-x-axis`` lets tests assert which mode kicked in without
     # parsing the rendered labels.
     axis_attr = "time" if use_time_axis else "rally"
@@ -1383,6 +1471,7 @@ def _render_score_chart(
         f'{grid_lines}{y_labels}{x_labels}'
         f'{_polyline(0, t1_color)}{_polyline(1, t2_color)}'
         f'{_markers(0, t1_color)}{_markers(1, t2_color)}'
+        f'{_timeout_markers()}'
         f'</svg>'
     )
 
@@ -1394,31 +1483,6 @@ def _render_set_durations_row(durations: dict[int, float], set_count: int) -> st
             cells.append(f"<td>{html.escape(_fmt_seconds(durations[i]))}</td>")
         else:
             cells.append("<td>—</td>")
-    return "".join(cells)
-
-
-def _render_timeouts_row(
-    timeouts_by_set: dict[int, dict[int, int]], set_count: int,
-) -> str:
-    """Per-set timeouts row for the set-by-set table.
-
-    Each cell renders the per-team counters as ``T1/T2`` (e.g.
-    ``2/1`` means team 1 took two timeouts, team 2 took one). Sets
-    with no timeouts on either side render as ``—`` so the cell
-    matches the empty-cell style used in the score and duration
-    rows above. Reuses the same ``_timeouts_per_set`` map the
-    score-cell suffix already consumes — this row just gives the
-    operator a more prominent at-a-glance summary.
-    """
-    cells = []
-    for i in range(1, set_count + 1):
-        per_team = timeouts_by_set.get(i, {})
-        t1 = int(per_team.get(1, 0))
-        t2 = int(per_team.get(2, 0))
-        if t1 == 0 and t2 == 0:
-            cells.append("<td>—</td>")
-        else:
-            cells.append(f"<td>{t1}/{t2}</td>")
     return "".join(cells)
 
 
@@ -1515,30 +1579,45 @@ def _render_charts(
     *, t1_name: str, t2_name: str, t1_color: str, t2_color: str,
 ) -> str:
     """Build the per-set score-evolution chart grid."""
-    by_set: dict[int, list[dict]] = {}
+    scores_by_set: dict[int, list[dict]] = {}
+    timeouts_by_set: dict[int, list[dict]] = {}
     for record in audit:
         if record.get("params", {}).get("undo"):
-            continue
-        if not _is_score_action(record):
             continue
         set_num = _result_set(record)
         if set_num is None:
             continue
-        by_set.setdefault(set_num, []).append(record)
+        if _is_score_action(record):
+            scores_by_set.setdefault(set_num, []).append(record)
+        elif record.get("action") == "add_timeout":
+            timeouts_by_set.setdefault(set_num, []).append(record)
+
+    timeout_legend = (
+        f'<span class="swatch swatch-timeout" aria-hidden="true"></span>'
+        f'{html.escape(_t(locale, "legendTimeout"))}'
+    )
 
     cards: list[str] = []
     for i in range(1, set_count + 1):
-        records = by_set.get(i, [])
+        records = scores_by_set.get(i, [])
         chart = _render_score_chart(
-            records, t1_color=t1_color, t2_color=t2_color,
+            records,
+            t1_color=t1_color, t2_color=t2_color,
+            timeouts=timeouts_by_set.get(i, []),
         )
         body = chart or (
             f'<p class="legend">{html.escape(_t(locale, "noScoreEvolution"))}</p>'
+        )
+        # Timeout swatch only when this set had at least one — the
+        # operator doesn't need a "Timeout" key on a clean set.
+        timeout_html = (
+            timeout_legend if timeouts_by_set.get(i) else ""
         )
         legend = (
             f'<div class="legend">'
             f'<span class="swatch" style="background: {html.escape(t1_color)};"></span>{html.escape(t1_name)}'
             f'<span class="swatch" style="background: {html.escape(t2_color)};"></span>{html.escape(t2_name)}'
+            f'{timeout_html}'
             f'</div>'
         )
         cards.append(
@@ -1844,7 +1923,6 @@ async def match_report(
         team1_set_cells=_team_set_cells(team1, 1),
         team2_set_cells=_team_set_cells(team2, 2),
         set_duration_cells=_render_set_durations_row(set_durations, played_sets),
-        timeouts_row_cells=_render_timeouts_row(timeouts_by_set, played_sets),
         # ``config`` values are operator-controlled — escape the
         # interpolated string defensively even though the formatter
         # only sees ints in the happy path. ``Best of {sets_limit}`` is
@@ -1878,7 +1956,6 @@ async def match_report(
         h_team=html.escape(_t(locale, "team")),
         h_set_byset=html.escape(_t(locale, "setByset")),
         h_set_durations=html.escape(_t(locale, "setDurations")),
-        h_timeouts_row=html.escape(_t(locale, "timeoutsRow")),
         h_highlights=html.escape(_t(locale, "highlights")),
         h_score_evolution=html.escape(_t(locale, "scoreEvolution")),
         h_match_facts=html.escape(_t(locale, "matchFacts")),
