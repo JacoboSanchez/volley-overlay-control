@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-05-10
+
 ### Added
 
 - **Cross-navigation between Config and `/manage`.** The config
