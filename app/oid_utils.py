@@ -25,6 +25,6 @@ def extract_oid(url: str) -> str:
 
 def compose_output(output: str) -> str:
     """Ensure *output* is a full URL, prepending the Uno base if needed."""
-    if output.startswith("http://") or output.startswith("https://"):
+    if output.startswith(("http://", "https://")):
         return output
     return UNO_OUTPUT_BASE_URL + output
