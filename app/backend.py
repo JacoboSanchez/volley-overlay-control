@@ -440,27 +440,3 @@ class Backend:
         except Exception:
             Backend.logger.exception("Error updating local overlay")
 
-    # -- Uno-specific pass-through (used by legacy code paths) ----
-
-    def send_command_with_value(self, command, value="", customOid=None):
-        """Send a value-type command to the Uno API."""
-        if not self._overlay.is_custom:
-            return self._overlay._send_command_with_value(command, value, customOid)
-        return None
-
-    def send_command_with_id_and_content(self, command, content="", customOid=None):
-        """Send a command with id+content to the Uno API."""
-        if not self._overlay.is_custom:
-            return self._overlay._send_command(command, content, customOid)
-        return None
-
-    def do_send_request(self, oid, jsonin):
-        """Direct request to the Uno API (legacy compatibility)."""
-        from app.overlay_backends import _mock_response
-        if self._resolve_kind(oid) != OverlayKind.UNO:
-            return _mock_response(200)
-
-        if isinstance(self._overlay, UnoOverlayBackend):
-            return self._overlay._do_request(oid, jsonin)
-
-        return _mock_response(200)
