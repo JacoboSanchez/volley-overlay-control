@@ -113,7 +113,6 @@ SCOREBOARD_SAMPLE_ROUTES = [
     ("GET", "/api/v1/customization?oid=anything"),
     ("GET", "/api/v1/config?oid=anything"),
     ("GET", "/api/v1/teams"),
-    ("GET", "/api/v1/themes"),
     ("GET", "/api/v1/overlays"),
     ("GET", "/api/v1/links?oid=anything"),
     ("GET", "/api/v1/styles?oid=anything"),

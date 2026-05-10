@@ -53,8 +53,14 @@ _HASHED_FILENAME_PATTERN = re.compile(
     r"^preset_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$",
 )
 
+# Reserved for env-driven system presets surfaced by the listing
+# endpoint alongside user-saved records. Disk storage never uses this
+# prefix; ``slugify`` rejects user names that resolve to it so a
+# malicious caller can't shadow a system entry by saving a collision.
+SYSTEM_SLUG_PREFIX = "system-"
 
-def slugify(name: str) -> str:
+
+def slugify(name: str, *, check_reserved: bool = True) -> str:
     """Return a filesystem-safe slug for *name*.
 
     Lowercase ASCII alphanumerics plus dashes; runs of any other
@@ -62,7 +68,15 @@ def slugify(name: str) -> str:
     trimmed; empty result raises ``ValueError`` so the caller surfaces
     a 400 instead of writing an unaddressable preset. Length is clamped
     to ``PRESETS_MAX_NAME_LEN`` to keep slugs manageable in URLs and
-    JSON.
+    JSON. Names that resolve to the reserved ``system-`` prefix are
+    rejected for the same reason.
+
+    Pass ``check_reserved=False`` from the system-preset loader, which
+    always prepends ``SYSTEM_SLUG_PREFIX`` to the result anyway, so a
+    theme literally named "System Dark" still yields an addressable
+    ``system-system-dark`` slug instead of being silently dropped.
+    User-facing callers must keep the default to preserve the
+    reservation invariant.
     """
     if not isinstance(name, str):
         raise ValueError("Preset name must be a string.")
@@ -70,6 +84,11 @@ def slugify(name: str) -> str:
     cleaned = cleaned[: max(1, PRESETS_MAX_NAME_LEN)].strip("-")
     if not cleaned or _SLUG_PATTERN.match(cleaned) is None:
         raise ValueError(f"Cannot derive a valid slug from {name!r}.")
+    if check_reserved and cleaned.startswith(SYSTEM_SLUG_PREFIX):
+        raise ValueError(
+            f"Preset slug {cleaned!r} uses the reserved "
+            f"{SYSTEM_SLUG_PREFIX!r} prefix.",
+        )
     return cleaned
 
 

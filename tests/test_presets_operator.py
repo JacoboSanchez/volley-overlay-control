@@ -152,6 +152,31 @@ class TestPresetsStore:
         with pytest.raises(presets_store.PresetExists):
             presets_store.create(name="Dup", values={"Height": 9})
 
+    def test_slugify_rejects_reserved_system_prefix(self):
+        # Names that resolve to ``system-…`` would shadow the
+        # read-only entries surfaced from ``APP_THEMES``. The store
+        # rejects them at slug derivation so a hand-crafted POST
+        # can't ever land such a record on disk.
+        with pytest.raises(ValueError):
+            presets_store.slugify("system-bright")
+        with pytest.raises(ValueError):
+            presets_store.slugify("System Bright")
+
+    def test_slugify_check_reserved_false_allows_system_prefix(self):
+        # The system-preset loader prepends ``system-`` unconditionally,
+        # so it needs to slugify env theme names without the reservation
+        # check or a theme literally named "System Dark" would be
+        # silently dropped instead of addressing as
+        # ``system-system-dark``.
+        assert (
+            presets_store.slugify("System Dark", check_reserved=False)
+            == "system-dark"
+        )
+        assert (
+            presets_store.slugify("system-bright", check_reserved=False)
+            == "system-bright"
+        )
+
     def test_list_orders_by_name_case_insensitive(self):
         presets_store.create(name="zoo", values={"Height": 1})
         presets_store.create(name="Alpha", values={"Height": 2})
@@ -260,6 +285,137 @@ class TestPresetCRUDEndpoints:
     def test_delete_unknown_slug_is_404(self, client):
         r = client.delete("/api/v1/customization/presets/never-existed")
         assert r.status_code == 404
+
+    def test_delete_system_slug_is_403(self, client):
+        # Even when no env var is set so the slug doesn't resolve to a
+        # real system entry, the prefix itself is reserved — the route
+        # short-circuits to 403 before touching disk so a future env
+        # change cannot expose a deletion path.
+        r = client.delete("/api/v1/customization/presets/system-anything")
+        assert r.status_code == 403
+        assert "system" in r.json()["detail"].lower()
+
+    def test_create_with_system_prefix_name_is_400(self, client):
+        # The slugify guard rejects names that would resolve to the
+        # reserved prefix; the route surfaces it as a 400.
+        r = client.post(
+            "/api/v1/customization/presets",
+            json={"name": "system bright", "values": {"Height": 1}},
+        )
+        assert r.status_code == 400, r.text
+        assert "system-" in r.json()["detail"]
+
+    def test_list_includes_system_entries_from_app_themes(
+        self, client, monkeypatch,
+    ):
+        # ``APP_THEMES`` is operator-controlled. The list endpoint
+        # surfaces it as read-only ``source="system"`` records so the
+        # picker can show env-driven and on-disk presets in a single
+        # list. System entries sort first; the ``system-`` slug prefix
+        # disambiguates them from user records that happen to share a
+        # name.
+        monkeypatch.setenv(
+            "APP_THEMES",
+            json.dumps({
+                "Bright Court": {
+                    "Color 1": "#fff",
+                    "Text Color 1": "#000",
+                },
+            }),
+        )
+        client.post(
+            "/api/v1/customization/presets",
+            json={"name": "User Pick", "values": {"Height": 12}},
+        )
+        items = client.get("/api/v1/customization/presets").json()["items"]
+        assert [i["source"] for i in items] == ["system", "user"]
+        sys_item = items[0]
+        assert sys_item["slug"] == "system-bright-court"
+        assert sys_item["name"] == "Bright Court"
+        assert sys_item["values"] == {
+            "Color 1": "#fff",
+            "Text Color 1": "#000",
+        }
+        assert sys_item["categories"] == ["style"]
+        # Defence in depth: deleting the system entry the list just
+        # surfaced is still a 403.
+        r = client.delete(f"/api/v1/customization/presets/{sys_item['slug']}")
+        assert r.status_code == 403
+
+    def test_list_surfaces_system_theme_named_with_reserved_prefix(
+        self, client, monkeypatch,
+    ):
+        # An operator who names their theme "System Dark" (or anything
+        # that slugifies to ``system-…``) used to have it silently
+        # dropped because ``slugify`` rejected the reserved prefix.
+        # ``_system_presets`` now calls slugify with
+        # ``check_reserved=False`` and prepends the prefix itself, so
+        # the entry addresses as ``system-system-dark`` and stays
+        # unique against any user-saved record (which still can't use
+        # the prefix).
+        monkeypatch.setenv(
+            "APP_THEMES",
+            json.dumps({
+                "System Dark": {"Color 1": "#000", "Text Color 1": "#fff"},
+            }),
+        )
+        items = client.get("/api/v1/customization/presets").json()["items"]
+        assert len(items) == 1
+        assert items[0]["slug"] == "system-system-dark"
+        assert items[0]["name"] == "System Dark"
+        assert items[0]["source"] == "system"
+
+    def test_list_logs_malformed_app_themes_only_once_per_value(
+        self, client, monkeypatch, caplog,
+    ):
+        # ``_system_presets`` runs on every list request. A persistent
+        # malformed ``APP_THEMES`` would otherwise spam the warning on
+        # every poll. Logging is gated by the last value the warning
+        # fired for, so identical values stay quiet on subsequent
+        # requests but a *different* malformed value re-emits.
+        from app.api.routes import customization as customization_route
+
+        customization_route._last_logged_malformed_app_themes = None
+        monkeypatch.setenv("APP_THEMES", "{not json")
+        with caplog.at_level("WARNING", logger=customization_route.logger.name):
+            client.get("/api/v1/customization/presets")
+            client.get("/api/v1/customization/presets")
+            client.get("/api/v1/customization/presets")
+            warnings_for_first_value = [
+                r for r in caplog.records
+                if "Malformed APP_THEMES" in r.message
+            ]
+            assert len(warnings_for_first_value) == 1
+
+            # A different malformed value re-arms the warning.
+            monkeypatch.setenv("APP_THEMES", "still {bad")
+            client.get("/api/v1/customization/presets")
+            warnings_for_both_values = [
+                r for r in caplog.records
+                if "Malformed APP_THEMES" in r.message
+            ]
+            assert len(warnings_for_both_values) == 2
+
+    def test_list_drops_unknown_keys_from_system_themes(
+        self, client, monkeypatch,
+    ):
+        # Same allow-listing as user presets — a stray key in
+        # ``APP_THEMES`` is filtered out at read time so the picker
+        # never sees an entry that the customization save flow
+        # would reject.
+        monkeypatch.setenv(
+            "APP_THEMES",
+            json.dumps({
+                "Mixed": {
+                    "Color 1": "#fff",
+                    "raw_remote_customization": {"hidden": True},
+                },
+            }),
+        )
+        items = client.get("/api/v1/customization/presets").json()["items"]
+        assert len(items) == 1
+        assert items[0]["values"] == {"Color 1": "#fff"}
+        assert "raw_remote_customization" not in items[0]["values"]
 
     def test_categories_round_trip_on_disk(self, client, tmp_path):
         client.post(

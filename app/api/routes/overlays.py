@@ -1,4 +1,4 @@
-"""Predefined data endpoints: /overlays, /teams, /themes, /links, /styles."""
+"""Predefined data endpoints: /overlays, /teams, /links, /styles."""
 
 import json
 import logging
@@ -73,13 +73,6 @@ async def get_teams():
     """Return predefined team names with icon/color data."""
     await run_in_threadpool(Customization.refresh)
     return Customization.predefined_teams
-
-
-@router.get("/themes", dependencies=[Depends(verify_api_key)])
-async def get_themes():
-    """Return available theme definitions."""
-    await run_in_threadpool(Customization.refresh)
-    return Customization.THEMES
 
 
 @router.get("/links", dependencies=[Depends(verify_api_key)])

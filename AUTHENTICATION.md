@@ -70,7 +70,6 @@ via `get_session` (or explicitly inside the handler).
 | `PUT` | `/customization` | Y + OID | |
 | `GET` | `/overlays` | Y | Filters by `allowed_users` |
 | `GET` | `/teams` | Y | |
-| `GET` | `/themes` | Y | |
 | `GET` | `/links` | Y + OID | |
 | `GET` | `/styles` | Y + OID | |
 | `WS` | `/ws` | Y + OID | Explicit `check_oid_access`; accepts token via `Sec-WebSocket-Protocol: bearer, <token>` (preferred) or `?token=…` query param (deprecated, kept for legacy clients) |
