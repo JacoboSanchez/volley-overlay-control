@@ -60,9 +60,6 @@ KNOWN_EVENTS = frozenset({"set_end", "match_end", "timeout", "serve_change"})
 _DEFAULT_TIMEOUT_S = 5.0
 _MAX_WORKERS = 4
 
-_TRUTHY = ("1", "true", "t", "yes", "on")
-
-
 def _allow_private_targets() -> bool:
     """Return True iff the operator opted into private-IP webhook targets.
 
@@ -77,8 +74,7 @@ def _allow_private_targets() -> bool:
     on-premises Slack relay) set ``WEBHOOKS_ALLOW_PRIVATE_IPS=true``
     to opt out.
     """
-    raw = EnvVarsManager.get_env_var("WEBHOOKS_ALLOW_PRIVATE_IPS", "false")
-    return str(raw).strip().lower() in _TRUTHY
+    return EnvVarsManager.get_bool_env("WEBHOOKS_ALLOW_PRIVATE_IPS")
 
 
 def _is_private_ip(ip_str: str) -> bool:

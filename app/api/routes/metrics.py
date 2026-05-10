@@ -32,12 +32,8 @@ from app.metrics import (
 router = APIRouter()
 
 
-_TRUTHY = ("1", "true", "t", "yes", "on")
-
-
 def _require_admin_when_configured() -> bool:
-    raw = EnvVarsManager.get_env_var("METRICS_REQUIRE_ADMIN", "false")
-    return str(raw).strip().lower() in _TRUTHY
+    return EnvVarsManager.get_bool_env("METRICS_REQUIRE_ADMIN")
 
 
 @router.get(
