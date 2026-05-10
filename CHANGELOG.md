@@ -38,12 +38,19 @@ once a first tagged release ships.
   team so a deliberate forward on team 2 can't accidentally
   pair with a stray double-tap on team 1. Any non-``add_point``
   mutation (``add_set``, ``add_timeout``, ``change_serve``,
-  ``set_score``, ``set_sets_value``, ``reset``) invalidates the
-  cache so a follow-up tap can never trigger a false-positive
-  recovery. State-level effects (set-end / match-end / serve-
+  ``set_score``, ``set_sets_value``, ``reset``, ``set_rules``,
+  ``start_match``) invalidates the cache so a follow-up tap can
+  never trigger a false-positive recovery against an unrelated
+  forward. State-level effects (set-end / match-end / serve-
   change webhooks) still fire on the recovery side — the
   underlying state transition really happened (the operator
-  briefly closed the set, then reopened it).
+  briefly closed the set, then reopened it). The Case B
+  recovery is atomic: ``restore_popped`` (and the matching
+  ``undoable_forward_count`` bump) only runs once
+  ``tombstone_ts`` has confirmed the undo record was hidden,
+  mirroring Case A's guard so a partial write cannot leave an
+  orphan undo + restored forward that ``_collapse_undos`` would
+  pair and hide in the report.
 
   Implementation:
 
@@ -147,36 +154,6 @@ once a first tagged release ships.
   Full suites: backend 1008 passed, frontend 405 passed.
 
 ### Fixed
-
-- **Rapid-pair recovery could hide its own restored forward in the
-  report.** Two follow-ups to the rapid-pair undo flow shipped in
-  the previous release:
-
-  * ``GameService._invalidate_rapid_pair_cache`` is now also called
-    by ``set_rules`` and ``start_match`` (the docstring already
-    listed ``set_rules``; the implementation in those methods was
-    missing). A rule change or an explicit match start now wipes
-    any stale per-team rapid-pair seed so a follow-up tap cannot
-    trigger a false-positive recovery against an unrelated forward.
-  * **Case B recovery** now gates ``action_log.restore_popped`` on
-    the success of ``action_log.tombstone_ts``. Previously the
-    restore ran unconditionally, so a failed undo-tombstone left
-    the audit log in a state where the orphan undo was still
-    visible alongside the restored forward; ``_collapse_undos`` in
-    the match report would then pair the two and hide both,
-    defeating the recovery. The counter bump (``undoable_forward_count
-    += 1``) follows the same gate, matching Case A's atomicity.
-
-  Three regression tests cover the new behaviour: the cache-
-  invalidation parametrize now exercises ``set_rules`` and
-  ``start_match``;
-  ``test_case_b_skips_restore_when_undo_tombstone_fails`` patches
-  ``tombstone_ts`` to fail and asserts ``restore_popped`` is never
-  reached; and
-  ``test_case_b_skips_restore_when_audit_ts_is_missing`` drops
-  the cached ``audit_ts`` and asserts both writes bail out (mirroring
-  Case A's ``audit_ts is not None and tombstone_ts(...)`` guard so
-  a defective seed cannot recreate the orphan-undo state).
 
 - **Match report rendered "Team 1" / "Team 2" instead of the real
   team names when the OID was UNO-backed.** ``app.match_report
