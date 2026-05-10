@@ -113,16 +113,16 @@ describe('useRecentEvents', () => {
     expect(result.current[0]).toMatchObject({ team: 2, kind: 'timeout' });
   });
 
-  it('keeps the original timeout chip and appends a struck-clock when the operator undoes an adjacent timeout', async () => {
+  it('drops the original timeout chip when the operator undoes an adjacent timeout (matches history / report)', async () => {
     // Real-life flow across two fetches:
     //  1. Operator hits "+timeout" → audit gets the forward record →
     //     strip shows [clock].
     //  2. Operator hits "undo timeout" → ``pop_last_forward`` deletes
     //     the forward record and a new ``undo=true`` row is appended.
-    //     The fresh re-classification only sees the undo, so without
-    //     stickiness the clock chip would silently morph into the
-    //     struck variant. The hook must instead keep the original
-    //     clock visible *and* append the struck-clock beside it.
+    //     The fresh re-classification only sees the undo, so the
+    //     strip drops the "alive" clock and surfaces just the struck
+    //     variant — mirroring how history and report render the same
+    //     undone timeout (the tombstone hides the forward row).
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 1,
@@ -154,11 +154,11 @@ describe('useRecentEvents', () => {
     );
     rerender({ s: makeState(0, 0, 0, 0, 0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(result.current).toHaveLength(2));
-    expect(result.current.map((e) => e.kind)).toEqual(['timeout', 'timeout_undo']);
+    await waitFor(() => expect(result.current).toHaveLength(1));
+    expect(result.current.map((e) => e.kind)).toEqual(['timeout_undo']);
   });
 
-  it('keeps the original set_won chip and surfaces both point_undo and set_undo when the operator undoes a set-winning point', async () => {
+  it('drops the original set_won chip when the operator undoes a set-winning point (matches history / report)', async () => {
     // First fetch: a baseline point (so ``prevSets`` is anchored) and
     // the set-winning ``add_point`` are both in the audit.
     getAuditSpy.mockResolvedValueOnce({
@@ -178,7 +178,9 @@ describe('useRecentEvents', () => {
       ],
     });
     // Second fetch: forward was popped, leaving the baseline point
-    // plus the new ``undo=true`` record.
+    // plus the new ``undo=true`` record. The set_won and the
+    // set-winning point's "alive" chip must both disappear from the
+    // strip — same as the audit-backed history / report views.
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 2,
@@ -208,13 +210,17 @@ describe('useRecentEvents', () => {
       expect(result.current.some((e) => e.kind === 'set_undo')).toBe(true),
     );
     const kinds = result.current.map((e) => e.kind);
-    expect(kinds).toContain('point_add');
-    expect(kinds).toContain('set_won');
+    // Baseline point still visible (it was never undone), and the
+    // undo / set_undo chips replace the popped set-winning pair.
     expect(kinds).toContain('point_undo');
     expect(kinds).toContain('set_undo');
+    expect(kinds).not.toContain('set_won');
+    // Exactly one ``point_add`` — the baseline. The set-winning
+    // forward was popped, so its "alive" chip must not survive.
+    expect(kinds.filter((k) => k === 'point_add')).toHaveLength(1);
   });
 
-  it('keeps the original match_won chip and surfaces both point_undo and match_undo on a match-winning undo', async () => {
+  it('drops the original match_won chip and surfaces point_undo + match_undo on a match-winning undo', async () => {
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 2,
@@ -268,10 +274,12 @@ describe('useRecentEvents', () => {
       expect(result.current.some((e) => e.kind === 'match_undo')).toBe(true),
     );
     const kinds = result.current.map((e) => e.kind);
-    expect(kinds).toContain('point_add');
-    expect(kinds).toContain('match_won');
     expect(kinds).toContain('point_undo');
     expect(kinds).toContain('match_undo');
+    // The popped match-winning forward must not survive in the strip
+    // — same as history / report.
+    expect(kinds).not.toContain('match_won');
+    expect(kinds.filter((k) => k === 'point_add')).toHaveLength(1);
     // Trophy preempts the star — undoing a match-winning point should
     // not also push a struck-star alongside the struck-trophy.
     expect(kinds).not.toContain('set_undo');
@@ -335,26 +343,26 @@ describe('useRecentEvents', () => {
     );
   });
 
-  it('synthesizes the forward chip and emits the struck-clock when an undo is non-adjacent', async () => {
+  it('does not resurrect a popped forward timeout chip when an undo is non-adjacent (matches history / report)', async () => {
     // Operator sequence: point(0→1), [popped timeout(t1: 0→1)],
     // point(1→2), undo timeout(t1: 1→0).
     // After pop_last_forward the audit response is the baseline
     // point + the in-between point (still showing the bumped
-    // timeout count) + the undo. The classifier synthesizes the
-    // missing forward chip right before the in-between record and
-    // emits the struck chip at the undo.
+    // timeout count) + the undo. The strip surfaces only the
+    // records the audit still carries — the popped forward stays
+    // hidden, same as in history / report.
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 3,
       records: [
-        // Baseline record — anchors prevTimeouts at t1=0.
         rec(1, 'add_point', { team: 1 }, {
           score_set: 1,
           team_1: { score: 1, sets: 0, timeouts: 0 },
           team_2: { score: 0, sets: 0, timeouts: 0 },
         }),
-        // In-between record — observed the bumped count, so
-        // synthesis fires here.
+        // In-between record — its post-state still shows the
+        // bumped timeout count, but we no longer synthesize a
+        // forward chip from that diff.
         rec(2, 'add_point', { team: 1 }, {
           score_set: 1,
           team_1: { score: 2, sets: 0, timeouts: 1 },
@@ -371,11 +379,11 @@ describe('useRecentEvents', () => {
     const { result } = renderHook(() =>
       useRecentEvents('oid', true, makeState(2, 0), 8),
     );
-    await waitFor(() => expect(result.current).toHaveLength(4));
+    await waitFor(() => expect(result.current).toHaveLength(3));
     expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
-    expect(result.current[1]).toMatchObject({ team: 1, kind: 'timeout' });
-    expect(result.current[2]).toMatchObject({ team: 1, kind: 'point_add' });
-    expect(result.current[3]).toMatchObject({ team: 1, kind: 'timeout_undo' });
+    expect(result.current[1]).toMatchObject({ team: 1, kind: 'point_add' });
+    expect(result.current[2]).toMatchObject({ team: 1, kind: 'timeout_undo' });
+    expect(result.current.some((e) => e.kind === 'timeout')).toBe(false);
   });
 
   it('emits match_won (not set_won) when a sets++ also flips match_finished', async () => {
