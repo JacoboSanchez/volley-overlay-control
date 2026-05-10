@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict
 from starlette.concurrency import run_in_threadpool
 
 from app.admin.routes import require_admin
-from app.env_vars_manager import EnvVarsManager
+from app.auth_utils import get_hashed_or_plaintext_env
 from app.overlay.state_store import OverlayStateStore
 from app.overlay.themes import PRESET_THEMES, get_theme_names
 from app.password_hash import verify_password
@@ -37,16 +37,10 @@ def _get_overlay_server_credential() -> str | None:
     migrating to hashed credentials does not have to delete the
     plaintext to switch over. Returns ``None`` when neither is set.
     """
-    h = EnvVarsManager.get_env_var("OVERLAY_SERVER_TOKEN_HASH", None)
-    if h is not None:
-        h = str(h).strip()
-        if h:
-            return h
-    token = EnvVarsManager.get_env_var("OVERLAY_SERVER_TOKEN", None)
-    if token is None:
-        return None
-    token = token.strip()
-    return token or None
+    return get_hashed_or_plaintext_env(
+        "OVERLAY_SERVER_TOKEN_HASH",
+        "OVERLAY_SERVER_TOKEN",
+    )
 
 
 def require_overlay_server_token(authorization: str = Header(None)) -> None:
