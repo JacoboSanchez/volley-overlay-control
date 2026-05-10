@@ -13,37 +13,33 @@ For uno overlays the cloud is the source of truth for match data; the
 same metadata file still rehydrates the limits and simple-mode toggle.
 """
 
-import hashlib
 import json
 import logging
 import os
-import tempfile
 
+from app.api._persistence_paths import (
+    atomic_write_json,
+    hashed_filename,
+)
+from app.api._persistence_paths import (
+    data_dir as _shared_data_dir,
+)
 from app.api.oid_validation import OID_PATTERN
 
 logger = logging.getLogger(__name__)
 
-# Same hash-prefix length used by OverlayStateStore so the on-disk
-# convention is uniform.
-_FILENAME_HASH_LEN = 20
-
 _OID_PATTERN = OID_PATTERN
 
 
-def _hashed_basename(oid: str) -> str:
-    digest = hashlib.sha256(oid.encode("utf-8")).hexdigest()[:_FILENAME_HASH_LEN]
-    return f"session_meta_{digest}.json"
-
-
 def _data_dir() -> str:
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(os.path.join(base, "..", "..", "data"))
+    # Wrapper kept so tests can monkeypatch this attribute.
+    return _shared_data_dir()
 
 
 def _state_path(oid: str) -> str | None:
     if not isinstance(oid, str) or _OID_PATTERN.match(oid) is None:
         return None
-    return os.path.join(_data_dir(), _hashed_basename(oid))
+    return os.path.join(_data_dir(), hashed_filename("session_meta_", oid))
 
 
 def save_session_meta(oid: str, meta: dict) -> None:
@@ -52,19 +48,7 @@ def save_session_meta(oid: str, meta: dict) -> None:
     if path is None:
         return
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        payload = {"_meta": {"oid": oid}, **meta}
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(payload, f)
-            os.replace(tmp_path, path)
-        except BaseException:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+        atomic_write_json(path, {"_meta": {"oid": oid}, **meta})
     except Exception as exc:
         logger.warning("Failed to persist session meta for %r: %s", oid, exc)
 
