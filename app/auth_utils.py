@@ -41,6 +41,45 @@ _DEFAULT_INVALID_TOKEN_DETAIL = "Invalid token."  # nosec B105
 _ADMIN_WWW_AUTH = {"WWW-Authenticate": 'Bearer realm="admin"'}
 
 
+def _stripped_env(key: str) -> str | None:
+    raw = EnvVarsManager.get_env_var(key, None)
+    if raw is None:
+        return None
+    raw = str(raw).strip()
+    return raw or None
+
+
+def get_hashed_or_plaintext_env(hash_var: str, plain_var: str) -> str | None:
+    """Return the env credential, preferring *hash_var* over *plain_var*.
+
+    Both env vars are read, stripped, and treated as ``None`` when
+    empty. The hash form wins so operators migrating to hashed
+    credentials do not need to delete the legacy plaintext value.
+    """
+    return _stripped_env(hash_var) or _stripped_env(plain_var)
+
+
+def extract_bearer_token(
+    authorization: str | None,
+    query_token: str | None = None,
+) -> str | None:
+    """Return the token from ``Authorization: Bearer <token>``.
+
+    Falls back to *query_token* (typically a ``?token=`` query param)
+    when the header is absent. Returns ``None`` when neither carries
+    a non-empty token.
+    """
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+        if token:
+            return token
+    if query_token:
+        token = query_token.strip()
+        if token:
+            return token
+    return None
+
+
 def get_admin_credential() -> str | None:
     """Return the configured admin credential, hash-preferred.
 
@@ -49,16 +88,10 @@ def get_admin_credential() -> str | None:
     legacy plaintext ``OVERLAY_MANAGER_PASSWORD``. ``None`` when
     neither is set so callers can render a 503.
     """
-    h = EnvVarsManager.get_env_var("OVERLAY_MANAGER_PASSWORD_HASH", None)
-    if h is not None:
-        h = str(h).strip()
-        if h:
-            return h
-    raw = EnvVarsManager.get_env_var("OVERLAY_MANAGER_PASSWORD", None)
-    if raw is None:
-        return None
-    raw = str(raw).strip()
-    return raw or None
+    return get_hashed_or_plaintext_env(
+        "OVERLAY_MANAGER_PASSWORD_HASH",
+        "OVERLAY_MANAGER_PASSWORD",
+    )
 
 
 def get_admin_password() -> str | None:
@@ -110,11 +143,7 @@ def require_admin_token(
     expected = get_admin_credential()
     if expected is None:
         raise HTTPException(status_code=503, detail=missing_password_detail)
-    provided: str | None = None
-    if authorization and authorization.startswith("Bearer "):
-        provided = authorization.removeprefix("Bearer ").strip() or None
-    if provided is None and token:
-        provided = token.strip() or None
+    provided = extract_bearer_token(authorization, token)
     if provided is None:
         raise HTTPException(
             status_code=401,

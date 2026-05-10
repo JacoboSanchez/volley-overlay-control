@@ -41,18 +41,13 @@ import secrets
 import stat
 from pathlib import Path
 
+from app.env_vars_manager import is_truthy
+
 logger = logging.getLogger(__name__)
 
 
 _TOKEN_FILENAME = ".overlay_server_token"
 _TOKEN_BYTES = 32  # → 43-char URL-safe string
-
-_TRUTHY = ("1", "true", "t", "yes", "on")
-
-
-def _is_truthy_env(value: str | None) -> bool:
-    return isinstance(value, str) and value.strip().lower() in _TRUTHY
-
 
 def _data_dir() -> str:
     """Return the data directory used by the rest of the app.
@@ -137,7 +132,7 @@ def ensure_overlay_server_token() -> str | None:
     Mutates ``os.environ`` so downstream callers that read via
     :class:`EnvVarsManager` pick the value up transparently.
     """
-    if _is_truthy_env(os.environ.get("OVERLAY_SERVER_TOKEN_DISABLED")):
+    if is_truthy(os.environ.get("OVERLAY_SERVER_TOKEN_DISABLED")):
         # Operator opted into the legacy fail-open behaviour. Make the
         # choice loud so it shows up in the startup tail.
         logger.critical(
@@ -209,7 +204,7 @@ def warn_if_open_scoreboard() -> None:
     raw = (os.environ.get("SCOREBOARD_USERS") or "").strip()
     if raw:
         return
-    if _is_truthy_env(os.environ.get("SCOREBOARD_USERS_DISABLED")):
+    if is_truthy(os.environ.get("SCOREBOARD_USERS_DISABLED")):
         # Same opt-out shape as the overlay token — operator
         # acknowledged the open posture, no need to warn again.
         return

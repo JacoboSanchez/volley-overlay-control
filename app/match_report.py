@@ -72,17 +72,8 @@ logger = logging.getLogger(__name__)
 match_report_router = APIRouter()
 
 
-_TRUTHY_ENV = ("1", "true", "t", "yes", "on")
-
-
-def _is_env_enabled(key: str) -> bool:
-    """``True`` when env var *key* parses as a truthy boolean string."""
-    raw = EnvVarsManager.get_env_var(key, "false")
-    return str(raw).strip().lower() in _TRUTHY_ENV
-
-
 def _public_mode_enabled() -> bool:
-    return _is_env_enabled("MATCH_REPORT_PUBLIC")
+    return EnvVarsManager.get_bool_env("MATCH_REPORT_PUBLIC")
 
 
 def _public_delete_enabled() -> bool:
@@ -91,7 +82,7 @@ def _public_delete_enabled() -> bool:
     Independent from :func:`_public_mode_enabled` on purpose: granting
     public read shouldn't silently authorise public destruction.
     """
-    return _is_env_enabled("MATCH_REPORT_PUBLIC_DELETE")
+    return EnvVarsManager.get_bool_env("MATCH_REPORT_PUBLIC_DELETE")
 
 
 def _check_access(

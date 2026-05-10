@@ -27,7 +27,6 @@ not block the match-end response.
 from __future__ import annotations
 
 import datetime
-import hashlib
 import json
 import logging
 import os
@@ -36,12 +35,14 @@ import tempfile
 import threading
 
 from app.api import action_log
+from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
+from app.api._persistence_paths import data_dir as _shared_data_dir
 from app.api.oid_validation import OID_PATTERN
 
 logger = logging.getLogger(__name__)
 
 _OID_PATTERN = OID_PATTERN
-_FILENAME_HASH_LEN = 20
+_FILENAME_HASH_LEN = DEFAULT_HASH_LEN
 
 # Match basename: ``match_<20-hex>_<UTC-ISO>.json`` where the timestamp
 # is ``YYYYMMDDTHHMMSS_microseconds_Z``. Microsecond precision avoids
@@ -177,14 +178,15 @@ def _index_remove_match_ids(match_ids: set[str]) -> None:
 
 
 def _data_dir() -> str:
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(
-        os.path.join(base, "..", "..", "data", "matches")
-    )
+    # Wrapper kept so tests can monkeypatch this attribute.
+    return _shared_data_dir("matches")
 
 
 def _oid_hash(oid: str) -> str:
-    return hashlib.sha256(oid.encode("utf-8")).hexdigest()[:_FILENAME_HASH_LEN]
+    # The basename uses ``match_<hash>_<ts>.json``; ``hashed_filename``
+    # bakes prefix+suffix together, so we slice the digest manually here
+    # to keep the existing two-part filename layout intact.
+    return hashed_filename("", oid, "")
 
 
 def _is_valid_oid(oid: str) -> bool:
@@ -239,18 +241,7 @@ def archive_match(
         },
     }
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(payload, f, ensure_ascii=False)
-            os.replace(tmp_path, path)
-        except BaseException:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+        atomic_write_json(path, payload, ensure_ascii=False)
     except Exception as exc:
         logger.warning("Failed to archive match for %r: %s", oid, exc)
         return None

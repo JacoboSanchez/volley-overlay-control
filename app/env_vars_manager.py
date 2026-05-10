@@ -9,6 +9,13 @@ from app.logging_utils import redact_url
 
 logger = logging.getLogger(__name__)
 
+_TRUTHY_VALUES = ("1", "true", "t", "yes", "on")
+
+
+def is_truthy(value: object) -> bool:
+    """Return True when *value* parses as a truthy boolean string."""
+    return isinstance(value, str) and value.strip().lower() in _TRUTHY_VALUES
+
 
 class EnvVarsManager:
     _remote_config_cache: dict[str, str] = {}
@@ -19,6 +26,14 @@ class EnvVarsManager:
     def get_env_var(cls, key, default=None):
         cls._load_remote_config_if_needed()
         return cls._remote_config_cache.get(key, os.environ.get(key, default))
+
+    @classmethod
+    def get_bool_env(cls, key: str, default: bool = False) -> bool:
+        """Return *key* parsed as a truthy string. Unset env falls back to *default*."""
+        raw = cls.get_env_var(key, None)
+        if raw is None:
+            return default
+        return is_truthy(raw if isinstance(raw, str) else str(raw))
 
     @classmethod
     def get_custom_overlay_url(cls):

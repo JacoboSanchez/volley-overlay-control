@@ -8,6 +8,21 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Internal cleanup.** Removed unused legacy `Backend` pass-through
+  methods and the unreferenced `PasswordAuthenticator.compose_output`
+  helper. Consolidated four duplicated truthy-env parsers into
+  `EnvVarsManager.get_bool_env` / `is_truthy`, and the
+  `_data_dir`/`_hashed_basename`/atomic-JSON-write idioms scattered
+  across `app/api/*` + `app/overlay/state_store.py` into a new
+  `app/api/_persistence_paths.py`. Auth helpers in `app/auth_utils.py`
+  now expose shared `extract_bearer_token` and
+  `get_hashed_or_plaintext_env` helpers used by the admin and
+  overlay-server credential paths. No observable behavior change;
+  full `pytest` (1019), `ruff`, `mypy`, and `vitest` (415) suites
+  remain green.
+
 ## [5.2.0] - 2026-05-10
 
 ### Added

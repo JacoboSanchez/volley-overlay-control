@@ -44,13 +44,14 @@ import threading
 import time
 from collections.abc import Set as AbstractSet
 
+from app.api._persistence_paths import data_dir as _shared_data_dir
+from app.api._persistence_paths import hashed_filename
 from app.api.oid_validation import OID_PATTERN
 from app.constants import AUDIT_LOG_MAX_BYTES, AUDIT_LOG_MAX_FILES
 
 logger = logging.getLogger(__name__)
 
 _OID_PATTERN = OID_PATTERN
-_FILENAME_HASH_LEN = 20
 
 # Actions whose forward records can be reversed by an undo (either
 # the per-type ``add_X(undo=True)`` flag or the generic
@@ -114,13 +115,12 @@ def _next_ts(oid: str) -> float:
 
 
 def _data_dir() -> str:
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(os.path.join(base, "..", "..", "data"))
+    # Wrapper kept so tests can monkeypatch this attribute.
+    return _shared_data_dir()
 
 
 def _hashed_basename(oid: str) -> str:
-    digest = hashlib.sha256(oid.encode("utf-8")).hexdigest()[:_FILENAME_HASH_LEN]
-    return f"audit_{digest}.jsonl"
+    return hashed_filename("audit_", oid, ".jsonl")
 
 
 def _path(oid: str) -> str | None:

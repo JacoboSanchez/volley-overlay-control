@@ -25,7 +25,6 @@ match by surfacing a 500 from the API handler.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -35,6 +34,8 @@ import threading
 import time
 from typing import Any
 
+from app.api._persistence_paths import DEFAULT_HASH_LEN, hashed_filename
+from app.api._persistence_paths import data_dir as _shared_data_dir
 from app.api.preset_categories import categories_for_keys, filter_to_known
 from app.constants import PRESETS_MAX_NAME_LEN, PRESETS_MAX_RECORDS
 
@@ -48,7 +49,7 @@ logger = logging.getLogger(__name__)
 # A slug is lowercase ASCII alphanumerics plus dashes, beginning and
 # ending with an alphanumeric.
 _SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-_FILENAME_HASH_LEN = 20
+_FILENAME_HASH_LEN = DEFAULT_HASH_LEN
 _HASHED_FILENAME_PATTERN = re.compile(
     r"^preset_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$",
 )
@@ -93,13 +94,12 @@ def slugify(name: str, *, check_reserved: bool = True) -> str:
 
 
 def _data_dir() -> str:
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(os.path.join(base, "..", "..", "data", "presets"))
+    # Wrapper kept so tests can monkeypatch this attribute.
+    return _shared_data_dir("presets")
 
 
 def _hashed_basename(slug: str) -> str:
-    digest = hashlib.sha256(slug.encode("utf-8")).hexdigest()[:_FILENAME_HASH_LEN]
-    return f"preset_{digest}.json"
+    return hashed_filename("preset_", slug)
 
 
 def _path(slug: str) -> str:

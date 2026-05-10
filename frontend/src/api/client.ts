@@ -37,6 +37,10 @@ function headers(): Record<string, string> {
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
+function withOid(oid: string): string {
+  return `?oid=${encodeURIComponent(oid)}`;
+}
+
 async function request<T = unknown>(
   method: HttpMethod,
   path: string,
@@ -65,22 +69,22 @@ export function initSession(oid: string, opts: InitOptions = {}): Promise<Action
 
 // State queries
 export function getState(oid: string): Promise<GameState> {
-  return request<GameState>('GET', `/state?oid=${encodeURIComponent(oid)}`);
+  return request<GameState>('GET', `/state${withOid(oid)}`);
 }
 
 export function getConfig(oid: string): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>('GET', `/config?oid=${encodeURIComponent(oid)}`);
+  return request<Record<string, unknown>>('GET', `/config${withOid(oid)}`);
 }
 
 export function getCustomization(oid: string): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>('GET', `/customization?oid=${encodeURIComponent(oid)}`);
+  return request<Record<string, unknown>>('GET', `/customization${withOid(oid)}`);
 }
 
 // Game actions
 export function addPoint(oid: string, team: Team, undo = false): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/game/add-point?oid=${encodeURIComponent(oid)}`,
+    `/game/add-point${withOid(oid)}`,
     { team, undo },
   );
 }
@@ -88,7 +92,7 @@ export function addPoint(oid: string, team: Team, undo = false): Promise<ActionR
 export function addSet(oid: string, team: Team, undo = false): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/game/add-set?oid=${encodeURIComponent(oid)}`,
+    `/game/add-set${withOid(oid)}`,
     { team, undo },
   );
 }
@@ -96,7 +100,7 @@ export function addSet(oid: string, team: Team, undo = false): Promise<ActionRes
 export function addTimeout(oid: string, team: Team, undo = false): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/game/add-timeout?oid=${encodeURIComponent(oid)}`,
+    `/game/add-timeout${withOid(oid)}`,
     { team, undo },
   );
 }
@@ -104,7 +108,7 @@ export function addTimeout(oid: string, team: Team, undo = false): Promise<Actio
 export function changeServe(oid: string, team: Team): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/game/change-serve?oid=${encodeURIComponent(oid)}`,
+    `/game/change-serve${withOid(oid)}`,
     { team },
   );
 }
@@ -117,7 +121,7 @@ export function setScore(
 ): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/game/set-score?oid=${encodeURIComponent(oid)}`,
+    `/game/set-score${withOid(oid)}`,
     { team, set_number: setNumber, value },
   );
 }
@@ -125,28 +129,28 @@ export function setScore(
 export function setSets(oid: string, team: Team, value: number): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/game/set-sets?oid=${encodeURIComponent(oid)}`,
+    `/game/set-sets${withOid(oid)}`,
     { team, value },
   );
 }
 
 export function undoLast(oid: string): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/undo?oid=${encodeURIComponent(oid)}`);
+  return request<ActionResponse>('POST', `/game/undo${withOid(oid)}`);
 }
 
 export function resetGame(oid: string): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/reset?oid=${encodeURIComponent(oid)}`);
+  return request<ActionResponse>('POST', `/game/reset${withOid(oid)}`);
 }
 
 export function startMatch(oid: string): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/start-match?oid=${encodeURIComponent(oid)}`);
+  return request<ActionResponse>('POST', `/game/start-match${withOid(oid)}`);
 }
 
 // Display controls
 export function setVisibility(oid: string, visible: boolean): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/display/visibility?oid=${encodeURIComponent(oid)}`,
+    `/display/visibility${withOid(oid)}`,
     { visible },
   );
 }
@@ -154,7 +158,7 @@ export function setVisibility(oid: string, visible: boolean): Promise<ActionResp
 export function setSimpleMode(oid: string, enabled: boolean): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/display/simple-mode?oid=${encodeURIComponent(oid)}`,
+    `/display/simple-mode${withOid(oid)}`,
     { enabled },
   );
 }
@@ -172,7 +176,7 @@ export interface SetRulesPayload {
 export function setRules(oid: string, payload: SetRulesPayload): Promise<ActionResponse> {
   return request<ActionResponse>(
     'POST',
-    `/session/rules?oid=${encodeURIComponent(oid)}`,
+    `/session/rules${withOid(oid)}`,
     payload,
   );
 }
@@ -182,7 +186,7 @@ export function updateCustomization(
   oid: string,
   data: Record<string, unknown>,
 ): Promise<ActionResponse> {
-  return request<ActionResponse>('PUT', `/customization?oid=${encodeURIComponent(oid)}`, data);
+  return request<ActionResponse>('PUT', `/customization${withOid(oid)}`, data);
 }
 
 // Predefined data
@@ -236,11 +240,11 @@ export async function deletePreset(slug: string): Promise<void> {
 }
 
 export function getLinks(oid: string): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>('GET', `/links?oid=${encodeURIComponent(oid)}`);
+  return request<Record<string, unknown>>('GET', `/links${withOid(oid)}`);
 }
 
 export function getStyles(oid: string): Promise<string[]> {
-  return request<string[]>('GET', `/styles?oid=${encodeURIComponent(oid)}`);
+  return request<string[]>('GET', `/styles${withOid(oid)}`);
 }
 
 export function getOverlays(): Promise<OverlayPayload[]> {
@@ -278,7 +282,7 @@ export function getAudit(
 ): Promise<AuditResponse> {
   return request<AuditResponse>(
     'GET',
-    `/audit?oid=${encodeURIComponent(oid)}&limit=${limit}`,
+    `/audit${withOid(oid)}&limit=${limit}`,
     null,
     signal,
   );

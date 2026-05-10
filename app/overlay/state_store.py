@@ -12,9 +12,10 @@ import json
 import logging
 import os
 import re
-import tempfile
 import threading
 from collections.abc import Callable
+
+from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ def get_default_state(best_of_sets: int = 5) -> dict:
 # Length of the hex SHA-256 prefix used to derive on-disk filenames from
 # user-supplied overlay ids. 20 hex chars = 80 bits, well above the birthday
 # bound for any realistic overlay count.
-_FILENAME_HASH_LEN = 20
+_FILENAME_HASH_LEN = DEFAULT_HASH_LEN
 
 # Matches the hashed basename produced by ``_hashed_basename``. Used during
 # legacy-file migration to skip files that are already in the new format.
@@ -187,8 +188,7 @@ class OverlayStateStore:
         CodeQL's ``py/path-injection`` taint tracker sees the user input
         replaced with a hash output at this boundary.
         """
-        digest = hashlib.sha256(overlay_id.encode("utf-8")).hexdigest()[:_FILENAME_HASH_LEN]
-        return f"overlay_state_{digest}.json"
+        return hashed_filename("overlay_state_", overlay_id)
 
     def get_state_file_path(self, overlay_id: str) -> str:
         safe_id = self._sanitize_id(overlay_id)
@@ -211,18 +211,7 @@ class OverlayStateStore:
     @staticmethod
     def _write_state_sync(path: str, state: dict) -> None:
         """Write state to disk atomically via temp file + rename."""
-        dir_name = os.path.dirname(path)
-        fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(state, f)
-            os.replace(tmp_path, path)
-        except BaseException:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+        atomic_write_json(path, state)
 
     @staticmethod
     def _stamp_meta(state: dict, overlay_id: str) -> dict:

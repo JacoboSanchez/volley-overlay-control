@@ -5,7 +5,6 @@ import threading
 import time
 
 from app.env_vars_manager import EnvVarsManager
-from app.oid_utils import UNO_OUTPUT_BASE_URL
 from app.password_hash import is_hashed, verify_password
 
 logger = logging.getLogger(__name__)
@@ -80,8 +79,8 @@ class PasswordAuthenticator:
 
     @staticmethod
     def do_authenticate_users() -> bool:
-        passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
-        return passwords_json is not None and passwords_json.strip() != ''
+        raw = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
+        return bool(raw and raw.strip())
 
     @classmethod
     def _cache_hit(cls, key_hash: str, users: dict, now: float):
@@ -165,9 +164,3 @@ class PasswordAuthenticator:
             isinstance(cfg, dict) and is_hashed(cfg.get("password_hash"))
             for cfg in users.values()
         )
-
-    @staticmethod
-    def compose_output(output: str) -> str:
-        if not output.startswith(UNO_OUTPUT_BASE_URL):
-            return UNO_OUTPUT_BASE_URL + output
-        return output

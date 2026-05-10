@@ -98,9 +98,11 @@ class Backend:
         from app.overlay import overlay_state_store
         return bool(overlay_id) and overlay_state_store.overlay_exists(overlay_id)
 
+    def _oid_or_default(self, oid):
+        return oid if oid is not None else self.conf.oid
+
     def _resolve_kind(self, oid=None) -> OverlayKind:
-        check_oid = oid if oid is not None else self.conf.oid
-        return resolve_overlay_kind(check_oid, self._local_overlay_exists)
+        return resolve_overlay_kind(self._oid_or_default(oid), self._local_overlay_exists)
 
     def _create_overlay_backend(self, oid=None):
         """Instantiate the right overlay backend for the given OID.
@@ -136,7 +138,7 @@ class Backend:
         return self._resolve_kind(oid) == OverlayKind.CUSTOM
 
     def get_custom_overlay_id(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
+        check_oid = self._oid_or_default(oid)
         if self._resolve_kind(check_oid) == OverlayKind.CUSTOM:
             # Both LocalOverlayBackend and CustomOverlayBackend share
             # the same static get_overlay_id parser.
@@ -146,7 +148,7 @@ class Backend:
     # -- WebSocket lifecycle (delegated) ------------------------------------
 
     def init_ws_client(self, oid=None):
-        check_oid = oid if oid is not None else self.conf.oid
+        check_oid = self._oid_or_default(oid)
         if self._resolve_kind(check_oid) != OverlayKind.CUSTOM:
             return
         self._ensure_overlay_backend(check_oid)
@@ -387,14 +389,14 @@ class Backend:
         return self._overlay.is_visible()
 
     def get_available_styles(self, oid: str = None) -> list:
-        check_oid = oid if oid is not None else self.conf.oid
+        check_oid = self._oid_or_default(oid)
         self._ensure_overlay_backend(check_oid)
         return self._overlay.get_available_styles(check_oid)
 
     # -- OID validation / output token -------------------------------------
 
     def validate_and_store_model_for_oid(self, oid: str):
-        if oid is None or oid.strip() == "":
+        if not oid or not oid.strip():
             return State.OIDStatus.EMPTY
         self._ensure_overlay_backend(oid)
         return self._overlay.validate_oid(oid)
@@ -440,27 +442,3 @@ class Backend:
         except Exception:
             Backend.logger.exception("Error updating local overlay")
 
-    # -- Uno-specific pass-through (used by legacy code paths) ----
-
-    def send_command_with_value(self, command, value="", customOid=None):
-        """Send a value-type command to the Uno API."""
-        if not self._overlay.is_custom:
-            return self._overlay._send_command_with_value(command, value, customOid)
-        return None
-
-    def send_command_with_id_and_content(self, command, content="", customOid=None):
-        """Send a command with id+content to the Uno API."""
-        if not self._overlay.is_custom:
-            return self._overlay._send_command(command, content, customOid)
-        return None
-
-    def do_send_request(self, oid, jsonin):
-        """Direct request to the Uno API (legacy compatibility)."""
-        from app.overlay_backends import _mock_response
-        if self._resolve_kind(oid) != OverlayKind.UNO:
-            return _mock_response(200)
-
-        if isinstance(self._overlay, UnoOverlayBackend):
-            return self._overlay._do_request(oid, jsonin)
-
-        return _mock_response(200)
