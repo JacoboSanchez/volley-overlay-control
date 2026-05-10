@@ -148,6 +148,36 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Rapid-pair recovery could hide its own restored forward in the
+  report.** Two follow-ups to the rapid-pair undo flow shipped in
+  the previous release:
+
+  * ``GameService._invalidate_rapid_pair_cache`` is now also called
+    by ``set_rules`` and ``start_match`` (the docstring already
+    listed ``set_rules``; the implementation in those methods was
+    missing). A rule change or an explicit match start now wipes
+    any stale per-team rapid-pair seed so a follow-up tap cannot
+    trigger a false-positive recovery against an unrelated forward.
+  * **Case B recovery** now gates ``action_log.restore_popped`` on
+    the success of ``action_log.tombstone_ts``. Previously the
+    restore ran unconditionally, so a failed undo-tombstone left
+    the audit log in a state where the orphan undo was still
+    visible alongside the restored forward; ``_collapse_undos`` in
+    the match report would then pair the two and hide both,
+    defeating the recovery. The counter bump (``undoable_forward_count
+    += 1``) follows the same gate, matching Case A's atomicity.
+
+  Three regression tests cover the new behaviour: the cache-
+  invalidation parametrize now exercises ``set_rules`` and
+  ``start_match``;
+  ``test_case_b_skips_restore_when_undo_tombstone_fails`` patches
+  ``tombstone_ts`` to fail and asserts ``restore_popped`` is never
+  reached; and
+  ``test_case_b_skips_restore_when_audit_ts_is_missing`` drops
+  the cached ``audit_ts`` and asserts both writes bail out (mirroring
+  Case A's ``audit_ts is not None and tombstone_ts(...)`` guard so
+  a defective seed cannot recreate the orphan-undo state).
+
 - **Match report rendered "Team 1" / "Team 2" instead of the real
   team names when the OID was UNO-backed.** ``app.match_report
   ._team_name`` only checked the canonical ``Team {n} Name`` key,

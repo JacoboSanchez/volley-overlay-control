@@ -282,19 +282,29 @@ class GameService:
             # Case B — double-tap-undo, then tap within the window.
             # Tombstone the undo we just wrote and resurrect the
             # forward the undo had originally hidden so the timeline
-            # reads as if neither happened. Same atomicity rule
-            # applies: the counter only goes back up when the
-            # restore actually wrote — otherwise the forward is
-            # still tombstoned on disk and ``can_undo`` would lie.
-            if audit_ts is not None:
-                action_log.tombstone_ts(session.oid, audit_ts)
-            popped_ref = cached.get("popped_ref_ts")
-            if popped_ref is not None and action_log.restore_popped(
-                session.oid, popped_ref,
-            ):
-                # The recovered forward is undoable again — increment
-                # the counter we decremented when the undo landed.
-                session.undoable_forward_count += 1
+            # reads as if neither happened. Both writes must land or
+            # neither side-effect should: if the undo tombstone fails
+            # but the restore succeeds, ``_collapse_undos`` in the
+            # report would pair the orphan undo with the restored
+            # forward and hide both, defeating the recovery. So we
+            # gate the restore (and the counter bump) on the
+            # tombstone landing. Mirrors Case A: a missing
+            # ``audit_ts`` means the seed never recorded a
+            # writable reference, so we cannot tombstone the undo
+            # — falling through to the restore in that case would
+            # recreate the orphan-undo + restored-forward state
+            # this fix is meant to prevent.
+            tombstone_ok = audit_ts is not None and action_log.tombstone_ts(
+                session.oid, audit_ts,
+            )
+            if tombstone_ok:
+                popped_ref = cached.get("popped_ref_ts")
+                if popped_ref is not None and action_log.restore_popped(
+                    session.oid, popped_ref,
+                ):
+                    # The recovered forward is undoable again — increment
+                    # the counter we decremented when the undo landed.
+                    session.undoable_forward_count += 1
 
         session.rapid_pair_cache.pop(team, None)
         return True
@@ -667,6 +677,8 @@ class GameService:
                 )
             session.mode = mode
 
+        GameService._invalidate_rapid_pair_cache(session)
+
         if reset_to_defaults:
             preset = defaults_for(session.mode)
             session.points_limit = preset.points_limit
@@ -709,6 +721,7 @@ class GameService:
         reflect the actual whistle rather than the first rally.
         """
         if session.match_started_at is None:
+            GameService._invalidate_rapid_pair_cache(session)
             session.match_started_at = time.time()
             session.persist_meta()
             GameService._audit(session, "start_match", {})
