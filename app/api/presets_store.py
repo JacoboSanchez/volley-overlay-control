@@ -60,7 +60,7 @@ _HASHED_FILENAME_PATTERN = re.compile(
 SYSTEM_SLUG_PREFIX = "system-"
 
 
-def slugify(name: str) -> str:
+def slugify(name: str, *, check_reserved: bool = True) -> str:
     """Return a filesystem-safe slug for *name*.
 
     Lowercase ASCII alphanumerics plus dashes; runs of any other
@@ -70,6 +70,13 @@ def slugify(name: str) -> str:
     to ``PRESETS_MAX_NAME_LEN`` to keep slugs manageable in URLs and
     JSON. Names that resolve to the reserved ``system-`` prefix are
     rejected for the same reason.
+
+    Pass ``check_reserved=False`` from the system-preset loader, which
+    always prepends ``SYSTEM_SLUG_PREFIX`` to the result anyway, so a
+    theme literally named "System Dark" still yields an addressable
+    ``system-system-dark`` slug instead of being silently dropped.
+    User-facing callers must keep the default to preserve the
+    reservation invariant.
     """
     if not isinstance(name, str):
         raise ValueError("Preset name must be a string.")
@@ -77,7 +84,7 @@ def slugify(name: str) -> str:
     cleaned = cleaned[: max(1, PRESETS_MAX_NAME_LEN)].strip("-")
     if not cleaned or _SLUG_PATTERN.match(cleaned) is None:
         raise ValueError(f"Cannot derive a valid slug from {name!r}.")
-    if cleaned.startswith(SYSTEM_SLUG_PREFIX):
+    if check_reserved and cleaned.startswith(SYSTEM_SLUG_PREFIX):
         raise ValueError(
             f"Preset slug {cleaned!r} uses the reserved "
             f"{SYSTEM_SLUG_PREFIX!r} prefix.",

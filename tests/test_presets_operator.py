@@ -162,6 +162,21 @@ class TestPresetsStore:
         with pytest.raises(ValueError):
             presets_store.slugify("System Bright")
 
+    def test_slugify_check_reserved_false_allows_system_prefix(self):
+        # The system-preset loader prepends ``system-`` unconditionally,
+        # so it needs to slugify env theme names without the reservation
+        # check or a theme literally named "System Dark" would be
+        # silently dropped instead of addressing as
+        # ``system-system-dark``.
+        assert (
+            presets_store.slugify("System Dark", check_reserved=False)
+            == "system-dark"
+        )
+        assert (
+            presets_store.slugify("system-bright", check_reserved=False)
+            == "system-bright"
+        )
+
     def test_list_orders_by_name_case_insensitive(self):
         presets_store.create(name="zoo", values={"Height": 1})
         presets_store.create(name="Alpha", values={"Height": 2})
@@ -326,6 +341,60 @@ class TestPresetCRUDEndpoints:
         # surfaced is still a 403.
         r = client.delete(f"/api/v1/customization/presets/{sys_item['slug']}")
         assert r.status_code == 403
+
+    def test_list_surfaces_system_theme_named_with_reserved_prefix(
+        self, client, monkeypatch,
+    ):
+        # An operator who names their theme "System Dark" (or anything
+        # that slugifies to ``system-…``) used to have it silently
+        # dropped because ``slugify`` rejected the reserved prefix.
+        # ``_system_presets`` now calls slugify with
+        # ``check_reserved=False`` and prepends the prefix itself, so
+        # the entry addresses as ``system-system-dark`` and stays
+        # unique against any user-saved record (which still can't use
+        # the prefix).
+        monkeypatch.setenv(
+            "APP_THEMES",
+            json.dumps({
+                "System Dark": {"Color 1": "#000", "Text Color 1": "#fff"},
+            }),
+        )
+        items = client.get("/api/v1/customization/presets").json()["items"]
+        assert len(items) == 1
+        assert items[0]["slug"] == "system-system-dark"
+        assert items[0]["name"] == "System Dark"
+        assert items[0]["source"] == "system"
+
+    def test_list_logs_malformed_app_themes_only_once_per_value(
+        self, client, monkeypatch, caplog,
+    ):
+        # ``_system_presets`` runs on every list request. A persistent
+        # malformed ``APP_THEMES`` would otherwise spam the warning on
+        # every poll. Logging is gated by the last value the warning
+        # fired for, so identical values stay quiet on subsequent
+        # requests but a *different* malformed value re-emits.
+        from app.api.routes import customization as customization_route
+
+        customization_route._last_logged_malformed_app_themes = None
+        monkeypatch.setenv("APP_THEMES", "{not json")
+        with caplog.at_level("WARNING", logger=customization_route.logger.name):
+            client.get("/api/v1/customization/presets")
+            client.get("/api/v1/customization/presets")
+            client.get("/api/v1/customization/presets")
+            warnings_for_first_value = [
+                r for r in caplog.records
+                if "Malformed APP_THEMES" in r.message
+            ]
+            assert len(warnings_for_first_value) == 1
+
+            # A different malformed value re-arms the warning.
+            monkeypatch.setenv("APP_THEMES", "still {bad")
+            client.get("/api/v1/customization/presets")
+            warnings_for_both_values = [
+                r for r in caplog.records
+                if "Malformed APP_THEMES" in r.message
+            ]
+            assert len(warnings_for_both_values) == 2
 
     def test_list_drops_unknown_keys_from_system_themes(
         self, client, monkeypatch,

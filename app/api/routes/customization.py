@@ -33,6 +33,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# Tracks the raw ``APP_THEMES`` value we last logged a parse failure
+# for. ``_system_presets`` runs on every preset-list request, so a
+# malformed env var would otherwise spam the warning every poll. We
+# only emit the warning when the value changes (so an operator who
+# fixes the JSON, or swaps in a new mistake, still gets feedback).
+_last_logged_malformed_app_themes: str | None = None
+
+
 @router.get("/customization", dependencies=[Depends(verify_api_key)])
 async def get_customization(session: GameSession = Depends(get_session)):
     return await run_in_threadpool(GameService.refresh_customization, session)
@@ -108,17 +116,24 @@ def _system_presets() -> list[PresetSummary]:
 
     Reads the env var directly (rather than via ``Customization.THEMES``)
     so test reloads of ``app.customization`` cannot leave us holding a
-    stale class reference. Malformed JSON is logged once and treated
-    as no themes; theme names that yield an empty slug or have no
-    allow-listed values are skipped silently.
+    stale class reference. Malformed JSON logs a warning at most once
+    per distinct value (see ``_last_logged_malformed_app_themes``);
+    theme names that yield an empty slug or have no allow-listed
+    values are skipped silently. ``slugify`` is called with
+    ``check_reserved=False`` because the loader prepends the reserved
+    prefix unconditionally, so a theme literally named "System Dark"
+    addresses as ``system-system-dark`` instead of being dropped.
     """
+    global _last_logged_malformed_app_themes
     raw_json = EnvVarsManager.get_env_var("APP_THEMES", None)
     if not raw_json:
         return []
     try:
         themes = json.loads(raw_json)
     except json.JSONDecodeError:
-        logger.warning("Malformed APP_THEMES env var; ignoring value")
+        if _last_logged_malformed_app_themes != raw_json:
+            logger.warning("Malformed APP_THEMES env var; ignoring value")
+            _last_logged_malformed_app_themes = raw_json
         return []
     if not isinstance(themes, dict):
         return []
@@ -130,7 +145,7 @@ def _system_presets() -> list[PresetSummary]:
         if not cleaned:
             continue
         try:
-            base_slug = presets_store.slugify(str(name))
+            base_slug = presets_store.slugify(str(name), check_reserved=False)
         except ValueError:
             continue
         items.append(
