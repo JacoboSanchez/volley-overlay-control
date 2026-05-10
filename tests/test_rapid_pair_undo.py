@@ -45,6 +45,16 @@ def _add_points(session, team: int, n: int) -> None:
         GameService.add_point(session, team=team)
 
 
+def _clear_match_clock(session):
+    """Reset ``match_started_at`` so the next ``start_match`` exits
+    the idempotent fast-path and runs its real body (including the
+    rapid-pair invalidation we're testing). Returns *session* for
+    use in lambdas.
+    """
+    session.match_started_at = None
+    return session
+
+
 # ---------------------------------------------------------------------------
 # Case A — tap forward, then double-tap-undo within 5 s.
 # ---------------------------------------------------------------------------
@@ -190,6 +200,8 @@ class TestRapidPairCacheInvalidation:
         lambda s: GameService.set_score(s, team=1, set_number=1, value=10),
         lambda s: GameService.set_sets_value(s, team=1, value=1),
         lambda s: GameService.reset(s),
+        lambda s: GameService.set_rules(s, points_limit=21),
+        lambda s: GameService.start_match(_clear_match_clock(s)),
     ])
     def test_action_clears_rapid_pair_cache(self, api_session, invalidator):
         GameService.add_point(api_session, team=1)
@@ -257,6 +269,59 @@ class TestRapidPairCounterAtomicity:
 
         # Without a successful restore the original forward stays
         # tombstoned — the counter must not pretend it's undoable.
+        assert api_session.undoable_forward_count == baseline
+
+    def test_case_b_skips_restore_when_undo_tombstone_fails(
+        self, api_session, monkeypatch,
+    ):
+        """If the Case B tombstone of the undo record fails, we must
+        NOT restore the original forward. Otherwise the audit log
+        ends up with a visible orphan undo + a visible restored
+        forward, and ``_collapse_undos`` in the report would pair
+        them and hide both — defeating the recovery.
+        """
+        import time as _time
+
+        from app.api import action_log as al
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
+        GameService.add_point(api_session, team=1)
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 0.1
+        GameService.add_point(api_session, team=1, undo=True)
+        baseline = api_session.undoable_forward_count
+        assert baseline == 0
+        # After the legacy undo the audit log shows the orphan undo
+        # only; the original forward is tombstoned.
+        records_after_undo = _visible_records(api_session.oid)
+        assert len(records_after_undo) == 1
+        assert records_after_undo[0]["params"] == {"team": 1, "undo": True}
+
+        # Track restore attempts so we can assert the recovery bailed
+        # out before touching the on-disk forward.
+        restore_calls: list[tuple] = []
+        real_restore = al.restore_popped
+
+        def _fail_tombstone(*_a, **_kw):
+            return False
+
+        def _spy_restore(*args, **kwargs):
+            restore_calls.append((args, kwargs))
+            return real_restore(*args, **kwargs)
+
+        monkeypatch.setattr(al, "tombstone_ts", _fail_tombstone)
+        monkeypatch.setattr(al, "restore_popped", _spy_restore)
+
+        clock[0] += 1.0  # within the rapid-pair window of the undo
+        GameService.add_point(api_session, team=1, undo=False)
+
+        # Restore must not have been attempted — otherwise the report
+        # would see (visible undo + visible forward) and collapse them.
+        assert restore_calls == []
+        # Counter is unchanged since neither write succeeded.
         assert api_session.undoable_forward_count == baseline
 
 
