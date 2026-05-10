@@ -190,14 +190,12 @@ export function getTeams(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('GET', '/teams');
 }
 
-export function getThemes(): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>('GET', '/themes');
-}
-
-// Operator-saved presets (CRUD lives at /customization/presets/*).
-// Apply is purely client-side: the React panel deep-merges
-// ``values`` into its in-memory edit model and persists via the
-// existing PUT /customization save flow.
+// Operator-saved and env-driven presets (CRUD lives at
+// /customization/presets/*). Load is purely client-side: the React
+// panel deep-merges ``values`` into its in-memory edit model and
+// persists via the existing PUT /customization save flow. ``source``
+// is ``"system"`` for read-only entries derived from ``APP_THEMES``
+// and ``"user"`` for records the operator saved themselves.
 export interface PresetCategory {
   id: 'team1_name' | 'team1_color' | 'team2_name' | 'team2_color' | 'position' | 'style';
 }
@@ -206,6 +204,7 @@ export interface PresetSummary {
   slug: string;
   name: string;
   created_at: number;
+  source: 'user' | 'system';
   categories: string[];
   values: Record<string, unknown>;
 }

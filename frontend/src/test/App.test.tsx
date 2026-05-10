@@ -21,7 +21,6 @@ vi.mock('../api/client', () => ({
   setVisibility: vi.fn(),
   setSimpleMode: vi.fn(),
   getTeams: vi.fn(),
-  getThemes: vi.fn(),
   getStyles: vi.fn(),
   updateCustomization: vi.fn(),
 }));
@@ -127,7 +126,6 @@ describe('App', () => {
 
     // Mock additional API calls that ConfigPanel makes
     vi.mocked(api.getTeams).mockResolvedValue({});
-    vi.mocked(api.getThemes).mockResolvedValue({});
     vi.mocked(api.getStyles).mockResolvedValue([]);
 
     fireEvent.click(screen.getByTestId('config-tab-button'));

@@ -7,7 +7,6 @@ import { renderWithI18n, mockCustomization } from './helpers';
 // Mock the API module
 vi.mock('../api/client', () => ({
   getTeams: vi.fn().mockResolvedValue({ Home: { icon: '', color: '#0000ff', text_color: '#ffffff' } }),
-  getThemes: vi.fn().mockResolvedValue({}),
   getStyles: vi.fn().mockResolvedValue([]),
   getLinks: vi.fn().mockResolvedValue({ control: '', overlay: '', preview: '' }),
   getCustomization: vi.fn().mockResolvedValue({}),

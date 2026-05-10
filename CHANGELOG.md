@@ -79,6 +79,31 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Unified preset picker — env-driven themes now live alongside
+  user-saved presets.** ``APP_THEMES`` entries used to surface as
+  a separate "Preloaded Config" dropdown inside the Overlay
+  section; user-saved presets lived in their own Presets section.
+  Both selectors did exactly the same thing on click — shallow-
+  merge the chosen patch into the in-memory edit model and wait
+  for the operator to hit Save — but they looked and were located
+  differently, so operators had to remember which selector held
+  what. ``GET /api/v1/customization/presets`` now returns both
+  sources in a single list, with a new ``source: "user" |
+  "system"`` field on each ``PresetSummary``. System entries are
+  derived from ``APP_THEMES`` at request time, are sorted first
+  in the picker, render with a "System" badge, and have no
+  delete button. The ``DELETE`` endpoint rejects any slug
+  starting with the reserved ``system-`` prefix with a 403, and
+  ``presets_store.slugify`` refuses to derive a user slug that
+  collides with that prefix. The picker's action button is
+  renamed from "Apply" to "Load" (and its translations: Cargar,
+  Carregar, Carica, Charger, Laden) to reflect that the click
+  stages the configuration without persisting — the existing
+  Save button at the bottom of the panel is what writes to the
+  backend. The redundant "Preloaded Config" dropdown and the
+  ``overlay.preloadedConfigLabel`` / ``overlay.selectAndLoad``
+  i18n strings are gone.
+
 - **Match report comeback highlight split into "set-winning" and
   "partial" cards with new thresholds.** Used to: a single
   "Biggest comeback" card surfaced any deficit ≥ 2 pts erased by
@@ -145,6 +170,16 @@ once a first tagged release ships.
   extended to assert the new row alongside the inline suffix.
 
   Full suites: backend 1008 passed, frontend 405 passed.
+
+### Removed
+
+- **``GET /api/v1/themes`` is gone.** ``APP_THEMES`` is now
+  surfaced exclusively through the unified
+  ``GET /api/v1/customization/presets`` endpoint with
+  ``source="system"``. The frontend ``api.getThemes()`` helper is
+  removed; the env var itself is unchanged. (The unrelated
+  ``GET /api/themes`` endpoint that lists overlay-template render
+  themes — used by the in-process overlay engine — is unaffected.)
 
 ### Fixed
 

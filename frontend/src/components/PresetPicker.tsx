@@ -173,9 +173,16 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
     onApplyPatch(item.values as ConfigModel);
   }
 
-  // Deterministic ordering for screen-reader linearisation.
+  // System presets first, then user presets — both alphabetised. The
+  // backend already returns them in this order, but re-sorting client
+  // side keeps the picker stable if a future endpoint change reorders
+  // them.
   const sortedItems = useMemo(
-    () => [...items].sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      [...items].sort((a, b) => {
+        if (a.source !== b.source) return a.source === 'system' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      }),
     [items],
   );
 
@@ -280,53 +287,73 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
         </div>
       ) : (
         <ul className="preset-picker-list">
-          {sortedItems.map((item) => (
-            <li
-              key={item.slug}
-              className="preset-picker-item"
-              data-testid={`preset-item-${item.slug}`}
-            >
-              <div className="preset-picker-item-head">
-                <span className="preset-picker-item-name">{item.name}</span>
-              </div>
-              <div className="preset-picker-scopes">
-                {item.categories.map((c) => (
-                  <span
-                    key={c}
-                    className="preset-picker-scope-chip"
-                    title={categoryLabel(c, t)}
-                  >
-                    <span className="material-icons" aria-hidden="true">
-                      {categoryIcon(c)}
+          {sortedItems.map((item) => {
+            const isSystem = item.source === 'system';
+            return (
+              <li
+                key={item.slug}
+                className={
+                  isSystem
+                    ? 'preset-picker-item preset-picker-item-system'
+                    : 'preset-picker-item'
+                }
+                data-testid={`preset-item-${item.slug}`}
+                data-source={item.source}
+              >
+                <div className="preset-picker-item-head">
+                  <span className="preset-picker-item-name">{item.name}</span>
+                  {isSystem && (
+                    <span
+                      className="preset-picker-system-chip"
+                      title={t('presets.systemTooltip')}
+                      data-testid={`preset-system-chip-${item.slug}`}
+                    >
+                      <span className="material-icons" aria-hidden="true">verified</span>
+                      {t('presets.systemBadge')}
                     </span>
-                    {categoryLabel(c, t)}
-                  </span>
-                ))}
-              </div>
-              <div className="preset-picker-item-actions">
-                <button
-                  type="button"
-                  className="preset-picker-apply-btn"
-                  onClick={() => handleApply(item)}
-                  data-testid={`preset-apply-${item.slug}`}
-                >
-                  <span className="material-icons" aria-hidden="true">download</span>
-                  {t('presets.apply')}
-                </button>
-                <button
-                  type="button"
-                  className="preset-picker-delete-btn"
-                  onClick={() => handleDelete(item.slug)}
-                  disabled={pendingDelete === item.slug}
-                  title={t('presets.delete')}
-                  aria-label={`${t('presets.delete')}: ${item.name}`}
-                  data-testid={`preset-delete-${item.slug}`}
-                >
-                  <span className="material-icons" aria-hidden="true">delete</span>
-                </button>
-              </div>
-            </li>
-          ))}
+                  )}
+                </div>
+                <div className="preset-picker-scopes">
+                  {item.categories.map((c) => (
+                    <span
+                      key={c}
+                      className="preset-picker-scope-chip"
+                      title={categoryLabel(c, t)}
+                    >
+                      <span className="material-icons" aria-hidden="true">
+                        {categoryIcon(c)}
+                      </span>
+                      {categoryLabel(c, t)}
+                    </span>
+                  ))}
+                </div>
+                <div className="preset-picker-item-actions">
+                  <button
+                    type="button"
+                    className="preset-picker-apply-btn"
+                    onClick={() => handleApply(item)}
+                    data-testid={`preset-apply-${item.slug}`}
+                  >
+                    <span className="material-icons" aria-hidden="true">download</span>
+                    {t('presets.apply')}
+                  </button>
+                  {!isSystem && (
+                    <button
+                      type="button"
+                      className="preset-picker-delete-btn"
+                      onClick={() => handleDelete(item.slug)}
+                      disabled={pendingDelete === item.slug}
+                      title={t('presets.delete')}
+                      aria-label={`${t('presets.delete')}: ${item.name}`}
+                      data-testid={`preset-delete-${item.slug}`}
+                    >
+                      <span className="material-icons" aria-hidden="true">delete</span>
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

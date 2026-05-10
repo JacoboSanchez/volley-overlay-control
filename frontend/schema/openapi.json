@@ -801,6 +801,16 @@
             "title": "Slug",
             "type": "string"
           },
+          "source": {
+            "default": "user",
+            "description": "``user`` for operator-saved records on disk; ``system`` for read-only entries derived from ``APP_THEMES``. System presets cannot be deleted.",
+            "enum": [
+              "user",
+              "system"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
           "values": {
             "additionalProperties": true,
             "description": "Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React panel deep-merges into its edit model. Unknown keys from older records are filtered out at read time.",
@@ -2368,7 +2378,7 @@
     },
     "/api/v1/customization/presets": {
       "get": {
-        "description": "Return every preset on disk, ordered by name (case-insensitive).",
+        "description": "Return every preset, ordered system-first then by name.\n\nSystem entries are derived from ``APP_THEMES`` at request time and\nare not persisted; user entries come from disk. Both share the same\n``PresetSummary`` shape so the React picker can render them in a\nsingle list.",
         "operationId": "list_presets_api_v1_customization_presets_get",
         "parameters": [
           {
@@ -2403,7 +2413,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List operator-saved presets.",
+        "summary": "List operator-saved and system presets.",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -4011,47 +4021,6 @@
           }
         },
         "summary": "Get Teams",
-        "tags": [
-          "Scoreboard API v1"
-        ]
-      }
-    },
-    "/api/v1/themes": {
-      "get": {
-        "description": "Return available theme definitions.",
-        "operationId": "get_themes_api_v1_themes_get",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "title": "Authorization",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Themes",
         "tags": [
           "Scoreboard API v1"
         ]

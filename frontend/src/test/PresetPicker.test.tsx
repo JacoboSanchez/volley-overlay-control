@@ -15,6 +15,7 @@ const POSITION_PRESET: PresetSummary = {
   slug: 'court-a',
   name: 'Court A',
   created_at: 1234,
+  source: 'user',
   categories: ['position'],
   values: { Height: 12, Width: 35 },
 };
@@ -23,8 +24,18 @@ const TEAM_COLOR_PRESET: PresetSummary = {
   slug: 'home-colors',
   name: 'Home colors',
   created_at: 2345,
+  source: 'user',
   categories: ['team1_color'],
   values: { 'Team 1 Color': '#0f0', 'Team 1 Text Color': '#000' },
+};
+
+const SYSTEM_THEME_PRESET: PresetSummary = {
+  slug: 'system-bright-court',
+  name: 'Bright Court',
+  created_at: 0,
+  source: 'system',
+  categories: ['style'],
+  values: { 'Color 1': '#ffffff', 'Text Color 1': '#000000' },
 };
 
 describe('PresetPicker', () => {
@@ -178,5 +189,53 @@ describe('PresetPicker', () => {
       expect(screen.getByTestId('preset-picker-error')).toBeInTheDocument(),
     );
     expect(screen.getByTestId('preset-picker-error')).toHaveTextContent(/502/);
+  });
+
+  it('renders system presets with a badge and no delete button', async () => {
+    vi.mocked(api.listPresets).mockResolvedValue({
+      items: [SYSTEM_THEME_PRESET, POSITION_PRESET],
+    });
+    renderWithI18n(<PresetPicker model={{}} onApplyPatch={vi.fn()} />);
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('preset-item-system-bright-court'),
+      ).toBeInTheDocument(),
+    );
+    // System chip is visible only on the env-driven entry.
+    expect(
+      screen.getByTestId('preset-system-chip-system-bright-court'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('preset-system-chip-court-a'),
+    ).not.toBeInTheDocument();
+    // Apply button works on both; delete button is suppressed for the
+    // system entry but present for the user entry.
+    expect(
+      screen.getByTestId('preset-apply-system-bright-court'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('preset-delete-system-bright-court'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('preset-delete-court-a')).toBeInTheDocument();
+  });
+
+  it('loads a system preset via onApplyPatch', async () => {
+    vi.mocked(api.listPresets).mockResolvedValue({
+      items: [SYSTEM_THEME_PRESET],
+    });
+    const onApplyPatch = vi.fn();
+    renderWithI18n(
+      <PresetPicker model={{}} onApplyPatch={onApplyPatch} />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('preset-apply-system-bright-court'),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId('preset-apply-system-bright-court'));
+    expect(onApplyPatch).toHaveBeenCalledWith({
+      'Color 1': '#ffffff',
+      'Text Color 1': '#000000',
+    });
   });
 });

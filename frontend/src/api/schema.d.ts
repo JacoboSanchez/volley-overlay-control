@@ -419,8 +419,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List operator-saved presets.
-         * @description Return every preset on disk, ordered by name (case-insensitive).
+         * List operator-saved and system presets.
+         * @description Return every preset, ordered system-first then by name.
+         *
+         *     System entries are derived from ``APP_THEMES`` at request time and
+         *     are not persisted; user entries come from disk. Both share the same
+         *     ``PresetSummary`` shape so the React picker can render them in a
+         *     single list.
          */
         get: operations["list_presets_api_v1_customization_presets_get"];
         put?: never;
@@ -838,26 +843,6 @@ export interface paths {
          * @description Return predefined team names with icon/color data.
          */
         get: operations["get_teams_api_v1_teams_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/themes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Themes
-         * @description Return available theme definitions.
-         */
-        get: operations["get_themes_api_v1_themes_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1446,6 +1431,13 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
+            /**
+             * Source
+             * @description ``user`` for operator-saved records on disk; ``system`` for read-only entries derived from ``APP_THEMES``. System presets cannot be deleted.
+             * @default user
+             * @enum {string}
+             */
+            source: "user" | "system";
             /**
              * Values
              * @description Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React panel deep-merges into its edit model. Unknown keys from older records are filtered out at read time.
@@ -3100,37 +3092,6 @@ export interface operations {
         };
     };
     get_teams_api_v1_teams_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_themes_api_v1_themes_get: {
         parameters: {
             query?: never;
             header?: {

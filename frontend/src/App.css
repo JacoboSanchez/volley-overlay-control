@@ -1881,12 +1881,30 @@ body {
   background: var(--surface);
 }
 
-.preset-picker-item-head { display: flex; align-items: center; }
+.preset-picker-item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 
 .preset-picker-item-name {
   font-weight: 600;
   color: var(--text);
 }
+
+.preset-picker-system-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  color: var(--muted);
+}
+
+.preset-picker-system-chip .material-icons { font-size: 0.85rem; }
 
 .preset-picker-scopes {
   display: flex;

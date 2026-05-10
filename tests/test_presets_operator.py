@@ -152,6 +152,16 @@ class TestPresetsStore:
         with pytest.raises(presets_store.PresetExists):
             presets_store.create(name="Dup", values={"Height": 9})
 
+    def test_slugify_rejects_reserved_system_prefix(self):
+        # Names that resolve to ``system-…`` would shadow the
+        # read-only entries surfaced from ``APP_THEMES``. The store
+        # rejects them at slug derivation so a hand-crafted POST
+        # can't ever land such a record on disk.
+        with pytest.raises(ValueError):
+            presets_store.slugify("system-bright")
+        with pytest.raises(ValueError):
+            presets_store.slugify("System Bright")
+
     def test_list_orders_by_name_case_insensitive(self):
         presets_store.create(name="zoo", values={"Height": 1})
         presets_store.create(name="Alpha", values={"Height": 2})
@@ -260,6 +270,83 @@ class TestPresetCRUDEndpoints:
     def test_delete_unknown_slug_is_404(self, client):
         r = client.delete("/api/v1/customization/presets/never-existed")
         assert r.status_code == 404
+
+    def test_delete_system_slug_is_403(self, client):
+        # Even when no env var is set so the slug doesn't resolve to a
+        # real system entry, the prefix itself is reserved — the route
+        # short-circuits to 403 before touching disk so a future env
+        # change cannot expose a deletion path.
+        r = client.delete("/api/v1/customization/presets/system-anything")
+        assert r.status_code == 403
+        assert "system" in r.json()["detail"].lower()
+
+    def test_create_with_system_prefix_name_is_400(self, client):
+        # The slugify guard rejects names that would resolve to the
+        # reserved prefix; the route surfaces it as a 400.
+        r = client.post(
+            "/api/v1/customization/presets",
+            json={"name": "system bright", "values": {"Height": 1}},
+        )
+        assert r.status_code == 400, r.text
+        assert "system-" in r.json()["detail"]
+
+    def test_list_includes_system_entries_from_app_themes(
+        self, client, monkeypatch,
+    ):
+        # ``APP_THEMES`` is operator-controlled. The list endpoint
+        # surfaces it as read-only ``source="system"`` records so the
+        # picker can show env-driven and on-disk presets in a single
+        # list. System entries sort first; the ``system-`` slug prefix
+        # disambiguates them from user records that happen to share a
+        # name.
+        monkeypatch.setenv(
+            "APP_THEMES",
+            json.dumps({
+                "Bright Court": {
+                    "Color 1": "#fff",
+                    "Text Color 1": "#000",
+                },
+            }),
+        )
+        client.post(
+            "/api/v1/customization/presets",
+            json={"name": "User Pick", "values": {"Height": 12}},
+        )
+        items = client.get("/api/v1/customization/presets").json()["items"]
+        assert [i["source"] for i in items] == ["system", "user"]
+        sys_item = items[0]
+        assert sys_item["slug"] == "system-bright-court"
+        assert sys_item["name"] == "Bright Court"
+        assert sys_item["values"] == {
+            "Color 1": "#fff",
+            "Text Color 1": "#000",
+        }
+        assert sys_item["categories"] == ["style"]
+        # Defence in depth: deleting the system entry the list just
+        # surfaced is still a 403.
+        r = client.delete(f"/api/v1/customization/presets/{sys_item['slug']}")
+        assert r.status_code == 403
+
+    def test_list_drops_unknown_keys_from_system_themes(
+        self, client, monkeypatch,
+    ):
+        # Same allow-listing as user presets — a stray key in
+        # ``APP_THEMES`` is filtered out at read time so the picker
+        # never sees an entry that the customization save flow
+        # would reject.
+        monkeypatch.setenv(
+            "APP_THEMES",
+            json.dumps({
+                "Mixed": {
+                    "Color 1": "#fff",
+                    "raw_remote_customization": {"hidden": True},
+                },
+            }),
+        )
+        items = client.get("/api/v1/customization/presets").json()["items"]
+        assert len(items) == 1
+        assert items[0]["values"] == {"Color 1": "#fff"}
+        assert "raw_remote_customization" not in items[0]["values"]
 
     def test_categories_round_trip_on_disk(self, client, tmp_path):
         client.post(
