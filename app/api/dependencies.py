@@ -80,16 +80,17 @@ def check_oid_access(authorization: str, oid: str):
     # (e.g. ``{"alice": "string"}``); skip the OID check rather
     # than crash on ``userconf.get(...)``.
     userconf = users.get(username) if isinstance(users, dict) else None
-    if isinstance(userconf, dict):
-        allowed_oid = userconf.get("control")
-        if allowed_oid and allowed_oid != oid:
-            raise HTTPException(status_code=403, detail="Not authorized for this OID.")
-        if not allowed_oid and _strict_oid_access_enabled():
-            logger.warning(
-                "Strict OID access: user %s has no 'control' field; denying",
-                username,
-            )
-            raise HTTPException(status_code=403, detail="Not authorized for this OID.")
+    if not isinstance(userconf, dict):
+        return
+    allowed_oid = userconf.get("control")
+    if allowed_oid and allowed_oid != oid:
+        raise HTTPException(status_code=403, detail="Not authorized for this OID.")
+    if not allowed_oid and _strict_oid_access_enabled():
+        logger.warning(
+            "Strict OID access: user %s has no 'control' field; denying",
+            username,
+        )
+        raise HTTPException(status_code=403, detail="Not authorized for this OID.")
 
 async def get_session(
     request: Request,

@@ -79,8 +79,8 @@ class PasswordAuthenticator:
 
     @staticmethod
     def do_authenticate_users() -> bool:
-        passwords_json = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
-        return passwords_json is not None and passwords_json.strip() != ''
+        raw = EnvVarsManager.get_env_var('SCOREBOARD_USERS', None)
+        return bool(raw and raw.strip())
 
     @classmethod
     def _cache_hit(cls, key_hash: str, users: dict, now: float):
