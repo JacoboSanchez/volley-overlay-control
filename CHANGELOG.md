@@ -23,6 +23,21 @@ once a first tagged release ships.
   full `pytest` (1019), `ruff`, `mypy`, and `vitest` (415) suites
   remain green.
 
+### Fixed
+
+- **Recent-actions strip now drops the "alive" chip on undo** so it
+  matches how history (`RecentAuditDrawer`) and the printable
+  `/match/{id}/report` render the same event. Previously, when the
+  preview was hidden and the operator undid an action, the strip
+  surfaced both the original chip *and* the struck/undone chip side
+  by side, even though the audit-backed views only show the undone
+  entry once `pop_last_forward` tombstones the forward record. The
+  classifier no longer synthesizes a forward `timeout` chip from
+  the post-state diff for popped records, and the recovery buffer
+  in `useRecentEvents` now suppresses any prior chip whose undo
+  counterpart (point/timeout/set/match) is present in the fresh
+  fetch or the snapshot diff.
+
 ## [5.2.0] - 2026-05-10
 
 ### Added
