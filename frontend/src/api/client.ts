@@ -194,6 +194,48 @@ export function getThemes(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('GET', '/themes');
 }
 
+// Operator-saved presets (CRUD lives at /customization/presets/*).
+// Apply is purely client-side: the React panel deep-merges
+// ``values`` into its in-memory edit model and persists via the
+// existing PUT /customization save flow.
+export interface PresetCategory {
+  id: 'team1_name' | 'team1_color' | 'team2_name' | 'team2_color' | 'position' | 'style';
+}
+
+export interface PresetSummary {
+  slug: string;
+  name: string;
+  created_at: number;
+  categories: string[];
+  values: Record<string, unknown>;
+}
+
+export function listPresets(): Promise<{ items: PresetSummary[] }> {
+  return request<{ items: PresetSummary[] }>('GET', '/customization/presets');
+}
+
+export function createPreset(
+  name: string,
+  values: Record<string, unknown>,
+): Promise<PresetSummary> {
+  return request<PresetSummary>('POST', '/customization/presets', { name, values });
+}
+
+export async function deletePreset(slug: string): Promise<void> {
+  // ``request`` always tries to ``res.json()`` and the delete handler
+  // returns 204 No Content with no body, which would throw. Use the
+  // raw fetch path here so the caller gets a clean ``void`` resolve.
+  const path = `/customization/presets/${encodeURIComponent(slug)}`;
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: headers(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API DELETE ${path} failed (${res.status}): ${text}`);
+  }
+}
+
 export function getLinks(oid: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('GET', `/links?oid=${encodeURIComponent(oid)}`);
 }

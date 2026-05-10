@@ -491,6 +491,12 @@ function updateStateDiff(oldState, newState) {
     if (JSON.stringify(oldState.overlay_control.player_stats_data) !== JSON.stringify(newState.overlay_control.player_stats_data)) {
         renderPlayerStats(newState.overlay_control.player_stats_data);
     }
+
+    // Phase 3 — set-won + match-finished glows. Sits at the end of
+    // the diff so the panel/score updates land first; the alert
+    // helper restarts the keyframe via a forced reflow if the same
+    // class re-applies on a rapid follow-up event.
+    dispatchAlertTransitions(oldState, newState);
 }
 
 function equalizeNamePanels() {
@@ -780,8 +786,146 @@ function setupRenderAreaReporting() {
     reportRenderArea();
 }
 
+// ---------------------------------------------------------------------------
+// Match-alert coreography (Phase 3)
+// ---------------------------------------------------------------------------
+//
+// Adds a transient glow on the team panel + score block when the operator
+// crosses two state-visible alert boundaries: a set is won (sets_won
+// increments) and the match finishes (one team passes the win threshold
+// derived from match_info.best_of_sets).
+//
+// Set-point and match-point glows are deliberately deferred — those
+// require knowing the points-to-win threshold (25 / 15 / final-set
+// override) which the overlay state does not currently carry. They will
+// land when the backend pushes a ``match_info.alert`` flag.
+//
+// Opt-out via ``state.overlay_control.alerts_visual === false`` so an
+// existing live broadcast can disable the new visual without an env-var
+// or template edit.
+
+const _ALERT_STYLES = `
+@keyframes alerts-set-glow {
+  0%   { box-shadow: 0 0 0 rgba(46, 125, 50, 0); }
+  35%  { box-shadow: 0 0 24px 6px rgba(46, 125, 50, 0.65); }
+  100% { box-shadow: 0 0 0 rgba(46, 125, 50, 0); }
+}
+@keyframes alerts-finished-glow {
+  0%   { box-shadow: 0 0 0 rgba(244, 67, 54, 0); }
+  20%  { box-shadow: 0 0 28px 8px rgba(244, 67, 54, 0.85); }
+  60%  { box-shadow: 0 0 28px 8px rgba(244, 67, 54, 0.85); }
+  100% { box-shadow: 0 0 0 rgba(244, 67, 54, 0); }
+}
+.alerts-set-won {
+  animation: alerts-set-glow 1.4s ease-out 1;
+  border-radius: 12px;
+}
+.alerts-match-finished {
+  animation: alerts-finished-glow 2.4s ease-out 1;
+  border-radius: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .alerts-set-won, .alerts-match-finished { animation: none; }
+}
+`;
+let _alertsStyleInjected = false;
+function ensureAlertStylesInjected() {
+    if (_alertsStyleInjected) return;
+    const style = document.createElement('style');
+    style.id = 'alerts-style';
+    style.textContent = _ALERT_STYLES;
+    document.head.appendChild(style);
+    _alertsStyleInjected = true;
+}
+
+function _alertsEnabled(state) {
+    // Opt-out: only ``=== false`` disables. Missing keys (legacy
+    // overlays loaded before Phase 3) keep the new behaviour on.
+    return state && state.overlay_control
+        && state.overlay_control.alerts_visual !== false;
+}
+
+function _matchFinished(state) {
+    if (!state) return false;
+    const bestOf = (state.match_info && state.match_info.best_of_sets) || 5;
+    const threshold = Math.ceil(bestOf / 2);
+    return (state.team_home && state.team_home.sets_won >= threshold)
+        || (state.team_away && state.team_away.sets_won >= threshold);
+}
+
+function _flashAlertOnTeam(team, className, durationMs) {
+    // Combined target: the panel and the score node both pulse so
+    // any template variant (compact, jersey, glass…) catches at
+    // least one of them. We don't depend on a single shared
+    // selector because each template renames the visible block.
+    const targets = [
+        document.querySelector(`.team-${team}`),
+        document.getElementById(`${team}-points`),
+        document.getElementById(`${team}-sets`),
+    ].filter(Boolean);
+    targets.forEach((el) => {
+        // Cancel any in-flight removal for the same element so a
+        // rapid follow-up (e.g. operator un-does a set then re-applies
+        // it) doesn't get its animation cut short by the previous
+        // setTimeout. The id is stored per-class so concurrent
+        // alert kinds (set-won + match-finished landing on the same
+        // tick) coexist cleanly.
+        const timerKey = `_alertTimeout_${className}`;
+        if (el[timerKey]) {
+            clearTimeout(el[timerKey]);
+            el[timerKey] = null;
+        }
+        el.classList.remove(className);
+        // Re-apply on next frame to restart the keyframe animation
+        // on repeated triggers (e.g. team won set 1 then set 2).
+        // eslint-disable-next-line no-unused-expressions -- forces reflow
+        void el.offsetWidth;
+        el.classList.add(className);
+        el[timerKey] = setTimeout(() => {
+            el.classList.remove(className);
+            el[timerKey] = null;
+        }, durationMs + 50);
+    });
+}
+
+function triggerSetWonAlert(team) {
+    ensureAlertStylesInjected();
+    _flashAlertOnTeam(team, 'alerts-set-won', 1400);
+}
+
+function triggerMatchFinishedAlert(team) {
+    ensureAlertStylesInjected();
+    _flashAlertOnTeam(team, 'alerts-match-finished', 2400);
+}
+
+function dispatchAlertTransitions(oldState, newState) {
+    if (!_alertsEnabled(newState)) return;
+    // Set-won: each side independently — same operator can fix one
+    // side via long-press and we shouldn't double-fire on the other.
+    if (oldState.team_home.sets_won !== newState.team_home.sets_won
+        && newState.team_home.sets_won > oldState.team_home.sets_won) {
+        triggerSetWonAlert('home');
+    }
+    if (oldState.team_away.sets_won !== newState.team_away.sets_won
+        && newState.team_away.sets_won > oldState.team_away.sets_won) {
+        triggerSetWonAlert('away');
+    }
+    // Match-finished: only fires on the rising edge. The match
+    // archive flow may zero ``sets_won`` to prep the next match, so
+    // we explicitly require the new state to be finished AND the
+    // previous one to not have been.
+    const wasFinished = _matchFinished(oldState);
+    const nowFinished = _matchFinished(newState);
+    if (!wasFinished && nowFinished) {
+        const winner = (newState.team_home.sets_won
+            > newState.team_away.sets_won) ? 'home' : 'away';
+        triggerMatchFinishedAlert(winner);
+    }
+}
+
 // Start connection when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
     connectWebSocket();
     setupRenderAreaReporting();
+    ensureAlertStylesInjected();
 });

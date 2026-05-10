@@ -70,14 +70,48 @@ class TestUndoLast:
         response = GameService.undo_last(session)
         assert response.success is False
 
-    def test_undo_appends_undo_audit_record(self, mock_conf, api_backend):
+    def test_undo_appends_undo_audit_record(
+        self, mock_conf, api_backend, monkeypatch,
+    ):
+        """Outside the rapid-pair window the legacy unified-undo
+        flow is preserved: pop the forward, append an orphan undo.
+
+        Time has to be mocked because the default 5 s rapid-pair
+        window would otherwise absorb both halves into a no-op
+        (Case A) and the assertion would see an empty log.
+        """
+        import time as _time
+
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
         session = SessionManager.get_or_create("undo-7", mock_conf, api_backend)
         GameService.add_point(session, team=1)
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 0.1
         GameService.undo_last(session)
         records = action_log.read_all("undo-7")
         # The forward record was popped, the undo record was appended.
         assert len(records) == 1
         assert records[0]["params"]["undo"] is True
+
+    def test_immediate_undo_collapses_via_rapid_pair(
+        self, mock_conf, api_backend,
+    ):
+        """A tap immediately followed by an undo (well within the
+        rapid-pair window) collapses to nothing in the audit log —
+        same final state, nothing for the report or drawer to
+        render.
+        """
+        session = SessionManager.get_or_create(
+            "undo-7-rapid", mock_conf, api_backend,
+        )
+        GameService.add_point(session, team=1)
+        GameService.undo_last(session)
+        assert action_log.read_all("undo-7-rapid") == []
+        assert session.undoable_forward_count == 0
 
     def test_two_undos_walk_back_two_steps(self, mock_conf, api_backend):
         session = SessionManager.get_or_create("undo-8", mock_conf, api_backend)

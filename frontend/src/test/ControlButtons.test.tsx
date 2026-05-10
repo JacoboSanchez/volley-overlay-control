@@ -69,6 +69,12 @@ describe('ControlButtons', () => {
     expect(defaultProps.onTogglePreview).toHaveBeenCalledOnce();
   });
 
+  it('does not render share / history buttons — both moved to the top-right corner stack', () => {
+    renderWithI18n(<ControlButtons {...defaultProps} />);
+    expect(screen.queryByTestId('share-button')).toBeNull();
+    expect(screen.queryByTestId('history-button')).toBeNull();
+  });
+
   it('shows visibility icon based on visible prop', () => {
     const { rerender } = renderWithI18n(<ControlButtons {...defaultProps} visible={true} />);
     expect(screen.getByTestId('visibility-button')).toHaveTextContent('visibility');

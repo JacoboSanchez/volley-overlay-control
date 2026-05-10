@@ -252,134 +252,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/presets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List configuration presets
-         * @description Return the catalogue of saved presets, ordered by name.
-         *
-         *     Snapshots are intentionally omitted from the list view to keep
-         *     response sizes bounded — fetch a specific preset with
-         *     ``GET /presets/{slug}`` to inspect its payload.
-         */
-        get: operations["list_presets_api_v1_admin_presets_get"];
-        put?: never;
-        /**
-         * Save the current state of a custom overlay as a preset
-         * @description Capture the requested scopes from ``source_oid``'s live state.
-         *
-         *     Scopes whose extractor returns an empty dict are dropped from the
-         *     saved record so a preset never claims to cover a scope it actually
-         *     cannot replay (e.g. ``overlay_layout`` saved off an overlay that
-         *     never had a ``geometry`` set).
-         */
-        post: operations["create_preset_api_v1_admin_presets_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/presets/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Import a preset from an exported JSON document
-         * @description Persist *payload* as a new preset.
-         *
-         *     Slug collisions are resolved by appending ``-2``, ``-3``... up to
-         *     ``-99`` so re-importing the same JSON does not overwrite the
-         *     existing entry. Unknown scopes inside the payload are stripped
-         *     silently — same forward-compatibility stance as overlay state
-         *     fields the consumer doesn't recognise.
-         */
-        post: operations["import_preset_api_v1_admin_presets_import_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/presets/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Inspect a preset's snapshots
-         * @description Return the full preset record (including ``snapshots``) for *slug*.
-         */
-        get: operations["get_preset_api_v1_admin_presets__slug__get"];
-        put?: never;
-        post?: never;
-        /** Delete a preset */
-        delete: operations["delete_preset_api_v1_admin_presets__slug__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/presets/{slug}/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply a preset to a custom overlay
-         * @description Merge the preset's snapshots into ``target_oid``'s state.
-         *
-         *     The merge is coalesced: every selected scope contributes to a
-         *     single ``OverlayStateStore.update_state`` call so the operator
-         *     triggers exactly one disk write and one WebSocket broadcast,
-         *     regardless of how many scopes the preset covers.
-         */
-        post: operations["apply_preset_api_v1_admin_presets__slug__apply_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/presets/{slug}/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Export a preset as a portable JSON document
-         * @description Return the on-disk preset schema for backup / cross-instance reuse.
-         *
-         *     The returned object round-trips through ``POST /presets/import`` —
-         *     the schema is identical to what's persisted on disk.
-         */
-        get: operations["export_preset_api_v1_admin_presets__slug__export_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/status": {
         parameters: {
             query?: never;
@@ -534,6 +406,51 @@ export interface paths {
         put: operations["update_customization_api_v1_customization_put"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customization/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List operator-saved presets.
+         * @description Return every preset on disk, ordered by name (case-insensitive).
+         */
+        get: operations["list_presets_api_v1_customization_presets_get"];
+        put?: never;
+        /**
+         * Save the current configuration (or a subset) as a named preset.
+         * @description Persist *payload.values* under a slugified version of *name*.
+         *
+         *     The React panel sends the values directly — it already has the
+         *     operator's flat customization in memory, so the server doesn't
+         *     need to round-trip through ``GameService.refresh_customization``.
+         */
+        post: operations["create_preset_api_v1_customization_presets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customization/presets/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an operator-saved preset. */
+        delete: operations["delete_preset_api_v1_customization_presets__slug__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1499,58 +1416,41 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /**
-         * PresetApplyRequest
-         * @description Apply a preset to a target custom overlay.
-         */
-        PresetApplyRequest: {
-            /**
-             * Scopes
-             * @description Optional subset of the preset's scopes to actually apply. When omitted, every scope the preset carries is applied. Useful for cases where the operator only wants the ``team_home`` half of a 'club presets' record.
-             */
-            scopes?: string[] | null;
-            /**
-             * Target Oid
-             * @description Custom overlay id to apply the preset to.
-             */
-            target_oid: string;
-        };
-        /**
-         * PresetCreateRequest
-         * @description Save the current state of a custom overlay as a named preset.
-         */
+        /** PresetCreateRequest */
         PresetCreateRequest: {
-            /**
-             * Name
-             * @description Human-readable preset name. The slug used in URLs and on disk is derived from this value (lowercase ASCII + dashes). Names that would slugify to an empty string are rejected.
-             */
+            /** Name */
             name: string;
             /**
-             * Scopes
-             * @description Subset of the catalogue (``team_home``, ``team_away``, ``overlay_layout``, ``overlay_colors``, ``overlay_style``) to capture. Scopes whose extractor returns an empty snapshot for the source state are dropped silently — the operator does not get a preset that no-ops on apply.
+             * Values
+             * @description Subset of the operator's flat customization model to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped server-side; an empty result is rejected with 400.
              */
-            scopes: string[];
-            /**
-             * Source Oid
-             * @description Custom overlay id whose live state seeds the preset.
-             */
-            source_oid: string;
+            values: {
+                [key: string]: unknown;
+            };
         };
-        /**
-         * PresetImportRequest
-         * @description Import a preset previously exported from this or another instance.
-         */
-        PresetImportRequest: {
+        /** PresetListResponse */
+        PresetListResponse: {
+            /** Items */
+            items: components["schemas"]["PresetSummary"][];
+        };
+        /** PresetSummary */
+        PresetSummary: {
             /**
-             * Name Override
-             * @description When set, replaces the imported preset's ``_meta.name`` so the operator can re-tag the entry on the way in (e.g. for a per-tournament variant of a shared club preset).
+             * Categories
+             * @description Category ids covered by the preset's values (``team1_name``, ``team1_color``, ``team2_name``, ``team2_color``, ``position``, ``style``).
              */
-            name_override?: string | null;
+            categories: string[];
+            /** Created At */
+            created_at: number;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
             /**
-             * Payload
-             * @description On-disk preset schema (with ``_meta``, ``scopes``, ``snapshots``). Slug collisions are resolved by suffixing ``-2``, ``-3``... up to ``-99``.
+             * Values
+             * @description Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React panel deep-merges into its edit model. Unknown keys from older records are filtered out at read time.
              */
-            payload: {
+            values: {
                 [key: string]: unknown;
             };
         };
@@ -2164,243 +2064,6 @@ export interface operations {
             };
         };
     };
-    list_presets_api_v1_admin_presets_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_preset_api_v1_admin_presets_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PresetCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    import_preset_api_v1_admin_presets_import_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PresetImportRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_preset_api_v1_admin_presets__slug__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_preset_api_v1_admin_presets__slug__delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    apply_preset_api_v1_admin_presets__slug__apply_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PresetApplyRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_preset_api_v1_admin_presets__slug__export_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     admin_status_api_v1_admin_status_get: {
         parameters: {
             query?: never;
@@ -2618,6 +2281,103 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ActionResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_presets_api_v1_customization_presets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_preset_api_v1_customization_presets_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresetCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_preset_api_v1_customization_presets__slug__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -3686,6 +3446,8 @@ export interface operations {
                 exp?: string | null;
                 /** @description Signed-URL HMAC-SHA256 hex digest. */
                 sig?: string | null;
+                /** @description Force the report locale (en/es/pt/it/fr/de). When the operator shares the report from the React control UI, the share dialog appends ``?lang=<active-locale>`` so the spectator sees the same language the operator was using. Falls back to the request's ``Accept-Language`` header (browser preference) when omitted, then to English. Unsupported values fall back the same way. */
+                lang?: string | null;
             };
             header?: {
                 authorization?: string | null;

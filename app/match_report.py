@@ -37,6 +37,7 @@ import datetime
 import html
 import logging
 import re
+import time
 from typing import overload
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
@@ -45,8 +46,26 @@ from fastapi.responses import HTMLResponse
 from app.api import match_archive
 from app.auth_utils import require_admin_token as _require_admin_token
 from app.env_vars_manager import EnvVarsManager
-from app.match_report_i18n import resolve_locale
+from app.match_report_i18n import (
+    SUPPORTED_LOCALES,
+    resolve_locale,
+)
 from app.match_report_i18n import t as _t
+
+
+def _is_supported_locale_tag(value: str | None) -> bool:
+    """``True`` when *value*'s primary tag matches a supported locale.
+
+    Used to disambiguate between a ``?lang=en`` that legitimately
+    requested English and a ``?lang=xx`` that fell through to
+    English by accident — the latter should defer to the
+    ``Accept-Language`` header instead of locking the report into
+    the default.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return False
+    primary = value.strip().split("-", 1)[0].split(",", 1)[0].lower()
+    return primary in SUPPORTED_LOCALES
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +292,20 @@ _REPORT_TEMPLATE = """<!doctype html>
     margin: 0 4px 0 8px;
     border-radius: 50%;
   }}
+  /* Timeout legend pip mirrors the chart's dashed guide: a thin
+     horizontal track of three dashes that visually echoes the
+     vertical guides drawn over the polylines. ``border-radius:0``
+     overrides the default round-pip style. */
+  .chart-card .legend .swatch-timeout {{
+    background: repeating-linear-gradient(
+      to right,
+      var(--muted) 0 2px,
+      transparent 2px 4px
+    );
+    border-radius: 0;
+    height: 2px;
+    width: 14px;
+  }}
   .set-chart {{
     width: 100%;
     height: auto;
@@ -288,11 +321,100 @@ _REPORT_TEMPLATE = """<!doctype html>
   }}
   .timeline-set {{ margin-bottom: 12px; }}
   .timeline-set h3 {{ margin: 0 0 6px; }}
-  .timeline-set ol {{ margin: 0; padding-left: 22px; }}
-  .timeline-set li {{ margin: 2px 0; }}
-  .timeline-set li.undone {{
-    text-decoration: line-through;
+  .timeline-set ol {{
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }}
+  .timeline-set li {{
+    margin: 0;
+    padding: 4px 8px 4px 10px;
+    border-radius: 6px;
+    border-left: 3px solid var(--border);
+    background: rgba(127, 127, 127, 0.04);
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+  }}
+  /* Per-action accent strip + glyph. Colours stay legible on both
+     the dark and light schemes the rest of the report uses, and the
+     glyph stays ASCII / a single emoji so the print stylesheet
+     doesn't depend on a Material Icons font being loaded.
+     Undo records are stripped upstream (``_collapse_undos`` drops
+     both halves of every pair) so no ``undone`` modifier is
+     emitted. */
+  .timeline-set li.chip-point-t1 {{ border-left-color: #2196f3;
+    background: rgba(33, 150, 243, 0.07); }}
+  .timeline-set li.chip-point-t2 {{ border-left-color: #f44336;
+    background: rgba(244, 67, 54, 0.07); }}
+  .timeline-set li.chip-point    {{ border-left-color: #607d8b;
+    background: rgba(96, 125, 139, 0.07); }}
+  .timeline-set li.chip-set      {{ border-left-color: #2e7d32;
+    background: rgba(46, 125, 50, 0.10); }}
+  .timeline-set li.chip-timeout  {{ border-left-color: #ff9800;
+    background: rgba(255, 152, 0, 0.10); }}
+  .timeline-set li.chip-serve    {{ border-left-color: #5c6bc0;
+    background: rgba(92, 107, 192, 0.07); }}
+  .timeline-set li.chip-edit     {{ border-left-color: #ab47bc;
+    background: rgba(171, 71, 188, 0.08); }}
+  .timeline-set li.chip-reset    {{ border-left-color: #9e9e9e;
+    background: rgba(158, 158, 158, 0.10); }}
+  .timeline-set li.chip-other    {{ border-left-color: var(--muted);
+    background: rgba(127, 127, 127, 0.05); }}
+  .chip-glyph {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    color: #fff;
+    background: var(--muted);
+    text-decoration: none;
+  }}
+  .chip-glyph-point-t1 {{ background: #2196f3; }}
+  .chip-glyph-point-t2 {{ background: #f44336; }}
+  .chip-glyph-point    {{ background: #607d8b; }}
+  .chip-glyph-set      {{ background: #2e7d32; }}
+  .chip-glyph-timeout  {{ background: #ff9800; color: #1f1300; }}
+  .chip-glyph-serve    {{ background: #5c6bc0; }}
+  .chip-glyph-edit     {{ background: #ab47bc; }}
+  .chip-glyph-reset    {{ background: #9e9e9e; color: #1a1a2e; }}
+  .chip-glyph-other    {{ background: transparent;
     color: var(--muted);
+    border: 1px solid var(--border); }}
+  .timeline-legend {{
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 11px;
+    color: var(--muted);
+  }}
+  .timeline-legend-item {{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }}
+  @media print {{
+    .timeline-set li {{
+      background: transparent !important;
+      border-left-style: solid;
+    }}
+    .chip-glyph {{
+      background: transparent !important;
+      color: var(--muted) !important;
+      border: 1px solid var(--border);
+    }}
   }}
   .timeline-set li .ts {{
     font-variant-numeric: tabular-nums;
@@ -310,6 +432,15 @@ _REPORT_TEMPLATE = """<!doctype html>
     color: var(--muted);
     border-top: 1px solid var(--border);
     padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }}
+  .footer-line {{ word-break: break-word; }}
+  .footer-permalink {{
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }}
   @media print {{
     body {{ padding: 0; max-width: none; }}
@@ -392,7 +523,16 @@ _REPORT_TEMPLATE = """<!doctype html>
 <div class="timeline">{timeline_html}</div>
 </section>
 
-<div class="footer">{footer_text}</div>
+<footer class="footer">
+  <div class="footer-line">{footer_text}</div>
+  <div class="footer-line">
+    <strong>{permalink_label}:</strong>
+    <a href="{permalink}" class="footer-permalink">{permalink_display}</a>
+  </div>
+  <div class="footer-line">
+    <strong>{generated_label}:</strong> {generated_at_display}
+  </div>
+</footer>
 
 <script>
 (function() {{
@@ -521,7 +661,21 @@ def _team_color(customization: dict, team: int, primary: bool) -> str:
 
 
 def _team_name(customization: dict, team: int) -> str:
-    for key in (f"Team {team} Name", f"team_{team}_name", f"name{team}"):
+    # ``Team {n} Name`` is the canonical key the React control UI
+    # writes; ``Team {n} Text Name`` is the legacy alias the rest
+    # of the codebase still honours via ``Customization.A_TEAM`` /
+    # ``B_TEAM``. The overlays.uno cloud customization is also
+    # known to round-trip the legacy form depending on what the
+    # operator typed into the UNO panel — without the alias here
+    # the report falls back to the literal ``Team 1`` / ``Team 2``
+    # strings for any UNO-backed match. Snake-case and ``name{n}``
+    # cover older / external archives.
+    for key in (
+        f"Team {team} Name",
+        f"Team {team} Text Name",
+        f"team_{team}_name",
+        f"name{team}",
+    ):
         value = customization.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -529,16 +683,22 @@ def _team_name(customization: dict, team: int) -> str:
 
 
 def _action_label(record: dict, locale: str) -> str:
+    """Human-readable label for an audit-log row in the report.
+
+    No ``(undone)`` suffix is emitted: ``_collapse_undos`` strips
+    every undo record (and its forward pair) before this function
+    runs, so a row reaching here always represents an action that
+    survived to the final state.
+    """
     action = record.get("action", "")
     params = record.get("params") or {}
     team = params.get("team")
-    undo_suffix = _t(locale, "undo") if params.get("undo") else ""
     if action == "add_point":
-        return _t(locale, "actionPoint", team=team) + undo_suffix
+        return _t(locale, "actionPoint", team=team)
     if action == "add_set":
-        return _t(locale, "actionSet", team=team) + undo_suffix
+        return _t(locale, "actionSet", team=team)
     if action == "add_timeout":
-        return _t(locale, "actionTimeout", team=team) + undo_suffix
+        return _t(locale, "actionTimeout", team=team)
     if action == "change_serve":
         return _t(locale, "actionServe", team=team)
     if action == "set_score":
@@ -551,6 +711,84 @@ def _action_label(record: dict, locale: str) -> str:
     if action == "reset":
         return _t(locale, "actionReset")
     return action or _t(locale, "actionUnknown")
+
+
+# Single source of truth for the timeline chip palette. Each entry
+# pairs the chip kind (used as a CSS modifier ``chip-{kind}``) with
+# the glyph rendered inside the accent strip and, when applicable,
+# the i18n key that names it in the bottom legend.
+#
+# Order matters — the legend section iterates the catalogue in the
+# order entries appear here, so the operator scans them top-to-
+# bottom (per-team points, then set / timeout / serve / edit /
+# reset).
+#
+# There is intentionally no ``undone`` entry: ``_collapse_undos``
+# strips both halves of every undo pair upstream, so no row that
+# reaches the timeline carries an undone state. The frontend
+# audit drawer's ``chipCatalogue.ts`` keeps an ``undone`` entry
+# because the live operator transcript still surfaces individual
+# undo records as their own rows.
+_CHIP_CATALOGUE: dict[str, dict[str, str | None]] = {
+    "point-t1": {"glyph": "+1", "legend_key": "legendPointT1"},
+    "point-t2": {"glyph": "+1", "legend_key": "legendPointT2"},
+    # Generic point chip used for legacy/missing-team rows. Not
+    # surfaced in the legend because the per-team variants already
+    # cover the shared semantics.
+    "point":    {"glyph": "+1", "legend_key": None},
+    "set":      {"glyph": "🏆", "legend_key": "legendSet"},
+    "timeout":  {"glyph": "⏸", "legend_key": "legendTimeout"},
+    "serve":    {"glyph": "⇄", "legend_key": "legendServe"},
+    "edit":     {"glyph": "✎", "legend_key": "legendEdit"},
+    "reset":    {"glyph": "⟲", "legend_key": "legendReset"},
+    # Final fallback — keeps unknown actions from rendering a blank
+    # accent strip. Intentionally unlabelled in the legend.
+    "other":    {"glyph": "•", "legend_key": None},
+}
+
+
+def _chip_glyph(kind: str) -> str:
+    """Glyph shown inside the chip accent strip for a given kind."""
+    entry = _CHIP_CATALOGUE.get(kind, _CHIP_CATALOGUE["other"])
+    glyph = entry["glyph"]
+    return glyph if isinstance(glyph, str) else "•"
+
+
+# Classifier-driven chip metadata. Returns the (modifier, glyph) pair
+# the timeline ``<li>`` and its accent strip use to differentiate
+# action kinds at a glance. Glyphs come from ``_CHIP_CATALOGUE`` so
+# the legend, the per-row strip and any future surface that needs
+# the same palette stay consistent without manual sync.
+def _chip_classifier(action: str, team: object) -> tuple[str, str]:
+    """Map an audit-record action+team to a chip ``(modifier, glyph)``.
+
+    ``modifier`` keys the chip's CSS class (``chip-{modifier}``) so
+    the stylesheet can paint a different accent and background per
+    action kind. Team-bound rows use ``point-t1`` / ``point-t2`` so
+    the running score reads alongside its team colour without
+    requiring per-team chip glyphs. ``_collapse_undos`` upstream
+    guarantees no undone records reach this function.
+    """
+    if action == "add_point":
+        if team == 1:
+            kind = "point-t1"
+        elif team == 2:
+            kind = "point-t2"
+        else:
+            kind = "point"
+    elif action == "add_set":
+        kind = "set"
+    elif action == "add_timeout":
+        kind = "timeout"
+    elif action == "change_serve":
+        kind = "serve"
+    elif action == "set_score":
+        kind = "edit"
+    elif action == "reset":
+        kind = "reset"
+    else:
+        kind = "other"
+    return (kind, _chip_glyph(kind))
 
 
 # ---------------------------------------------------------------------------
@@ -685,23 +923,27 @@ def _played_set_count(final_state: dict, fallback: int) -> int:
 
 
 def _collapse_undos(audit: list[dict]) -> list[dict]:
-    """Mark forward audit records whose effect was reverted by a later ``undo``.
+    """Drop both halves of every ``undo`` pair from the rendered
+    timeline so undone actions never appear in the report.
 
     Two cases reach this function:
 
+    * Live unified-undo logs (the common case), where
+      ``action_log.pop_last_forward`` already removed the original
+      forward physically and the audit-log just carries the
+      trailing undo record. The orphan undo is dropped because
+      the action it referenced no longer exists.
     * Legacy / archived audit logs that still hold both a forward
-      record and the explicit undo that reversed it — typically from
-      pre-unification snapshots or replay-style fixtures. Match each
-      undo to the most recent matching forward record by
-      ``(action, team)``, mark the forward with ``_was_undone=True``
-      and drop the explicit undo from the rendered timeline.
-    * Live unified-undo logs, where ``action_log.pop_last_forward``
-      already removed the original forward physically and the
-      audit-log just carries the trailing undo record. With no
-      forward to mark, an orphan undo conveys nothing the report
-      can render meaningfully — the action it referenced no longer
-      exists in the timeline — so we drop it. Otherwise the report
-      would show "undo team-1 add_point" rows with no anchor.
+      record and the explicit undo that reversed it — typically
+      from pre-unification snapshots or replay-style fixtures. We
+      walk back to the most recent matching forward by
+      ``(action, team)`` and remove **both** the forward and the
+      undo, mirroring the live behaviour.
+
+    Net result: the report renders "as if the undone action never
+    happened". State-level aggregates already reflect the inverse
+    (the score / set / timeout counters never recorded the popped
+    increment), so the timeline can stay equally clean.
     """
     out: list[dict] = []
     for record in audit:
@@ -710,24 +952,22 @@ def _collapse_undos(audit: list[dict]) -> list[dict]:
             out.append(dict(record))
             continue
         # Walk back for the most recent forward record with the same
-        # ``(action, team)``. Skip already-paired entries.
+        # ``(action, team)`` and remove it. The undo itself never
+        # reaches the output either — both halves disappear.
         action = record.get("action")
         team = params.get("team")
-        for prior in reversed(out):
-            if prior.get("_was_undone"):
-                continue
+        for index in range(len(out) - 1, -1, -1):
+            prior = out[index]
             prior_params = prior.get("params") or {}
             if (
                 prior.get("action") == action
                 and prior_params.get("team") == team
                 and not prior_params.get("undo")
             ):
-                prior["_was_undone"] = True
+                del out[index]
                 break
-        # else-branch (no pair found): orphan undo. Drop it — see
-        # docstring. The for/else here would have executed if the
-        # loop completed without a break, but we no longer want to
-        # surface unanchored undo rows.
+        # No matching forward → orphan undo. Already not appended
+        # above; nothing else to do.
     return out
 
 
@@ -833,11 +1073,31 @@ def _compute_stats(audit: list[dict]) -> dict:
 
     All metrics derive purely from the audit log so the report stays
     consistent with the "scoring trajectory" the audit promises. Set
-    points are scored per-set; biggest comeback is computed per-set
-    too (the largest deficit overcome by the eventual set winner).
+    points are scored per-set. Comebacks are tracked per-team and
+    split into two flavours:
+
+    * ``set_win``: the largest deficit a team erased *and* went on to
+      win the set with — i.e. the deficit faced by the eventual set
+      winner.
+    * ``partial``: the largest deficit reduction (peak deficit minus
+      the smallest subsequent deficit) achieved by a team that
+      ultimately *lost* the set. This surfaces near-comebacks that
+      didn't quite finish.
+
+    Storing both per team lets the renderer detect a tie when both
+    sides happen to share the same maximum.
     """
     longest_streak = {"team": None, "n": 0, "set": None}
-    biggest_comeback = {"team": None, "deficit": 0, "set": None}
+    # Per-team peak deficit erased by the eventual set winner.
+    set_win_comeback: dict[int, dict] = {
+        1: {"deficit": 0, "set": None},
+        2: {"deficit": 0, "set": None},
+    }
+    # Per-team peak deficit reduction by a losing team (partial recovery).
+    partial_comeback: dict[int, dict] = {
+        1: {"deficit": 0, "set": None},
+        2: {"deficit": 0, "set": None},
+    }
     longest_rally = {"duration_s": 0.0, "set": None}
     total_points = 0
 
@@ -868,28 +1128,51 @@ def _compute_stats(audit: list[dict]) -> dict:
                 longest_streak = {"team": team, "n": streak_n, "set": set_num}
             total_points += 1
 
-        # Biggest comeback: largest deficit faced by the eventual set
-        # winner. Determine the winner from the final score state for
-        # this set, then walk the running scores tracking the maximum
-        # opponent-lead the winner ever sat at.
+        # Comebacks. Walk the running scores once, then split:
+        #   * winner's peak deficit  → set_win comeback for the winner
+        #   * loser's peak deficit minus the smallest subsequent deficit
+        #     → partial comeback for the loser (they trimmed the gap
+        #     but didn't close it).
         if not set_records:
             continue
         last_score = _running_score_pair(set_records[-1])
         if not last_score:
             continue
         winner = 1 if last_score[0] > last_score[1] else 2
-        max_deficit = 0
+        loser = 2 if winner == 1 else 1
+        winner_peak_deficit = 0
+        loser_peak_deficit = 0
+        loser_min_after_peak = 0
+        loser_max_recovery = 0
         for r in set_records:
             pair = _running_score_pair(r)
             if not pair:
                 continue
             t1, t2 = pair
-            deficit = (t2 - t1) if winner == 1 else (t1 - t2)
-            if deficit > max_deficit:
-                max_deficit = deficit
-        if max_deficit > biggest_comeback["deficit"]:
-            biggest_comeback = {
-                "team": winner, "deficit": max_deficit, "set": set_num,
+            winner_deficit = (t2 - t1) if winner == 1 else (t1 - t2)
+            loser_deficit = -winner_deficit
+            if winner_deficit > winner_peak_deficit:
+                winner_peak_deficit = winner_deficit
+            if loser_deficit > loser_peak_deficit:
+                loser_peak_deficit = loser_deficit
+                loser_min_after_peak = loser_deficit
+            elif loser_peak_deficit > 0 and loser_deficit < loser_min_after_peak:
+                # Only count "recovery" once the loser has actually
+                # trailed. Otherwise a team that led 5-0 from the
+                # start and then collapsed would post a phantom
+                # 5-point partial comeback — they never erased
+                # anything, they just bled their early lead.
+                loser_min_after_peak = loser_deficit
+                recovery = loser_peak_deficit - loser_min_after_peak
+                if recovery > loser_max_recovery:
+                    loser_max_recovery = recovery
+        if winner_peak_deficit > set_win_comeback[winner]["deficit"]:
+            set_win_comeback[winner] = {
+                "deficit": winner_peak_deficit, "set": set_num,
+            }
+        if loser_max_recovery > partial_comeback[loser]["deficit"]:
+            partial_comeback[loser] = {
+                "deficit": loser_max_recovery, "set": set_num,
             }
 
         # Longest rally: the gap between consecutive scoring actions
@@ -915,7 +1198,8 @@ def _compute_stats(audit: list[dict]) -> dict:
 
     return {
         "longest_streak": longest_streak,
-        "biggest_comeback": biggest_comeback,
+        "set_win_comeback": set_win_comeback,
+        "partial_comeback": partial_comeback,
         "longest_rally": longest_rally,
         "total_points": total_points,
         "set_durations": _set_durations_from_audit(audit),
@@ -1012,7 +1296,9 @@ def _format_mmss(seconds: float) -> str:
 
 
 def _render_score_chart(
-    set_records: list[dict], *, t1_color: str, t2_color: str,
+    set_records: list[dict], *,
+    t1_color: str, t2_color: str,
+    timeouts: list[dict] | None = None,
 ) -> str:
     """Inline SVG showing how each team's score evolved through a set.
 
@@ -1025,8 +1311,17 @@ def _render_score_chart(
     datapoint is marked with a small filled circle so single-point
     spikes are legible. One polyline per team, coloured via the
     contrast-safe palette resolved upstream. Pure SVG, no JS, so it
-    survives "Save as PDF". Returns a placeholder string when the
-    set has fewer than two scoring records (nothing to plot).
+    survives "Save as PDF".
+
+    *timeouts* (optional) is the list of ``add_timeout`` audit
+    records belonging to this set, already collapsed for undos by
+    the caller. Each one renders as a thin dashed vertical guide
+    line in the calling team's colour, with a small downward
+    triangle perched above the chart so the operator can correlate
+    "score stalled here" with "the team called timeout".
+
+    Returns a placeholder string when the set has fewer than two
+    scoring records (nothing to plot).
     """
     points: list[tuple[int, int]] = []
     timestamps: list[float | None] = []
@@ -1144,6 +1439,83 @@ def _render_score_chart(
             for x, y in (_project(i, p[team_idx]) for i, p in enumerate(points))
         )
 
+    def _timeout_markers() -> str:
+        if not timeouts:
+            return ""
+        # Reuse ``timestamps`` (1:1 with the plotted ``points``)
+        # rather than rebuilding from ``set_records`` — the polyline
+        # already filters out records that lack a ``_running_score_pair``,
+        # so a parallel rebuild here would drift the rally indices.
+        # Some entries may still be ``None`` when the chart fell back
+        # to rally mode because of missing timestamps; those score
+        # records simply don't contribute to the timeout's rally
+        # position.
+        items: list[str] = []
+        for record in timeouts:
+            params = record.get("params") or {}
+            team = params.get("team")
+            if team not in (1, 2):
+                continue
+            ts = record.get("ts")
+            if not isinstance(ts, (int, float)):
+                continue
+            ts_float = float(ts)
+            if use_time_axis and times is not None:
+                # Time mode: anchor to the same ``base_ts`` the score
+                # polyline uses. A timeout called *before* the first
+                # point of the set lands at x=0 (left edge) rather
+                # than off-canvas.
+                x_val = max(0.0, ts_float - times[0])
+                x_val = min(x_val, x_max)
+            else:
+                # Rally mode: count plotted score records whose
+                # timestamp is ``<= ts_float``. ``idx`` is the rally
+                # number after which the timeout was called; clamp
+                # into ``[0, last_idx]`` so a post-final-point
+                # timeout still renders on the right edge. Skip
+                # ``None`` entries (records without a timestamp)
+                # rather than letting the comparison raise.
+                idx = sum(
+                    1 for t in timestamps if t is not None and t <= ts_float
+                ) - 1
+                idx = max(0, min(idx, last_idx))
+                x_val = float(idx)
+            x_norm = x_val / x_max if x_max else 0.0
+            x = pad_x_left + x_norm * plot_w
+            color = t1_color if team == 1 else t2_color
+            color_safe = html.escape(color)
+            # Dashed guide spanning the plot height + a small clock
+            # face perched ~9 px above the plot area so it doesn't
+            # collide with the polylines or the ``max_score`` Y label.
+            # The glyph is a hand-rolled inline SVG (circle + two
+            # hands) rather than a Material Icons font ref so the
+            # report keeps surviving "Save as PDF" with no external
+            # font load.
+            cy = pad_y_top - 5
+            items.append(
+                f'<line class="set-chart-timeout" data-team="{team}" '
+                f'x1="{x:.1f}" y1="{pad_y_top:.1f}" '
+                f'x2="{x:.1f}" y2="{pad_y_top + plot_h:.1f}" '
+                f'stroke="{color_safe}" stroke-width="1" '
+                f'stroke-dasharray="3,3" opacity="0.55" />'
+                # Lift the shared stroke attributes to the ``<g>`` so
+                # the children only override what they need (the face
+                # gets a slightly thicker border than the hands).
+                f'<g class="set-chart-timeout-glyph" data-team="{team}" '
+                f'stroke="{color_safe}" stroke-width="1" '
+                f'stroke-linecap="round">'
+                f'<circle cx="{x:.1f}" cy="{cy:.1f}" r="3.5" '
+                f'fill="none" stroke-width="1.2" />'
+                # Minute hand: pointing up to "12".
+                f'<line x1="{x:.1f}" y1="{cy:.1f}" '
+                f'x2="{x:.1f}" y2="{cy - 2.2:.1f}" />'
+                # Hour hand: pointing right to "3".
+                f'<line x1="{x:.1f}" y1="{cy:.1f}" '
+                f'x2="{x + 1.7:.1f}" y2="{cy:.1f}" />'
+                f'</g>'
+            )
+        return "".join(items)
+
     # ``data-x-axis`` lets tests assert which mode kicked in without
     # parsing the rendered labels.
     axis_attr = "time" if use_time_axis else "rally"
@@ -1156,6 +1528,7 @@ def _render_score_chart(
         f'{grid_lines}{y_labels}{x_labels}'
         f'{_polyline(0, t1_color)}{_polyline(1, t2_color)}'
         f'{_markers(0, t1_color)}{_markers(1, t2_color)}'
+        f'{_timeout_markers()}'
         f'</svg>'
     )
 
@@ -1210,14 +1583,52 @@ def _render_highlights(
             + _t(locale, "setLabel", n=streak.get("set") or "?"),
         )
 
-    comeback = stats.get("biggest_comeback") or {}
-    if comeback.get("deficit", 0) >= 2 and comeback.get("team"):
-        _card(
-            _t(locale, "highlightComeback"),
-            _t(locale, "deltaValue",
-               n=comeback["deficit"], set=comeback.get("set") or "?"),
-            _team_label(comeback["team"]),
-        )
+    # Set-winning comeback: surface only big erased deficits (≥5 pts).
+    # When both teams' best erased deficit is the same, render a single
+    # tied-card instead of arbitrarily picking one team.
+    set_win = stats.get("set_win_comeback") or {}
+    sw1 = (set_win.get(1) or {}).get("deficit", 0)
+    sw2 = (set_win.get(2) or {}).get("deficit", 0)
+    sw_max = max(sw1, sw2)
+    if sw_max >= 5:
+        if sw1 == sw2:
+            _card(
+                _t(locale, "highlightComeback"),
+                _t(locale, "pointsValue", n=sw_max),
+                _t(locale, "comebackTie"),
+            )
+        else:
+            winner_team = 1 if sw1 > sw2 else 2
+            entry = set_win[winner_team]
+            _card(
+                _t(locale, "highlightComeback"),
+                _t(locale, "deltaValue",
+                   n=entry["deficit"], set=entry.get("set") or "?"),
+                _team_label(winner_team),
+            )
+
+    # Partial comeback: a deficit a team trimmed but couldn't close.
+    # Threshold > 3 pts so we don't celebrate a one-rally swing.
+    partial = stats.get("partial_comeback") or {}
+    p1 = (partial.get(1) or {}).get("deficit", 0)
+    p2 = (partial.get(2) or {}).get("deficit", 0)
+    p_max = max(p1, p2)
+    if p_max > 3:
+        if p1 == p2:
+            _card(
+                _t(locale, "highlightPartialComeback"),
+                _t(locale, "pointsValue", n=p_max),
+                _t(locale, "comebackTie"),
+            )
+        else:
+            loser_team = 1 if p1 > p2 else 2
+            entry = partial[loser_team]
+            _card(
+                _t(locale, "highlightPartialComeback"),
+                _t(locale, "partialDeltaValue",
+                   n=entry["deficit"], set=entry.get("set") or "?"),
+                _team_label(loser_team),
+            )
 
     rally = stats.get("longest_rally") or {}
     rally_duration = rally.get("duration_s") or 0
@@ -1263,30 +1674,45 @@ def _render_charts(
     *, t1_name: str, t2_name: str, t1_color: str, t2_color: str,
 ) -> str:
     """Build the per-set score-evolution chart grid."""
-    by_set: dict[int, list[dict]] = {}
+    scores_by_set: dict[int, list[dict]] = {}
+    timeouts_by_set: dict[int, list[dict]] = {}
     for record in audit:
         if record.get("params", {}).get("undo"):
-            continue
-        if not _is_score_action(record):
             continue
         set_num = _result_set(record)
         if set_num is None:
             continue
-        by_set.setdefault(set_num, []).append(record)
+        if _is_score_action(record):
+            scores_by_set.setdefault(set_num, []).append(record)
+        elif record.get("action") == "add_timeout":
+            timeouts_by_set.setdefault(set_num, []).append(record)
+
+    timeout_legend = (
+        f'<span class="swatch swatch-timeout" aria-hidden="true"></span>'
+        f'{html.escape(_t(locale, "legendTimeout"))}'
+    )
 
     cards: list[str] = []
     for i in range(1, set_count + 1):
-        records = by_set.get(i, [])
+        records = scores_by_set.get(i, [])
         chart = _render_score_chart(
-            records, t1_color=t1_color, t2_color=t2_color,
+            records,
+            t1_color=t1_color, t2_color=t2_color,
+            timeouts=timeouts_by_set.get(i, []),
         )
         body = chart or (
             f'<p class="legend">{html.escape(_t(locale, "noScoreEvolution"))}</p>'
+        )
+        # Timeout swatch only when this set had at least one — the
+        # operator doesn't need a "Timeout" key on a clean set.
+        timeout_html = (
+            timeout_legend if timeouts_by_set.get(i) else ""
         )
         legend = (
             f'<div class="legend">'
             f'<span class="swatch" style="background: {html.escape(t1_color)};"></span>{html.escape(t1_name)}'
             f'<span class="swatch" style="background: {html.escape(t2_color)};"></span>{html.escape(t2_name)}'
+            f'{timeout_html}'
             f'</div>'
         )
         cards.append(
@@ -1304,32 +1730,31 @@ def _render_timeline(
 ) -> str:
     """Group the audit by set and emit running-score-aware list items.
 
-    *base_ts* is the explicit match-start anchor (Start-match button
-    or first-point auto-arm). When supplied, relative timestamps are
-    measured from there — so a point scored 5 min after Start-match
-    reads ``+5:00``, not ``+0:00``. Falls back to the first audit
-    record's ts for legacy snapshots without an anchor.
+    *audit* is expected to already be collapsed via
+    ``_collapse_undos`` upstream — every consumer in the report
+    pipeline shares the same collapsed slice so the timeline,
+    timeouts row, highlights and charts stay coherent.
+
+    *base_ts* is the explicit match-start anchor (Start-match
+    button or first-point auto-arm). When supplied, relative
+    timestamps are measured from there — so a point scored 5 min
+    after Start-match reads ``+5:00``, not ``+0:00``. Falls back
+    to the first audit record's ts for legacy snapshots without
+    an anchor.
     """
     if not audit:
         return f'<em>{html.escape(_t(locale, "noAudit"))}</em>'
 
-    collapsed = _collapse_undos(audit)
     if base_ts is None:
         base_ts = next(
-            (r.get("ts") for r in collapsed
+            (r.get("ts") for r in audit
              if isinstance(r.get("ts"), (int, float))),
             None,
         )
 
     by_set: dict[int, list[dict]] = {}
     orphans: list[dict] = []
-    for record in collapsed:
-        # ``_collapse_undos`` drops both halves of an undo: the
-        # explicit-undo half of paired records (the forward sibling
-        # renders with ``_was_undone=True`` strikethrough) AND any
-        # orphan undo whose forward was already physically popped by
-        # the unified ``action_log.pop_last_forward`` flow. So
-        # nothing reaching here should still be marked ``undo``.
+    for record in audit:
         set_num = _result_set(record)
         target = by_set.setdefault(set_num, []) if set_num else orphans
         target.append(record)
@@ -1351,9 +1776,25 @@ def _render_timeline(
             f' <span class="running">({running[0]}–{running[1]})</span>'
             if running and _is_score_action(record) else ""
         )
-        cls = " class=\"undone\"" if record.get("_was_undone") else ""
+        # Per-action-type chip: gives the timeline visual hierarchy
+        # without changing the editorial text. Colour is keyed off
+        # the action kind, not the team — team identity is already
+        # encoded in the label and would clash with the
+        # add_set/timeout / serve / reset / score-edit chip palette
+        # if we tried to layer both. ``_collapse_undos`` already
+        # removed every undo pair upstream, so no row that reaches
+        # this function carries an undone state.
+        action = record.get("action", "")
+        params = record.get("params") or {}
+        team = params.get("team")
+        chip_kind, chip_icon = _chip_classifier(action, team)
+        chip_glyph = (
+            f'<span class="chip-glyph chip-glyph-{chip_kind}" '
+            f'aria-hidden="true">{html.escape(chip_icon)}</span>'
+        )
         return (
-            f'<li{cls}><span class="ts">{html.escape(rel)}</span>'
+            f'<li class="timeline-li chip-{chip_kind}">{chip_glyph}'
+            f'<span class="ts">{html.escape(rel)}</span>'
             f'{html.escape(label)}{running_html}</li>'
         )
 
@@ -1372,6 +1813,28 @@ def _render_timeline(
             f'<section class="timeline-set">'
             f'<ol>{items}</ol></section>'
         )
+
+    # Mini legend so the per-action chip palette is decodable at a
+    # glance. The order is the catalogue's declaration order; each
+    # ``legend_key=None`` entry is skipped (e.g. the generic
+    # ``point`` and the ``other`` fallback don't earn a row of
+    # their own — they overlap semantically with the team-bound
+    # points and an unrenderable action respectively).
+    legend_html_parts: list[str] = []
+    for kind, meta in _CHIP_CATALOGUE.items():
+        legend_key = meta.get("legend_key")
+        if not legend_key:
+            continue
+        label = _t(locale, legend_key)
+        legend_html_parts.append(
+            '<span class="timeline-legend-item">'
+            f'<span class="chip-glyph chip-glyph-{kind}" aria-hidden="true">'
+            f'{html.escape(_chip_glyph(kind))}</span>'
+            f'{html.escape(label)}</span>'
+        )
+    blocks.append(
+        f'<div class="timeline-legend">{"".join(legend_html_parts)}</div>',
+    )
 
     return "".join(blocks) or f'<em>{html.escape(_t(locale, "noAudit"))}</em>'
 
@@ -1401,6 +1864,18 @@ async def match_report(
                                description="Signed-URL expiry (unix seconds)."),
     sig: str | None = Query(default=None,
                                description="Signed-URL HMAC-SHA256 hex digest."),
+    lang: str | None = Query(
+        default=None,
+        description=(
+            "Force the report locale (en/es/pt/it/fr/de). When the "
+            "operator shares the report from the React control UI, "
+            "the share dialog appends ``?lang=<active-locale>`` so "
+            "the spectator sees the same language the operator was "
+            "using. Falls back to the request's ``Accept-Language`` "
+            "header (browser preference) when omitted, then to "
+            "English. Unsupported values fall back the same way."
+        ),
+    ),
     accept_language: str | None = Header(default=None),
 ):
     _check_access(
@@ -1410,7 +1885,17 @@ async def match_report(
     if payload is None:
         raise HTTPException(status_code=404, detail="Match not found.")
 
-    locale = resolve_locale(accept_language)
+    # Explicit ``?lang=`` wins over the browser's ``Accept-Language``.
+    # Without this, a report shared from a Spanish-set control UI to
+    # a browser with an English Accept-Language would render in
+    # English — surprising the operator who set the locale.
+    # An unsupported ``?lang=xx`` falls through to ``Accept-Language``
+    # rather than locking the report into the default — otherwise
+    # the cap would silently override a usable browser preference.
+    if lang and _is_supported_locale_tag(lang):
+        locale = resolve_locale(lang)
+    else:
+        locale = resolve_locale(accept_language)
     customization = payload.get("customization", {}) or {}
     final = payload.get("final_state", {}) or {}
     config = payload.get("config", {}) or {}
@@ -1419,7 +1904,13 @@ async def match_report(
     # ``_first_scoring_index`` for the rationale. Every audit consumer
     # below operates on the trimmed slice so pre-game noise (resets,
     # stray clicks) doesn't skew durations, charts, or relative times.
-    audit = _trim_pregame(raw_audit)
+    # ``_collapse_undos`` then drops both halves of every undo pair so
+    # the report's reducers (timeouts row, highlights, charts, …) all
+    # see the same final-state narrative the timeline renders. Without
+    # this single collapse pass each reducer would have to re-derive
+    # the post-undo view, and at least one (``_timeouts_per_set``)
+    # was leaking undone forward-counts into the per-set row.
+    audit = _collapse_undos(_trim_pregame(raw_audit))
 
     team1_name = _team_name(customization, 1)
     team2_name = _team_name(customization, 2)
@@ -1571,6 +2062,13 @@ async def match_report(
         h_timeline=html.escape(_t(locale, "timeline")),
         timeline_hint=html.escape(_t(locale, "timelineHint")),
         footer_text=html.escape(_t(locale, "footer")),
+        permalink_label=html.escape(_t(locale, "permalinkLabel")),
+        permalink_display=html.escape(permalink),
+        generated_label=html.escape(_t(locale, "generatedLabel")),
+        # ``_fmt_ts`` reuses the same human format as the started /
+        # ended cells in the match-facts table, so the footer reads
+        # in the same shape regardless of locale.
+        generated_at_display=_fmt_ts(time.time()),
         btn_print=html.escape(_t(locale, "print")),
         btn_print_include_prompt=html.escape(
             _t(locale, "printIncludeLogPrompt"), quote=True,

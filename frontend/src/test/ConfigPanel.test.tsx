@@ -147,18 +147,19 @@ describe('ConfigPanel', () => {
     expect(defaultProps.onToggleFullscreen).toHaveBeenCalledOnce();
   });
 
-  it('shows logout confirmation', () => {
-    window.confirm = vi.fn().mockReturnValue(true);
+  it('shows logout confirmation dialog', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     fireEvent.click(screen.getByTestId('logout-button'));
-    expect(window.confirm).toHaveBeenCalled();
+    const confirmBtn = await screen.findByTestId('confirm-dialog-ok');
+    fireEvent.click(confirmBtn);
     expect(defaultProps.onLogout).toHaveBeenCalledOnce();
   });
 
-  it('does not logout if confirm cancelled', () => {
-    window.confirm = vi.fn().mockReturnValue(false);
+  it('does not logout if dialog cancelled', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     fireEvent.click(screen.getByTestId('logout-button'));
+    const cancelBtn = await screen.findByTestId('confirm-dialog-cancel');
+    fireEvent.click(cancelBtn);
     expect(defaultProps.onLogout).not.toHaveBeenCalled();
   });
 
@@ -194,6 +195,31 @@ describe('ConfigPanel', () => {
     fireEvent.click(overlayButton);
     await waitFor(() => {
       expect(screen.queryByTestId('style-selector')).not.toBeInTheDocument();
+    });
+  });
+
+  it('surfaces a retryable error banner when save fails', async () => {
+    vi.mocked(api.updateCustomization).mockRejectedValueOnce(
+      new Error('Server is on fire'),
+    );
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    const saveBtn = screen.getByTestId('save-button');
+    await waitFor(() => {
+      expect(saveBtn).not.toBeDisabled();
+    });
+    fireEvent.click(saveBtn);
+    const banner = await screen.findByTestId('save-error-banner');
+    expect(banner).toHaveTextContent('Server is on fire');
+    expect(banner.getAttribute('role')).toBe('alert');
+    const retryBtn = screen.getByTestId('save-error-retry');
+    expect(retryBtn).toHaveTextContent('Retry');
+
+    vi.mocked(api.updateCustomization).mockResolvedValueOnce({ success: true });
+    fireEvent.click(retryBtn);
+    await waitFor(() => {
+      expect(api.updateCustomization).toHaveBeenCalledTimes(2);
     });
   });
 

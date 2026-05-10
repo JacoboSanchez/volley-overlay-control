@@ -7,10 +7,20 @@ import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
 import { useSwipeNavigation } from './hooks/useSwipeNavigation';
+import { useHaptics } from './hooks/useHaptics';
+import { useMatchAlertHaptics } from './hooks/useMatchAlertHaptics';
+import { useScreenWakeLock } from './hooks/useScreenWakeLock';
 import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
+import ScoreboardSkeleton from './components/ScoreboardSkeleton';
 import ConfigPanel from './components/ConfigPanel';
 import SetValueDialog from './components/SetValueDialog';
+import ConfirmDialog from './components/ConfirmDialog';
+import ConnectionStatus from './components/ConnectionStatus';
+import GestureCoachmark from './components/GestureCoachmark';
+import LinksDialog from './components/LinksDialog';
+import RecentAuditDrawer from './components/RecentAuditDrawer';
+import * as api from './api/client';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
 import {
@@ -86,11 +96,53 @@ export default function App() {
     state,
     confirmedState,
     customization,
+    connected,
     error,
     initialize,
     actions,
     refreshCustomization,
   } = useGameState(oid);
+
+  const { pulse } = useHaptics();
+  // Set / match / finished transitions vibrate via the shared
+  // useHaptics throttle so the operator gets a confirmed signal
+  // even when the HUD has auto-hidden behind the play.
+  useMatchAlertHaptics(state);
+
+  // Hold a Screen Wake Lock for the operator's device while a
+  // match is actively in progress, so the phone doesn't dim or
+  // lock between rallies. Released on match end, on reset, and
+  // when the page is hidden — re-acquired automatically when the
+  // operator returns to the tab. No-op on unsupported runtimes
+  // (desktop browsers, pre-iOS-16.4 Safari).
+  const matchInProgress = !!state
+    && state.match_started_at != null
+    && !state.match_finished;
+  useScreenWakeLock(matchInProgress);
+
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  // Coachmark fires once the first authoritative state lands and the
+  // operator hasn't dismissed the tour yet. The dismissal flips
+  // ``settings.gestureTourSeen`` to ``true`` and persists across
+  // sessions; the Behavior section exposes a "Replay tour"
+  // affordance that flips it back to ``false`` to re-open this on
+  // demand without a page refresh.
+  const [coachmarkOpen, setCoachmarkOpen] = useState(false);
+
+  // Share dialog: lazy-fetched links, opened from the HUD's share
+  // button. Kept in App so the dialog renders on top of both the
+  // scoreboard and config tabs (useful when the operator opens it
+  // from either surface).
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareLinks, setShareLinks] = useState<{
+    control?: string; overlay?: string; preview?: string;
+  } | null>(null);
+
+  // Recent-audit drawer: a non-modal slide-in panel that surfaces
+  // the per-OID action log so the operator can verify what just
+  // happened without leaving the scoreboard. Lazy-fetched on open
+  // by ``useAuditLog`` inside the component itself.
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
@@ -238,8 +290,9 @@ export default function App() {
   // entry points (this and the per-team double-tap below) share
   // the same stack on the server and cannot drift.
   const handleUndoLast = useCallback(() => {
+    pulse('confirm');
     actions.undoLast();
-  }, [actions]);
+  }, [actions, pulse]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) {
@@ -257,10 +310,49 @@ export default function App() {
   }, [setSetting, settings.showPreview]);
 
   const handleReset = useCallback(() => {
-    if (window.confirm(t('config.resetConfirm'))) {
-      actions.reset();
+    setResetConfirmOpen(true);
+  }, []);
+
+  const confirmReset = useCallback(() => {
+    actions.reset();
+  }, [actions]);
+
+  // Open the coachmark whenever the operator has unseen-tour state
+  // and authoritative game state is available. The condition stops
+  // re-firing once dismissal flips ``gestureTourSeen`` to ``true``
+  // — on the next dep change the effect runs, the guard fails, and
+  // the open state stays as the operator left it. "Replay tour"
+  // flips ``gestureTourSeen`` back to ``false`` and the effect
+  // re-opens immediately without a page refresh.
+  useEffect(() => {
+    if (state && !settings.gestureTourSeen) {
+      setCoachmarkOpen(true);
     }
-  }, [actions, t]);
+  }, [state, settings.gestureTourSeen]);
+
+  const handleCoachmarkDismiss = useCallback(() => {
+    setCoachmarkOpen(false);
+    setSetting('gestureTourSeen', true);
+  }, [setSetting]);
+
+  const handleOpenShare = useCallback(async () => {
+    if (!oid) return;
+    setShareOpen(true);
+    if (!shareLinks) {
+      try {
+        const links = await api.getLinks(oid);
+        setShareLinks({
+          control: typeof links?.control === 'string' ? links.control : '',
+          overlay: typeof links?.overlay === 'string' ? links.overlay : '',
+          preview: typeof links?.preview === 'string' ? links.preview : '',
+        });
+      } catch {
+        // Empty links surface as the "No links available" fallback
+        // already rendered by LinksDialog — no extra error UI needed.
+        setShareLinks({});
+      }
+    }
+  }, [oid, shareLinks]);
 
   const handleStartMatch = useCallback(() => {
     actions.startMatch();
@@ -279,16 +371,18 @@ export default function App() {
   // no client-side bookkeeping is required.
   const handleDoubleTapScore = useCallback(
     (team: Team) => {
+      pulse('confirm');
       actions.addPoint(team, true);
     },
-    [actions]
+    [actions, pulse]
   );
 
   const handleDoubleTapTimeout = useCallback(
     (team: Team) => {
+      pulse('confirm');
       actions.addTimeout(team, true);
     },
-    [actions]
+    [actions, pulse]
   );
 
   const handleLongPressScore = useCallback(
@@ -376,7 +470,7 @@ export default function App() {
       : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
   }, [settings.selectedFont]);
 
-  if (!oid || !state) {
+  if (!oid || (error && !state)) {
     return (
       <InitScreen
         oidInput={oidInput}
@@ -388,9 +482,21 @@ export default function App() {
       />
     );
   }
+  // OID is set, no error, but the first authoritative state hasn't
+  // arrived yet — show a structurally-matched skeleton instead of the
+  // InitScreen so the next render swap doesn't flash unrelated UI.
+  if (!state) {
+    return (
+      <div className="app-container">
+        <ConnectionStatus connected={connected} />
+        <ScoreboardSkeleton isPortrait={isPortrait} />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container" {...swipeHandlers}>
+      <ConnectionStatus connected={connected} />
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
         <ScoreboardView
@@ -434,6 +540,8 @@ export default function App() {
           onStartMatch={handleStartMatch}
           onReset={handleReset}
           onOpenConfig={() => setActiveTab('config')}
+          onOpenShare={handleOpenShare}
+          onOpenHistory={() => setHistoryOpen(true)}
         />
         </ErrorBoundary>
       )}
@@ -468,6 +576,37 @@ export default function App() {
         maxValue={dialog.maxValue}
         onSubmit={handleDialogSubmit}
         onClose={() => setDialog((d) => ({ ...d, open: false }))}
+      />
+
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        message={t('config.resetConfirm')}
+        confirmLabel={t('config.resetMatch')}
+        danger
+        onConfirm={() => {
+          confirmReset();
+          setResetConfirmOpen(false);
+        }}
+        onClose={() => setResetConfirmOpen(false)}
+      />
+
+      {shareOpen && (
+        <LinksDialog
+          links={shareLinks ?? {}}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      <RecentAuditDrawer
+        oid={oid}
+        open={historyOpen}
+        confirmedState={confirmedState}
+        onClose={() => setHistoryOpen(false)}
+      />
+
+      <GestureCoachmark
+        open={coachmarkOpen}
+        onDismiss={handleCoachmarkDismiss}
       />
     </div>
   );

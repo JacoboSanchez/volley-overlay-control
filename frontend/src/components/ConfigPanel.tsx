@@ -5,6 +5,7 @@ import { useOrientation } from '../hooks/useOrientation';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import * as api from '../api/client';
 import ConfigSkeleton from './ConfigSkeleton';
+import ConfirmDialog from './ConfirmDialog';
 import type { ConfigModel, PredefinedTeams } from './TeamCard';
 import type { LinksSectionLinks } from './config/LinksSection';
 import type { ButtonsSectionProps } from './config/ButtonsSection';
@@ -17,13 +18,20 @@ const ButtonsSection = lazy(() => import('./config/ButtonsSection'));
 const BehaviorSection = lazy(() => import('./config/BehaviorSection'));
 const LinksSection = lazy(() => import('./config/LinksSection'));
 const MatchRulesSection = lazy(() => import('./config/MatchRulesSection'));
+const PresetPicker = lazy(() => import('./PresetPicker'));
 
-type Section = 'teams' | 'overlay' | 'position' | 'buttons' | 'rules' | 'behavior' | 'links';
+type Section = 'presets' | 'teams' | 'overlay' | 'position' | 'buttons' | 'rules' | 'behavior' | 'links';
 
+// ``presets`` sits at the top so the operator notices the
+// saved-configuration entry point before drilling into individual
+// fields. ``OverlaySection`` keeps the env-var ``APP_THEMES``
+// dropdown — those are sysadmin-defined defaults and live next to
+// the colour and style controls they affect.
 const SECTIONS: readonly Section[] = [
-  'teams', 'overlay', 'position', 'buttons', 'rules', 'behavior', 'links',
+  'presets', 'teams', 'overlay', 'position', 'buttons', 'rules', 'behavior', 'links',
 ];
 const SECTION_KEYS: Record<Section, string> = {
+  presets: 'section.presets',
   teams: 'section.teams',
   overlay: 'section.overlay',
   position: 'section.position',
@@ -33,6 +41,7 @@ const SECTION_KEYS: Record<Section, string> = {
   links: 'section.links',
 };
 const SECTION_ICONS: Record<Section, string> = {
+  presets: 'bookmarks',
   teams: 'groups',
   overlay: 'palette',
   position: 'open_with',
@@ -121,6 +130,7 @@ export default function ConfigPanel({
   const [links, setLinks] = useState<LinksData>(null);
   const [selectedTheme, setSelectedTheme] = useState('');
   const [activeSection, setActiveSection] = useState<Section | null>('teams');
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,13 +207,21 @@ export default function ConfigPanel({
     };
   }, []);
 
+  // ``PresetPicker`` (apply) and the env-theme dropdown share the same
+  // staging semantics as direct field edits: shallow-merge the patch
+  // into ``model``, mark the panel dirty, and let the existing Save
+  // button persist. Avoids racing the operator's unsaved changes.
+  const handleApplyPatch = useCallback((patch: ConfigModel) => {
+    setModel((m) => ({ ...m, ...patch }));
+    setIsDirty(true);
+  }, []);
+
   const handleApplyTheme = useCallback((themeName: string) => {
     const themeData = themes[themeName];
     if (themeData) {
-      setModel((m) => ({ ...m, ...themeData }));
-      setIsDirty(true);
+      handleApplyPatch(themeData);
     }
-  }, [themes]);
+  }, [themes, handleApplyPatch]);
 
   const isCustomOverlay = !!(
     links?.overlay && typeof links.overlay === 'string' && !links.overlay.includes('overlays.uno')
@@ -211,6 +229,8 @@ export default function ConfigPanel({
 
   function renderSection(sec: Section | null) {
     switch (sec) {
+      case 'presets':
+        return <PresetPicker model={model} onApplyPatch={handleApplyPatch} />;
       case 'teams':
         return <TeamsSection model={model} updateField={updateField} predefinedTeams={predefinedTeams} />;
       case 'overlay':
@@ -267,7 +287,11 @@ export default function ConfigPanel({
           <span className="material-icons">arrow_back</span>
         </button>
         <span className="config-top-title">{t('config.title')}</span>
-        <div style={{ minWidth: 44 }} />
+        <a className="config-top-btn" href="/manage" title={t('config.openManage')}
+          aria-label={t('config.openManage')} data-testid="manage-link-button"
+          onClick={(e) => { if (!confirmExitIfDirtyRef.current()) e.preventDefault(); }}>
+          <span className="material-icons">dashboard</span>
+        </a>
       </div>
 
       <div className={`config-body ${isPortrait ? 'config-body-portrait' : 'config-body-landscape'}`}>
@@ -324,6 +348,17 @@ export default function ConfigPanel({
           <span className="material-icons">save</span>
           <span>{saving ? '...' : t('config.save')}</span>
         </button>
+        {saving && (
+          <span
+            className="config-save-status config-save-status-pending"
+            role="status"
+            aria-live="polite"
+            data-testid="save-status-pending"
+          >
+            <span className="material-icons">cloud_upload</span>
+            {t('config.saving')}
+          </span>
+        )}
         <div className="spacer" />
         <button className="config-bottom-btn config-bottom-btn-fullscreen"
           onClick={onToggleFullscreen}
@@ -340,15 +375,44 @@ export default function ConfigPanel({
           <span className="material-icons">{themeIcon(darkMode)}</span>
         </button>
         <button className="config-bottom-btn config-bottom-btn-logout"
-          onClick={() => { if (window.confirm(t('config.logoutConfirm'))) onLogout(); }}
+          onClick={() => setLogoutConfirmOpen(true)}
           title={t('config.logout')} data-testid="logout-button">
           <span className="material-icons">logout</span>
         </button>
       </div>
 
       {saveError && (
-        <div className="config-save-error">{saveError}</div>
+        <div
+          className="config-save-error"
+          role="alert"
+          data-testid="save-error-banner"
+        >
+          <span className="material-icons" aria-hidden="true">error_outline</span>
+          <span className="config-save-error-message">{saveError}</span>
+          <button
+            type="button"
+            className="config-save-error-retry"
+            onClick={handleSave}
+            disabled={saving}
+            data-testid="save-error-retry"
+          >
+            <span className="material-icons" aria-hidden="true">refresh</span>
+            {t('config.retry')}
+          </button>
+        </div>
       )}
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        message={t('config.logoutConfirm')}
+        confirmLabel={t('config.logout')}
+        danger
+        onConfirm={() => {
+          onLogout();
+          setLogoutConfirmOpen(false);
+        }}
+        onClose={() => setLogoutConfirmOpen(false)}
+      />
 
     </div>
   );

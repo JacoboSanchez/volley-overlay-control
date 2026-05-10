@@ -25,6 +25,23 @@ export interface Settings {
   team2BtnText: string;
   autoHide: boolean;
   autoHideSeconds: number;
+  /**
+   * Haptic feedback toggle. When ``true`` the operator's device
+   * vibrates briefly on confirmed double-tap-undo gestures and on
+   * set / match / finished transitions. Defaults to ``false`` so a
+   * fresh install doesn't surprise the operator with vibration on
+   * the first scoring tap; the toggle in BehaviorSection opts in.
+   * Devices without ``navigator.vibrate`` (desktop browsers, iOS
+   * Safari pre-18.4) no-op silently regardless of the toggle.
+   */
+  haptics: boolean;
+  /**
+   * Whether the operator has dismissed the first-use gesture tour.
+   * Persists across sessions so the coachmark only fires once per
+   * device/profile by default. The Behavior section exposes a
+   * "Replay tour" affordance that flips this back to ``false``.
+   */
+  gestureTourSeen: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -42,6 +59,8 @@ const DEFAULTS: Settings = {
   team2BtnText: '#ffffff',
   autoHide: false,
   autoHideSeconds: 5,
+  haptics: false,
+  gestureTourSeen: false,
 };
 
 /**

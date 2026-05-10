@@ -221,6 +221,80 @@ class TestMatchReport:
         assert "Thunder Wolves" in response.text
         assert "Solar Hawks" in response.text
 
+    def test_renders_team_names_from_legacy_text_name_alias(self, client):
+        """Customization that uses the legacy ``Team {n} Text Name``
+        alias (``Customization.A_TEAM`` / ``B_TEAM``) instead of the
+        canonical ``Team {n} Name`` should still surface the names
+        in the report. Regression: UNO-backed sessions round-trip
+        the legacy form via the overlays.uno cloud customization
+        API, and an earlier version of ``_team_name`` only checked
+        the canonical key — so UNO match reports rendered the
+        literal ``Team 1`` / ``Team 2`` fallback strings.
+        """
+        action_log.append(
+            "legacy-1", "add_point", {"team": 1, "undo": False},
+            {"team_1": {"score": 1}},
+        )
+        match_id = match_archive.archive_match(
+            oid="legacy-1",
+            final_state={
+                "current_set": 1,
+                "team_1": {"sets": 0, "timeouts": 0,
+                           "scores": {"set_1": 1}},
+                "team_2": {"sets": 0, "timeouts": 0,
+                           "scores": {"set_1": 0}},
+            },
+            customization={
+                # Legacy alias only — no canonical key.
+                "Team 1 Text Name": "Aurora",
+                "Team 2 Text Name": "Boreal",
+            },
+            started_at=time.time() - 60,
+            sets_limit=3,
+        )
+        assert match_id is not None
+        response = client.get(f"/match/{match_id}/report")
+        assert response.status_code == 200
+        assert "Aurora" in response.text
+        assert "Boreal" in response.text
+        # Sanity: the literal fallback strings should NOT appear.
+        assert ">Team 1<" not in response.text
+        assert ">Team 2<" not in response.text
+
+    def test_lang_query_overrides_accept_language(self, client, archived_match):
+        """An explicit ``?lang=`` should win over the browser's
+        ``Accept-Language`` header so an operator who shares the
+        report from a Spanish-set control UI doesn't get an
+        English render at the receiving end (browser default).
+        """
+        # Browser advertises French; operator's link forces ``es``.
+        response = client.get(
+            f"/match/{archived_match}/report?lang=es",
+            headers={"Accept-Language": "fr"},
+        )
+        assert response.status_code == 200
+        # Spanish ``setByset`` heading is unique enough to be a
+        # cheap locale fingerprint.
+        assert "Set a set" in response.text
+        # Defensive — no stray French / English heading from a
+        # half-applied locale override.
+        assert "Set par set" not in response.text
+
+    def test_lang_query_falls_back_to_accept_language_when_unknown(
+        self, client, archived_match,
+    ):
+        """An unknown ``?lang=`` value falls through to
+        ``Accept-Language`` rather than locking the report into
+        the default. Mirrors how ``resolve_locale`` already
+        handles malformed ``Accept-Language`` tokens.
+        """
+        response = client.get(
+            f"/match/{archived_match}/report?lang=xx",
+            headers={"Accept-Language": "es"},
+        )
+        assert response.status_code == 200
+        assert "Set a set" in response.text
+
     def test_renders_final_score(self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")
         # Set scores 3-1; the winner is implicit from those plus the
@@ -467,8 +541,11 @@ class TestMatchReportRichSections:
         # streak / comeback / total / set-duration cards all qualify.
         assert "Highlights" in response.text
         assert ">5 pts<" in response.text or "5 pts" in response.text  # 5-0 streak
-        # Biggest comeback in this audit is 6 (team 2 trailed 0-6).
+        # Biggest set-winning comeback in this audit is 6 (team 2
+        # trailed 0-6 in set 2 and won it 25-22), well above the
+        # 5-point threshold.
         assert "down 6" in response.text or ">6<" in response.text
+        assert "Biggest set-winning comeback" in response.text
 
     def test_charts_render_inline_svg_per_set(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
@@ -762,16 +839,89 @@ class TestMatchReportRichSections:
         assert "+0:00" in response.text
         assert "+3:00" in response.text
 
-    def test_undo_collapses_to_strikethrough(self, client, rich_match):
+    def test_undo_pairs_disappear_from_timeline(self, client, rich_match):
+        """Both halves of an undo pair (the forward action and the
+        explicit undo) should be stripped from the rendered timeline
+        — the report reads as if the action never happened. Replaces
+        the legacy strikethrough behaviour, which left the forward
+        line struck-through with an "↶ Undone" badge.
+        """
+        import re
         response = client.get(f"/match/{rich_match}/report")
-        # The original team-2 forward record at 5-3 is paired with the
-        # explicit undo right after it; the collapsed timeline marks
-        # the original with class="undone" (CSS draws strike-through).
-        assert 'class="undone"' in response.text
-        # The standalone undo entry must NOT be rendered as its own row
-        # — pairing collapses both into one editorial line.
-        assert response.text.count('(undone)') <= 1
-        assert response.text.count("(undo)") == 0
+        text = response.text
+        # No row carries the ``undone`` modifier any more.
+        assert not re.search(r'class="timeline-li[^"]*\bundone\b', text)
+        assert 'class="undone-badge"' not in text
+        assert 'chip-undone' not in text
+        # No "(undone)" / "(undo)" suffix from the old i18n key.
+        assert '(undone)' not in text
+        assert '(undo)' not in text
+        # The fixture's undone team-2 add_point was paired with an
+        # explicit undo (see ``_seed_realistic_audit``). Set 1's
+        # team-2 score should never reach 3 in the timeline running
+        # tally — the running-score chip on team-2's last surviving
+        # record should be ``(5–2)`` or earlier, not ``(5–3)``.
+        assert '(5–3)' not in text
+
+    def test_footer_carries_permalink_and_generated_at(self, client, rich_match):
+        """Phase 3 enriches the report footer with the canonical
+        ``/match/{id}/report`` permalink and a "Generated at" line so
+        a shared print/PDF stays self-describing.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        assert 'class="footer-permalink"' in response.text
+        assert f'/match/{rich_match}/report' in response.text
+        assert 'class="footer-line"' in response.text
+        # English locale is the default; the permalink + generated
+        # labels both render as standalone <strong> headings on
+        # their own line.
+        assert 'Permalink' in response.text
+        assert 'Generated at' in response.text
+
+    def test_timeline_emits_typed_chips_per_action(self, client, rich_match):
+        """Phase 3 styles each timeline ``<li>`` with a per-action chip
+        modifier (``chip-point-t1``, ``chip-set``, …) plus a glyph
+        cell. The legend at the bottom of the timeline should also
+        be present so the colour palette is decodable at a glance.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        # Both team chips appear (rich fixture has add_point for both).
+        assert 'class="timeline-li chip-point-t1"' in response.text
+        assert 'class="timeline-li chip-point-t2"' in response.text
+        # Glyph cell rendered for each row.
+        assert 'class="chip-glyph chip-glyph-point-t1"' in response.text
+        assert 'class="chip-glyph chip-glyph-point-t2"' in response.text
+        # Mini legend renders once per timeline.
+        assert 'class="timeline-legend"' in response.text
+        assert 'class="timeline-legend-item"' in response.text
+
+    def test_no_undone_artefacts_in_rendered_html(self, client, rich_match):
+        """Defensive: confirm the report ships none of the legacy
+        undo affordances. A future regression that re-introduces
+        strikethrough rows (``.undone`` modifier) or the
+        ``↶ Undone`` badge should fail this case loudly.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        assert 'undone-badge' not in response.text
+        assert 'chip-undone' not in response.text
+        assert 'chip-glyph-undone' not in response.text
+        assert 'legendUndone' not in response.text
+
+    def test_set_byset_table_no_longer_has_timeouts_row(
+        self, client, rich_match,
+    ):
+        """The redundant per-set timeouts row was removed: the
+        score cells already show the timeout count in parentheses
+        (``25 (1)``), so a dedicated row was just a second pass at
+        the same data. Timeouts now render as marker glyphs on the
+        per-set score-evolution chart instead.
+        """
+        response = client.get(f"/match/{rich_match}/report")
+        # The old row label must be gone.
+        assert "Timeouts (T1/T2)" not in response.text
+        # And so must the ``T1/T2`` cell shape it produced.
+        import re
+        assert not re.search(r'<td>\d+/\d+</td>', response.text)
 
     def test_orphan_undo_records_are_dropped(self):
         """Unified-undo logs only carry the trailing undo record (the
@@ -799,13 +949,223 @@ class TestMatchReportRichSections:
 
     def test_set_durations_row_shows_seconds(self, client, rich_match):
         response = client.get(f"/match/{rich_match}/report")
-        # Set 1 last forward record sits at offset 240 (the offset-260
-        # entry is the explicit undo, which we skip). Set 2 spans
-        # 600..1500. The exact text comes from ``_fmt_seconds``.
-        assert "4m 00s" in response.text
+        # Set 1 last surviving record is the offset-210 team-2 point
+        # (the offset-240 forward + its offset-260 undo are both
+        # dropped by the up-front ``_collapse_undos`` pass, so the
+        # set-1 duration spans 0..210). Set 2 still spans 600..1500.
+        # The exact text comes from ``_fmt_seconds``.
+        assert "3m 30s" in response.text
         assert "15m 00s" in response.text
         # The row label is i18n-driven.
         assert "Set durations" in response.text
+
+
+class TestMatchReportComebacks:
+    """The Highlights block surfaces two comeback flavours.
+
+    * *Set-winning comeback*: only when the erased deficit was 5 pts
+      or more. Smaller "comebacks" by the eventual winner are noise
+      (a 2-point swing inside a tight set is nothing remarkable).
+    * *Partial comeback*: the largest deficit a team trimmed but
+      ultimately couldn't close, threshold > 3 pts.
+
+    When team 1 and team 2 share the same maximum the card swaps to
+    a "tied between both teams" detail rather than picking a winner.
+    """
+
+    def _seed(self, oid: str, sets: list[list[tuple[int, int]]]) -> None:
+        """Write a deterministic JSONL audit for a sequence of sets.
+
+        Each set is a list of ``(team_1_score, team_2_score)`` running
+        scores after every ``add_point`` action; the team that scored
+        is inferred from the diff vs. the previous record.
+        """
+        from app.api import action_log as _al
+        records: list[dict] = []
+        ts = 1700000000.0
+        for set_idx, scores in enumerate(sets, start=1):
+            prev = (0, 0)
+            for s1, s2 in scores:
+                team = 1 if s1 > prev[0] else 2
+                records.append({
+                    "ts": ts,
+                    "action": "add_point",
+                    "params": {"team": team, "undo": False},
+                    "result": {
+                        "current_set": set_idx,
+                        "score_set": set_idx,
+                        "team_1": {"score": s1},
+                        "team_2": {"score": s2},
+                    },
+                })
+                ts += 30.0
+                prev = (s1, s2)
+        path = _al._path(oid)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+
+    def _archive(self, oid: str, *, winning_team: int = 1) -> str:
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 1 if winning_team == 1 else 0},
+                "team_2": {"sets": 1 if winning_team == 2 else 0},
+            },
+            customization={"Team 1 Name": "Alpha", "Team 2 Name": "Bravo"},
+            winning_team=winning_team,
+            sets_limit=3,
+        )
+        assert match_id is not None
+        return match_id
+
+    def test_set_win_comeback_below_5_is_suppressed(self, client):
+        # Team 1 trailed 0-3 then won 25-23 — comeback of 3 pts, below
+        # the 5-point threshold. The card must not appear.
+        scores = [(0, 1), (0, 2), (0, 3), (1, 3), (24, 3), (25, 23)]
+        oid = "cb-small"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "set-winning comeback" not in body.lower()
+
+    @staticmethod
+    def _highlights_block(body: str) -> str:
+        start = body.index('<div class="highlights">')
+        depth, cursor = 1, start + len('<div class="highlights">')
+        while depth and cursor < len(body):
+            no = body.find('<div', cursor)
+            nc = body.find('</div>', cursor)
+            if nc == -1:
+                break
+            if no != -1 and no < nc:
+                depth += 1
+                cursor = no + 4
+            else:
+                depth -= 1
+                cursor = nc + 6
+        return body[start:cursor]
+
+    @classmethod
+    def _highlight_card(cls, body: str, label: str) -> str:
+        """Return the single ``<div class="highlight">`` that owns ``label``."""
+        block = cls._highlights_block(body)
+        marker = f'<div class="label">{label}</div>'
+        label_at = block.index(marker)
+        # Walk backwards to find the enclosing ``<div class="highlight">``.
+        card_start = block.rfind('<div class="highlight">', 0, label_at)
+        # Each card is exactly one nested ``<div>`` deep so the closing
+        # ``</div>`` of the card itself is the *fourth* one after start.
+        cursor = card_start + len('<div class="highlight">')
+        depth = 1
+        while depth and cursor < len(block):
+            no = block.find('<div', cursor)
+            nc = block.find('</div>', cursor)
+            if nc == -1:
+                break
+            if no != -1 and no < nc:
+                depth += 1
+                cursor = no + 4
+            else:
+                depth -= 1
+                cursor = nc + 6
+        return block[card_start:cursor]
+
+    def test_set_win_comeback_at_5_renders(self, client):
+        # Team 2 trailed 0-5 in set 1 and won 25-23 — comeback of 5.
+        scores = [(i, 0) for i in range(1, 6)] + [(5, 23), (5, 25)]
+        oid = "cb-five"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=2)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "Biggest set-winning comeback" in body
+        assert "down 5" in body
+        # Only the eventual set winner can credit a set-winning comeback.
+        assert "Bravo" in self._highlights_block(body)
+
+    def test_set_win_comeback_tie_renders_message(self, client):
+        # Set 1: team 1 wins from 0-5 down. Set 2: team 2 wins from
+        # 0-5 down. Both maxima are 5 → tie message.
+        s1 = [(0, i) for i in range(1, 6)] + [(23, 5), (25, 5)]
+        s2 = [(i, 0) for i in range(1, 6)] + [(5, 23), (5, 25)]
+        oid = "cb-tie"
+        self._seed(oid, [s1, s2])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        # On a tie, the card collapses to the magnitude alone ("5 pts")
+        # and the per-team detail is replaced by the tie text.
+        card = self._highlight_card(body, "Biggest set-winning comeback")
+        assert "5 pts" in card
+        assert "Tied between both teams" in card
+        assert "Alpha" not in card and "Bravo" not in card
+
+    def test_partial_comeback_below_4_is_suppressed(self, client):
+        # Team 2 trailed 0-3 then crawled back to 1-3 (recovery of 1
+        # pt), still lost 25-22. The 1-point recovery is below the
+        # >3 threshold; partial card must not appear.
+        scores = [(1, 0), (2, 0), (3, 0), (3, 1), (25, 22)]
+        oid = "pc-small"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "partial comeback" not in body.lower()
+
+    def test_partial_comeback_above_3_renders_for_loser(self, client):
+        # Team 2 trailed 0-10, fought back to 4-10 (recovery of 4),
+        # then lost 25-14. 4 > 3 → partial card surfaces and must
+        # credit the *losing* team (Bravo).
+        scores = [(i, 0) for i in range(1, 11)]
+        scores += [(10, j) for j in range(1, 5)]
+        scores += [(25, 14)]
+        oid = "pc-loser"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest partial comeback")
+        assert "made up 4 pts" in card
+        # The card credits the *losing* team for the partial recovery.
+        assert "Bravo" in card
+        assert "Alpha" not in card
+
+    def test_loser_who_only_led_then_collapsed_is_not_a_comeback(self, client):
+        # Team 2 leads 5-0 from the opening and then bleeds the lead
+        # without ever trailing → final 5-25. Team 2 was *never*
+        # behind, so neither a set-winning nor a partial comeback
+        # should be credited (the bug was that the diff between
+        # ``loser_deficit = -5`` and the initial ``loser_min_after_peak
+        # = 0`` was being read as a 5-point recovery).
+        scores = [(0, i) for i in range(1, 6)]
+        scores += [(j, 5) for j in range(1, 26)]
+        oid = "pc-led-then-lost"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        assert "partial comeback" not in body.lower()
+        # The set-winning side gets a 5-pt comeback for team 1
+        # (trailed 0-5 then won) — that one *is* legit and stays.
+        assert "Biggest set-winning comeback" in body
+
+    def test_partial_comeback_tie_renders_message(self, client):
+        # Set 1 won by team 1: team 2 trims a 0-10 deficit to 4-10
+        # (partial recovery of 4) before losing 25-14.
+        # Set 2 won by team 2: team 1 trims a 0-10 deficit to 4-10
+        # (partial recovery of 4) before losing 14-25.
+        # Maxima are tied at 4 → expect the tie message.
+        s1 = [(i, 0) for i in range(1, 11)]
+        s1 += [(10, j) for j in range(1, 5)]
+        s1 += [(25, 14)]
+        s2 = [(0, i) for i in range(1, 11)]
+        s2 += [(j, 10) for j in range(1, 5)]
+        s2 += [(14, 25)]
+        oid = "pc-tie"
+        self._seed(oid, [s1, s2])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest partial comeback")
+        assert "4 pts" in card
+        assert "Tied between both teams" in card
+        assert "Alpha" not in card and "Bravo" not in card
 
 
 class TestMatchReportPregameTrim:
@@ -857,8 +1217,11 @@ class TestMatchReportPregameTrim:
         # later → +1:00.
         assert "+0:00" in response.text
         assert "+1:00" in response.text
-        # Reset entry is gone from the rendered timeline.
-        assert ">Reset<" not in response.text
+        # Reset entry is gone from the rendered timeline. Phase 3 added
+        # a "Reset" key in the legend, so the bare ``>Reset<`` substring
+        # is no longer load-bearing — pin to the chip-bearing ``<li>``
+        # the timeline emits for an actual reset action instead.
+        assert 'class="timeline-li chip-reset' not in response.text
         # ``Audit entries`` reflects the trimmed view (3 raw → 2 shown).
         assert ">2</td>" in response.text
 
@@ -960,7 +1323,12 @@ class TestMatchReportPregameTrim:
         # ``score (N)`` rather than a separate row, so this match
         # match-substring isn't load-bearing against any other label.
         assert "Timeout — Team" not in response.text
-        assert ">Reset<" not in response.text
+        # Phase 3 added a "Reset" entry to the timeline legend, so we
+        # can no longer ban the bare ``>Reset<`` substring globally.
+        # Pin the assertion to the chip-bearing ``<li>`` rendered for
+        # an actual reset action — that's the only place a pregame
+        # reset would surface in the timeline.
+        assert 'class="timeline-li chip-reset' not in response.text
         assert "Point — Team 1" in response.text
 
 
@@ -997,7 +1365,10 @@ class TestMatchReportTimeoutsInline:
             records.append({"ts": base_ts + off, "action": action,
                             "params": params, "result": result})
 
-        # Set 1 — team_1 wins, with 2 timeouts.
+        # Set 1 — team_1 wins, with 2 timeouts. Two scoring records
+        # so the per-set chart can actually draw a polyline (single
+        # points return "" and the timeout glyphs would have nowhere
+        # to live).
         _add("add_point", {"team": 1, "undo": False},
              {"current_set": 1,
               "team_1": {"score": 1}, "team_2": {"score": 0}}, off=5)
@@ -1005,20 +1376,33 @@ class TestMatchReportTimeoutsInline:
              {"current_set": 1,
               "team_1": {"score": 5, "timeouts": 1},
               "team_2": {"score": 3, "timeouts": 0}}, off=10)
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 25}, "team_2": {"score": 23}}, off=100)
         _add("add_timeout", {"team": 1, "undo": False},
              {"current_set": 1,
               "team_1": {"score": 18, "timeouts": 2},
               "team_2": {"score": 16, "timeouts": 0}}, off=120)
-        # Set 2 — team_2 takes 1 timeout.
+        # Set 2 — team_2 takes 1 timeout. Two scoring records again
+        # so the chart renders + the timeout glyph has a home.
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 0}, "team_2": {"score": 1}}, off=200)
         _add("add_timeout", {"team": 2, "undo": False},
              {"current_set": 2,
               "team_1": {"score": 12, "timeouts": 0},
               "team_2": {"score": 14, "timeouts": 1}}, off=300)
-        # Set 3 — no timeouts on either side; one scoring record
-        # grounds the set's timeline.
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 21}, "team_2": {"score": 25}}, off=400)
+        # Set 3 — no timeouts on either side. Two scoring records to
+        # confirm absence of timeout markers on a clean chart.
         _add("add_point", {"team": 1, "undo": False},
              {"current_set": 3,
               "team_1": {"score": 1}, "team_2": {"score": 0}}, off=600)
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 3,
+              "team_1": {"score": 25}, "team_2": {"score": 19}}, off=700)
         self._seed_audit(oid, records)
 
         match_id = match_archive.archive_match(
@@ -1046,6 +1430,92 @@ class TestMatchReportTimeoutsInline:
         assert "(0)" not in response.text
         # The legacy "Timeouts (final set)" row must be gone.
         assert "Timeouts (final set)" not in response.text
+
+        # The redundant "Timeouts (T1/T2)" row was retired — the score
+        # cells already carry the count in parentheses, and timeouts
+        # now render as marker glyphs on the per-set chart.
+        assert "Timeouts (T1/T2)" not in response.text
+        import re
+        assert not re.search(r'<td>\d+/\d+</td>', response.text)
+
+        # The chart picks up the timeouts as dashed-guide markers,
+        # one per ``add_timeout``. team-1 took 2 in set 1, team-2
+        # took 1 in set 2 — three glyphs total.
+        glyphs = re.findall(
+            r'class="set-chart-timeout-glyph"\s+data-team="(\d+)"',
+            response.text,
+        )
+        assert glyphs.count("1") == 2
+        assert glyphs.count("2") == 1
+
+    def test_undone_timeout_does_not_count(self, client):
+        """An ``add_timeout`` that was undone must not contribute to
+        either the inline ``25 (N)`` suffix or the new
+        "Timeouts (T1/T2)" summary row. Regression:
+        ``_timeouts_per_set`` only skipped records where
+        ``params.undo`` is truthy, but the *forward* of an undone
+        pair still slipped through. The report pipeline now feeds
+        every reducer a ``_collapse_undos`` slice so the forward
+        and the undo both disappear.
+        """
+        base_ts = time.time() - 1000
+        oid = "to-undone-1"
+        records = []
+
+        def _add(action, params, result, off):
+            records.append({"ts": base_ts + off, "action": action,
+                            "params": params, "result": result})
+
+        # Set 1: two scoring records ground the set so the per-set
+        # chart actually renders, then T1 takes a timeout and
+        # immediately undoes it. Expected: no inline ``(1)`` suffix
+        # on the score cells AND no chart timeout glyph.
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 1}, "team_2": {"score": 0}}, off=5)
+        _add("add_timeout", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 1, "timeouts": 1},
+              "team_2": {"score": 0, "timeouts": 0}}, off=10)
+        _add("add_timeout", {"team": 1, "undo": True},
+             {"current_set": 1,
+              "team_1": {"score": 1, "timeouts": 0},
+              "team_2": {"score": 0, "timeouts": 0}}, off=15)
+        _add("add_point", {"team": 1, "undo": False},
+             {"current_set": 1,
+              "team_1": {"score": 25}, "team_2": {"score": 23}}, off=100)
+        # Set 2 grounding scores so the table has at least two sets
+        # and the chart can draw a polyline there too.
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 1}, "team_2": {"score": 1}}, off=200)
+        _add("add_point", {"team": 2, "undo": False},
+             {"current_set": 2,
+              "team_1": {"score": 23}, "team_2": {"score": 25}}, off=300)
+        self._seed_audit(oid, records)
+
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "current_set": 2,
+                "team_1": {"sets": 1, "timeouts": 0,
+                           "scores": {"set_1": 25, "set_2": 0}},
+                "team_2": {"sets": 0, "timeouts": 0,
+                           "scores": {"set_1": 23, "set_2": 1}},
+            },
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3, started_at=base_ts + 5,
+        )
+        response = client.get(f"/match/{match_id}/report")
+
+        # Inline suffix must stay bare for the score cells.
+        assert "(1)" not in response.text
+        # No ``N/M`` tuple anywhere in the table — every set row is "—".
+        import re
+        assert not re.search(r'<td>\d+/\d+</td>', response.text)
+        # Chart must not surface a dashed guide for the undone timeout.
+        assert 'class="set-chart-timeout"' not in response.text
+        assert 'class="set-chart-timeout-glyph"' not in response.text
 
 
 class TestMatchReportEmptySets:

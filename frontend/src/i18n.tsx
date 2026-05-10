@@ -12,6 +12,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Select Overlay',
     'app.selectOverlayPlaceholder': '— Select —',
     'app.orManualOid': 'or enter OID manually',
+    'app.connecting': 'Connecting…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -35,13 +36,75 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Start match',
     'ctrl.reset': 'Reset',
     'ctrl.config': 'Configuration',
+    'ctrl.configHint': 'Configuration — or swipe left',
+
+    // Connection status
+    'conn.online': 'Live updates connected',
+    'conn.reconnecting': 'Reconnecting…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Are you sure?',
+    'confirm.confirm': 'Confirm',
+    'confirm.cancel': 'Cancel',
+
+    // Preview fallback
+    'preview.unavailable': 'Preview unavailable',
+    'preview.retry': 'Retry',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Skip',
+    'tour.prev': 'Back',
+    'tour.next': 'Next',
+    'tour.done': 'Got it',
+    'tour.progress': 'Step {step} of {total}',
+    'tour.tap.title': 'Tap to score',
+    'tour.tap.body': 'Tap a team panel to add a point. The serve switches automatically.',
+    'tour.doubletap.title': 'Double-tap to undo',
+    'tour.doubletap.body': 'Double-tap a team panel — or use the undo button — to revert the last point or timeout for that team.',
+    'tour.longpress.title': 'Long-press to edit',
+    'tour.longpress.body': 'Press and hold a score or set count to set a custom value when something needs a manual fix.',
+    'tour.config.title': 'Open configuration',
+    'tour.config.body': 'Swipe left, or tap the gear icon top-right, for teams, colors, rules and links.',
+
+    // Share / quick links
+    'share.title': 'Share match',
+
+    // Recent-audit drawer (Phase 4.2)
+    'history.title': 'History',
+    'history.close': 'Close history',
+    'history.refresh': 'Refresh',
+    'history.empty': 'No recent actions yet.',
+    'history.loading': 'Loading…',
+    'history.relative.justNow': 'just now',
+    'history.relative.seconds': '{n}s ago',
+    'history.relative.minutes': '{n}m ago',
+    'history.relative.hours': '{n}h ago',
+    'history.action.point': 'Point — Team {team}',
+    'history.action.set': 'Set won — Team {team}',
+    'history.action.timeout': 'Timeout — Team {team}',
+    'history.action.serve': 'Serve change → Team {team}',
+    'history.action.edit': 'Manual score — Team {team} set {set} = {value}',
+    'history.action.reset': 'Reset',
+    'history.action.unknown': '(unknown action)',
+    'history.action.undoSuffix': ' (undone)',
+    'history.legend.pointT1': 'Point T1',
+    'history.legend.pointT2': 'Point T2',
+    'history.legend.set': 'Set won',
+    'history.legend.timeout': 'Timeout',
+    'history.legend.serve': 'Serve change',
+    'history.legend.edit': 'Manual edit',
+    'history.legend.reset': 'Reset',
+    'history.legend.undone': 'Undone',
 
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Back to scoreboard',
+    'config.openManage': 'Open Custom Overlay Manager',
     'config.save': 'Save',
     'config.saveCustomization': 'Save customization',
     'config.failedToSave': 'Failed to save customization',
+    'config.saving': 'Saving…',
+    'config.retry': 'Retry',
     'config.reloadFromServer': 'Reload from server',
     'config.reloadConfirm': 'Reload customization from server?',
     'config.resetMatch': 'Reset match',
@@ -51,6 +114,7 @@ const translations: Record<string, TranslationDict> = {
     'config.unsavedChangesConfirm': 'You have unsaved changes that will be lost. Leave anyway?',
 
     // Config sections
+    'section.presets': 'Presets',
     'section.teams': 'Teams',
     'section.overlay': 'Overlay Style',
     'section.position': 'Position & Size',
@@ -58,6 +122,28 @@ const translations: Record<string, TranslationDict> = {
     'section.behavior': 'Behavior',
     'section.rules': 'Match rules',
     'section.links': 'Links',
+    'presets.apply': 'Apply',
+    'presets.delete': 'Delete preset',
+    'presets.empty': 'No presets saved yet — capture the current configuration to create one.',
+    'presets.loading': 'Loading presets…',
+    'presets.loadFailed': 'Could not load presets.',
+    'presets.saveCurrent': 'Save current configuration',
+    'presets.cancel': 'Cancel',
+    'presets.name': 'Name',
+    'presets.includeCategories': 'Include',
+    'presets.save': 'Save',
+    'presets.saving': 'Saving…',
+    'presets.nameRequired': 'A name is required.',
+    'presets.pickAtLeastOne': 'Pick at least one category to save.',
+    'presets.noValuesForCategories': 'The current configuration has no values for the picked categories.',
+    'presets.saveFailed': 'Could not save the preset.',
+    'presets.deleteFailed': 'Could not delete the preset.',
+    'presets.cat.team1Name': 'Team 1 — name',
+    'presets.cat.team1Color': 'Team 1 — color & logo',
+    'presets.cat.team2Name': 'Team 2 — name',
+    'presets.cat.team2Color': 'Team 2 — color & logo',
+    'presets.cat.position': 'Overlay position',
+    'presets.cat.style': 'Overlay style & colors',
     'rules.loading': 'Loading rules…',
     'rules.mode': 'Mode',
     'rules.mode.indoor': 'Indoor',
@@ -132,6 +218,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Hide after {value}s',
     'behavior.autoSimple': 'Auto simple mode',
     'behavior.fullOnTimeout': 'Full mode on timeout',
+    'behavior.haptics': 'Haptic feedback',
     'behavior.showPreview': 'Show overlay preview',
 
     // Preview
@@ -158,6 +245,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Seleccionar Overlay',
     'app.selectOverlayPlaceholder': '— Elegir —',
     'app.orManualOid': 'o introducir OID manualmente',
+    'app.connecting': 'Conectando…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -181,13 +269,75 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Iniciar partido',
     'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuración',
+    'ctrl.configHint': 'Configuración — o desliza a la izquierda',
+
+    // Connection status
+    'conn.online': 'Sincronización en directo',
+    'conn.reconnecting': 'Reconectando…',
+
+    // Confirmation dialogs
+    'confirm.title': '¿Confirmas?',
+    'confirm.confirm': 'Confirmar',
+    'confirm.cancel': 'Cancelar',
+
+    // Preview fallback
+    'preview.unavailable': 'Vista previa no disponible',
+    'preview.retry': 'Reintentar',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Omitir',
+    'tour.prev': 'Atrás',
+    'tour.next': 'Siguiente',
+    'tour.done': 'Entendido',
+    'tour.progress': 'Paso {step} de {total}',
+    'tour.tap.title': 'Toca para sumar punto',
+    'tour.tap.body': 'Toca el panel de un equipo para sumar un punto. El saque cambia automáticamente.',
+    'tour.doubletap.title': 'Doble toque para deshacer',
+    'tour.doubletap.body': 'Doble toque sobre el panel de un equipo — o el botón Deshacer — para revertir el último punto o tiempo muerto de ese equipo.',
+    'tour.longpress.title': 'Mantén pulsado para editar',
+    'tour.longpress.body': 'Mantén pulsado el marcador o el contador de sets para establecer un valor personalizado cuando haga falta corregir manualmente.',
+    'tour.config.title': 'Abrir configuración',
+    'tour.config.body': 'Desliza a la izquierda, o pulsa el engranaje arriba-derecha, para equipos, colores, reglas y enlaces.',
+
+    // Share / quick links
+    'share.title': 'Compartir partido',
+
+    // Recent-audit drawer (Phase 4.2)
+    'history.title': 'Historial',
+    'history.close': 'Cerrar historial',
+    'history.refresh': 'Actualizar',
+    'history.empty': 'Sin acciones recientes.',
+    'history.loading': 'Cargando…',
+    'history.relative.justNow': 'justo ahora',
+    'history.relative.seconds': 'hace {n}s',
+    'history.relative.minutes': 'hace {n}m',
+    'history.relative.hours': 'hace {n}h',
+    'history.action.point': 'Punto — Equipo {team}',
+    'history.action.set': 'Set ganado — Equipo {team}',
+    'history.action.timeout': 'Tiempo muerto — Equipo {team}',
+    'history.action.serve': 'Cambio de saque → Equipo {team}',
+    'history.action.edit': 'Marcador manual — Equipo {team} set {set} = {value}',
+    'history.action.reset': 'Reinicio',
+    'history.action.unknown': '(acción desconocida)',
+    'history.action.undoSuffix': ' (deshecho)',
+    'history.legend.pointT1': 'Punto E1',
+    'history.legend.pointT2': 'Punto E2',
+    'history.legend.set': 'Set ganado',
+    'history.legend.timeout': 'Tiempo muerto',
+    'history.legend.serve': 'Cambio de saque',
+    'history.legend.edit': 'Edición manual',
+    'history.legend.reset': 'Reinicio',
+    'history.legend.undone': 'Deshecho',
 
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Volver al marcador',
+    'config.openManage': 'Abrir gestor de overlays',
     'config.save': 'Guardar',
     'config.saveCustomization': 'Guardar personalización',
     'config.failedToSave': 'Error al guardar la personalización',
+    'config.saving': 'Guardando…',
+    'config.retry': 'Reintentar',
     'config.reloadFromServer': 'Recargar del servidor',
     'config.reloadConfirm': '¿Recargar personalización del servidor?',
     'config.resetMatch': 'Reiniciar partido',
@@ -197,6 +347,7 @@ const translations: Record<string, TranslationDict> = {
     'config.unsavedChangesConfirm': 'Hay cambios sin guardar que se perderán. ¿Salir de todas formas?',
 
     // Config sections
+    'section.presets': 'Presets',
     'section.teams': 'Equipos',
     'section.overlay': 'Estilo del Overlay',
     'section.position': 'Posición y Tamaño',
@@ -204,6 +355,28 @@ const translations: Record<string, TranslationDict> = {
     'section.behavior': 'Comportamiento',
     'section.rules': 'Reglas del partido',
     'section.links': 'Enlaces',
+    'presets.apply': 'Aplicar',
+    'presets.delete': 'Borrar preset',
+    'presets.empty': 'Aún no hay presets — guarda la configuración actual para crear uno.',
+    'presets.loading': 'Cargando presets…',
+    'presets.loadFailed': 'No se han podido cargar los presets.',
+    'presets.saveCurrent': 'Guardar configuración actual',
+    'presets.cancel': 'Cancelar',
+    'presets.name': 'Nombre',
+    'presets.includeCategories': 'Incluir',
+    'presets.save': 'Guardar',
+    'presets.saving': 'Guardando…',
+    'presets.nameRequired': 'El nombre es obligatorio.',
+    'presets.pickAtLeastOne': 'Selecciona al menos una categoría.',
+    'presets.noValuesForCategories': 'La configuración actual no tiene valores para las categorías elegidas.',
+    'presets.saveFailed': 'No se pudo guardar el preset.',
+    'presets.deleteFailed': 'No se pudo borrar el preset.',
+    'presets.cat.team1Name': 'Equipo 1 — nombre',
+    'presets.cat.team1Color': 'Equipo 1 — color y logo',
+    'presets.cat.team2Name': 'Equipo 2 — nombre',
+    'presets.cat.team2Color': 'Equipo 2 — color y logo',
+    'presets.cat.position': 'Posición del overlay',
+    'presets.cat.style': 'Estilo y colores del overlay',
     'rules.loading': 'Cargando reglas…',
     'rules.mode': 'Modalidad',
     'rules.mode.indoor': 'Pista',
@@ -278,6 +451,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Ocultar después de {value}s',
     'behavior.autoSimple': 'Modo simple automático',
     'behavior.fullOnTimeout': 'Modo completo en tiempo muerto',
+    'behavior.haptics': 'Vibración táctil',
     'behavior.showPreview': 'Mostrar vista previa del overlay',
 
     // Preview
@@ -304,6 +478,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Selecionar Overlay',
     'app.selectOverlayPlaceholder': '— Selecionar —',
     'app.orManualOid': 'ou introduzir o OID manualmente',
+    'app.connecting': 'A ligar…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -327,6 +502,65 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Iniciar jogo',
     'ctrl.reset': 'Reiniciar',
     'ctrl.config': 'Configuração',
+    'ctrl.configHint': 'Configuração — ou desliza para a esquerda',
+
+    // Connection status
+    'conn.online': 'Sincronização em direto',
+    'conn.reconnecting': 'A reconectar…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Confirmas?',
+    'confirm.confirm': 'Confirmar',
+    'confirm.cancel': 'Cancelar',
+
+    // Preview fallback
+    'preview.unavailable': 'Pré-visualização indisponível',
+    'preview.retry': 'Tentar novamente',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Saltar',
+    'tour.prev': 'Anterior',
+    'tour.next': 'Seguinte',
+    'tour.done': 'Entendi',
+    'tour.progress': 'Passo {step} de {total}',
+    'tour.tap.title': 'Toca para somar ponto',
+    'tour.tap.body': 'Toca no painel de uma equipa para somar um ponto. O saque muda automaticamente.',
+    'tour.doubletap.title': 'Toque duplo para desfazer',
+    'tour.doubletap.body': 'Toque duplo no painel de uma equipa — ou o botão Desfazer — para reverter o último ponto ou desconto de tempo dessa equipa.',
+    'tour.longpress.title': 'Mantém premido para editar',
+    'tour.longpress.body': 'Mantém premido a pontuação ou o contador de sets para definir um valor personalizado quando for preciso corrigir manualmente.',
+    'tour.config.title': 'Abrir configuração',
+    'tour.config.body': 'Desliza para a esquerda, ou toca na engrenagem em cima à direita, para equipas, cores, regras e ligações.',
+
+    // Share / quick links
+    'share.title': 'Partilhar jogo',
+
+    // Recent-audit drawer (Phase 4.2)
+    'history.title': 'Histórico',
+    'history.close': 'Fechar histórico',
+    'history.refresh': 'Atualizar',
+    'history.empty': 'Sem ações recentes.',
+    'history.loading': 'A carregar…',
+    'history.relative.justNow': 'agora mesmo',
+    'history.relative.seconds': 'há {n}s',
+    'history.relative.minutes': 'há {n}m',
+    'history.relative.hours': 'há {n}h',
+    'history.action.point': 'Ponto — Equipa {team}',
+    'history.action.set': 'Set ganho — Equipa {team}',
+    'history.action.timeout': 'Tempo morto — Equipa {team}',
+    'history.action.serve': 'Troca de saque → Equipa {team}',
+    'history.action.edit': 'Pontuação manual — Equipa {team} set {set} = {value}',
+    'history.action.reset': 'Reinício',
+    'history.action.unknown': '(ação desconhecida)',
+    'history.action.undoSuffix': ' (desfeito)',
+    'history.legend.pointT1': 'Ponto E1',
+    'history.legend.pointT2': 'Ponto E2',
+    'history.legend.set': 'Set ganho',
+    'history.legend.timeout': 'Tempo morto',
+    'history.legend.serve': 'Troca de saque',
+    'history.legend.edit': 'Edição manual',
+    'history.legend.reset': 'Reinício',
+    'history.legend.undone': 'Desfeito',
 
     // Config panel
     'config.title': 'Config',
@@ -334,6 +568,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Guardar',
     'config.saveCustomization': 'Guardar personalização',
     'config.failedToSave': 'Falha ao guardar a personalização',
+    'config.saving': 'A guardar…',
+    'config.retry': 'Tentar novamente',
     'config.reloadFromServer': 'Recarregar do servidor',
     'config.reloadConfirm': 'Recarregar personalização do servidor?',
     'config.resetMatch': 'Reiniciar jogo',
@@ -343,6 +579,7 @@ const translations: Record<string, TranslationDict> = {
     'config.unsavedChangesConfirm': 'Há alterações não guardadas que serão perdidas. Sair mesmo assim?',
 
     // Config sections
+    'section.presets': 'Presets',
     'section.teams': 'Equipas',
     'section.overlay': 'Estilo do Overlay',
     'section.position': 'Posição e Tamanho',
@@ -350,6 +587,28 @@ const translations: Record<string, TranslationDict> = {
     'section.behavior': 'Comportamento',
     'section.rules': 'Regras do jogo',
     'section.links': 'Ligações',
+    'presets.apply': 'Aplicar',
+    'presets.delete': 'Apagar preset',
+    'presets.empty': 'Ainda não há presets — guarda a configuração atual para criar um.',
+    'presets.loading': 'A carregar presets…',
+    'presets.loadFailed': 'Falha ao carregar os presets.',
+    'presets.saveCurrent': 'Guardar configuração atual',
+    'presets.cancel': 'Cancelar',
+    'presets.name': 'Nome',
+    'presets.includeCategories': 'Incluir',
+    'presets.save': 'Guardar',
+    'presets.saving': 'A guardar…',
+    'presets.nameRequired': 'O nome é obrigatório.',
+    'presets.pickAtLeastOne': 'Seleciona pelo menos uma categoria.',
+    'presets.noValuesForCategories': 'A configuração atual não tem valores para as categorias escolhidas.',
+    'presets.saveFailed': 'Não foi possível guardar o preset.',
+    'presets.deleteFailed': 'Não foi possível apagar o preset.',
+    'presets.cat.team1Name': 'Equipa 1 — nome',
+    'presets.cat.team1Color': 'Equipa 1 — cor e logo',
+    'presets.cat.team2Name': 'Equipa 2 — nome',
+    'presets.cat.team2Color': 'Equipa 2 — cor e logo',
+    'presets.cat.position': 'Posição do overlay',
+    'presets.cat.style': 'Estilo e cores do overlay',
     'rules.loading': 'A carregar regras…',
     'rules.mode': 'Modalidade',
     'rules.mode.indoor': 'Pavilhão',
@@ -424,6 +683,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Ocultar após {value}s',
     'behavior.autoSimple': 'Modo simples automático',
     'behavior.fullOnTimeout': 'Modo completo no desconto de tempo',
+    'behavior.haptics': 'Vibração tátil',
     'behavior.showPreview': 'Mostrar pré-visualização do overlay',
 
     // Preview
@@ -450,6 +710,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Seleziona Overlay',
     'app.selectOverlayPlaceholder': '— Seleziona —',
     'app.orManualOid': 'o inserisci l’OID manualmente',
+    'app.connecting': 'Connessione…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -473,6 +734,65 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Inizia partita',
     'ctrl.reset': 'Reimposta',
     'ctrl.config': 'Configurazione',
+    'ctrl.configHint': 'Configurazione — o scorri a sinistra',
+
+    // Connection status
+    'conn.online': 'Sincronizzazione in diretta',
+    'conn.reconnecting': 'Riconnessione…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Confermi?',
+    'confirm.confirm': 'Conferma',
+    'confirm.cancel': 'Annulla',
+
+    // Preview fallback
+    'preview.unavailable': 'Anteprima non disponibile',
+    'preview.retry': 'Riprova',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Salta',
+    'tour.prev': 'Indietro',
+    'tour.next': 'Avanti',
+    'tour.done': 'Ho capito',
+    'tour.progress': 'Passo {step} di {total}',
+    'tour.tap.title': 'Tocca per segnare',
+    'tour.tap.body': 'Tocca il pannello di una squadra per aggiungere un punto. La battuta cambia automaticamente.',
+    'tour.doubletap.title': 'Doppio tocco per annullare',
+    'tour.doubletap.body': 'Doppio tocco sul pannello di una squadra — o il pulsante Annulla — per annullare l\'ultimo punto o time-out di quella squadra.',
+    'tour.longpress.title': 'Tieni premuto per modificare',
+    'tour.longpress.body': 'Tieni premuto il punteggio o il contatore set per impostare un valore personalizzato quando serve correggere a mano.',
+    'tour.config.title': 'Apri la configurazione',
+    'tour.config.body': 'Scorri a sinistra, o tocca l\'ingranaggio in alto a destra, per squadre, colori, regole e link.',
+
+    // Share / quick links
+    'share.title': 'Condividi partita',
+
+    // Recent-audit drawer (Phase 4.2)
+    'history.title': 'Cronologia',
+    'history.close': 'Chiudi cronologia',
+    'history.refresh': 'Aggiorna',
+    'history.empty': 'Nessuna azione recente.',
+    'history.loading': 'Caricamento…',
+    'history.relative.justNow': 'adesso',
+    'history.relative.seconds': '{n}s fa',
+    'history.relative.minutes': '{n}m fa',
+    'history.relative.hours': '{n}h fa',
+    'history.action.point': 'Punto — Squadra {team}',
+    'history.action.set': 'Set vinto — Squadra {team}',
+    'history.action.timeout': 'Time-out — Squadra {team}',
+    'history.action.serve': 'Cambio battuta → Squadra {team}',
+    'history.action.edit': 'Punteggio manuale — Squadra {team} set {set} = {value}',
+    'history.action.reset': 'Reset',
+    'history.action.unknown': '(azione sconosciuta)',
+    'history.action.undoSuffix': ' (annullato)',
+    'history.legend.pointT1': 'Punto S1',
+    'history.legend.pointT2': 'Punto S2',
+    'history.legend.set': 'Set vinto',
+    'history.legend.timeout': 'Time-out',
+    'history.legend.serve': 'Cambio battuta',
+    'history.legend.edit': 'Modifica manuale',
+    'history.legend.reset': 'Reset',
+    'history.legend.undone': 'Annullato',
 
     // Config panel
     'config.title': 'Config',
@@ -480,6 +800,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Salva',
     'config.saveCustomization': 'Salva personalizzazione',
     'config.failedToSave': 'Errore nel salvataggio della personalizzazione',
+    'config.saving': 'Salvataggio…',
+    'config.retry': 'Riprova',
     'config.reloadFromServer': 'Ricarica dal server',
     'config.reloadConfirm': 'Ricaricare la personalizzazione dal server?',
     'config.resetMatch': 'Reimposta partita',
@@ -489,6 +811,7 @@ const translations: Record<string, TranslationDict> = {
     'config.unsavedChangesConfirm': 'Ci sono modifiche non salvate che andranno perse. Uscire comunque?',
 
     // Config sections
+    'section.presets': 'Preset',
     'section.teams': 'Squadre',
     'section.overlay': 'Stile Overlay',
     'section.position': 'Posizione e Dimensione',
@@ -496,6 +819,28 @@ const translations: Record<string, TranslationDict> = {
     'section.behavior': 'Comportamento',
     'section.rules': 'Regole del match',
     'section.links': 'Link',
+    'presets.apply': 'Applica',
+    'presets.delete': 'Elimina preset',
+    'presets.empty': 'Nessun preset salvato — cattura la configurazione attuale per crearne uno.',
+    'presets.loading': 'Caricamento preset…',
+    'presets.loadFailed': 'Impossibile caricare i preset.',
+    'presets.saveCurrent': 'Salva configurazione attuale',
+    'presets.cancel': 'Annulla',
+    'presets.name': 'Nome',
+    'presets.includeCategories': 'Includi',
+    'presets.save': 'Salva',
+    'presets.saving': 'Salvataggio…',
+    'presets.nameRequired': 'Il nome è obbligatorio.',
+    'presets.pickAtLeastOne': 'Seleziona almeno una categoria.',
+    'presets.noValuesForCategories': 'La configurazione attuale non ha valori per le categorie scelte.',
+    'presets.saveFailed': 'Impossibile salvare il preset.',
+    'presets.deleteFailed': 'Impossibile eliminare il preset.',
+    'presets.cat.team1Name': 'Squadra 1 — nome',
+    'presets.cat.team1Color': 'Squadra 1 — colore e logo',
+    'presets.cat.team2Name': 'Squadra 2 — nome',
+    'presets.cat.team2Color': 'Squadra 2 — colore e logo',
+    'presets.cat.position': 'Posizione overlay',
+    'presets.cat.style': 'Stile e colori overlay',
     'rules.loading': 'Caricamento regole…',
     'rules.mode': 'Modalità',
     'rules.mode.indoor': 'Indoor',
@@ -570,6 +915,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Nascondi dopo {value}s',
     'behavior.autoSimple': 'Modalità semplice automatica',
     'behavior.fullOnTimeout': 'Modalità completa al time-out',
+    'behavior.haptics': 'Feedback aptico',
     'behavior.showPreview': 'Mostra anteprima overlay',
 
     // Preview
@@ -596,6 +942,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Sélectionner l’overlay',
     'app.selectOverlayPlaceholder': '— Sélectionner —',
     'app.orManualOid': 'ou saisir l’OID manuellement',
+    'app.connecting': 'Connexion…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -619,6 +966,65 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Démarrer le match',
     'ctrl.reset': 'Réinitialiser',
     'ctrl.config': 'Configuration',
+    'ctrl.configHint': 'Configuration — ou glissez vers la gauche',
+
+    // Connection status
+    'conn.online': 'Synchronisation en direct',
+    'conn.reconnecting': 'Reconnexion…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Confirmer ?',
+    'confirm.confirm': 'Confirmer',
+    'confirm.cancel': 'Annuler',
+
+    // Preview fallback
+    'preview.unavailable': 'Aperçu indisponible',
+    'preview.retry': 'Réessayer',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Passer',
+    'tour.prev': 'Précédent',
+    'tour.next': 'Suivant',
+    'tour.done': 'Compris',
+    'tour.progress': 'Étape {step} sur {total}',
+    'tour.tap.title': 'Touchez pour marquer',
+    'tour.tap.body': 'Touchez le panneau d\'une équipe pour ajouter un point. Le service bascule automatiquement.',
+    'tour.doubletap.title': 'Double-tap pour annuler',
+    'tour.doubletap.body': 'Double-tap sur le panneau d\'une équipe — ou le bouton Annuler — pour annuler le dernier point ou temps mort de cette équipe.',
+    'tour.longpress.title': 'Appui long pour modifier',
+    'tour.longpress.body': 'Appui long sur le score ou le compteur de sets pour définir une valeur personnalisée quand une correction manuelle est nécessaire.',
+    'tour.config.title': 'Ouvrir la configuration',
+    'tour.config.body': 'Glissez vers la gauche, ou touchez l\'engrenage en haut à droite, pour équipes, couleurs, règles et liens.',
+
+    // Share / quick links
+    'share.title': 'Partager le match',
+
+    // Recent-audit drawer (Phase 4.2)
+    'history.title': 'Historique',
+    'history.close': 'Fermer l’historique',
+    'history.refresh': 'Actualiser',
+    'history.empty': 'Aucune action récente.',
+    'history.loading': 'Chargement…',
+    'history.relative.justNow': 'à l’instant',
+    'history.relative.seconds': 'il y a {n}s',
+    'history.relative.minutes': 'il y a {n}m',
+    'history.relative.hours': 'il y a {n}h',
+    'history.action.point': 'Point — Équipe {team}',
+    'history.action.set': 'Set gagné — Équipe {team}',
+    'history.action.timeout': 'Temps mort — Équipe {team}',
+    'history.action.serve': 'Changement de service → Équipe {team}',
+    'history.action.edit': 'Score manuel — Équipe {team} set {set} = {value}',
+    'history.action.reset': 'Réinitialisation',
+    'history.action.unknown': '(action inconnue)',
+    'history.action.undoSuffix': ' (annulé)',
+    'history.legend.pointT1': 'Point É1',
+    'history.legend.pointT2': 'Point É2',
+    'history.legend.set': 'Set gagné',
+    'history.legend.timeout': 'Temps mort',
+    'history.legend.serve': 'Changement de service',
+    'history.legend.edit': 'Édition manuelle',
+    'history.legend.reset': 'Réinitialisation',
+    'history.legend.undone': 'Annulé',
 
     // Config panel
     'config.title': 'Config',
@@ -626,6 +1032,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Enregistrer',
     'config.saveCustomization': 'Enregistrer la personnalisation',
     'config.failedToSave': 'Échec de l’enregistrement de la personnalisation',
+    'config.saving': 'Enregistrement…',
+    'config.retry': 'Réessayer',
     'config.reloadFromServer': 'Recharger depuis le serveur',
     'config.reloadConfirm': 'Recharger la personnalisation depuis le serveur ?',
     'config.resetMatch': 'Réinitialiser le match',
@@ -635,6 +1043,7 @@ const translations: Record<string, TranslationDict> = {
     'config.unsavedChangesConfirm': 'Des modifications non enregistrées seront perdues. Quitter quand même ?',
 
     // Config sections
+    'section.presets': 'Presets',
     'section.teams': 'Équipes',
     'section.overlay': 'Style de l’overlay',
     'section.position': 'Position et taille',
@@ -642,6 +1051,28 @@ const translations: Record<string, TranslationDict> = {
     'section.behavior': 'Comportement',
     'section.rules': 'Règles du match',
     'section.links': 'Liens',
+    'presets.apply': 'Appliquer',
+    'presets.delete': 'Supprimer le preset',
+    'presets.empty': 'Aucun preset enregistré — capturez la configuration actuelle pour en créer un.',
+    'presets.loading': 'Chargement des presets…',
+    'presets.loadFailed': 'Impossible de charger les presets.',
+    'presets.saveCurrent': 'Enregistrer la configuration actuelle',
+    'presets.cancel': 'Annuler',
+    'presets.name': 'Nom',
+    'presets.includeCategories': 'Inclure',
+    'presets.save': 'Enregistrer',
+    'presets.saving': 'Enregistrement…',
+    'presets.nameRequired': 'Le nom est obligatoire.',
+    'presets.pickAtLeastOne': 'Choisis au moins une catégorie.',
+    'presets.noValuesForCategories': 'La configuration actuelle n’a pas de valeurs pour les catégories choisies.',
+    'presets.saveFailed': 'Impossible d’enregistrer le preset.',
+    'presets.deleteFailed': 'Impossible de supprimer le preset.',
+    'presets.cat.team1Name': 'Équipe 1 — nom',
+    'presets.cat.team1Color': 'Équipe 1 — couleur et logo',
+    'presets.cat.team2Name': 'Équipe 2 — nom',
+    'presets.cat.team2Color': 'Équipe 2 — couleur et logo',
+    'presets.cat.position': 'Position de l’overlay',
+    'presets.cat.style': 'Style et couleurs de l’overlay',
     'rules.loading': 'Chargement des règles…',
     'rules.mode': 'Mode',
     'rules.mode.indoor': 'Salle',
@@ -716,6 +1147,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Masquer après {value}s',
     'behavior.autoSimple': 'Mode simple automatique',
     'behavior.fullOnTimeout': 'Mode complet au temps mort',
+    'behavior.haptics': 'Retour haptique',
     'behavior.showPreview': 'Afficher l’aperçu de l’overlay',
 
     // Preview
@@ -742,6 +1174,7 @@ const translations: Record<string, TranslationDict> = {
     'app.selectOverlay': 'Overlay auswählen',
     'app.selectOverlayPlaceholder': '— Auswählen —',
     'app.orManualOid': 'oder OID manuell eingeben',
+    'app.connecting': 'Verbinde…',
 
     // Dialog
     'dialog.ok': 'OK',
@@ -765,6 +1198,65 @@ const translations: Record<string, TranslationDict> = {
     'ctrl.startMatch': 'Spiel starten',
     'ctrl.reset': 'Zurücksetzen',
     'ctrl.config': 'Einstellungen',
+    'ctrl.configHint': 'Einstellungen — oder nach links wischen',
+
+    // Connection status
+    'conn.online': 'Live-Synchronisation aktiv',
+    'conn.reconnecting': 'Verbindung wird wiederhergestellt…',
+
+    // Confirmation dialogs
+    'confirm.title': 'Sicher?',
+    'confirm.confirm': 'Bestätigen',
+    'confirm.cancel': 'Abbrechen',
+
+    // Preview fallback
+    'preview.unavailable': 'Vorschau nicht verfügbar',
+    'preview.retry': 'Erneut versuchen',
+
+    // Gesture coachmark / first-run tour
+    'tour.skip': 'Überspringen',
+    'tour.prev': 'Zurück',
+    'tour.next': 'Weiter',
+    'tour.done': 'Verstanden',
+    'tour.progress': 'Schritt {step} von {total}',
+    'tour.tap.title': 'Tippen für Punkt',
+    'tour.tap.body': 'Tippe auf das Team-Panel, um einen Punkt zu vergeben. Der Aufschlag wechselt automatisch.',
+    'tour.doubletap.title': 'Doppeltippen zum Rückgängig machen',
+    'tour.doubletap.body': 'Doppeltippen auf das Team-Panel — oder die Rückgängig-Taste — macht den letzten Punkt oder die letzte Auszeit dieses Teams rückgängig.',
+    'tour.longpress.title': 'Lange drücken zum Bearbeiten',
+    'tour.longpress.body': 'Halte den Punktestand oder Satzzähler gedrückt, um einen eigenen Wert zu setzen, falls eine manuelle Korrektur nötig ist.',
+    'tour.config.title': 'Einstellungen öffnen',
+    'tour.config.body': 'Wische nach links, oder tippe das Zahnrad oben rechts, für Teams, Farben, Regeln und Links.',
+
+    // Share / quick links
+    'share.title': 'Spiel teilen',
+
+    // Recent-audit drawer (Phase 4.2)
+    'history.title': 'Verlauf',
+    'history.close': 'Verlauf schließen',
+    'history.refresh': 'Aktualisieren',
+    'history.empty': 'Noch keine Aktionen.',
+    'history.loading': 'Lädt…',
+    'history.relative.justNow': 'gerade eben',
+    'history.relative.seconds': 'vor {n}s',
+    'history.relative.minutes': 'vor {n}m',
+    'history.relative.hours': 'vor {n}h',
+    'history.action.point': 'Punkt — Team {team}',
+    'history.action.set': 'Satzgewinn — Team {team}',
+    'history.action.timeout': 'Auszeit — Team {team}',
+    'history.action.serve': 'Aufschlagwechsel → Team {team}',
+    'history.action.edit': 'Manuelle Punktzahl — Team {team} Satz {set} = {value}',
+    'history.action.reset': 'Reset',
+    'history.action.unknown': '(unbekannte Aktion)',
+    'history.action.undoSuffix': ' (rückgängig)',
+    'history.legend.pointT1': 'Punkt T1',
+    'history.legend.pointT2': 'Punkt T2',
+    'history.legend.set': 'Satzgewinn',
+    'history.legend.timeout': 'Auszeit',
+    'history.legend.serve': 'Aufschlagwechsel',
+    'history.legend.edit': 'Manuelle Bearbeitung',
+    'history.legend.reset': 'Reset',
+    'history.legend.undone': 'Rückgängig',
 
     // Config panel
     'config.title': 'Config',
@@ -772,6 +1264,8 @@ const translations: Record<string, TranslationDict> = {
     'config.save': 'Speichern',
     'config.saveCustomization': 'Anpassung speichern',
     'config.failedToSave': 'Anpassung konnte nicht gespeichert werden',
+    'config.saving': 'Speichert…',
+    'config.retry': 'Erneut versuchen',
     'config.reloadFromServer': 'Vom Server neu laden',
     'config.reloadConfirm': 'Anpassung vom Server neu laden?',
     'config.resetMatch': 'Spiel zurücksetzen',
@@ -781,6 +1275,7 @@ const translations: Record<string, TranslationDict> = {
     'config.unsavedChangesConfirm': 'Es gibt ungespeicherte Änderungen, die verloren gehen. Trotzdem verlassen?',
 
     // Config sections
+    'section.presets': 'Vorlagen',
     'section.teams': 'Teams',
     'section.overlay': 'Overlay-Stil',
     'section.position': 'Position und Größe',
@@ -788,6 +1283,28 @@ const translations: Record<string, TranslationDict> = {
     'section.behavior': 'Verhalten',
     'section.rules': 'Spielregeln',
     'section.links': 'Links',
+    'presets.apply': 'Anwenden',
+    'presets.delete': 'Vorlage löschen',
+    'presets.empty': 'Noch keine Vorlagen — speichere die aktuelle Konfiguration, um eine zu erstellen.',
+    'presets.loading': 'Lade Vorlagen…',
+    'presets.loadFailed': 'Vorlagen konnten nicht geladen werden.',
+    'presets.saveCurrent': 'Aktuelle Konfiguration speichern',
+    'presets.cancel': 'Abbrechen',
+    'presets.name': 'Name',
+    'presets.includeCategories': 'Enthalten',
+    'presets.save': 'Speichern',
+    'presets.saving': 'Speichern…',
+    'presets.nameRequired': 'Name ist erforderlich.',
+    'presets.pickAtLeastOne': 'Wähle mindestens eine Kategorie aus.',
+    'presets.noValuesForCategories': 'Die aktuelle Konfiguration enthält keine Werte für die gewählten Kategorien.',
+    'presets.saveFailed': 'Vorlage konnte nicht gespeichert werden.',
+    'presets.deleteFailed': 'Vorlage konnte nicht gelöscht werden.',
+    'presets.cat.team1Name': 'Team 1 — Name',
+    'presets.cat.team1Color': 'Team 1 — Farbe & Logo',
+    'presets.cat.team2Name': 'Team 2 — Name',
+    'presets.cat.team2Color': 'Team 2 — Farbe & Logo',
+    'presets.cat.position': 'Overlay-Position',
+    'presets.cat.style': 'Overlay-Stil & Farben',
     'rules.loading': 'Regeln werden geladen…',
     'rules.mode': 'Modus',
     'rules.mode.indoor': 'Halle',
@@ -862,6 +1379,7 @@ const translations: Record<string, TranslationDict> = {
     'behavior.hideAfter': 'Nach {value}s ausblenden',
     'behavior.autoSimple': 'Automatischer Einfachmodus',
     'behavior.fullOnTimeout': 'Vollmodus bei Auszeit',
+    'behavior.haptics': 'Haptisches Feedback',
     'behavior.showPreview': 'Overlay-Vorschau anzeigen',
 
     // Preview

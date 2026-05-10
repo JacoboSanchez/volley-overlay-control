@@ -10,6 +10,498 @@ once a first tagged release ships.
 
 ### Added
 
+- **Cross-navigation between Config and `/manage`.** The config
+  panel's top bar now shows a `dashboard` button on the right
+  (mirroring the back-arrow on the left) that links to `/manage`,
+  and the Custom Overlay Manager header gains a back-arrow on the
+  left of its title that returns the operator to the scoreboard.
+  Both surfaces previously required typing the URL by hand.
+- **Rapid-pair undo correction (5 s window).** Two opposite
+  ``add_point`` actions on the same team within
+  ``RAPID_PAIR_WINDOW_S`` (5 s) now collapse to a no-op at the
+  audit-log level — neither half surfaces in the report, the
+  post-match drawer, or the live history strip. Both directions
+  are handled:
+
+  * **Case A** — tap to score, then double-tap-undo within 5 s:
+    the just-added forward is tombstoned and no undo record is
+    appended. Net audit: nothing for the pair.
+  * **Case B** — double-tap-undo, then tap within 5 s: the
+    fresh undo record is tombstoned and the forward the undo
+    had originally hidden is **restored from its tombstone** via
+    a new ``_restore`` audit marker so the timeline keeps the
+    original ts. Net audit: as if neither the undo nor the
+    recovery happened.
+
+  Outside the 5 s window the actions remain separate (legacy
+  unified-undo flow). On a different team the cache stays per-
+  team so a deliberate forward on team 2 can't accidentally
+  pair with a stray double-tap on team 1. Any non-``add_point``
+  mutation (``add_set``, ``add_timeout``, ``change_serve``,
+  ``set_score``, ``set_sets_value``, ``reset``) invalidates the
+  cache so a follow-up tap can never trigger a false-positive
+  recovery. State-level effects (set-end / match-end / serve-
+  change webhooks) still fire on the recovery side — the
+  underlying state transition really happened (the operator
+  briefly closed the set, then reopened it).
+
+  Implementation:
+
+  * New ``RAPID_PAIR_WINDOW_S = 5.0`` module constant on
+    ``app/api/game_service.py``.
+  * New ``GameSession.rapid_pair_cache: dict[int, dict]`` —
+    per-team trace of the most recent ``add_point`` (kind, ts,
+    audit_ts, optional popped_ref_ts) used to detect the pair
+    on the next call.
+  * New ``action_log.tombstone_ts`` and
+    ``action_log.restore_popped`` helpers plus
+    ``_RESTORE_TOMBSTONE_ACTION = "_restore"``.
+    ``_apply_tombstones`` now processes ``_pop`` and ``_restore``
+    together so a restore cancels an earlier pop with the same
+    ``ref_ts``. ``action_log.append`` returns the written record
+    so the caller can capture its assigned ``ts`` for the cache.
+  * ``GameService.add_point`` consults
+    ``_consume_rapid_pair`` before the normal pop / state-mutate
+    / audit-append cycle. On a rapid hit the audit half is
+    handled by the cache (no ``_audit`` call); on a miss the
+    seed is refreshed via ``_record_rapid_pair_seed``.
+
+  Tests: 11 new in ``tests/test_rapid_pair_undo.py`` covering
+  Case A collapse, Case B recovery (with mocked time so the
+  prior forwards lie outside the window), different-team
+  isolation, every cache invalidation path, and a set-winning
+  recovery that re-advances ``current_set``. Pre-existing
+  legacy-unified-undo tests (``tests/test_undo_stack.py``,
+  ``tests/test_action_log.py``, ``tests/test_undo_unification
+  .py``) were updated to mock time past the rapid-pair window
+  so they continue exercising the legacy path. Full backend
+  suite: 1021 passed (was 1009 + 12 new).
+
+### Changed
+
+- **Match report comeback highlight split into "set-winning" and
+  "partial" cards with new thresholds.** Used to: a single
+  "Biggest comeback" card surfaced any deficit ≥ 2 pts erased by
+  the eventual set winner — so a team that briefly trailed 0-2
+  before cruising to 25-10 was still credited with a "comeback".
+  Now:
+
+  * **Biggest set-winning comeback** renders only when the erased
+    deficit is **5 pts or more**, suppressing the trivial 2-4
+    point swings that aren't really comebacks.
+  * **Biggest partial comeback** is a new card that surfaces the
+    largest deficit *reduction* (peak deficit minus the smallest
+    subsequent deficit) achieved by a team that ultimately *lost*
+    the set — useful for spotting near-comebacks. Threshold
+    `> 3 pts` so a one-rally swing doesn't qualify.
+  * When team 1 and team 2 share the same maximum on either card
+    the value collapses to the magnitude alone and the per-team
+    detail is replaced by "Tied between both teams" rather than
+    arbitrarily picking one side.
+
+  ``_compute_stats`` now returns ``set_win_comeback`` and
+  ``partial_comeback`` per-team dicts (replacing the old
+  single-team ``biggest_comeback``); ``_render_highlights``
+  combines them with the new tie-detection logic. New i18n keys
+  ``highlightPartialComeback``, ``partialDeltaValue`` and
+  ``comebackTie`` across all six locales (en/es/pt/it/fr/de),
+  and ``highlightComeback`` rewords to "set-winning". Pinned by
+  six new tests in ``TestMatchReportComebacks`` covering the
+  per-card threshold, the team-credited side, and both tie paths.
+
+- **Match report timeline drops both halves of every ``undo``
+  pair.** Used to: undo records were rendered as a struck-through
+  line carrying an "↶ Undone" badge — visible but visually noisy.
+  Now: ``_collapse_undos`` removes both the forward action and
+  its undo so the timeline reads "as if the undone action never
+  happened". Live unified-undo logs already had this shape (the
+  forward was popped physically, leaving an orphan undo we
+  dropped); legacy paired logs now collapse the same way.
+  Removed: ``.undone`` / ``.undone-badge`` / ``.chip-undone``
+  CSS, the ``undone`` entry in ``_CHIP_CATALOGUE``, the
+  ``was_undone`` parameter on ``_chip_classifier``, and the
+  ``undo`` / ``undoneBadge`` / ``legendUndone`` i18n keys across
+  all six locales. Existing legacy tests
+  (``test_undo_collapses_to_strikethrough``,
+  ``test_undone_rows_carry_visible_badge``) replaced with
+  ``test_undo_pairs_disappear_from_timeline`` and
+  ``test_no_undone_artefacts_in_rendered_html`` that pin the new
+  invisibility invariant. The frontend live operator drawer
+  (``RecentAuditDrawer``) is unchanged: it still surfaces undo
+  records as their own rows because that surface is a transcript
+  of operator actions, not a final-state report.
+
+- **Match-report set-by-set table grows a "Timeouts (T1/T2)"
+  row.** The per-set timeout count was already shown inline as
+  ``25 (2)`` next to the score, but the suffix is easy to miss
+  on dense matches. The new row sits below "Set durations" and
+  spells out both teams' counts side-by-side as ``2/0`` /
+  ``0/1`` / ``—``. Reuses the existing ``_timeouts_per_set``
+  audit reducer so a coach can scan timeout usage per set
+  without trawling the timeline. New i18n key ``timeoutsRow``
+  across all six locales (en/es/pt/it/fr/de). Pinned by
+  ``test_set_byset_table_has_per_set_timeouts_row`` and the
+  existing ``test_set_score_cell_appends_timeout_count`` was
+  extended to assert the new row alongside the inline suffix.
+
+  Full suites: backend 1008 passed, frontend 405 passed.
+
+### Fixed
+
+- **Rapid-pair recovery could hide its own restored forward in the
+  report.** Two follow-ups to the rapid-pair undo flow shipped in
+  the previous release:
+
+  * ``GameService._invalidate_rapid_pair_cache`` is now also called
+    by ``set_rules`` and ``start_match`` (the docstring already
+    listed ``set_rules``; the implementation in those methods was
+    missing). A rule change or an explicit match start now wipes
+    any stale per-team rapid-pair seed so a follow-up tap cannot
+    trigger a false-positive recovery against an unrelated forward.
+  * **Case B recovery** now gates ``action_log.restore_popped`` on
+    the success of ``action_log.tombstone_ts``. Previously the
+    restore ran unconditionally, so a failed undo-tombstone left
+    the audit log in a state where the orphan undo was still
+    visible alongside the restored forward; ``_collapse_undos`` in
+    the match report would then pair the two and hide both,
+    defeating the recovery. The counter bump (``undoable_forward_count
+    += 1``) follows the same gate, matching Case A's atomicity.
+
+  Three regression tests cover the new behaviour: the cache-
+  invalidation parametrize now exercises ``set_rules`` and
+  ``start_match``;
+  ``test_case_b_skips_restore_when_undo_tombstone_fails`` patches
+  ``tombstone_ts`` to fail and asserts ``restore_popped`` is never
+  reached; and
+  ``test_case_b_skips_restore_when_audit_ts_is_missing`` drops
+  the cached ``audit_ts`` and asserts both writes bail out (mirroring
+  Case A's ``audit_ts is not None and tombstone_ts(...)`` guard so
+  a defective seed cannot recreate the orphan-undo state).
+
+- **Match report rendered "Team 1" / "Team 2" instead of the real
+  team names when the OID was UNO-backed.** ``app.match_report
+  ._team_name`` only checked the canonical ``Team {n} Name`` key,
+  but the rest of the codebase (``Customization.A_TEAM`` /
+  ``B_TEAM``) and the overlays.uno cloud customization API both
+  round-trip the legacy ``Team {n} Text Name`` alias. Custom
+  overlays happened to land on the canonical key because the
+  React control UI writes that one, so the bug was invisible in
+  custom-overlay coverage. Added the legacy alias to the lookup
+  list (and pinned the regression in
+  ``test_renders_team_names_from_legacy_text_name_alias``).
+
+- **Match report locale ignored the operator's app language —
+  always followed ``Accept-Language``.** Sharing the report from
+  a Spanish-set control UI to a browser that advertised English
+  rendered in English. Reasonable when the report is a public
+  permalink; surprising when the operator was the one shaping
+  the link. Added a ``?lang=<code>`` query parameter to
+  ``GET /match/{id}/report`` that wins over ``Accept-Language``
+  when the value is one of the supported locales (en/es/pt/it/
+  fr/de). Unknown ``?lang=xx`` values fall through to
+  ``Accept-Language`` so the cap can't lock the report into the
+  default. ``LinksSection`` in the React control panel appends
+  ``?lang=<active-locale>`` to the ``latest_match_report`` and
+  ``match_history`` URLs before display / copy; control /
+  overlay / preview URLs are passed through unchanged. New
+  helper ``frontend/src/components/config/LinksSection.tsx``
+  ``withLang`` + a five-case ``LinksSection.test.tsx`` plus two
+  backend regression cases (``test_lang_query_overrides_accept
+  _language``, ``test_lang_query_falls_back_to_accept_language
+  _when_unknown``).
+
+### Added
+
+- **Screen Wake Lock during a live match.** New
+  ``frontend/src/hooks/useScreenWakeLock.ts`` holds a screen wake
+  lock while ``state.match_started_at != null && !state
+  .match_finished`` so the operator's phone doesn't dim or lock
+  between rallies. Released deliberately on match end / reset
+  and on unmount; transient releases driven by the platform
+  (tab hidden, lock screen) re-acquire automatically when the
+  page becomes visible again. Silent no-op on runtimes without
+  ``navigator.wakeLock`` (desktop browsers, iOS Safari pre-16.4).
+  Wired in ``App.tsx`` immediately after ``useMatchAlertHaptics``.
+  Tests: ``useScreenWakeLock.test.tsx`` (8 cases: enable / disable
+  / unmount / visibility round-trip / unsupported / permission
+  rejection / hidden-on-mount / re-acquire).
+
+- **UX Phase 4.2 — recent-audit drawer accessible from the
+  scoreboard.** The per-OID action log was previously only
+  reachable via the post-match HTML report; during a live match the
+  operator had to detour through the config tab or wait for the
+  match to finish to confirm "did I undo the right point?" /
+  "when was that timeout?". A new ``RecentAuditDrawer`` slides in
+  from the right (tablet/desktop) or up from the bottom (mobile)
+  on demand, lists the latest 20 records, and stays in sync with
+  state confirmations via the existing ``confirmedState`` channel
+  from ``useGameState``. Intentionally **not** a modal — the
+  team panels behind the drawer remain interactive so the operator
+  can keep scoring while reading the drawer. Dismiss via the
+  close button, ESC, or tapping the transparent backdrop. Honours
+  ``prefers-reduced-motion``.
+
+  * **`useAuditLog` hook.** New
+    ``frontend/src/hooks/useAuditLog.ts`` lazily fetches
+    ``GET /api/v1/audit?oid=…&limit=20`` when the drawer opens,
+    refetches when the trigger key (sums of points + sets +
+    timeouts + match-finished) changes, surfaces records
+    newest-first. Cancels in-flight requests on OID change /
+    drawer close.
+  * **`ActionChip` primitive + shared catalogue.** New
+    ``frontend/src/components/ActionChip.tsx`` paired with
+    ``frontend/src/utils/chipCatalogue.ts``. The TS catalogue
+    mirrors the Python ``_CHIP_CATALOGUE`` in
+    ``app/match_report.py`` so the live operator drawer and the
+    post-match HTML report share the same per-action palette
+    (point-t1 / point-t2 / set / timeout / serve / edit / reset /
+    undone). Both surfaces use the same glyphs and colours;
+    drift between them is now a single-file change instead of
+    two.
+  * **HUD share cluster grows a history button.** New
+    ``history`` icon (deep-purple-300) sits next to the share
+    button. Theme constant ``HISTORY_COLOR`` exported alongside
+    ``SHARE_COLOR``.
+
+  i18n: 22 new frontend keys (``history.title``, ``history.close``,
+  ``history.refresh``, ``history.empty``, ``history.loading``,
+  ``history.relative.{justNow,seconds,minutes,hours}``,
+  ``history.action.{point,set,timeout,serve,edit,reset,unknown
+  ,undoSuffix}``, ``history.legend.{pointT1,pointT2,set,timeout
+  ,serve,edit,reset,undone}``) translated across all six
+  supported locales (en/es/pt/it/fr/de).
+
+  Tests: ``ActionChip.test.tsx`` (7 cases),
+  ``useAuditLog.test.tsx`` (7 cases),
+  ``RecentAuditDrawer.test.tsx`` (6 cases),
+  ``ControlButtons.test.tsx`` gains a history-button case. Full
+  suites: backend 1004 passed, frontend 390 passed.
+
+- **UX Phase 3 — broadcast-side visual hierarchy.** Closes the
+  perceptual gap between the operator's "I just won this set"
+  feeling and the spectator-facing match report and OBS overlays.
+  Set-point and match-point glows on overlays were intentionally
+  deferred — they need the points-to-win threshold which the
+  overlay state does not currently carry, so a backend-side
+  ``match_info.alert`` flag is the next step.
+
+  * **Match-report timeline — typed chips per action.** Each
+    ``<li>`` in ``app/match_report.py``'s timeline now carries a
+    per-action chip modifier (``chip-point-t1`` /
+    ``chip-point-t2`` / ``chip-set`` / ``chip-timeout`` /
+    ``chip-serve`` / ``chip-edit`` / ``chip-reset`` /
+    ``chip-undone``) plus a glyph cell on the left-hand accent
+    strip. Replaces the previously flat ``<ol>`` rendering that
+    treated every action identically. Glyphs stay ASCII / single
+    emoji so the print stylesheet doesn't depend on an icon font.
+  * **Mini legend at the bottom of the timeline.** Decodes the
+    chip palette without forcing the spectator to dig through
+    docs, with seven entries — points (per team), set, timeout,
+    serve change, manual edit, undone — translated across the
+    six report locales (``legendPointT1``, ``legendPointT2``,
+    ``legendSet``, ``legendTimeout``, ``legendServe``,
+    ``legendEdit``, ``legendUndone``).
+  * **Enriched footer.** The previously single-line footer now
+    spans three lines: existing localized "Generated by…" header,
+    a canonical permalink (``/match/{id}/report``) the
+    spectator can bookmark, and a "Generated at" timestamp via
+    the existing ``_fmt_ts`` helper. New report-i18n keys:
+    ``permalinkLabel`` and ``generatedLabel`` across all six
+    locales.
+  * **Overlay OBS coreography (light).** ``overlay_static/js
+    /app.js`` now injects an ``alerts-style`` block into the
+    template head on first DOMContentLoaded and dispatches
+    transient ``alerts-set-won`` / ``alerts-match-finished``
+    glows on team-set increments and rising-edge match
+    completion. Match completion is detected from the existing
+    ``best_of_sets`` + ``sets_won`` fields the overlay state
+    already carries — no backend change required.
+    Honours ``prefers-reduced-motion`` (animation disabled) and
+    is opt-out via ``state.overlay_control.alerts_visual ===
+    false`` for live broadcasts that don't want it.
+  * **Unified ``pickAlert`` primitive.** ``MatchAlertIndicator
+    .tsx`` now exports the alert resolver and its types
+    (``AlertSpec``, ``AlertKind``) so future hooks (sound cues,
+    coachmarks targeting alerts, etc.) reuse the same
+    transition logic. ``useMatchAlertHaptics`` already does so;
+    the export removes the existing private-import smell.
+
+  Tests: 2 new in ``tests/test_match_report.py`` —
+  ``test_timeline_emits_typed_chips_per_action`` and
+  ``test_footer_carries_permalink_and_generated_at``. The
+  existing undo strikethrough cases were retargeted to the new
+  composite ``class="timeline-li chip-... undone"`` shape via
+  regex matching. Full suites: backend 1004 passed, frontend 367
+  passed.
+
+- **UX Phase 2 — discoverability and onboarding.** Surfaces the
+  power features that already shipped (gestures, presets, share
+  links) so a new operator finds them on the first session instead
+  of from the docs.
+
+  * **First-run gesture coachmark.** New
+    ``frontend/src/components/GestureCoachmark.tsx`` walks four
+    steps — tap to score, double-tap to undo, long-press to edit,
+    swipe / gear icon for config — once per browser/profile.
+    Persists dismissal via a new ``gestureTourSeen`` setting.
+    Keyboard-driven (ArrowLeft / ArrowRight / Enter / Escape) and
+    skip / back / next buttons for pointer users. Auto-fires on
+    the first authoritative ``state`` arrival; the Behavior config
+    section gains a "Replay tour" affordance that flips the flag
+    back to ``false`` so the operator can re-watch without
+    refreshing. Honours ``prefers-reduced-motion``.
+  * **HUD config button gets a discoverability hint.** The
+    ``.top-right-config-btn`` now carries a longer ``title``
+    ("Configuration — or swipe left") plus an explicit
+    ``aria-label`` so screen-reader users hear the canonical
+    action while pointer users learn about the gesture, and a
+    ``focus-visible`` outline so keyboard navigation never lands
+    on it invisibly.
+  * **Share button in the HUD.** New cyan share button next to
+    Undo opens the existing ``LinksDialog`` (control / overlay /
+    preview links with copy buttons) without requiring the
+    operator to detour through the configuration panel.
+    ``api.getLinks`` is fetched lazily on first open and cached
+    for the session.
+  * **Active preset hint pill in `/manage`.** The drawer now
+    surfaces a "Last applied: <slug>" pill when the operator has
+    applied a preset to the overlay in this browser. Storage is
+    intentionally client-side (``localStorage`` keyed by OID,
+    cleared on overlay delete) — the backend doesn't currently
+    pin a "last applied" marker on overlay state, so this is a
+    per-browser memory aid rather than authoritative state. A ``×``
+    affordance in the pill clears the memory.
+
+  i18n: 17 new frontend keys (``tour.*`` × 12, ``share.title``,
+  ``ctrl.configHint``, ``behavior.replayTour``, ``behavior
+  .replayTourAction``) plus an extended ``ctrl.configHint``,
+  translated across all six supported locales (en/es/pt/it/fr/de).
+
+  Tests: ``GestureCoachmark.test.tsx`` (8 cases),
+  ``ControlButtons`` gains a share-button case, ``test_admin
+  .test_manage_page_served`` updated to allow client-side opaque
+  ``localStorage.setItem`` calls (preset-pill memory) while
+  keeping the password-leak guard expressed by name. Full suites:
+  backend 1002 passed, frontend 367 passed.
+
+- **UX Phase 0 — quick wins across the four operator surfaces.** Five
+  small, low-risk fixes that close visible gaps in the control UI,
+  the ``/manage`` admin page, the public match report and the
+  preview iframe. Each is independently revertable.
+
+  * **Realtime sync indicator (``ConnectionStatus``).** New pinned
+    pill at the top-left of the control UI that surfaces an amber
+    "Reconnecting…" badge whenever the WebSocket from
+    ``hooks/useGameState.ts`` drops for more than 1.5 s
+    (``graceMs`` configurable). Healthy connections render no
+    visible chrome — only an off-screen ``role="status"`` /
+    ``aria-live="polite"`` element so assistive tech still picks
+    up the transition. Honours ``prefers-reduced-motion``.
+  * **Stylised confirm dialogs (``ConfirmDialog``).** Replaces
+    ``window.confirm`` in App reset and ConfigPanel logout with a
+    focus-trapped modal layered on the existing ``Dialog`` primitive.
+    Native confirm broke theme/zoom on mobile and skipped the focus
+    trap that the rest of the app already depends on. The unsaved-
+    changes ``confirm`` in ConfigPanel stays — its synchronous
+    return value is what the popstate handler hangs off, and that
+    flow is rebuilt in Phase 4 (history rework, not a Phase 0 swap).
+  * **/manage create-overlay name length cap.** ``app/admin/static/
+    overlays.html`` now enforces ``maxlength="64"`` on the create
+    form's name input plus a JS-side guard for paste paths, with an
+    inline help-text update. Pre-empts the table-layout breakage that
+    arbitrarily long names produced.
+  * **Preview iframe failure fallback.** ``OverlayPreview`` now binds
+    ``onLoad`` / ``onError`` and starts a 6 s ``PREVIEW_LOAD_TIMEOUT_MS``
+    timer per mount. If neither fires, an overlay placeholder
+    ("Preview unavailable" + Retry button) covers the iframe so the
+    operator can recover without unmounting. Retry busts cache via a
+    new ``cacheBust`` token so the second attempt isn't served from
+    the still-broken response.
+  * **Match-report timeline ↶ Undone badge.** ``app/match_report.py``
+    ``_render_li`` now appends a non-strikethrough chip to undone
+    rows so the marker survives dense timelines and the print
+    stylesheet (where the line-through alone is hard to read).
+    Localised in all six report locales as ``undoneBadge``.
+
+  i18n: 5 new keys (``conn.online``, ``conn.reconnecting``,
+  ``confirm.title``, ``confirm.confirm``, ``confirm.cancel``,
+  ``preview.unavailable``, ``preview.retry``) translated across all
+  six frontend locales (en/es/pt/it/fr/de). 1 new backend report key
+  (``undoneBadge``) translated across the same six locales.
+
+  Tests: ``ConnectionStatus.test.tsx`` (4 cases), ``ConfirmDialog
+  .test.tsx`` (6 cases), 3 new fallback cases in ``OverlayPreview
+  .test.tsx``, 1 new ``test_undone_rows_carry_visible_badge`` in
+  ``tests/test_match_report.py``. ConfigPanel logout tests rewritten
+  to assert against the new ``confirm-dialog-ok`` /
+  ``confirm-dialog-cancel`` test ids instead of mocking
+  ``window.confirm``. Full suites: backend 1002 passed, frontend
+  341 passed.
+
+- **UX Phase 1 — sensory feedback and loading state.** Closes the
+  perceptual loop so the operator knows *what just happened*
+  without having to watch the scoreboard. Sound cues were
+  intentionally deferred to a later phase to keep this PR
+  focused on the silent-but-visible failure modes.
+
+  * **`useHaptics` hook + per-event patterns.** New
+    ``frontend/src/hooks/useHaptics.ts`` wraps ``navigator.vibrate``
+    behind a 50 ms throttle, a settings toggle (``haptics``,
+    default ``true``), and a feature detect that no-ops on
+    runtimes without the Vibration API (desktop browsers, JSDOM,
+    pre-18.4 iOS Safari). Five named patterns: ``tap`` (10 ms),
+    ``confirm`` (10-30-10), ``alert`` (15-35-15), ``matchPoint``
+    (5-pulse), ``finished`` (40-60-40).
+  * **`useMatchAlertHaptics` transition watcher.** Hoisted
+    ``pickAlert`` out of ``MatchAlertIndicator`` so the new hook
+    in ``frontend/src/hooks/useMatchAlertHaptics.ts`` can subscribe
+    to the same set / match / finished transitions the indicator
+    pill reads. Re-broadcasts of the same alert kind/team are
+    suppressed so a stable WS frame can't replay the cue.
+  * **Wired into the existing operator gestures.** Server-side
+    LIFO undo (HUD button) and per-team double-tap-undo
+    (``handleDoubleTapScore`` / ``handleDoubleTapTimeout``) now
+    fire the ``confirm`` pattern; the alert watcher lights up on
+    set / match / finished transitions. New
+    ``behavior.haptics`` toggle in the Behavior section of the
+    config panel, translated across the six supported locales.
+  * **`ScoreboardSkeleton` placeholder.** New
+    ``frontend/src/components/ScoreboardSkeleton.tsx`` mirrors the
+    scoreboard's three-pane layout (team A / centre / team B) so
+    the "post-OID, pre-first-WS-frame" gap no longer flashes the
+    InitScreen with a prefilled value before swapping to the real
+    UI. Reuses the ``config-skeleton-shimmer`` keyframes for
+    tonal consistency and honours ``prefers-reduced-motion``. The
+    InitScreen path is now reserved for the no-OID and post-error
+    cases. Carries the realtime-sync pill in its first frame so
+    a slow connect is observable end-to-end.
+  * **Persistent save-error banner with Retry.** The old
+    transient ``.config-save-error`` banner now exposes a real
+    Retry button bound directly to ``handleSave``; pending saves
+    surface a ``cloud_upload`` "Saving…" pill next to the Save
+    button (``role="status"``, ``aria-live="polite"``). The
+    success path still navigates back as before, so happy-path
+    behaviour is unchanged. New i18n keys: ``config.saving`` and
+    ``config.retry`` across all six locales.
+  * **Floating toast in the `/manage` admin page.** The inline
+    ``.status`` panel was promoted to a fixed top-right pill with
+    icon glyphs from Material Icons (``check_circle`` /
+    ``error_outline`` / ``info``), a slide-in transition, and
+    ``prefers-reduced-motion`` support. Modal-scoped errors opt
+    out via the new ``.status-inline`` modifier so login / create-
+    overlay / preset modals keep their existing in-flow panels.
+    No JS contract change — ``showStatus`` callers (create,
+    delete, bulk-delete, preset save, preset apply) emit toasts
+    automatically via the styling switch.
+
+  Tests: ``useHaptics.test.tsx`` (7 cases),
+  ``useMatchAlertHaptics.test.tsx`` (5 cases),
+  ``ScoreboardSkeleton.test.tsx`` (4 cases), 1 new
+  ``surfaces a retryable error banner`` case in
+  ``ConfigPanel.test.tsx``. ``App.test.tsx`` updated where the
+  seeded-OID path no longer flashes an InitScreen input. Full
+  suites: backend 1002 passed, frontend 358 passed.
+
 - **Configuration presets — replaces the originally planned
   Fase 2 (themes editables).** Operators can now save subsets of an
   overlay's current state under a name and reapply them — to the
@@ -69,6 +561,30 @@ once a first tagged release ships.
   is pinned by name (``test_team_home_excludes_match_state``)
   so a future scope edit cannot regress the live-match
   protection. Full suite: 999 passed (was 961 + 38 new).
+
+### Changed
+
+- **Haptic feedback default flipped to `false`.** A fresh install
+  no longer surprises the operator with vibration on the first
+  scoring tap; the toggle in BehaviorSection opts in. Existing
+  operators with ``volley_haptics: true`` already saved in
+  ``localStorage`` keep that — only new sessions land on the new
+  default. Test scaffolds in ``useHaptics.test.tsx`` and
+  ``useMatchAlertHaptics.test.tsx`` flip the flag on explicitly
+  in their ``beforeEach`` so the active-path assertions still
+  exercise the vibration code path.
+
+### Removed
+
+- **"Replay tour" button + ``behavior.replayTour`` /
+  ``behavior.replayTourAction`` i18n keys.** The Behavior section
+  no longer exposes a manual re-arm for the gesture coachmark.
+  ``gestureTourSeen`` still gates the first-run trigger and
+  persists across sessions; rerunning the tour now requires
+  clearing the ``volley_gestureTourSeen`` localStorage entry
+  (or installing in a fresh browser profile). Cleaner
+  BehaviorSection UI: only autoHide / autoSimple / haptics +
+  language live there now.
 
 ### Fixed
 

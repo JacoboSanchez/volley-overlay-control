@@ -18,9 +18,9 @@ export interface MatchAlertIndicatorProps {
   isPortrait?: boolean;
 }
 
-type AlertKind = 'finished' | 'match-point' | 'set-point';
+export type AlertKind = 'finished' | 'match-point' | 'set-point';
 
-interface AlertSpec {
+export interface AlertSpec {
   kind: AlertKind;
   team?: 1 | 2;
 }
@@ -33,7 +33,13 @@ const TEAM_TRIANGLE = {
   2: { portrait: 'arrow_drop_down', landscape: 'arrow_right' },
 } as const;
 
-function pickAlert(state: GameState): AlertSpec | null {
+/**
+ * Resolve the highest-priority alert encoded in *state*. Exported so
+ * effect hooks (haptics, future sound cues) can subscribe to the
+ * same transitions the indicator pill renders.
+ */
+export function pickAlert(state: GameState | null | undefined): AlertSpec | null {
+  if (!state) return null;
   // Match end is the loudest event — render it on its own and skip
   // everything else so the operator's eye lands here first.
   if (state.match_finished) return { kind: 'finished' };

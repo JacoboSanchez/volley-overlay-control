@@ -58,6 +58,8 @@ export interface ScoreboardViewProps {
   onStartMatch: () => void;
   onReset: () => void;
   onOpenConfig: () => void;
+  onOpenShare: () => void;
+  onOpenHistory: () => void;
 }
 
 export default function ScoreboardView({
@@ -98,6 +100,8 @@ export default function ScoreboardView({
   onStartMatch,
   onReset,
   onOpenConfig,
+  onOpenShare,
+  onOpenHistory,
 }: ScoreboardViewProps) {
   const { t } = useI18n();
 
@@ -172,14 +176,35 @@ export default function ScoreboardView({
       </div>
 
       <div className={`hud-controls ${!showControls ? 'ui-hidden' : ''}`}>
-        <button
-          className="top-right-config-btn"
-          onClick={onOpenConfig}
-          title={t('ctrl.config')}
-          data-testid="config-tab-button"
-        >
-          <span className="material-icons">settings</span>
-        </button>
+        <div className="top-corner-stack top-right-stack">
+          <button
+            className="top-corner-icon-btn"
+            onClick={onOpenConfig}
+            title={t('ctrl.configHint')}
+            aria-label={t('ctrl.config')}
+            data-testid="config-tab-button"
+          >
+            <span className="material-icons" aria-hidden="true">settings</span>
+          </button>
+          <button
+            className="top-corner-icon-btn"
+            onClick={onOpenShare}
+            title={t('share.title')}
+            aria-label={t('share.title')}
+            data-testid="share-button"
+          >
+            <span className="material-icons" aria-hidden="true">share</span>
+          </button>
+          <button
+            className="top-corner-icon-btn"
+            onClick={onOpenHistory}
+            title={t('history.title')}
+            aria-label={t('history.title')}
+            data-testid="history-button"
+          >
+            <span className="material-icons" aria-hidden="true">history</span>
+          </button>
+        </div>
 
         <div className="control-buttons-wrapper">
           <div
