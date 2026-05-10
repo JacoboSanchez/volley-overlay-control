@@ -35,6 +35,7 @@ import tempfile
 import threading
 import time
 
+from app.api._persistence_paths import data_dir as _shared_data_dir
 from app.constants import WEBHOOK_DEAD_LETTER_MAX_RECORDS
 from app.metrics import set_dead_letter_size
 
@@ -46,8 +47,8 @@ _FILENAME = "webhooks_dead_letter.jsonl"
 
 
 def _data_dir() -> str:
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.normpath(os.path.join(base, "..", "..", "data"))
+    # Wrapper kept so tests can monkeypatch this attribute.
+    return _shared_data_dir()
 
 
 def _path() -> str:
