@@ -324,6 +324,60 @@ class TestRapidPairCounterAtomicity:
         # Counter is unchanged since neither write succeeded.
         assert api_session.undoable_forward_count == baseline
 
+    def test_case_b_skips_restore_when_audit_ts_is_missing(
+        self, api_session, monkeypatch,
+    ):
+        """If the cached entry's ``audit_ts`` is somehow missing, the
+        Case B recovery cannot tombstone the undo record. Mirrors
+        Case A's guard: skipping the tombstone but proceeding to the
+        restore would leave the orphan undo + restored forward
+        visible — the exact state ``_collapse_undos`` would then
+        hide. The recovery must bail out cleanly instead.
+        """
+        import time as _time
+
+        from app.api import action_log as al
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
+        GameService.add_point(api_session, team=1)
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 0.1
+        GameService.add_point(api_session, team=1, undo=True)
+        baseline = api_session.undoable_forward_count
+        assert baseline == 0
+
+        # Drop ``audit_ts`` from the seed so the recovery hits the
+        # defensive ``audit_ts is not None`` guard.
+        api_session.rapid_pair_cache[1].pop("audit_ts", None)
+
+        restore_calls: list[tuple] = []
+        tombstone_calls: list[tuple] = []
+        real_restore = al.restore_popped
+        real_tombstone = al.tombstone_ts
+
+        def _spy_tombstone(*args, **kwargs):
+            tombstone_calls.append((args, kwargs))
+            return real_tombstone(*args, **kwargs)
+
+        def _spy_restore(*args, **kwargs):
+            restore_calls.append((args, kwargs))
+            return real_restore(*args, **kwargs)
+
+        monkeypatch.setattr(al, "tombstone_ts", _spy_tombstone)
+        monkeypatch.setattr(al, "restore_popped", _spy_restore)
+
+        clock[0] += 1.0
+        GameService.add_point(api_session, team=1, undo=False)
+
+        # Neither side-effect ran: no tombstone (no audit_ts to
+        # reference), no restore (would have orphaned the undo).
+        assert tombstone_calls == []
+        assert restore_calls == []
+        assert api_session.undoable_forward_count == baseline
+
 
 class TestRapidPairSetWinning:
     def test_set_winning_recovery_re_advances_current_set(self, api_session):

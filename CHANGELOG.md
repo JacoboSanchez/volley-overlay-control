@@ -167,12 +167,16 @@ once a first tagged release ships.
     defeating the recovery. The counter bump (``undoable_forward_count
     += 1``) follows the same gate, matching Case A's atomicity.
 
-  Two regression tests cover the new behaviour: the cache-
+  Three regression tests cover the new behaviour: the cache-
   invalidation parametrize now exercises ``set_rules`` and
-  ``start_match``, and a new
+  ``start_match``;
   ``test_case_b_skips_restore_when_undo_tombstone_fails`` patches
   ``tombstone_ts`` to fail and asserts ``restore_popped`` is never
-  reached.
+  reached; and
+  ``test_case_b_skips_restore_when_audit_ts_is_missing`` drops
+  the cached ``audit_ts`` and asserts both writes bail out (mirroring
+  Case A's ``audit_ts is not None and tombstone_ts(...)`` guard so
+  a defective seed cannot recreate the orphan-undo state).
 
 - **Match report rendered "Team 1" / "Team 2" instead of the real
   team names when the OID was UNO-backed.** ``app.match_report

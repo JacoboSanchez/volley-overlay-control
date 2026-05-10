@@ -288,8 +288,13 @@ class GameService:
             # report would pair the orphan undo with the restored
             # forward and hide both, defeating the recovery. So we
             # gate the restore (and the counter bump) on the
-            # tombstone landing.
-            tombstone_ok = audit_ts is None or action_log.tombstone_ts(
+            # tombstone landing. Mirrors Case A: a missing
+            # ``audit_ts`` means the seed never recorded a
+            # writable reference, so we cannot tombstone the undo
+            # — falling through to the restore in that case would
+            # recreate the orphan-undo + restored-forward state
+            # this fix is meant to prevent.
+            tombstone_ok = audit_ts is not None and action_log.tombstone_ts(
                 session.oid, audit_ts,
             )
             if tombstone_ok:
