@@ -35,16 +35,12 @@ function teamScoreSum(team: TeamState | undefined | null): number {
 
 function scoringKey(state: GameState | null): string {
   if (!state) return '';
-  // Timeouts are part of the key — without them a timeout-only state
-  // push wouldn't refetch the audit log, and the clock chip would
-  // only surface when the next scoring event arrived.
   // ``match_started_at`` is part of the key so a match reset that
   // lands on already-zero scores (e.g. after the operator just
   // undid everything back to 0:0) still refires the effect — the
-  // matchBoundary detector inside then clears ``priorEventsRef``
-  // and the strip drops any leftover undo chips. Without this the
-  // chips would linger until the next scoring event changed the
-  // numeric portion of the key.
+  // empty audit log then surfaces an empty strip. Timeouts are in
+  // the key for the same reason: a timeout-only state push must
+  // refetch so the clock chip appears immediately.
   return [
     teamScoreSum(state.team_1),
     teamScoreSum(state.team_2),
@@ -152,23 +148,10 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
   return events;
 }
 
-// Inverse mapping used to suppress recovered "alive" chips whose
-// undo counterpart is already in the fresh classification (or
-// synthesized from the state-diff). Keeps the strip consistent
-// with history / report — both of which only surface the undone
-// entry once the forward has been tombstoned.
-const INVERSE_UNDO_KIND: Partial<Record<RecentEventKind, RecentEventKind>> = {
-  point_add: 'point_undo',
-  timeout: 'timeout_undo',
-  set_won: 'set_undo',
-  match_won: 'match_undo',
-};
-
 interface PriorSnapshot {
   sets1: number;
   sets2: number;
   matchFinished: boolean;
-  matchStartedAt: number | null;
 }
 
 function snapshotState(state: GameState | null): PriorSnapshot | null {
@@ -177,8 +160,6 @@ function snapshotState(state: GameState | null): PriorSnapshot | null {
     sets1: state.team_1?.sets ?? 0,
     sets2: state.team_2?.sets ?? 0,
     matchFinished: state.match_finished === true,
-    matchStartedAt:
-      typeof state.match_started_at === 'number' ? state.match_started_at : null,
   };
 }
 
@@ -190,40 +171,22 @@ export function useRecentEvents(
 ): RecentEvent[] {
   const [events, setEvents] = useState<RecentEvent[]>([]);
   const key = scoringKey(state);
-  // Snapshot we last successfully classified against. We diff prior
-  // vs current to detect set / match undoes — those can't be
-  // detected from the audit log alone (``pop_last_forward``
-  // physically removes the original forward record and doesn't
-  // store the popped payload anywhere visible to the classifier).
+  // We diff prior vs current snapshot to detect set / match undoes:
+  // when the operator undoes a set-winning point the audit log loses
+  // the forward record (``pop_last_forward`` tombstones it) and the
+  // remaining undo record's post-state has the dropped sets count,
+  // but there's no anchor inside the log to diff against. The prior
+  // snapshot carries that anchor forward across refetches.
   const priorSnapshotRef = useRef<PriorSnapshot | null>(null);
-  // The full event list we last surfaced. Used to keep chips that
-  // aged out of the audit fetch window visible across refetches.
-  // We deliberately do NOT use this buffer to resurrect chips whose
-  // underlying record was popped by ``pop_last_forward`` — when the
-  // operator undoes an action, the strip should drop the "alive"
-  // chip and surface only the struck/undone chip, mirroring how
-  // history and report render the same event.
-  const priorEventsRef = useRef<RecentEvent[]>([]);
 
   useEffect(() => {
     if (!enabled || !oid) {
       setEvents([]);
       priorSnapshotRef.current = null;
-      priorEventsRef.current = [];
       return;
     }
     const prior = priorSnapshotRef.current;
     const cur = snapshotState(state);
-    // Drop the stickiness buffer when the operator (re)starts the
-    // match — ``match_started_at`` flipping from one timestamp to
-    // another (or to / from null) means the prior chips belong to
-    // a different match and shouldn't bleed across the boundary.
-    const matchBoundary =
-      prior !== null && cur !== null && prior.matchStartedAt !== cur.matchStartedAt;
-    if (matchBoundary) {
-      priorEventsRef.current = [];
-    }
-    const priorEvents = priorEventsRef.current;
     const controller = new AbortController();
     let cancelled = false;
     // 3× headroom over ``max`` covers interleaved ``add_set`` /
@@ -233,88 +196,47 @@ export function useRecentEvents(
       .getAudit(oid, fetchLimit, controller.signal)
       .then((res) => {
         if (cancelled) return;
+        // The strip is a pure projection of the tombstone-filtered
+        // audit log plus the synthetic set/match-undo chips that the
+        // log can't express on its own. We deliberately do NOT carry
+        // any chips forward across refetches: every fetch fully
+        // replaces the chip list, so rapid-pair tombstones, generic
+        // undoes, and reset all converge to the same view that the
+        // history drawer and printable report render.
         const fresh = classifyRecords(res.records);
 
-        // Pre-compute the synthetic set/match undo chips that will
-        // be appended from the state-diff below — we need them in
-        // the suppression set so a recovered ``set_won`` / ``match_won``
-        // is dropped when its undo only surfaces via the snapshot
-        // diff (not the audit log).
-        const syntheticUndoes: RecentEvent[] = [];
+        // Set / match undo via state-diff. Anchor the synthetic ts
+        // above the last audit chip so the struck chip lands on the
+        // right of the chips that triggered it.
         if (prior && cur) {
           const matchUndone = prior.matchFinished && !cur.matchFinished;
+          const lastChip = fresh[fresh.length - 1];
+          let ts = lastChip ? lastChip.ts : Date.now() / 1000;
           if (cur.sets1 < prior.sets1) {
-            syntheticUndoes.push({
-              ts: 0,
+            ts += 1e-3;
+            fresh.push({
+              ts,
               team: 1,
               kind: matchUndone ? 'match_undo' : 'set_undo',
             });
           }
           if (cur.sets2 < prior.sets2) {
-            syntheticUndoes.push({
-              ts: 0,
+            ts += 1e-3;
+            fresh.push({
+              ts,
               team: 2,
               kind: matchUndone ? 'match_undo' : 'set_undo',
             });
           }
         }
 
-        // Build the suppression set keyed by ``team:kind`` so we can
-        // drop a recovered "alive" chip whose undo counterpart is
-        // already visible — either from the fresh classification or
-        // synthesized from the state-diff.
-        const undoPresent = new Set<string>();
-        for (const e of fresh) undoPresent.add(`${e.team}:${e.kind}`);
-        for (const e of syntheticUndoes) undoPresent.add(`${e.team}:${e.kind}`);
-
-        // Recover events whose underlying audit record aged out of
-        // the fetch window. ``pop_last_forward`` deletes the original
-        // ``add_point`` / ``add_timeout`` row when the operator
-        // undoes it, so a fresh re-classification would be silently
-        // missing the chip we showed last time — but we deliberately
-        // do NOT resurrect the "alive" chip in that case, so the
-        // strip matches history / report (both show only the
-        // struck/undone entry).
-        // ``value`` is part of the identity for ``manual`` chips — two
-        // different manual corrections can land at the same ts (e.g.
-        // low-resolution server clock) and must not dedupe each other.
-        const isSame = (a: RecentEvent, b: RecentEvent) =>
-          a.ts === b.ts &&
-          a.team === b.team &&
-          a.kind === b.kind &&
-          a.value === b.value;
-        const popped = priorEvents.filter((p) => {
-          if (fresh.some((f) => isSame(f, p))) return false;
-          const inverse = INVERSE_UNDO_KIND[p.kind];
-          if (inverse && undoPresent.has(`${p.team}:${inverse}`)) return false;
-          return true;
-        });
-        const merged: RecentEvent[] = [...popped, ...fresh].sort(
-          (a, b) => a.ts - b.ts,
-        );
-
-        // Append the synthetic state-diff undoes now, anchoring each
-        // ts to the latest merged event rather than ``Date.now()``
-        // — the audit log's ts is the server clock and a drifted
-        // client clock could otherwise sort the undo chip ahead of
-        // records that actually happened later.
-        if (syntheticUndoes.length > 0) {
-          const lastMerged = merged[merged.length - 1];
-          let ts = lastMerged ? lastMerged.ts : Date.now() / 1000;
-          for (const u of syntheticUndoes) {
-            ts += 1e-3;
-            merged.push({ ...u, ts });
-          }
-        }
-
-        const capped = merged.slice(-max);
-        setEvents(capped);
+        // ``classifyRecords`` already walks audit records in append
+        // order, so chips are in chronological order — but the
+        // synthetic state-diff chips are pushed at the end with a
+        // bumped ts, which keeps them rightmost without needing a
+        // sort. Slice to the most recent ``max`` chips.
+        setEvents(fresh.slice(-max));
         priorSnapshotRef.current = cur;
-        // Keep extra headroom over ``max`` so a popped event still
-        // sitting just off the visible window can be recovered on
-        // the next refetch (otherwise a single intervening chip
-        // would push it past the cap and lose the recovery anchor).
-        priorEventsRef.current = merged.slice(-max * 4);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -322,7 +244,6 @@ export function useRecentEvents(
         // stale data after a score change whose refetch failed.
         console.warn('Failed to fetch recent events:', err);
         setEvents([]);
-        priorEventsRef.current = [];
       });
     return () => {
       cancelled = true;

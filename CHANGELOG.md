@@ -23,6 +23,27 @@ once a first tagged release ships.
   full `pytest` (1019), `ruff`, `mypy`, and `vitest` (415) suites
   remain green.
 
+### Changed
+
+- **Recent-actions strip rewritten as a pure projection of the
+  tombstone-filtered audit log.** Dropped the `priorEventsRef`
+  stickiness buffer in `useRecentEvents` and the
+  `INVERSE_UNDO_KIND` suppression heuristic that went with it.
+  Every fetch now fully replaces the chip list, so rapid-pair
+  collapses (forward + undo within 5 s ⇒ audit empty), generic
+  undoes, and resets all converge to the same view the history
+  drawer and printable report render. Side-effects of the rewrite:
+  * Rapid-pair Case A no longer leaves a ghost "alive" chip in
+    the strip after the pair is collapsed at the audit level.
+  * Chronological ordering is guaranteed by audit `ts` (server
+    monotonic per-OID); the synthetic state-diff set/match-undo
+    chips are anchored above the last audit chip, so they always
+    render rightmost.
+  * The strip no longer recovers chips that age out of the audit
+    fetch window — but at `max(40, max*3) = 40` fetched and the
+    strip capped at `max = 8` visible, aging out would require
+    >32 intervening chips, which doesn't happen in practice.
+
 ### Fixed
 
 - **Undo button no longer lags one action behind.** The
