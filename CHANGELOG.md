@@ -22,9 +22,6 @@ once a first tagged release ships.
   overlay-server credential paths. No observable behavior change;
   full `pytest` (1019), `ruff`, `mypy`, and `vitest` (415) suites
   remain green.
-
-### Changed
-
 - **Recent-actions strip rewritten as a pure projection of the
   tombstone-filtered audit log.** Dropped the `priorEventsRef`
   stickiness buffer in `useRecentEvents` and the

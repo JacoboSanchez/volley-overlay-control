@@ -152,6 +152,12 @@ interface PriorSnapshot {
   sets1: number;
   sets2: number;
   matchFinished: boolean;
+  // Carried across refetches so we can skip the synthetic state-diff
+  // set/match-undo when the previous snapshot belongs to a different
+  // match — e.g. after a reset the sets drop from 3 to 0 without any
+  // undo really happening, and we must not surface ghost set_undo
+  // chips for that transition.
+  matchStartedAt: number | null;
 }
 
 function snapshotState(state: GameState | null): PriorSnapshot | null {
@@ -160,6 +166,8 @@ function snapshotState(state: GameState | null): PriorSnapshot | null {
     sets1: state.team_1?.sets ?? 0,
     sets2: state.team_2?.sets ?? 0,
     matchFinished: state.match_finished === true,
+    matchStartedAt:
+      typeof state.match_started_at === 'number' ? state.match_started_at : null,
   };
 }
 
@@ -208,7 +216,14 @@ export function useRecentEvents(
         // Set / match undo via state-diff. Anchor the synthetic ts
         // above the last audit chip so the struck chip lands on the
         // right of the chips that triggered it.
-        if (prior && cur) {
+        // Skip entirely on a match boundary (``matchStartedAt`` flips):
+        // the sets-count drop is explained by the reset / new match,
+        // not by an undo, and emitting ``set_undo`` chips here would
+        // ghost-mark a transition the audit log doesn't represent.
+        const sameMatch =
+          prior !== null && cur !== null
+          && prior.matchStartedAt === cur.matchStartedAt;
+        if (prior && cur && sameMatch) {
           const matchUndone = prior.matchFinished && !cur.matchFinished;
           const lastChip = fresh[fresh.length - 1];
           let ts = lastChip ? lastChip.ts : Date.now() / 1000;

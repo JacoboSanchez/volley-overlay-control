@@ -757,6 +757,52 @@ describe('useRecentEvents', () => {
     expect(values).toEqual([5, 7]);
   });
 
+  it('does not synthesize set_undo chips on a match reset that drops the sets count', async () => {
+    // Regression guard: after a match where team 1 won 3 sets, the
+    // operator hits reset. The audit log is wiped, ``match_started_at``
+    // flips, and the sets count falls from 3→0 — but no undo really
+    // happened. The state-diff detector must skip the synthetic
+    // ``set_undo`` chips for that transition, otherwise the strip
+    // would ghost-mark the reset with three struck stars the audit
+    // (and therefore history / report) does not represent.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 1,
+      records: [
+        rec(1, 'add_set', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 25, sets: 3 },
+          team_2: { score: 20, sets: 1 },
+        }),
+      ],
+    });
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 0,
+      records: [],
+    });
+    const stateWithStart = (
+      started: number | null,
+      t1Sets: number,
+      t2Sets: number,
+    ): GameState => ({
+      ...makeState(0, 0, t1Sets, t2Sets),
+      match_started_at: started,
+    } as unknown as GameState);
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: stateWithStart(1000, 3, 1) } },
+    );
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(1));
+    // Operator hits reset: ``match_started_at`` flips, sets drop to 0.
+    rerender({ s: stateWithStart(null, 0, 0) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current).toEqual([]));
+    // Explicitly: no set_undo / match_undo leaked across the boundary.
+    expect(result.current.some((e) => e.kind === 'set_undo')).toBe(false);
+    expect(result.current.some((e) => e.kind === 'match_undo')).toBe(false);
+  });
+
   it('drops the chip on a rapid-pair forward+undo within 5s (audit empty after collapse)', async () => {
     // Rapid-pair Case A: operator taps a point and immediately
     // taps undo within ``RAPID_PAIR_WINDOW_S`` (5 s). The backend
