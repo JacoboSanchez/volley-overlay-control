@@ -705,6 +705,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/matches/live/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live match statistics for the active session
+         * @description Return rolling stats computed from the per-OID audit log.
+         *
+         *     The payload reconciles with the post-match report so external
+         *     consumers (overlay viewer page, coach apps, dashboards) can render
+         *     the same Highlights block while the match is still in progress.
+         *
+         *     Fields:
+         *
+         *     * ``current_streak`` — trailing run by one team
+         *       (``{"team": 1, "n": 4, "set": 2}``).
+         *     * ``longest_streak`` — longest run across the whole match so far.
+         *     * ``set_win_comeback`` / ``partial_comeback`` — per-team peak
+         *       deficits, same semantics as the printed match report.
+         *     * ``longest_rally`` — gap in seconds between consecutive points
+         *       (proxy for "longest rally" — no ball-tracking).
+         *     * ``total_points`` — total points scored across all sets.
+         *     * ``set_durations`` — per-set duration in seconds.
+         *     * ``points_history`` — last ``limit`` scoring events with the
+         *       running score after each one.
+         *     * ``audit_count`` — cache-buster derived from the audit log size.
+         */
+        get: operations["get_live_stats_api_v1_matches_live_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/matches/{match_id}": {
         parameters: {
             query?: never;
@@ -883,6 +922,32 @@ export interface paths {
         post: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
         /** Delete Overlay */
         delete: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/follow/{overlay_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve Spectator
+         * @description Mobile-friendly read-only follow view.
+         *
+         *     Resolves the overlay id like ``/overlay/{id}`` and serves a
+         *     lightweight template that consumes the same ``/ws/{id}`` feed
+         *     the OBS templates use. Public by design — the page exposes no
+         *     write paths and inherits the same data exposure as the OBS
+         *     overlay it shadows.
+         */
+        get: operations["serve_spectator_follow__overlay_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2880,6 +2945,44 @@ export interface operations {
             };
         };
     };
+    get_live_stats_api_v1_matches_live_stats_get: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of recent points returned in ``points_history``. */
+                limit?: number;
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_match_api_v1_matches__match_id__get: {
         parameters: {
             query?: never;
@@ -3274,6 +3377,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    serve_spectator_follow__overlay_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                overlay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
                 };
             };
             /** @description Validation Error */

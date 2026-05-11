@@ -5,3 +5,7 @@ python-dotenv==1.2.2
 websocket-client>=1.9.0
 jinja2>=3.1.6
 prometheus-client>=0.20.0
+# Security floor — patches CVE-2026-44431 / CVE-2026-44432 (urllib3 2.6.x).
+# ``requests`` allows urllib3 < 3, so this constraint just pulls the
+# transitive dep up to the fixed minor without touching API surface.
+urllib3>=2.7.0

@@ -189,11 +189,31 @@
     function setLogo(id, url) {
         const el = $(id);
         if (!el) return;
-        if (url && /^(https?:|data:image\/)/i.test(url)) {
-            if (el.getAttribute('src') !== url) el.setAttribute('src', url);
-        } else {
+        if (!url || typeof url !== 'string') {
             el.removeAttribute('src');
+            return;
         }
+        // Parse through the URL constructor so we have an authoritative
+        // protocol check instead of a regex on the raw string. CodeQL
+        // doesn't model regex-based sanitisation; using ``URL`` makes
+        // the allow-list explicit and serialises the result back via
+        // ``parsed.href`` so any odd characters get encoded.
+        let parsed;
+        try {
+            parsed = new URL(url, window.location.href);
+        } catch (_e) {
+            el.removeAttribute('src');
+            return;
+        }
+        const proto = parsed.protocol;
+        const isHttp = proto === 'http:' || proto === 'https:';
+        const isImageData = proto === 'data:' && parsed.pathname.toLowerCase().startsWith('image/');
+        if (!isHttp && !isImageData) {
+            el.removeAttribute('src');
+            return;
+        }
+        const safe = parsed.href;
+        if (el.getAttribute('src') !== safe) el.setAttribute('src', safe);
     }
     function setHidden(id, hidden) {
         const el = $(id);

@@ -3592,6 +3592,97 @@
         ]
       }
     },
+    "/api/v1/matches/live/stats": {
+      "get": {
+        "description": "Return rolling stats computed from the per-OID audit log.\n\nThe payload reconciles with the post-match report so external\nconsumers (overlay viewer page, coach apps, dashboards) can render\nthe same Highlights block while the match is still in progress.\n\nFields:\n\n* ``current_streak`` \u2014 trailing run by one team\n  (``{\"team\": 1, \"n\": 4, \"set\": 2}``).\n* ``longest_streak`` \u2014 longest run across the whole match so far.\n* ``set_win_comeback`` / ``partial_comeback`` \u2014 per-team peak\n  deficits, same semantics as the printed match report.\n* ``longest_rally`` \u2014 gap in seconds between consecutive points\n  (proxy for \"longest rally\" \u2014 no ball-tracking).\n* ``total_points`` \u2014 total points scored across all sets.\n* ``set_durations`` \u2014 per-set duration in seconds.\n* ``points_history`` \u2014 last ``limit`` scoring events with the\n  running score after each one.\n* ``audit_count`` \u2014 cache-buster derived from the audit log size.",
+        "operationId": "get_live_stats_api_v1_matches_live_stats_get",
+        "parameters": [
+          {
+            "description": "Maximum number of recent points returned in ``points_history``.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Maximum number of recent points returned in ``points_history``.",
+              "maximum": 200,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Live match statistics for the active session",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
     "/api/v1/matches/{match_id}": {
       "get": {
         "operationId": "get_match_api_v1_matches__match_id__get",
@@ -4260,6 +4351,49 @@
           }
         },
         "summary": "Delete Overlay",
+        "tags": [
+          "Overlay"
+        ]
+      }
+    },
+    "/follow/{overlay_id}": {
+      "get": {
+        "description": "Mobile-friendly read-only follow view.\n\nResolves the overlay id like ``/overlay/{id}`` and serves a\nlightweight template that consumes the same ``/ws/{id}`` feed\nthe OBS templates use. Public by design \u2014 the page exposes no\nwrite paths and inherits the same data exposure as the OBS\noverlay it shadows.",
+        "operationId": "serve_spectator_follow__overlay_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "overlay_id",
+            "required": true,
+            "schema": {
+              "title": "Overlay Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Serve Spectator",
         "tags": [
           "Overlay"
         ]
