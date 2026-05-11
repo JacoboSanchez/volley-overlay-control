@@ -114,6 +114,36 @@ once a first tagged release ships.
     ``output_key`` reaches the browser. The route's
     ``test_follow_*`` regression suite was updated to assert
     this invariant.
+  - **Per-set streak, longest streak, and comeback.** The
+    stats panel rescopes these to the *viewed* set instead of
+    the whole match, computed client-side from
+    ``overlay_control.points_by_set`` so the panel
+    recomputes when the viewer steps through previous sets.
+  - **Page title is i18n'd.** The Jinja template emits a
+    neutral English ``<title>`` for crawlers/share previews;
+    the spectator JS replaces ``document.title`` with the
+    localised version once the language is resolved.
+  - **Set + match elapsed counters** in the centre divider
+    of the scoreboard. Match clock ticks live from the new
+    ``match_info.match_started_at`` field in the broadcast;
+    the set clock derives from the viewed set's audit
+    timestamps and adds the wall-clock delta when the viewed
+    set is the live one. A 1 Hz ``setInterval`` re-renders
+    only the two text nodes so the counters move between
+    rallies. Past sets render their frozen duration from
+    ``stats.set_durations``.
+
+### Changed
+
+- **Backend rules hook is now an explicit setter.** Replaced the
+  monkey-patched ``backend._rule_overrides_getter = ...`` from
+  ``GameSession.__init__`` with ``Backend.set_rule_overrides_getter``
+  so the dependency is part of Backend's public surface. Addresses
+  Gemini's coupling concern from the PR review.
+- **Defensive ``except Exception`` blocks in
+  ``_build_overlay_payload`` and the ``/links`` route now log via
+  ``logger.exception`` so the full traceback reaches operator
+  logs instead of just the exception's repr.
   - **Backend rules hook.** ``GameSession`` now exposes its
     live mode + per-set limits via a getter the Backend's
     overlay-payload builder consults on every broadcast, so

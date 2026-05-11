@@ -143,6 +143,14 @@ async def get_links(request: Request,
             try:
                 custom_id, _ = session.backend.get_custom_overlay_id(oid)
             except Exception:
+                # Defensive only: the parser is total in practice.
+                # ``logger.exception`` captures the full traceback so
+                # a regression surfaces in operator logs instead of
+                # silently degrading the follow URL.
+                logger.exception(
+                    "Failed to resolve custom overlay id for %r; "
+                    "falling back to raw oid", oid,
+                )
                 custom_id = oid
             if custom_id:
                 output_key = OverlayStateStore.get_output_key(custom_id)

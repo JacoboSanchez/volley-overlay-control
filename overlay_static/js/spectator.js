@@ -16,6 +16,7 @@
     // JS and the React-side ``i18n.tsx``.
     const TRANSLATIONS = {
         en: {
+            'doc.title': 'Live scoreboard',
             'status.connecting': 'connecting…',
             'status.online': 'live',
             'status.offline': 'reconnecting…',
@@ -23,6 +24,8 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
+            'board.setTime': 'Set',
+            'board.matchTime': 'Match',
             'rules.mode.indoor': 'Indoor',
             'rules.mode.beach': 'Beach',
             'rules.bestOf': 'Best of {n}',
@@ -50,6 +53,7 @@
             'footer.label': 'Live updates',
         },
         es: {
+            'doc.title': 'Marcador en directo',
             'status.connecting': 'conectando…',
             'status.online': 'en directo',
             'status.offline': 'reconectando…',
@@ -57,6 +61,8 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
+            'board.setTime': 'Set',
+            'board.matchTime': 'Partido',
             'rules.mode.indoor': 'Indoor',
             'rules.mode.beach': 'Playa',
             'rules.bestOf': 'Al mejor de {n}',
@@ -84,6 +90,7 @@
             'footer.label': 'Actualización en vivo',
         },
         pt: {
+            'doc.title': 'Placar ao vivo',
             'status.connecting': 'a ligar…',
             'status.online': 'em direto',
             'status.offline': 'a religar…',
@@ -91,6 +98,8 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
+            'board.setTime': 'Set',
+            'board.matchTime': 'Partida',
             'rules.mode.indoor': 'Indoor',
             'rules.mode.beach': 'Praia',
             'rules.bestOf': 'À melhor de {n}',
@@ -118,6 +127,7 @@
             'footer.label': 'Atualizações ao vivo',
         },
         it: {
+            'doc.title': 'Tabellone in diretta',
             'status.connecting': 'connessione…',
             'status.online': 'in diretta',
             'status.offline': 'riconnessione…',
@@ -125,6 +135,8 @@
             'board.sets': 'Set',
             'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
+            'board.setTime': 'Set',
+            'board.matchTime': 'Partita',
             'rules.mode.indoor': 'Indoor',
             'rules.mode.beach': 'Beach',
             'rules.bestOf': 'Al meglio dei {n}',
@@ -152,6 +164,7 @@
             'footer.label': 'Aggiornamenti in diretta',
         },
         fr: {
+            'doc.title': 'Tableau en direct',
             'status.connecting': 'connexion…',
             'status.online': 'en direct',
             'status.offline': 'reconnexion…',
@@ -159,6 +172,8 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
+            'board.setTime': 'Set',
+            'board.matchTime': 'Match',
             'rules.mode.indoor': 'Salle',
             'rules.mode.beach': 'Plage',
             'rules.bestOf': 'Au meilleur des {n}',
@@ -186,6 +201,7 @@
             'footer.label': 'Mises à jour en direct',
         },
         de: {
+            'doc.title': 'Live-Anzeigetafel',
             'status.connecting': 'verbinde…',
             'status.online': 'live',
             'status.offline': 'verbinde neu…',
@@ -193,6 +209,8 @@
             'board.sets': 'Sätze',
             'board.timeouts': 'A/Z',
             'board.setLabel': 'Satz {set}',
+            'board.setTime': 'Satz',
+            'board.matchTime': 'Spiel',
             'rules.mode.indoor': 'Halle',
             'rules.mode.beach': 'Beach',
             'rules.bestOf': 'Best of {n}',
@@ -231,6 +249,14 @@
 
     const LANG = pickLanguage();
     document.documentElement.setAttribute('lang', LANG);
+    // Replace the server-rendered placeholder ``<title>`` with a
+    // localised version. The Jinja template emits a neutral English
+    // string so search engines / link previewers see something
+    // reasonable before the JS runs.
+    try {
+        document.title = (TRANSLATIONS[LANG] || TRANSLATIONS.en)['doc.title']
+            || document.title;
+    } catch (_e) { /* ignore */ }
 
     function t(key, args) {
         const bundle = TRANSLATIONS[LANG] || TRANSLATIONS.en;
@@ -452,6 +478,74 @@
         el.removeAttribute('hidden');
     }
 
+    /*
+     * Set + match elapsed counters. The match clock ticks live from
+     * ``match_info.match_started_at`` if present; the set clock is
+     * derived from the viewed set's first / last scoring-event
+     * timestamps (so a paused set freezes correctly) but rolls forward
+     * for the *current* set whenever the set is live — there we add
+     * "time since the last event" so the counter reads naturally
+     * between rallies. Falls back to the audit-derived
+     * ``set_durations`` map for past sets.
+     */
+    function renderTimers(broadcast) {
+        const wrap = $('match-times');
+        const setEl = $('set-time-value');
+        const matchEl = $('match-time-value');
+        if (!wrap || !setEl || !matchEl) return;
+
+        const match = broadcast.match_info || {};
+        const oc = broadcast.overlay_control || {};
+        const stats = oc.stats || {};
+        const setDurations = stats.set_durations || {};
+        const setNum = effectiveSet();
+        const currentSet = match.current_set || 1;
+        const isLiveSet = setNum === currentSet;
+
+        const bySet = oc.points_by_set || {};
+        const setEvents = bySet[String(setNum)] || bySet[setNum] || [];
+        const setStamps = setEvents
+            .map((e) => (typeof e.ts === 'number' ? e.ts : null))
+            .filter((ts) => ts !== null);
+
+        let setSeconds = null;
+        if (setStamps.length >= 2) {
+            // Past sets: use the audit-derived duration (frozen).
+            // Live set: extend with the wall-clock delta since the
+            // last scoring event so the counter ticks between rallies.
+            const first = Math.min.apply(null, setStamps);
+            const last = Math.max.apply(null, setStamps);
+            if (isLiveSet) {
+                setSeconds = (Date.now() / 1000) - first;
+            } else {
+                setSeconds = last - first;
+            }
+        } else if (setDurations[String(setNum)] != null) {
+            setSeconds = Number(setDurations[String(setNum)]) || 0;
+        }
+
+        let matchSeconds = null;
+        if (typeof match.match_started_at === 'number') {
+            matchSeconds = (Date.now() / 1000) - match.match_started_at;
+        } else {
+            // Fallback: sum the per-set durations.
+            let total = 0;
+            for (const v of Object.values(setDurations)) {
+                const n = Number(v);
+                if (Number.isFinite(n) && n > 0) total += n;
+            }
+            if (total > 0) matchSeconds = total;
+        }
+
+        if (setSeconds == null && matchSeconds == null) {
+            wrap.setAttribute('hidden', 'hidden');
+            return;
+        }
+        wrap.removeAttribute('hidden');
+        setEl.textContent = setSeconds != null ? formatMmSs(setSeconds) : '—';
+        matchEl.textContent = matchSeconds != null ? formatMmSs(matchSeconds) : '—';
+    }
+
     function renderAlerts(broadcast) {
         const oc = broadcast.overlay_control || {};
         const info = oc.match_point_info || {};
@@ -630,12 +724,23 @@
     function renderStats(broadcast) {
         const oc = broadcast.overlay_control || {};
         const stats = oc.stats || {};
-        const cs = stats.current_streak || {};
-        const ls = stats.longest_streak || {};
-        const pc = stats.partial_comeback || {};
         const services = stats.services || {};
         const home = broadcast.team_home || {};
         const away = broadcast.team_away || {};
+
+        // Per-set streak / longest streak / comeback. The match-wide
+        // versions in ``stats.*`` aggregate across the whole match,
+        // which doesn't match the "currently viewed set" frame the
+        // chart and history table already use. Walk the events for
+        // the viewed set client-side so the panel re-scopes when the
+        // viewer steps through previous sets.
+        const setNum = effectiveSet();
+        const bySet = oc.points_by_set || {};
+        const setEvents = bySet[String(setNum)] || bySet[setNum] || [];
+        const perSet = perSetStreakAndComeback(setEvents);
+        const cs = perSet.currentStreak;
+        const ls = perSet.longestStreak;
+        const comeback = perSet.comeback;
 
         // ── Total points per team ──
         // ``set_history`` carries every set's running score, including
@@ -693,16 +798,15 @@
         toggleStatRow('stat-row-longest', !haveLongest);
 
         // ── Partial comeback (only the team that pulled it off) ──
-        const pcHome = pc[1] || pc['1'] || {};
-        const pcAway = pc[2] || pc['2'] || {};
-        const peak = Math.max(pcHome.deficit || 0, pcAway.deficit || 0);
-        const haveComeback = peak >= 3;
+        // Scoped to the viewed set.
+        const haveComeback = !!comeback.team && (comeback.n || 0) >= 3;
         if (haveComeback) {
-            const team = (pcHome.deficit || 0) >= (pcAway.deficit || 0) ? 1 : 2;
-            const homeVal = team === 1 ? t('stats.comeback.cell', { n: peak }) : '—';
-            const awayVal = team === 2 ? t('stats.comeback.cell', { n: peak }) : '—';
-            setTeamCell('stat-comeback-home', homeVal, team !== 1);
-            setTeamCell('stat-comeback-away', awayVal, team !== 2);
+            const homeVal = comeback.team === 1
+                ? t('stats.comeback.cell', { n: comeback.n }) : '—';
+            const awayVal = comeback.team === 2
+                ? t('stats.comeback.cell', { n: comeback.n }) : '—';
+            setTeamCell('stat-comeback-home', homeVal, comeback.team !== 1);
+            setTeamCell('stat-comeback-away', awayVal, comeback.team !== 2);
         }
         toggleStatRow('stat-row-comeback', !haveComeback);
     }
@@ -720,6 +824,89 @@
             if (typeof v === 'number') total += v;
         }
         return total;
+    }
+
+    /*
+     * Walk the events for a single set and compute streak / longest /
+     * partial-comeback indicators scoped to that set. The match-level
+     * versions in ``compute_live_stats`` aggregate across all sets,
+     * which is the wrong scope for the "currently viewed set" panel.
+     *
+     * Returns:
+     *   {
+     *     currentStreak: {team, n},   // trailing run of consecutive
+     *                                 // ``add_point`` by one team
+     *     longestStreak: {team, n},   // longest such run in this set
+     *     comeback:      {team, n},   // largest deficit reduction by
+     *                                 // one team within this set
+     *   }
+     */
+    function perSetStreakAndComeback(events) {
+        const out = {
+            currentStreak: { team: null, n: 0 },
+            longestStreak: { team: null, n: 0 },
+            comeback: { team: null, n: 0 },
+        };
+        if (!Array.isArray(events) || events.length === 0) return out;
+
+        let streakTeam = null;
+        let streakN = 0;
+        const cb = {
+            1: { peak: 0, minAfter: 0, recovery: 0 },
+            2: { peak: 0, minAfter: 0, recovery: 0 },
+        };
+        for (const ev of events) {
+            const team = ev.team;
+            // Manual ``set_score`` overrides break the streak — same
+            // semantic as the backend's _current_streak helper.
+            if (ev.action === 'set_score') {
+                streakTeam = null;
+                streakN = 0;
+                continue;
+            }
+            if (team !== 1 && team !== 2) continue;
+            if (team === streakTeam) {
+                streakN += 1;
+            } else {
+                streakTeam = team;
+                streakN = 1;
+            }
+            if (streakN > out.longestStreak.n) {
+                out.longestStreak = { team: streakTeam, n: streakN };
+            }
+            const score = Array.isArray(ev.score) ? ev.score : [0, 0];
+            const s1 = score[0] || 0;
+            const s2 = score[1] || 0;
+            for (const t of [1, 2]) {
+                const myScore = t === 1 ? s1 : s2;
+                const rivalScore = t === 1 ? s2 : s1;
+                const deficit = rivalScore - myScore;
+                if (deficit > cb[t].peak) {
+                    cb[t].peak = deficit;
+                    cb[t].minAfter = deficit;
+                } else if (cb[t].peak > 0 && deficit < cb[t].minAfter) {
+                    cb[t].minAfter = deficit;
+                    const rec = cb[t].peak - cb[t].minAfter;
+                    if (rec > cb[t].recovery) cb[t].recovery = rec;
+                }
+            }
+        }
+        out.currentStreak = streakTeam !== null
+            ? { team: streakTeam, n: streakN }
+            : { team: null, n: 0 };
+        const bestRec = Math.max(cb[1].recovery, cb[2].recovery);
+        if (bestRec > 0) {
+            const team = cb[1].recovery >= cb[2].recovery ? 1 : 2;
+            out.comeback = { team: team, n: bestRec };
+        }
+        return out;
+    }
+
+    function formatMmSs(seconds) {
+        const s = Math.max(0, Math.floor(seconds));
+        const m = Math.floor(s / 60);
+        const ss = s % 60;
+        return `${m}:${ss < 10 ? '0' : ''}${ss}`;
     }
 
     // ── Render: set progression chart ──────────────────────────────
@@ -1032,6 +1219,7 @@
         renderRulesSummary(broadcast);
         renderAlerts(broadcast);
         renderScoreboard(broadcast);
+        renderTimers(broadcast);
         renderHistory(broadcast);
         renderStats(broadcast);
         renderSetChart(broadcast);
@@ -1098,4 +1286,14 @@
     applyStaticTranslations();
     wireNavButtons();
     connect();
+
+    // Tick the set + match elapsed counters every second so they
+    // keep moving between scoring events. Re-rendering just the
+    // timers is cheap (two text nodes); the full broadcast render
+    // still runs only when the WS pushes a new state.
+    setInterval(() => {
+        const broadcast = state.lastBroadcast;
+        if (!broadcast) return;
+        try { renderTimers(broadcast); } catch (_e) { /* ignore */ }
+    }, 1000);
 })();

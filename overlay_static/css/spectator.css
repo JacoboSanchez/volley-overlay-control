@@ -281,6 +281,40 @@ html, body {
     letter-spacing: 0.08em;
 }
 
+/*
+  Set + match elapsed counters. Stack vertically under the set
+  label so the divider column reads top-to-bottom: SET N · 0:32
+  set · 1:24 match. The values tick once a second via a setInterval
+  in spectator.js so the operator and viewers see a moving clock
+  even between scoring events.
+*/
+.match-times {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-top: 6px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.match-times[hidden] { display: none; }
+.match-time-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+}
+.match-time-label {
+    font-weight: 600;
+}
+.match-time-value {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-weight: 700;
+    color: #e6edf3;
+    font-variant-numeric: tabular-nums;
+}
+
 /* ── Set progression chart ────────────────────────────────────────── */
 
 .spectator-set-chart {

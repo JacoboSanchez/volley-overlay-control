@@ -31,10 +31,10 @@ class GameSession:
         # Expose the session's current rules to the Backend's overlay
         # payload builder so the OBS broadcast (and the spectator page
         # that consumes it) sees the live mode + per-set limits, not
-        # the env-default ``conf`` values. Without this hook the
-        # spectator's "rules" badge and the match/set-point indicator
-        # would lag behind operator rule changes.
-        backend._rule_overrides_getter = self._build_rule_overrides
+        # the env-default ``conf`` values. We go through the explicit
+        # setter on Backend (rather than monkey-patching) so the
+        # dependency is part of Backend's public surface.
+        backend.set_rule_overrides_getter(self._build_rule_overrides)
         self.customization = Customization(
             backend.get_current_customization())
         self.visible = backend.is_visible()
@@ -110,6 +110,10 @@ class GameSession:
             "points_limit_last_set": self.points_limit_last_set,
             "sets_limit": self.sets_limit,
             "match_finished": self.game_manager.match_finished(self.sets_limit),
+            "match_started_at": (
+                float(self.match_started_at)
+                if self.match_started_at is not None else None
+            ),
         }
 
     def touch(self):
