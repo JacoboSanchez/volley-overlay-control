@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="theme-color" content="#111">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Follow — {{ target_id }}</title>
+    <link rel="stylesheet" href="/static/css/spectator.css?v={{ v }}">
+</head>
+<body>
+    <header class="spectator-header">
+        <div class="spectator-title" id="match-title">— vs —</div>
+        <div class="spectator-status" id="conn-status" aria-live="polite">connecting…</div>
+    </header>
+
+    <main class="spectator-main">
+        <section class="spectator-scoreboard" aria-label="Scoreboard">
+            <div class="team team-home">
+                <div class="team-logo"><img id="team1-logo" alt=""></div>
+                <div class="team-name" id="team1-name">Team 1</div>
+                <div class="team-sets" id="team1-sets">0</div>
+                <div class="team-score" id="team1-score">0</div>
+                <div class="team-serve" id="team1-serve" hidden>•</div>
+            </div>
+            <div class="set-divider">
+                <div class="set-label" id="set-label">SET 1</div>
+            </div>
+            <div class="team team-away">
+                <div class="team-logo"><img id="team2-logo" alt=""></div>
+                <div class="team-name" id="team2-name">Team 2</div>
+                <div class="team-sets" id="team2-sets">0</div>
+                <div class="team-score" id="team2-score">0</div>
+                <div class="team-serve" id="team2-serve" hidden>•</div>
+            </div>
+        </section>
+
+        <section class="spectator-history" aria-label="Set history">
+            <table>
+                <thead><tr id="history-head"></tr></thead>
+                <tbody>
+                    <tr id="history-row-home"></tr>
+                    <tr id="history-row-away"></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="spectator-stats" aria-label="Live statistics">
+            <div class="stats-row" id="stats-streak"></div>
+            <div class="stats-row" id="stats-totals"></div>
+            <div class="stats-row" id="stats-comeback"></div>
+        </section>
+
+        <section class="spectator-points" aria-label="Points trajectory">
+            <div class="points-track" id="points-track"></div>
+        </section>
+    </main>
+
+    <footer class="spectator-footer">
+        Live updates · {{ target_id }}
+    </footer>
+
+    <script>
+        window.OVERLAY_OUTPUT_KEY = "{{ output_key }}";
+        window.OVERLAY_TARGET_ID = "{{ target_id }}";
+    </script>
+    <script src="/static/js/spectator.js?v={{ v }}"></script>
+</body>
+</html>

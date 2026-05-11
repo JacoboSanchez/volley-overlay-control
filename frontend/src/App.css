@@ -668,6 +668,22 @@ body {
 
 /* ── Points history strip ──────────────────────────────────────────── */
 
+/* Wrap around MomentumSparkline (rendered below the points-history
+ * strip when the preview is hidden). Centred so the SVG visually
+ * aligns with the strip above it; uses ``currentColor`` so the
+ * polyline picks up the surrounding text colour. */
+.momentum-sparkline-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 4px 8px 8px;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.momentum-sparkline {
+  display: block;
+}
+
 /* Renders in place of the overlay preview when the user disables the
  * preview. Two rows (one per team) of fixed-width cells; each cell
  * holds either an action chip on the team's row or empty space on
@@ -2592,6 +2608,76 @@ body {
   color: var(--text);
   font-size: 0.95rem;
   line-height: 1.4;
+}
+
+/* ── Keyboard shortcuts help dialog ───────────────────────────────── */
+
+.shortcuts-help {
+  min-width: 320px;
+  max-width: 480px;
+}
+
+.shortcuts-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+  color: var(--text);
+}
+
+.shortcuts-subtitle {
+  margin: 0 0 1rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  opacity: 0.75;
+  line-height: 1.4;
+}
+
+.shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.shortcuts-table td {
+  padding: 0.35rem 0.5rem;
+  vertical-align: middle;
+}
+
+.shortcuts-keys {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.shortcuts-label {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.shortcut-kbd {
+  display: inline-block;
+  min-width: 1.4rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 0.8rem;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.shortcut-sep {
+  margin: 0 0.15rem;
+  color: var(--text);
+  opacity: 0.5;
+  font-size: 0.85rem;
+}
+
+.shortcuts-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ── First-run gesture coachmark ──────────────────────────────────── */

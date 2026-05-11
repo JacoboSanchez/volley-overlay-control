@@ -15,6 +15,7 @@ from app.api.routes import (
     customization,
     display,
     game,
+    live_stats,
     matches,
     overlays,
     session,
@@ -40,5 +41,6 @@ api_router.include_router(websocket.router)
 api_router.include_router(client_log.router)
 api_router.include_router(audit.router)
 api_router.include_router(matches.router)
+api_router.include_router(live_stats.router)
 
 __all__ = ["api_router", "router_lifespan"]

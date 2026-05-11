@@ -7,11 +7,13 @@ export interface BehaviorSettings {
   autoSimple: boolean;
   autoSimpleOnTimeout: boolean;
   haptics: boolean;
+  keyboardShortcuts: boolean;
 }
 
 export interface BehaviorSectionProps {
   settings: BehaviorSettings;
   setSetting: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
+  onShowShortcuts?: () => void;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -23,7 +25,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   de: 'Deutsch',
 };
 
-export default function BehaviorSection({ settings, setSetting }: BehaviorSectionProps) {
+export default function BehaviorSection({ settings, setSetting, onShowShortcuts }: BehaviorSectionProps) {
   const { t, lang, setLanguage, languages } = useI18n();
   return (
     <div className="config-section-behavior">
@@ -61,6 +63,22 @@ export default function BehaviorSection({ settings, setSetting }: BehaviorSectio
         checked={settings.haptics}
         onChange={(v) => setSetting('haptics', v)}
       />
+      <ConfigSwitch
+        label={t('behavior.keyboardShortcuts')}
+        checked={settings.keyboardShortcuts}
+        onChange={(v) => setSetting('keyboardShortcuts', v)}
+      />
+      {settings.keyboardShortcuts && onShowShortcuts && (
+        <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
+          <button
+            type="button"
+            className="dialog-btn"
+            onClick={onShowShortcuts}
+          >
+            {t('behavior.showShortcuts')}
+          </button>
+        </div>
+      )}
 
       <div className="config-separator" />
       <div className="config-field-row">

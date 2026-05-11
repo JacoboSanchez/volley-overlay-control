@@ -287,3 +287,48 @@ export function getAudit(
     signal,
   );
 }
+
+export interface LiveStatsStreak {
+  team: 1 | 2 | null;
+  n: number;
+  set: number | null;
+}
+
+export interface LiveStatsComebackEntry {
+  deficit: number;
+  set: number | null;
+}
+
+export interface LiveStatsPoint {
+  team: 1 | 2;
+  set: number | null;
+  ts: number | null;
+  score: [number, number];
+  action: string;
+}
+
+export interface LiveStatsResponse {
+  oid: string;
+  audit_count: number;
+  current_streak: LiveStatsStreak;
+  longest_streak: LiveStatsStreak;
+  set_win_comeback: Record<string, LiveStatsComebackEntry>;
+  partial_comeback: Record<string, LiveStatsComebackEntry>;
+  longest_rally: { duration_s: number; set: number | null };
+  total_points: number;
+  set_durations: Record<string, number>;
+  points_history: LiveStatsPoint[];
+}
+
+export function getLiveStats(
+  oid: string,
+  limit: number = 30,
+  signal?: AbortSignal,
+): Promise<LiveStatsResponse> {
+  return request<LiveStatsResponse>(
+    'GET',
+    `/matches/live/stats${withOid(oid)}&limit=${limit}`,
+    null,
+    signal,
+  );
+}

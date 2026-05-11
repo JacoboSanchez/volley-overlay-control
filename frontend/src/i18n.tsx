@@ -181,6 +181,8 @@ const translations: Record<string, TranslationDict> = {
     'overlay.gameText': 'Game Text',
     'overlay.styleLabel': 'Overlay Style',
     'overlay.style': '— Style —',
+    'overlay.showStats': 'Show live stats',
+    'overlay.showPointsHistory': 'Show points history',
 
     // Position section
     'position.height': 'Height',
@@ -220,6 +222,23 @@ const translations: Record<string, TranslationDict> = {
     'behavior.fullOnTimeout': 'Full mode on timeout',
     'behavior.haptics': 'Haptic feedback',
     'behavior.showPreview': 'Show overlay preview',
+    'behavior.keyboardShortcuts': 'Keyboard shortcuts',
+    'behavior.showShortcuts': 'Show shortcuts (?)',
+
+    // Keyboard shortcuts help modal
+    'shortcuts.title': 'Keyboard shortcuts',
+    'shortcuts.subtitle': 'Operate the scoreboard from the keyboard. Disabled while typing in inputs.',
+    'shortcuts.pointTeam1': 'Point — Team 1',
+    'shortcuts.pointTeam2': 'Point — Team 2',
+    'shortcuts.undo': 'Undo last action',
+    'shortcuts.serveTeam1': 'Serve → Team 1',
+    'shortcuts.serveTeam2': 'Serve → Team 2',
+    'shortcuts.timeoutTeam1': 'Timeout — Team 1',
+    'shortcuts.timeoutTeam2': 'Timeout — Team 2',
+    'shortcuts.startMatch': 'Start match',
+    'shortcuts.toggleVisibility': 'Toggle overlay visibility',
+    'shortcuts.toggleSimple': 'Toggle simple scoreboard',
+    'shortcuts.openHelp': 'Show this help',
 
     // Preview
     'preview.title': 'Overlay preview',
@@ -414,6 +433,8 @@ const translations: Record<string, TranslationDict> = {
     'overlay.gameText': 'Texto Juego',
     'overlay.styleLabel': 'Estilo del Overlay',
     'overlay.style': '— Estilo —',
+    'overlay.showStats': 'Mostrar estadísticas en vivo',
+    'overlay.showPointsHistory': 'Mostrar histórico de puntos',
 
     // Position section
     'position.height': 'Alto',
@@ -453,6 +474,23 @@ const translations: Record<string, TranslationDict> = {
     'behavior.fullOnTimeout': 'Modo completo en tiempo muerto',
     'behavior.haptics': 'Vibración táctil',
     'behavior.showPreview': 'Mostrar vista previa del overlay',
+    'behavior.keyboardShortcuts': 'Atajos de teclado',
+    'behavior.showShortcuts': 'Ver atajos (?)',
+
+    // Keyboard shortcuts help modal
+    'shortcuts.title': 'Atajos de teclado',
+    'shortcuts.subtitle': 'Maneja el marcador desde el teclado. Se desactivan al escribir en campos de texto.',
+    'shortcuts.pointTeam1': 'Punto — Equipo 1',
+    'shortcuts.pointTeam2': 'Punto — Equipo 2',
+    'shortcuts.undo': 'Deshacer última acción',
+    'shortcuts.serveTeam1': 'Saque → Equipo 1',
+    'shortcuts.serveTeam2': 'Saque → Equipo 2',
+    'shortcuts.timeoutTeam1': 'Tiempo muerto — Equipo 1',
+    'shortcuts.timeoutTeam2': 'Tiempo muerto — Equipo 2',
+    'shortcuts.startMatch': 'Iniciar partido',
+    'shortcuts.toggleVisibility': 'Mostrar/ocultar overlay',
+    'shortcuts.toggleSimple': 'Marcador simple/completo',
+    'shortcuts.openHelp': 'Ver esta ayuda',
 
     // Preview
     'preview.title': 'Vista previa del overlay',
@@ -646,6 +684,8 @@ const translations: Record<string, TranslationDict> = {
     'overlay.gameText': 'Texto do Jogo',
     'overlay.styleLabel': 'Estilo do Overlay',
     'overlay.style': '— Estilo —',
+    'overlay.showStats': 'Mostrar estatísticas ao vivo',
+    'overlay.showPointsHistory': 'Mostrar histórico de pontos',
 
     // Position section
     'position.height': 'Altura',
@@ -685,6 +725,23 @@ const translations: Record<string, TranslationDict> = {
     'behavior.fullOnTimeout': 'Modo completo no desconto de tempo',
     'behavior.haptics': 'Vibração tátil',
     'behavior.showPreview': 'Mostrar pré-visualização do overlay',
+    'behavior.keyboardShortcuts': 'Atalhos de teclado',
+    'behavior.showShortcuts': 'Ver atalhos (?)',
+
+    // Keyboard shortcuts help modal
+    'shortcuts.title': 'Atalhos de teclado',
+    'shortcuts.subtitle': 'Opere o placar a partir do teclado. Desativados ao escrever em campos de texto.',
+    'shortcuts.pointTeam1': 'Ponto — Equipa 1',
+    'shortcuts.pointTeam2': 'Ponto — Equipa 2',
+    'shortcuts.undo': 'Desfazer última ação',
+    'shortcuts.serveTeam1': 'Saque → Equipa 1',
+    'shortcuts.serveTeam2': 'Saque → Equipa 2',
+    'shortcuts.timeoutTeam1': 'Tempo morto — Equipa 1',
+    'shortcuts.timeoutTeam2': 'Tempo morto — Equipa 2',
+    'shortcuts.startMatch': 'Iniciar partida',
+    'shortcuts.toggleVisibility': 'Mostrar/ocultar overlay',
+    'shortcuts.toggleSimple': 'Placar simples/completo',
+    'shortcuts.openHelp': 'Ver esta ajuda',
 
     // Preview
     'preview.title': 'Pré-visualização do overlay',
@@ -878,6 +935,8 @@ const translations: Record<string, TranslationDict> = {
     'overlay.gameText': 'Testo Gioco',
     'overlay.styleLabel': 'Stile Overlay',
     'overlay.style': '— Stile —',
+    'overlay.showStats': 'Mostra statistiche in tempo reale',
+    'overlay.showPointsHistory': 'Mostra cronologia dei punti',
 
     // Position section
     'position.height': 'Altezza',
@@ -917,6 +976,23 @@ const translations: Record<string, TranslationDict> = {
     'behavior.fullOnTimeout': 'Modalità completa al time-out',
     'behavior.haptics': 'Feedback aptico',
     'behavior.showPreview': 'Mostra anteprima overlay',
+    'behavior.keyboardShortcuts': 'Scorciatoie da tastiera',
+    'behavior.showShortcuts': 'Mostra scorciatoie (?)',
+
+    // Keyboard shortcuts help modal
+    'shortcuts.title': 'Scorciatoie da tastiera',
+    'shortcuts.subtitle': 'Controlla il tabellone dalla tastiera. Disattivate mentre si scrive nei campi di testo.',
+    'shortcuts.pointTeam1': 'Punto — Squadra 1',
+    'shortcuts.pointTeam2': 'Punto — Squadra 2',
+    'shortcuts.undo': 'Annulla ultima azione',
+    'shortcuts.serveTeam1': 'Battuta → Squadra 1',
+    'shortcuts.serveTeam2': 'Battuta → Squadra 2',
+    'shortcuts.timeoutTeam1': 'Time-out — Squadra 1',
+    'shortcuts.timeoutTeam2': 'Time-out — Squadra 2',
+    'shortcuts.startMatch': 'Inizia partita',
+    'shortcuts.toggleVisibility': 'Mostra/nascondi overlay',
+    'shortcuts.toggleSimple': 'Tabellone semplice/completo',
+    'shortcuts.openHelp': 'Mostra questo aiuto',
 
     // Preview
     'preview.title': 'Anteprima overlay',
@@ -1110,6 +1186,8 @@ const translations: Record<string, TranslationDict> = {
     'overlay.gameText': 'Texte du jeu',
     'overlay.styleLabel': 'Style de l’overlay',
     'overlay.style': '— Style —',
+    'overlay.showStats': 'Afficher les statistiques en direct',
+    'overlay.showPointsHistory': 'Afficher l’historique des points',
 
     // Position section
     'position.height': 'Hauteur',
@@ -1149,6 +1227,23 @@ const translations: Record<string, TranslationDict> = {
     'behavior.fullOnTimeout': 'Mode complet au temps mort',
     'behavior.haptics': 'Retour haptique',
     'behavior.showPreview': 'Afficher l’aperçu de l’overlay',
+    'behavior.keyboardShortcuts': 'Raccourcis clavier',
+    'behavior.showShortcuts': 'Voir les raccourcis (?)',
+
+    // Keyboard shortcuts help modal
+    'shortcuts.title': 'Raccourcis clavier',
+    'shortcuts.subtitle': 'Pilotez le tableau au clavier. Désactivés pendant la saisie dans les champs de texte.',
+    'shortcuts.pointTeam1': 'Point — Équipe 1',
+    'shortcuts.pointTeam2': 'Point — Équipe 2',
+    'shortcuts.undo': 'Annuler la dernière action',
+    'shortcuts.serveTeam1': 'Service → Équipe 1',
+    'shortcuts.serveTeam2': 'Service → Équipe 2',
+    'shortcuts.timeoutTeam1': 'Temps mort — Équipe 1',
+    'shortcuts.timeoutTeam2': 'Temps mort — Équipe 2',
+    'shortcuts.startMatch': 'Démarrer le match',
+    'shortcuts.toggleVisibility': 'Afficher/masquer l’overlay',
+    'shortcuts.toggleSimple': 'Tableau simple/complet',
+    'shortcuts.openHelp': 'Afficher cette aide',
 
     // Preview
     'preview.title': 'Aperçu de l’overlay',
@@ -1342,6 +1437,8 @@ const translations: Record<string, TranslationDict> = {
     'overlay.gameText': 'Spiel-Text',
     'overlay.styleLabel': 'Overlay-Stil',
     'overlay.style': '— Stil —',
+    'overlay.showStats': 'Live-Statistiken anzeigen',
+    'overlay.showPointsHistory': 'Punkteverlauf anzeigen',
 
     // Position section
     'position.height': 'Höhe',
@@ -1381,6 +1478,23 @@ const translations: Record<string, TranslationDict> = {
     'behavior.fullOnTimeout': 'Vollmodus bei Auszeit',
     'behavior.haptics': 'Haptisches Feedback',
     'behavior.showPreview': 'Overlay-Vorschau anzeigen',
+    'behavior.keyboardShortcuts': 'Tastenkürzel',
+    'behavior.showShortcuts': 'Tastenkürzel anzeigen (?)',
+
+    // Keyboard shortcuts help modal
+    'shortcuts.title': 'Tastenkürzel',
+    'shortcuts.subtitle': 'Steuere die Anzeigetafel über die Tastatur. Deaktiviert während der Texteingabe.',
+    'shortcuts.pointTeam1': 'Punkt — Team 1',
+    'shortcuts.pointTeam2': 'Punkt — Team 2',
+    'shortcuts.undo': 'Letzte Aktion rückgängig',
+    'shortcuts.serveTeam1': 'Aufschlag → Team 1',
+    'shortcuts.serveTeam2': 'Aufschlag → Team 2',
+    'shortcuts.timeoutTeam1': 'Auszeit — Team 1',
+    'shortcuts.timeoutTeam2': 'Auszeit — Team 2',
+    'shortcuts.startMatch': 'Spiel starten',
+    'shortcuts.toggleVisibility': 'Overlay anzeigen/ausblenden',
+    'shortcuts.toggleSimple': 'Einfache/volle Anzeige',
+    'shortcuts.openHelp': 'Diese Hilfe anzeigen',
 
     // Preview
     'preview.title': 'Overlay-Vorschau',

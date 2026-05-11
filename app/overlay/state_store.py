@@ -415,6 +415,12 @@ class OverlayStateStore:
                 for f in os.listdir(self._templates_dir):
                     if f.endswith(".html"):
                         name = f[:-5]
+                        # Underscore-prefixed templates are "private"
+                        # — base layouts, public follow-page, etc.
+                        # They are renderable by their own route but
+                        # never offered as a scoreboard style.
+                        if name.startswith("_"):
+                            continue
                         label = "default" if name == "index" else name
                         if label not in hidden:
                             styles.append(label)

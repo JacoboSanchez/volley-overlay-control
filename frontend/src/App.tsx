@@ -3,6 +3,7 @@ import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
 import { useRecentEvents } from './hooks/useRecentEvents';
+import { useLiveStats } from './hooks/useLiveStats';
 import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
@@ -10,7 +11,9 @@ import { useSwipeNavigation } from './hooks/useSwipeNavigation';
 import { useHaptics } from './hooks/useHaptics';
 import { useMatchAlertHaptics } from './hooks/useMatchAlertHaptics';
 import { useScreenWakeLock } from './hooks/useScreenWakeLock';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import InitScreen from './components/InitScreen';
+import ShortcutsHelp from './components/ShortcutsHelp';
 import ScoreboardView from './components/ScoreboardView';
 import ScoreboardSkeleton from './components/ScoreboardSkeleton';
 import ConfigPanel from './components/ConfigPanel';
@@ -144,6 +147,10 @@ export default function App() {
   // by ``useAuditLog`` inside the component itself.
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  // Keyboard shortcuts help modal — opened with `?`, listed in the
+  // Behavior section as a "Show shortcuts" entry.
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
   const previewData = usePreview(oid, settings.showPreview, !!state);
@@ -165,6 +172,15 @@ export default function App() {
     confirmedState,
     compactLandscape ? 5 : 8,
   );
+
+  // Momentum sparkline data. Only fetched when the preview is hidden
+  // (the centre column slot the sparkline shares with the strip).
+  // ``confirmedState`` triggers the refetch so we don't race ahead of
+  // the audit log after an optimistic add_point.
+  const liveStats = useLiveStats(oid, !settings.showPreview, {
+    trigger: confirmedState,
+    limit: 20,
+  });
 
   // Reveal the bar when the viewport gains room for it (e.g. phone→tablet
   // resize). Kept in its own effect so the manual hide toggle still works
@@ -369,6 +385,29 @@ export default function App() {
   // same (action, team). The server-side per-type undo path now
   // pops the matching forward from the audit log on its own, so
   // no client-side bookkeeping is required.
+  // Keyboard shortcuts. Disabled while any dialog/coachmark is open
+  // (those own focus and ESC handling) or on touch-only devices where
+  // the operator opted out via ``settings.keyboardShortcuts``.
+  const anyModalOpen = dialog.open
+    || resetConfirmOpen
+    || coachmarkOpen
+    || shareOpen
+    || shortcutsHelpOpen;
+  useKeyboardShortcuts({
+    enabled: settings.keyboardShortcuts
+      && !anyModalOpen
+      && !!state
+      && activeTab === 'scoreboard',
+    onAddPoint: handleAddPoint,
+    onUndoLast: state?.can_undo ? handleUndoLast : undefined,
+    onChangeServe: handleChangeServe,
+    onAddTimeout: handleAddTimeout,
+    onStartMatch: state?.match_started_at == null ? handleStartMatch : undefined,
+    onToggleVisibility: handleToggleVisibility,
+    onToggleSimpleMode: handleToggleSimpleMode,
+    onOpenHelp: () => setShortcutsHelpOpen(true),
+  });
+
   const handleDoubleTapScore = useCallback(
     (team: Team) => {
       pulse('confirm');
@@ -509,6 +548,7 @@ export default function App() {
           previewData={previewData}
           showPreview={settings.showPreview}
           recentEvents={recentEvents}
+          momentumHistory={liveStats.stats?.points_history ?? []}
           // Landscape phones (no room for persistent controls) need the
           // preview shrunk so the alert pills below it don't get pushed
           // off the bottom of the viewport.
@@ -565,6 +605,7 @@ export default function App() {
               setSetting('darkMode', next);
             }}
             onToggleFullscreen={handleToggleFullscreen}
+            onShowShortcuts={() => setShortcutsHelpOpen(true)}
           />
         </ErrorBoundary>
       )}
@@ -607,6 +648,11 @@ export default function App() {
       <GestureCoachmark
         open={coachmarkOpen}
         onDismiss={handleCoachmarkDismiss}
+      />
+
+      <ShortcutsHelp
+        open={shortcutsHelpOpen}
+        onClose={() => setShortcutsHelpOpen(false)}
       />
     </div>
   );

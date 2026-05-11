@@ -4,9 +4,10 @@ import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
 import PointsHistoryStrip from './PointsHistoryStrip';
+import MomentumSparkline from './MomentumSparkline';
 import SideSwitchIndicator from './SideSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
-import type { GameState } from '../api/client';
+import type { GameState, LiveStatsPoint } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import type { RecentEvent } from '../hooks/useRecentEvents';
 import { useIndoorMidpointAlert } from '../hooks/useIndoorMidpointAlert';
@@ -41,6 +42,13 @@ export interface CenterPanelProps {
    * preview would occupy whenever the preview is hidden.
    */
   recentEvents: RecentEvent[];
+  /**
+   * Live points history (post-action running scores) used to render
+   * the momentum sparkline below the recent-events strip. Omitted /
+   * empty when stats are still loading or the operator disabled the
+   * feature.
+   */
+  momentumHistory?: LiveStatsPoint[];
   /** Score-button colours, reused for the points-history chips so the
    * strip honours followTeamColors / custom team colour overrides. */
   btnColorA: string;
@@ -64,6 +72,7 @@ function CenterPanel({
   compactLandscape = false,
   previewData,
   recentEvents,
+  momentumHistory,
   btnColorA,
   btnTextA,
   btnColorB,
@@ -169,17 +178,28 @@ function CenterPanel({
           cardWidth={compactLandscape ? PREVIEW_CARD_WIDTH_COMPACT : PREVIEW_CARD_WIDTH}
         />
       ) : (
-        <PointsHistoryStrip
-          events={recentEvents}
-          team1Color={btnColorA}
-          team1TextColor={btnTextA}
-          team1Logo={logo1 || null}
-          team1Name={asString(customization?.['Team 1 Name']) || 'Team 1'}
-          team2Color={btnColorB}
-          team2TextColor={btnTextB}
-          team2Logo={logo2 || null}
-          team2Name={asString(customization?.['Team 2 Name']) || 'Team 2'}
-        />
+        <>
+          <PointsHistoryStrip
+            events={recentEvents}
+            team1Color={btnColorA}
+            team1TextColor={btnTextA}
+            team1Logo={logo1 || null}
+            team1Name={asString(customization?.['Team 1 Name']) || 'Team 1'}
+            team2Color={btnColorB}
+            team2TextColor={btnTextB}
+            team2Logo={logo2 || null}
+            team2Name={asString(customization?.['Team 2 Name']) || 'Team 2'}
+          />
+          {momentumHistory && momentumHistory.length > 1 && (
+            <div className="momentum-sparkline-wrap">
+              <MomentumSparkline
+                history={momentumHistory}
+                colorTeam1={btnColorA}
+                colorTeam2={btnColorB}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

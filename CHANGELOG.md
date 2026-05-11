@@ -8,6 +8,51 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Live stats + points-history visualization on the dedicated
+  overlay page** (the one OBS captures and the new `/follow/{id}`
+  spectator page). Two new per-overlay toggles in the Config panel
+  ("Show live stats" and "Show points history") enrich the overlay
+  WebSocket broadcast with a stats summary (current streak, longest
+  streak, partial comeback, total points) and a 30-point trajectory
+  strip. Both default OFF so existing overlays render unchanged
+  after upgrade. The data is computed from the per-OID audit log
+  via the new `app.api.live_stats.compute_live_stats` helper, so
+  the live numbers reconcile with the printed match report — no
+  second source of truth to drift.
+- **`GET /api/v1/matches/live/stats?oid=X&limit=N` endpoint.**
+  Returns the same stats payload powering the overlay panel, plus
+  per-set durations and the longest-rally proxy. External
+  integrators (coach apps, dashboards, secondary panels) can read
+  the live report block without polling the audit log directly.
+- **Momentum sparkline in the operator control UI.** Compact area
+  chart (SVG, no dependencies) that visualises the point
+  differential of the current match. Renders below the recent-
+  events strip in the centre column whenever the overlay preview
+  is hidden; uses the operator's team-button colours so it
+  respects the existing followTeamColors / custom palette toggles.
+- **Public spectator page at `/follow/{overlay_id}`.** Mobile-first
+  read-only follow view that consumes the same `/ws/{output_key}`
+  feed as the OBS templates. Renders a big scoreboard, set-history
+  table, the live stats panel, and the points trajectory strip — so
+  a fan can track the match from their phone without OBS. Resolves
+  by either the raw overlay id or its short output key, matches
+  the same access model as `/overlay/{id}` (public read), and is
+  marked `noindex,nofollow` so the page doesn't leak into search
+  engines.
+- **Keyboard shortcuts for the operator.** New `useKeyboardShortcuts`
+  hook + `ShortcutsHelp` dialog covering the high-frequency
+  actions: `A` / `B` add point, `Z` undo, `1` / `2` change serve,
+  `Q` / `P` timeout, Space start match, `H` toggle overlay
+  visibility, `S` toggle simple mode, `?` open the help cheatsheet.
+  Defaults ON for fine-pointer devices (mouse + keyboard), OFF for
+  coarse-pointer (touch-only) so the screen keyboard on tablets
+  doesn't score phantom points. Toggleable from the Behavior
+  section of the Config panel, and disabled while any modal /
+  text input owns focus so it never fights the existing dialog
+  flow. Translated into the six supported UI languages.
+
 ### Changed
 
 - **Recent-actions strip now skips all undo records.** The strip is

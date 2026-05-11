@@ -286,8 +286,36 @@ class Backend:
                 },
                 "preferredStyle": cust.get_preferred_style(),
                 "show_logos": cust.is_show_logos() not in (False, "false", "False"),
+                "show_stats": cust.is_show_stats(),
+                "show_points_history": cust.is_show_points_history(),
             },
         }
+
+        # Stats and points history are derived from the per-OID audit
+        # log so the overlay viewer sees the same trajectory as the
+        # final printed match report. Each call walks the audit file;
+        # we skip it entirely when neither toggle is on (the common
+        # case for upgraded overlays that haven't opted in).
+        if cust.is_show_stats() or cust.is_show_points_history():
+            try:
+                from app.api.live_stats import compute_live_stats
+                stats = compute_live_stats(self.conf.oid, history_limit=30)
+                if cust.is_show_stats():
+                    payload["overlay_control"]["stats"] = {
+                        "current_streak": stats["current_streak"],
+                        "longest_streak": stats["longest_streak"],
+                        "partial_comeback": stats["partial_comeback"],
+                        "set_win_comeback": stats["set_win_comeback"],
+                        "total_points": stats["total_points"],
+                    }
+                if cust.is_show_points_history():
+                    payload["overlay_control"]["points_history"] = stats[
+                        "points_history"
+                    ]
+            except Exception as exc:  # pragma: no cover - defensive
+                Backend.logger.warning(
+                    "Failed to compute live stats for overlay payload: %s", exc
+                )
 
         if show_only_current_set is not None:
             payload["match_info"][
