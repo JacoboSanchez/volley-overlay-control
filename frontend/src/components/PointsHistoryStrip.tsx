@@ -14,7 +14,7 @@ export interface PointsHistoryStripProps {
 
 const ICON_VIEWBOX = '0 0 24 24';
 
-function ClockIcon({ struck }: { struck?: boolean }) {
+function ClockIcon() {
   return (
     <svg viewBox={ICON_VIEWBOX} className="phs-icon" aria-hidden="true">
       <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -25,55 +25,28 @@ function ClockIcon({ struck }: { struck?: boolean }) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-      {struck && (
-        <line
-          x1="4"
-          y1="20"
-          x2="20"
-          y2="4"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-      )}
     </svg>
   );
 }
 
-function StrikeLine() {
-  return (
-    <line
-      x1="4"
-      y1="20"
-      x2="20"
-      y2="4"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    />
-  );
-}
-
-function TrophyIcon({ struck }: { struck?: boolean }) {
+function TrophyIcon() {
   return (
     <svg viewBox={ICON_VIEWBOX} className="phs-icon" aria-hidden="true">
       <path
         d="M7 4h10v3a5 5 0 0 1-10 0V4zm-4 1h2v2a3 3 0 0 0 3 3v-2H4V5zm16 0h2v2a3 3 0 0 1-3 3v-2h2V5zM10 13h4v3h2v3H8v-3h2v-3z"
         fill="currentColor"
       />
-      {struck && <StrikeLine />}
     </svg>
   );
 }
 
-function StarIcon({ struck }: { struck?: boolean }) {
+function StarIcon() {
   return (
     <svg viewBox={ICON_VIEWBOX} className="phs-icon" aria-hidden="true">
       <path
         d="M12 2.5l2.6 6.8 7.4.5-5.6 4.8 1.8 7.2L12 17.9 5.8 21.8l1.8-7.2L2 9.8l7.4-.5L12 2.5z"
         fill="currentColor"
       />
-      {struck && <StrikeLine />}
     </svg>
   );
 }
@@ -93,20 +66,12 @@ function chipContent(ev: RecentEvent) {
   switch (ev.kind) {
     case 'point_add':
       return <span className="phs-chip-text">+1</span>;
-    case 'point_undo':
-      return <span className="phs-chip-text">−1</span>;
     case 'set_won':
       return <StarIcon />;
-    case 'set_undo':
-      return <StarIcon struck />;
     case 'match_won':
       return <TrophyIcon />;
-    case 'match_undo':
-      return <TrophyIcon struck />;
     case 'timeout':
       return <ClockIcon />;
-    case 'timeout_undo':
-      return <ClockIcon struck />;
     case 'manual': {
       const v = ev.value ?? 0;
       return (
@@ -123,20 +88,12 @@ function chipAriaLabel(ev: RecentEvent, teamName: string): string {
   switch (ev.kind) {
     case 'point_add':
       return `${teamName}: +1`;
-    case 'point_undo':
-      return `${teamName}: undo point`;
     case 'set_won':
       return `${teamName}: set won`;
-    case 'set_undo':
-      return `${teamName}: undo set`;
     case 'match_won':
       return `${teamName}: match won`;
-    case 'match_undo':
-      return `${teamName}: undo match`;
     case 'timeout':
       return `${teamName}: timeout`;
-    case 'timeout_undo':
-      return `${teamName}: undo timeout`;
     case 'manual':
       return `${teamName}: manual ${ev.value ?? 0}`;
   }

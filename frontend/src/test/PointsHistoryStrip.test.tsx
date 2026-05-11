@@ -56,11 +56,6 @@ describe('PointsHistoryStrip', () => {
     expect(screen.queryByTestId('phs-chip-1-1')).not.toBeInTheDocument();
   });
 
-  it('renders point_undo as -1 (using a true minus sign)', () => {
-    render(strip([{ ts: 1, team: 1, kind: 'point_undo' }]));
-    expect(screen.getByTestId('phs-chip-1-0')).toHaveTextContent('−1');
-  });
-
   it('renders manual chips with the absolute value (no sign)', () => {
     render(
       strip([
@@ -111,21 +106,19 @@ describe('PointsHistoryStrip', () => {
     );
   });
 
-  it('renders an SVG icon for set_won, match_won, timeout, timeout_undo and manual chips', () => {
+  it('renders an SVG icon for set_won, match_won, timeout and manual chips', () => {
     render(
       strip([
         { ts: 1, team: 1, kind: 'set_won' },
         { ts: 2, team: 2, kind: 'timeout' },
-        { ts: 3, team: 1, kind: 'timeout_undo' },
-        { ts: 4, team: 2, kind: 'manual', value: 4 },
-        { ts: 5, team: 1, kind: 'match_won' },
+        { ts: 3, team: 2, kind: 'manual', value: 4 },
+        { ts: 4, team: 1, kind: 'match_won' },
       ]),
     );
     expect(screen.getByTestId('phs-chip-1-0').querySelector('svg')).not.toBeNull();
     expect(screen.getByTestId('phs-chip-2-1').querySelector('svg')).not.toBeNull();
-    expect(screen.getByTestId('phs-chip-1-2').querySelector('svg')).not.toBeNull();
-    expect(screen.getByTestId('phs-chip-2-3').querySelector('svg')).not.toBeNull();
-    expect(screen.getByTestId('phs-chip-1-4').querySelector('svg')).not.toBeNull();
+    expect(screen.getByTestId('phs-chip-2-2').querySelector('svg')).not.toBeNull();
+    expect(screen.getByTestId('phs-chip-1-3').querySelector('svg')).not.toBeNull();
   });
 
   it('uses a different aria-label for match_won than set_won', () => {

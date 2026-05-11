@@ -10,6 +10,20 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Recent-actions strip now skips all undo records.** The strip is
+  redefined as a pure "current state activity" indicator: it only
+  renders chips for actions that still contribute to the live
+  score (`point_add`, `set_won`, `match_won`, `timeout`, `manual`).
+  Undo records (`point_undo`, `timeout_undo`) and the synthetic
+  state-diff undoes (`set_undo`, `match_undo`) no longer surface,
+  because the matching forward chip was tombstoned by
+  `pop_last_forward` and a floating struck chip has no visible
+  counterpart to invalidate. Operators can still consult the
+  history drawer and the printable `/match/{id}/report` for the
+  full forensic timeline, which keep showing undone actions as
+  struck rows. As a consequence: clicking team A, then team B,
+  then double-tap-undo on team A (>5 s after the click) now leaves
+  the strip showing only `[+1 B]` — no orphan `-1` chip.
 - **Internal cleanup.** Removed unused legacy `Backend` pass-through
   methods and the unreferenced `PasswordAuthenticator.compose_output`
   helper. Consolidated four duplicated truthy-env parsers into
