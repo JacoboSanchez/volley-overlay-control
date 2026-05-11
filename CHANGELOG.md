@@ -83,6 +83,17 @@ once a first tagged release ships.
     ("Beach · Best of 3 · 21 · 15 in deciding set ·
     Side switch every 7 pts") so a viewer can confirm the
     ruleset without leaving the page.
+  - **Scoreboard centre column** now hosts the shared
+    indicators (both teams' set wins as a single ``2 – 1``
+    pair at the top, with the current ``SET N`` pill pushed
+    lower toward the score line). Per-team meta rows dropped
+    the redundant "Sets X" label — only the timeouts pips
+    remain there — so the central column has visible content
+    instead of empty vertical space. The serve indicator
+    inside each team cell slid from the column's mid-line
+    down to ``top: 64%`` so the volleyball icon lines up with
+    the score the viewer is reading rather than floating over
+    the team name.
   - **Per-team stats grid.** The stats panel is now a 3-column
     layout (home value · label · away value) instead of single
     rows that mixed team names into the value text. Total

@@ -606,8 +606,12 @@
 
         setText('team1-name', home.name || 'Team 1');
         setText('team2-name', away.name || 'Team 2');
-        setText('team1-sets', home.sets_won || 0);
-        setText('team2-sets', away.sets_won || 0);
+        // Sets won live in the divider column now (top of the centre
+        // block) so the two teams' set counts read as a single
+        // "2 – 1" pair. The per-team meta row only carries the
+        // timeouts pips.
+        setText('center-team1-sets', home.sets_won || 0);
+        setText('center-team2-sets', away.sets_won || 0);
         setText('team1-score', home.points || 0);
         setText('team2-score', away.points || 0);
         setLogo('team1-logo', home.logo_url);

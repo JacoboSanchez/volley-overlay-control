@@ -162,6 +162,14 @@ html, body {
     gap: 4px;
     position: relative;
     padding: 0 4px;
+    /*
+      Anchor the row layout to the score so columns line up across
+      both teams even when one of them has a longer name (two lines)
+      or a missing logo. The team-meta row sits *below* the score
+      now, so this also keeps the timeouts pips visually attached
+      to the team they belong to without floating into the divider.
+    */
+    align-content: center;
 }
 
 .team-logo img {
@@ -180,18 +188,24 @@ html, body {
     word-break: break-word;
 }
 
+/*
+  ``team-meta`` now carries only the timeouts pips (the sets count
+  moved to the divider column so both teams' set wins read as a
+  single "2 – 1" pair at the top of the centre column). Smaller
+  gap because there's only one widget left.
+*/
 .team-meta {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 0.74rem;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
 
-.team-sets,
 .team-timeouts {
     display: inline-flex;
     align-items: center;
@@ -242,9 +256,17 @@ html, body {
   changes. The home team's indicator sits at ``right: 4px``, the
   away's at ``left: 4px``; together they "frame" the centre.
 */
+/*
+  Serve indicator sits at the score's vertical centre (``top: 64%``)
+  rather than the column's midline. The score is the visual anchor
+  of each team cell, so pinning the ball there makes the "team X is
+  serving" signal land at the same elevation as the number the
+  viewer is reading. ``translateY(-50%)`` only adjusts the icon's
+  own bounding box; layout stays locked.
+*/
 .team-serve {
     position: absolute;
-    top: 50%;
+    top: 64%;
     transform: translateY(-50%);
     width: 18px;
     height: 18px;
@@ -265,10 +287,55 @@ html, body {
     .team-serve { animation: none; }
 }
 
+/*
+  Centre column owns the "shared" indicators: the sets-won pair
+  (both teams, top of the column) and the current SET label
+  (lower, near the score line). Stacked vertically with a tight
+  gap so the column reads ``2 – 1`` → ``SETS`` → ``SET 3`` from
+  top to bottom without crowding either team's score.
+*/
 .set-divider {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    gap: 2px;
+    padding-top: 4px;
+    min-width: 64px;
+}
+
+.sets-pair {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 1.8rem;
+    font-weight: 900;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.sets-pair-home { color: var(--team1-color); }
+.sets-pair-away { color: var(--team2-color); }
+.sets-pair-sep {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 1.4rem;
+}
+
+.sets-pair-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+/*
+  Push the SET label down so it sits closer to the score line
+  rather than hugging the sets pair above.
+*/
+.set-divider .set-label {
+    margin-top: 28px;
 }
 
 .set-label {
