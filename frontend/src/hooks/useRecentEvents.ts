@@ -75,16 +75,16 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
     // The strip is a "current state activity" indicator — undo
     // records have no on-screen counterpart (the matching forward
     // was tombstoned by ``pop_last_forward``), so surfacing the
-    // struck chip alone would float without context. Skip them
-    // entirely and let the history drawer / printable report keep
-    // their forensic timeline. The ``prevSets`` / ``prevMatchFinished``
-    // trackers below also stay frozen on undo records, so an undone
-    // set-winning point does not inject a leftover ``set_won`` chip
-    // on the next refetch.
-    if (undo) continue;
+    // struck chip alone would float without context. Skip emitting
+    // a chip but still let the state trackers (``prevSets``,
+    // ``prevMatchFinished``, ``lastScore``) advance below — if we
+    // bailed out of the iteration entirely, a subsequent forward
+    // would diff against a stale baseline and silently lose its
+    // chip (e.g. an undone set-winning point followed by a fresh
+    // set-winning point would no longer emit the trophy).
 
     // ── Action-driven chips ────────────────────────────────────────
-    if (validTeam) {
+    if (validTeam && !undo) {
       const t = team as 1 | 2;
       switch (r.action) {
         case 'add_point':

@@ -734,6 +734,86 @@ describe('useRecentEvents', () => {
     expect(result.current[1]).toMatchObject({ ts: 4, team: 1, kind: 'point_add' });
   });
 
+  it('still emits set_won for a forward after an interposed undo (state trackers stay in sync)', async () => {
+    // Regression guard: an undo record between two set-winning
+    // forwards must update the ``prevSets`` baseline so the
+    // *second* forward's diff fires. If undo records short-circuit
+    // the loop, the second forward would diff against the stale
+    // pre-undo baseline (same sets count) and lose its star chip.
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 3,
+      records: [
+        // Set-winning point — anchors prevSets to {1: 1}.
+        rec(1, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 25, sets: 1 },
+          team_2: { score: 20, sets: 0 },
+        }),
+        // Undo that set win — post-state sets back to 0. Must
+        // update prevSets even though no chip is emitted.
+        rec(2, 'add_point', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 24, sets: 0 },
+          team_2: { score: 20, sets: 0 },
+        }),
+        // Fresh set-winning point — diff vs prevSets {1: 0} must
+        // fire the trophy.
+        rec(3, 'add_point', { team: 1 }, {
+          score_set: 1,
+          team_1: { score: 25, sets: 1 },
+          team_2: { score: 20, sets: 0 },
+        }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useRecentEvents('oid', true, makeState(25, 20, 1, 0), 8),
+    );
+    await waitFor(() => expect(result.current).toHaveLength(3));
+    expect(result.current[0]).toMatchObject({ ts: 1, team: 1, kind: 'point_add' });
+    expect(result.current[1]).toMatchObject({ ts: 3, team: 1, kind: 'point_add' });
+    expect(result.current[2]).toMatchObject({ ts: 3, team: 1, kind: 'set_won' });
+  });
+
+  it('still emits manual chips for a forward after an interposed undo (lastScore tracker stays in sync)', async () => {
+    // Companion to the set_won regression test: ``lastScore`` must
+    // also advance through undo records so a follow-up ``set_score``
+    // chip fires when the typed value differs from the current
+    // (post-undo) score.
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 3,
+      records: [
+        // Operator types 5 → manual chip.
+        rec(1, 'set_score', { team: 1, set_number: 1, value: 5 }, {
+          score_set: 1,
+          team_1: { score: 5, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+        // Undo the point that took them to 5 — post-state 4.
+        // Tracker must advance to 4 so the next set_score's diff
+        // is computed against 4, not against the stale 5.
+        rec(2, 'add_point', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 4, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+        // Operator types 7 — differs from the post-undo 4 → chip.
+        rec(3, 'set_score', { team: 1, set_number: 1, value: 7 }, {
+          score_set: 1,
+          team_1: { score: 7, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+      ],
+    });
+    const { result } = renderHook(() =>
+      useRecentEvents('oid', true, makeState(7, 0), 8),
+    );
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    expect(result.current[0]).toMatchObject({ team: 1, kind: 'manual', value: 5 });
+    expect(result.current[1]).toMatchObject({ team: 1, kind: 'manual', value: 7 });
+  });
+
   it('clears events on fetch error', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     getAuditSpy.mockRejectedValue(new Error('boom'));
