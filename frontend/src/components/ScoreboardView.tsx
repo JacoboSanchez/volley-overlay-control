@@ -3,7 +3,7 @@ import { useI18n } from '../i18n';
 import TeamPanel from './TeamPanel';
 import CenterPanel from './CenterPanel';
 import ControlButtons from './ControlButtons';
-import type { GameState, LiveStatsPoint } from '../api/client';
+import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import type { PreviewData } from './CenterPanel';
 import type { ScoreButtonFontStyle } from './ScoreButton';
@@ -25,13 +25,6 @@ export interface ScoreboardViewProps {
   previewData: PreviewData | null | undefined;
   showPreview: boolean;
   recentEvents: RecentEvent[];
-  /**
-   * Optional points history (running scores) for the momentum
-   * sparkline rendered below the recent-events strip. Empty / absent
-   * when the preview is showing (we hide the sparkline there) or
-   * stats are still loading.
-   */
-  momentumHistory?: LiveStatsPoint[];
   /**
    * True on landscape phones (no room for persistent controls). The
    * centre column then uses a tighter layout and a smaller preview so
@@ -79,7 +72,6 @@ export default function ScoreboardView({
   previewData,
   showPreview,
   recentEvents,
-  momentumHistory,
   compactLandscape = false,
   showControls,
   setShowControls,
@@ -149,7 +141,6 @@ export default function ScoreboardView({
           compactLandscape={compactLandscape}
           previewData={showPreview ? previewData : null}
           recentEvents={recentEvents}
-          momentumHistory={momentumHistory}
           btnColorA={btnColorA}
           btnTextA={btnTextA}
           btnColorB={btnColorB}

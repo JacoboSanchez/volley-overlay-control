@@ -29,12 +29,6 @@ once a first tagged release ships.
   per-set durations and the longest-rally proxy. External
   integrators (coach apps, dashboards, secondary panels) can read
   the live report block without polling the audit log directly.
-- **Momentum sparkline in the operator control UI.** Compact area
-  chart (SVG, no dependencies) that visualises the point
-  differential of the current match. Renders below the recent-
-  events strip in the centre column whenever the overlay preview
-  is hidden; uses the operator's team-button colours so it
-  respects the existing followTeamColors / custom palette toggles.
 - **Public spectator page at `/follow/{overlay_id}`.** Mobile-first
   read-only follow view that consumes the same `/ws/{output_key}`
   feed as the OBS templates. Renders a big scoreboard, a current-set

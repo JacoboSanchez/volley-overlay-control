@@ -3,7 +3,6 @@ import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
 import { useRecentEvents } from './hooks/useRecentEvents';
-import { useLiveStats } from './hooks/useLiveStats';
 import { useSettings } from './hooks/useSettings';
 import { useOrientation } from './hooks/useOrientation';
 import { usePreview } from './hooks/usePreview';
@@ -172,15 +171,6 @@ export default function App() {
     confirmedState,
     compactLandscape ? 5 : 8,
   );
-
-  // Momentum sparkline data. Only fetched when the preview is hidden
-  // (the centre column slot the sparkline shares with the strip).
-  // ``confirmedState`` triggers the refetch so we don't race ahead of
-  // the audit log after an optimistic add_point.
-  const liveStats = useLiveStats(oid, !settings.showPreview, {
-    trigger: confirmedState,
-    limit: 20,
-  });
 
   // Reveal the bar when the viewport gains room for it (e.g. phone→tablet
   // resize). Kept in its own effect so the manual hide toggle still works
@@ -548,7 +538,6 @@ export default function App() {
           previewData={previewData}
           showPreview={settings.showPreview}
           recentEvents={recentEvents}
-          momentumHistory={liveStats.stats?.points_history ?? []}
           // Landscape phones (no room for persistent controls) need the
           // preview shrunk so the alert pills below it don't get pushed
           // off the bottom of the viewport.

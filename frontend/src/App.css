@@ -668,22 +668,6 @@ body {
 
 /* ── Points history strip ──────────────────────────────────────────── */
 
-/* Wrap around MomentumSparkline (rendered below the points-history
- * strip when the preview is hidden). Centred so the SVG visually
- * aligns with the strip above it; uses ``currentColor`` so the
- * polyline picks up the surrounding text colour. */
-.momentum-sparkline-wrap {
-  display: flex;
-  justify-content: center;
-  padding: 4px 8px 8px;
-  color: var(--text);
-  opacity: 0.85;
-}
-
-.momentum-sparkline {
-  display: block;
-}
-
 /* Renders in place of the overlay preview when the user disables the
  * preview. Two rows (one per team) of fixed-width cells; each cell
  * holds either an action chip on the team's row or empty space on
