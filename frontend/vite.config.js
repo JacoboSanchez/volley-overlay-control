@@ -104,6 +104,12 @@ export default defineConfig(async () => ({
           // would serve the SPA shell and the operator would land back on
           // the scoreboard instead of the report / index page.
           /^\/match(es)?(\/|\?|$)/,
+          // Public spectator (follow) page is server-rendered Jinja
+          // — it must reach the backend so the WS hand-off resolves
+          // the overlay id. Without this entry the SW would replay
+          // the SPA shell and a fan opening the share URL would see
+          // the operator's scoreboard instead of the read-only view.
+          /^\/follow(\/|\?|$)/,
         ],
         runtimeCaching: [
           {

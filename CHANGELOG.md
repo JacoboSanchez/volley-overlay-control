@@ -10,17 +10,20 @@ once a first tagged release ships.
 
 ### Added
 
-- **Live stats + points-history visualization on the dedicated
-  overlay page** (the one OBS captures and the new `/follow/{id}`
-  spectator page). Two new per-overlay toggles in the Config panel
-  ("Show live stats" and "Show points history") enrich the overlay
-  WebSocket broadcast with a stats summary (current streak, longest
-  streak, partial comeback, total points) and a 30-point trajectory
-  strip. Both default OFF so existing overlays render unchanged
-  after upgrade. The data is computed from the per-OID audit log
-  via the new `app.api.live_stats.compute_live_stats` helper, so
-  the live numbers reconcile with the printed match report — no
-  second source of truth to drift.
+- **Live stats + points-history in the overlay WebSocket broadcast.**
+  Every overlay state push now carries a stats summary (current
+  streak, longest streak, partial comeback, total points) and a
+  30-point trajectory in `overlay_control.stats` and
+  `overlay_control.points_history`. The two per-overlay Config-panel
+  toggles ("Show live stats" / "Show points history") gate whether
+  the OBS overlay app.js *renders* the panels (default OFF so
+  existing overlays look unchanged after upgrade); the data itself
+  is always present so the `/follow/{id}` spectator page and other
+  consumers can read it regardless of operator display preferences.
+  The data is computed from the per-OID audit log via the new
+  `app.api.live_stats.compute_live_stats` helper, so the live
+  numbers reconcile with the printed match report — no second
+  source of truth to drift.
 - **`GET /api/v1/matches/live/stats?oid=X&limit=N` endpoint.**
   Returns the same stats payload powering the overlay panel, plus
   per-set durations and the longest-rally proxy. External
@@ -34,13 +37,19 @@ once a first tagged release ships.
   respects the existing followTeamColors / custom palette toggles.
 - **Public spectator page at `/follow/{overlay_id}`.** Mobile-first
   read-only follow view that consumes the same `/ws/{output_key}`
-  feed as the OBS templates. Renders a big scoreboard, set-history
-  table, the live stats panel, and the points trajectory strip — so
-  a fan can track the match from their phone without OBS. Resolves
-  by either the raw overlay id or its short output key, matches
-  the same access model as `/overlay/{id}` (public read), and is
-  marked `noindex,nofollow` so the page doesn't leak into search
-  engines.
+  feed as the OBS templates. Renders a big scoreboard, a current-set
+  score-progression chart (two-series SVG line plot of running scores
+  vs. event index, with auto-scaled Y-axis ticks), set-history table,
+  live stats panel, and the points trajectory strip — so a fan can
+  track the match from their phone without OBS. Resolves by either
+  the raw overlay id or its short output key, matches the same
+  access model as `/overlay/{id}` (public read), and is marked
+  `noindex,nofollow` so the page doesn't leak into search engines.
+  Excluded from the PWA `navigateFallback` denylist so a shared URL
+  reaches the backend instead of the SPA shell. Serve indicator is
+  a pulsing volleyball-icon badge ("SERVE" + ball SVG) under the
+  serving team's name — readable at a glance instead of a single
+  bullet character.
 - **Keyboard shortcuts for the operator.** New `useKeyboardShortcuts`
   hook + `ShortcutsHelp` dialog covering the high-frequency
   actions: `A` / `B` add point, `Z` undo, `1` / `2` change serve,

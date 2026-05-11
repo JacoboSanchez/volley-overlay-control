@@ -18,21 +18,55 @@
         <section class="spectator-scoreboard" aria-label="Scoreboard">
             <div class="team team-home">
                 <div class="team-logo"><img id="team1-logo" alt=""></div>
-                <div class="team-name" id="team1-name">Team 1</div>
+                <div class="team-name-row">
+                    <span class="team-name" id="team1-name">Team 1</span>
+                    <span class="serve-badge" id="team1-serve" hidden aria-label="Serving">
+                        <svg class="serve-ball" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1.2"/>
+                            <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
+                                  fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                        <span class="serve-label">SERVE</span>
+                    </span>
+                </div>
                 <div class="team-sets" id="team1-sets">0</div>
                 <div class="team-score" id="team1-score">0</div>
-                <div class="team-serve" id="team1-serve" hidden>•</div>
             </div>
             <div class="set-divider">
                 <div class="set-label" id="set-label">SET 1</div>
             </div>
             <div class="team team-away">
                 <div class="team-logo"><img id="team2-logo" alt=""></div>
-                <div class="team-name" id="team2-name">Team 2</div>
+                <div class="team-name-row">
+                    <span class="team-name" id="team2-name">Team 2</span>
+                    <span class="serve-badge" id="team2-serve" hidden aria-label="Serving">
+                        <svg class="serve-ball" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1.2"/>
+                            <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
+                                  fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                        <span class="serve-label">SERVE</span>
+                    </span>
+                </div>
                 <div class="team-sets" id="team2-sets">0</div>
                 <div class="team-score" id="team2-score">0</div>
-                <div class="team-serve" id="team2-serve" hidden>•</div>
             </div>
+        </section>
+
+        <section class="spectator-set-chart" aria-label="Current set score progression" id="set-chart-section">
+            <div class="set-chart-header">
+                <span class="set-chart-title">Set progression</span>
+                <span class="set-chart-legend">
+                    <span class="legend-item"><span class="legend-swatch" id="legend-swatch-home"></span><span id="legend-name-home">Team 1</span></span>
+                    <span class="legend-item"><span class="legend-swatch" id="legend-swatch-away"></span><span id="legend-name-away">Team 2</span></span>
+                </span>
+            </div>
+            <svg class="set-chart-svg" id="set-chart-svg" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true">
+                <g id="set-chart-grid"></g>
+                <path id="set-chart-line-home" class="set-chart-line set-chart-line-home" />
+                <path id="set-chart-line-away" class="set-chart-line set-chart-line-away" />
+            </svg>
+            <div class="set-chart-empty" id="set-chart-empty">Waiting for the first point of the set…</div>
         </section>
 
         <section class="spectator-history" aria-label="Set history">
