@@ -137,7 +137,7 @@ export default function App() {
   // from either surface).
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState<{
-    control?: string; overlay?: string; preview?: string;
+    control?: string; overlay?: string; preview?: string; follow?: string;
   } | null>(null);
 
   // Recent-audit drawer: a non-modal slide-in panel that surfaces
@@ -351,6 +351,7 @@ export default function App() {
           control: typeof links?.control === 'string' ? links.control : '',
           overlay: typeof links?.overlay === 'string' ? links.overlay : '',
           preview: typeof links?.preview === 'string' ? links.preview : '',
+          follow: typeof links?.follow === 'string' ? links.follow : '',
         });
       } catch {
         // Empty links surface as the "No links available" fallback

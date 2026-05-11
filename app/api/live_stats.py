@@ -54,25 +54,19 @@ def _current_streak(audit: list[dict[str, Any]]) -> dict[str, Any]:
     return {"team": streak_team, "n": streak_n, "set": streak_set}
 
 
-def _recent_points(
-    audit: list[dict[str, Any]],
-    limit: int,
-) -> list[dict[str, Any]]:
-    """Return the last *limit* scoring events in chronological order.
+def _scoring_events(audit: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Walk the audit once and return all scoring events as flat dicts.
 
-    Each entry is a small flat dict suitable for direct broadcast to
-    overlay clients::
+    Each entry has::
 
         {"team": 1, "set": 2, "ts": 1714508400.5,
-         "score": [12, 9]}
+         "score": [12, 9], "action": "add_point"}
 
     ``set_score`` (manual override) events are included because they
-    still mutate the visible scoreboard; the overlay tile renders them
-    as "edit" chips. Both halves of undo pairs are already filtered by
-    :func:`action_log.read_all`.
+    still mutate the visible scoreboard; consumers can render them
+    differently (chip-style "edit" markers). Both halves of undo
+    pairs are already filtered out by :func:`action_log.read_all`.
     """
-    if limit <= 0:
-        return []
     out: list[dict[str, Any]] = []
     for r in audit:
         if (r.get("params") or {}).get("undo"):
@@ -96,7 +90,39 @@ def _recent_points(
                 "action": action,
             }
         )
-    return out[-limit:]
+    return out
+
+
+def _recent_points(
+    events: list[dict[str, Any]],
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Return the last *limit* scoring events in chronological order."""
+    if limit <= 0:
+        return []
+    return events[-limit:]
+
+
+def _points_by_set(
+    events: list[dict[str, Any]],
+    per_set_limit: int,
+) -> dict[int, list[dict[str, Any]]]:
+    """Group scoring events by set number, capped at *per_set_limit* per set.
+
+    Used by the spectator (follow) page to render a navigable score-
+    progression chart per set. Events without a ``set`` field (very
+    old audit records) collapse into bucket ``0`` so the renderer can
+    skip them cleanly.
+    """
+    out: dict[int, list[dict[str, Any]]] = {}
+    for ev in events:
+        set_num = ev.get("set")
+        key = set_num if isinstance(set_num, int) and set_num > 0 else 0
+        bucket = out.setdefault(key, [])
+        if len(bucket) < per_set_limit:
+            bucket.append(ev)
+    out.pop(0, None)
+    return out
 
 
 def compute_live_stats(
@@ -121,6 +147,7 @@ def compute_live_stats(
     """
     audit = action_log.read_all(oid)
     base = _compute_stats(audit)
+    events = _scoring_events(audit)
     return {
         "oid": oid,
         "audit_count": sum(
@@ -133,5 +160,9 @@ def compute_live_stats(
         "longest_rally": base["longest_rally"],
         "total_points": base["total_points"],
         "set_durations": base["set_durations"],
-        "points_history": _recent_points(audit, history_limit),
+        "points_history": _recent_points(events, history_limit),
+        # Per-set buckets capped at 60 events (more than enough for
+        # any indoor or beach set, including extreme deuce stretches).
+        # Used by the spectator page to render past sets on demand.
+        "points_by_set": _points_by_set(events, per_set_limit=60),
     }

@@ -317,6 +317,13 @@ class Backend:
             payload["overlay_control"]["points_history"] = stats[
                 "points_history"
             ]
+            # Per-set bucketed events, stringified keys so the JSON
+            # broadcast survives round-trip without key-type churn.
+            # Consumed by the spectator (/follow) page to render past
+            # sets via prev/next navigation.
+            payload["overlay_control"]["points_by_set"] = {
+                str(k): v for k, v in stats["points_by_set"].items()
+            }
         except Exception as exc:  # pragma: no cover - defensive
             Backend.logger.warning(
                 "Failed to compute live stats for overlay payload: %s", exc

@@ -115,6 +115,35 @@ class TestPointsHistory:
         assert stats["audit_count"] == 1
 
 
+class TestPointsBySet:
+    def test_empty_audit_returns_empty_mapping(self):
+        stats = compute_live_stats("nobody")
+        assert stats["points_by_set"] == {}
+
+    def test_buckets_events_by_set_number(self):
+        oid = "per-set"
+        _add_point(oid, 1, (1, 0), set_num=1)
+        _add_point(oid, 2, (1, 1), set_num=1)
+        _add_point(oid, 1, (1, 0), set_num=2)
+        _add_point(oid, 1, (2, 0), set_num=2)
+        _add_point(oid, 2, (2, 1), set_num=2)
+        stats = compute_live_stats(oid)
+        per_set = stats["points_by_set"]
+        assert sorted(per_set.keys()) == [1, 2]
+        assert len(per_set[1]) == 2
+        assert len(per_set[2]) == 3
+        # Last event in set 2 lands at 2-1 — chronological order preserved.
+        assert per_set[2][-1]["score"] == [2, 1]
+
+    def test_per_set_cap_drops_overflow(self):
+        oid = "per-set-cap"
+        # 70 events in set 1, the cap is 60 → only first 60 are kept.
+        for i in range(1, 71):
+            _add_point(oid, 1, (i, 0), set_num=1)
+        stats = compute_live_stats(oid)
+        assert len(stats["points_by_set"][1]) == 60
+
+
 class TestAuditCount:
     def test_audit_count_excludes_undo_records(self):
         oid = "count-undo"

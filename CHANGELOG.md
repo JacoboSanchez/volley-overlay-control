@@ -31,19 +31,47 @@ once a first tagged release ships.
   the live report block without polling the audit log directly.
 - **Public spectator page at `/follow/{overlay_id}`.** Mobile-first
   read-only follow view that consumes the same `/ws/{output_key}`
-  feed as the OBS templates. Renders a big scoreboard, a current-set
-  score-progression chart (two-series SVG line plot of running scores
-  vs. event index, with auto-scaled Y-axis ticks), set-history table,
-  live stats panel, and the points trajectory strip — so a fan can
-  track the match from their phone without OBS. Resolves by either
-  the raw overlay id or its short output key, matches the same
-  access model as `/overlay/{id}` (public read), and is marked
-  `noindex,nofollow` so the page doesn't leak into search engines.
-  Excluded from the PWA `navigateFallback` denylist so a shared URL
-  reaches the backend instead of the SPA shell. Serve indicator is
-  a pulsing volleyball-icon badge ("SERVE" + ball SVG) under the
-  serving team's name — readable at a glance instead of a single
-  bullet character.
+  feed as the OBS templates. Surfaced via the operator's share
+  dialog (`/api/v1/links` now returns a ``follow`` URL alongside
+  control / overlay / preview) so the operator never has to
+  hand-build the URL. Resolves by either the raw overlay id or
+  its short output key and is excluded from the PWA
+  ``navigateFallback`` denylist so a shared URL hits the backend
+  Jinja route instead of the SPA shell. Marked
+  ``noindex,nofollow`` so the page doesn't leak into search
+  engines.
+  - **Serve indicator** is an absolutely-positioned pulsing
+    volleyball icon docked at the inner edge of the serving
+    team's cell (toward the centre divider). Position is fixed,
+    so toggling the indicator no longer reflows the layout the
+    way the previous under-name badge did.
+  - **Set progression chart** has explicit per-team stroke
+    colours pulled from the brand palette (no
+    ``currentColor`` collapse), a dark plot background
+    distinct from the surrounding panel, and dashed grid lines
+    with high-contrast tick labels. Up to 5 evenly-spaced Y
+    ticks render the running score scale, deduped when the set
+    is fresh so the axis never repeats ``0``.
+  - **Set navigation** lets the viewer step back through past
+    sets via prev / next buttons or by clicking any cell in the
+    set-history table. The chart freezes on the chosen set
+    until the operator advances back to "live"; the active set
+    is highlighted in the history table and the header reads
+    ``Set N · live`` when tracking the current set.
+  - **Per-set data** is now broadcast as
+    ``overlay_control.points_by_set`` (full per-set arrays,
+    capped at 60 events per set) so the spectator chart can
+    render historical sets without a second fetch. The
+    existing ``points_history`` (last-30 flat list) is
+    preserved for the OBS overlay strip.
+  - **Internationalisation:** every string on the spectator
+    page is translated for en / es / pt / it / fr / de. The
+    page reads the locale from ``?lang=`` first, then
+    ``navigator.language``, then falls back to English.
+  - The previous bottom "points trajectory" chip strip was
+    removed: the set-progression chart covers the same
+    information with context (which set, what scale, who's
+    leading).
 - **Keyboard shortcuts for the operator.** New `useKeyboardShortcuts`
   hook + `ShortcutsHelp` dialog covering the high-frequency
   actions: `A` / `B` add point, `Z` undo, `1` / `2` change serve,

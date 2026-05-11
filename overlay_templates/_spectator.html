@@ -5,68 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <meta name="theme-color" content="#111">
     <meta name="robots" content="noindex,nofollow">
-    <title>Follow — {{ target_id }}</title>
+    <title>{{ target_id }}</title>
     <link rel="stylesheet" href="/static/css/spectator.css?v={{ v }}">
 </head>
 <body>
     <header class="spectator-header">
-        <div class="spectator-title" id="match-title">— vs —</div>
-        <div class="spectator-status" id="conn-status" aria-live="polite">connecting…</div>
+        <div class="spectator-title" id="match-title">—</div>
+        <div class="spectator-status" id="conn-status" aria-live="polite" data-i18n="status.connecting"></div>
     </header>
 
     <main class="spectator-main">
         <section class="spectator-scoreboard" aria-label="Scoreboard">
             <div class="team team-home">
+                <span class="team-serve serve-home" id="team1-serve" hidden aria-label="Serving">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="#fbbf24" stroke="#1f1300" stroke-width="1.4"/>
+                        <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
+                              fill="none" stroke="#1f1300" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                </span>
                 <div class="team-logo"><img id="team1-logo" alt=""></div>
-                <div class="team-name-row">
-                    <span class="team-name" id="team1-name">Team 1</span>
-                    <span class="serve-badge" id="team1-serve" hidden aria-label="Serving">
-                        <svg class="serve-ball" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1.2"/>
-                            <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
-                                  fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round"/>
-                        </svg>
-                        <span class="serve-label">SERVE</span>
-                    </span>
-                </div>
-                <div class="team-sets" id="team1-sets">0</div>
+                <div class="team-name" id="team1-name">Team 1</div>
+                <div class="team-sets"><span class="team-sets-label" data-i18n="board.sets"></span> <span id="team1-sets">0</span></div>
                 <div class="team-score" id="team1-score">0</div>
             </div>
             <div class="set-divider">
-                <div class="set-label" id="set-label">SET 1</div>
+                <div class="set-label" id="set-label" data-i18n-tpl="board.setLabel" data-arg-set="1"></div>
             </div>
             <div class="team team-away">
+                <span class="team-serve serve-away" id="team2-serve" hidden aria-label="Serving">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="#fbbf24" stroke="#1f1300" stroke-width="1.4"/>
+                        <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
+                              fill="none" stroke="#1f1300" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                </span>
                 <div class="team-logo"><img id="team2-logo" alt=""></div>
-                <div class="team-name-row">
-                    <span class="team-name" id="team2-name">Team 2</span>
-                    <span class="serve-badge" id="team2-serve" hidden aria-label="Serving">
-                        <svg class="serve-ball" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1.2"/>
-                            <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
-                                  fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round"/>
-                        </svg>
-                        <span class="serve-label">SERVE</span>
-                    </span>
-                </div>
-                <div class="team-sets" id="team2-sets">0</div>
+                <div class="team-name" id="team2-name">Team 2</div>
+                <div class="team-sets"><span class="team-sets-label" data-i18n="board.sets"></span> <span id="team2-sets">0</span></div>
                 <div class="team-score" id="team2-score">0</div>
             </div>
         </section>
 
-        <section class="spectator-set-chart" aria-label="Current set score progression" id="set-chart-section">
+        <section class="spectator-set-chart" aria-label="Set progression">
             <div class="set-chart-header">
-                <span class="set-chart-title">Set progression</span>
-                <span class="set-chart-legend">
-                    <span class="legend-item"><span class="legend-swatch" id="legend-swatch-home"></span><span id="legend-name-home">Team 1</span></span>
-                    <span class="legend-item"><span class="legend-swatch" id="legend-swatch-away"></span><span id="legend-name-away">Team 2</span></span>
+                <span class="set-chart-title" data-i18n="chart.title"></span>
+                <div class="set-chart-nav">
+                    <button type="button" class="set-chart-nav-btn" id="set-prev" aria-label="Previous set">‹</button>
+                    <span class="set-chart-nav-label" id="set-nav-label">Set 1</span>
+                    <button type="button" class="set-chart-nav-btn" id="set-next" aria-label="Next set">›</button>
+                </div>
+            </div>
+            <div class="set-chart-legend">
+                <span class="legend-item">
+                    <span class="legend-swatch" id="legend-swatch-home"></span>
+                    <span id="legend-name-home">Team 1</span>
+                </span>
+                <span class="legend-item">
+                    <span class="legend-swatch" id="legend-swatch-away"></span>
+                    <span id="legend-name-away">Team 2</span>
                 </span>
             </div>
-            <svg class="set-chart-svg" id="set-chart-svg" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true">
+            <svg class="set-chart-svg" id="set-chart-svg" viewBox="0 0 600 180" preserveAspectRatio="none" aria-hidden="true">
                 <g id="set-chart-grid"></g>
                 <path id="set-chart-line-home" class="set-chart-line set-chart-line-home" />
                 <path id="set-chart-line-away" class="set-chart-line set-chart-line-away" />
             </svg>
-            <div class="set-chart-empty" id="set-chart-empty">Waiting for the first point of the set…</div>
+            <div class="set-chart-empty" id="set-chart-empty" data-i18n="chart.empty"></div>
         </section>
 
         <section class="spectator-history" aria-label="Set history">
@@ -84,14 +89,10 @@
             <div class="stats-row" id="stats-totals"></div>
             <div class="stats-row" id="stats-comeback"></div>
         </section>
-
-        <section class="spectator-points" aria-label="Points trajectory">
-            <div class="points-track" id="points-track"></div>
-        </section>
     </main>
 
     <footer class="spectator-footer">
-        Live updates · {{ target_id }}
+        <span data-i18n="footer.label"></span> · {{ target_id }}
     </footer>
 
     <script>
