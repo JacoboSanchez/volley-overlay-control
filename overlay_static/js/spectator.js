@@ -263,7 +263,14 @@
         let str = bundle[key] || TRANSLATIONS.en[key] || key;
         if (args) {
             for (const k in args) {
-                str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), args[k]);
+                // ``split/join`` treats the replacement as a literal,
+                // so a value containing ``$&``, ``$1`` or any other
+                // ``RegExp``-replacement special sequence (a team
+                // name or score string is operator-supplied) renders
+                // verbatim instead of getting substituted by the
+                // browser. Same reason the React-side ``t()`` helper
+                // avoids ``String.replace`` here.
+                str = str.split('{' + k + '}').join(String(args[k]));
             }
         }
         return str;
