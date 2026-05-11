@@ -41,11 +41,12 @@
             'history.team': 'Team',
             'stats.totals': 'Total points',
             'stats.services.label': 'Services won',
-            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
+            'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Streak',
-            'stats.streak.value': '{name} · {n} in a row',
+            'stats.streak.cell': '{n}',
+            'stats.longest.label': 'Longest streak',
             'stats.comeback.label': 'Comeback',
-            'stats.comeback.value': '{name} · -{n}',
+            'stats.comeback.cell': '-{n}',
             'footer.label': 'Live updates',
         },
         es: {
@@ -74,11 +75,12 @@
             'history.team': 'Equipo',
             'stats.totals': 'Puntos totales',
             'stats.services.label': 'Saques ganados',
-            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
+            'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Racha',
-            'stats.streak.value': '{name} · {n} seguidos',
+            'stats.streak.cell': '{n}',
+            'stats.longest.label': 'Racha más larga',
             'stats.comeback.label': 'Remontada',
-            'stats.comeback.value': '{name} · -{n}',
+            'stats.comeback.cell': '-{n}',
             'footer.label': 'Actualización en vivo',
         },
         pt: {
@@ -107,11 +109,12 @@
             'history.team': 'Equipa',
             'stats.totals': 'Pontos totais',
             'stats.services.label': 'Serviços ganhos',
-            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
+            'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Sequência',
-            'stats.streak.value': '{name} · {n} seguidos',
+            'stats.streak.cell': '{n}',
+            'stats.longest.label': 'Sequência mais longa',
             'stats.comeback.label': 'Recuperação',
-            'stats.comeback.value': '{name} · -{n}',
+            'stats.comeback.cell': '-{n}',
             'footer.label': 'Atualizações ao vivo',
         },
         it: {
@@ -140,11 +143,12 @@
             'history.team': 'Squadra',
             'stats.totals': 'Punti totali',
             'stats.services.label': 'Servizi vinti',
-            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
+            'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Serie',
-            'stats.streak.value': '{name} · {n} di fila',
+            'stats.streak.cell': '{n}',
+            'stats.longest.label': 'Serie più lunga',
             'stats.comeback.label': 'Rimonta',
-            'stats.comeback.value': '{name} · -{n}',
+            'stats.comeback.cell': '-{n}',
             'footer.label': 'Aggiornamenti in diretta',
         },
         fr: {
@@ -173,11 +177,12 @@
             'history.team': 'Équipe',
             'stats.totals': 'Points totaux',
             'stats.services.label': 'Services gagnés',
-            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
+            'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Série',
-            'stats.streak.value': '{name} · {n} d’affilée',
+            'stats.streak.cell': '{n}',
+            'stats.longest.label': 'Plus longue série',
             'stats.comeback.label': 'Remontée',
-            'stats.comeback.value': '{name} · -{n}',
+            'stats.comeback.cell': '-{n}',
             'footer.label': 'Mises à jour en direct',
         },
         de: {
@@ -206,11 +211,12 @@
             'history.team': 'Team',
             'stats.totals': 'Punkte gesamt',
             'stats.services.label': 'Aufschläge gewonnen',
-            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
+            'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Serie',
-            'stats.streak.value': '{name} · {n} in Folge',
+            'stats.streak.cell': '{n}',
+            'stats.longest.label': 'Längste Serie',
             'stats.comeback.label': 'Aufholjagd',
-            'stats.comeback.value': '{name} · -{n}',
+            'stats.comeback.cell': '-{n}',
             'footer.label': 'Live-Updates',
         },
     };
@@ -326,6 +332,70 @@
         valueEl.textContent = value;
         row.appendChild(labelEl);
         row.appendChild(valueEl);
+    }
+
+    // ── Chart-color collision handling ─────────────────────────────
+    //
+    // When both teams' brand colours land on essentially the same hue
+    // the chart lines collapse to a single visible trace. We mirror the
+    // print-side ``_ensure_distinct_chart_colors`` helper from
+    // ``app/match_report.py``: if the two colours are within a small
+    // RGB euclidean distance, swap the away team's chart colour for
+    // the fallback that's farthest from the home colour, AND apply a
+    // dashed stroke to the away line so even an extreme edge case
+    // (two reds + a red fallback) still reads as two distinct lines.
+
+    const COLOR_FALLBACK = ['#0047AB', '#E21836'];
+    // Threshold tuned empirically on the brand palettes that ship in
+    // the bundled themes: differences below ~60 RGB units (e.g. two
+    // reds that only differ in saturation) read as the same colour
+    // when drawn at 2.4px stroke width on a dark background.
+    const COLOR_COLLISION_THRESHOLD = 60;
+
+    function hexToRgb(hex) {
+        if (typeof hex !== 'string') return null;
+        const m = hex.replace(/^#/, '');
+        if (!/^[0-9a-fA-F]+$/.test(m)) return null;
+        if (m.length === 3) {
+            return [
+                parseInt(m[0] + m[0], 16),
+                parseInt(m[1] + m[1], 16),
+                parseInt(m[2] + m[2], 16),
+            ];
+        }
+        if (m.length === 6) {
+            return [
+                parseInt(m.slice(0, 2), 16),
+                parseInt(m.slice(2, 4), 16),
+                parseInt(m.slice(4, 6), 16),
+            ];
+        }
+        return null;
+    }
+
+    function colorDistance(a, b) {
+        const ra = hexToRgb(a);
+        const rb = hexToRgb(b);
+        if (!ra || !rb) return Infinity;
+        const dr = ra[0] - rb[0];
+        const dg = ra[1] - rb[1];
+        const db = ra[2] - rb[2];
+        return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    function resolveChartColors(homeColor, awayColor) {
+        const dist = colorDistance(homeColor, awayColor);
+        if (dist > COLOR_COLLISION_THRESHOLD) {
+            return { home: homeColor, away: awayColor, collision: false };
+        }
+        // Pick the fallback whose distance to the home colour is largest
+        // — guarantees the chosen swap is the most visually distinct
+        // option in the small fallback palette.
+        const fb = colorDistance(homeColor, COLOR_FALLBACK[0])
+            >= colorDistance(homeColor, COLOR_FALLBACK[1])
+            ? COLOR_FALLBACK[0]
+            : COLOR_FALLBACK[1];
+        return { home: homeColor, away: fb, collision: true };
     }
 
     // ── Local state ────────────────────────────────────────────────
@@ -467,12 +537,12 @@
             'match-title',
             `${home.name || 'Team 1'} · ${away.name || 'Team 2'}`,
         );
+        // Legend swatches mirror the *resolved* chart colours so any
+        // collision fallback applied in renderSetChart shows up in
+        // the legend too. We just sync the names here; the swatch
+        // colours are written by renderSetChart.
         setText('legend-name-home', home.name || 'Team 1');
         setText('legend-name-away', away.name || 'Team 2');
-        const swHome = $('legend-swatch-home');
-        if (swHome) swHome.style.background = homeColor;
-        const swAway = $('legend-swatch-away');
-        if (swAway) swAway.style.background = awayColor;
     }
 
     // ── Render: set history table (clickable rows) ─────────────────
@@ -540,69 +610,116 @@
 
     // ── Render: live stats ─────────────────────────────────────────
 
+    /*
+     * Per-team stats grid. Each row has three cells (home value /
+     * label / away value). Rows where neither team has a value
+     * collapse via the ``data-empty="true"`` flag so the panel never
+     * shows "—" for both columns. Stats that only apply to one team
+     * (current streak, longest streak, comeback) leave the other
+     * team's cell muted with an em-dash so the column alignment
+     * stays stable across consecutive renders.
+     */
+    function setTeamCell(id, value, muted) {
+        const el = $(id);
+        if (!el) return;
+        el.textContent = value;
+        if (muted) el.classList.add('muted');
+        else el.classList.remove('muted');
+    }
+
     function renderStats(broadcast) {
         const oc = broadcast.overlay_control || {};
         const stats = oc.stats || {};
         const cs = stats.current_streak || {};
+        const ls = stats.longest_streak || {};
         const pc = stats.partial_comeback || {};
         const services = stats.services || {};
         const home = broadcast.team_home || {};
         const away = broadcast.team_away || {};
-        const homeName = home.name || 'Team 1';
-        const awayName = away.name || 'Team 2';
 
-        // Row order matches the template: totals → services → streak → comeback.
-        if (typeof stats.total_points === 'number' && stats.total_points > 0) {
-            setStatsRow('stats-totals', t('stats.totals'), String(stats.total_points));
-        } else {
-            setStatsRow('stats-totals', '', '');
+        // ── Total points per team ──
+        // ``set_history`` carries every set's running score, including
+        // the live set, so summing it directly is the per-team match
+        // total. Adding ``team.points`` would double-count the live set.
+        const liveHome = sumSetHistory(home.set_history);
+        const liveAway = sumSetHistory(away.set_history);
+        const haveTotals = (liveHome + liveAway) > 0;
+        if (haveTotals) {
+            setTeamCell('stat-totals-home', String(liveHome), false);
+            setTeamCell('stat-totals-away', String(liveAway), false);
         }
+        toggleStatRow('stat-row-totals', !haveTotals);
 
+        // ── Services won (won / served per team) ──
         const svcHome = services[1] || services['1'] || {};
         const svcAway = services[2] || services['2'] || {};
-        const totalServiced = (svcHome.served || 0) + (svcAway.served || 0);
-        if (totalServiced > 0) {
-            setStatsRow(
-                'stats-services',
-                t('stats.services.label'),
-                t('stats.services.value', {
-                    home: homeName,
-                    hWon: svcHome.won || 0,
-                    hTotal: svcHome.served || 0,
-                    away: awayName,
-                    aWon: svcAway.won || 0,
-                    aTotal: svcAway.served || 0,
+        const haveServices = (svcHome.served || 0) + (svcAway.served || 0) > 0;
+        if (haveServices) {
+            setTeamCell(
+                'stat-services-home',
+                t('stats.services.cell', {
+                    won: svcHome.won || 0, total: svcHome.served || 0,
                 }),
+                (svcHome.served || 0) === 0,
             );
-        } else {
-            setStatsRow('stats-services', '', '');
-        }
-
-        if (cs.team && cs.n >= 2) {
-            const name = cs.team === 1 ? homeName : awayName;
-            setStatsRow(
-                'stats-streak',
-                t('stats.streak.label'),
-                t('stats.streak.value', { name: name, n: cs.n }),
+            setTeamCell(
+                'stat-services-away',
+                t('stats.services.cell', {
+                    won: svcAway.won || 0, total: svcAway.served || 0,
+                }),
+                (svcAway.served || 0) === 0,
             );
-        } else {
-            setStatsRow('stats-streak', '', '');
         }
+        toggleStatRow('stat-row-services', !haveServices);
 
+        // ── Current streak (only the team that has it) ──
+        const haveStreak = cs.team && (cs.n || 0) >= 2;
+        if (haveStreak) {
+            const homeVal = cs.team === 1 ? t('stats.streak.cell', { n: cs.n }) : '—';
+            const awayVal = cs.team === 2 ? t('stats.streak.cell', { n: cs.n }) : '—';
+            setTeamCell('stat-streak-home', homeVal, cs.team !== 1);
+            setTeamCell('stat-streak-away', awayVal, cs.team !== 2);
+        }
+        toggleStatRow('stat-row-streak', !haveStreak);
+
+        // ── Longest streak (only the team that holds it) ──
+        const haveLongest = ls.team && (ls.n || 0) >= 3 && ls.n > (cs.n || 0);
+        if (haveLongest) {
+            const homeVal = ls.team === 1 ? t('stats.streak.cell', { n: ls.n }) : '—';
+            const awayVal = ls.team === 2 ? t('stats.streak.cell', { n: ls.n }) : '—';
+            setTeamCell('stat-longest-home', homeVal, ls.team !== 1);
+            setTeamCell('stat-longest-away', awayVal, ls.team !== 2);
+        }
+        toggleStatRow('stat-row-longest', !haveLongest);
+
+        // ── Partial comeback (only the team that pulled it off) ──
         const pcHome = pc[1] || pc['1'] || {};
         const pcAway = pc[2] || pc['2'] || {};
         const peak = Math.max(pcHome.deficit || 0, pcAway.deficit || 0);
-        if (peak >= 3) {
+        const haveComeback = peak >= 3;
+        if (haveComeback) {
             const team = (pcHome.deficit || 0) >= (pcAway.deficit || 0) ? 1 : 2;
-            const name = team === 1 ? homeName : awayName;
-            setStatsRow(
-                'stats-comeback',
-                t('stats.comeback.label'),
-                t('stats.comeback.value', { name: name, n: peak }),
-            );
-        } else {
-            setStatsRow('stats-comeback', '', '');
+            const homeVal = team === 1 ? t('stats.comeback.cell', { n: peak }) : '—';
+            const awayVal = team === 2 ? t('stats.comeback.cell', { n: peak }) : '—';
+            setTeamCell('stat-comeback-home', homeVal, team !== 1);
+            setTeamCell('stat-comeback-away', awayVal, team !== 2);
         }
+        toggleStatRow('stat-row-comeback', !haveComeback);
+    }
+
+    function toggleStatRow(rowId, empty) {
+        const row = $(rowId);
+        if (!row) return;
+        row.dataset.empty = empty ? 'true' : 'false';
+    }
+
+    function sumSetHistory(setHistory) {
+        if (!setHistory || typeof setHistory !== 'object') return 0;
+        let total = 0;
+        for (const v of Object.values(setHistory)) {
+            if (typeof v === 'number') total += v;
+        }
+        return total;
     }
 
     // ── Render: set progression chart ──────────────────────────────
@@ -632,8 +749,19 @@
 
         const oc = broadcast.overlay_control || {};
         const match = broadcast.match_info || {};
-        const homeColor = (broadcast.team_home || {}).color_primary || '#E21836';
-        const awayColor = (broadcast.team_away || {}).color_primary || '#0047AB';
+        const rawHomeColor = (broadcast.team_home || {}).color_primary || '#E21836';
+        const rawAwayColor = (broadcast.team_away || {}).color_primary || '#0047AB';
+        const resolved = resolveChartColors(rawHomeColor, rawAwayColor);
+        const homeColor = resolved.home;
+        const awayColor = resolved.away;
+        const collision = resolved.collision;
+        // Sync legend swatches to whatever colours the chart will use.
+        // When collision fired, the away swatch picks up the fallback
+        // so the viewer can match line ↔ team without surprises.
+        const swHome = $('legend-swatch-home');
+        if (swHome) swHome.style.background = homeColor;
+        const swAway = $('legend-swatch-away');
+        if (swAway) swAway.style.background = awayColor;
         const currentSet = match.current_set || 1;
         const bySet = oc.points_by_set || {};
         const timeoutsBySet = oc.timeouts_by_set || {};
@@ -741,6 +869,16 @@
         lineAway.setAttribute('d', buildPath(1));
         lineHome.setAttribute('stroke', homeColor);
         lineAway.setAttribute('stroke', awayColor);
+        // Collision belt-and-braces: dash the away line so two
+        // similar colours still parse as two distinct traces. Cleared
+        // back to solid when there's no collision so the default
+        // appearance remains unchanged for the common case.
+        lineHome.removeAttribute('stroke-dasharray');
+        if (collision) {
+            lineAway.setAttribute('stroke-dasharray', '6 4');
+        } else {
+            lineAway.removeAttribute('stroke-dasharray');
+        }
 
         // Y-axis ticks: up to 5 evenly spaced, deduped early in the set.
         const tickCount = Math.min(5, Math.max(2, maxScore + 1));

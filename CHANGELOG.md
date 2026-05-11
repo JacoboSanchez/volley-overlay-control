@@ -83,6 +83,37 @@ once a first tagged release ships.
     ("Beach · Best of 3 · 21 · 15 in deciding set ·
     Side switch every 7 pts") so a viewer can confirm the
     ruleset without leaving the page.
+  - **Per-team stats grid.** The stats panel is now a 3-column
+    layout (home value · label · away value) instead of single
+    rows that mixed team names into the value text. Total
+    points are split per team (summed from ``set_history``
+    rather than the audit aggregate). Services-won, current
+    streak, longest streak and partial comeback render in the
+    column of the team they belong to; the opposite column
+    shows a muted "—". Rows where neither team has data
+    collapse via ``data-empty="true"``.
+  - **Chart colour-collision fallback.** When both teams'
+    primary colours are within ~60 RGB units the chart's away
+    line switches to a high-contrast fallback (mirroring the
+    print report's ``_ensure_distinct_chart_colors``) AND
+    picks up a dashed stroke pattern, so even pathological
+    cases (two reds + a red fallback) still render as two
+    distinct traces. The legend swatches mirror the resolved
+    colours.
+  - **Alert badges use fixed semantic colours.** Set point is
+    amber (warning), match point is red with a pulsing glow
+    (critical), side-switch is amber (info / pulses when
+    pending). Team affiliation is implicit from the alert
+    strip's three-column grid (home left, switch centre, away
+    right) so the team colour is no longer needed inside the
+    badge — matches the React control UI's chip palette.
+  - **OID is no longer rendered into the spectator HTML.**
+    The page title, footer line and ``window.OVERLAY_TARGET_ID``
+    now omit the raw overlay id (it's the secret an operator
+    types into the control UI). Only the SHA-derived
+    ``output_key`` reaches the browser. The route's
+    ``test_follow_*`` regression suite was updated to assert
+    this invariant.
   - **Backend rules hook.** ``GameSession`` now exposes its
     live mode + per-set limits via a getter the Backend's
     overlay-payload builder consults on every broadcast, so

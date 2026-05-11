@@ -76,6 +76,15 @@ html, body {
     margin: 12px 0 8px;
     min-height: 26px;
 }
+/*
+  Alert badges use FIXED semantic colours (not team colours). The
+  team affiliation is implicit from horizontal position in the
+  three-column grid: home column → home team's alert; away column
+  → away team's alert. Colours follow severity:
+    * Set point  → amber  (warning)
+    * Match point → red   (critical, with pulse)
+    * Side switch → amber (info, with pulse when due)
+*/
 .alert-badge {
     padding: 4px 10px;
     border-radius: 999px;
@@ -84,34 +93,36 @@ html, body {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     line-height: 1;
+    border: 1px solid transparent;
 }
 .alert-badge[hidden] { display: none !important; }
 .alert-home {
     grid-column: 1;
     justify-self: start;
-    color: #fff;
-    background: var(--team1-color);
 }
 .alert-away {
     grid-column: 3;
     justify-self: end;
-    color: #fff;
-    background: var(--team2-color);
 }
-/* Match point overrides set point on the same side — emphasised
- * with a thicker border and a soft glow. */
+.alert-set-point {
+    background: rgba(251, 191, 36, 0.18);
+    border-color: rgba(251, 191, 36, 0.55);
+    color: #fbbf24;
+}
 .alert-match-point {
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+    background: #dc2626;
+    color: #fff;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.35);
     animation: alert-pulse 1.4s ease-in-out infinite;
 }
 .alert-side-switch {
     grid-column: 2;
     background: rgba(251, 191, 36, 0.18);
-    border: 1px solid rgba(251, 191, 36, 0.55);
+    border-color: rgba(251, 191, 36, 0.55);
     color: #fbbf24;
 }
 .alert-side-switch.pending {
-    background: rgba(251, 191, 36, 0.5);
+    background: #fbbf24;
     color: #1f1300;
     animation: alert-pulse 1.4s ease-in-out infinite;
 }
@@ -495,29 +506,53 @@ html, body {
     padding: 12px 16px;
     background: var(--panel-bg);
     border-radius: 12px;
+}
+
+/*
+  Three-column grid: home value | label | away value. Each row uses
+  ``display: contents`` so its children participate in the parent
+  grid — that keeps the home column vertically aligned across rows
+  even when individual stats only apply to one team.
+*/
+.stats-table {
     display: grid;
-    gap: 8px;
-}
-
-.stats-row {
-    display: flex;
-    justify-content: space-between;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    font-size: 0.92rem;
-    min-height: 24px;
+    column-gap: 14px;
+    row-gap: 6px;
 }
 
-.stats-row[data-empty="true"] { display: none; }
+.stats-row { display: contents; }
+.stats-row[data-empty="true"] > * { display: none; }
 
-.stats-row .label {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.74rem;
-    color: var(--muted);
-}
-
-.stats-row .value {
+.stats-cell {
+    font-size: 0.95rem;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+.stats-cell-home {
+    text-align: left;
+    color: var(--team1-color);
+}
+.stats-cell-away {
+    text-align: right;
+    color: var(--team2-color);
+}
+.stats-cell.muted {
+    color: var(--muted);
+    font-weight: 500;
+    opacity: 0.55;
+}
+
+.stats-label {
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .spectator-footer {

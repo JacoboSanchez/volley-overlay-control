@@ -44,12 +44,18 @@ def test_follow_serves_spectator_html(client):
     res = cli.get("/follow/test-overlay")
     assert res.status_code == 200
     body = res.text
-    # Spectator template includes the SVG-free, dependency-light layout
-    # markers we expect — defensive checks that survive copy-edits.
+    # Spectator template includes the dependency-light layout markers
+    # we expect — defensive checks that survive copy-edits.
     assert "spectator-scoreboard" in body
     assert "/static/js/spectator.js" in body
     assert "/static/css/spectator.css" in body
-    assert "test-overlay" in body
+    # The output_key (SHA-derived hash) is the only public handle the
+    # page exposes — the raw overlay id MUST stay out of the HTML
+    # because it's the secret an operator would type into the control
+    # UI to mutate the scoreboard.
+    output_key = OverlayStateStore.get_output_key("test-overlay")
+    assert output_key in body
+    assert "test-overlay" not in body
 
 
 def test_follow_resolves_by_output_key(client):
@@ -57,7 +63,10 @@ def test_follow_resolves_by_output_key(client):
     output_key = OverlayStateStore.get_output_key("test-overlay")
     res = cli.get(f"/follow/{output_key}")
     assert res.status_code == 200
-    assert "test-overlay" in res.text
+    body = res.text
+    assert output_key in body
+    # Resolving by output_key must not expose the raw overlay id either.
+    assert "test-overlay" not in body
 
 
 def test_spectator_template_not_in_style_picker(tmp_path):

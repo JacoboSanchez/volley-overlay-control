@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <meta name="theme-color" content="#111">
     <meta name="robots" content="noindex,nofollow">
-    <title>{{ target_id }}</title>
+    <title>Live scoreboard</title>
     <link rel="stylesheet" href="/static/css/spectator.css?v={{ v }}">
 </head>
 <body>
@@ -116,20 +116,45 @@
         </section>
 
         <section class="spectator-stats" aria-label="Live statistics">
-            <div class="stats-row" id="stats-totals"></div>
-            <div class="stats-row" id="stats-services"></div>
-            <div class="stats-row" id="stats-streak"></div>
-            <div class="stats-row" id="stats-comeback"></div>
+            <div class="stats-table">
+                <div class="stats-row" id="stat-row-totals">
+                    <span class="stats-cell stats-cell-home" id="stat-totals-home">—</span>
+                    <span class="stats-label" data-i18n="stats.totals"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-totals-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-services">
+                    <span class="stats-cell stats-cell-home" id="stat-services-home">—</span>
+                    <span class="stats-label" data-i18n="stats.services.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-services-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-streak">
+                    <span class="stats-cell stats-cell-home" id="stat-streak-home">—</span>
+                    <span class="stats-label" data-i18n="stats.streak.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-streak-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-longest">
+                    <span class="stats-cell stats-cell-home" id="stat-longest-home">—</span>
+                    <span class="stats-label" data-i18n="stats.longest.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-longest-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-comeback">
+                    <span class="stats-cell stats-cell-home" id="stat-comeback-home">—</span>
+                    <span class="stats-label" data-i18n="stats.comeback.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-comeback-away">—</span>
+                </div>
+            </div>
         </section>
     </main>
 
     <footer class="spectator-footer">
-        <span data-i18n="footer.label"></span> · {{ target_id }}
+        <span data-i18n="footer.label"></span>
     </footer>
 
     <script>
+        // Only the SHA-256-derived ``output_key`` reaches the browser
+        // — never the raw overlay id, which is the secret an operator
+        // would type into the control UI to mutate the scoreboard.
         window.OVERLAY_OUTPUT_KEY = "{{ output_key }}";
-        window.OVERLAY_TARGET_ID = "{{ target_id }}";
     </script>
     <script src="/static/js/spectator.js?v={{ v }}"></script>
 </body>
