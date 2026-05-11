@@ -1,16 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as api from '../api/client';
 import type { GameState, AuditRecord, TeamState } from '../api/client';
 
 export type RecentEventKind =
   | 'point_add'
-  | 'point_undo'
   | 'set_won'
-  | 'set_undo'
   | 'match_won'
-  | 'match_undo'
   | 'timeout'
-  | 'timeout_undo'
   | 'manual';
 
 export interface RecentEvent {
@@ -76,27 +72,27 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
     const validTeam = team === 1 || team === 2;
     const undo = !!params.undo;
 
+    // The strip is a "current state activity" indicator — undo
+    // records have no on-screen counterpart (the matching forward
+    // was tombstoned by ``pop_last_forward``), so surfacing the
+    // struck chip alone would float without context. Skip them
+    // entirely and let the history drawer / printable report keep
+    // their forensic timeline. The ``prevSets`` / ``prevMatchFinished``
+    // trackers below also stay frozen on undo records, so an undone
+    // set-winning point does not inject a leftover ``set_won`` chip
+    // on the next refetch.
+    if (undo) continue;
+
     // ── Action-driven chips ────────────────────────────────────────
     if (validTeam) {
       const t = team as 1 | 2;
       switch (r.action) {
         case 'add_point':
-          events.push({ ts: r.ts, team: t, kind: undo ? 'point_undo' : 'point_add' });
+          events.push({ ts: r.ts, team: t, kind: 'point_add' });
           break;
-        case 'add_timeout': {
-          // The forward audit record is physically removed by
-          // ``pop_last_forward`` when the operator undoes a timeout,
-          // so a popped forward never reaches the classifier — only
-          // its undo does. We emit the struck chip on undo to match
-          // history / report (which both surface only the undone
-          // entry once the forward is tombstoned).
-          events.push({
-            ts: r.ts,
-            team: t,
-            kind: undo ? 'timeout_undo' : 'timeout',
-          });
+        case 'add_timeout':
+          events.push({ ts: r.ts, team: t, kind: 'timeout' });
           break;
-        }
         case 'set_score': {
           const setNum = params.set_number;
           const newVal = params.value;
@@ -148,29 +144,6 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
   return events;
 }
 
-interface PriorSnapshot {
-  sets1: number;
-  sets2: number;
-  matchFinished: boolean;
-  // Carried across refetches so we can skip the synthetic state-diff
-  // set/match-undo when the previous snapshot belongs to a different
-  // match — e.g. after a reset the sets drop from 3 to 0 without any
-  // undo really happening, and we must not surface ghost set_undo
-  // chips for that transition.
-  matchStartedAt: number | null;
-}
-
-function snapshotState(state: GameState | null): PriorSnapshot | null {
-  if (!state) return null;
-  return {
-    sets1: state.team_1?.sets ?? 0,
-    sets2: state.team_2?.sets ?? 0,
-    matchFinished: state.match_finished === true,
-    matchStartedAt:
-      typeof state.match_started_at === 'number' ? state.match_started_at : null,
-  };
-}
-
 export function useRecentEvents(
   oid: string | null,
   enabled: boolean,
@@ -179,22 +152,12 @@ export function useRecentEvents(
 ): RecentEvent[] {
   const [events, setEvents] = useState<RecentEvent[]>([]);
   const key = scoringKey(state);
-  // We diff prior vs current snapshot to detect set / match undoes:
-  // when the operator undoes a set-winning point the audit log loses
-  // the forward record (``pop_last_forward`` tombstones it) and the
-  // remaining undo record's post-state has the dropped sets count,
-  // but there's no anchor inside the log to diff against. The prior
-  // snapshot carries that anchor forward across refetches.
-  const priorSnapshotRef = useRef<PriorSnapshot | null>(null);
 
   useEffect(() => {
     if (!enabled || !oid) {
       setEvents([]);
-      priorSnapshotRef.current = null;
       return;
     }
-    const prior = priorSnapshotRef.current;
-    const cur = snapshotState(state);
     const controller = new AbortController();
     let cancelled = false;
     // 3× headroom over ``max`` covers interleaved ``add_set`` /
@@ -205,53 +168,14 @@ export function useRecentEvents(
       .then((res) => {
         if (cancelled) return;
         // The strip is a pure projection of the tombstone-filtered
-        // audit log plus the synthetic set/match-undo chips that the
-        // log can't express on its own. We deliberately do NOT carry
-        // any chips forward across refetches: every fetch fully
-        // replaces the chip list, so rapid-pair tombstones, generic
-        // undoes, and reset all converge to the same view that the
-        // history drawer and printable report render.
+        // audit log. Every fetch fully replaces the chip list, so
+        // rapid-pair tombstones, generic undoes, and reset all
+        // converge to a deterministic "current state activity" view.
+        // Undo records contribute nothing to the strip (see the
+        // ``if (undo) continue`` in ``classifyRecords``) — they live
+        // only in the history drawer and the printable report.
         const fresh = classifyRecords(res.records);
-
-        // Set / match undo via state-diff. Anchor the synthetic ts
-        // above the last audit chip so the struck chip lands on the
-        // right of the chips that triggered it.
-        // Skip entirely on a match boundary (``matchStartedAt`` flips):
-        // the sets-count drop is explained by the reset / new match,
-        // not by an undo, and emitting ``set_undo`` chips here would
-        // ghost-mark a transition the audit log doesn't represent.
-        const sameMatch =
-          prior !== null && cur !== null
-          && prior.matchStartedAt === cur.matchStartedAt;
-        if (prior && cur && sameMatch) {
-          const matchUndone = prior.matchFinished && !cur.matchFinished;
-          const lastChip = fresh[fresh.length - 1];
-          let ts = lastChip ? lastChip.ts : Date.now() / 1000;
-          if (cur.sets1 < prior.sets1) {
-            ts += 1e-3;
-            fresh.push({
-              ts,
-              team: 1,
-              kind: matchUndone ? 'match_undo' : 'set_undo',
-            });
-          }
-          if (cur.sets2 < prior.sets2) {
-            ts += 1e-3;
-            fresh.push({
-              ts,
-              team: 2,
-              kind: matchUndone ? 'match_undo' : 'set_undo',
-            });
-          }
-        }
-
-        // ``classifyRecords`` already walks audit records in append
-        // order, so chips are in chronological order — but the
-        // synthetic state-diff chips are pushed at the end with a
-        // bumped ts, which keeps them rightmost without needing a
-        // sort. Slice to the most recent ``max`` chips.
         setEvents(fresh.slice(-max));
-        priorSnapshotRef.current = cur;
       })
       .catch((err) => {
         if (controller.signal.aborted) return;

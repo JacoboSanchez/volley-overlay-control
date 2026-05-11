@@ -73,7 +73,11 @@ describe('useRecentEvents', () => {
     expect(getAuditSpy).not.toHaveBeenCalled();
   });
 
-  it('classifies add_point forward and undo into point_add / point_undo', async () => {
+  it('classifies add_point forwards into point_add chips and skips undo records', async () => {
+    // The visible audit contains two forwards and one undo; the
+    // strip skips the undo so the operator only sees chips that
+    // still contribute to the live score. The undone action lives
+    // on in the history drawer and the printable report.
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 3,
@@ -86,10 +90,9 @@ describe('useRecentEvents', () => {
     const { result } = renderHook(() =>
       useRecentEvents('oid', true, makeState(2, 0), 8),
     );
-    await waitFor(() => expect(result.current).toHaveLength(3));
+    await waitFor(() => expect(result.current).toHaveLength(2));
     expect(result.current).toEqual([
       { ts: 1, team: 1, kind: 'point_add' },
-      { ts: 2, team: 2, kind: 'point_undo' },
       { ts: 3, team: 1, kind: 'point_add' },
     ]);
   });
@@ -113,16 +116,15 @@ describe('useRecentEvents', () => {
     expect(result.current[0]).toMatchObject({ team: 2, kind: 'timeout' });
   });
 
-  it('drops the original timeout chip when the operator undoes an adjacent timeout (matches history / report)', async () => {
+  it('drops the original timeout chip when the operator undoes an adjacent timeout (and emits no struck chip)', async () => {
     // Real-life flow across two fetches:
     //  1. Operator hits "+timeout" → audit gets the forward record →
     //     strip shows [clock].
     //  2. Operator hits "undo timeout" → ``pop_last_forward`` deletes
     //     the forward record and a new ``undo=true`` row is appended.
-    //     The strip re-classifies the fresh fetch and surfaces only
-    //     the struck clock — the popped forward never reaches the
-    //     classifier, matching how history / report render the same
-    //     undone timeout.
+    //     The strip drops the undo record entirely so the operator
+    //     sees an empty strip — the floating struck clock would
+    //     have no visible counterpart to invalidate.
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 1,
@@ -154,11 +156,10 @@ describe('useRecentEvents', () => {
     );
     rerender({ s: makeState(0, 0, 0, 0, 0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(result.current).toHaveLength(1));
-    expect(result.current.map((e) => e.kind)).toEqual(['timeout_undo']);
+    await waitFor(() => expect(result.current).toEqual([]));
   });
 
-  it('drops the original set_won chip when the operator undoes a set-winning point (matches history / report)', async () => {
+  it('drops the set_won chip when the operator undoes a set-winning point (no surviving struck chip)', async () => {
     // First fetch: a baseline point (so ``prevSets`` is anchored) and
     // the set-winning ``add_point`` are both in the audit.
     getAuditSpy.mockResolvedValueOnce({
@@ -178,9 +179,9 @@ describe('useRecentEvents', () => {
       ],
     });
     // Second fetch: forward was popped, leaving the baseline point
-    // plus the new ``undo=true`` record. The set_won and the
-    // set-winning point's "alive" chip must both disappear from the
-    // strip — same as the audit-backed history / report views.
+    // plus the new ``undo=true`` record. The strip drops the undo
+    // chip and keeps only the baseline — no leftover star or struck
+    // chip survives the undo.
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 2,
@@ -206,21 +207,11 @@ describe('useRecentEvents', () => {
     );
     rerender({ s: makeState(24, 20, 0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'set_undo')).toBe(true),
-    );
-    const kinds = result.current.map((e) => e.kind);
-    // Baseline point still visible (it was never undone), and the
-    // undo / set_undo chips replace the popped set-winning pair.
-    expect(kinds).toContain('point_undo');
-    expect(kinds).toContain('set_undo');
-    expect(kinds).not.toContain('set_won');
-    // Exactly one ``point_add`` — the baseline. The set-winning
-    // forward was popped, so its "alive" chip must not survive.
-    expect(kinds.filter((k) => k === 'point_add')).toHaveLength(1);
+    await waitFor(() => expect(result.current).toHaveLength(1));
+    expect(result.current[0]).toMatchObject({ ts: 9, team: 1, kind: 'point_add' });
   });
 
-  it('drops the original match_won chip and surfaces point_undo + match_undo on a match-winning undo', async () => {
+  it('drops the match_won chip on a match-winning undo (no surviving struck chip)', async () => {
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 2,
@@ -270,27 +261,15 @@ describe('useRecentEvents', () => {
     );
     rerender({ s: makeState(24, 20, 2, 1) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'match_undo')).toBe(true),
-    );
-    const kinds = result.current.map((e) => e.kind);
-    expect(kinds).toContain('point_undo');
-    expect(kinds).toContain('match_undo');
-    // The popped match-winning forward must not survive in the strip
-    // — same as history / report.
-    expect(kinds).not.toContain('match_won');
-    expect(kinds.filter((k) => k === 'point_add')).toHaveLength(1);
-    // Trophy preempts the star — undoing a match-winning point should
-    // not also push a struck-star alongside the struck-trophy.
-    expect(kinds).not.toContain('set_undo');
+    await waitFor(() => expect(result.current).toHaveLength(1));
+    expect(result.current[0]).toMatchObject({ ts: 9, team: 1, kind: 'point_add' });
   });
 
-  it('always emits a struck-clock chip on timeout undo (adjacent case → just struck)', async () => {
-    // After ``pop_last_forward`` the original forward record is gone,
-    // so the audit response only contains the undo entry. We always
-    // emit the struck chip — consistent with point_undo's behaviour —
-    // and skip synthesizing the forward (no in-between record carries
-    // the bumped count to anchor it).
+  it('drops a stand-alone timeout undo record (no struck-clock surfaces)', async () => {
+    // After ``pop_last_forward`` the original forward record is gone
+    // and the audit response only contains the undo entry. The strip
+    // surfaces nothing — the undo would float without a visible
+    // counterpart to invalidate.
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 1,
@@ -305,42 +284,25 @@ describe('useRecentEvents', () => {
     const { result } = renderHook(() =>
       useRecentEvents('oid', true, makeState(0, 0), 8),
     );
-    await waitFor(() => expect(result.current).toHaveLength(1));
-    expect(result.current[0]).toMatchObject({ team: 1, kind: 'timeout_undo' });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
+    expect(result.current).toEqual([]);
   });
 
-  it('injects a struck-star chip when a team\'s sets count drops between refetches', async () => {
+  it('does not synthesize set/match undo chips from a sets-count drop between refetches', async () => {
+    // The strip is a pure projection of the audit log — it does NOT
+    // try to surface set/match undoes via a snapshot diff. The undo
+    // record is invisible (its forward was tombstoned) so the strip
+    // simply forgets the previously-emitted ``set_won`` chip on the
+    // next fetch.
     getAuditSpy.mockResolvedValue({ oid: 'oid', count: 0, records: [] });
     const { result, rerender } = renderHook(
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: makeState(0, 0, 1, 0) } },
     );
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(1));
-    // Operator clicks undo on the set-winning point — sets drops.
     rerender({ s: makeState(24, 20, 0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'set_undo' && e.team === 1)).toBe(true),
-    );
-  });
-
-  it('injects a struck-trophy chip when match_finished flips back to false with a sets drop', async () => {
-    getAuditSpy.mockResolvedValue({ oid: 'oid', count: 0, records: [] });
-    const finishedState = (): GameState => ({
-      ...makeState(0, 0, 3, 0),
-      match_finished: true,
-    } as unknown as GameState);
-    const { result, rerender } = renderHook(
-      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
-      { initialProps: { s: finishedState() } },
-    );
-    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(1));
-    // Operator undoes the match-winning point.
-    rerender({ s: makeState(24, 20, 2, 0) });
-    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'match_undo' && e.team === 1)).toBe(true),
-    );
+    await waitFor(() => expect(result.current).toEqual([]));
   });
 
   it('does not resurrect a popped forward timeout chip when an undo is non-adjacent (matches history / report)', async () => {
@@ -349,8 +311,8 @@ describe('useRecentEvents', () => {
     // After pop_last_forward the audit response is the baseline
     // point + the in-between point (still showing the bumped
     // timeout count) + the undo. The strip surfaces only the
-    // records the audit still carries — the popped forward stays
-    // hidden, same as in history / report.
+    // forward chips — the popped timeout forward stays hidden,
+    // and the standalone undo record is dropped too.
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 3,
@@ -360,15 +322,11 @@ describe('useRecentEvents', () => {
           team_1: { score: 1, sets: 0, timeouts: 0 },
           team_2: { score: 0, sets: 0, timeouts: 0 },
         }),
-        // In-between record — its post-state still shows the
-        // bumped timeout count, but we no longer synthesize a
-        // forward chip from that diff.
         rec(2, 'add_point', { team: 1 }, {
           score_set: 1,
           team_1: { score: 2, sets: 0, timeouts: 1 },
           team_2: { score: 0, sets: 0, timeouts: 0 },
         }),
-        // Undo brings the count back down.
         rec(3, 'add_timeout', { team: 1, undo: true }, {
           score_set: 1,
           team_1: { score: 2, sets: 0, timeouts: 0 },
@@ -379,11 +337,9 @@ describe('useRecentEvents', () => {
     const { result } = renderHook(() =>
       useRecentEvents('oid', true, makeState(2, 0), 8),
     );
-    await waitFor(() => expect(result.current).toHaveLength(3));
+    await waitFor(() => expect(result.current).toHaveLength(2));
     expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
     expect(result.current[1]).toMatchObject({ team: 1, kind: 'point_add' });
-    expect(result.current[2]).toMatchObject({ team: 1, kind: 'timeout_undo' });
-    expect(result.current.some((e) => e.kind === 'timeout')).toBe(false);
   });
 
   it('emits match_won (not set_won) when a sets++ also flips match_finished', async () => {
@@ -397,7 +353,6 @@ describe('useRecentEvents', () => {
           team_2: { score: 20, sets: 0 },
           match_finished: false,
         }),
-        // Match-winning point: sets++ AND match_finished flips true.
         rec(2, 'add_point', { team: 1 }, {
           score_set: 1,
           team_1: { score: 25, sets: 3 },
@@ -418,9 +373,6 @@ describe('useRecentEvents', () => {
     getAuditSpy.mockResolvedValue({
       oid: 'oid',
       count: 2,
-      // First record anchors the prevSets baseline; second record bumps
-      // team_1.sets so the diff fires. The explicit add_set itself
-      // produces no action chip — only the trophy from the diff.
       records: [
         rec(1, 'add_point', { team: 1 }, {
           score_set: 1, team_1: { score: 1, sets: 0 }, team_2: { score: 0, sets: 0 },
@@ -446,7 +398,6 @@ describe('useRecentEvents', () => {
         rec(1, 'add_point', { team: 1 }, {
           score_set: 1, team_1: { score: 24, sets: 0 }, team_2: { score: 20, sets: 0 },
         }),
-        // Set-winning add_point — backend logs add_point, NOT add_set.
         rec(2, 'add_point', { team: 1 }, {
           score_set: 1, team_1: { score: 25, sets: 1 }, team_2: { score: 20, sets: 0 },
         }),
@@ -573,13 +524,12 @@ describe('useRecentEvents', () => {
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
   });
 
-  it('refetches and clears chips on reset when scores stayed at zero', async () => {
+  it('refetches and stays empty on reset when scores stayed at zero', async () => {
     // Operator added a point then undid it back to 0:0 — strip is
-    // showing the struck ``point_undo`` chip. Now they hit reset:
-    // the score is *still* 0:0 (no numeric change in the key), but
-    // ``match_started_at`` flips from a timestamp to ``null``. The
-    // hook must refetch so the empty audit replaces the previous
-    // chip list with an empty one.
+    // already empty because we drop undo records. Now they hit
+    // reset: the score is *still* 0:0 (no numeric change in the key),
+    // but ``match_started_at`` flips. The hook refetches and the
+    // empty audit keeps the strip empty.
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 1,
@@ -604,11 +554,10 @@ describe('useRecentEvents', () => {
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: stateWithStart(1000) } },
     );
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'point_undo')).toBe(true),
-    );
-    // Operator hits reset: scores stayed at 0:0 but
-    // ``match_started_at`` becomes null. The effect must re-run.
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current).toEqual([]));
+    // Operator hits reset: ``match_started_at`` becomes null. The
+    // effect must re-run even though scores didn't change.
     rerender({ s: stateWithStart(null) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current).toEqual([]));
@@ -651,120 +600,11 @@ describe('useRecentEvents', () => {
     await waitFor(() => expect(result.current).toEqual([]));
   });
 
-  it('anchors set_undo ts to the latest audit event, not Date.now', async () => {
-    // First fetch: set-winning point at ts=10 — the strip shows the
-    // [point_add, set_won] pair.
-    getAuditSpy.mockResolvedValueOnce({
-      oid: 'oid',
-      count: 2,
-      records: [
-        rec(9, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 0 },
-          team_2: { score: 20, sets: 0 },
-        }),
-        rec(10, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 25, sets: 1 },
-          team_2: { score: 20, sets: 0 },
-        }),
-      ],
-    });
-    // Second fetch: forward popped, undo at ts=11.
-    getAuditSpy.mockResolvedValueOnce({
-      oid: 'oid',
-      count: 2,
-      records: [
-        rec(9, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 0 },
-          team_2: { score: 20, sets: 0 },
-        }),
-        rec(11, 'add_point', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 0 },
-          team_2: { score: 20, sets: 0 },
-        }),
-      ],
-    });
-    const { result, rerender } = renderHook(
-      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
-      { initialProps: { s: makeState(25, 20, 1, 0) } },
-    );
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'set_won')).toBe(true),
-    );
-    rerender({ s: makeState(24, 20, 0, 0) });
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'set_undo')).toBe(true),
-    );
-    const setUndo = result.current.find((e) => e.kind === 'set_undo');
-    // Ts must be derived from the latest audit ts (11) with a small
-    // bump — *not* a Date.now() value (which would be on the order
-    // of 1.7e9, an order of magnitude apart).
-    expect(setUndo!.ts).toBeGreaterThan(11);
-    expect(setUndo!.ts).toBeLessThan(12);
-  });
-
-  it('does not collapse two distinct manual chips with the same ts but different values', async () => {
-    // Two manual corrections that happen to share a ts (e.g.
-    // low-resolution server clock). They differ in ``value`` and
-    // each must surface as its own chip.
-    getAuditSpy.mockResolvedValueOnce({
-      oid: 'oid',
-      count: 2,
-      records: [
-        rec(10, 'set_score', { team: 1, set_number: 1, value: 5 }, {
-          score_set: 1,
-          team_1: { score: 5, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
-        rec(10, 'set_score', { team: 1, set_number: 1, value: 7 }, {
-          score_set: 1,
-          team_1: { score: 7, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
-      ],
-    });
-    // Same payload on refetch — both chips must still surface.
-    getAuditSpy.mockResolvedValueOnce({
-      oid: 'oid',
-      count: 2,
-      records: [
-        rec(10, 'set_score', { team: 1, set_number: 1, value: 5 }, {
-          score_set: 1,
-          team_1: { score: 5, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
-        rec(10, 'set_score', { team: 1, set_number: 1, value: 7 }, {
-          score_set: 1,
-          team_1: { score: 7, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
-      ],
-    });
-    const { result, rerender } = renderHook(
-      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
-      { initialProps: { s: makeState(7, 0) } },
-    );
-    await waitFor(() => expect(result.current).toHaveLength(2));
-    // Trigger a refetch — same records, the strip must still
-    // surface both distinct values.
-    rerender({ s: makeState(7, 1) });
-    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(result.current).toHaveLength(2));
-    const values = result.current.map((e) => e.value).sort();
-    expect(values).toEqual([5, 7]);
-  });
-
-  it('does not synthesize set_undo chips on a match reset that drops the sets count', async () => {
+  it('does not regenerate chips on a match reset that drops the sets count', async () => {
     // Regression guard: after a match where team 1 won 3 sets, the
-    // operator hits reset. The audit log is wiped, ``match_started_at``
-    // flips, and the sets count falls from 3→0 — but no undo really
-    // happened. The state-diff detector must skip the synthetic
-    // ``set_undo`` chips for that transition, otherwise the strip
-    // would ghost-mark the reset with three struck stars the audit
-    // (and therefore history / report) does not represent.
+    // operator hits reset. Sets count falls from 3→0 without any
+    // undo. The strip stays empty — no synthetic set_undo chips
+    // are emitted (we never derive chips from snapshot diffs now).
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 1,
@@ -794,21 +634,17 @@ describe('useRecentEvents', () => {
       { initialProps: { s: stateWithStart(1000, 3, 1) } },
     );
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(1));
-    // Operator hits reset: ``match_started_at`` flips, sets drop to 0.
     rerender({ s: stateWithStart(null, 0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current).toEqual([]));
-    // Explicitly: no set_undo / match_undo leaked across the boundary.
-    expect(result.current.some((e) => e.kind === 'set_undo')).toBe(false);
-    expect(result.current.some((e) => e.kind === 'match_undo')).toBe(false);
   });
 
   it('drops the chip on a rapid-pair forward+undo within 5s (audit empty after collapse)', async () => {
     // Rapid-pair Case A: operator taps a point and immediately
     // taps undo within ``RAPID_PAIR_WINDOW_S`` (5 s). The backend
     // tombstones the just-added forward and writes *no* undo
-    // record — net audit for the pair is empty. The strip must
-    // converge to the same empty view the history drawer and
+    // record — net audit for the pair is empty. The strip
+    // converges to the same empty view the history drawer and
     // printable report show.
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
@@ -839,10 +675,12 @@ describe('useRecentEvents', () => {
   });
 
   it('keeps chips in monotonic chronological order across refetches', async () => {
-    // Mixed sequence (add_point, undo, add_point, set-winning) —
-    // each subsequent chip's ts is strictly greater than the
-    // previous one. No carry-forward buffer means the next refetch
-    // can never reorder old chips ahead of new ones.
+    // Mixed sequence (add_point, undo, add_point) — each subsequent
+    // forward chip's ts is strictly greater than the previous one.
+    // No carry-forward buffer means the next refetch can never
+    // reorder old chips ahead of new ones; the undo record is
+    // dropped entirely so the surviving chips are just the
+    // forwards.
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 2,
@@ -868,8 +706,6 @@ describe('useRecentEvents', () => {
           team_1: { score: 1, sets: 0 },
           team_2: { score: 0, sets: 0 },
         }),
-        // The team-2 forward was popped by an undo at ts=3 — the
-        // audit returns only the undo record after tombstoning.
         rec(3, 'add_point', { team: 2, undo: true }, {
           score_set: 1,
           team_1: { score: 1, sets: 0 },
@@ -889,18 +725,13 @@ describe('useRecentEvents', () => {
     await waitFor(() => expect(result.current).toHaveLength(2));
     rerender({ s: makeState(2, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(result.current).toHaveLength(3));
-    // Strictly monotonic ts: rightmost chip is always the newest.
+    await waitFor(() => expect(result.current).toHaveLength(2));
     const tss = result.current.map((e) => e.ts);
     for (let i = 1; i < tss.length; i++) {
       expect(tss[i]!).toBeGreaterThanOrEqual(tss[i - 1]!);
     }
-    // And the popped team-2 forward must not survive — only the
-    // baseline team-1 point, the team-2 undo, and the new team-1
-    // forward.
-    expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
-    expect(result.current[1]).toMatchObject({ team: 2, kind: 'point_undo' });
-    expect(result.current[2]).toMatchObject({ team: 1, kind: 'point_add' });
+    expect(result.current[0]).toMatchObject({ ts: 1, team: 1, kind: 'point_add' });
+    expect(result.current[1]).toMatchObject({ ts: 4, team: 1, kind: 'point_add' });
   });
 
   it('clears events on fetch error', async () => {
