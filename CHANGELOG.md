@@ -51,7 +51,22 @@ once a first tagged release ships.
     distinct from the surrounding panel, and dashed grid lines
     with high-contrast tick labels. Up to 5 evenly-spaced Y
     ticks render the running score scale, deduped when the set
-    is fresh so the axis never repeats ``0``.
+    is fresh so the axis never repeats ``0``. The X axis is
+    real-time elapsed (``m:ss`` labels at start / mid / end)
+    so long sideout streaks and short ace bursts occupy
+    visibly different spans. Each scoring event is marked
+    with a team-coloured dot; each timeout is a dashed
+    vertical line in the calling team's colour with a small
+    ``T`` badge at the top.
+  - **Scoreboard timeouts indicator.** Two pip dots per
+    team next to the sets counter fill in as the operator
+    burns timeouts (FIVB max 2/set), so the viewer reads
+    available timeouts at a glance.
+  - **Serve ball** shrunk so it lives comfortably inside the
+    team cell without crowding the score.
+  - **Live stats reordered** with total points first, plus a
+    new ``Services won`` row showing services-won / served per
+    team derived from the audit log's serve transitions.
   - **Set navigation** lets the viewer step back through past
     sets via prev / next buttons or by clicking any cell in the
     set-history table. The chart freezes on the chosen set

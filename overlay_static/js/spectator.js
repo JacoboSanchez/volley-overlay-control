@@ -21,15 +21,19 @@
             'status.offline': 'reconnecting…',
             'status.error': 'connection error',
             'board.sets': 'Sets',
+            'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
             'chart.title': 'Set progression',
             'chart.empty': 'Waiting for the first point of the set…',
             'chart.nav.set': 'Set {set}',
             'chart.nav.setLive': 'Set {set} · live',
+            'chart.timeoutBadge': 'T',
             'history.team': 'Team',
+            'stats.totals': 'Total points',
+            'stats.services.label': 'Services won',
+            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
             'stats.streak.label': 'Streak',
             'stats.streak.value': '{name} · {n} in a row',
-            'stats.totals': 'Total points',
             'stats.comeback.label': 'Comeback',
             'stats.comeback.value': '{name} · -{n}',
             'footer.label': 'Live updates',
@@ -40,15 +44,19 @@
             'status.offline': 'reconectando…',
             'status.error': 'error de conexión',
             'board.sets': 'Sets',
+            'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
             'chart.title': 'Evolución del set',
             'chart.empty': 'Esperando el primer punto del set…',
             'chart.nav.set': 'Set {set}',
             'chart.nav.setLive': 'Set {set} · en juego',
+            'chart.timeoutBadge': 'TM',
             'history.team': 'Equipo',
+            'stats.totals': 'Puntos totales',
+            'stats.services.label': 'Saques ganados',
+            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
             'stats.streak.label': 'Racha',
             'stats.streak.value': '{name} · {n} seguidos',
-            'stats.totals': 'Puntos totales',
             'stats.comeback.label': 'Remontada',
             'stats.comeback.value': '{name} · -{n}',
             'footer.label': 'Actualización en vivo',
@@ -59,15 +67,19 @@
             'status.offline': 'a religar…',
             'status.error': 'erro de ligação',
             'board.sets': 'Sets',
+            'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
             'chart.title': 'Evolução do set',
             'chart.empty': 'À espera do primeiro ponto do set…',
             'chart.nav.set': 'Set {set}',
             'chart.nav.setLive': 'Set {set} · ao vivo',
+            'chart.timeoutBadge': 'TM',
             'history.team': 'Equipa',
+            'stats.totals': 'Pontos totais',
+            'stats.services.label': 'Serviços ganhos',
+            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
             'stats.streak.label': 'Sequência',
             'stats.streak.value': '{name} · {n} seguidos',
-            'stats.totals': 'Pontos totais',
             'stats.comeback.label': 'Recuperação',
             'stats.comeback.value': '{name} · -{n}',
             'footer.label': 'Atualizações ao vivo',
@@ -78,15 +90,19 @@
             'status.offline': 'riconnessione…',
             'status.error': 'errore di connessione',
             'board.sets': 'Set',
+            'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
             'chart.title': 'Andamento del set',
             'chart.empty': 'In attesa del primo punto del set…',
             'chart.nav.set': 'Set {set}',
             'chart.nav.setLive': 'Set {set} · in corso',
+            'chart.timeoutBadge': 'TO',
             'history.team': 'Squadra',
+            'stats.totals': 'Punti totali',
+            'stats.services.label': 'Servizi vinti',
+            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
             'stats.streak.label': 'Serie',
             'stats.streak.value': '{name} · {n} di fila',
-            'stats.totals': 'Punti totali',
             'stats.comeback.label': 'Rimonta',
             'stats.comeback.value': '{name} · -{n}',
             'footer.label': 'Aggiornamenti in diretta',
@@ -97,15 +113,19 @@
             'status.offline': 'reconnexion…',
             'status.error': 'erreur de connexion',
             'board.sets': 'Sets',
+            'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
             'chart.title': 'Progression du set',
             'chart.empty': 'En attente du premier point du set…',
             'chart.nav.set': 'Set {set}',
             'chart.nav.setLive': 'Set {set} · en jeu',
+            'chart.timeoutBadge': 'TM',
             'history.team': 'Équipe',
+            'stats.totals': 'Points totaux',
+            'stats.services.label': 'Services gagnés',
+            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
             'stats.streak.label': 'Série',
             'stats.streak.value': '{name} · {n} d’affilée',
-            'stats.totals': 'Points totaux',
             'stats.comeback.label': 'Remontée',
             'stats.comeback.value': '{name} · -{n}',
             'footer.label': 'Mises à jour en direct',
@@ -116,15 +136,19 @@
             'status.offline': 'verbinde neu…',
             'status.error': 'Verbindungsfehler',
             'board.sets': 'Sätze',
+            'board.timeouts': 'A/Z',
             'board.setLabel': 'Satz {set}',
             'chart.title': 'Satzverlauf',
             'chart.empty': 'Warte auf den ersten Punkt des Satzes…',
             'chart.nav.set': 'Satz {set}',
             'chart.nav.setLive': 'Satz {set} · live',
+            'chart.timeoutBadge': 'AZ',
             'history.team': 'Team',
+            'stats.totals': 'Punkte gesamt',
+            'stats.services.label': 'Aufschläge gewonnen',
+            'stats.services.value': '{home}: {hWon}/{hTotal} · {away}: {aWon}/{aTotal}',
             'stats.streak.label': 'Serie',
             'stats.streak.value': '{name} · {n} in Folge',
-            'stats.totals': 'Punkte gesamt',
             'stats.comeback.label': 'Aufholjagd',
             'stats.comeback.value': '{name} · -{n}',
             'footer.label': 'Live-Updates',
@@ -286,6 +310,18 @@
         setLogo('team2-logo', away.logo_url);
         setHidden('team1-serve', !home.serving);
         setHidden('team2-serve', !away.serving);
+
+        // Timeouts pips. The CSS handles the visual fill via the
+        // ``data-used`` attribute (0/1/2).
+        const pipsHome = $('team1-timeouts');
+        const pipsAway = $('team2-timeouts');
+        if (pipsHome) pipsHome.dataset.used = String(
+            Math.max(0, Math.min(2, home.timeouts_taken || 0)),
+        );
+        if (pipsAway) pipsAway.dataset.used = String(
+            Math.max(0, Math.min(2, away.timeouts_taken || 0)),
+        );
+
         setText('set-label', t('board.setLabel', { set: match.current_set || 1 }));
         setText(
             'match-title',
@@ -369,13 +405,41 @@
         const stats = oc.stats || {};
         const cs = stats.current_streak || {};
         const pc = stats.partial_comeback || {};
+        const services = stats.services || {};
         const home = broadcast.team_home || {};
         const away = broadcast.team_away || {};
+        const homeName = home.name || 'Team 1';
+        const awayName = away.name || 'Team 2';
+
+        // Row order matches the template: totals → services → streak → comeback.
+        if (typeof stats.total_points === 'number' && stats.total_points > 0) {
+            setStatsRow('stats-totals', t('stats.totals'), String(stats.total_points));
+        } else {
+            setStatsRow('stats-totals', '', '');
+        }
+
+        const svcHome = services[1] || services['1'] || {};
+        const svcAway = services[2] || services['2'] || {};
+        const totalServiced = (svcHome.served || 0) + (svcAway.served || 0);
+        if (totalServiced > 0) {
+            setStatsRow(
+                'stats-services',
+                t('stats.services.label'),
+                t('stats.services.value', {
+                    home: homeName,
+                    hWon: svcHome.won || 0,
+                    hTotal: svcHome.served || 0,
+                    away: awayName,
+                    aWon: svcAway.won || 0,
+                    aTotal: svcAway.served || 0,
+                }),
+            );
+        } else {
+            setStatsRow('stats-services', '', '');
+        }
 
         if (cs.team && cs.n >= 2) {
-            const name = cs.team === 1
-                ? (home.name || 'Team 1')
-                : (away.name || 'Team 2');
+            const name = cs.team === 1 ? homeName : awayName;
             setStatsRow(
                 'stats-streak',
                 t('stats.streak.label'),
@@ -385,20 +449,12 @@
             setStatsRow('stats-streak', '', '');
         }
 
-        if (typeof stats.total_points === 'number' && stats.total_points > 0) {
-            setStatsRow('stats-totals', t('stats.totals'), String(stats.total_points));
-        } else {
-            setStatsRow('stats-totals', '', '');
-        }
-
         const pcHome = pc[1] || pc['1'] || {};
         const pcAway = pc[2] || pc['2'] || {};
         const peak = Math.max(pcHome.deficit || 0, pcAway.deficit || 0);
         if (peak >= 3) {
             const team = (pcHome.deficit || 0) >= (pcAway.deficit || 0) ? 1 : 2;
-            const name = team === 1
-                ? (home.name || 'Team 1')
-                : (away.name || 'Team 2');
+            const name = team === 1 ? homeName : awayName;
             setStatsRow(
                 'stats-comeback',
                 t('stats.comeback.label'),
@@ -411,6 +467,20 @@
 
     // ── Render: set progression chart ──────────────────────────────
 
+    /*
+     * Set progression chart.
+     *
+     * X axis: real time elapsed since the first event of the set. We
+     *   prefer this over event index because it surfaces the rhythm of
+     *   the set — a 90s sideout streak and a 5s ace burst now occupy
+     *   visibly different horizontal spans. Falls back to event index
+     *   only when no event carries a usable timestamp.
+     * Y axis: running point total per team, with up to 5 dashed grid
+     *   lines and tick labels in a high-contrast colour.
+     * Markers: small team-coloured circles at every scoring event so
+     *   the viewer can count exact rallies, plus dashed vertical
+     *   "T" badges where each team called a timeout.
+     */
     function renderSetChart(broadcast) {
         const empty = $('set-chart-empty');
         const svg = $('set-chart-svg');
@@ -426,14 +496,16 @@
         const awayColor = (broadcast.team_away || {}).color_primary || '#0047AB';
         const currentSet = match.current_set || 1;
         const bySet = oc.points_by_set || {};
+        const timeoutsBySet = oc.timeouts_by_set || {};
         const setNum = effectiveSet();
 
-        // Update nav header.
+        // Nav header.
         const isLive = setNum === currentSet;
-        const labelKey = isLive ? 'chart.nav.setLive' : 'chart.nav.set';
-        navLabel.textContent = t(labelKey, { set: setNum });
+        navLabel.textContent = t(
+            isLive ? 'chart.nav.setLive' : 'chart.nav.set',
+            { set: setNum },
+        );
 
-        // Disable prev/next when at boundaries.
         const best = Math.max(1, Math.min(7, match.best_of_sets || 5));
         const prevBtn = $('set-prev');
         const nextBtn = $('set-next');
@@ -441,51 +513,85 @@
         if (nextBtn) nextBtn.disabled = setNum >= best || (state.viewMode === 'live');
 
         const events = bySet[String(setNum)] || bySet[setNum] || [];
+        const timeouts = timeoutsBySet[String(setNum)] || timeoutsBySet[setNum] || [];
+
+        // Clear previous render before deciding empty-state. The
+        // earlier ``grid.textContent = ''`` only cleared the grid; we
+        // also need to drop dot markers and timeout overlays so the
+        // chart doesn't pile up between renders.
+        Array.from(svg.querySelectorAll('.set-chart-dot, .set-chart-timeout')).forEach(
+            (el) => el.remove(),
+        );
+        grid.textContent = '';
 
         if (!events.length) {
             svg.setAttribute('hidden', 'hidden');
             empty.removeAttribute('hidden');
             lineHome.setAttribute('d', '');
             lineAway.setAttribute('d', '');
-            grid.textContent = '';
             return;
         }
 
         svg.removeAttribute('hidden');
         empty.setAttribute('hidden', 'hidden');
 
-        // Project. ViewBox is 600x180 with padding so axis text fits.
         const W = 600;
         const H = 180;
         const PAD_L = 28;
         const PAD_R = 12;
-        const PAD_T = 12;
-        const PAD_B = 18;
+        const PAD_T = 14;
+        const PAD_B = 22;
         const innerW = W - PAD_L - PAD_R;
         const innerH = H - PAD_T - PAD_B;
 
-        // Series: synthetic 0-0 baseline + one entry per event.
-        const series = [[0, 0]];
-        for (const p of events) {
+        // Time anchor: earliest event in the set (events arrive in
+        // chronological order). Use the same anchor for the synthetic
+        // 0-0 baseline so the line starts on the left edge.
+        const eventTimes = events
+            .map((p) => (typeof p.ts === 'number' ? p.ts : null))
+            .filter((ts) => ts !== null);
+        const useTimeAxis = eventTimes.length >= 2;
+        const minTs = useTimeAxis ? Math.min.apply(null, eventTimes) : 0;
+        const maxTs = useTimeAxis ? Math.max.apply(null, eventTimes) : 1;
+        const timeSpan = Math.max(1, maxTs - minTs);
+
+        // Series: synthetic 0-0 baseline at minTs (or idx 0), then
+        // each event with its own time/score.
+        const series = [{
+            ts: minTs,
+            idx: 0,
+            score: [0, 0],
+        }];
+        events.forEach((p, i) => {
             const s = Array.isArray(p.score) ? p.score : [0, 0];
-            series.push([s[0] || 0, s[1] || 0]);
-        }
+            const ts = typeof p.ts === 'number' ? p.ts : minTs;
+            series.push({
+                ts: ts,
+                idx: i + 1,
+                score: [s[0] || 0, s[1] || 0],
+            });
+        });
         const maxIdx = Math.max(1, series.length - 1);
         const maxScore = Math.max(
             1,
-            ...series.map((pair) => Math.max(pair[0], pair[1])),
+            ...series.map((p) => Math.max(p.score[0], p.score[1])),
         );
 
-        function project(idx, score) {
-            const x = PAD_L + (idx / maxIdx) * innerW;
-            const y = PAD_T + innerH - (score / maxScore) * innerH;
-            return [x, y];
+        function projectX(point) {
+            if (useTimeAxis) {
+                return PAD_L + ((point.ts - minTs) / timeSpan) * innerW;
+            }
+            return PAD_L + (point.idx / maxIdx) * innerW;
+        }
+        function projectY(score) {
+            return PAD_T + innerH - (score / maxScore) * innerH;
         }
 
         function buildPath(teamIdx) {
             return series
-                .map((pair, i) => {
-                    const [x, y] = project(i, pair[teamIdx]);
+                .map((p, i) => {
+                    const x = projectX(p);
+                    const y = projectY(p.score[teamIdx]);
                     return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
                 })
                 .join(' ');
@@ -493,23 +599,17 @@
 
         lineHome.setAttribute('d', buildPath(0));
         lineAway.setAttribute('d', buildPath(1));
-        // Inline ``stroke`` wins over the CSS rule and over
-        // ``currentColor`` so the two lines are guaranteed to be
-        // distinct even when the brand colours don't reach the SVG.
         lineHome.setAttribute('stroke', homeColor);
         lineAway.setAttribute('stroke', awayColor);
 
-        // Y-axis: render up to 5 evenly-spaced ticks. ``maxScore`` can
-        // be small early in a set; in that case we render one tick per
-        // integer score so we don't get duplicate "0 / 0 / 0" labels.
-        grid.textContent = '';
+        // Y-axis ticks: up to 5 evenly spaced, deduped early in the set.
         const tickCount = Math.min(5, Math.max(2, maxScore + 1));
         const seen = new Set();
         for (let i = 0; i < tickCount; i += 1) {
             const value = Math.round((i / (tickCount - 1)) * maxScore);
             if (seen.has(value)) continue;
             seen.add(value);
-            const [, y] = project(0, value);
+            const y = projectY(value);
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             line.setAttribute('x1', String(PAD_L));
             line.setAttribute('x2', String(W - PAD_R));
@@ -523,6 +623,96 @@
             text.textContent = String(value);
             grid.appendChild(text);
         }
+
+        // X-axis: render a baseline + time labels at min / mid / max
+        // so the viewer can see the chart actually spans real time.
+        const baseY = projectY(0);
+        const baseline = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        baseline.setAttribute('x1', String(PAD_L));
+        baseline.setAttribute('x2', String(W - PAD_R));
+        baseline.setAttribute('y1', baseY.toFixed(1));
+        baseline.setAttribute('y2', baseY.toFixed(1));
+        baseline.setAttribute('stroke-dasharray', '0');
+        grid.appendChild(baseline);
+
+        if (useTimeAxis) {
+            const labelY = baseY + 14;
+            const stops = [0, 0.5, 1];
+            for (const frac of stops) {
+                const x = PAD_L + frac * innerW;
+                const ts = minTs + frac * timeSpan;
+                const elapsedS = Math.max(0, Math.round(ts - minTs));
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x.toFixed(1));
+                text.setAttribute('y', labelY.toFixed(1));
+                text.setAttribute('text-anchor',
+                    frac === 0 ? 'start' : (frac === 1 ? 'end' : 'middle'));
+                text.textContent = formatElapsed(elapsedS);
+                grid.appendChild(text);
+            }
+        }
+
+        // Data-point dots — one circle per scoring event on each
+        // team's line. Skip the synthetic baseline at index 0.
+        const dotR = 2.6;
+        for (let i = 1; i < series.length; i += 1) {
+            const p = series[i];
+            const x = projectX(p);
+            // Home dot
+            const cHome = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            cHome.classList.add('set-chart-dot', 'set-chart-dot-home');
+            cHome.setAttribute('cx', x.toFixed(1));
+            cHome.setAttribute('cy', projectY(p.score[0]).toFixed(1));
+            cHome.setAttribute('r', String(dotR));
+            cHome.setAttribute('fill', homeColor);
+            svg.appendChild(cHome);
+            // Away dot
+            const cAway = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            cAway.classList.add('set-chart-dot', 'set-chart-dot-away');
+            cAway.setAttribute('cx', x.toFixed(1));
+            cAway.setAttribute('cy', projectY(p.score[1]).toFixed(1));
+            cAway.setAttribute('r', String(dotR));
+            cAway.setAttribute('fill', awayColor);
+            svg.appendChild(cAway);
+        }
+
+        // Timeout markers. Only meaningful when we have a time axis;
+        // otherwise we drop them (their order vs. points would be a
+        // fiction). Each timeout = a dashed vertical line in the
+        // calling team's colour + a "T" badge at the top.
+        if (useTimeAxis) {
+            for (const to of timeouts) {
+                if (typeof to.ts !== 'number') continue;
+                if (to.ts < minTs || to.ts > maxTs) continue;
+                const team = to.team === 2 ? 2 : 1;
+                const color = team === 1 ? homeColor : awayColor;
+                const x = PAD_L + ((to.ts - minTs) / timeSpan) * innerW;
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.classList.add('set-chart-timeout', 'set-chart-timeout-line');
+                line.setAttribute('x1', x.toFixed(1));
+                line.setAttribute('x2', x.toFixed(1));
+                line.setAttribute('y1', String(PAD_T));
+                line.setAttribute('y2', baseY.toFixed(1));
+                line.setAttribute('stroke', color);
+                svg.appendChild(line);
+
+                const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                badge.classList.add('set-chart-timeout', 'set-chart-timeout-badge');
+                badge.setAttribute('x', x.toFixed(1));
+                badge.setAttribute('y', String(PAD_T - 2));
+                badge.setAttribute('text-anchor', 'middle');
+                badge.setAttribute('fill', color);
+                badge.textContent = t('chart.timeoutBadge');
+                svg.appendChild(badge);
+            }
+        }
+    }
+
+    function formatElapsed(seconds) {
+        const s = Math.max(0, Math.floor(seconds));
+        const m = Math.floor(s / 60);
+        const ss = s % 60;
+        return `${m}:${ss < 10 ? '0' : ''}${ss}`;
     }
 
     // ── Set navigation ─────────────────────────────────────────────

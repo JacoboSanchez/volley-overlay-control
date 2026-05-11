@@ -144,6 +144,75 @@ class TestPointsBySet:
         assert len(stats["points_by_set"][1]) == 60
 
 
+def _add_timeout(oid: str, team: int, set_num: int = 1):
+    action_log.append(
+        oid,
+        "add_timeout",
+        {"team": team, "undo": False},
+        {
+            "current_set": set_num,
+            "team_1": {"score": 0, "sets": 0, "timeouts": 1 if team == 1 else 0},
+            "team_2": {"score": 0, "sets": 0, "timeouts": 1 if team == 2 else 0},
+            "serve": "A",
+        },
+    )
+
+
+class TestTimeoutsBySet:
+    def test_empty_audit(self):
+        stats = compute_live_stats("nobody")
+        assert stats["timeouts_by_set"] == {}
+
+    def test_groups_by_set(self):
+        oid = "to-by-set"
+        _add_timeout(oid, 1, set_num=1)
+        _add_timeout(oid, 2, set_num=1)
+        _add_timeout(oid, 1, set_num=2)
+        stats = compute_live_stats(oid)
+        assert sorted(stats["timeouts_by_set"].keys()) == [1, 2]
+        assert len(stats["timeouts_by_set"][1]) == 2
+        assert len(stats["timeouts_by_set"][2]) == 1
+        # Per-event shape: team, set, ts.
+        first = stats["timeouts_by_set"][1][0]
+        assert first["team"] == 1
+        assert first["set"] == 1
+        assert "ts" in first
+
+
+class TestServicesSummary:
+    def test_empty_audit(self):
+        stats = compute_live_stats("nobody")
+        # Default zero-counts, both teams present.
+        assert stats["services"] == {
+            1: {"served": 0, "won": 0},
+            2: {"served": 0, "won": 0},
+        }
+
+    def test_consecutive_holds_count_as_won(self):
+        oid = "svc-holds"
+        # Team 1 wins three in a row (serve stays with them after first).
+        # We can't know who served the first rally so it's unattributed.
+        _add_point(oid, 1, (1, 0))  # serve goes to team 1 after this
+        _add_point(oid, 1, (2, 0))  # team 1 served, team 1 won → "won"
+        _add_point(oid, 1, (3, 0))  # team 1 served, team 1 won → "won"
+        stats = compute_live_stats(oid)
+        assert stats["services"][1]["served"] == 2
+        assert stats["services"][1]["won"] == 2
+        assert stats["services"][2]["served"] == 0
+
+    def test_sideout_counts_as_lost_service(self):
+        oid = "svc-sideout"
+        _add_point(oid, 1, (1, 0))  # serve flips to team 1
+        _add_point(oid, 1, (2, 0))  # team 1 served, team 1 won
+        _add_point(oid, 2, (2, 1))  # team 1 served, team 2 scored → sideout
+        stats = compute_live_stats(oid)
+        assert stats["services"][1]["served"] == 2
+        assert stats["services"][1]["won"] == 1
+        # Team 2 then serves the next rally — but there is no fourth
+        # add_point so team 2's served counter stays at 0.
+        assert stats["services"][2]["served"] == 0
+
+
 class TestAuditCount:
     def test_audit_count_excludes_undo_records(self):
         oid = "count-undo"

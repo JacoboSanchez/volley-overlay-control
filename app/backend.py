@@ -313,6 +313,13 @@ class Backend:
                 "partial_comeback": stats["partial_comeback"],
                 "set_win_comeback": stats["set_win_comeback"],
                 "total_points": stats["total_points"],
+                # Services-won / total per team. Sent as string keys
+                # for JSON round-trip; the spectator stats panel
+                # renders them as a "Services" row.
+                "services": {
+                    str(team): counts
+                    for team, counts in stats["services"].items()
+                },
             }
             payload["overlay_control"]["points_history"] = stats[
                 "points_history"
@@ -323,6 +330,11 @@ class Backend:
             # sets via prev/next navigation.
             payload["overlay_control"]["points_by_set"] = {
                 str(k): v for k, v in stats["points_by_set"].items()
+            }
+            # Timeout markers per set so the chart can draw them on
+            # the same time axis as the running score lines.
+            payload["overlay_control"]["timeouts_by_set"] = {
+                str(k): v for k, v in stats["timeouts_by_set"].items()
             }
         except Exception as exc:  # pragma: no cover - defensive
             Backend.logger.warning(

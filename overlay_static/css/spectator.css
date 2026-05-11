@@ -92,12 +92,51 @@ html, body {
     word-break: break-word;
 }
 
-.team-sets {
+.team-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     font-size: 0.74rem;
     font-weight: 700;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+}
+
+.team-sets,
+.team-timeouts {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/*
+  Timeout pips: max 2 per team per set (FIVB). Rendered as small
+  bullets that fill in as the operator burns them. Empty pips show
+  remaining timeouts so the spectator can spot match-pressure
+  moments at a glance.
+*/
+.timeout-pips {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.timeout-pips::before,
+.timeout-pips::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    background: transparent;
+}
+
+.timeout-pips[data-used="1"]::before {
+    background: var(--muted);
+}
+.timeout-pips[data-used="2"]::before,
+.timeout-pips[data-used="2"]::after {
+    background: var(--muted);
 }
 
 .team-score {
@@ -119,16 +158,16 @@ html, body {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 28px;
-    height: 28px;
+    width: 18px;
+    height: 18px;
     pointer-events: none;
-    filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6));
+    filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.6));
     animation: serve-pulse 1.4s ease-in-out infinite;
 }
 .team-serve[hidden] { display: none !important; }
 .team-serve svg { width: 100%; height: 100%; display: block; }
-.team-serve.serve-home { right: 4px; }
-.team-serve.serve-away { left: 4px; }
+.team-serve.serve-home { right: 2px; }
+.team-serve.serve-away { left: 2px; }
 
 @keyframes serve-pulse {
     0%, 100% { filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6)); transform: translateY(-50%) scale(1); }
@@ -280,6 +319,32 @@ html, body {
     font-weight: 600;
 }
 
+/* Data-point markers — one circle per scoring event so the viewer
+ * can read exact rallies on the line. Team-coloured fill + dark
+ * stroke for contrast against the chart background. */
+.set-chart-dot {
+    stroke: #050811;
+    stroke-width: 1;
+}
+.set-chart-dot-home { fill: var(--team1-color); }
+.set-chart-dot-away { fill: var(--team2-color); }
+
+/* Timeout markers — a vertical accent on the X axis at the moment
+ * a timeout was taken, with a label badge showing which team. The
+ * vertical line uses the team colour so a glance ties the timeout
+ * to its side; the label disambiguates at any zoom level. */
+.set-chart-timeout-line {
+    stroke-width: 1.5;
+    stroke-dasharray: 3 3;
+    opacity: 0.7;
+}
+.set-chart-timeout-badge {
+    font-size: 10px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
 .set-chart-empty {
     padding: 22px 8px;
     text-align: center;
@@ -395,5 +460,5 @@ html, body {
 @media (min-width: 640px) {
     .team-score { font-size: 4rem; }
     .team-name { font-size: 1.1rem; }
-    .team-serve { width: 34px; height: 34px; }
+    .team-serve { width: 22px; height: 22px; }
 }

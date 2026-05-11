@@ -125,6 +125,84 @@ def _points_by_set(
     return out
 
 
+def _timeouts_by_set(
+    audit: list[dict[str, Any]],
+    per_set_limit: int = 20,
+) -> dict[int, list[dict[str, Any]]]:
+    """Group ``add_timeout`` events by set number with their timestamps.
+
+    Used by the spectator chart to render timeout markers on the
+    same time axis as the points line. Each entry is a flat dict::
+
+        {"team": 1, "set": 2, "ts": 1714508400.5}
+
+    Per-set cap (default 20) protects the broadcast from runaway
+    sizes — FIVB caps timeouts at 2 per team per set, so 20 is
+    a comfortable safety margin that also tolerates legacy logs.
+    """
+    out: dict[int, list[dict[str, Any]]] = {}
+    for r in audit:
+        if (r.get("params") or {}).get("undo"):
+            continue
+        if r.get("action") != "add_timeout":
+            continue
+        team = (r.get("params") or {}).get("team")
+        if team not in (1, 2):
+            continue
+        ts = r.get("ts")
+        set_num = _result_set(r)
+        key = set_num if isinstance(set_num, int) and set_num > 0 else 0
+        bucket = out.setdefault(key, [])
+        if len(bucket) < per_set_limit:
+            bucket.append({
+                "team": team,
+                "set": set_num,
+                "ts": float(ts) if isinstance(ts, (int, float)) else None,
+            })
+    out.pop(0, None)
+    return out
+
+
+def _services_summary(
+    audit: list[dict[str, Any]],
+) -> dict[int, dict[str, int]]:
+    """For each team, count rallies served and rallies won-while-serving.
+
+    A "service won" is an ``add_point`` whose scoring team was already
+    serving going into the rally. A "service lost" is a sideout — the
+    serving team gives up the serve to the opponent. We don't know
+    who served the very first rally of the match (no record carries
+    a pre-state serve marker), so that single rally is unattributed.
+    Every subsequent point is fully accounted for from the previous
+    record's ``result.serve`` field, which encodes the *post-action*
+    serve (= the team that will serve the next rally).
+    """
+    out: dict[int, dict[str, int]] = {
+        1: {"served": 0, "won": 0},
+        2: {"served": 0, "won": 0},
+    }
+    prev_post_serve: int | None = None
+    for r in audit:
+        if (r.get("params") or {}).get("undo"):
+            continue
+        action = r.get("action")
+        result = r.get("result") or {}
+
+        if action == "add_point" and prev_post_serve in (1, 2):
+            scoring = (r.get("params") or {}).get("team")
+            if scoring in (1, 2):
+                out[prev_post_serve]["served"] += 1
+                if prev_post_serve == scoring:
+                    out[prev_post_serve]["won"] += 1
+
+        serve_str = result.get("serve")
+        if serve_str == "A":
+            prev_post_serve = 1
+        elif serve_str == "B":
+            prev_post_serve = 2
+    return out
+
+
 def compute_live_stats(
     oid: str,
     *,
@@ -165,4 +243,10 @@ def compute_live_stats(
         # any indoor or beach set, including extreme deuce stretches).
         # Used by the spectator page to render past sets on demand.
         "points_by_set": _points_by_set(events, per_set_limit=60),
+        # Per-set timeout events with timestamps so the spectator
+        # chart can render them as markers on the same time axis.
+        "timeouts_by_set": _timeouts_by_set(audit),
+        # Services-won / services-total per team. The chart caption
+        # uses these to label each side's hold rate.
+        "services": _services_summary(audit),
     }

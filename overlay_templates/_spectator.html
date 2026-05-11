@@ -26,7 +26,13 @@
                 </span>
                 <div class="team-logo"><img id="team1-logo" alt=""></div>
                 <div class="team-name" id="team1-name">Team 1</div>
-                <div class="team-sets"><span class="team-sets-label" data-i18n="board.sets"></span> <span id="team1-sets">0</span></div>
+                <div class="team-meta">
+                    <span class="team-sets"><span data-i18n="board.sets"></span> <span id="team1-sets">0</span></span>
+                    <span class="team-timeouts">
+                        <span data-i18n="board.timeouts"></span>
+                        <span class="timeout-pips" id="team1-timeouts" data-used="0" aria-label="Timeouts used"></span>
+                    </span>
+                </div>
                 <div class="team-score" id="team1-score">0</div>
             </div>
             <div class="set-divider">
@@ -42,7 +48,13 @@
                 </span>
                 <div class="team-logo"><img id="team2-logo" alt=""></div>
                 <div class="team-name" id="team2-name">Team 2</div>
-                <div class="team-sets"><span class="team-sets-label" data-i18n="board.sets"></span> <span id="team2-sets">0</span></div>
+                <div class="team-meta">
+                    <span class="team-sets"><span data-i18n="board.sets"></span> <span id="team2-sets">0</span></span>
+                    <span class="team-timeouts">
+                        <span data-i18n="board.timeouts"></span>
+                        <span class="timeout-pips" id="team2-timeouts" data-used="0" aria-label="Timeouts used"></span>
+                    </span>
+                </div>
                 <div class="team-score" id="team2-score">0</div>
             </div>
         </section>
@@ -85,8 +97,9 @@
         </section>
 
         <section class="spectator-stats" aria-label="Live statistics">
-            <div class="stats-row" id="stats-streak"></div>
             <div class="stats-row" id="stats-totals"></div>
+            <div class="stats-row" id="stats-services"></div>
+            <div class="stats-row" id="stats-streak"></div>
             <div class="stats-row" id="stats-comeback"></div>
         </section>
     </main>
