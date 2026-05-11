@@ -63,7 +63,7 @@
             'board.setLabel': 'Set {set}',
             'board.setTime': 'Set',
             'board.matchTime': 'Partido',
-            'rules.mode.indoor': 'Indoor',
+            'rules.mode.indoor': 'Pista',
             'rules.mode.beach': 'Playa',
             'rules.bestOf': 'Al mejor de {n}',
             'rules.points': '{regular} · {last} en set decisivo',
