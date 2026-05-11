@@ -25,6 +25,24 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Undo button no longer lags one action behind.** The
+  `ActionResponse.state.can_undo` flag that the WebSocket broadcast
+  and the HTTP reply carry now reflects the *post-action*
+  `undoable_forward_count` for `add_point`, `add_set`,
+  `add_timeout`, and `reset`. Previously `state_response` was
+  captured before `_audit` bumped the counter, so the very first
+  forward action broadcast `can_undo=false` (the undo button stayed
+  disabled until the second action), and the final undo back to
+  zero broadcast a misleadingly enabled button. The state response
+  is now computed *after* the audit append in all four paths.
+- **Recent-actions strip clears on match reset even when scores
+  stayed at zero.** `scoringKey` in `useRecentEvents` now includes
+  `match_started_at`, so a reset that lands on already-zero scores
+  (typical after an operator undid everything back to 0:0) still
+  refires the audit fetch, triggers the `matchBoundary` cleanup of
+  `priorEventsRef`, and lets the empty audit log surface an empty
+  strip. Previously the leftover undo chips lingered until the next
+  scoring event changed the numeric portion of the key.
 - **Recent-actions strip now drops the "alive" chip on undo** so it
   matches how history (`RecentAuditDrawer`) and the printable
   `/match/{id}/report` render the same event. Previously, when the
