@@ -11,10 +11,29 @@
 <body>
     <header class="spectator-header">
         <div class="spectator-title" id="match-title">—</div>
+        <div class="spectator-rules" id="rules-summary" hidden></div>
         <div class="spectator-status" id="conn-status" aria-live="polite" data-i18n="status.connecting"></div>
     </header>
 
     <main class="spectator-main">
+        <div class="spectator-alerts" aria-live="polite">
+            <div class="alert-badge alert-set-point alert-home" id="alert-team1-set-point" hidden>
+                <span data-i18n="alert.setPoint"></span>
+            </div>
+            <div class="alert-badge alert-match-point alert-home" id="alert-team1-match-point" hidden>
+                <span data-i18n="alert.matchPoint"></span>
+            </div>
+            <div class="alert-badge alert-side-switch" id="alert-side-switch" hidden>
+                <span class="alert-side-switch-text" id="alert-side-switch-text"></span>
+            </div>
+            <div class="alert-badge alert-set-point alert-away" id="alert-team2-set-point" hidden>
+                <span data-i18n="alert.setPoint"></span>
+            </div>
+            <div class="alert-badge alert-match-point alert-away" id="alert-team2-match-point" hidden>
+                <span data-i18n="alert.matchPoint"></span>
+            </div>
+        </div>
+
         <section class="spectator-scoreboard" aria-label="Scoreboard">
             <div class="team team-home">
                 <span class="team-serve serve-home" id="team1-serve" hidden aria-label="Serving">

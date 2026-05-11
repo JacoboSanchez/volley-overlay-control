@@ -23,6 +23,16 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
+            'rules.mode.indoor': 'Indoor',
+            'rules.mode.beach': 'Beach',
+            'rules.bestOf': 'Best of {n}',
+            'rules.points': '{regular} · {last} in deciding set',
+            'rules.switchEvery': 'Side switch every {n} pts',
+            'alert.setPoint': 'Set point',
+            'alert.matchPoint': 'Match point',
+            'alert.switchIn': 'Switch in {n} pt',
+            'alert.switchInPlural': 'Switch in {n} pts',
+            'alert.switchNow': 'Side switch now',
             'chart.title': 'Set progression',
             'chart.empty': 'Waiting for the first point of the set…',
             'chart.nav.set': 'Set {set}',
@@ -46,6 +56,16 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
+            'rules.mode.indoor': 'Indoor',
+            'rules.mode.beach': 'Playa',
+            'rules.bestOf': 'Al mejor de {n}',
+            'rules.points': '{regular} · {last} en set decisivo',
+            'rules.switchEvery': 'Cambio cada {n} pts',
+            'alert.setPoint': 'Punto de set',
+            'alert.matchPoint': 'Punto de partido',
+            'alert.switchIn': 'Cambio en {n} pt',
+            'alert.switchInPlural': 'Cambio en {n} pts',
+            'alert.switchNow': 'Cambiar de campo',
             'chart.title': 'Evolución del set',
             'chart.empty': 'Esperando el primer punto del set…',
             'chart.nav.set': 'Set {set}',
@@ -69,6 +89,16 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
+            'rules.mode.indoor': 'Indoor',
+            'rules.mode.beach': 'Praia',
+            'rules.bestOf': 'À melhor de {n}',
+            'rules.points': '{regular} · {last} no set decisivo',
+            'rules.switchEvery': 'Mudança cada {n} pts',
+            'alert.setPoint': 'Ponto de set',
+            'alert.matchPoint': 'Ponto de partida',
+            'alert.switchIn': 'Mudança em {n} pt',
+            'alert.switchInPlural': 'Mudança em {n} pts',
+            'alert.switchNow': 'Mudar de campo',
             'chart.title': 'Evolução do set',
             'chart.empty': 'À espera do primeiro ponto do set…',
             'chart.nav.set': 'Set {set}',
@@ -92,6 +122,16 @@
             'board.sets': 'Set',
             'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
+            'rules.mode.indoor': 'Indoor',
+            'rules.mode.beach': 'Beach',
+            'rules.bestOf': 'Al meglio dei {n}',
+            'rules.points': '{regular} · {last} nel set decisivo',
+            'rules.switchEvery': 'Cambio campo ogni {n} pt',
+            'alert.setPoint': 'Set point',
+            'alert.matchPoint': 'Match point',
+            'alert.switchIn': 'Cambio tra {n} pt',
+            'alert.switchInPlural': 'Cambio tra {n} pt',
+            'alert.switchNow': 'Cambiare campo',
             'chart.title': 'Andamento del set',
             'chart.empty': 'In attesa del primo punto del set…',
             'chart.nav.set': 'Set {set}',
@@ -115,6 +155,16 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
+            'rules.mode.indoor': 'Salle',
+            'rules.mode.beach': 'Plage',
+            'rules.bestOf': 'Au meilleur des {n}',
+            'rules.points': '{regular} · {last} dans le set décisif',
+            'rules.switchEvery': 'Changement tous les {n} pts',
+            'alert.setPoint': 'Balle de set',
+            'alert.matchPoint': 'Balle de match',
+            'alert.switchIn': 'Changement dans {n} pt',
+            'alert.switchInPlural': 'Changement dans {n} pts',
+            'alert.switchNow': 'Changer de côté',
             'chart.title': 'Progression du set',
             'chart.empty': 'En attente du premier point du set…',
             'chart.nav.set': 'Set {set}',
@@ -138,6 +188,16 @@
             'board.sets': 'Sätze',
             'board.timeouts': 'A/Z',
             'board.setLabel': 'Satz {set}',
+            'rules.mode.indoor': 'Halle',
+            'rules.mode.beach': 'Beach',
+            'rules.bestOf': 'Best of {n}',
+            'rules.points': '{regular} · {last} im Entscheidungssatz',
+            'rules.switchEvery': 'Seitenwechsel alle {n} Pkt',
+            'alert.setPoint': 'Satzball',
+            'alert.matchPoint': 'Matchball',
+            'alert.switchIn': 'Wechsel in {n} Pkt',
+            'alert.switchInPlural': 'Wechsel in {n} Pkt',
+            'alert.switchNow': 'Jetzt Seiten wechseln',
             'chart.title': 'Satzverlauf',
             'chart.empty': 'Warte auf den ersten Punkt des Satzes…',
             'chart.nav.set': 'Satz {set}',
@@ -286,6 +346,86 @@
         const currentSet = (broadcast.match_info || {}).current_set || 1;
         if (state.viewMode === 'live') return currentSet;
         return state.viewedSet;
+    }
+
+    // ── Render: rules summary + alerts ─────────────────────────────
+
+    function renderRulesSummary(broadcast) {
+        const match = broadcast.match_info || {};
+        const el = $('rules-summary');
+        if (!el) return;
+        const mode = match.mode === 'beach' ? 'beach' : 'indoor';
+        const sets = match.best_of_sets;
+        const reg = match.points_limit;
+        const last = match.points_limit_last_set;
+        if (!sets || !reg || !last) {
+            el.setAttribute('hidden', 'hidden');
+            el.textContent = '';
+            return;
+        }
+        const parts = [
+            t('rules.mode.' + mode),
+            t('rules.bestOf', { n: sets }),
+            t('rules.points', { regular: reg, last: last }),
+        ];
+        if (mode === 'beach') {
+            // The side-switch interval is derived the same way the
+            // backend does it: 5 if the current set target ≤ 15, else 7.
+            // We compute locally so the badge updates immediately on
+            // rule changes without waiting for the next score event.
+            const currentSet = match.current_set || 1;
+            const target = currentSet >= sets ? last : reg;
+            const interval = target <= 15 ? 5 : 7;
+            parts.push(t('rules.switchEvery', { n: interval }));
+        }
+        el.textContent = parts.join(' · ');
+        el.removeAttribute('hidden');
+    }
+
+    function renderAlerts(broadcast) {
+        const oc = broadcast.overlay_control || {};
+        const info = oc.match_point_info || {};
+        const switchInfo = oc.beach_side_switch || null;
+
+        // Match point takes visual priority over set point on each
+        // side, mirroring the React control UI rule. The spectator
+        // shows at most one badge per team.
+        const team1Match = !!info.team_1_match_point;
+        const team2Match = !!info.team_2_match_point;
+        const team1Set = !!info.team_1_set_point && !team1Match;
+        const team2Set = !!info.team_2_set_point && !team2Match;
+        setHidden('alert-team1-match-point', !team1Match);
+        setHidden('alert-team2-match-point', !team2Match);
+        setHidden('alert-team1-set-point', !team1Set);
+        setHidden('alert-team2-set-point', !team2Set);
+
+        const switchBadge = $('alert-side-switch');
+        const switchText = $('alert-side-switch-text');
+        if (!switchBadge || !switchText) return;
+        if (!switchInfo) {
+            switchBadge.setAttribute('hidden', 'hidden');
+            switchText.textContent = '';
+            switchBadge.classList.remove('pending');
+            return;
+        }
+        const remaining = Math.max(0, switchInfo.points_until_switch || 0);
+        const pending = !!switchInfo.is_switch_pending;
+        if (pending) {
+            switchText.textContent = t('alert.switchNow');
+            switchBadge.classList.add('pending');
+            switchBadge.removeAttribute('hidden');
+            return;
+        }
+        if (remaining > 0 && remaining <= 5) {
+            const key = remaining === 1 ? 'alert.switchIn' : 'alert.switchInPlural';
+            switchText.textContent = t(key, { n: remaining });
+            switchBadge.classList.remove('pending');
+            switchBadge.removeAttribute('hidden');
+        } else {
+            switchBadge.setAttribute('hidden', 'hidden');
+            switchText.textContent = '';
+            switchBadge.classList.remove('pending');
+        }
     }
 
     // ── Render: scoreboard ─────────────────────────────────────────
@@ -751,6 +891,8 @@
     function renderAll() {
         const broadcast = state.lastBroadcast;
         if (!broadcast) return;
+        renderRulesSummary(broadcast);
+        renderAlerts(broadcast);
         renderScoreboard(broadcast);
         renderHistory(broadcast);
         renderStats(broadcast);

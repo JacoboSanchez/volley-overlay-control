@@ -67,6 +67,29 @@ once a first tagged release ships.
   - **Live stats reordered** with total points first, plus a
     new ``Services won`` row showing services-won / served per
     team derived from the audit log's serve transitions.
+  - **Set-point / match-point indicator.** A pulsing badge on
+    each side of the alert strip flags when the next point
+    would close out the set or the entire match. Match point
+    takes visual priority over set point on the same side.
+  - **Beach side-switch indicator.** A central yellow badge
+    counts down points until the next mandatory side switch
+    ("Cambio en 2 pts"), flipping to a pulsing
+    "Cambiar de campo" the moment the boundary lands. Only
+    surfaces for beach mode (indoor uses a client-side
+    deciding-set midpoint alert in the operator UI). The
+    countdown is driven by ``compute_side_switch`` so it
+    matches what the operator sees.
+  - **Match-rules quick-reference badge** in the header
+    ("Beach · Best of 3 · 21 · 15 in deciding set ·
+    Side switch every 7 pts") so a viewer can confirm the
+    ruleset without leaving the page.
+  - **Backend rules hook.** ``GameSession`` now exposes its
+    live mode + per-set limits via a getter the Backend's
+    overlay-payload builder consults on every broadcast, so
+    the OBS-side WS stream carries the actual session rules
+    instead of falling back to env-default ``conf`` values
+    (which can diverge after the operator edits rules from
+    the React control UI).
   - **Set navigation** lets the viewer step back through past
     sets via prev / next buttons or by clicking any cell in the
     set-history table. The chart freezes on the chosen set

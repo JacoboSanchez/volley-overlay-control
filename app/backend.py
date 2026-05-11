@@ -210,12 +210,45 @@ class Backend:
             current_model.get(State.CURRENT_SET_INT, 1)
         )
 
+        # Pull the active session's rules (set in
+        # ``GameSession.__init__``) so the broadcast carries the live
+        # mode + per-set limits. Falls back to env-default ``conf``
+        # values when no session has bound the hook — e.g. legacy
+        # standalone backends still drive an overlay correctly.
+        mode = "indoor"
+        points_limit = int(self.conf.points)
+        points_limit_last_set = int(self.conf.points_last_set)
+        sets_limit = int(self.conf.sets)
+        match_finished_flag = False
+        getter = getattr(self, "_rule_overrides_getter", None)
+        if callable(getter):
+            try:
+                overrides = getter() or {}
+            except Exception as exc:  # pragma: no cover - defensive
+                Backend.logger.warning(
+                    "Rule overrides getter raised: %s", exc,
+                )
+                overrides = {}
+            mode = str(overrides.get("mode", mode))
+            points_limit = int(overrides.get("points_limit", points_limit))
+            points_limit_last_set = int(
+                overrides.get("points_limit_last_set", points_limit_last_set)
+            )
+            sets_limit = int(overrides.get("sets_limit", sets_limit))
+            match_finished_flag = bool(overrides.get("match_finished", False))
+
         payload = {
             "match_info": {
                 "tournament": "Superliga Masculina",
                 "phase": "Playoffs",
-                "best_of_sets": int(self.conf.sets),
+                "best_of_sets": sets_limit,
                 "current_set": current_set,
+                # New: surface the live match rules to the spectator
+                # page so it can render a quick-reference badge and
+                # drive the per-set targets in its UI.
+                "mode": mode,
+                "points_limit": points_limit,
+                "points_limit_last_set": points_limit_last_set,
             },
             "team_home": {
                 "name": cust.get_team_name(1),
@@ -304,6 +337,55 @@ class Backend:
         # overlay — they are pure display flags. Computing the stats
         # is a fast audit-log walk; the cost is bounded by audit size
         # (capped + rotated by the action_log module).
+        # Match-point + beach side-switch indicators. These are pure
+        # functions of the current scores plus the rule overrides we
+        # already pulled above, so we include them unconditionally on
+        # every broadcast — the spectator page and the React control
+        # UI both read them.
+        try:
+            from app.api.match_rules import (
+                compute_match_point_info,
+                compute_side_switch,
+            )
+            team1_score = int(
+                current_model.get(f'Team 1 Game {current_set} Score', 0)
+            )
+            team2_score = int(
+                current_model.get(f'Team 2 Game {current_set} Score', 0)
+            )
+            team1_sets = int(current_model.get(State.T1SETS_INT, 0))
+            team2_sets = int(current_model.get(State.T2SETS_INT, 0))
+            payload["overlay_control"]["match_point_info"] = (
+                compute_match_point_info(
+                    current_set=current_set,
+                    sets_limit=sets_limit,
+                    team1_sets=team1_sets,
+                    team2_sets=team2_sets,
+                    team1_score=team1_score,
+                    team2_score=team2_score,
+                    points_limit=points_limit,
+                    points_limit_last_set=points_limit_last_set,
+                    match_finished=match_finished_flag,
+                )
+            )
+            beach_side_switch = compute_side_switch(
+                mode=mode,
+                current_set=current_set,
+                sets_limit=sets_limit,
+                team1_score=team1_score,
+                team2_score=team2_score,
+                points_limit=points_limit,
+                points_limit_last_set=points_limit_last_set,
+            )
+            if beach_side_switch is not None:
+                payload["overlay_control"]["beach_side_switch"] = (
+                    beach_side_switch
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            Backend.logger.warning(
+                "Failed to compute match-point / side-switch info: %s", exc,
+            )
+
         try:
             from app.api.live_stats import compute_live_stats
             stats = compute_live_stats(self.conf.oid, history_limit=30)
