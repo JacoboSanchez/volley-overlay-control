@@ -282,19 +282,25 @@ html, body {
 }
 
 /*
-  Set + match elapsed counters. Stack vertically under the set
-  label so the divider column reads top-to-bottom: SET N · 0:32
-  set · 1:24 match. The values tick once a second via a setInterval
-  in spectator.js so the operator and viewers see a moving clock
-  even between scoring events.
+  Set + match elapsed counters live in the page header (between
+  the rules badge and the connection status) so they're persistently
+  visible without crowding the scoreboard. Rendered as a single
+  inline pill row "MATCH 1:24 · SET 0:32" — compact on mobile,
+  unobtrusive on desktop. The values tick once a second via a
+  setInterval in spectator.js, so the clock keeps moving between
+  scoring events.
 */
 .match-times {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
-    gap: 2px;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
     margin-top: 6px;
-    font-size: 0.7rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 0.72rem;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -303,7 +309,11 @@ html, body {
 .match-time-row {
     display: inline-flex;
     align-items: baseline;
-    gap: 4px;
+    gap: 5px;
+}
+.match-time-sep {
+    color: var(--muted);
+    opacity: 0.5;
 }
 .match-time-label {
     font-weight: 600;
@@ -313,6 +323,12 @@ html, body {
     font-weight: 700;
     color: #e6edf3;
     font-variant-numeric: tabular-nums;
+    /* Reserve enough width for the longest expected string
+     * (``H:MM:SS`` once the match passes the hour mark) so the
+     * surrounding pill doesn't reflow every second once the clock
+     * crosses 60 min. */
+    min-width: 4.5ch;
+    text-align: left;
 }
 
 /* ── Set progression chart ────────────────────────────────────────── */

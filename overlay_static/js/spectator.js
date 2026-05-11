@@ -542,8 +542,8 @@
             return;
         }
         wrap.removeAttribute('hidden');
-        setEl.textContent = setSeconds != null ? formatMmSs(setSeconds) : '—';
-        matchEl.textContent = matchSeconds != null ? formatMmSs(matchSeconds) : '—';
+        setEl.textContent = setSeconds != null ? formatTime(setSeconds) : '—';
+        matchEl.textContent = matchSeconds != null ? formatTime(matchSeconds) : '—';
     }
 
     function renderAlerts(broadcast) {
@@ -902,11 +902,24 @@
         return out;
     }
 
-    function formatMmSs(seconds) {
-        const s = Math.max(0, Math.floor(seconds));
-        const m = Math.floor(s / 60);
-        const ss = s % 60;
-        return `${m}:${ss < 10 ? '0' : ''}${ss}`;
+    /*
+     * Format a duration in seconds as ``M:SS`` (or ``H:MM:SS`` once
+     * it crosses the hour mark). The hour branch matters for long
+     * indoor matches that frequently run past 60 min total elapsed.
+     * Single helper shared by the scoreboard timers and the chart's
+     * X-axis labels so both surfaces stay consistent.
+     */
+    function formatTime(seconds) {
+        const total = Math.max(0, Math.floor(seconds));
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = total % 60;
+        const ss = s < 10 ? '0' + s : String(s);
+        if (h > 0) {
+            const mm = m < 10 ? '0' + m : String(m);
+            return `${h}:${mm}:${ss}`;
+        }
+        return `${m}:${ss}`;
     }
 
     // ── Render: set progression chart ──────────────────────────────
@@ -1112,7 +1125,7 @@
                 text.setAttribute('y', labelY.toFixed(1));
                 text.setAttribute('text-anchor',
                     frac === 0 ? 'start' : (frac === 1 ? 'end' : 'middle'));
-                text.textContent = formatElapsed(elapsedS);
+                text.textContent = formatTime(elapsedS);
                 grid.appendChild(text);
             }
         }
@@ -1171,13 +1184,6 @@
                 svg.appendChild(badge);
             }
         }
-    }
-
-    function formatElapsed(seconds) {
-        const s = Math.max(0, Math.floor(seconds));
-        const m = Math.floor(s / 60);
-        const ss = s % 60;
-        return `${m}:${ss < 10 ? '0' : ''}${ss}`;
     }
 
     // ── Set navigation ─────────────────────────────────────────────

@@ -12,6 +12,17 @@
     <header class="spectator-header">
         <div class="spectator-title" id="match-title">—</div>
         <div class="spectator-rules" id="rules-summary" hidden></div>
+        <div class="match-times" id="match-times" hidden>
+            <span class="match-time-row">
+                <span class="match-time-label" data-i18n="board.matchTime"></span>
+                <span class="match-time-value" id="match-time-value">0:00</span>
+            </span>
+            <span class="match-time-sep">·</span>
+            <span class="match-time-row">
+                <span class="match-time-label" data-i18n="board.setTime"></span>
+                <span class="match-time-value" id="set-time-value">0:00</span>
+            </span>
+        </div>
         <div class="spectator-status" id="conn-status" aria-live="polite" data-i18n="status.connecting"></div>
     </header>
 
@@ -56,16 +67,6 @@
             </div>
             <div class="set-divider">
                 <div class="set-label" id="set-label" data-i18n-tpl="board.setLabel" data-arg-set="1"></div>
-                <div class="match-times" id="match-times" hidden>
-                    <span class="match-time-row">
-                        <span class="match-time-label" data-i18n="board.setTime"></span>
-                        <span class="match-time-value" id="set-time-value">0:00</span>
-                    </span>
-                    <span class="match-time-row">
-                        <span class="match-time-label" data-i18n="board.matchTime"></span>
-                        <span class="match-time-value" id="match-time-value">0:00</span>
-                    </span>
-                </div>
             </div>
             <div class="team team-away">
                 <span class="team-serve serve-away" id="team2-serve" hidden aria-label="Serving">

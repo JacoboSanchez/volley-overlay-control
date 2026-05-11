@@ -123,15 +123,20 @@ once a first tagged release ships.
     neutral English ``<title>`` for crawlers/share previews;
     the spectator JS replaces ``document.title`` with the
     localised version once the language is resolved.
-  - **Set + match elapsed counters** in the centre divider
-    of the scoreboard. Match clock ticks live from the new
-    ``match_info.match_started_at`` field in the broadcast;
-    the set clock derives from the viewed set's audit
-    timestamps and adds the wall-clock delta when the viewed
-    set is the live one. A 1 Hz ``setInterval`` re-renders
-    only the two text nodes so the counters move between
-    rallies. Past sets render their frozen duration from
-    ``stats.set_durations``.
+  - **Set + match elapsed counters** in the page header
+    (between the rules badge and the connection status) as a
+    single inline pill ``MATCH 1:24 · SET 0:32``. Match clock
+    ticks live from the new ``match_info.match_started_at``
+    field in the broadcast; the set clock derives from the
+    viewed set's audit timestamps and adds the wall-clock
+    delta when the viewed set is the live one. A 1 Hz
+    ``setInterval`` re-renders only the two text nodes so
+    the counters move between rallies. Past sets render
+    their frozen duration from ``stats.set_durations``.
+    Format auto-switches to ``H:MM:SS`` once a counter
+    crosses the hour mark; the timer pill reserves enough
+    width for that longer string so the layout doesn't
+    reflow every second past 60 min.
 
 ### Changed
 
