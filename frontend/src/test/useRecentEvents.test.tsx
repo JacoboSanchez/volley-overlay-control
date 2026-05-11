@@ -573,6 +573,47 @@ describe('useRecentEvents', () => {
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
   });
 
+  it('refetches and clears chips on reset when scores stayed at zero', async () => {
+    // Operator added a point then undid it back to 0:0 — strip is
+    // showing the struck ``point_undo`` chip. Now they hit reset:
+    // the score is *still* 0:0 (no numeric change in the key), but
+    // ``match_started_at`` flips from a timestamp to ``null``. The
+    // hook must refetch so the matchBoundary detector clears the
+    // sticky buffer and the empty audit surfaces an empty strip.
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 1,
+      records: [
+        rec(10, 'add_point', { team: 1, undo: true }, {
+          score_set: 1,
+          team_1: { score: 0, sets: 0 },
+          team_2: { score: 0, sets: 0 },
+        }),
+      ],
+    });
+    getAuditSpy.mockResolvedValueOnce({
+      oid: 'oid',
+      count: 0,
+      records: [],
+    });
+    const stateWithStart = (started: number | null): GameState => ({
+      ...makeState(0, 0),
+      match_started_at: started,
+    } as unknown as GameState);
+    const { result, rerender } = renderHook(
+      ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
+      { initialProps: { s: stateWithStart(1000) } },
+    );
+    await waitFor(() =>
+      expect(result.current.some((e) => e.kind === 'point_undo')).toBe(true),
+    );
+    // Operator hits reset: scores stayed at 0:0 but
+    // ``match_started_at`` becomes null. The effect must re-run.
+    rerender({ s: stateWithStart(null) });
+    await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current).toEqual([]));
+  });
+
   it('drops sticky events when match_started_at changes (new match boundary)', async () => {
     // First fetch: a forward point lives in the audit and surfaces a
     // chip, populating the stickiness buffer.

@@ -106,6 +106,45 @@ class TestCanUndo:
         GameService.reset(s)
         assert GameService.get_state(s).can_undo is False
 
+    def test_action_response_can_undo_is_fresh(
+            self, mock_conf, api_backend):
+        """Each mutating action's ``ActionResponse.state.can_undo`` must
+        reflect the *post-action* counter — otherwise the WS broadcast
+        and HTTP reply that ride on the same state response would lag
+        one action behind. Without this, the operator's undo button
+        would stay disabled after the very first point (off-by-one) and
+        misleadingly enabled after the final undo brings the counter
+        back to zero.
+        """
+        s = SessionManager.get_or_create("cu-fresh", mock_conf, api_backend)
+        first = GameService.add_point(s, team=1)
+        assert first.state is not None and first.state.can_undo is True
+        second = GameService.add_point(s, team=2)
+        assert second.state is not None and second.state.can_undo is True
+        undo1 = GameService.add_point(s, team=2, undo=True)
+        assert undo1.state is not None and undo1.state.can_undo is True
+        undo2 = GameService.add_point(s, team=1, undo=True)
+        assert undo2.state is not None and undo2.state.can_undo is False
+
+    def test_reset_response_can_undo_is_false(
+            self, mock_conf, api_backend):
+        """``reset`` must broadcast ``can_undo=False`` — the audit log
+        and counter are both wiped in the same call."""
+        s = SessionManager.get_or_create("cu-reset", mock_conf, api_backend)
+        GameService.add_point(s, team=1)
+        GameService.add_point(s, team=2)
+        reset_response = GameService.reset(s)
+        assert reset_response.state is not None
+        assert reset_response.state.can_undo is False
+
+    def test_add_timeout_response_can_undo_is_fresh(
+            self, mock_conf, api_backend):
+        s = SessionManager.get_or_create("cu-timeout", mock_conf, api_backend)
+        first = GameService.add_timeout(s, team=1)
+        assert first.state is not None and first.state.can_undo is True
+        undo = GameService.add_timeout(s, team=1, undo=True)
+        assert undo.state is not None and undo.state.can_undo is False
+
     def test_can_undo_rehydrates_after_session_clear(
             self, mock_conf, api_backend):
         s = SessionManager.get_or_create("cu-6", mock_conf, api_backend)

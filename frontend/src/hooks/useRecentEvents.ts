@@ -38,6 +38,13 @@ function scoringKey(state: GameState | null): string {
   // Timeouts are part of the key — without them a timeout-only state
   // push wouldn't refetch the audit log, and the clock chip would
   // only surface when the next scoring event arrived.
+  // ``match_started_at`` is part of the key so a match reset that
+  // lands on already-zero scores (e.g. after the operator just
+  // undid everything back to 0:0) still refires the effect — the
+  // matchBoundary detector inside then clears ``priorEventsRef``
+  // and the strip drops any leftover undo chips. Without this the
+  // chips would linger until the next scoring event changed the
+  // numeric portion of the key.
   return [
     teamScoreSum(state.team_1),
     teamScoreSum(state.team_2),
@@ -45,6 +52,7 @@ function scoringKey(state: GameState | null): string {
     state.team_2?.sets ?? 0,
     state.team_1?.timeouts ?? 0,
     state.team_2?.timeouts ?? 0,
+    typeof state.match_started_at === 'number' ? state.match_started_at : 0,
   ].join(':');
 }
 

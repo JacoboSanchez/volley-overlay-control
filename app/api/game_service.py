@@ -418,13 +418,12 @@ class GameService:
         if set_won:
             session.current_set = session._compute_current_set()
 
-        # Compute the post-mutation state once and reuse it for the
-        # broadcast, webhook fan-out, archive, and HTTP response.
-        # ``get_state`` does non-trivial work (set-range iteration plus
-        # side-switch / match-point computation), so collapsing four
-        # call sites into one is a measurable per-action win.
-        state_response = GameService.get_state(session)
-        GameService._save_and_broadcast(session, state_response)
+        # Audit before computing ``state_response`` so the cached
+        # ``undoable_forward_count`` (and therefore ``can_undo``) the
+        # state response carries is up to date for *this* action.
+        # Otherwise the very first forward / last undo would broadcast
+        # the pre-increment counter and the UI's undo button would lag
+        # one action behind.
         if not rapid_pair:
             audit_record = GameService._audit(
                 session, "add_point", {"team": team, "undo": undo},
@@ -434,6 +433,14 @@ class GameService:
             GameService._record_rapid_pair_seed(
                 session, team, undo, audit_record, popped,
             )
+
+        # Compute the post-mutation state once and reuse it for the
+        # broadcast, webhook fan-out, archive, and HTTP response.
+        # ``get_state`` does non-trivial work (set-range iteration plus
+        # side-switch / match-point computation), so collapsing four
+        # call sites into one is a measurable per-action win.
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
 
         # Fire after persistence so consumers always see the post-state.
         # Set-end / match-end webhooks fire whether or not a rapid pair
@@ -485,13 +492,15 @@ class GameService:
             session.undo = False
 
         session.current_set = session._compute_current_set()
-        state_response = GameService.get_state(session)
-        GameService._save_and_broadcast(session, state_response)
+        # Audit before ``get_state`` so the ``can_undo`` flag the
+        # broadcast carries reflects the just-bumped counter.
         GameService._audit(
             session, "add_set", {"team": team, "undo": undo},
             popped_forward=popped,
             target_set=target_set_before_advance,
         )
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
 
         if not undo:
             GameService._fire(session, "set_end", state_response, {
@@ -526,12 +535,14 @@ class GameService:
         if undo and session.undo:
             session.undo = False
 
-        state_response = GameService.get_state(session)
-        GameService._save_and_broadcast(session, state_response)
+        # Audit before ``get_state`` so ``can_undo`` reflects the
+        # post-action counter on the very first / last timeout.
         GameService._audit(
             session, "add_timeout", {"team": team, "undo": undo},
             popped_forward=popped,
         )
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         if not undo:
             GameService._fire(
                 session, "timeout", state_response, {"team": team},
@@ -739,14 +750,16 @@ class GameService:
         # match begins unarmed (operator hits ``Start match`` or scores
         # the first point to arm it again).
         session.match_started_at = None
-        state_response = GameService.get_state(session)
-        GameService._save_and_broadcast(session, state_response)
         # Reset wipes the match — start the audit log fresh too so the
         # archive boundaries align with operator intent. Counter goes
-        # to zero alongside the log so ``can_undo`` is correct.
+        # to zero alongside the log so ``can_undo`` is correct. Run
+        # before ``get_state`` so the broadcast that follows carries
+        # ``can_undo=False`` instead of the stale pre-reset counter.
         action_log.clear(session.oid)
         session.undoable_forward_count = 0
         GameService._audit(session, "reset", {})
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
         return ActionResponse(success=True, state=state_response)
 
     @staticmethod
