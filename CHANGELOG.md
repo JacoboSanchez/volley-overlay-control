@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.2.1] - 2026-05-12
+
 ### Added
 
 - **Live stats + points-history in the overlay WebSocket broadcast.**
