@@ -98,6 +98,13 @@ const MANAGE_VIEWPORT = { width: 1024, height: 700 };
 // frame.
 const REPORT_VIEWPORT = { width: 1024, height: 1100 };
 const REPORT_OID = 'practice-hall';
+// /follow/{id} is the public, mobile-first spectator page. It is a
+// pure WebSocket consumer with no auth, no write paths, and a
+// responsive single-column layout — header, scoreboard, set chart,
+// history, stats. We capture it at phone-portrait width but full-page
+// so the screenshot shows every section (scrolling) instead of just
+// the above-the-fold scoreboard.
+const SPECTATOR_VIEWPORT = { width: 414, height: 896 };
 
 async function ensureDemoOverlay() {
   const adminHeaders = {
@@ -536,6 +543,44 @@ async function captureMatchReport(page, matchId) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureSpectator(page) {
+  // /follow/{id} resolves either the raw OID or its output_key; we
+  // pass DEMO_OID directly to keep this aligned with the other
+  // captures. The page is a vanilla-JS scoreboard fed by /ws/{id}, so
+  // we wait for the WS connection to flip #conn-status away from
+  // "connecting…" and for the team-name slot to be populated before
+  // snapping. fullPage:true so the chart, history and per-team stats
+  // rows are all in-frame without compressing the scoreboard.
+  await page.setViewportSize(SPECTATOR_VIEWPORT);
+  await page.goto(`${BASE}/follow/${encodeURIComponent(DEMO_OID)}`, {
+    waitUntil: 'networkidle',
+  });
+  await dismissPwaPrompt(page);
+  await page.waitForFunction(
+    () => {
+      const name = document.getElementById('team1-name');
+      const status = document.getElementById('conn-status');
+      return (
+        name &&
+        name.textContent &&
+        name.textContent !== 'Team 1' &&
+        status &&
+        !/connecting/i.test(status.textContent || '')
+      );
+    },
+    null,
+    { timeout: 8000 },
+  ).catch(() => {});
+  // Give the set-progression SVG one more tick to lay out its line
+  // path so the chart panel isn't captured mid-render.
+  await page.waitForTimeout(800);
+  await page.screenshot({
+    path: resolve(OUT_DIR, '09-spectator-page.png'),
+    fullPage: true,
+  });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureOverlayMosaic(page, filename) {
   // Mosaic is a full-page grid of every selectable style; needs a wider
   // viewport and enough vertical room to fit every cell, plus extra
@@ -603,6 +648,19 @@ async function main() {
     locale: 'en-US',
   });
   await installLogoRouter(context);
+  // Pre-dismiss the first-use gesture coachmark for every SPA page in
+  // this context. The coachmark fires when authoritative state lands
+  // and ``volley_gestureTourSeen`` is unset (see ``useSettings``); it
+  // covers the scoreboard with a modal that blocks the gear button
+  // and other in-frame UI from rendering in the screenshots. Seeding
+  // the flag before any page script runs is invisible to the
+  // captures themselves (no banner, no flicker) and matches the
+  // operator's steady-state after they dismiss the tour once.
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem('volley_gestureTourSeen', JSON.stringify(true));
+    } catch (_) { /* ignore */ }
+  });
   const page = await context.newPage();
 
   try {
@@ -620,6 +678,7 @@ async function main() {
     await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png');
     await setSimpleMode(false);
     await captureMatchReport(page, reportMatchId);
+    await captureSpectator(page);
   } finally {
     await context.close();
     await browser.close();

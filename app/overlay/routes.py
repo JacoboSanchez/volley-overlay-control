@@ -217,6 +217,33 @@ def create_overlay_router(
             },
         )
 
+    # -- Public spectator (follow) page ------------------------------------
+
+    @router.get("/follow/{overlay_id}", response_class=HTMLResponse)
+    async def serve_spectator(request: Request, overlay_id: str):
+        """Mobile-friendly read-only follow view.
+
+        Resolves the overlay id like ``/overlay/{id}`` and serves a
+        lightweight template that consumes the same ``/ws/{id}`` feed
+        the OBS templates use. Public by design — the page exposes no
+        write paths and inherits the same data exposure as the OBS
+        overlay it shadows.
+        """
+        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
+        if resolved is None:
+            raise HTTPException(status_code=404, detail="Overlay ID not found.")
+        overlay_id = resolved
+
+        return templates.TemplateResponse(
+            request=request,
+            name="_spectator.html",
+            context={
+                "target_id": overlay_id,
+                "output_key": OverlayStateStore.get_output_key(overlay_id),
+                "v": int(time.time()),
+            },
+        )
+
     # -- OBS browser source WebSocket --------------------------------------
 
     @router.websocket("/ws/{overlay_id}")

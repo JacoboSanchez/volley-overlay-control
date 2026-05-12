@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { TEAM_A_COLOR, TEAM_B_COLOR } from '../theme';
+import { defaultKeyboardShortcutsEnabled } from './useKeyboardShortcuts';
 
 const LS_PREFIX = 'volley_';
 
@@ -42,6 +43,15 @@ export interface Settings {
    * "Replay tour" affordance that flips this back to ``false``.
    */
   gestureTourSeen: boolean;
+  /**
+   * Keyboard shortcuts for the scoreboard operator (A/B = add point,
+   * Z = undo, 1/2 = serve, Q/P = timeout, Space = start, H = toggle
+   * overlay, S = simple mode, ? = help). Default ON for fine-pointer
+   * devices (mouse / keyboard), OFF for coarse-pointer (touch-only)
+   * so accidental keystrokes on tablets with a screen keyboard don't
+   * score points.
+   */
+  keyboardShortcuts: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -61,6 +71,7 @@ const DEFAULTS: Settings = {
   autoHideSeconds: 5,
   haptics: false,
   gestureTourSeen: false,
+  keyboardShortcuts: defaultKeyboardShortcutsEnabled(),
 };
 
 /**

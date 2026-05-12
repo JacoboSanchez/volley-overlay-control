@@ -64,6 +64,32 @@ def test_boolean_flags(customization):
     customization.set_glossy("true")
     assert customization.is_glossy() == "true"
 
+
+def test_show_stats_defaults_off(customization):
+    """``show_stats`` defaults to off so existing overlays look unchanged."""
+    assert customization.is_show_stats() is False
+    assert customization.is_show_points_history() is False
+
+
+def test_show_stats_truthy_values(customization):
+    customization.set_show_stats("true")
+    assert customization.is_show_stats() is True
+    customization.set_show_stats(True)
+    assert customization.is_show_stats() is True
+
+
+def test_show_stats_falsy_values(customization):
+    for falsy in ("false", "False", "", 0, "0", None, False):
+        customization.set_show_stats(falsy)
+        assert customization.is_show_stats() is False, falsy
+
+
+def test_show_points_history_round_trip(customization):
+    customization.set_show_points_history("true")
+    assert customization.is_show_points_history() is True
+    customization.set_show_points_history(False)
+    assert customization.is_show_points_history() is False
+
 def test_geometry_setters(customization):
     """Tests the setters for scoreboard geometry and float conversion."""
     customization.set_width(50.5)

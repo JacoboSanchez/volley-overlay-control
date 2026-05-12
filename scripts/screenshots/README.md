@@ -40,12 +40,16 @@ Output PNGs are written to `docs/screenshots/`. The orchestrator:
 | `06-overlay-mosaic-full.png` | `?style=mosaic` preview grid showing every selectable style with full match data. | 1600×1800 (mosaic grid) |
 | `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). | 1600×1800 (mosaic grid) |
 | `08-match-report.png` | Print-friendly match report at `/match/{id}/report` for a finished 3-1 demo match. | 1024×1100 (compact desktop) |
+| `09-spectator-page.png` | Public spectator (follow) page at `/follow/{id}` — header, scoreboard, set chart, history table, and live stats. Captured `fullPage` so every section is in-frame. | 414×896 (phone portrait) |
 
 The control UI shots default to **844×390** because the operator's
 primary use case is a phone held sideways during a match. `/manage`
 keeps a (compact) desktop layout because it is browser-first — admin
 work is rarely done on a phone. Mosaic uses its own larger viewport
-to fit every style in one frame.
+to fit every style in one frame. The spectator page is captured at
+phone-portrait width with `fullPage:true` because it is mobile-first
+and read-only: a fan opens the share link on their phone and scrolls
+through the full single-column layout.
 
 PNGs are rendered at `deviceScaleFactor: 1` so they stay small enough to
 ship in-tree alongside the README. Bump the factor in `capture.mjs` only

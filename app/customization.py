@@ -15,6 +15,11 @@ class Customization:
     B_TEAM = 'Team 2 Text Name'
     LOGOS_BOOL='Logos'
     GLOSS_EFFECT_BOOL = "Gradient"
+    # Optional overlay-side stats panel + points-history strip. Both
+    # default to off so existing overlays render unchanged after
+    # upgrade; the operator opts in per-overlay from the Config panel.
+    SHOW_STATS_BOOL = "Show Stats"
+    SHOW_POINTS_HISTORY_BOOL = "Show Points History"
     HEIGHT_FLOAT = "Height"
     HPOS_FLOAT = "Left-Right"
     VPOS_FLOAT = "Up-Down"
@@ -208,6 +213,28 @@ class Customization:
 
     def set_show_logos(self, value):
         self.customization_model[Customization.LOGOS_BOOL] = value
+
+    def is_show_stats(self):
+        """Whether the overlay should render the live stats panel.
+
+        Default ``False`` so existing overlays look unchanged; the
+        operator opts in per-overlay via the Config panel.
+        """
+        return self.customization_model.get(
+            Customization.SHOW_STATS_BOOL, False
+        ) not in (False, "false", "False", 0, "0", None, "")
+
+    def set_show_stats(self, value):
+        self.customization_model[Customization.SHOW_STATS_BOOL] = value
+
+    def is_show_points_history(self):
+        """Whether the overlay should render the points-history strip."""
+        return self.customization_model.get(
+            Customization.SHOW_POINTS_HISTORY_BOOL, False
+        ) not in (False, "false", "False", 0, "0", None, "")
+
+    def set_show_points_history(self, value):
+        self.customization_model[Customization.SHOW_POINTS_HISTORY_BOOL] = value
 
 
     def set_game_text_color(self, color):

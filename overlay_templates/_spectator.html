@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="theme-color" content="#111">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Live scoreboard</title>
+    <link rel="stylesheet" href="/static/css/spectator.css?v={{ v }}">
+</head>
+<body>
+    <header class="spectator-header">
+        <div class="spectator-title" id="match-title">—</div>
+        <div class="spectator-rules" id="rules-summary" hidden></div>
+        <div class="match-times" id="match-times" hidden>
+            <span class="match-time-row">
+                <span class="match-time-label" data-i18n="board.matchTime"></span>
+                <span class="match-time-value" id="match-time-value">0:00</span>
+            </span>
+            <span class="match-time-sep">·</span>
+            <span class="match-time-row">
+                <span class="match-time-label" data-i18n="board.setTime"></span>
+                <span class="match-time-value" id="set-time-value">0:00</span>
+            </span>
+        </div>
+        <div class="spectator-status" id="conn-status" aria-live="polite" data-i18n="status.connecting"></div>
+    </header>
+
+    <main class="spectator-main">
+        <div class="spectator-alerts" aria-live="polite">
+            <div class="alert-badge alert-set-point alert-home" id="alert-team1-set-point" hidden>
+                <span data-i18n="alert.setPoint"></span>
+            </div>
+            <div class="alert-badge alert-match-point alert-home" id="alert-team1-match-point" hidden>
+                <span data-i18n="alert.matchPoint"></span>
+            </div>
+            <div class="alert-badge alert-side-switch" id="alert-side-switch" hidden>
+                <span class="alert-side-switch-text" id="alert-side-switch-text"></span>
+            </div>
+            <div class="alert-badge alert-set-point alert-away" id="alert-team2-set-point" hidden>
+                <span data-i18n="alert.setPoint"></span>
+            </div>
+            <div class="alert-badge alert-match-point alert-away" id="alert-team2-match-point" hidden>
+                <span data-i18n="alert.matchPoint"></span>
+            </div>
+        </div>
+
+        <section class="spectator-scoreboard" aria-label="Scoreboard">
+            <div class="team team-home">
+                <span class="team-serve serve-home" id="team1-serve" hidden aria-label="Serving">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="#fbbf24" stroke="#1f1300" stroke-width="1.4"/>
+                        <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
+                              fill="none" stroke="#1f1300" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <div class="team-logo"><img id="team1-logo" alt=""></div>
+                <div class="team-name" id="team1-name">Team 1</div>
+                <div class="team-score" id="team1-score">0</div>
+                <div class="team-meta">
+                    <span class="team-timeouts">
+                        <span data-i18n="board.timeouts"></span>
+                        <span class="timeout-pips" id="team1-timeouts" data-used="0" aria-label="Timeouts used"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="set-divider">
+                <div class="sets-pair" aria-label="Sets won">
+                    <span class="sets-pair-home" id="center-team1-sets">0</span>
+                    <span class="sets-pair-sep">–</span>
+                    <span class="sets-pair-away" id="center-team2-sets">0</span>
+                </div>
+                <div class="sets-pair-label" data-i18n="board.sets"></div>
+                <div class="set-label" id="set-label" data-i18n-tpl="board.setLabel" data-arg-set="1"></div>
+            </div>
+            <div class="team team-away">
+                <span class="team-serve serve-away" id="team2-serve" hidden aria-label="Serving">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="#fbbf24" stroke="#1f1300" stroke-width="1.4"/>
+                        <path d="M2.5 12c4-2 11.5-2 19 0 M5.5 5.5c1 4 1 9 0 13 M18.5 5.5c-1 4-1 9 0 13"
+                              fill="none" stroke="#1f1300" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <div class="team-logo"><img id="team2-logo" alt=""></div>
+                <div class="team-name" id="team2-name">Team 2</div>
+                <div class="team-score" id="team2-score">0</div>
+                <div class="team-meta">
+                    <span class="team-timeouts">
+                        <span data-i18n="board.timeouts"></span>
+                        <span class="timeout-pips" id="team2-timeouts" data-used="0" aria-label="Timeouts used"></span>
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section class="spectator-set-chart" aria-label="Set progression">
+            <div class="set-chart-header">
+                <span class="set-chart-title" data-i18n="chart.title"></span>
+                <div class="set-chart-nav">
+                    <button type="button" class="set-chart-nav-btn" id="set-prev" aria-label="Previous set">‹</button>
+                    <span class="set-chart-nav-label" id="set-nav-label">Set 1</span>
+                    <button type="button" class="set-chart-nav-btn" id="set-next" aria-label="Next set">›</button>
+                </div>
+            </div>
+            <div class="set-chart-legend">
+                <span class="legend-item">
+                    <span class="legend-swatch" id="legend-swatch-home"></span>
+                    <span id="legend-name-home">Team 1</span>
+                </span>
+                <span class="legend-item">
+                    <span class="legend-swatch" id="legend-swatch-away"></span>
+                    <span id="legend-name-away">Team 2</span>
+                </span>
+            </div>
+            <svg class="set-chart-svg" id="set-chart-svg" viewBox="0 0 600 180" preserveAspectRatio="none" aria-hidden="true">
+                <g id="set-chart-grid"></g>
+                <path id="set-chart-line-home" class="set-chart-line set-chart-line-home" />
+                <path id="set-chart-line-away" class="set-chart-line set-chart-line-away" />
+            </svg>
+            <div class="set-chart-empty" id="set-chart-empty" data-i18n="chart.empty"></div>
+        </section>
+
+        <section class="spectator-history" aria-label="Set history">
+            <table>
+                <thead><tr id="history-head"></tr></thead>
+                <tbody>
+                    <tr id="history-row-home"></tr>
+                    <tr id="history-row-away"></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="spectator-stats" aria-label="Live statistics">
+            <div class="stats-table">
+                <div class="stats-row" id="stat-row-totals">
+                    <span class="stats-cell stats-cell-home" id="stat-totals-home">—</span>
+                    <span class="stats-label" data-i18n="stats.totals"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-totals-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-services">
+                    <span class="stats-cell stats-cell-home" id="stat-services-home">—</span>
+                    <span class="stats-label" data-i18n="stats.services.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-services-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-streak">
+                    <span class="stats-cell stats-cell-home" id="stat-streak-home">—</span>
+                    <span class="stats-label" data-i18n="stats.streak.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-streak-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-longest">
+                    <span class="stats-cell stats-cell-home" id="stat-longest-home">—</span>
+                    <span class="stats-label" data-i18n="stats.longest.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-longest-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-comeback">
+                    <span class="stats-cell stats-cell-home" id="stat-comeback-home">—</span>
+                    <span class="stats-label" data-i18n="stats.comeback.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-comeback-away">—</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="spectator-footer">
+        <span data-i18n="footer.label"></span>
+    </footer>
+
+    <script>
+        // Only the SHA-256-derived ``output_key`` reaches the browser
+        // — never the raw overlay id, which is the secret an operator
+        // would type into the control UI to mutate the scoreboard.
+        window.OVERLAY_OUTPUT_KEY = "{{ output_key }}";
+    </script>
+    <script src="/static/js/spectator.js?v={{ v }}"></script>
+</body>
+</html>

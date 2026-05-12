@@ -24,6 +24,22 @@
         <div class="player-stats-content" id="player-stats-data"></div>
     </div>
 
+    <!--
+      Live stats panel and points-history strip. Hidden by default;
+      app.js shows them when ``overlay_control.show_stats`` and
+      ``overlay_control.show_points_history`` are truthy. Sit above
+      the ticker so they don't overlap text scrollers.
+    -->
+    <div id="live-stats-panel" class="live-stats-panel" hidden>
+        <div class="live-stats-row" id="live-stats-streak"></div>
+        <div class="live-stats-row" id="live-stats-comeback"></div>
+        <div class="live-stats-row" id="live-stats-totals"></div>
+    </div>
+
+    <div id="points-history-strip" class="points-history-strip" hidden>
+        <div class="points-history-track" id="points-history-track"></div>
+    </div>
+
     <script>
         const OUTPUT_KEY = "{{ output_key }}";
         window.OVERLAY_STYLE = "{{ style }}";

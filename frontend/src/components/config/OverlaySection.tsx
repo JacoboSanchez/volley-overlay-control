@@ -41,6 +41,31 @@ export default function OverlaySection({
           </label>
         )}
       </div>
+      {/*
+        Live stats + points-history toggles — both default OFF so
+        existing overlays look unchanged after upgrade. Surfaced for
+        every overlay backend (overlays.uno / local / external); the
+        payload builder only enriches the WS broadcast when the toggle
+        is on, so other backends just ignore the unknown fields.
+      */}
+      <div className="config-switch-row">
+        <label className="config-switch-label">
+          <input
+            type="checkbox"
+            checked={asBool(model['Show Stats'])}
+            onChange={(e) => updateField('Show Stats', e.target.checked ? 'true' : 'false')}
+          />
+          {t('overlay.showStats')}
+        </label>
+        <label className="config-switch-label">
+          <input
+            type="checkbox"
+            checked={asBool(model['Show Points History'])}
+            onChange={(e) => updateField('Show Points History', e.target.checked ? 'true' : 'false')}
+          />
+          {t('overlay.showPointsHistory')}
+        </label>
+      </div>
       <div className="config-color-grid-2x2">
         <ConfigColorField
           label={t('overlay.setColor')}

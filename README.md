@@ -24,6 +24,10 @@ It includes 16 overlay style templates served directly to OBS browser sources â€
 |---|---|
 | ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
+| Public spectator page (`/follow/{id}`) |
+|---|
+| <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> |
+
 **Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{id}`. All 14 selectable styles laid out side-by-side in a single preview grid via `/overlay/{id}?style=mosaic`:
 
 | Full match data | Simple mode (current set only) |

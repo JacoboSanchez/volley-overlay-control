@@ -86,6 +86,12 @@ export interface ConfigPanelProps {
   isFullscreen: boolean;
   onToggleDarkMode: () => void;
   onToggleFullscreen: () => void;
+  /**
+   * Opens the keyboard shortcuts help modal. Only meaningful while
+   * ``settings.keyboardShortcuts`` is on — the BehaviorSection
+   * surfaces the entry point conditionally.
+   */
+  onShowShortcuts?: () => void;
 }
 
 export default function ConfigPanel({
@@ -99,6 +105,7 @@ export default function ConfigPanel({
   isFullscreen,
   onToggleDarkMode,
   onToggleFullscreen,
+  onShowShortcuts,
 }: ConfigPanelProps) {
   const { t } = useI18n();
   const { settings, setSetting } = useSettings();
@@ -244,6 +251,7 @@ export default function ConfigPanel({
           <BehaviorSection
             settings={settings}
             setSetting={setSetting as BehaviorSectionProps['setSetting']}
+            onShowShortcuts={onShowShortcuts}
           />
         );
       case 'rules':

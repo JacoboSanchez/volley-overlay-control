@@ -10,7 +10,9 @@ import { useSwipeNavigation } from './hooks/useSwipeNavigation';
 import { useHaptics } from './hooks/useHaptics';
 import { useMatchAlertHaptics } from './hooks/useMatchAlertHaptics';
 import { useScreenWakeLock } from './hooks/useScreenWakeLock';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import InitScreen from './components/InitScreen';
+import ShortcutsHelp from './components/ShortcutsHelp';
 import ScoreboardView from './components/ScoreboardView';
 import ScoreboardSkeleton from './components/ScoreboardSkeleton';
 import ConfigPanel from './components/ConfigPanel';
@@ -135,7 +137,7 @@ export default function App() {
   // from either surface).
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState<{
-    control?: string; overlay?: string; preview?: string;
+    control?: string; overlay?: string; preview?: string; follow?: string;
   } | null>(null);
 
   // Recent-audit drawer: a non-modal slide-in panel that surfaces
@@ -143,6 +145,10 @@ export default function App() {
   // happened without leaving the scoreboard. Lazy-fetched on open
   // by ``useAuditLog`` inside the component itself.
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Keyboard shortcuts help modal — opened with `?`, listed in the
+  // Behavior section as a "Show shortcuts" entry.
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
@@ -345,6 +351,7 @@ export default function App() {
           control: typeof links?.control === 'string' ? links.control : '',
           overlay: typeof links?.overlay === 'string' ? links.overlay : '',
           preview: typeof links?.preview === 'string' ? links.preview : '',
+          follow: typeof links?.follow === 'string' ? links.follow : '',
         });
       } catch {
         // Empty links surface as the "No links available" fallback
@@ -369,6 +376,29 @@ export default function App() {
   // same (action, team). The server-side per-type undo path now
   // pops the matching forward from the audit log on its own, so
   // no client-side bookkeeping is required.
+  // Keyboard shortcuts. Disabled while any dialog/coachmark is open
+  // (those own focus and ESC handling) or on touch-only devices where
+  // the operator opted out via ``settings.keyboardShortcuts``.
+  const anyModalOpen = dialog.open
+    || resetConfirmOpen
+    || coachmarkOpen
+    || shareOpen
+    || shortcutsHelpOpen;
+  useKeyboardShortcuts({
+    enabled: settings.keyboardShortcuts
+      && !anyModalOpen
+      && !!state
+      && activeTab === 'scoreboard',
+    onAddPoint: handleAddPoint,
+    onUndoLast: state?.can_undo ? handleUndoLast : undefined,
+    onChangeServe: handleChangeServe,
+    onAddTimeout: handleAddTimeout,
+    onStartMatch: state?.match_started_at == null ? handleStartMatch : undefined,
+    onToggleVisibility: handleToggleVisibility,
+    onToggleSimpleMode: handleToggleSimpleMode,
+    onOpenHelp: () => setShortcutsHelpOpen(true),
+  });
+
   const handleDoubleTapScore = useCallback(
     (team: Team) => {
       pulse('confirm');
@@ -565,6 +595,7 @@ export default function App() {
               setSetting('darkMode', next);
             }}
             onToggleFullscreen={handleToggleFullscreen}
+            onShowShortcuts={() => setShortcutsHelpOpen(true)}
           />
         </ErrorBoundary>
       )}
@@ -607,6 +638,11 @@ export default function App() {
       <GestureCoachmark
         open={coachmarkOpen}
         onDismiss={handleCoachmarkDismiss}
+      />
+
+      <ShortcutsHelp
+        open={shortcutsHelpOpen}
+        onClose={() => setShortcutsHelpOpen(false)}
       />
     </div>
   );

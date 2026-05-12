@@ -313,6 +313,10 @@ function renderFullState(state) {
             gsap.set(statsContainer, { x: -100, opacity: 0 });
         }
     });
+
+    // 10. Live stats panel + points history strip (opt-in per overlay).
+    renderLiveStats(state);
+    renderPointsHistory(state);
 }
 
 function updateStateDiff(oldState, newState) {
@@ -490,6 +494,25 @@ function updateStateDiff(oldState, newState) {
     }
     if (JSON.stringify(oldState.overlay_control.player_stats_data) !== JSON.stringify(newState.overlay_control.player_stats_data)) {
         renderPlayerStats(newState.overlay_control.player_stats_data);
+    }
+
+    // 10. Live stats + points history. Both rerender unconditionally
+    // because the underlying stats payload can change on every point
+    // even when the toggles themselves don't move; the render
+    // functions handle the hidden-by-default case internally.
+    const oldOC = oldState.overlay_control || {};
+    const newOC = newState.overlay_control || {};
+    if (
+        oldOC.show_stats !== newOC.show_stats
+        || JSON.stringify(oldOC.stats) !== JSON.stringify(newOC.stats)
+    ) {
+        renderLiveStats(newState);
+    }
+    if (
+        oldOC.show_points_history !== newOC.show_points_history
+        || JSON.stringify(oldOC.points_history) !== JSON.stringify(newOC.points_history)
+    ) {
+        renderPointsHistory(newState);
     }
 
     // Phase 3 — set-won + match-finished glows. Sits at the end of
@@ -702,6 +725,113 @@ function updateSetHistoryContainer(container, myHistory, theirHistory, currentSe
             });
         }
     }
+}
+
+// ── Live stats + points history ──────────────────────────────────────
+//
+// Both surfaces opt-in per overlay via ``overlay_control.show_stats``
+// and ``overlay_control.show_points_history``. Templates that pre-date
+// these features don't render the containers; ``withEl`` short-circuits
+// the rendering in that case.
+
+function _setStatsRow(rowId, labelText, valueText, teamClass) {
+    withEl(rowId, row => {
+        row.dataset.empty = valueText ? "false" : "true";
+        if (!valueText) {
+            row.textContent = "";
+            return;
+        }
+        row.textContent = "";
+        const label = document.createElement("span");
+        label.className = "live-stats-label";
+        label.textContent = labelText;
+        const value = document.createElement("span");
+        value.className = "live-stats-value " + (teamClass || "");
+        value.textContent = valueText;
+        row.appendChild(label);
+        row.appendChild(value);
+    });
+}
+
+function renderLiveStats(state) {
+    const oc = (state && state.overlay_control) || {};
+    const panel = document.getElementById("live-stats-panel");
+    if (!panel) return;
+
+    const show = !!oc.show_stats && !!oc.stats;
+    panel.hidden = !show;
+    if (!show) return;
+
+    const stats = oc.stats;
+    const cs = stats.current_streak || {};
+    const ls = stats.longest_streak || {};
+    const pcHome = (stats.partial_comeback || {})[1] || (stats.partial_comeback || {})["1"] || {};
+    const pcAway = (stats.partial_comeback || {})[2] || (stats.partial_comeback || {})["2"] || {};
+
+    if (cs.team && cs.n >= 2) {
+        const teamClass = cs.team === 1 ? "live-stats-team-home" : "live-stats-team-away";
+        _setStatsRow(
+            "live-stats-streak", "STREAK",
+            cs.n + " in a row", teamClass,
+        );
+    } else {
+        _setStatsRow("live-stats-streak", "", "");
+    }
+
+    if (ls.team && ls.n >= 4 && ls.n > (cs.n || 0)) {
+        const teamClass = ls.team === 1 ? "live-stats-team-home" : "live-stats-team-away";
+        _setStatsRow(
+            "live-stats-comeback", "LONGEST",
+            ls.n + " streak", teamClass,
+        );
+    } else {
+        const peak = Math.max(pcHome.deficit || 0, pcAway.deficit || 0);
+        if (peak >= 3) {
+            const team = (pcHome.deficit || 0) >= (pcAway.deficit || 0) ? 1 : 2;
+            const teamClass = team === 1 ? "live-stats-team-home" : "live-stats-team-away";
+            _setStatsRow(
+                "live-stats-comeback", "COMEBACK",
+                "-" + peak, teamClass,
+            );
+        } else {
+            _setStatsRow("live-stats-comeback", "", "");
+        }
+    }
+
+    if (typeof stats.total_points === "number" && stats.total_points > 0) {
+        _setStatsRow(
+            "live-stats-totals", "POINTS",
+            String(stats.total_points), "",
+        );
+    } else {
+        _setStatsRow("live-stats-totals", "", "");
+    }
+}
+
+function renderPointsHistory(state) {
+    const oc = (state && state.overlay_control) || {};
+    const strip = document.getElementById("points-history-strip");
+    if (!strip) return;
+
+    const show = !!oc.show_points_history && Array.isArray(oc.points_history);
+    strip.hidden = !show;
+    if (!show) return;
+
+    const track = document.getElementById("points-history-track");
+    if (!track) return;
+
+    const history = oc.points_history || [];
+    track.textContent = "";
+    const fragment = document.createDocumentFragment();
+    history.forEach((p, idx) => {
+        const chip = document.createElement("span");
+        chip.className = "points-history-chip";
+        chip.dataset.team = String(p.team || 1);
+        // The last chip pulses to draw the eye to the freshest point.
+        if (idx === history.length - 1) chip.dataset.fresh = "true";
+        fragment.appendChild(chip);
+    });
+    track.appendChild(fragment);
 }
 
 function renderPlayerStats(data) {

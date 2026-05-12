@@ -15,6 +15,7 @@ from app.authentication import PasswordAuthenticator
 from app.customization import Customization
 from app.env_vars_manager import EnvVarsManager
 from app.oid_utils import compose_output, extract_oid
+from app.overlay.state_store import OverlayStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,28 @@ async def get_links(request: Request,
             qs_params["styles"] = ",".join(styles)
         preview_qs = urllib.parse.urlencode(qs_params)
         links["preview"] = f"{base_url}/preview?{preview_qs}"
+
+        # Public spectator (follow) page — same backend, mobile-first
+        # read-only view that consumes the OBS WS broadcast. Only
+        # surfaced for custom overlays where the output key resolves
+        # to our own ``/follow/{key}`` route; cloud overlays
+        # (overlays.uno) have no equivalent path.
+        if session.backend.is_custom_overlay(oid):
+            try:
+                custom_id, _ = session.backend.get_custom_overlay_id(oid)
+            except Exception:
+                # Defensive only: the parser is total in practice.
+                # ``logger.exception`` captures the full traceback so
+                # a regression surfaces in operator logs instead of
+                # silently degrading the follow URL.
+                logger.exception(
+                    "Failed to resolve custom overlay id for %r; "
+                    "falling back to raw oid", oid,
+                )
+                custom_id = oid
+            if custom_id:
+                output_key = OverlayStateStore.get_output_key(custom_id)
+                links["follow"] = f"{base_url}/follow/{output_key}"
 
     # Surface the latest archived match report and a browseable
     # match-history index — but only when the report endpoint is

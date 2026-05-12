@@ -8,6 +8,205 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Live stats + points-history in the overlay WebSocket broadcast.**
+  Every overlay state push now carries a stats summary (current
+  streak, longest streak, partial comeback, total points) and a
+  30-point trajectory in `overlay_control.stats` and
+  `overlay_control.points_history`. The two per-overlay Config-panel
+  toggles ("Show live stats" / "Show points history") gate whether
+  the OBS overlay app.js *renders* the panels (default OFF so
+  existing overlays look unchanged after upgrade); the data itself
+  is always present so the `/follow/{id}` spectator page and other
+  consumers can read it regardless of operator display preferences.
+  The data is computed from the per-OID audit log via the new
+  `app.api.live_stats.compute_live_stats` helper, so the live
+  numbers reconcile with the printed match report — no second
+  source of truth to drift.
+- **`GET /api/v1/matches/live/stats?oid=X&limit=N` endpoint.**
+  Returns the same stats payload powering the overlay panel, plus
+  per-set durations and the longest-rally proxy. External
+  integrators (coach apps, dashboards, secondary panels) can read
+  the live report block without polling the audit log directly.
+- **Public spectator page at `/follow/{overlay_id}`.** Mobile-first
+  read-only follow view that consumes the same `/ws/{output_key}`
+  feed as the OBS templates. Surfaced via the operator's share
+  dialog (`/api/v1/links` now returns a ``follow`` URL alongside
+  control / overlay / preview) so the operator never has to
+  hand-build the URL. Resolves by either the raw overlay id or
+  its short output key and is excluded from the PWA
+  ``navigateFallback`` denylist so a shared URL hits the backend
+  Jinja route instead of the SPA shell. Marked
+  ``noindex,nofollow`` so the page doesn't leak into search
+  engines.
+  - **Serve indicator** is an absolutely-positioned pulsing
+    volleyball icon docked at the inner edge of the serving
+    team's cell (toward the centre divider). Position is fixed,
+    so toggling the indicator no longer reflows the layout the
+    way the previous under-name badge did.
+  - **Set progression chart** has explicit per-team stroke
+    colours pulled from the brand palette (no
+    ``currentColor`` collapse), a dark plot background
+    distinct from the surrounding panel, and dashed grid lines
+    with high-contrast tick labels. Up to 5 evenly-spaced Y
+    ticks render the running score scale, deduped when the set
+    is fresh so the axis never repeats ``0``. The X axis is
+    real-time elapsed (``m:ss`` labels at start / mid / end)
+    so long sideout streaks and short ace bursts occupy
+    visibly different spans. Each scoring event is marked
+    with a team-coloured dot; each timeout is a dashed
+    vertical line in the calling team's colour with a small
+    ``T`` badge at the top.
+  - **Scoreboard timeouts indicator.** Two pip dots per
+    team next to the sets counter fill in as the operator
+    burns timeouts (FIVB max 2/set), so the viewer reads
+    available timeouts at a glance.
+  - **Serve ball** shrunk so it lives comfortably inside the
+    team cell without crowding the score.
+  - **Live stats reordered** with total points first, plus a
+    new ``Services won`` row showing services-won / served per
+    team derived from the audit log's serve transitions.
+  - **Set-point / match-point indicator.** A pulsing badge on
+    each side of the alert strip flags when the next point
+    would close out the set or the entire match. Match point
+    takes visual priority over set point on the same side.
+  - **Beach side-switch indicator.** A central yellow badge
+    counts down points until the next mandatory side switch
+    ("Cambio en 2 pts"), flipping to a pulsing
+    "Cambiar de campo" the moment the boundary lands. Only
+    surfaces for beach mode (indoor uses a client-side
+    deciding-set midpoint alert in the operator UI). The
+    countdown is driven by ``compute_side_switch`` so it
+    matches what the operator sees.
+  - **Match-rules quick-reference badge** in the header
+    ("Beach · Best of 3 · 21 · 15 in deciding set ·
+    Side switch every 7 pts") so a viewer can confirm the
+    ruleset without leaving the page.
+  - **Scoreboard centre column** now hosts the shared
+    indicators (both teams' set wins as a single ``2 – 1``
+    pair at the top, with the current ``SET N`` pill pushed
+    lower toward the score line). Per-team meta rows dropped
+    the redundant "Sets X" label — only the timeouts pips
+    remain there — so the central column has visible content
+    instead of empty vertical space. The serve indicator
+    inside each team cell slid from the column's mid-line
+    down to ``top: 64%`` so the volleyball icon lines up with
+    the score the viewer is reading rather than floating over
+    the team name.
+  - **Per-team stats grid.** The stats panel is now a 3-column
+    layout (home value · label · away value) instead of single
+    rows that mixed team names into the value text. Total
+    points are split per team (summed from ``set_history``
+    rather than the audit aggregate). Services-won, current
+    streak, longest streak and partial comeback render in the
+    column of the team they belong to; the opposite column
+    shows a muted "—". Rows where neither team has data
+    collapse via ``data-empty="true"``.
+  - **Chart colour-collision fallback.** When both teams'
+    primary colours are within ~60 RGB units the chart's away
+    line switches to a high-contrast fallback (mirroring the
+    print report's ``_ensure_distinct_chart_colors``) AND
+    picks up a dashed stroke pattern, so even pathological
+    cases (two reds + a red fallback) still render as two
+    distinct traces. The legend swatches mirror the resolved
+    colours.
+  - **Alert badges use fixed semantic colours.** Set point is
+    amber (warning), match point is red with a pulsing glow
+    (critical), side-switch is amber (info / pulses when
+    pending). Team affiliation is implicit from the alert
+    strip's three-column grid (home left, switch centre, away
+    right) so the team colour is no longer needed inside the
+    badge — matches the React control UI's chip palette.
+  - **OID is no longer rendered into the spectator HTML.**
+    The page title, footer line and ``window.OVERLAY_TARGET_ID``
+    now omit the raw overlay id (it's the secret an operator
+    types into the control UI). Only the SHA-derived
+    ``output_key`` reaches the browser. The route's
+    ``test_follow_*`` regression suite was updated to assert
+    this invariant.
+  - **Per-set streak, longest streak, and comeback.** The
+    stats panel rescopes these to the *viewed* set instead of
+    the whole match, computed client-side from
+    ``overlay_control.points_by_set`` so the panel
+    recomputes when the viewer steps through previous sets.
+  - **Page title is i18n'd.** The Jinja template emits a
+    neutral English ``<title>`` for crawlers/share previews;
+    the spectator JS replaces ``document.title`` with the
+    localised version once the language is resolved.
+  - **Set + match elapsed counters** in the page header
+    (between the rules badge and the connection status) as a
+    single inline pill ``MATCH 1:24 · SET 0:32``. Match clock
+    ticks live from the new ``match_info.match_started_at``
+    field in the broadcast; the set clock derives from the
+    viewed set's audit timestamps and adds the wall-clock
+    delta when the viewed set is the live one. A 1 Hz
+    ``setInterval`` re-renders only the two text nodes so
+    the counters move between rallies. Past sets render
+    their frozen duration from ``stats.set_durations``.
+    Format auto-switches to ``H:MM:SS`` once a counter
+    crosses the hour mark; the timer pill reserves enough
+    width for that longer string so the layout doesn't
+    reflow every second past 60 min.
+- **README screenshot for the public spectator page.**
+  ``scripts/screenshots/capture.mjs`` now drives a phone-portrait
+  full-page capture of ``/follow/{id}`` against the demo overlay,
+  written to ``docs/screenshots/09-spectator-page.png`` and embedded
+  in the README screenshot grid. The capture pipeline also seeds
+  ``volley_gestureTourSeen=true`` via ``context.addInitScript`` so
+  the first-use gesture coachmark does not cover the scoreboard /
+  config-panel shots after upgrade.
+
+### Changed
+
+- **Backend rules hook is now an explicit setter.** Replaced the
+  monkey-patched ``backend._rule_overrides_getter = ...`` from
+  ``GameSession.__init__`` with ``Backend.set_rule_overrides_getter``
+  so the dependency is part of Backend's public surface. Addresses
+  Gemini's coupling concern from the PR review.
+- **Defensive ``except Exception`` blocks in
+  ``_build_overlay_payload`` and the ``/links`` route now log via
+  ``logger.exception`` so the full traceback reaches operator
+  logs instead of just the exception's repr.
+  - **Backend rules hook.** ``GameSession`` now exposes its
+    live mode + per-set limits via a getter the Backend's
+    overlay-payload builder consults on every broadcast, so
+    the OBS-side WS stream carries the actual session rules
+    instead of falling back to env-default ``conf`` values
+    (which can diverge after the operator edits rules from
+    the React control UI).
+  - **Set navigation** lets the viewer step back through past
+    sets via prev / next buttons or by clicking any cell in the
+    set-history table. The chart freezes on the chosen set
+    until the operator advances back to "live"; the active set
+    is highlighted in the history table and the header reads
+    ``Set N · live`` when tracking the current set.
+  - **Per-set data** is now broadcast as
+    ``overlay_control.points_by_set`` (full per-set arrays,
+    capped at 60 events per set) so the spectator chart can
+    render historical sets without a second fetch. The
+    existing ``points_history`` (last-30 flat list) is
+    preserved for the OBS overlay strip.
+  - **Internationalisation:** every string on the spectator
+    page is translated for en / es / pt / it / fr / de. The
+    page reads the locale from ``?lang=`` first, then
+    ``navigator.language``, then falls back to English.
+  - The previous bottom "points trajectory" chip strip was
+    removed: the set-progression chart covers the same
+    information with context (which set, what scale, who's
+    leading).
+- **Keyboard shortcuts for the operator.** New `useKeyboardShortcuts`
+  hook + `ShortcutsHelp` dialog covering the high-frequency
+  actions: `A` / `B` add point, `Z` undo, `1` / `2` change serve,
+  `Q` / `P` timeout, Space start match, `H` toggle overlay
+  visibility, `S` toggle simple mode, `?` open the help cheatsheet.
+  Defaults ON for fine-pointer devices (mouse + keyboard), OFF for
+  coarse-pointer (touch-only) so the screen keyboard on tablets
+  doesn't score phantom points. Toggleable from the Behavior
+  section of the Config panel, and disabled while any modal /
+  text input owns focus so it never fights the existing dialog
+  flow. Translated into the six supported UI languages.
+
 ### Changed
 
 - **Recent-actions strip now skips all undo records.** The strip is

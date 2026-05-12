@@ -1,6 +1,7 @@
 import copy
 import logging
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
@@ -83,7 +84,26 @@ class Backend:
         self._customization_cache = CustomizationCache(
             _CUSTOMIZATION_CACHE_TTL_SECONDS
         )
+        # Hook for the per-session rule overrides (mode + per-set
+        # point/sets limits + match_started_at). Wired explicitly by
+        # ``GameSession`` via :meth:`set_rule_overrides_getter` so the
+        # dependency is part of the public surface rather than a
+        # monkey-patched attribute. ``None`` means "fall back to the
+        # env-default ``conf`` values" — the legacy standalone path
+        # that doesn't use the session manager.
+        self._rule_overrides_getter: Callable[[], dict] | None = None
         self._overlay = self._create_overlay_backend()
+
+    def set_rule_overrides_getter(self, getter: Callable[[], dict] | None) -> None:
+        """Register the per-session rule-overrides callable.
+
+        Called by :meth:`GameSession.__init__` so
+        :meth:`_build_overlay_payload` can pull the live mode +
+        per-set limits + ``match_started_at`` on every broadcast.
+        Passing ``None`` reverts to env-default conf values; useful
+        for tests that build a bare Backend without a session.
+        """
+        self._rule_overrides_getter = getter
 
     def _remember_customization(self, data):
         """Store a copy of *data* in the cache so callers can't mutate it."""
@@ -210,12 +230,55 @@ class Backend:
             current_model.get(State.CURRENT_SET_INT, 1)
         )
 
+        # Pull the active session's rules (set in
+        # ``GameSession.__init__``) so the broadcast carries the live
+        # mode + per-set limits. Falls back to env-default ``conf``
+        # values when no session has bound the hook — e.g. legacy
+        # standalone backends still drive an overlay correctly.
+        mode = "indoor"
+        points_limit = int(self.conf.points)
+        points_limit_last_set = int(self.conf.points_last_set)
+        sets_limit = int(self.conf.sets)
+        match_finished_flag = False
+        match_started_at: float | None = None
+        getter = self._rule_overrides_getter
+        if callable(getter):
+            try:
+                overrides = getter() or {}
+            except Exception:  # pragma: no cover - defensive
+                # Defensive only: the session-bound callable shouldn't
+                # raise. ``logger.exception`` captures the full
+                # traceback so a real bug isn't silently masked.
+                Backend.logger.exception("Rule overrides getter raised")
+                overrides = {}
+            mode = str(overrides.get("mode", mode))
+            points_limit = int(overrides.get("points_limit", points_limit))
+            points_limit_last_set = int(
+                overrides.get("points_limit_last_set", points_limit_last_set)
+            )
+            sets_limit = int(overrides.get("sets_limit", sets_limit))
+            match_finished_flag = bool(overrides.get("match_finished", False))
+            raw_started = overrides.get("match_started_at")
+            if isinstance(raw_started, (int, float)):
+                match_started_at = float(raw_started)
+
         payload = {
             "match_info": {
                 "tournament": "Superliga Masculina",
                 "phase": "Playoffs",
-                "best_of_sets": int(self.conf.sets),
+                "best_of_sets": sets_limit,
                 "current_set": current_set,
+                # New: surface the live match rules to the spectator
+                # page so it can render a quick-reference badge and
+                # drive the per-set targets in its UI.
+                "mode": mode,
+                "points_limit": points_limit,
+                "points_limit_last_set": points_limit_last_set,
+                # Wall-clock seconds at which the operator armed the
+                # match (or ``None`` if pending). The spectator uses
+                # this to tick a live match-elapsed counter; the OBS
+                # templates ignore it.
+                "match_started_at": match_started_at,
             },
             "team_home": {
                 "name": cust.get_team_name(1),
@@ -286,8 +349,117 @@ class Backend:
                 },
                 "preferredStyle": cust.get_preferred_style(),
                 "show_logos": cust.is_show_logos() not in (False, "false", "False"),
+                "show_stats": cust.is_show_stats(),
+                "show_points_history": cust.is_show_points_history(),
             },
         }
+
+        # Live stats and points history are derived from the per-OID
+        # audit log so the overlay viewer + the public spectator page
+        # see the same trajectory as the final printed match report.
+        #
+        # The data is included in *every* broadcast (not gated by the
+        # operator toggles) so the /follow/{id} page and any external
+        # consumer can read it without the operator having to enable
+        # display on the OBS overlay. The toggles
+        # (``overlay_control.show_stats`` / ``show_points_history``)
+        # control whether app.js *renders* the panels on the OBS-side
+        # overlay — they are pure display flags. Computing the stats
+        # is a fast audit-log walk; the cost is bounded by audit size
+        # (capped + rotated by the action_log module).
+        # Match-point + beach side-switch indicators. These are pure
+        # functions of the current scores plus the rule overrides we
+        # already pulled above, so we include them unconditionally on
+        # every broadcast — the spectator page and the React control
+        # UI both read them.
+        try:
+            from app.api.match_rules import (
+                compute_match_point_info,
+                compute_side_switch,
+            )
+            team1_score = int(
+                current_model.get(f'Team 1 Game {current_set} Score', 0)
+            )
+            team2_score = int(
+                current_model.get(f'Team 2 Game {current_set} Score', 0)
+            )
+            team1_sets = int(current_model.get(State.T1SETS_INT, 0))
+            team2_sets = int(current_model.get(State.T2SETS_INT, 0))
+            payload["overlay_control"]["match_point_info"] = (
+                compute_match_point_info(
+                    current_set=current_set,
+                    sets_limit=sets_limit,
+                    team1_sets=team1_sets,
+                    team2_sets=team2_sets,
+                    team1_score=team1_score,
+                    team2_score=team2_score,
+                    points_limit=points_limit,
+                    points_limit_last_set=points_limit_last_set,
+                    match_finished=match_finished_flag,
+                )
+            )
+            beach_side_switch = compute_side_switch(
+                mode=mode,
+                current_set=current_set,
+                sets_limit=sets_limit,
+                team1_score=team1_score,
+                team2_score=team2_score,
+                points_limit=points_limit,
+                points_limit_last_set=points_limit_last_set,
+            )
+            if beach_side_switch is not None:
+                payload["overlay_control"]["beach_side_switch"] = (
+                    beach_side_switch
+                )
+        except Exception:  # pragma: no cover - defensive
+            Backend.logger.exception(
+                "Failed to compute match-point / side-switch info",
+            )
+
+        try:
+            from app.api.live_stats import compute_live_stats
+            stats = compute_live_stats(self.conf.oid, history_limit=30)
+            payload["overlay_control"]["stats"] = {
+                "current_streak": stats["current_streak"],
+                "longest_streak": stats["longest_streak"],
+                "partial_comeback": stats["partial_comeback"],
+                "set_win_comeback": stats["set_win_comeback"],
+                "total_points": stats["total_points"],
+                # Per-set duration in seconds, derived from the audit
+                # log's first/last event timestamps. The spectator
+                # uses ``set_durations[viewed_set]`` for the set-time
+                # display; stringified keys so JSON round-trip is
+                # stable.
+                "set_durations": {
+                    str(k): v for k, v in stats["set_durations"].items()
+                },
+                # Services-won / total per team. Sent as string keys
+                # for JSON round-trip; the spectator stats panel
+                # renders them as a "Services" row.
+                "services": {
+                    str(team): counts
+                    for team, counts in stats["services"].items()
+                },
+            }
+            payload["overlay_control"]["points_history"] = stats[
+                "points_history"
+            ]
+            # Per-set bucketed events, stringified keys so the JSON
+            # broadcast survives round-trip without key-type churn.
+            # Consumed by the spectator (/follow) page to render past
+            # sets via prev/next navigation.
+            payload["overlay_control"]["points_by_set"] = {
+                str(k): v for k, v in stats["points_by_set"].items()
+            }
+            # Timeout markers per set so the chart can draw them on
+            # the same time axis as the running score lines.
+            payload["overlay_control"]["timeouts_by_set"] = {
+                str(k): v for k, v in stats["timeouts_by_set"].items()
+            }
+        except Exception:  # pragma: no cover - defensive
+            Backend.logger.exception(
+                "Failed to compute live stats for overlay payload",
+            )
 
         if show_only_current_set is not None:
             payload["match_info"][

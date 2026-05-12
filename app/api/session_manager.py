@@ -28,6 +28,13 @@ class GameSession:
         self.conf = conf
         self.backend = backend
         self.game_manager = GameManager(conf, backend)
+        # Expose the session's current rules to the Backend's overlay
+        # payload builder so the OBS broadcast (and the spectator page
+        # that consumes it) sees the live mode + per-set limits, not
+        # the env-default ``conf`` values. We go through the explicit
+        # setter on Backend (rather than monkey-patching) so the
+        # dependency is part of Backend's public surface.
+        backend.set_rule_overrides_getter(self._build_rule_overrides)
         self.customization = Customization(
             backend.get_current_customization())
         self.visible = backend.is_visible()
@@ -94,6 +101,20 @@ class GameSession:
         if not self.game_manager.match_finished(self.sets_limit):
             current += 1
         return max(1, min(current, self.sets_limit))
+
+    def _build_rule_overrides(self) -> dict:
+        """Snapshot of the session's rule fields for the backend payload."""
+        return {
+            "mode": self.mode,
+            "points_limit": self.points_limit,
+            "points_limit_last_set": self.points_limit_last_set,
+            "sets_limit": self.sets_limit,
+            "match_finished": self.game_manager.match_finished(self.sets_limit),
+            "match_started_at": (
+                float(self.match_started_at)
+                if self.match_started_at is not None else None
+            ),
+        }
 
     def touch(self):
         """Update last access time."""

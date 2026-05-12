@@ -5,6 +5,7 @@ export interface LinksDialogLinks {
   control?: string;
   overlay?: string;
   preview?: string;
+  follow?: string;
 }
 
 export interface LinksDialogProps {
@@ -64,7 +65,17 @@ export default function LinksDialog({ links, onClose }: LinksDialogProps) {
             </button>
           </div>
         )}
-        {!links.control && !links.overlay && !links.preview && (
+        {links.follow && (
+          <div className="link-row">
+            <a href={links.follow} target="_blank" rel="noopener noreferrer" className="link-text">
+              {t('links.follow')}
+            </a>
+            <button className="link-copy-btn" onClick={() => copyToClipboard(links.follow!)} title={t('links.copyToClipboard')}>
+              <span className="material-icons">content_copy</span>
+            </button>
+          </div>
+        )}
+        {!links.control && !links.overlay && !links.preview && !links.follow && (
           <p className="config-label" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
             {t('links.noLinks')}
           </p>
