@@ -20,6 +20,27 @@ from app.match_report import (
 )
 
 
+def _is_undo_record(record: dict[str, Any]) -> bool:
+    """``True`` for audit records that reverse an earlier action.
+
+    The modern unified-undo path tombstones the original forward in
+    the audit file; :func:`action_log._apply_tombstones` (called from
+    :func:`action_log.read_all`) drops the forward but the *undo*
+    record itself — ``params.undo == True`` — survives. Legacy audit
+    snapshots from pre-unification deployments can additionally carry
+    both halves of the pair, where the forward isn't tombstoned at
+    all.
+
+    Either way, every aggregator in this module wants the same
+    visible-history semantic as :func:`app.match_report._collapse_undos`:
+    skip undo records so the stats reflect "what actually counted".
+    Centralising the predicate here is the single source of truth for
+    that filter — match the existing helper rather than re-implementing
+    the dict-lookup at each call site.
+    """
+    return bool((record.get("params") or {}).get("undo"))
+
+
 def _current_streak(audit: list[dict[str, Any]]) -> dict[str, Any]:
     """Length of the trailing run of consecutive add_point's by one team.
 
@@ -31,7 +52,7 @@ def _current_streak(audit: list[dict[str, Any]]) -> dict[str, Any]:
     streak_n = 0
     streak_set: int | None = None
     for r in audit:
-        if (r.get("params") or {}).get("undo"):
+        if _is_undo_record(r):
             continue
         action = r.get("action")
         if action == "set_score":
@@ -64,12 +85,13 @@ def _scoring_events(audit: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     ``set_score`` (manual override) events are included because they
     still mutate the visible scoreboard; consumers can render them
-    differently (chip-style "edit" markers). Both halves of undo
-    pairs are already filtered out by :func:`action_log.read_all`.
+    differently (chip-style "edit" markers). Undo records are filtered
+    via :func:`_is_undo_record` — see its docstring for why the filter
+    is still required even after :func:`action_log.read_all`.
     """
     out: list[dict[str, Any]] = []
     for r in audit:
-        if (r.get("params") or {}).get("undo"):
+        if _is_undo_record(r):
             continue
         action = r.get("action")
         if action not in ("add_point", "set_score"):
@@ -142,7 +164,7 @@ def _timeouts_by_set(
     """
     out: dict[int, list[dict[str, Any]]] = {}
     for r in audit:
-        if (r.get("params") or {}).get("undo"):
+        if _is_undo_record(r):
             continue
         if r.get("action") != "add_timeout":
             continue
@@ -183,7 +205,7 @@ def _services_summary(
     }
     prev_post_serve: int | None = None
     for r in audit:
-        if (r.get("params") or {}).get("undo"):
+        if _is_undo_record(r):
             continue
         action = r.get("action")
         result = r.get("result") or {}
@@ -228,9 +250,7 @@ def compute_live_stats(
     events = _scoring_events(audit)
     return {
         "oid": oid,
-        "audit_count": sum(
-            1 for r in audit if not (r.get("params") or {}).get("undo")
-        ),
+        "audit_count": sum(1 for r in audit if not _is_undo_record(r)),
         "current_streak": _current_streak(audit),
         "longest_streak": base["longest_streak"],
         "set_win_comeback": base["set_win_comeback"],
