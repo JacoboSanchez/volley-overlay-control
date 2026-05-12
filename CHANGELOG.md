@@ -148,6 +148,14 @@ once a first tagged release ships.
     crosses the hour mark; the timer pill reserves enough
     width for that longer string so the layout doesn't
     reflow every second past 60 min.
+- **README screenshot for the public spectator page.**
+  ``scripts/screenshots/capture.mjs`` now drives a phone-portrait
+  full-page capture of ``/follow/{id}`` against the demo overlay,
+  written to ``docs/screenshots/09-spectator-page.png`` and embedded
+  in the README screenshot grid. The capture pipeline also seeds
+  ``volley_gestureTourSeen=true`` via ``context.addInitScript`` so
+  the first-use gesture coachmark does not cover the scoreboard /
+  config-panel shots after upgrade.
 
 ### Changed
 
