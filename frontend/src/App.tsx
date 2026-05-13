@@ -635,6 +635,8 @@ export default function App() {
             }}
             onToggleFullscreen={handleToggleFullscreen}
             onShowShortcuts={() => setShortcutsHelpOpen(true)}
+            setSummaryStyle={setSummaryStyle}
+            onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
           />
         </ErrorBoundary>
       )}
