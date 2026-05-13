@@ -1,0 +1,287 @@
+/* ─────────────────────────────────────────────────────────────────
+   Set summary overlay — transparent panel that replaces the
+   scoreboard between sets in a 16:9 broadcast feed.
+
+   Activated by `body.set-summary-mode` (toggled from app.js when
+   match_info.show_set_summary is true). The variant ("brand_ledger",
+   "bento", …) is selected via the panel's data-style attribute,
+   which app.js sets from match_info.set_summary_style.
+
+   Design intent: NO background on the panel itself — the live
+   stream shows through. Data regions get rgba() fills with
+   backdrop-filter blur so any underlying scene stays legible.
+   ───────────────────────────────────────────────────────────────── */
+
+body.set-summary-mode #scoreboard-container,
+body.set-summary-mode .scoreboard,
+body.set-summary-mode #live-stats-panel,
+body.set-summary-mode #points-history-strip,
+body.set-summary-mode #ticker-container,
+body.set-summary-mode #player-stats-container { display: none !important; }
+
+.set-summary-panel[hidden] { display: none; }
+
+.set-summary-panel {
+  position: fixed;
+  inset: 0;
+  /* transparent over the stream */
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: grid;
+  z-index: 100;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Variant: brand_ledger  — chosen default
+   Three columns: home brand panel | centre (set + duration + ledger) | away brand panel
+   ───────────────────────────────────────────────────────────────── */
+
+.set-summary-panel[data-style="brand_ledger"] {
+  grid-template-columns: 1fr 460px 1fr;
+}
+
+.set-summary-panel[data-style="brand_ledger"] .ss-team {
+  position: relative;
+  padding: 48px 44px;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.set-summary-panel[data-style="brand_ledger"] .ss-team-home {
+  background:
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.06) 0%, transparent 60%),
+    linear-gradient(135deg, var(--ss-home, rgba(212, 49, 76, 0.72)) 0%, rgba(0,0,0,0.55) 100%);
+  border-right: 1px solid rgba(255,255,255,0.12);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-away {
+  background:
+    radial-gradient(circle at 80% 80%, rgba(255,255,255,0.06) 0%, transparent 60%),
+    linear-gradient(225deg, var(--ss-away, rgba(240, 160, 32, 0.72)) 0%, rgba(0,0,0,0.55) 100%);
+  border-left: 1px solid rgba(255,255,255,0.12);
+  text-align: right;
+}
+
+.set-summary-panel[data-style="brand_ledger"] .ss-team::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%);
+  pointer-events: none;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team > * {
+  position: relative; z-index: 1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.set-summary-panel[data-style="brand_ledger"] .ss-team-header {
+  display: flex; align-items: center; gap: 18px;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-away .ss-team-header {
+  flex-direction: row-reverse;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-logo {
+  width: 88px; height: 88px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.18);
+  border: 2px solid rgba(255,255,255,0.45);
+  display: grid; place-items: center;
+  font-weight: 800; font-size: 36px;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-logo img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-name {
+  font-weight: 800; font-size: 38px; line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-tag {
+  font-weight: 600; font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-score {
+  font: 900 220px/0.82 'Menlo', 'Consolas', monospace;
+  letter-spacing: -0.06em;
+  text-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  margin: 4px 0;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-stat-list {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-away .ss-team-stat-list {
+  align-items: flex-end;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-stat .ss-label {
+  display: block;
+  font-weight: 600; font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-team-stat .ss-value {
+  display: block;
+  font-weight: 700; font-size: 28px; line-height: 1;
+  font-family: 'Menlo', 'Consolas', monospace;
+  letter-spacing: -0.02em;
+}
+
+/* Centre column */
+.set-summary-panel[data-style="brand_ledger"] .ss-centre {
+  position: relative;
+  background: rgba(15, 20, 30, 0.62);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-left: 1px solid rgba(255,255,255,0.1);
+  border-right: 1px solid rgba(255,255,255,0.1);
+  padding: 24px 24px 20px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  row-gap: 12px;
+  text-align: center;
+  min-height: 0;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-set-header {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-set-label {
+  font-weight: 700; font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-set-number {
+  font-weight: 900; font-size: 68px;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  text-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-duration-label {
+  display: block;
+  font-weight: 600; font-size: 9px;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  margin-top: 2px; margin-bottom: 4px;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-duration {
+  display: flex; align-items: baseline; justify-content: center;
+  gap: 8px;
+  font: 700 26px/1 'Menlo', 'Consolas', monospace;
+  color: #2ecc71;
+  letter-spacing: 0.04em;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-duration::before {
+  content: '⏱'; font-size: 16px; opacity: 0.85;
+}
+
+/* Ledger */
+.set-summary-panel[data-style="brand_ledger"] .ss-ledger {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+  column-gap: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 16px 12px;
+  min-height: 0;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-col-head {
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  display: flex; justify-content: center;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-col-head .ss-badge {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: 13px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  overflow: hidden;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-col-head .ss-badge img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-home .ss-col-head .ss-badge {
+  background: var(--ss-home, rgba(212, 49, 76, 0.85));
+  box-shadow: 0 0 16px rgba(212, 49, 76, 0.35);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-away .ss-col-head .ss-badge {
+  background: var(--ss-away, rgba(240, 160, 32, 0.85));
+  box-shadow: 0 0 16px rgba(240, 160, 32, 0.35);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-col-body {
+  /* JS sets grid-template-rows to `repeat(N, 1fr)` so all rows are
+     equidistant regardless of how many events the set had. */
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-point {
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto;
+  min-width: 28px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font: 700 10px/1 'Menlo', 'Consolas', monospace;
+  letter-spacing: 0.02em;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-home .ss-point {
+  color: #ffb1bd;
+  background: rgba(212, 49, 76, 0.18);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-away .ss-point {
+  color: #ffd58a;
+  background: rgba(240, 160, 32, 0.18);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-point.ss-empty {
+  visibility: hidden;
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-point.ss-final {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-weight: 900;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+}
+.set-summary-panel[data-style="brand_ledger"] .ss-point.ss-timeout {
+  background: rgba(245, 197, 66, 0.3);
+  color: #ffe48a;
+  font-weight: 800;
+  font-size: 9px;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Variants — placeholders. Mirror the gallery mockup HTML files in
+   docs/mockups/set-summary/. Each variant only needs to redefine the
+   visual rules; the markup is the same. Implementations follow once
+   the operator opts into them via the style picker.
+   ───────────────────────────────────────────────────────────────── */
+.set-summary-panel[data-style="bento"],
+.set-summary-panel[data-style="glass"],
+.set-summary-panel[data-style="split_screen"],
+.set-summary-panel[data-style="brand_columns"],
+.set-summary-panel[data-style="podium"],
+.set-summary-panel[data-style="bumper"],
+.set-summary-panel[data-style="jumbotron"] {
+  /* Fallback to brand_ledger layout until each variant ships its
+     own CSS. See docs/mockups/set-summary/ for the reference designs. */
+  grid-template-columns: 1fr 460px 1fr;
+}

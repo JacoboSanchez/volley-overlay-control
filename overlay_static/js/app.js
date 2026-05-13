@@ -239,6 +239,17 @@ function renderFullState(state) {
         container.classList.toggle("compact-mode", !!state.match_info.show_only_current_set);
     });
 
+    // Set summary recap panel (replaces the scoreboard between sets).
+    // Toggled from the operator UI; CSS hides the scoreboard when the
+    // body has `set-summary-mode`.
+    const summaryOn = !!(state.match_info && state.match_info.show_set_summary);
+    document.body.classList.toggle("set-summary-mode", summaryOn);
+    if (summaryOn && window.SetSummary) {
+        window.SetSummary.render(state);
+    } else if (window.SetSummary) {
+        window.SetSummary.hide();
+    }
+
     // 2. Colors
     updateCSSVariables(state.team_home, state.team_away, state.overlay_control.colors);
 
@@ -459,6 +470,28 @@ function updateStateDiff(oldState, newState) {
         withEl("scoreboard-container", container => {
             container.classList.toggle("compact-mode", !!newState.match_info.show_only_current_set);
         });
+    }
+
+    // Set summary recap panel toggle / re-render. Re-render also on
+    // style or set-num changes so the operator can hot-swap styles
+    // mid-display without taking the panel down.
+    const newSummary = !!newState.match_info.show_set_summary;
+    const oldSummary = !!oldState.match_info.show_set_summary;
+    if (
+        oldSummary !== newSummary
+        || oldState.match_info.set_summary_style !== newState.match_info.set_summary_style
+        || oldState.match_info.summary_set_num !== newState.match_info.summary_set_num
+    ) {
+        document.body.classList.toggle("set-summary-mode", newSummary);
+        if (newSummary && window.SetSummary) {
+            window.SetSummary.render(newState);
+        } else if (window.SetSummary) {
+            window.SetSummary.hide();
+        }
+    } else if (newSummary && window.SetSummary) {
+        // Same flag/style/set, but stats may have changed (e.g. the
+        // operator added a point right after activating the recap).
+        window.SetSummary.render(newState);
     }
 
     // 8. Ticker
