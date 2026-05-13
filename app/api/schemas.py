@@ -111,7 +111,6 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     'Team 2 Name', 'Team 2 Text Name', 'Team 2 Color', 'Team 2 Text Color', 'Team 2 Logo',
     'Color 1', 'Color 2', 'Text Color 1', 'Text Color 2',
     'Logos', 'Gradient',
-    'Show Stats', 'Show Points History',
     'Height', 'Width', 'Left-Right', 'Up-Down',
     'preferredStyle',
 }

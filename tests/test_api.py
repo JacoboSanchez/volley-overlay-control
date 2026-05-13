@@ -211,23 +211,6 @@ class TestGameService:
         result = GameService.update_customization(session, new_data)
         assert result.success is True
 
-    def test_update_customization_persists_show_stats_and_history(self, session):
-        """Regression: ``Show Stats`` and ``Show Points History`` are
-        boolean overlay toggles that the React panel writes via
-        ``updateField``. They must round-trip through the allow-list so
-        the operator's choice survives a reload of the config panel.
-        """
-        result = GameService.update_customization(session, {
-            "Show Stats": "true",
-            "Show Points History": "true",
-        })
-        assert result.success is True
-        # The customization object must reflect the changes after the
-        # call returns (otherwise the next ``get_state`` will paint the
-        # checkboxes unchecked again on the next open).
-        assert session.customization.is_show_stats() is True
-        assert session.customization.is_show_points_history() is True
-
     def test_refresh_customization_caches_within_ttl(self, session):
         """Back-to-back refreshes within the TTL must hit the backend once."""
         session.backend.get_current_customization.reset_mock()

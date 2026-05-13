@@ -45,8 +45,6 @@ const KEYS_BY_CATEGORY: Record<CategoryId, readonly string[]> = {
     'preferredStyle',
     'Logos',
     'Gradient',
-    'Show Stats',
-    'Show Points History',
     'Color 1',
     'Color 2',
     'Text Color 1',
