@@ -185,6 +185,12 @@ class GameStateResponse(BaseModel):
     # match timer in the HUD and toggles the Start-match / Reset
     # button in the control bar.
     match_started_at: float | None = None
+    # Wall-clock seconds at which the match transitioned to finished,
+    # or ``None`` while the match is still in progress (or pending).
+    # Lets clients freeze the match timer at the actual end-of-match
+    # value instead of letting it keep ticking after match end.
+    # Cleared on reset and on ``start_match``.
+    match_finished_at: float | None = None
 
 
 class ActionResponse(BaseModel):

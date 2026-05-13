@@ -968,6 +968,16 @@ body {
   font-size: 1rem;
 }
 
+/* Once the match transitions to finished the timer freezes at the
+   end-of-match value; the green tint lets the operator see at a
+   glance that the clock is no longer ticking. */
+.match-timer-finished {
+  color: #4caf50;
+}
+.match-timer-finished .material-icons {
+  color: #4caf50;
+}
+
 .control-btn-logout {
   border-color: #f44336;
   color: #f44336;

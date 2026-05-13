@@ -8,35 +8,47 @@ export interface MatchTimerProps {
    * or hits Start match.
    */
   startedAt: number | null | undefined;
+  /**
+   * Match end timestamp (Unix seconds), or ``null`` while the match
+   * is still in progress. When set, the counter freezes at
+   * ``finishedAt - startedAt`` and the per-second tick is suspended
+   * so the timer no longer creeps forward after match end.
+   */
+  finishedAt?: number | null | undefined;
 }
 
 /**
  * Live MM:SS counter relative to ``startedAt``. Updates once per
- * second via ``setInterval``; pauses when the prop goes to ``null``.
+ * second via ``setInterval`` while the match is running; freezes at
+ * ``finishedAt - startedAt`` once the match ends; renders nothing
+ * before the match is armed.
  *
  * Shown in the HUD control bar so the operator and the match report
  * agree on "match duration so far". Negative deltas (clock skew
  * between server and client) clamp to ``0:00`` rather than render a
  * minus sign.
  */
-export default function MatchTimer({ startedAt }: MatchTimerProps) {
+export default function MatchTimer({ startedAt, finishedAt }: MatchTimerProps) {
   const [now, setNow] = useState<number>(() => Date.now() / 1000);
+  const isFinished = finishedAt != null;
 
   useEffect(() => {
     if (startedAt == null) return;
+    if (isFinished) return;
     const id = setInterval(() => setNow(Date.now() / 1000), 1000);
     return () => clearInterval(id);
-  }, [startedAt]);
+  }, [startedAt, isFinished]);
 
   if (startedAt == null) return null;
-  const elapsed = Math.max(0, Math.floor(now - startedAt));
+  const reference = isFinished ? finishedAt! : now;
+  const elapsed = Math.max(0, Math.floor(reference - startedAt));
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
   const label = `${minutes}:${String(seconds).padStart(2, '0')}`;
 
   return (
     <div
-      className="match-timer"
+      className={`match-timer${isFinished ? ' match-timer-finished' : ''}`}
       role="timer"
       aria-live="off"
       data-testid="match-timer"

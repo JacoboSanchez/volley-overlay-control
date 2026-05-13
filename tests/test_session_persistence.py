@@ -88,6 +88,7 @@ class TestGameSessionMeta:
             "points_limit_last_set": session.points_limit_last_set,
             "sets_limit": session.sets_limit,
             "match_started_at": session.match_started_at,
+            "match_finished_at": session.match_finished_at,
             "mode": session.mode,
         }
 

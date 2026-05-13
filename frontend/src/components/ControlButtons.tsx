@@ -22,13 +22,18 @@ export interface ControlButtonsProps {
    */
   matchStartedAt: number | null | undefined;
   /**
-   * ``true`` once the match transitions to finished. Combined with
-   * ``matchStartedAt`` to decide which side of the Start/Reset
-   * toggle to render: the archive path clears
-   * ``matchStartedAt`` to prep the next match, but the operator
-   * still sees the just-played scoreboard and needs to hit Reset
-   * before the next start can be armed — so a finished match
-   * forces the Reset face regardless of the timer field.
+   * Match end timestamp (Unix seconds), or ``null`` while the match
+   * is still in progress. Forwarded to ``MatchTimer`` so the live
+   * counter freezes at the actual end-of-match value once the
+   * match transitions to finished.
+   */
+  matchFinishedAt?: number | null | undefined;
+  /**
+   * ``true`` once the match transitions to finished. Drives one half
+   * of the Start-match / Reset toggle so the operator's next step is
+   * Reset, not Start. ``matchStartedAt`` stays in place after match
+   * end (so the timer can render the final duration); Reset is the
+   * only path that clears it back to ``null``.
    */
   matchFinished: boolean;
   onToggleVisibility: () => void;
@@ -58,6 +63,7 @@ export default function ControlButtons({
   canUndo,
   showPreview,
   matchStartedAt,
+  matchFinishedAt,
   matchFinished,
   onToggleVisibility,
   onToggleSimpleMode,
@@ -67,10 +73,10 @@ export default function ControlButtons({
   onReset,
 }: ControlButtonsProps) {
   const { t } = useI18n();
-  // ``matchFinished`` keeps the Reset face up after a match ends —
-  // ``_archive_if_finished`` zeroes ``matchStartedAt`` to prep the
-  // next match but the operator still sees the just-played
-  // scoreboard, so the next required action is Reset, not Start.
+  // The Reset face stays up while the match is in progress, and
+  // while a finished match is still being shown — only an explicit
+  // Reset returns the operator to the pre-match idle state where
+  // Start match is armable again.
   const showReset = matchStartedAt != null || matchFinished;
 
   return (
@@ -98,7 +104,7 @@ export default function ControlButtons({
       )}
 
       <div className="spacer">
-        <MatchTimer startedAt={matchStartedAt} />
+        <MatchTimer startedAt={matchStartedAt} finishedAt={matchFinishedAt} />
       </div>
 
       <button

@@ -31,6 +31,7 @@
             'rules.bestOf': 'Best of {n}',
             'rules.points': '{regular} · {last} in deciding set',
             'rules.switchEvery': 'Side switch every {n} pts',
+            'alert.matchFinished': 'Match finished',
             'alert.setPoint': 'Set point',
             'alert.matchPoint': 'Match point',
             'alert.switchIn': 'Switch in {n} pt',
@@ -68,6 +69,7 @@
             'rules.bestOf': 'Al mejor de {n}',
             'rules.points': '{regular} · {last} en set decisivo',
             'rules.switchEvery': 'Cambio cada {n} pts',
+            'alert.matchFinished': 'Partido finalizado',
             'alert.setPoint': 'Punto de set',
             'alert.matchPoint': 'Punto de partido',
             'alert.switchIn': 'Cambio en {n} pt',
@@ -105,6 +107,7 @@
             'rules.bestOf': 'À melhor de {n}',
             'rules.points': '{regular} · {last} no set decisivo',
             'rules.switchEvery': 'Mudança cada {n} pts',
+            'alert.matchFinished': 'Partida terminada',
             'alert.setPoint': 'Ponto de set',
             'alert.matchPoint': 'Ponto de partida',
             'alert.switchIn': 'Mudança em {n} pt',
@@ -142,6 +145,7 @@
             'rules.bestOf': 'Al meglio dei {n}',
             'rules.points': '{regular} · {last} nel set decisivo',
             'rules.switchEvery': 'Cambio campo ogni {n} pt',
+            'alert.matchFinished': 'Partita terminata',
             'alert.setPoint': 'Set point',
             'alert.matchPoint': 'Match point',
             'alert.switchIn': 'Cambio tra {n} pt',
@@ -179,6 +183,7 @@
             'rules.bestOf': 'Au meilleur des {n}',
             'rules.points': '{regular} · {last} dans le set décisif',
             'rules.switchEvery': 'Changement tous les {n} pts',
+            'alert.matchFinished': 'Match terminé',
             'alert.setPoint': 'Balle de set',
             'alert.matchPoint': 'Balle de match',
             'alert.switchIn': 'Changement dans {n} pt',
@@ -216,6 +221,7 @@
             'rules.bestOf': 'Best of {n}',
             'rules.points': '{regular} · {last} im Entscheidungssatz',
             'rules.switchEvery': 'Seitenwechsel alle {n} Pkt',
+            'alert.matchFinished': 'Spiel beendet',
             'alert.setPoint': 'Satzball',
             'alert.matchPoint': 'Matchball',
             'alert.switchIn': 'Wechsel in {n} Pkt',
@@ -508,6 +514,14 @@
         const setNum = effectiveSet();
         const currentSet = match.current_set || 1;
         const isLiveSet = setNum === currentSet;
+        // Once the match transitions to finished, freeze every elapsed
+        // counter at the actual end-of-match value instead of letting
+        // them keep ticking. Use ``match_finished_at`` (when present)
+        // as the wall-clock anchor for the last set's elapsed time so
+        // it agrees with the match-level counter.
+        const matchFinished = match.match_finished === true;
+        const finishedAt = (typeof match.match_finished_at === 'number')
+            ? match.match_finished_at : null;
 
         const bySet = oc.points_by_set || {};
         const setEvents = bySet[String(setNum)] || bySet[setNum] || [];
@@ -519,10 +533,15 @@
         if (setStamps.length >= 2) {
             // Past sets: use the audit-derived duration (frozen).
             // Live set: extend with the wall-clock delta since the
-            // last scoring event so the counter ticks between rallies.
+            // last scoring event so the counter ticks between rallies,
+            // unless the match has just finished — in which case the
+            // counter freezes at ``match_finished_at - first`` (or the
+            // first/last span when ``match_finished_at`` is missing).
             const first = Math.min.apply(null, setStamps);
             const last = Math.max.apply(null, setStamps);
-            if (isLiveSet) {
+            if (isLiveSet && matchFinished) {
+                setSeconds = (finishedAt != null ? finishedAt : last) - first;
+            } else if (isLiveSet) {
                 setSeconds = (Date.now() / 1000) - first;
             } else {
                 setSeconds = last - first;
@@ -533,7 +552,10 @@
 
         let matchSeconds = null;
         if (typeof match.match_started_at === 'number') {
-            matchSeconds = (Date.now() / 1000) - match.match_started_at;
+            const reference = matchFinished && finishedAt != null
+                ? finishedAt
+                : (Date.now() / 1000);
+            matchSeconds = reference - match.match_started_at;
         } else {
             // Fallback: sum the per-set durations.
             let total = 0;
@@ -549,14 +571,36 @@
             return;
         }
         wrap.removeAttribute('hidden');
+        if (matchFinished) wrap.classList.add('match-times-finished');
+        else wrap.classList.remove('match-times-finished');
         setEl.textContent = setSeconds != null ? formatTime(setSeconds) : '—';
         matchEl.textContent = matchSeconds != null ? formatTime(matchSeconds) : '—';
     }
 
     function renderAlerts(broadcast) {
         const oc = broadcast.overlay_control || {};
+        const match = broadcast.match_info || {};
         const info = oc.match_point_info || {};
         const switchInfo = oc.beach_side_switch || null;
+        const matchFinished = match.match_finished === true;
+
+        // Once the match is finished, the only badge that should be
+        // visible is the "Match finished" indicator. Set-point and
+        // match-point pills are stale by definition and the side-
+        // switch badge is no longer actionable.
+        setHidden('alert-match-finished', !matchFinished);
+        if (matchFinished) {
+            setHidden('alert-team1-match-point', true);
+            setHidden('alert-team2-match-point', true);
+            setHidden('alert-team1-set-point', true);
+            setHidden('alert-team2-set-point', true);
+            const switchBadge = $('alert-side-switch');
+            if (switchBadge) {
+                switchBadge.setAttribute('hidden', 'hidden');
+                switchBadge.classList.remove('pending');
+            }
+            return;
+        }
 
         // Match point takes visual priority over set point on each
         // side, mirroring the React control UI rule. The spectator

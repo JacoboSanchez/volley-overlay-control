@@ -43,6 +43,50 @@ def deep_merge(base: dict, update: dict) -> dict:
     return base
 
 
+# Paths in the broadcast payload whose nested-dict values must FULLY
+# REPLACE the corresponding subtree in the merged state instead of
+# being deep-merged into it. These fields are derived from the per-OID
+# audit log on every broadcast — a deep-merge would leave stale per-set
+# entries behind after ``GameService.reset`` clears the audit, so a
+# fresh empty payload would never overwrite e.g. ``points_by_set``
+# entries from the previous match. The spectator page would then keep
+# rendering the stale chart / time history even after the operator
+# reset the scoreboard.
+_REPLACE_SUBTREES: tuple[tuple[str, ...], ...] = (
+    ("overlay_control", "points_by_set"),
+    ("overlay_control", "timeouts_by_set"),
+    ("overlay_control", "stats", "set_durations"),
+    ("overlay_control", "stats", "services"),
+    ("overlay_control", "stats", "points_history"),
+)
+
+
+def _replace_subtrees(state: dict, payload: dict) -> None:
+    """Force-replace specific subtrees on *state* with values from *payload*.
+
+    Run after :func:`deep_merge` so any audit-derived dict whose keys
+    can disappear between broadcasts (e.g. per-set buckets after a
+    reset) gets the fresh value, not a stale-key union.
+    """
+    for path in _REPLACE_SUBTREES:
+        node_p: object = payload
+        for key in path:
+            if not isinstance(node_p, dict) or key not in node_p:
+                node_p = None
+                break
+            node_p = node_p[key]
+        if node_p is None:
+            continue
+        node_s: object = state
+        for key in path[:-1]:
+            if not isinstance(node_s, dict):
+                node_s = None
+                break
+            node_s = node_s.setdefault(key, {})
+        if isinstance(node_s, dict):
+            node_s[path[-1]] = node_p
+
+
 def normalize_state(state: dict) -> None:
     """Enforce business rules on the merged state in place.
 
@@ -557,6 +601,7 @@ class OverlayStateStore:
         with self._lock:
             ctx = self.get_overlay_context(overlay_id)
             deep_merge(ctx["state"], payload)
+            _replace_subtrees(ctx["state"], payload)
             normalize_state(ctx["state"])
             snapshot = copy.deepcopy(ctx["state"])
         await self.save_persisted_state_async(overlay_id, snapshot)
@@ -568,6 +613,7 @@ class OverlayStateStore:
         with self._lock:
             ctx = self.get_overlay_context(overlay_id)
             deep_merge(ctx["state"], payload)
+            _replace_subtrees(ctx["state"], payload)
             normalize_state(ctx["state"])
             snapshot = copy.deepcopy(ctx["state"])
         self.save_persisted_state(overlay_id, snapshot)

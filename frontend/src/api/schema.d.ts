@@ -1322,6 +1322,8 @@ export interface components {
             current_set: number;
             /** Match Finished */
             match_finished: boolean;
+            /** Match Finished At */
+            match_finished_at?: number | null;
             match_point_info?: components["schemas"]["MatchPointInfo"] | null;
             /** Match Started At */
             match_started_at?: number | null;

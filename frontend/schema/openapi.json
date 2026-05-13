@@ -296,6 +296,17 @@
             "title": "Match Finished",
             "type": "boolean"
           },
+          "match_finished_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Finished At"
+          },
           "match_point_info": {
             "anyOf": [
               {

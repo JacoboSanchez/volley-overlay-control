@@ -146,12 +146,12 @@ describe('ControlButtons', () => {
   });
 
   it('shows Reset (not Start) once the match is finished, even if matchStartedAt is null', () => {
-    // Regression: ``_archive_if_finished`` clears
-    // ``match_started_at`` to prep the next match, but the
-    // operator still sees the just-played scoreboard. The next
-    // required action is Reset, not Start — otherwise clicking
-    // Start would arm a fresh timer over the visible (finished)
-    // scores.
+    // ``match_started_at`` would normally still be set after match
+    // end (so the timer can render the final duration), but a meta
+    // file from a pre-fix deployment can land in this state on
+    // restart. The Reset face must still win over Start so the
+    // operator does not accidentally arm a new timer over the
+    // visible just-finished scoreboard.
     renderWithI18n(
       <ControlButtons
         {...defaultProps}

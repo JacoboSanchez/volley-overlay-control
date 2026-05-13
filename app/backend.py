@@ -241,6 +241,7 @@ class Backend:
         sets_limit = int(self.conf.sets)
         match_finished_flag = False
         match_started_at: float | None = None
+        match_finished_at: float | None = None
         getter = self._rule_overrides_getter
         if callable(getter):
             try:
@@ -261,6 +262,9 @@ class Backend:
             raw_started = overrides.get("match_started_at")
             if isinstance(raw_started, (int, float)):
                 match_started_at = float(raw_started)
+            raw_finished = overrides.get("match_finished_at")
+            if isinstance(raw_finished, (int, float)):
+                match_finished_at = float(raw_finished)
 
         payload = {
             "match_info": {
@@ -279,6 +283,16 @@ class Backend:
                 # this to tick a live match-elapsed counter; the OBS
                 # templates ignore it.
                 "match_started_at": match_started_at,
+                # Wall-clock seconds at which the match transitioned
+                # to finished (or ``None`` while it's still in
+                # progress). Lets the spectator freeze its match
+                # timer at the actual end-of-match value instead of
+                # ticking forward indefinitely after match end.
+                "match_finished_at": match_finished_at,
+                # Mirror of ``match_finished_flag`` so the spectator
+                # can render a "match finished" indicator without
+                # having to re-derive it from the per-team set counts.
+                "match_finished": match_finished_flag,
             },
             "team_home": {
                 "name": cust.get_team_name(1),

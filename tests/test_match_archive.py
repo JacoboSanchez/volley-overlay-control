@@ -293,3 +293,55 @@ class TestArchiveTrigger:
         time.sleep(0.01)
         GameService.start_match(session)
         assert session.match_started_at == first_anchor
+
+    def test_match_finished_at_stamped_on_match_end_via_add_set(
+            self, mock_conf, api_backend):
+        # The set-winning ``add_set`` that closes the match must
+        # stamp ``match_finished_at`` *before* the broadcast so the
+        # spectator/HUD timer can freeze at the actual end-of-match
+        # value instead of ticking forward indefinitely.
+        session = SessionManager.get_or_create(
+            "arch-finished-set", mock_conf, api_backend,
+        )
+        GameService.start_match(session)
+        before = time.time()
+        self._drive_to_match_end(session, via_set=True)
+        after = time.time()
+        assert session.match_finished_at is not None
+        assert before <= session.match_finished_at <= after
+        # ``match_started_at`` survives the archive so the elapsed
+        # duration is computable until the operator hits Reset.
+        assert session.match_started_at is not None
+
+    def test_match_finished_at_stamped_on_match_end_via_add_point(
+            self, mock_conf, api_backend):
+        session = SessionManager.get_or_create(
+            "arch-finished-pt", mock_conf, api_backend,
+        )
+        before = time.time()
+        self._drive_to_match_end(session, via_set=False)
+        after = time.time()
+        assert session.match_finished_at is not None
+        assert before <= session.match_finished_at <= after
+        assert session.match_started_at is not None
+
+    def test_reset_clears_match_finished_at(self, mock_conf, api_backend):
+        session = SessionManager.get_or_create(
+            "arch-finished-reset", mock_conf, api_backend,
+        )
+        self._drive_to_match_end(session, via_set=True)
+        assert session.match_finished_at is not None
+        GameService.reset(session)
+        assert session.match_finished_at is None
+        assert session.match_started_at is None
+
+    def test_match_finished_at_in_state_response(self, mock_conf, api_backend):
+        session = SessionManager.get_or_create(
+            "arch-finished-state", mock_conf, api_backend,
+        )
+        assert GameService.get_state(session).match_finished_at is None
+        self._drive_to_match_end(session, via_set=True)
+        state = GameService.get_state(session)
+        assert state.match_finished is True
+        assert state.match_finished_at is not None
+        assert state.match_finished_at == session.match_finished_at

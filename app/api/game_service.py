@@ -123,6 +123,7 @@ class GameService:
             match_point_info=match_point_info,
             can_undo=session.undoable_forward_count > 0,
             match_started_at=session.match_started_at,
+            match_finished_at=session.match_finished_at,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # Misconfigured env var must not turn every /state call into a 500;
@@ -418,6 +419,20 @@ class GameService:
         if set_won:
             session.current_set = session._compute_current_set()
 
+        # Stamp the match-end timestamp before the broadcast so the
+        # HUD timer and the spectator page receive it together with
+        # the ``match_finished`` flag and can freeze their elapsed
+        # counters at the actual end-of-match value instead of
+        # ticking forward until the next reload.
+        if (
+            not undo
+            and set_won
+            and not was_finished_before
+            and session.game_manager.match_finished(session.sets_limit)
+            and session.match_finished_at is None
+        ):
+            session.match_finished_at = time.time()
+
         # Audit before computing ``state_response`` so the cached
         # ``undoable_forward_count`` (and therefore ``can_undo``) the
         # state response carries is up to date for *this* action.
@@ -492,6 +507,16 @@ class GameService:
             session.undo = False
 
         session.current_set = session._compute_current_set()
+        # Same as add_point: stamp ``match_finished_at`` before the
+        # broadcast so consumers can freeze the elapsed counters at
+        # the actual end-of-match value.
+        if (
+            not undo
+            and not was_finished_before
+            and session.game_manager.match_finished(session.sets_limit)
+            and session.match_finished_at is None
+        ):
+            session.match_finished_at = time.time()
         # Audit before ``get_state`` so the ``can_undo`` flag the
         # broadcast carries reflects the just-bumped counter.
         GameService._audit(
@@ -734,6 +759,10 @@ class GameService:
         if session.match_started_at is None:
             GameService._invalidate_rapid_pair_cache(session)
             session.match_started_at = time.time()
+            # Belt-and-braces: a fresh arm should never carry a stale
+            # finished-at from a prior match still hanging around in
+            # the persisted meta.
+            session.match_finished_at = None
             session.persist_meta()
             GameService._audit(session, "start_match", {})
             GameService._broadcast(session)
@@ -748,8 +777,11 @@ class GameService:
         session.current_set = session._compute_current_set()
         # Reset wipes the match — clear the start clock so the next
         # match begins unarmed (operator hits ``Start match`` or scores
-        # the first point to arm it again).
+        # the first point to arm it again). Also clear the end-of-match
+        # timestamp so the HUD timer / spectator page exit the frozen
+        # post-match display and return to the pre-match idle state.
         session.match_started_at = None
+        session.match_finished_at = None
         # Reset wipes the match — start the audit log fresh too so the
         # archive boundaries align with operator intent. Counter goes
         # to zero alongside the log so ``can_undo`` is correct. Run
@@ -910,9 +942,11 @@ class GameService:
 
         Called from add_point and add_set after the mutation completes.
         Returns the new ``match_id`` (or ``None`` if no archive happened).
-        After a successful archive the session's ``match_started_at`` is
-        cleared so the next match starts unarmed — the operator (or
-        the first point) re-arms it the same way it did at the start.
+        ``match_started_at`` is intentionally left in place so the HUD
+        timer and the spectator page can render the final elapsed
+        duration (``match_finished_at - match_started_at``) until the
+        operator hits Reset — which is the only path that clears both
+        timestamps and returns the session to the pre-match idle state.
 
         Callers that have a fresh post-mutation ``GameStateResponse``
         should pass it via *state_response* to avoid the redundant
@@ -936,7 +970,6 @@ class GameService:
                 points_limit_last_set=session.points_limit_last_set,
                 sets_limit=session.sets_limit,
             )
-            session.match_started_at = None
             session.persist_meta()
             return match_id
         except Exception as exc:
