@@ -374,6 +374,53 @@ class TestArchiveTrigger:
         assert session.game_manager.match_finished(session.sets_limit) is False
         assert session.match_finished_at is None
 
+    def test_set_score_to_winning_value_stamps_match_finished_at(
+            self, mock_conf, api_backend):
+        # Regression: a manual ``set_score`` edit that pushes the
+        # match across the finish line is just as much an end-of-
+        # match transition as the natural add_point/add_set path, and
+        # must stamp ``match_finished_at`` so the HUD timer freezes.
+        session = SessionManager.get_or_create(
+            "arch-setscore-finish", mock_conf, api_backend,
+        )
+        # Drive 2 sets to team 1 via add_set, then edit the deciding
+        # set's score to the winning total directly.
+        for _ in range(2):
+            GameService.add_set(session, team=1)
+        assert session.match_finished_at is None
+        before = time.time()
+        GameService.set_score(
+            session, team=1, set_number=session.current_set, value=25,
+        )
+        after = time.time()
+        assert session.game_manager.match_finished(session.sets_limit)
+        assert session.match_finished_at is not None
+        assert before <= session.match_finished_at <= after
+
+    def test_set_sets_value_to_winning_count_stamps_match_finished_at(
+            self, mock_conf, api_backend):
+        session = SessionManager.get_or_create(
+            "arch-setsvalue-finish", mock_conf, api_backend,
+        )
+        before = time.time()
+        # sets_limit=5 → soft limit 3 wins the match.
+        GameService.set_sets_value(session, team=1, value=3)
+        after = time.time()
+        assert session.game_manager.match_finished(session.sets_limit)
+        assert session.match_finished_at is not None
+        assert before <= session.match_finished_at <= after
+
+    def test_set_sets_value_back_down_clears_match_finished_at(
+            self, mock_conf, api_backend):
+        session = SessionManager.get_or_create(
+            "arch-setsvalue-revert", mock_conf, api_backend,
+        )
+        GameService.set_sets_value(session, team=1, value=3)
+        assert session.match_finished_at is not None
+        GameService.set_sets_value(session, team=1, value=2)
+        assert session.game_manager.match_finished(session.sets_limit) is False
+        assert session.match_finished_at is None
+
     def test_re_winning_after_undo_re_stamps_match_finished_at(
             self, mock_conf, api_backend):
         # After an undo + a fresh winning point the timestamp must

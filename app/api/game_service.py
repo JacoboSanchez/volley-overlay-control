@@ -236,6 +236,36 @@ class GameService:
             )
 
     @staticmethod
+    def _sync_match_finished_at(session, was_finished_before: bool) -> None:
+        """Stamp / clear ``session.match_finished_at`` to match the
+        current match-finished state.
+
+        Called before every broadcast that follows a mutation that
+        could transition the match-finished flag (``add_point``,
+        ``add_set``, ``set_score``, ``set_sets_value``). Both
+        directions matter:
+
+        * forward transition into finished ⇒ stamp the wall clock so
+          consumers freeze their elapsed counters at the actual end-
+          of-match value.
+        * reverse transition out of finished (undo of a match-winning
+          action, or a manual ``set_score`` / ``set_sets_value`` edit
+          that re-opens the match) ⇒ clear the stamp so the React
+          ``MatchTimer`` (which freezes purely on ``finishedAt !=
+          null``) resumes ticking.
+
+        No-op when the finished state didn't change.
+        """
+        is_finished_now = session.game_manager.match_finished(
+            session.sets_limit,
+        )
+        if not was_finished_before and is_finished_now:
+            if session.match_finished_at is None:
+                session.match_finished_at = time.time()
+        elif was_finished_before and not is_finished_now:
+            session.match_finished_at = None
+
+    @staticmethod
     def _consume_rapid_pair(session, team: int, undo: bool) -> bool:
         """Return ``True`` when the incoming ``add_point`` collapses
         with the most recent opposite-kind action on the same team
@@ -419,22 +449,7 @@ class GameService:
         if set_won:
             session.current_set = session._compute_current_set()
 
-        # Stamp / clear the match-end timestamp before the broadcast
-        # so the HUD timer and the spectator page receive it together
-        # with the ``match_finished`` flag. Both directions matter:
-        #   * forward set-winning point ⇒ stamp ``match_finished_at``
-        #     so consumers freeze their elapsed counters at the actual
-        #     end-of-match value.
-        #   * undo of a match-winning point ⇒ clear ``match_finished_at``
-        #     so the React ``MatchTimer`` (which freezes purely on
-        #     ``finishedAt != null``) resumes ticking now that the
-        #     match is back in progress.
-        is_finished_now = session.game_manager.match_finished(session.sets_limit)
-        if not was_finished_before and is_finished_now:
-            if session.match_finished_at is None:
-                session.match_finished_at = time.time()
-        elif was_finished_before and not is_finished_now:
-            session.match_finished_at = None
+        GameService._sync_match_finished_at(session, was_finished_before)
 
         # Audit before computing ``state_response`` so the cached
         # ``undoable_forward_count`` (and therefore ``can_undo``) the
@@ -510,17 +525,7 @@ class GameService:
             session.undo = False
 
         session.current_set = session._compute_current_set()
-        # Same as add_point: stamp ``match_finished_at`` on the forward
-        # transition that closes the match and clear it on the undo
-        # that reopens it, so the React MatchTimer (which freezes on
-        # ``finishedAt != null``) resumes ticking after a reverted
-        # match-winning set.
-        is_finished_now = session.game_manager.match_finished(session.sets_limit)
-        if not was_finished_before and is_finished_now:
-            if session.match_finished_at is None:
-                session.match_finished_at = time.time()
-        elif was_finished_before and not is_finished_now:
-            session.match_finished_at = None
+        GameService._sync_match_finished_at(session, was_finished_before)
         # Audit before ``get_state`` so the ``can_undo`` flag the
         # broadcast carries reflects the just-bumped counter.
         GameService._audit(
@@ -603,6 +608,7 @@ class GameService:
                 ),
             )
         GameService._invalidate_rapid_pair_cache(session)
+        was_finished_before = session.game_manager.match_finished(session.sets_limit)
         session.game_manager.set_game_value(team, value, set_number)
         set_won = session.game_manager.check_set_won(
             team, set_number,
@@ -614,6 +620,12 @@ class GameService:
         # match_finished guard here is redundant.
         if set_won:
             session.current_set = session._compute_current_set()
+        # A manual ``set_score`` edit can push the match in either
+        # direction (e.g. setting the winning team's score to 25 in
+        # the deciding set finishes the match; setting it back to 23
+        # re-opens it), so keep ``match_finished_at`` in sync with
+        # the current finished state before the broadcast.
+        GameService._sync_match_finished_at(session, was_finished_before)
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "set_score", {
@@ -624,8 +636,13 @@ class GameService:
     @staticmethod
     def set_sets_value(session, team: int, value: int) -> ActionResponse:
         GameService._invalidate_rapid_pair_cache(session)
+        was_finished_before = session.game_manager.match_finished(session.sets_limit)
         session.game_manager.set_sets_value(team, value)
         session.current_set = session._compute_current_set()
+        # Same as ``set_score``: a direct sets-won edit can transition
+        # the match in either direction; keep ``match_finished_at`` in
+        # sync before the broadcast.
+        GameService._sync_match_finished_at(session, was_finished_before)
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "set_sets_value", {"team": team, "value": value})
