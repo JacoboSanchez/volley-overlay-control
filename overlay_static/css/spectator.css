@@ -121,6 +121,20 @@ html, body {
     border-color: rgba(251, 191, 36, 0.55);
     color: #fbbf24;
 }
+/*
+  Match-finished badge spans the full alert strip and sits in the
+  centre column so it doesn't compete with the per-team set/match-
+  point pills (which are hidden once the match ends anyway). Using
+  a calmer green reads as "this is a steady terminal state" instead
+  of the red-pulse "act now" semantic of match point.
+*/
+.alert-match-finished {
+    grid-column: 1 / -1;
+    justify-self: center;
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.55);
+    color: #6ee7b7;
+}
 .alert-side-switch.pending {
     background: #fbbf24;
     color: #1f1300;
@@ -373,6 +387,18 @@ html, body {
     letter-spacing: 0.06em;
 }
 .match-times[hidden] { display: none; }
+/*
+  Once the match transitions to finished the timer values stop
+  ticking; tint the pill so the viewer can tell at a glance the
+  clock is frozen rather than just stuck between rallies.
+*/
+.match-times.match-times-finished {
+    background: rgba(16, 185, 129, 0.12);
+    color: #6ee7b7;
+}
+.match-times.match-times-finished .match-time-value {
+    color: #6ee7b7;
+}
 .match-time-row {
     display: inline-flex;
     align-items: baseline;

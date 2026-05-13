@@ -49,6 +49,15 @@ class GameSession:
         # actual whistle. ``GameService.reset`` clears it back to
         # ``None``. Persisted via session_meta so it survives restarts.
         self.match_started_at: float | None = None
+        # Wall-clock seconds at which the match transitioned from
+        # in-progress to finished (the set-winning add_point/add_set
+        # that closes the match), or ``None`` while the match is still
+        # in progress. Used by the HUD timer and the spectator page to
+        # freeze the elapsed counters at the actual end-of-match value
+        # instead of letting them keep ticking after match end.
+        # ``GameService.reset`` and ``GameService.start_match`` clear
+        # it back to ``None``. Persisted via session_meta.
+        self.match_finished_at: float | None = None
         # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.
@@ -114,6 +123,10 @@ class GameSession:
                 float(self.match_started_at)
                 if self.match_started_at is not None else None
             ),
+            "match_finished_at": (
+                float(self.match_finished_at)
+                if self.match_finished_at is not None else None
+            ),
         }
 
     def touch(self):
@@ -136,6 +149,10 @@ class GameSession:
             "match_started_at": (
                 float(self.match_started_at)
                 if self.match_started_at is not None else None
+            ),
+            "match_finished_at": (
+                float(self.match_finished_at)
+                if self.match_finished_at is not None else None
             ),
             "mode": str(self.mode),
         }
@@ -168,6 +185,15 @@ class GameSession:
             else:
                 try:
                     self.match_started_at = float(raw)
+                except (TypeError, ValueError):
+                    pass
+        if "match_finished_at" in meta:
+            raw = meta["match_finished_at"]
+            if raw is None:
+                self.match_finished_at = None
+            else:
+                try:
+                    self.match_finished_at = float(raw)
                 except (TypeError, ValueError):
                     pass
         if "mode" in meta and is_valid_mode(meta["mode"]):

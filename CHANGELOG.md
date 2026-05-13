@@ -8,6 +8,41 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Match timer no longer ticks past match end.** The HUD timer in
+  the React control UI and the match/set counters on the
+  `/follow/{id}` spectator page now freeze at the actual end-of-
+  match value as soon as the set-winning point or set lands,
+  instead of continuing to count up until the operator reloads.
+  Backed by a new ``match_finished_at`` timestamp on
+  ``GameStateResponse`` and on the overlay broadcast payload's
+  ``match_info`` block.
+- **Spectator page now shows a "match finished" indicator.** Once
+  the match transitions to finished, the alerts strip renders a
+  localized ``Match finished`` / ``Partido finalizado`` badge and
+  hides the now-stale set-point / match-point / side-switch pills.
+  The match/set timer pill also tints green to make the frozen
+  state visually distinct from a paused-between-rallies live
+  match.
+- **Reset on the operator UI now clears the spectator's stats and
+  time history.** The overlay state-store deep-merge previously
+  left per-set entries in ``overlay_control.points_by_set`` /
+  ``timeouts_by_set`` / ``stats.set_durations`` behind because an
+  empty dict from the post-reset broadcast is a no-op for a deep
+  merge. The store now force-replaces those audit-derived
+  subtrees on every update so a Reset wipes the spectator chart,
+  history, and per-set durations alongside the scoreboard.
+
+### Changed
+
+- **``match_started_at`` is no longer cleared when a match is
+  archived.** The session keeps the start anchor in place after
+  match end so the HUD timer and the spectator page can render the
+  final elapsed duration (``match_finished_at - match_started_at``)
+  until the operator hits Reset — which is now the only path that
+  returns the session to the pre-match idle state.
+
 ## [5.2.1] - 2026-05-12
 
 ### Added

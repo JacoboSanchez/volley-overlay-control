@@ -220,6 +220,7 @@ export default function ScoreboardView({
             canUndo={canUndo}
             showPreview={showPreview}
             matchStartedAt={state.match_started_at}
+            matchFinishedAt={state.match_finished_at}
             matchFinished={state.match_finished}
             onToggleVisibility={onToggleVisibility}
             onToggleSimpleMode={onToggleSimpleMode}

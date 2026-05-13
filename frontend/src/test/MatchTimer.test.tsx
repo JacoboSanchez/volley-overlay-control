@@ -49,4 +49,18 @@ describe('MatchTimer', () => {
     renderWithI18n(<MatchTimer startedAt={now / 1000 + 30} />);
     expect(screen.getByTestId('match-timer')).toHaveTextContent('0:00');
   });
+
+  it('freezes at finishedAt - startedAt once the match ends', () => {
+    const start = 1_700_000_000;
+    // Wall clock has advanced past the match end — timer must show
+    // the *frozen* end-of-match value, not the larger live elapsed.
+    vi.setSystemTime(new Date(start * 1000 + 600_000));
+    renderWithI18n(
+      <MatchTimer startedAt={start} finishedAt={start + 75} />,
+    );
+    expect(screen.getByTestId('match-timer')).toHaveTextContent('1:15');
+    expect(screen.getByTestId('match-timer')).toHaveClass(
+      'match-timer-finished',
+    );
+  });
 });

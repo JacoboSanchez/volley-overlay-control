@@ -123,6 +123,7 @@ class GameService:
             match_point_info=match_point_info,
             can_undo=session.undoable_forward_count > 0,
             match_started_at=session.match_started_at,
+            match_finished_at=session.match_finished_at,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # Misconfigured env var must not turn every /state call into a 500;
@@ -233,6 +234,36 @@ class GameService:
                 session, "serve_change", state_response,
                 {"serve": str(getattr(serve_after, "value", serve_after))},
             )
+
+    @staticmethod
+    def _sync_match_finished_at(session, was_finished_before: bool) -> None:
+        """Stamp / clear ``session.match_finished_at`` to match the
+        current match-finished state.
+
+        Called before every broadcast that follows a mutation that
+        could transition the match-finished flag (``add_point``,
+        ``add_set``, ``set_score``, ``set_sets_value``). Both
+        directions matter:
+
+        * forward transition into finished ⇒ stamp the wall clock so
+          consumers freeze their elapsed counters at the actual end-
+          of-match value.
+        * reverse transition out of finished (undo of a match-winning
+          action, or a manual ``set_score`` / ``set_sets_value`` edit
+          that re-opens the match) ⇒ clear the stamp so the React
+          ``MatchTimer`` (which freezes purely on ``finishedAt !=
+          null``) resumes ticking.
+
+        No-op when the finished state didn't change.
+        """
+        is_finished_now = session.game_manager.match_finished(
+            session.sets_limit,
+        )
+        if not was_finished_before and is_finished_now:
+            if session.match_finished_at is None:
+                session.match_finished_at = time.time()
+        elif was_finished_before and not is_finished_now:
+            session.match_finished_at = None
 
     @staticmethod
     def _consume_rapid_pair(session, team: int, undo: bool) -> bool:
@@ -418,6 +449,8 @@ class GameService:
         if set_won:
             session.current_set = session._compute_current_set()
 
+        GameService._sync_match_finished_at(session, was_finished_before)
+
         # Audit before computing ``state_response`` so the cached
         # ``undoable_forward_count`` (and therefore ``can_undo``) the
         # state response carries is up to date for *this* action.
@@ -492,6 +525,7 @@ class GameService:
             session.undo = False
 
         session.current_set = session._compute_current_set()
+        GameService._sync_match_finished_at(session, was_finished_before)
         # Audit before ``get_state`` so the ``can_undo`` flag the
         # broadcast carries reflects the just-bumped counter.
         GameService._audit(
@@ -574,6 +608,7 @@ class GameService:
                 ),
             )
         GameService._invalidate_rapid_pair_cache(session)
+        was_finished_before = session.game_manager.match_finished(session.sets_limit)
         session.game_manager.set_game_value(team, value, set_number)
         set_won = session.game_manager.check_set_won(
             team, set_number,
@@ -585,6 +620,12 @@ class GameService:
         # match_finished guard here is redundant.
         if set_won:
             session.current_set = session._compute_current_set()
+        # A manual ``set_score`` edit can push the match in either
+        # direction (e.g. setting the winning team's score to 25 in
+        # the deciding set finishes the match; setting it back to 23
+        # re-opens it), so keep ``match_finished_at`` in sync with
+        # the current finished state before the broadcast.
+        GameService._sync_match_finished_at(session, was_finished_before)
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "set_score", {
@@ -595,8 +636,13 @@ class GameService:
     @staticmethod
     def set_sets_value(session, team: int, value: int) -> ActionResponse:
         GameService._invalidate_rapid_pair_cache(session)
+        was_finished_before = session.game_manager.match_finished(session.sets_limit)
         session.game_manager.set_sets_value(team, value)
         session.current_set = session._compute_current_set()
+        # Same as ``set_score``: a direct sets-won edit can transition
+        # the match in either direction; keep ``match_finished_at`` in
+        # sync before the broadcast.
+        GameService._sync_match_finished_at(session, was_finished_before)
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "set_sets_value", {"team": team, "value": value})
@@ -734,6 +780,10 @@ class GameService:
         if session.match_started_at is None:
             GameService._invalidate_rapid_pair_cache(session)
             session.match_started_at = time.time()
+            # Belt-and-braces: a fresh arm should never carry a stale
+            # finished-at from a prior match still hanging around in
+            # the persisted meta.
+            session.match_finished_at = None
             session.persist_meta()
             GameService._audit(session, "start_match", {})
             GameService._broadcast(session)
@@ -748,8 +798,11 @@ class GameService:
         session.current_set = session._compute_current_set()
         # Reset wipes the match — clear the start clock so the next
         # match begins unarmed (operator hits ``Start match`` or scores
-        # the first point to arm it again).
+        # the first point to arm it again). Also clear the end-of-match
+        # timestamp so the HUD timer / spectator page exit the frozen
+        # post-match display and return to the pre-match idle state.
         session.match_started_at = None
+        session.match_finished_at = None
         # Reset wipes the match — start the audit log fresh too so the
         # archive boundaries align with operator intent. Counter goes
         # to zero alongside the log so ``can_undo`` is correct. Run
@@ -910,9 +963,11 @@ class GameService:
 
         Called from add_point and add_set after the mutation completes.
         Returns the new ``match_id`` (or ``None`` if no archive happened).
-        After a successful archive the session's ``match_started_at`` is
-        cleared so the next match starts unarmed — the operator (or
-        the first point) re-arms it the same way it did at the start.
+        ``match_started_at`` is intentionally left in place so the HUD
+        timer and the spectator page can render the final elapsed
+        duration (``match_finished_at - match_started_at``) until the
+        operator hits Reset — which is the only path that clears both
+        timestamps and returns the session to the pre-match idle state.
 
         Callers that have a fresh post-mutation ``GameStateResponse``
         should pass it via *state_response* to avoid the redundant
@@ -936,7 +991,6 @@ class GameService:
                 points_limit_last_set=session.points_limit_last_set,
                 sets_limit=session.sets_limit,
             )
-            session.match_started_at = None
             session.persist_meta()
             return match_id
         except Exception as exc:
