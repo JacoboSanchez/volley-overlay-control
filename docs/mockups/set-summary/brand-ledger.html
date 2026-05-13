@@ -134,28 +134,29 @@
     -webkit-backdrop-filter: blur(18px) saturate(140%);
     border-left: 1px solid rgba(255,255,255,0.1);
     border-right: 1px solid rgba(255,255,255,0.1);
-    padding: 28px 28px 24px;
+    padding: 24px 24px 20px;
     display: grid;
-    grid-template-rows: auto auto 1fr;
-    row-gap: 14px;
+    grid-template-rows: auto 1fr;
+    row-gap: 12px;
     text-align: center;
+    min-height: 0;
   }
   .centre .set-header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding-bottom: 14px;
+    gap: 2px;
+    padding-bottom: 10px;
     border-bottom: 1px solid rgba(255,255,255,0.12);
   }
   .centre .set-label {
-    font: 700 12px/1 -apple-system, sans-serif;
+    font: 700 11px/1 -apple-system, sans-serif;
     color: var(--muted);
     letter-spacing: 0.3em;
     text-transform: uppercase;
   }
   .centre .set-number {
-    font: 900 92px/0.85 -apple-system, sans-serif;
+    font: 900 68px/0.85 -apple-system, sans-serif;
     letter-spacing: -0.04em;
     color: #fff;
     text-shadow: 0 4px 16px rgba(0,0,0,0.6);
@@ -163,52 +164,52 @@
   .centre .duration {
     display: flex; align-items: baseline; justify-content: center;
     gap: 8px;
-    font: 700 32px/1 'Menlo', 'Consolas', monospace;
+    font: 700 26px/1 'Menlo', 'Consolas', monospace;
     color: var(--accent);
     letter-spacing: 0.04em;
   }
   .centre .duration::before {
     content: '⏱';
-    font-size: 18px;
+    font-size: 16px;
     opacity: 0.85;
   }
   .centre .duration-label {
     display: block;
-    font: 600 10px/1 -apple-system, sans-serif;
+    font: 600 9px/1 -apple-system, sans-serif;
     color: var(--muted);
     letter-spacing: 0.24em;
     text-transform: uppercase;
     margin-top: 2px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
   /* ── Point ledger ─────────────────────────────────── */
   .ledger {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    column-gap: 16px;
+    grid-template-rows: 1fr;
+    column-gap: 4px;
     background: rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
-    padding: 12px 14px 14px;
+    padding: 10px 16px 12px;
     min-height: 0;
   }
   .ledger-col {
-    display: flex; flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-rows: auto 1fr;
     min-height: 0;
   }
   .ledger-col .col-head {
-    width: 100%;
-    padding-bottom: 8px;
-    margin-bottom: 8px;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
     border-bottom: 1px solid rgba(255,255,255,0.12);
     display: flex; justify-content: center;
   }
   .ledger-col .col-head .badge {
-    width: 36px; height: 36px;
-    border-radius: 10px;
+    width: 30px; height: 30px;
+    border-radius: 8px;
     display: grid; place-items: center;
-    font: 800 15px/1 -apple-system, sans-serif;
+    font: 800 13px/1 -apple-system, sans-serif;
     letter-spacing: 0.04em;
     color: #fff;
     text-shadow: 0 1px 3px rgba(0,0,0,0.45);
@@ -222,21 +223,23 @@
     background: rgba(240, 160, 32, 0.85);
     box-shadow: 0 0 16px rgba(240, 160, 32, 0.35);
   }
+  /* 49 equidistant rows — one per chronological event (47 points + 2 timeouts) */
   .ledger-col .col-body {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    overflow: hidden;
+    display: grid;
+    grid-template-rows: repeat(49, 1fr);
     width: 100%;
-    align-items: center;
+    min-height: 0;
+    overflow: hidden;
   }
   .point {
-    display: block;
-    min-width: 32px;
-    text-align: center;
-    padding: 1px 4px;
-    border-radius: 4px;
-    font: 700 12px/1.05 'Menlo', 'Consolas', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    min-width: 28px;
+    padding: 0 5px;
+    border-radius: 3px;
+    font: 700 10px/1 'Menlo', 'Consolas', monospace;
     letter-spacing: 0.02em;
   }
   .ledger-col.home .point {
@@ -253,26 +256,23 @@
   }
   /* Highlight the streak run */
   .ledger-col.home .point.streak {
-    background: rgba(212, 49, 76, 0.5);
+    background: rgba(212, 49, 76, 0.55);
     color: #fff;
     font-weight: 800;
-    box-shadow: 0 0 8px rgba(212, 49, 76, 0.5);
+    box-shadow: 0 0 6px rgba(212, 49, 76, 0.45);
   }
   .ledger-col.home .point.final {
-    background: rgba(212, 49, 76, 0.85);
+    background: rgba(212, 49, 76, 0.9);
     color: #fff;
     font-weight: 900;
-    box-shadow: 0 0 12px rgba(212, 49, 76, 0.6);
+    box-shadow: 0 0 10px rgba(212, 49, 76, 0.55);
   }
-  /* Timeout markers — small T pill on the column of the team that called it */
+  /* Timeout marker — same row height as points, distinct colour */
   .point.timeout-marker {
-    background: rgba(245, 197, 66, 0.25);
+    background: rgba(245, 197, 66, 0.3);
     color: #ffe48a;
     font-weight: 800;
-    border: 1px dashed rgba(245, 197, 66, 0.6);
     font-size: 9px;
-    padding: 0 6px;
-    margin: 1px 0;
   }
 </style>
 </head>
@@ -347,6 +347,7 @@
           <span class="point empty">·</span>
           <span class="point empty">·</span>
           <span class="point empty">·</span>
+          <span class="point empty">·</span>
           <span class="point">19</span>
           <span class="point empty">·</span>
           <span class="point">20</span>
@@ -354,6 +355,7 @@
           <span class="point">21</span>
           <span class="point empty">·</span>
           <span class="point">22</span>
+          <span class="point empty">·</span>
           <span class="point empty">·</span>
           <span class="point">23</span>
           <span class="point empty">·</span>
@@ -411,6 +413,7 @@
           <span class="point timeout-marker">T</span>
           <span class="point empty">·</span>
           <span class="point">20</span>
+          <span class="point empty">·</span>
           <span class="point">21</span>
           <span class="point">22</span>
           <span class="point empty">·</span>
