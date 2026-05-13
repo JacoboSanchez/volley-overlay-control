@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Set summary overlay — mockups</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #11151c;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: rgba(255, 255, 255, 0.08);
+    --accent: #2ecc71;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .intro {
+    color: var(--muted);
+    margin-bottom: 32px;
+    line-height: 1.5;
+    max-width: 720px;
+  }
+  .intro code {
+    background: rgba(255,255,255,0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .card {
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(46, 204, 113, 0.5);
+  }
+  .card h2 {
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  .card .file {
+    font: 600 12px/1 'Menlo', 'Consolas', monospace;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+  }
+  .card p {
+    color: var(--muted);
+    line-height: 1.5;
+    font-size: 14px;
+  }
+  .demo-data {
+    margin-top: 32px;
+    padding: 18px 22px;
+    background: rgba(46, 204, 113, 0.06);
+    border: 1px solid rgba(46, 204, 113, 0.2);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .demo-data strong { color: var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Set summary overlay — style mockups</h1>
+  <p class="intro">
+    Static HTML previews of four candidate layouts for the new "Set summary"
+    overlay (replaces the scoreboard between sets during streaming). Open each
+    file directly in a browser — they are self-contained, no JS or server
+    required. Pick one (or ask for tweaks) before the runtime implementation
+    moves forward.
+  </p>
+
+  <div class="grid">
+    <a class="card" href="card.html">
+      <div class="file">card.html</div>
+      <h2>Card minimalista</h2>
+      <p>Header "Set 2 · 4:32", score grande centrado, chart pequeño debajo, dos columnas con stats clave.</p>
+    </a>
+    <a class="card" href="hero.html">
+      <div class="file">hero.html</div>
+      <h2>Hero score + chart de fondo</h2>
+      <p>Score final 25–22 con tipografía protagonista, chart como marca de agua translúcida, footer con 4 stats.</p>
+    </a>
+    <a class="card" href="timeline.html">
+      <div class="file">timeline.html</div>
+      <h2>Timeline storyboard</h2>
+      <p>Chart de puntos a ancho completo como protagonista, pill superior con el score y banda inferior con eventos clave.</p>
+    </a>
+    <a class="card" href="split.html">
+      <div class="file">split.html</div>
+      <h2>Split brand</h2>
+      <p>Dos mitades verticales tintadas con los colores de cada equipo, logo + score + stat por lado, chart compacto en el centro.</p>
+    </a>
+  </div>
+
+  <div class="demo-data">
+    All four mockups share the same demo data so the comparison stays apples-to-apples:
+    <strong>Thunder Wolves 25 – Solar Hawks 22</strong>, Set <strong>2</strong>, duration
+    <strong>4:32</strong>, longest streak <strong>6 (TW from 12–12 to 18–12)</strong>,
+    timeouts <strong>0 / 2</strong>, total points <strong>47</strong>. Team colours
+    are red <code>#d4314c</code> and gold <code>#f0a020</code>.
+  </div>
+</main>
+</body>
+</html>
