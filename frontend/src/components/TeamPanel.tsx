@@ -4,7 +4,9 @@ import ScoreTable from './ScoreTable';
 import type { GameState, TeamState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
 import { toNumber, asString } from '../utils/coerce';
+import { getReadableOnSurface } from '../utils/contrast';
 import { useDoubleTap } from '../hooks/useDoubleTap';
+import { useSurfaceColor } from '../hooks/useSurfaceColor';
 
 export interface TeamPanelProps {
   teamId: 1 | 2;
@@ -70,6 +72,13 @@ function TeamPanel({
   const timeouts = teamState?.timeouts ?? 0;
   const isServing = teamState?.serving ?? false;
 
+  // Lift the lightness of foreground colours that fail WCAG AA against
+  // the current panel surface so dark team colours stay legible without
+  // losing their hue.
+  const surface = useSurfaceColor();
+  const readableTimeoutColor = getReadableOnSurface(timeoutColor, surface);
+  const readableServeColor = getReadableOnSurface(serveColor, surface);
+
   const handleAddPoint = useCallback(() => onAddPoint(teamId), [onAddPoint, teamId]);
   const handleAddTimeout = useCallback(() => onAddTimeout(teamId), [onAddTimeout, teamId]);
   const handleDoubleTap = useCallback(() => onDoubleTapScore(teamId), [onDoubleTapScore, teamId]);
@@ -103,7 +112,7 @@ function TeamPanel({
       <span
         key={i}
         className="material-icons timeout-dot"
-        style={{ color: timeoutColor, fontSize: '12px' }}
+        style={{ color: readableTimeoutColor, fontSize: '12px' }}
         data-testid={`timeout-${teamId}-number-${i}`}
       >
         radio_button_unchecked
@@ -172,7 +181,7 @@ function TeamPanel({
           <div className={isPortrait ? 'team-side-group-col' : 'team-side-group-row'}>
             <button
               className="timeout-button"
-              style={{ borderColor: timeoutColor, color: timeoutColor }}
+              style={{ borderColor: readableTimeoutColor, color: readableTimeoutColor }}
               {...timeoutHandlers}
               aria-label={`Team ${teamId} timeout`}
               aria-describedby={`team-${teamId}-timeout-help`}
@@ -192,7 +201,7 @@ function TeamPanel({
           <span
             className="material-icons serve-icon"
             style={{
-              color: serveColor,
+              color: readableServeColor,
               opacity: isServing ? 1 : 0.4,
               cursor: 'pointer',
               fontSize: '2rem',

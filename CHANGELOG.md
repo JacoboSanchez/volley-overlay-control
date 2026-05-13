@@ -10,6 +10,18 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Team-coloured icons stay readable on the panel surface.** The
+  timeout dots, timeout button, serve icon, and points-history
+  marker in the React control UI now run their colours through a
+  WCAG-aware helper that lifts (or lowers) the HSL lightness only
+  when the contrast against the current ``--surface`` falls below
+  the threshold (4.5:1 for text/icons, 3:1 for UI shapes). The
+  hue and saturation are preserved so the two teams remain
+  visually distinct, and the helper re-evaluates automatically on
+  light/dark theme toggles. The default indigo accent
+  (``#5c6bc0``) — which only reached 3.27:1 against the dark
+  navy panel — is now lifted to a tone that clears 4.5:1 on dark
+  mode while staying recognisably indigo.
 - **Match timer no longer ticks past match end.** The HUD timer in
   the React control UI and the match/set counters on the
   `/follow/{id}` spectator page now freeze at the actual end-of-
@@ -43,7 +55,7 @@ once a first tagged release ships.
   until the operator hits Reset — which is now the only path that
   returns the session to the pre-match idle state.
 
-## [5.2.1] - 2026-05-12
+## [5.3.0] - 2026-05-13
 
 ### Added
 
