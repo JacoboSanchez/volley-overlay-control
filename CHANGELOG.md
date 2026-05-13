@@ -43,7 +43,7 @@ once a first tagged release ships.
   until the operator hits Reset — which is now the only path that
   returns the session to the pre-match idle state.
 
-## [5.2.1] - 2026-05-12
+## [5.3.0] - 2026-05-13
 
 ### Added
 
