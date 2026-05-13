@@ -314,15 +314,6 @@ export default function App() {
     [actions],
   );
 
-  // Defensive cleanup: if the operator disables the feature while the
-  // overlay panel is still active in the backend, push the off state
-  // so OBS doesn't keep showing the recap.
-  useEffect(() => {
-    if (!settings.setSummaryEnabled && setSummaryActive) {
-      actions.setSetSummary(false);
-    }
-  }, [actions, settings.setSummaryEnabled, setSummaryActive]);
-
   // Server-side LIFO: ``actions.undoLast()`` posts to /game/undo,
   // which pops from the audit log and reverses the action via the
   // existing per-type ``add_*(undo=True)`` path. The two undo
