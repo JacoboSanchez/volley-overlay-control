@@ -51,6 +51,8 @@ _KEYS_BY_CATEGORY: dict[str, tuple[str, ...]] = {
         "preferredStyle",
         "Logos",
         "Gradient",
+        "Show Stats",
+        "Show Points History",
         "Color 1",
         "Color 2",
         "Text Color 1",
