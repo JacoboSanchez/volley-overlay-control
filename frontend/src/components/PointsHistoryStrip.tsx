@@ -1,4 +1,9 @@
 import type { RecentEvent } from '../hooks/useRecentEvents';
+import { getReadableOnSurface } from '../utils/contrast';
+import { useSurfaceColor } from '../hooks/useSurfaceColor';
+
+// Markers are non-text UI shapes — WCAG AA only requires 3:1 here.
+const MARKER_MIN_RATIO = 3;
 
 export interface PointsHistoryStripProps {
   events: RecentEvent[];
@@ -108,12 +113,13 @@ interface RowProps {
   name: string;
 }
 
-function Row({ team, events, color, textColor, logo, name }: RowProps) {
+function Row({ team, events, color, textColor, logo, name, surface }: RowProps & { surface: string }) {
+  const markerColor = getReadableOnSurface(color, surface, MARKER_MIN_RATIO);
   return (
     <div className="phs-row" data-testid={`phs-row-${team}`}>
       <span
         className="phs-marker"
-        style={{ backgroundColor: color }}
+        style={{ backgroundColor: markerColor }}
         role="img"
         aria-label={name}
       >
@@ -155,6 +161,7 @@ export default function PointsHistoryStrip({
   team2Logo,
   team2Name,
 }: PointsHistoryStripProps) {
+  const surface = useSurfaceColor();
   if (events.length === 0) return null;
   return (
     <div
@@ -169,6 +176,7 @@ export default function PointsHistoryStrip({
         textColor={team1TextColor}
         logo={team1Logo}
         name={team1Name}
+        surface={surface}
       />
       <Row
         team={2}
@@ -177,6 +185,7 @@ export default function PointsHistoryStrip({
         textColor={team2TextColor}
         logo={team2Logo}
         name={team2Name}
+        surface={surface}
       />
     </div>
   );
