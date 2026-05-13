@@ -242,6 +242,8 @@ class Backend:
         match_finished_flag = False
         match_started_at: float | None = None
         match_finished_at: float | None = None
+        set_summary_flag = False
+        set_summary_style = "brand_ledger"
         getter = self._rule_overrides_getter
         if callable(getter):
             try:
@@ -265,6 +267,10 @@ class Backend:
             raw_finished = overrides.get("match_finished_at")
             if isinstance(raw_finished, (int, float)):
                 match_finished_at = float(raw_finished)
+            set_summary_flag = bool(overrides.get("set_summary", False))
+            raw_style = overrides.get("set_summary_style")
+            if isinstance(raw_style, str) and raw_style:
+                set_summary_style = raw_style
 
         payload = {
             "match_info": {
@@ -293,6 +299,14 @@ class Backend:
                 # can render a "match finished" indicator without
                 # having to re-derive it from the per-team set counts.
                 "match_finished": match_finished_flag,
+                # Set summary overlay (operator-toggled panel that
+                # replaces the scoreboard between sets). ``show_set_summary``
+                # is the on/off flag; ``set_summary_style`` is the
+                # visual variant ('brand_ledger', 'bento', …). The
+                # actual set number is resolved further down once the
+                # live stats are available.
+                "show_set_summary": set_summary_flag,
+                "set_summary_style": set_summary_style,
             },
             "team_home": {
                 "name": cust.get_team_name(1),
@@ -479,6 +493,23 @@ class Backend:
             payload["match_info"][
                 "show_only_current_set"
             ] = show_only_current_set
+
+        # Resolve summary_set_num — current_set when it has any
+        # recorded points, else the previous set so the recap panel
+        # has something to show right after a set transition.
+        try:
+            points_by_set = payload["overlay_control"].get("points_by_set") or {}
+            current_events = (
+                points_by_set.get(str(current_set))
+                or points_by_set.get(current_set)
+                or []
+            )
+            payload["match_info"]["summary_set_num"] = (
+                int(current_set) if current_events
+                else max(int(current_set) - 1, 1)
+            )
+        except Exception:  # pragma: no cover - defensive
+            payload["match_info"]["summary_set_num"] = max(int(current_set) - 1, 1)
 
         if force_visibility is not None:
             payload["overlay_control"][

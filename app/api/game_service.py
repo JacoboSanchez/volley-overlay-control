@@ -124,6 +124,14 @@ class GameService:
             can_undo=session.undoable_forward_count > 0,
             match_started_at=session.match_started_at,
             match_finished_at=session.match_finished_at,
+            set_summary=bool(getattr(session, "set_summary", False)),
+            set_summary_set_num=(
+                GameService._resolve_summary_set(session)
+                if getattr(session, "set_summary", False) else None
+            ),
+            set_summary_style=str(
+                getattr(session, "set_summary_style", "brand_ledger")
+            ),
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # Misconfigured env var must not turn every /state call into a 500;
@@ -831,6 +839,58 @@ class GameService:
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def set_set_summary_mode(session, enabled: bool) -> ActionResponse:
+        """Toggle the set-summary overlay panel.
+
+        The summary picks the "last played" set: if the current set has
+        any points, it's the current set; otherwise (just after a set
+        transition) it's the previous set so the operator can roll the
+        recap immediately on stream.
+        """
+        session.set_summary = bool(enabled)
+        session.persist_meta()
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def set_set_summary_style(session, style: str) -> ActionResponse:
+        """Pick the visual variant for the set-summary overlay.
+
+        ``style`` is validated against
+        :data:`app.api.schemas.SET_SUMMARY_STYLE_CHOICES`. Unknown styles
+        fall back to the existing value rather than raising — callers
+        get the validation through the FastAPI ``Literal`` type.
+        """
+        from app.api.schemas import SET_SUMMARY_STYLE_CHOICES
+        if style in SET_SUMMARY_STYLE_CHOICES:
+            session.set_summary_style = style
+            session.persist_meta()
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def _resolve_summary_set(session) -> int:
+        """Return the set number the summary panel should show.
+
+        Returns the current set if it has any recorded points yet, else
+        the previous set so the operator can roll a recap between sets.
+        Always clamped to at least 1.
+        """
+        try:
+            from app.api.live_stats import compute_live_stats
+            stats = compute_live_stats(session.oid)
+            points_by_set = stats.get("points_by_set") or {}
+            current = int(session.current_set)
+            current_events = points_by_set.get(current) or points_by_set.get(str(current))
+            if current_events:
+                return current
+            return max(current - 1, 1)
+        except Exception:  # pragma: no cover - defensive
+            return max(int(session.current_set) - 1, 1)
 
     @staticmethod
     def update_customization(session, data: dict) -> ActionResponse:

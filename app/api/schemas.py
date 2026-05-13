@@ -54,6 +54,38 @@ class SimpleModeRequest(BaseModel):
     enabled: bool
 
 
+# Set summary overlay — list of supported visual styles (mirrored in the
+# frontend `SET_SUMMARY_STYLES` constant and the runtime overlay CSS).
+SET_SUMMARY_STYLE_CHOICES = (
+    "brand_ledger",
+    "bento",
+    "glass",
+    "split_screen",
+    "brand_columns",
+    "podium",
+    "bumper",
+    "jumbotron",
+)
+SetSummaryStyle = Literal[
+    "brand_ledger",
+    "bento",
+    "glass",
+    "split_screen",
+    "brand_columns",
+    "podium",
+    "bumper",
+    "jumbotron",
+]
+
+
+class SetSummaryRequest(BaseModel):
+    enabled: bool
+
+
+class SetSummaryStyleRequest(BaseModel):
+    style: SetSummaryStyle
+
+
 class SetRulesRequest(BaseModel):
     """Body for ``POST /api/v1/session/rules``.
 
@@ -191,6 +223,15 @@ class GameStateResponse(BaseModel):
     # value instead of letting it keep ticking after match end.
     # Cleared on reset and on ``start_match``.
     match_finished_at: float | None = None
+    # Set summary overlay (panel that replaces the scoreboard between
+    # sets with a chart + key stats). ``set_summary`` is the operator
+    # toggle. ``set_summary_set_num`` is the resolved set the panel
+    # shows — current_set when it has points, otherwise the previous
+    # set so the operator can show a recap immediately after a set
+    # ends. ``set_summary_style`` is the visual variant.
+    set_summary: bool = False
+    set_summary_set_num: int | None = None
+    set_summary_style: str = "brand_ledger"
 
 
 class ActionResponse(BaseModel):

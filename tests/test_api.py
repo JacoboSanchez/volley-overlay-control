@@ -164,6 +164,36 @@ class TestGameService:
         assert result.success is True
         assert result.state.simple_mode is True
 
+    def test_set_set_summary_mode_toggles(self, session):
+        result = GameService.set_set_summary_mode(session, enabled=True)
+        assert result.success is True
+        assert result.state.set_summary is True
+        # set_summary_set_num resolves through _resolve_summary_set —
+        # with no points yet it falls back to max(current_set-1, 1).
+        assert result.state.set_summary_set_num == 1
+        # Toggle off clears the resolved set num.
+        result = GameService.set_set_summary_mode(session, enabled=False)
+        assert result.state.set_summary is False
+        assert result.state.set_summary_set_num is None
+
+    def test_set_set_summary_style_validates_and_persists(self, session):
+        result = GameService.set_set_summary_style(session, style="glass")
+        assert result.success is True
+        assert result.state.set_summary_style == "glass"
+        # Unknown style is a no-op (FastAPI Literal blocks invalid input
+        # at the schema layer; the service-level call keeps the prior
+        # value rather than raising).
+        result = GameService.set_set_summary_style(session, style="bogus")
+        assert result.state.set_summary_style == "glass"
+
+    def test_resolve_summary_set_falls_back_when_current_empty(self, session):
+        # With current_set=1 and no points, fallback is 1 (clamped).
+        session.current_set = 1
+        assert GameService._resolve_summary_set(session) == 1
+        # With current_set=3 and no points in any set, fallback is 2.
+        session.current_set = 3
+        assert GameService._resolve_summary_set(session) == 2
+
     def test_match_finished_blocks_point(self, session):
         # Win 3 sets for team 1 to finish a best-of-5 match
         for _ in range(3):
