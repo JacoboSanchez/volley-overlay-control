@@ -345,3 +345,49 @@ class TestArchiveTrigger:
         assert state.match_finished is True
         assert state.match_finished_at is not None
         assert state.match_finished_at == session.match_finished_at
+
+    def test_undo_of_match_winning_set_clears_match_finished_at(
+            self, mock_conf, api_backend):
+        # Regression: the React MatchTimer freezes purely on
+        # ``finishedAt != null``, so leaving ``match_finished_at`` set
+        # after an undo that reopens the match would keep the HUD
+        # clock stuck on the old end-of-match value. The undo path
+        # must clear the timestamp atomically with the match-finished
+        # transition reversing.
+        session = SessionManager.get_or_create(
+            "arch-undo-set", mock_conf, api_backend,
+        )
+        self._drive_to_match_end(session, via_set=True)
+        assert session.match_finished_at is not None
+        GameService.add_set(session, team=1, undo=True)
+        assert session.game_manager.match_finished(session.sets_limit) is False
+        assert session.match_finished_at is None
+
+    def test_undo_of_match_winning_point_clears_match_finished_at(
+            self, mock_conf, api_backend):
+        session = SessionManager.get_or_create(
+            "arch-undo-pt", mock_conf, api_backend,
+        )
+        self._drive_to_match_end(session, via_set=False)
+        assert session.match_finished_at is not None
+        GameService.add_point(session, team=1, undo=True)
+        assert session.game_manager.match_finished(session.sets_limit) is False
+        assert session.match_finished_at is None
+
+    def test_re_winning_after_undo_re_stamps_match_finished_at(
+            self, mock_conf, api_backend):
+        # After an undo + a fresh winning point the timestamp must
+        # update to the *new* end-of-match wall clock, not bleed
+        # through from the first attempt.
+        session = SessionManager.get_or_create(
+            "arch-undo-redo", mock_conf, api_backend,
+        )
+        self._drive_to_match_end(session, via_set=True)
+        first_finished = session.match_finished_at
+        assert first_finished is not None
+        GameService.add_set(session, team=1, undo=True)
+        assert session.match_finished_at is None
+        time.sleep(0.01)
+        GameService.add_set(session, team=1)
+        assert session.match_finished_at is not None
+        assert session.match_finished_at > first_finished

@@ -419,19 +419,22 @@ class GameService:
         if set_won:
             session.current_set = session._compute_current_set()
 
-        # Stamp the match-end timestamp before the broadcast so the
-        # HUD timer and the spectator page receive it together with
-        # the ``match_finished`` flag and can freeze their elapsed
-        # counters at the actual end-of-match value instead of
-        # ticking forward until the next reload.
-        if (
-            not undo
-            and set_won
-            and not was_finished_before
-            and session.game_manager.match_finished(session.sets_limit)
-            and session.match_finished_at is None
-        ):
-            session.match_finished_at = time.time()
+        # Stamp / clear the match-end timestamp before the broadcast
+        # so the HUD timer and the spectator page receive it together
+        # with the ``match_finished`` flag. Both directions matter:
+        #   * forward set-winning point ⇒ stamp ``match_finished_at``
+        #     so consumers freeze their elapsed counters at the actual
+        #     end-of-match value.
+        #   * undo of a match-winning point ⇒ clear ``match_finished_at``
+        #     so the React ``MatchTimer`` (which freezes purely on
+        #     ``finishedAt != null``) resumes ticking now that the
+        #     match is back in progress.
+        is_finished_now = session.game_manager.match_finished(session.sets_limit)
+        if not was_finished_before and is_finished_now:
+            if session.match_finished_at is None:
+                session.match_finished_at = time.time()
+        elif was_finished_before and not is_finished_now:
+            session.match_finished_at = None
 
         # Audit before computing ``state_response`` so the cached
         # ``undoable_forward_count`` (and therefore ``can_undo``) the
@@ -507,16 +510,17 @@ class GameService:
             session.undo = False
 
         session.current_set = session._compute_current_set()
-        # Same as add_point: stamp ``match_finished_at`` before the
-        # broadcast so consumers can freeze the elapsed counters at
-        # the actual end-of-match value.
-        if (
-            not undo
-            and not was_finished_before
-            and session.game_manager.match_finished(session.sets_limit)
-            and session.match_finished_at is None
-        ):
-            session.match_finished_at = time.time()
+        # Same as add_point: stamp ``match_finished_at`` on the forward
+        # transition that closes the match and clear it on the undo
+        # that reopens it, so the React MatchTimer (which freezes on
+        # ``finishedAt != null``) resumes ticking after a reverted
+        # match-winning set.
+        is_finished_now = session.game_manager.match_finished(session.sets_limit)
+        if not was_finished_before and is_finished_now:
+            if session.match_finished_at is None:
+                session.match_finished_at = time.time()
+        elif was_finished_before and not is_finished_now:
+            session.match_finished_at = None
         # Audit before ``get_state`` so the ``can_undo`` flag the
         # broadcast carries reflects the just-bumped counter.
         GameService._audit(
