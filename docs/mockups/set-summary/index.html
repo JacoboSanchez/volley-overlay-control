@@ -72,6 +72,38 @@
     background: var(--panel-hover);
     border-color: rgba(46, 204, 113, 0.45);
   }
+  .card.invalid {
+    opacity: 0.45;
+    background: var(--bg);
+  }
+  .card.invalid::before {
+    content: 'Out · opaque background';
+    position: absolute;
+    top: -10px; left: 18px;
+    padding: 3px 10px;
+    background: #fa5252;
+    color: #fff;
+    border-radius: 4px;
+    font: 700 10px/1 'Menlo', 'Consolas', monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .card.invalid:hover {
+    transform: none;
+    border-color: var(--border);
+    background: var(--bg);
+  }
+  .needs-rework {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    background: rgba(255, 200, 87, 0.18);
+    border: 1px solid rgba(255, 200, 87, 0.4);
+    color: #ffc857;
+    border-radius: 4px;
+    font: 600 11px/1.4 'Menlo', monospace;
+    letter-spacing: 0.04em;
+  }
   .card .num {
     position: absolute;
     top: 16px;
@@ -111,15 +143,24 @@
   </p>
 
   <div class="demo-banner">
-    All ten share the same demo data so the comparison stays apples-to-apples:
-    <strong>Thunder Wolves 25 — Solar Hawks 22</strong>, Set <strong>2</strong>,
-    duration <strong>4:32</strong>, longest streak <strong>6</strong>
-    (TW from 12-12 to 18-12), timeouts <strong>0 / 2</strong>, total points
-    <strong>47</strong>.
+    <strong>Important:</strong> the final overlay sits on top of a live
+    16:9 broadcast feed, so the runtime panel must be transparent with
+    semi-transparent data regions (rgba + backdrop-filter). Mockups
+    whose visual language depends on a full-bleed opaque background
+    (editorial, newspaper, cinema) are marked <em>Out · opaque
+    background</em> and dropped from the candidate list. Bumper and
+    Jumbotron stay in but need a small rework on their decorative
+    background.
+    <br><br>
+    All ten share the same demo data so the comparison stays
+    apples-to-apples: <strong>Thunder Wolves 25 — Solar Hawks 22</strong>,
+    Set <strong>2</strong>, duration <strong>4:32</strong>, longest
+    streak <strong>6</strong> (TW from 12-12 to 18-12), timeouts
+    <strong>0 / 2</strong>, total points <strong>47</strong>.
   </div>
 
   <div class="grid">
-    <a class="card" href="editorial.html">
+    <a class="card invalid" href="editorial.html">
       <span class="num">01</span>
       <h2>Editorial spread</h2>
       <div class="file">editorial.html</div>
@@ -154,8 +195,9 @@
       <h2>TV bumper</h2>
       <div class="file">bumper.html</div>
       <p>Broadcast intro-card aesthetic: diagonal team-coloured stripes background, yellow accent corner clips, big "SET RECAP" tag and bold drop-shadow score.</p>
+      <span class="needs-rework">Needs rework: drop the diagonal stripe background to let the stream show through.</span>
     </a>
-    <a class="card" href="cinema.html">
+    <a class="card invalid" href="cinema.html">
       <span class="num">07</span>
       <h2>Cinemascope title</h2>
       <div class="file">cinema.html</div>
@@ -166,8 +208,9 @@
       <h2>Stadium LED</h2>
       <div class="file">jumbotron.html</div>
       <p>Mimics an arena LED screen: glowing neon team scores, scanline texture, yellow "Set Recap" plate, scrolling marquee ticker at the bottom.</p>
+      <span class="needs-rework">Needs rework: drop the dark "TV frame" and scanlines that assume an opaque viewport.</span>
     </a>
-    <a class="card" href="newspaper.html">
+    <a class="card invalid" href="newspaper.html">
       <span class="num">09</span>
       <h2>Broadsheet front page</h2>
       <div class="file">newspaper.html</div>
