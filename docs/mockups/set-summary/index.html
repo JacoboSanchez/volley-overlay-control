@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Set summary overlay — mockups</title>
+<title>Set summary overlay — mockup gallery</title>
 <style>
   :root {
     --bg: #0d1117;
-    --panel: #11151c;
+    --panel: #161b22;
+    --panel-hover: #1c2330;
     --text: #e6edf3;
     --muted: #8b949e;
     --border: rgba(255, 255, 255, 0.08);
@@ -18,114 +19,166 @@
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     min-height: 100vh;
-    padding: 48px 24px;
+    padding: 48px 32px 64px;
   }
-  main { max-width: 1100px; margin: 0 auto; }
+  main { max-width: 1240px; margin: 0 auto; }
   h1 {
-    font-size: 28px;
+    font-size: 30px;
     letter-spacing: -0.02em;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
-  .intro {
+  .lead {
     color: var(--muted);
-    margin-bottom: 32px;
-    line-height: 1.5;
-    max-width: 720px;
+    max-width: 760px;
+    line-height: 1.55;
+    margin-bottom: 28px;
   }
-  .intro code {
-    background: rgba(255,255,255,0.06);
+  .lead code {
+    background: rgba(255, 255, 255, 0.06);
     padding: 1px 6px;
     border-radius: 4px;
     font-family: 'Menlo', 'Consolas', monospace;
     font-size: 0.9em;
   }
+  .demo-banner {
+    margin-bottom: 32px;
+    padding: 14px 20px;
+    background: rgba(46, 204, 113, 0.06);
+    border: 1px solid rgba(46, 204, 113, 0.25);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .demo-banner strong { color: var(--text); }
   .grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 18px;
   }
   .card {
     display: block;
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 22px;
+    border-radius: 14px;
+    padding: 18px 20px 16px;
     text-decoration: none;
     color: inherit;
-    transition: transform 0.15s ease, border-color 0.15s ease;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    position: relative;
   }
   .card:hover {
     transform: translateY(-2px);
-    border-color: rgba(46, 204, 113, 0.5);
+    background: var(--panel-hover);
+    border-color: rgba(46, 204, 113, 0.45);
+  }
+  .card .num {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    font: 700 11px/1 'Menlo', 'Consolas', monospace;
+    color: var(--muted);
+    letter-spacing: 0.04em;
   }
   .card h2 {
-    font-size: 20px;
-    margin-bottom: 6px;
+    font-size: 18px;
+    margin-bottom: 2px;
+    padding-right: 30px;
   }
   .card .file {
     font: 600 12px/1 'Menlo', 'Consolas', monospace;
     color: var(--accent);
-    letter-spacing: 0.04em;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
   }
   .card p {
     color: var(--muted);
     line-height: 1.5;
-    font-size: 14px;
-  }
-  .demo-data {
-    margin-top: 32px;
-    padding: 18px 22px;
-    background: rgba(46, 204, 113, 0.06);
-    border: 1px solid rgba(46, 204, 113, 0.2);
-    border-radius: 10px;
     font-size: 13px;
-    color: var(--muted);
-    line-height: 1.6;
   }
-  .demo-data strong { color: var(--text); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Set summary overlay — style mockups</h1>
-  <p class="intro">
-    Static HTML previews of four candidate layouts for the new "Set summary"
-    overlay (replaces the scoreboard between sets during streaming). Open each
-    file directly in a browser — they are self-contained, no JS or server
-    required. Pick one (or ask for tweaks) before the runtime implementation
-    moves forward.
+  <h1>Set summary overlay — mockup gallery</h1>
+  <p class="lead">
+    Ten visual proposals for the new "set summary" overlay (replaces the
+    scoreboard between sets in a 16:9 streaming feed). All ten render at
+    <code>1280 × 720</code> and are self-contained — open each file in a
+    browser, pick a direction (or ask for variants), and the runtime
+    implementation under <code>overlay_static/</code> will adopt that
+    style.
   </p>
 
-  <div class="grid">
-    <a class="card" href="card.html">
-      <div class="file">card.html</div>
-      <h2>Card minimalista</h2>
-      <p>Header "Set 2 · 4:32", score grande centrado, chart pequeño debajo, dos columnas con stats clave.</p>
-    </a>
-    <a class="card" href="hero.html">
-      <div class="file">hero.html</div>
-      <h2>Hero score + chart de fondo</h2>
-      <p>Score final 25–22 con tipografía protagonista, chart como marca de agua translúcida, footer con 4 stats.</p>
-    </a>
-    <a class="card" href="timeline.html">
-      <div class="file">timeline.html</div>
-      <h2>Timeline storyboard</h2>
-      <p>Chart de puntos a ancho completo como protagonista, pill superior con el score y banda inferior con eventos clave.</p>
-    </a>
-    <a class="card" href="split.html">
-      <div class="file">split.html</div>
-      <h2>Split brand</h2>
-      <p>Dos mitades verticales tintadas con los colores de cada equipo, logo + score + stat por lado, chart compacto en el centro.</p>
-    </a>
+  <div class="demo-banner">
+    All ten share the same demo data so the comparison stays apples-to-apples:
+    <strong>Thunder Wolves 25 — Solar Hawks 22</strong>, Set <strong>2</strong>,
+    duration <strong>4:32</strong>, longest streak <strong>6</strong>
+    (TW from 12-12 to 18-12), timeouts <strong>0 / 2</strong>, total points
+    <strong>47</strong>.
   </div>
 
-  <div class="demo-data">
-    All four mockups share the same demo data so the comparison stays apples-to-apples:
-    <strong>Thunder Wolves 25 – Solar Hawks 22</strong>, Set <strong>2</strong>, duration
-    <strong>4:32</strong>, longest streak <strong>6 (TW from 12–12 to 18–12)</strong>,
-    timeouts <strong>0 / 2</strong>, total points <strong>47</strong>. Team colours
-    are red <code>#d4314c</code> and gold <code>#f0a020</code>.
+  <div class="grid">
+    <a class="card" href="editorial.html">
+      <span class="num">01</span>
+      <h2>Editorial spread</h2>
+      <div class="file">editorial.html</div>
+      <p>Magazine-style print layout. Serif headline, big score on the right, chart and standfirst in the body, four-column stat footer with hairline rules.</p>
+    </a>
+    <a class="card" href="bento.html">
+      <span class="num">02</span>
+      <h2>Bento dashboard</h2>
+      <div class="file">bento.html</div>
+      <p>Modular rounded tiles à la Apple/Stripe. A dominant score tile, a chart tile, and four stat cards filling the 16:9 grid.</p>
+    </a>
+    <a class="card" href="split-screen.html">
+      <span class="num">03</span>
+      <h2>Split screen</h2>
+      <div class="file">split-screen.html</div>
+      <p>Vertical 50/50: left half is info (set, score, footer stats), right half is a full-height point-progression chart with axis labels.</p>
+    </a>
+    <a class="card" href="brand-columns.html">
+      <span class="num">04</span>
+      <h2>Brand columns</h2>
+      <div class="file">brand-columns.html</div>
+      <p>Three vertical columns: home team tinted with brand gradient (left), centre with chart and duration, away team tinted (right). Huge per-team score.</p>
+    </a>
+    <a class="card" href="podium.html">
+      <span class="num">05</span>
+      <h2>Winner podium</h2>
+      <div class="file">podium.html</div>
+      <p>Winning team raised on a tall pedestal with a crown badge, runner-up shorter alongside, full-width chart ribbon at the bottom.</p>
+    </a>
+    <a class="card" href="bumper.html">
+      <span class="num">06</span>
+      <h2>TV bumper</h2>
+      <div class="file">bumper.html</div>
+      <p>Broadcast intro-card aesthetic: diagonal team-coloured stripes background, yellow accent corner clips, big "SET RECAP" tag and bold drop-shadow score.</p>
+    </a>
+    <a class="card" href="cinema.html">
+      <span class="num">07</span>
+      <h2>Cinemascope title</h2>
+      <div class="file">cinema.html</div>
+      <p>Letterboxed movie-title-card feel: black bars top and bottom, serif headline, score as a title card, stats as credits, subtle film grain.</p>
+    </a>
+    <a class="card" href="jumbotron.html">
+      <span class="num">08</span>
+      <h2>Stadium LED</h2>
+      <div class="file">jumbotron.html</div>
+      <p>Mimics an arena LED screen: glowing neon team scores, scanline texture, yellow "Set Recap" plate, scrolling marquee ticker at the bottom.</p>
+    </a>
+    <a class="card" href="newspaper.html">
+      <span class="num">09</span>
+      <h2>Broadsheet front page</h2>
+      <div class="file">newspaper.html</div>
+      <p>Newspaper front page: double-rule masthead, three serif columns (chart figure / lede article / scorebox), italic stats footer. Editorial print energy.</p>
+    </a>
+    <a class="card" href="glass.html">
+      <span class="num">10</span>
+      <h2>Glassmorphism</h2>
+      <div class="file">glass.html</div>
+      <p>Frosted translucent tiles layered over team-coloured background blobs. Modern OS-style feel — header, score, chart and four stat tiles all "floating".</p>
+    </a>
   </div>
 </main>
 </body>
