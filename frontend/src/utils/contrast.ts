@@ -148,7 +148,7 @@ export function getReadableOnSurface(
   let best: Rgb = fgRgb;
   let bestRatio = contrastRatio(fgRgb, bgRgb);
 
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 10; i++) {
     const mid = (lo + hi) / 2;
     const candidate = hslToRgb({ h: hsl.h, s: hsl.s, l: mid });
     const ratio = contrastRatio(candidate, bgRgb);
