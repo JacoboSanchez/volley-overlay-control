@@ -145,14 +145,14 @@
   <div class="demo-banner">
     <strong>Important:</strong> the final overlay sits on top of a live
     16:9 broadcast feed, so the runtime panel must be transparent with
-    semi-transparent data regions (rgba + backdrop-filter). Mockups
-    whose visual language depends on a full-bleed opaque background
-    (editorial, newspaper, cinema) are marked <em>Out · opaque
-    background</em> and dropped from the candidate list. Bumper and
-    Jumbotron stay in but need a small rework on their decorative
-    background.
+    semi-transparent data regions (rgba + backdrop-filter). The candidate
+    mockups now render over a simulated green→orange stream backdrop
+    so you can see exactly how the glass panels look on top of a busy
+    feed. Mockups whose visual language depends on a full-bleed opaque
+    background (editorial, newspaper, cinema) are marked <em>Out · opaque
+    background</em> and dropped from the candidate list.
     <br><br>
-    All ten share the same demo data so the comparison stays
+    All share the same demo data so the comparison stays
     apples-to-apples: <strong>Thunder Wolves 25 — Solar Hawks 22</strong>,
     Set <strong>2</strong>, duration <strong>4:32</strong>, longest
     streak <strong>6</strong> (TW from 12-12 to 18-12), timeouts
@@ -200,8 +200,7 @@
       <span class="num">06</span>
       <h2>TV bumper</h2>
       <div class="file">bumper.html</div>
-      <p>Broadcast intro-card aesthetic: diagonal team-coloured stripes background, yellow accent corner clips, big "SET RECAP" tag and bold drop-shadow score.</p>
-      <span class="needs-rework">Needs rework: drop the diagonal stripe background to let the stream show through.</span>
+      <p>Broadcast intro-card aesthetic: subtle brand-coloured edge accents (was: full diagonal stripes), yellow corner clips, glassy central card with bold drop-shadow score.</p>
     </a>
     <a class="card invalid" href="cinema.html">
       <span class="num">07</span>
@@ -213,8 +212,7 @@
       <span class="num">08</span>
       <h2>Stadium LED</h2>
       <div class="file">jumbotron.html</div>
-      <p>Mimics an arena LED screen: glowing neon team scores, scanline texture, yellow "Set Recap" plate, scrolling marquee ticker at the bottom.</p>
-      <span class="needs-rework">Needs rework: drop the dark "TV frame" and scanlines that assume an opaque viewport.</span>
+      <p>Arena LED feel: glowing neon team scores, glass panels with team-coloured borders, yellow "Set Recap" plate, scrolling marquee ticker at the bottom. (TV frame and scanlines removed; only a faint scan pass remains.)</p>
     </a>
     <a class="card invalid" href="newspaper.html">
       <span class="num">09</span>

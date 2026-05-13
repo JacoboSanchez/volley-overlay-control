@@ -19,7 +19,10 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 100%; height: 100%;
-    background: #0a0d12;
+    background:
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="30" r="14" fill="%23ffffff" opacity="0.12"/><circle cx="70" cy="20" r="9" fill="%23ffffff" opacity="0.08"/><circle cx="60" cy="80" r="20" fill="%23ffffff" opacity="0.06"/></svg>'),
+      linear-gradient(135deg, #2e7d32 0%, #1b5e20 35%, #f57c00 70%, #e65100 100%);
+    background-blend-mode: overlay, normal;
     color: var(--text);
     font-family: 'Helvetica Neue', Arial, sans-serif;
     display: grid; place-items: center;
@@ -27,39 +30,30 @@
   .preview-label {
     position: fixed; top: 12px; left: 12px;
     font: 12px/1 'Menlo', 'Consolas', monospace;
-    color: var(--muted); letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    letter-spacing: 0.04em;
     z-index: 10;
   }
   .overlay {
     width: 1280px; height: 720px;
-    background: var(--bg);
-    border: 8px solid #14151a;
-    box-shadow:
-      inset 0 0 0 2px #2a2c33,
-      0 24px 80px rgba(0,0,0,0.7);
+    /* transparent over the stream — no TV frame */
     position: relative;
     overflow: hidden;
   }
-  /* LED dot pattern overlay */
-  .led-mask {
-    position: absolute;
-    inset: 0;
-    background-image:
-      radial-gradient(circle at 1.5px 1.5px, rgba(0,0,0,0.65) 1.2px, transparent 1.4px);
-    background-size: 3px 3px;
-    pointer-events: none;
-    z-index: 5;
-    mix-blend-mode: multiply;
-  }
-  /* scanline */
+  /* LED dot pattern — applied only to individual panels, removed here */
+  .led-mask { display: none; }
+  /* scanlines on the team-side and chart panels only, very subtle */
   .scanlines {
-    position: absolute; inset: 0;
+    position: absolute; inset: 36px 56px 24px;
     background: repeating-linear-gradient(
       to bottom,
-      rgba(255,255,255,0.02) 0 1px,
+      rgba(255,255,255,0.025) 0 1px,
       transparent 1px 3px);
     pointer-events: none;
     z-index: 6;
+    opacity: 0.5;
+    border-radius: 8px;
   }
   .content {
     position: relative;
@@ -107,15 +101,19 @@
     padding: 18px;
     border: 2px solid;
     border-radius: 6px;
-    background: rgba(255,255,255,0.02);
+    background: rgba(10, 13, 18, 0.55);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
   }
   .team-side.home {
-    border-color: rgba(255, 74, 94, 0.4);
-    box-shadow: inset 0 0 24px rgba(255, 74, 94, 0.12);
+    border-color: rgba(255, 74, 94, 0.55);
+    box-shadow: inset 0 0 24px rgba(255, 74, 94, 0.18),
+                0 0 18px rgba(255, 74, 94, 0.25);
   }
   .team-side.away {
-    border-color: rgba(74, 216, 255, 0.4);
-    box-shadow: inset 0 0 24px rgba(74, 216, 255, 0.12);
+    border-color: rgba(74, 216, 255, 0.55);
+    box-shadow: inset 0 0 24px rgba(74, 216, 255, 0.18),
+                0 0 18px rgba(74, 216, 255, 0.25);
   }
   .team-side .team-name {
     font: 900 22px/1 'Helvetica Neue', sans-serif;
@@ -133,10 +131,13 @@
   .team-side.away .team-score { color: var(--away); text-shadow: 0 0 22px rgba(74,216,255,0.5); }
   .centre-display {
     text-align: center;
-    border: 2px solid rgba(255, 214, 74, 0.45);
+    border: 2px solid rgba(255, 214, 74, 0.55);
     border-radius: 6px;
     padding: 16px 10px;
-    background: rgba(255, 214, 74, 0.06);
+    background: rgba(10, 13, 18, 0.55);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 0 18px rgba(255, 214, 74, 0.18);
     display: flex; flex-direction: column;
     gap: 6px;
     justify-content: center;
@@ -159,9 +160,12 @@
   }
   /* ── Chart ────────────────────────────────────────── */
   .chart-strip {
-    border: 2px solid rgba(255,255,255,0.12);
+    border: 2px solid rgba(255,255,255,0.16);
     border-radius: 6px;
     padding: 12px 18px;
+    background: rgba(10, 13, 18, 0.55);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 18px;
