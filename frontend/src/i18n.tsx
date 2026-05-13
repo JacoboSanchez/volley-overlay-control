@@ -255,6 +255,23 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Language',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Show set summary on overlay',
+    'setSummary.activeTitle': 'Set summary is live',
+    'setSummary.activeBody': 'Showing set {n} on the overlay. Tap to hide.',
+    'setSummary.hide': 'Hide summary',
+    'config.setSummary.label': 'Enable set summary overlay',
+    'config.setSummary.description': 'Adds a button to swap the scoreboard for a set summary panel (chart + key stats). Off by default.',
+    'config.setSummary.style.label': 'Default style',
+    'setSummary.style.brand_ledger': 'Brand ledger',
+    'setSummary.style.bento': 'Bento dashboard',
+    'setSummary.style.glass': 'Glass',
+    'setSummary.style.split_screen': 'Split screen',
+    'setSummary.style.brand_columns': 'Brand columns',
+    'setSummary.style.podium': 'Winner podium',
+    'setSummary.style.bumper': 'Broadcast bumper',
+    'setSummary.style.jumbotron': 'Jumbotron',
   },
   es: {
     // Init screen
@@ -508,6 +525,23 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Idioma',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Mostrar resumen del set en el overlay',
+    'setSummary.activeTitle': 'Resumen del set en directo',
+    'setSummary.activeBody': 'Mostrando el set {n} en el overlay. Toca para ocultar.',
+    'setSummary.hide': 'Ocultar resumen',
+    'config.setSummary.label': 'Activar overlay de resumen de set',
+    'config.setSummary.description': 'Añade un botón para sustituir el marcador por un panel con el resumen del set (gráfico + stats clave). Desactivado por defecto.',
+    'config.setSummary.style.label': 'Estilo por defecto',
+    'setSummary.style.brand_ledger': 'Histórico por equipo',
+    'setSummary.style.bento': 'Panel bento',
+    'setSummary.style.glass': 'Cristal',
+    'setSummary.style.split_screen': 'Pantalla dividida',
+    'setSummary.style.brand_columns': 'Columnas de marca',
+    'setSummary.style.podium': 'Podio del ganador',
+    'setSummary.style.bumper': 'Cortinilla TV',
+    'setSummary.style.jumbotron': 'Pantalla LED',
   },
   pt: {
     // Init screen
@@ -760,6 +794,23 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Idioma',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Mostrar resumo do set no overlay',
+    'setSummary.activeTitle': 'Resumo do set em direto',
+    'setSummary.activeBody': 'A mostrar o set {n} no overlay. Toca para ocultar.',
+    'setSummary.hide': 'Ocultar resumo',
+    'config.setSummary.label': 'Ativar overlay de resumo de set',
+    'config.setSummary.description': 'Adiciona um botão para trocar o marcador por um painel com o resumo do set (gráfico + estatísticas). Desativado por padrão.',
+    'config.setSummary.style.label': 'Estilo por defeito',
+    'setSummary.style.brand_ledger': 'Histórico por equipa',
+    'setSummary.style.bento': 'Painel bento',
+    'setSummary.style.glass': 'Vidro',
+    'setSummary.style.split_screen': 'Ecrã dividido',
+    'setSummary.style.brand_columns': 'Colunas de marca',
+    'setSummary.style.podium': 'Pódio do vencedor',
+    'setSummary.style.bumper': 'Cortina TV',
+    'setSummary.style.jumbotron': 'Ecrã LED',
   },
   it: {
     // Init screen
@@ -1012,6 +1063,23 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Lingua',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Mostra riepilogo del set sull’overlay',
+    'setSummary.activeTitle': 'Riepilogo del set in onda',
+    'setSummary.activeBody': 'Mostro il set {n} sull’overlay. Tocca per nascondere.',
+    'setSummary.hide': 'Nascondi riepilogo',
+    'config.setSummary.label': 'Attiva overlay riepilogo set',
+    'config.setSummary.description': 'Aggiunge un pulsante per sostituire il tabellone con un pannello di riepilogo (grafico + statistiche chiave). Disattivato di default.',
+    'config.setSummary.style.label': 'Stile predefinito',
+    'setSummary.style.brand_ledger': 'Tabella per squadra',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Vetro',
+    'setSummary.style.split_screen': 'Schermo diviso',
+    'setSummary.style.brand_columns': 'Colonne squadre',
+    'setSummary.style.podium': 'Podio del vincitore',
+    'setSummary.style.bumper': 'Sigla TV',
+    'setSummary.style.jumbotron': 'Schermo LED',
   },
   fr: {
     // Init screen
@@ -1264,6 +1332,23 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Langue',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Afficher le récap du set sur l’overlay',
+    'setSummary.activeTitle': 'Récap du set en direct',
+    'setSummary.activeBody': 'Affichage du set {n} sur l’overlay. Touchez pour masquer.',
+    'setSummary.hide': 'Masquer le récap',
+    'config.setSummary.label': 'Activer l’overlay récap du set',
+    'config.setSummary.description': 'Ajoute un bouton pour remplacer le tableau par un panneau récapitulatif (graphique + stats clés). Désactivé par défaut.',
+    'config.setSummary.style.label': 'Style par défaut',
+    'setSummary.style.brand_ledger': 'Tableau par équipe',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Verre',
+    'setSummary.style.split_screen': 'Écran partagé',
+    'setSummary.style.brand_columns': 'Colonnes équipes',
+    'setSummary.style.podium': 'Podium du vainqueur',
+    'setSummary.style.bumper': 'Habillage TV',
+    'setSummary.style.jumbotron': 'Écran LED',
   },
   de: {
     // Init screen
@@ -1516,6 +1601,23 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Sprache',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Satz-Recap auf Overlay zeigen',
+    'setSummary.activeTitle': 'Satz-Recap läuft',
+    'setSummary.activeBody': 'Zeige Satz {n} im Overlay. Tippen zum Ausblenden.',
+    'setSummary.hide': 'Recap ausblenden',
+    'config.setSummary.label': 'Satz-Recap-Overlay aktivieren',
+    'config.setSummary.description': 'Fügt eine Schaltfläche hinzu, um die Anzeigetafel durch ein Satz-Recap-Panel zu ersetzen (Chart + Schlüssel-Stats). Standardmäßig aus.',
+    'config.setSummary.style.label': 'Standardstil',
+    'setSummary.style.brand_ledger': 'Punkteliste pro Team',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Glas',
+    'setSummary.style.split_screen': 'Geteilter Bildschirm',
+    'setSummary.style.brand_columns': 'Team-Spalten',
+    'setSummary.style.podium': 'Siegerpodest',
+    'setSummary.style.bumper': 'TV-Bumper',
+    'setSummary.style.jumbotron': 'LED-Wand',
   },
 };
 

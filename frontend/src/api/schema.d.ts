@@ -461,6 +461,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/display/set-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Set Summary
+         * @description Toggle the set-summary overlay panel on/off.
+         */
+        post: operations["set_set_summary_api_v1_display_set_summary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/display/set-summary-style": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Set Summary Style
+         * @description Pick the visual variant for the set-summary overlay.
+         */
+        post: operations["set_set_summary_style_api_v1_display_set_summary_style_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/display/simple-mode": {
         parameters: {
             query?: never;
@@ -1329,6 +1369,18 @@ export interface components {
             match_started_at?: number | null;
             /** Serve */
             serve: string;
+            /**
+             * Set Summary
+             * @default false
+             */
+            set_summary: boolean;
+            /** Set Summary Set Num */
+            set_summary_set_num?: number | null;
+            /**
+             * Set Summary Style
+             * @default brand_ledger
+             */
+            set_summary_style: string;
             /** Simple Mode */
             simple_mode: boolean;
             team_1: components["schemas"]["TeamState"];
@@ -1575,6 +1627,19 @@ export interface components {
             team: 1 | 2;
             /** Value */
             value: number;
+        };
+        /** SetSummaryRequest */
+        SetSummaryRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** SetSummaryStyleRequest */
+        SetSummaryStyleRequest: {
+            /**
+             * Style
+             * @enum {string}
+             */
+            style: "brand_ledger" | "bento" | "glass" | "split_screen" | "brand_columns" | "podium" | "bumper" | "jumbotron";
         };
         /** SimpleModeRequest */
         SimpleModeRequest: {
@@ -2437,6 +2502,86 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_set_summary_api_v1_display_set_summary_post: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_set_summary_style_api_v1_display_set_summary_style_post: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSummaryStyleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

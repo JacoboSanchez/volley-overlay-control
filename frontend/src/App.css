@@ -3130,3 +3130,102 @@ body {
 .serve-icon {
   transition: opacity 0.2s;
 }
+
+/* ── Set summary active notice & style picker ────────────────────────── */
+
+.set-summary-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(46, 204, 113, 0.45);
+  background: rgba(46, 204, 113, 0.08);
+  text-align: center;
+  width: 100%;
+  max-width: 320px;
+}
+
+.set-summary-notice-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(46, 204, 113, 0.18);
+  border: 1px solid rgba(46, 204, 113, 0.5);
+  color: var(--green, #2e7d32);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.set-summary-notice-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green, #2e7d32);
+}
+
+.set-summary-notice-body {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.set-summary-notice-cta {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(244, 67, 54, 0.55);
+  background: rgba(244, 67, 54, 0.12);
+  color: var(--red, #f44336);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.set-summary-notice-cta:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.22);
+}
+
+.set-summary-notice-cta:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.set-summary-style-picker {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+.set-summary-style-option {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-light, rgba(255,255,255,0.04));
+  color: var(--text);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.set-summary-style-option:hover:not(:disabled) {
+  border-color: rgba(46, 204, 113, 0.5);
+}
+
+.set-summary-style-option.selected {
+  border-color: var(--green, #2e7d32);
+  background: rgba(46, 204, 113, 0.14);
+  color: var(--green, #2e7d32);
+  font-weight: 700;
+}
+
+.set-summary-style-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

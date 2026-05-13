@@ -199,6 +199,13 @@ export default function App() {
     // inactivity timer once ``match_started_at`` is stamped. Also covers
     // the pre-init case where ``state`` itself is still null.
     if (state?.match_started_at == null) return;
+    // When the set-summary recap is live, the operator must be able to
+    // turn it off in one tap — never auto-hide the HUD.
+    if (state?.set_summary) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setShowControls(true);
+      return;
+    }
     if (showControls && activeTab === 'scoreboard') {
       resetHideTimer();
       window.addEventListener('pointerdown', resetHideTimer, { passive: true });
@@ -289,6 +296,32 @@ export default function App() {
   const handleToggleSimpleMode = useCallback(() => {
     actions.setSimpleMode(!simpleMode);
   }, [actions, simpleMode]);
+
+  const setSummaryActive = state?.set_summary ?? false;
+  const setSummarySetNum = state?.set_summary_set_num ?? null;
+  const setSummaryStyle = (state?.set_summary_style ?? 'brand_ledger') as
+    import('./api/client').SetSummaryStyle;
+
+  const handleToggleSetSummary = useCallback(() => {
+    if (!settings.setSummaryEnabled) return;
+    actions.setSetSummary(!setSummaryActive);
+  }, [actions, setSummaryActive, settings.setSummaryEnabled]);
+
+  const handleChangeSetSummaryStyle = useCallback(
+    (style: import('./api/client').SetSummaryStyle) => {
+      actions.setSetSummaryStyle(style);
+    },
+    [actions],
+  );
+
+  // Defensive cleanup: if the operator disables the feature while the
+  // overlay panel is still active in the backend, push the off state
+  // so OBS doesn't keep showing the recap.
+  useEffect(() => {
+    if (!settings.setSummaryEnabled && setSummaryActive) {
+      actions.setSetSummary(false);
+    }
+  }, [actions, settings.setSummaryEnabled, setSummaryActive]);
 
   // Server-side LIFO: ``actions.undoLast()`` posts to /game/undo,
   // which pops from the audit log and reverses the action via the
@@ -572,6 +605,12 @@ export default function App() {
           onOpenConfig={() => setActiveTab('config')}
           onOpenShare={handleOpenShare}
           onOpenHistory={() => setHistoryOpen(true)}
+          setSummaryEnabled={settings.setSummaryEnabled}
+          setSummaryActive={setSummaryActive}
+          setSummarySetNum={setSummarySetNum}
+          setSummaryStyle={setSummaryStyle}
+          onToggleSetSummary={handleToggleSetSummary}
+          onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
         />
         </ErrorBoundary>
       )}

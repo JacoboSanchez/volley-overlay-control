@@ -60,6 +60,15 @@ export interface ScoreboardViewProps {
   onOpenConfig: () => void;
   onOpenShare: () => void;
   onOpenHistory: () => void;
+  /** Set summary overlay — feature flag + live state + handlers. */
+  setSummaryEnabled?: boolean;
+  setSummaryActive?: boolean;
+  setSummarySetNum?: number | null;
+  setSummaryStyle?: import('../api/client').SetSummaryStyle;
+  onToggleSetSummary?: () => void;
+  onChangeSetSummaryStyle?: (
+    style: import('../api/client').SetSummaryStyle,
+  ) => void;
 }
 
 export default function ScoreboardView({
@@ -102,6 +111,12 @@ export default function ScoreboardView({
   onOpenConfig,
   onOpenShare,
   onOpenHistory,
+  setSummaryEnabled,
+  setSummaryActive,
+  setSummarySetNum,
+  setSummaryStyle,
+  onToggleSetSummary,
+  onChangeSetSummaryStyle,
 }: ScoreboardViewProps) {
   const { t } = useI18n();
 
@@ -146,6 +161,11 @@ export default function ScoreboardView({
           btnColorB={btnColorB}
           btnTextB={btnTextB}
           fontStyle={fontStyle}
+          setSummaryActive={setSummaryActive}
+          setSummarySetNum={setSummarySetNum}
+          setSummaryStyle={setSummaryStyle}
+          onDeactivateSetSummary={onToggleSetSummary}
+          onChangeSetSummaryStyle={onChangeSetSummaryStyle}
           onAddSet={onAddSet}
           onLongPressSet={onLongPressSet}
         />
@@ -222,12 +242,15 @@ export default function ScoreboardView({
             matchStartedAt={state.match_started_at}
             matchFinishedAt={state.match_finished_at}
             matchFinished={state.match_finished}
+            setSummaryEnabled={setSummaryEnabled}
+            setSummaryActive={setSummaryActive}
             onToggleVisibility={onToggleVisibility}
             onToggleSimpleMode={onToggleSimpleMode}
             onUndoLast={onUndoLast}
             onTogglePreview={onTogglePreview}
             onStartMatch={onStartMatch}
             onReset={onReset}
+            onToggleSetSummary={onToggleSetSummary}
           />
         </div>
       </div>

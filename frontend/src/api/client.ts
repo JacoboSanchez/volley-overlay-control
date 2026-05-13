@@ -163,6 +163,37 @@ export function setSimpleMode(oid: string, enabled: boolean): Promise<ActionResp
   );
 }
 
+export const SET_SUMMARY_STYLES = [
+  'brand_ledger',
+  'bento',
+  'glass',
+  'split_screen',
+  'brand_columns',
+  'podium',
+  'bumper',
+  'jumbotron',
+] as const;
+export type SetSummaryStyle = typeof SET_SUMMARY_STYLES[number];
+
+export function setSetSummary(oid: string, enabled: boolean): Promise<ActionResponse> {
+  return request<ActionResponse>(
+    'POST',
+    `/display/set-summary${withOid(oid)}`,
+    { enabled },
+  );
+}
+
+export function setSetSummaryStyle(
+  oid: string,
+  style: SetSummaryStyle,
+): Promise<ActionResponse> {
+  return request<ActionResponse>(
+    'POST',
+    `/display/set-summary-style${withOid(oid)}`,
+    { style },
+  );
+}
+
 export type MatchMode = 'indoor' | 'beach';
 
 export interface SetRulesPayload {

@@ -48,6 +48,8 @@ export interface GameActions {
   reset: () => Promise<ActionResponse>;
   setVisibility: (visible: boolean) => Promise<ActionResponse>;
   setSimpleMode: (enabled: boolean) => Promise<ActionResponse>;
+  setSetSummary: (enabled: boolean) => Promise<ActionResponse>;
+  setSetSummaryStyle: (style: api.SetSummaryStyle) => Promise<ActionResponse>;
   /**
    * Server-side LIFO undo: pops the most recent forward
    * ``add_point``/``add_set``/``add_timeout`` from the audit log
@@ -256,6 +258,8 @@ export function useGameState(oid: string | null): UseGameStateResult {
     reset: () => handleAction(() => api.resetGame(oid!)),
     setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
     setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
+    setSetSummary: (enabled) => handleAction(() => api.setSetSummary(oid!, enabled)),
+    setSetSummaryStyle: (style) => handleAction(() => api.setSetSummaryStyle(oid!, style)),
     undoLast: () => handleAction(() => api.undoLast(oid!)),
     startMatch: () => handleAction(() => api.startMatch(oid!)),
   }), [oid, handleAction]);

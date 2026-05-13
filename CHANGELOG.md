@@ -8,6 +8,29 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Set summary overlay (opt-in).** New operator-toggled overlay that
+  replaces the scoreboard between sets with a recap panel — chart of
+  the point progression, score, duration and key stats. Eight visual
+  styles ship as candidates (``brand_ledger``, ``bento``, ``glass``,
+  ``split_screen``, ``brand_columns``, ``podium``, ``bumper``,
+  ``jumbotron``); ``brand_ledger`` is implemented fully and the rest
+  fall back to it until they ship their bespoke CSS. The panel is
+  fully transparent over the live stream — only the data regions get
+  ``rgba()`` fills + ``backdrop-filter: blur(…)`` so any OBS scene
+  underneath stays legible. Wired end-to-end: new endpoints
+  ``POST /api/v1/display/set-summary{,-style}``, payload fields
+  ``match_info.{show_set_summary,set_summary_style,summary_set_num}``
+  picked up by ``overlay_static/js/set_summary.js``, plus a React
+  control button (icon ``summarize``), centre-panel "Set summary is
+  live" notice with inline style picker, and matching i18n strings
+  in all six locales. **Off by default**: the feature lives behind a
+  ``setSummaryEnabled`` toggle in the Behavior config section so
+  existing setups don't get a surprise extra button. Mockup gallery
+  for the eight styles lives at
+  ``docs/mockups/set-summary/index.html``.
+
 ### Fixed
 
 - **Team-coloured icons stay readable on the panel surface.** The

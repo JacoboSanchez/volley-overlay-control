@@ -8,6 +8,7 @@ export interface BehaviorSettings {
   autoSimpleOnTimeout: boolean;
   haptics: boolean;
   keyboardShortcuts: boolean;
+  setSummaryEnabled: boolean;
 }
 
 export interface BehaviorSectionProps {
@@ -78,6 +79,18 @@ export default function BehaviorSection({ settings, setSetting, onShowShortcuts 
             {t('behavior.showShortcuts')}
           </button>
         </div>
+      )}
+
+      <div className="config-separator" />
+      <ConfigSwitch
+        label={t('config.setSummary.label')}
+        checked={settings.setSummaryEnabled}
+        onChange={(v) => setSetting('setSummaryEnabled', v)}
+      />
+      {settings.setSummaryEnabled && (
+        <p className="config-help-text" style={{ margin: '0 0 0.75rem 1.5rem', fontSize: '0.85em', opacity: 0.7 }}>
+          {t('config.setSummary.description')}
+        </p>
       )}
 
       <div className="config-separator" />

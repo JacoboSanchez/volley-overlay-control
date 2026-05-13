@@ -4,6 +4,8 @@ import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
 import OverlayPreview from './OverlayPreview';
 import PointsHistoryStrip from './PointsHistoryStrip';
+import SetSummaryActiveNotice from './SetSummaryActiveNotice';
+import type { SetSummaryStyle } from '../api/client';
 import SideSwitchIndicator from './SideSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
@@ -48,6 +50,16 @@ export interface CenterPanelProps {
   btnColorB: string;
   btnTextB: string;
   fontStyle?: ScoreButtonFontStyle;
+  /**
+   * Set summary overlay: when the operator has the recap active, the
+   * centre column swaps the preview / history strip for a notice so
+   * they can't lose track of it being on air. Defaults to off.
+   */
+  setSummaryActive?: boolean;
+  setSummarySetNum?: number | null;
+  setSummaryStyle?: SetSummaryStyle;
+  onDeactivateSetSummary?: () => void;
+  onChangeSetSummaryStyle?: (style: SetSummaryStyle) => void;
   onAddSet: (teamId: 1 | 2) => void;
   onLongPressSet: (teamId: 1 | 2) => void;
 }
@@ -69,6 +81,11 @@ function CenterPanel({
   btnColorB,
   btnTextB,
   fontStyle,
+  setSummaryActive,
+  setSummarySetNum,
+  setSummaryStyle,
+  onDeactivateSetSummary,
+  onChangeSetSummaryStyle,
   onAddSet,
   onLongPressSet,
 }: CenterPanelProps) {
@@ -158,7 +175,14 @@ function CenterPanel({
         )}
       </div>
 
-      {previewData ? (
+      {setSummaryActive && onDeactivateSetSummary && onChangeSetSummaryStyle ? (
+        <SetSummaryActiveNotice
+          setNum={setSummarySetNum ?? null}
+          style={setSummaryStyle ?? 'brand_ledger'}
+          onDeactivate={onDeactivateSetSummary}
+          onChangeStyle={onChangeSetSummaryStyle}
+        />
+      ) : previewData ? (
         <OverlayPreview
           overlayUrl={previewData.overlayUrl}
           x={previewData.x}
