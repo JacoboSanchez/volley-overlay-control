@@ -8,6 +8,15 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Dependencies
+
+- Bump `vite` from 6.4.2 to 8.0.13 and `@vitejs/plugin-react` from
+  4.7.0 to 6.0.2 in `frontend/`. The two upgrades are coupled because
+  `@vitejs/plugin-react@6` requires `vite@^8` as a peer, so neither
+  Dependabot PR (`#319`, `#320`) could land alone — they must ship
+  together. `vite-plugin-pwa@1.3.0` and `vite-plugin-compression2@2.5.3`
+  already advertise vite 8 compatibility.
+
 ### Fixed
 
 - **Match timer no longer ticks past match end.** The HUD timer in
