@@ -42,6 +42,25 @@ once a first tagged release ships.
   for the eight styles lives at
   ``docs/mockups/set-summary/index.html``.
 
+### Removed
+
+- **Live-stats panel and points-history strip dropped from the
+  in-broadcast overlay.** The two opt-in widgets used to sit on
+  top of the live scoreboard in the OBS browser source. Their
+  config toggles had already been removed from the operator UI,
+  and stale ``show_stats`` flags persisted on existing overlays
+  would still surface the panel — which on every non-``original``
+  variant rendered as raw black text in the top-left corner
+  because each variant's CSS (``pill.css``, ``ribbon.css``, …)
+  never carried the rules for ``.live-stats-panel`` or
+  ``.points-history-strip``. The elements are gone from
+  ``overlay_templates/base.html`` so the live broadcast shows
+  only the scoreboard (or the set-summary recap when activated).
+  The same stats keep flowing in ``overlay_control.stats`` for
+  the spectator (``/follow/{id}``) page and the set-summary
+  recap, both of which already render them through their own
+  markup.
+
 ### Fixed
 
 - **Set summary clock now ticks every second on a live set.** The
