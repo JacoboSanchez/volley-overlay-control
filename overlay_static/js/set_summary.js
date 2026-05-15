@@ -109,6 +109,23 @@
     return `${m}:${String(sec).padStart(2, '0')}`;
   }
 
+  // ── Clock skew tracking ─────────────────────────────────────────
+  // Every broadcast carries ``match_info.server_time`` (server wall
+  // clock at compose time). On arrival we derive a skew offset
+  // ``skew = serverNow - Date.now()`` so every ``Date.now()`` here is
+  // routed through ``clientNow()`` and the rendered elapsed times
+  // track the server even when the operator's system clock is wrong.
+  let _clockSkewMs = 0;
+
+  function applyClockSkew(serverTimeSec) {
+    if (typeof serverTimeSec !== 'number' || !isFinite(serverTimeSec)) return;
+    _clockSkewMs = serverTimeSec * 1000 - Date.now();
+  }
+
+  function clientNow() {
+    return Date.now() + _clockSkewMs;
+  }
+
   // ── Live duration tick ──────────────────────────────────────────
   // Two independent anchors keep the set and match clocks ticking
   // between server broadcasts:
@@ -131,7 +148,7 @@
     if (!_liveTickState) return;
     const panel = document.getElementById('set-summary-panel');
     if (!panel || panel.hasAttribute('hidden')) return;
-    const now = Date.now();
+    const now = clientNow();
     if (_liveTickState.setAnchorMs) {
       _updateClockNodes(panel, '[data-live-duration]',
         (now - _liveTickState.setAnchorMs) / 1000);
@@ -360,7 +377,7 @@
     if (typeof matchStartedAt === 'number' && matchStartedAt > 0) {
       const end = (typeof matchFinishedAt === 'number' && matchFinishedAt > 0)
         ? matchFinishedAt
-        : (Date.now() / 1000);
+        : (clientNow() / 1000);
       matchElapsedSec = Math.max(0, end - matchStartedAt);
     }
 
@@ -1323,6 +1340,11 @@
 
   function renderSetSummary(state) {
     if (!state || !state.match_info) return;
+    // Refresh the client/server clock-skew offset from the freshly
+    // arrived broadcast, then every ``Date.now()`` below routes
+    // through ``clientNow()`` so the rendered durations track the
+    // server clock even when the operator's machine is wrong.
+    applyClockSkew(state.match_info.server_time);
     const panel = ensurePanel();
     const stage = panel.querySelector('.ss-stage');
     const extras = panel.querySelector('.ss-extras');

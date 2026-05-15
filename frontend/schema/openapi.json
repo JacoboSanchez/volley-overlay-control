@@ -343,6 +343,17 @@
             "title": "Serve",
             "type": "string"
           },
+          "server_time": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Time"
+          },
           "set_summary": {
             "default": false,
             "title": "Set Summary",

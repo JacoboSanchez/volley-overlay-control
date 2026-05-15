@@ -140,7 +140,16 @@ export default function App() {
     if (state.match_finished) return;
     const startedAt = state.current_set_started_at;
     if (typeof startedAt !== 'number' || startedAt <= 0) return;
-    const elapsed = Date.now() / 1000 - startedAt;
+    // Prefer the server's wall clock when the payload includes it
+    // (every fresh state response carries ``server_time``), so the
+    // stale-set threshold isn't tripped by a client whose system
+    // clock is hours off. Fall back to ``Date.now()`` on the rare
+    // legacy payload that omits the field.
+    const nowSec = (typeof state.server_time === 'number'
+      && state.server_time > 0)
+      ? state.server_time
+      : Date.now() / 1000;
+    const elapsed = nowSec - startedAt;
     if (elapsed > STALE_SET_THRESHOLD_SEC) {
       stalePromptFiredRef.current = true;
       setStalePromptOpen(true);

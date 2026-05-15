@@ -295,6 +295,15 @@ class Backend:
                 # timer at the actual end-of-match value instead of
                 # ticking forward indefinitely after match end.
                 "match_finished_at": match_finished_at,
+                # Server wall-clock at the moment this payload was
+                # composed. Clients use the delta between
+                # ``server_time`` and their own ``Date.now()`` on
+                # arrival to derive a clock-skew offset, then apply
+                # the offset to every live-tick computation (set
+                # duration, match elapsed, stale-set check) — so
+                # the displayed durations track the server even
+                # when the client's system clock is wrong.
+                "server_time": time.time(),
                 # Mirror of ``match_finished_flag`` so the spectator
                 # can render a "match finished" indicator without
                 # having to re-derive it from the per-team set counts.
@@ -509,24 +518,14 @@ class Backend:
 
         # Resolve summary_set_num — current_set when it has any
         # recorded points, else the previous set so the recap panel
-        # has something to show right after a set transition. Only
-        # ``add_point`` events count: manual ``set_score`` edits to
-        # historical sets are tagged with the operator's current set
-        # and would otherwise pin the recap to a set that has not
-        # actually been played.
+        # has something to show right after a set transition. The
+        # rule lives in :func:`live_stats.resolve_summary_set_num`
+        # so :class:`GameService` and this broadcaster can't drift.
         try:
-            points_by_set = payload["overlay_control"].get("points_by_set") or {}
-            current_events = (
-                points_by_set.get(str(current_set))
-                or points_by_set.get(current_set)
-                or []
-            )
-            real_points = [
-                ev for ev in current_events if ev.get("action") == "add_point"
-            ]
-            payload["match_info"]["summary_set_num"] = (
-                int(current_set) if real_points
-                else max(int(current_set) - 1, 1)
+            from app.api.live_stats import resolve_summary_set_num
+            payload["match_info"]["summary_set_num"] = resolve_summary_set_num(
+                payload["overlay_control"].get("points_by_set"),
+                current_set,
             )
         except Exception:  # pragma: no cover - defensive
             payload["match_info"]["summary_set_num"] = max(int(current_set) - 1, 1)

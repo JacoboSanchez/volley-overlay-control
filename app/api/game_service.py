@@ -133,6 +133,7 @@ class GameService:
             set_summary_style=str(
                 getattr(session, "set_summary_style", "brand_ledger")
             ),
+            server_time=time.time(),
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # Misconfigured env var must not turn every /state call into a 500;
@@ -924,19 +925,11 @@ class GameService:
         been played.
         """
         try:
-            from app.api.live_stats import compute_live_stats
+            from app.api.live_stats import compute_live_stats, resolve_summary_set_num
             stats = compute_live_stats(session.oid)
-            points_by_set = stats.get("points_by_set") or {}
-            current = int(session.current_set)
-            current_events = (
-                points_by_set.get(current) or points_by_set.get(str(current)) or []
+            return resolve_summary_set_num(
+                stats.get("points_by_set"), session.current_set
             )
-            real_points = [
-                ev for ev in current_events if ev.get("action") == "add_point"
-            ]
-            if real_points:
-                return current
-            return max(current - 1, 1)
         except Exception:  # pragma: no cover - defensive
             return max(int(session.current_set) - 1, 1)
 

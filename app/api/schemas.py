@@ -235,6 +235,12 @@ class GameStateResponse(BaseModel):
     set_summary: bool = False
     set_summary_set_num: int | None = None
     set_summary_style: str = "brand_ledger"
+    # Server wall-clock at the moment this response was composed.
+    # Lets clients derive a skew offset against their own ``Date.now()``
+    # so every live-tick calculation (match elapsed, set duration,
+    # stale-set "abandoned match" check) tracks the server even when
+    # the client's system clock is wrong.
+    server_time: float | None = None
 
 
 class ActionResponse(BaseModel):

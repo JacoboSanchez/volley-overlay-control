@@ -1371,6 +1371,8 @@ export interface components {
             match_started_at?: number | null;
             /** Serve */
             serve: string;
+            /** Server Time */
+            server_time?: number | null;
             /**
              * Set Summary
              * @default false

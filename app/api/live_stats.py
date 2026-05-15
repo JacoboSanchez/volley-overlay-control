@@ -125,6 +125,40 @@ def _recent_points(
     return events[-limit:]
 
 
+def resolve_summary_set_num(
+    points_by_set: dict[Any, list[dict[str, Any]]] | None,
+    current_set: int,
+) -> int:
+    """Return the set number the recap panel should display.
+
+    ``current_set`` when it has any recorded ``add_point`` events,
+    otherwise ``current_set - 1`` (clamped to 1) so the recap has
+    something to show right after a set transition. Manual
+    ``set_score`` edits to historical sets get tagged with the
+    operator's current set via ``result.current_set`` and must not
+    count as "this set has been played" — only ``add_point``
+    records do.
+
+    Shared between :class:`GameService` and :class:`Backend` to keep
+    the resolution rule in one place.
+    """
+    try:
+        cs = int(current_set)
+    except (TypeError, ValueError):
+        cs = 1
+    if not points_by_set:
+        return max(cs - 1, 1)
+    current_events = (
+        points_by_set.get(cs)
+        or points_by_set.get(str(cs))
+        or []
+    )
+    has_real_points = any(
+        ev.get("action") == "add_point" for ev in current_events
+    )
+    return cs if has_real_points else max(cs - 1, 1)
+
+
 def _points_by_set(
     events: list[dict[str, Any]],
     per_set_limit: int,
