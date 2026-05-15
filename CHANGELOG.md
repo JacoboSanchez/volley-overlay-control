@@ -169,6 +169,34 @@ once a first tagged release ships.
   merge. The store now force-replaces those audit-derived
   subtrees on every update so a Reset wipes the spectator chart,
   history, and per-set durations alongside the scoreboard.
+- **Bumper score digits no longer kiss the team-block edges.** The
+  oversized scores in the ``bumper`` set-summary variant were
+  rendered flush against the home/away team block borders (``align-
+  items: flex-start`` / ``flex-end`` with no horizontal padding),
+  and the 20px drop-shadow blur on each digit was being clipped by
+  the ``.ss-bumper-core`` ``overflow: hidden``. Both digits now sit
+  on ``clamp(4px, 1.4cqw, 16px)`` of internal padding, the negative
+  letter-spacing was relaxed from ``-0.06em`` to ``-0.04em``, and
+  the drop-shadow blur was tightened so the glyphs read fully
+  even at 480p.
+- **Chart polylines stay distinguishable when both teams share a
+  colour.** When the operator picks near-identical primaries (e.g.
+  two navy clubs), the home and away polylines used to overlap
+  into a single confused trace. A weighted RGB-distance check in
+  ``set_summary.js`` now flags ``colorsAreSimilar`` pairs (≈80
+  units, captures same-hue/lightness variants) and tags the away
+  polyline with a ``ss-line-away--dashed`` class so CSS renders
+  it as a dashed stroke — preserving the colour intent while
+  keeping the two series readable.
+- **"Final" pill no longer lies when the recap is shown mid-set.**
+  The ``glass`` and ``brand_columns`` headers hard-coded a green
+  "Set N · Final" pill regardless of whether the displayed set had
+  actually concluded. Now ``deriveViewModel`` exposes a
+  ``setFinished`` flag (true only when the team's ``set_history``
+  has a final score recorded for that set) and the renderers swap
+  to an amber ``Set N · Live`` pill with a pulsing indicator when
+  the set is still in play. Green/Final stays for sets the backend
+  has actually closed.
 
 ### Changed
 

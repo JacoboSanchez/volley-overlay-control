@@ -143,6 +143,13 @@ body.set-summary-mode #player-stats-container {
 
 .ss-stage .ss-line-home { stroke: var(--ss-home, #d4314c); stroke-width: 3; fill: none; }
 .ss-stage .ss-line-away { stroke: var(--ss-away, #f0a020); stroke-width: 3; fill: none; }
+/* Tagged by the JS chart builder when home and away primaries are
+   perceptually close — dashes keep the two polylines distinguishable
+   even when the strokes share the same hue. */
+.ss-stage .ss-line-away--dashed {
+  stroke-dasharray: 8 5;
+  stroke-linecap: round;
+}
 .ss-stage .ss-grid-faint { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1; stroke-dasharray: 2 3; }
 .ss-stage .ss-grid-main  { stroke: rgba(255, 255, 255, 0.18); stroke-width: 1; }
 .ss-stage .ss-timeout-line {
@@ -518,6 +525,22 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_columns"] .ss-set-pill::before {
   content: ''; width: 6px; height: 6px; border-radius: 50%; background: #2ecc71;
+}
+/* Recap pill tints amber + pulses when the displayed set is still in
+   play (operator triggered the recap mid-set). Green stays reserved
+   for genuinely completed sets. */
+.ss-stage[data-style="brand_columns"] .ss-set-pill.is-live {
+  background: rgba(255, 170, 31, 0.14);
+  border-color: rgba(255, 170, 31, 0.45);
+  color: #ffaa1f;
+}
+.ss-stage[data-style="brand_columns"] .ss-set-pill.is-live::before {
+  background: #ffaa1f;
+  animation: ss-live-dot 1.4s ease-in-out infinite;
+}
+@keyframes ss-live-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 .ss-stage[data-style="brand_columns"] .ss-chart-wrap {
   display: flex; flex-direction: column; justify-content: center;
@@ -941,6 +964,16 @@ body.set-summary-mode #player-stats-container {
   font-size: clamp(5px, 1.275cqw, 13px);
   letter-spacing: 0.22em;
 }
+.ss-stage[data-style="glass"] .ss-pill.is-live {
+  background: rgba(255, 170, 31, 0.22);
+  border-color: rgba(255, 170, 31, 0.55);
+  color: #ffc36b;
+  animation: ss-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ss-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 170, 31, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 170, 31, 0.18); }
+}
 .ss-stage[data-style="glass"] .ss-meta {
   display: flex; gap: 24px;
   font: 600 clamp(6px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
@@ -1338,16 +1371,17 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bumper"] .ss-team.away .ss-team-name { text-align: right; }
 .ss-stage[data-style="bumper"] .ss-team-score {
-  font: 900 clamp(48px, 14.25cqw, 180px)/0.82 'Helvetica Neue', sans-serif;
-  letter-spacing: -0.06em;
+  font: 900 clamp(44px, 13cqw, 168px)/0.9 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.04em;
   background: linear-gradient(180deg,
     #ffffff 0%,
     color-mix(in srgb, var(--ss-home, #ff3554) 70%, white) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
   margin: 0;
+  padding: 0 clamp(4px, 1.4cqw, 16px);
 }
 .ss-stage[data-style="bumper"] .ss-team.away .ss-team-score {
   background: linear-gradient(180deg,

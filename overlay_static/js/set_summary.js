@@ -273,6 +273,14 @@
       || matchInfo.current_set
       || 1;
     const setKey = `set_${setNum}`;
+    // A set is "finished" when the backend has written a final score
+    // into the team's set_history. While the set is still in play the
+    // entry is absent and we fall back to live points — used below to
+    // pick the right pill label ("Final" vs "Live").
+    const setFinished = !!(
+      (home.set_history && home.set_history[setKey] != null)
+      || (away.set_history && away.set_history[setKey] != null)
+    );
     const homeScore = (home.set_history && home.set_history[setKey] != null)
       ? home.set_history[setKey]
       : (home.points || 0);
@@ -340,6 +348,7 @@
       // Per-set values (preferred over match-wide so the recap
       // matches what the operator just watched).
       longestSet, servicesSet, setTotalPoints,
+      setFinished,
       matchFinished: !!matchInfo.match_finished,
       bestOf: matchInfo.best_of_sets || 5,
       team1Sets: home.sets_won || 0,
@@ -421,6 +430,22 @@
       return fallback;
     }
     return primary;
+  }
+
+  // Weighted RGB distance — cheaper than Lab ΔE but still tracks
+  // perceptual similarity well enough to flag "close colour" cases
+  // where two team primaries would render as overlapping chart lines.
+  // Threshold ≈ 80 covers same-hue siblings (navy vs royal blue) while
+  // letting clearly different palettes (orange vs blue) pass through.
+  function colorsAreSimilar(c1, c2) {
+    const a = parseHex(c1);
+    const b = parseHex(c2);
+    if (!a || !b) return false;
+    const dr = a[0] - b[0];
+    const dg = a[1] - b[1];
+    const db = a[2] - b[2];
+    const dist = Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+    return dist < 80;
   }
 
   function applyTeamColours(stage, home, away) {
@@ -612,7 +637,10 @@
     const centre = el('div', {
       class: 'ss-centre',
       children: [
-        el('span', { class: 'ss-set-pill', text: `${t('set')} ${vm.setNum} · ${t('final')}` }),
+        el('span', {
+          class: `ss-set-pill ${vm.setFinished ? 'is-final' : 'is-live'}`,
+          text: `${t('set')} ${vm.setNum} · ${vm.setFinished ? t('final') : t('live')}`,
+        }),
         buildChartWrap(vm, 'brand_columns'),
         el('div', { class: 'ss-vs', text: t('vs') }),
         el('div', {
@@ -685,7 +713,16 @@
       padLeft: opts.padLeft || 0, padRight: opts.padRight || 0,
     });
     svg.appendChild(svgEl('polyline', { class: 'ss-line-home', points: homePts }));
-    svg.appendChild(svgEl('polyline', { class: 'ss-line-away', points: awayPts }));
+    // When the two team primaries are visually close, the polylines
+    // would overlap into a single confused trace. Tag the away line
+    // so CSS can render it dashed — preserving the colour intent
+    // while keeping the two series distinguishable.
+    const homeCol = resolveTeamColour(vm.home, '#d4314c');
+    const awayCol = resolveTeamColour(vm.away, '#f0a020');
+    const awayClass = colorsAreSimilar(homeCol, awayCol)
+      ? 'ss-line-away ss-line-away--dashed'
+      : 'ss-line-away';
+    svg.appendChild(svgEl('polyline', { class: awayClass, points: awayPts }));
     return svg;
   }
 
@@ -833,7 +870,10 @@
         el('div', {
           class: 'ss-title',
           children: [
-            el('span', { class: 'ss-pill', text: `${t('set')} ${vm.setNum} · ${t('final')}` }),
+            el('span', {
+              class: `ss-pill ${vm.setFinished ? 'is-final' : 'is-live'}`,
+              text: `${t('set')} ${vm.setNum} · ${vm.setFinished ? t('final') : t('live')}`,
+            }),
             el('span', { text: t('recap') }),
           ],
         }),
