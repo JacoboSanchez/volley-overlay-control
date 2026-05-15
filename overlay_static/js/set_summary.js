@@ -1329,14 +1329,33 @@
   // ─────────────────────────────────────────────────────────────────
 
   // ── Dispatcher ──────────────────────────────────────────────────
-  const RENDERERS = {
-    brand_ledger: renderBrandLedger,
-    brand_columns: renderBrandColumns,
-    bento: renderBento,
-    glass: renderGlass,
-    podium: renderPodium,
-    bumper: renderBumper,
-  };
+  // ``pickRenderer`` resolves the operator-selected variant key to
+  // its concrete renderer function via an explicit ``switch``. The
+  // shape is deliberately exhaustive (no fall-through ``return
+  // table[key]``) so static analysis can prove the call target is
+  // bounded — bracket-notation dispatch on a user-controlled key
+  // trips CodeQL's "unvalidated dynamic method call" rule even when
+  // the key has been validated against ``Object.hasOwn``.
+  const KNOWN_VARIANTS = [
+    'brand_ledger',
+    'brand_columns',
+    'bento',
+    'glass',
+    'podium',
+    'bumper',
+  ];
+
+  function pickRenderer(style) {
+    switch (style) {
+      case 'brand_ledger': return renderBrandLedger;
+      case 'brand_columns': return renderBrandColumns;
+      case 'bento': return renderBento;
+      case 'glass': return renderGlass;
+      case 'podium': return renderPodium;
+      case 'bumper': return renderBumper;
+      default: return renderBrandLedger;
+    }
+  }
 
   function renderSetSummary(state) {
     if (!state || !state.match_info) return;
@@ -1351,13 +1370,15 @@
 
     // Resolve the requested variant against the known dispatcher
     // keys. Anything else (typo, stale state, malicious payload)
-    // collapses to the default — guarded with ``Object.hasOwn`` so
-    // static analysis can prove the dispatch target is bounded.
+    // collapses to the default. ``pickRenderer`` returns a concrete
+    // function reference via ``switch`` so we never invoke through a
+    // bracket-notation dispatch table.
     const requested = state.match_info.set_summary_style;
-    const known = typeof requested === 'string'
-      && Object.prototype.hasOwnProperty.call(RENDERERS, requested);
-    const style = known ? requested : 'brand_ledger';
-    const renderer = RENDERERS[style];
+    const style = (typeof requested === 'string'
+      && KNOWN_VARIANTS.indexOf(requested) !== -1)
+      ? requested
+      : 'brand_ledger';
+    const renderer = pickRenderer(style);
     stage.dataset.style = style;
     extras.dataset.style = style;
 
