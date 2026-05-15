@@ -15,14 +15,35 @@
    plain HTML and the styling is fully CSS-driven.
    ───────────────────────────────────────────────────────────────── */
 
+/* Cross-fade between the in-broadcast scoreboard and the recap
+   panel. Both surfaces keep their layout slot at all times —
+   only ``opacity`` and ``pointer-events`` animate, so toggling
+   the set summary on/off is a smooth fade instead of an
+   instantaneous swap. ``transition`` is declared on the base
+   state so the property is interpolated in both directions. */
+#scoreboard-container,
+.scoreboard,
+#ticker-container,
+#player-stats-container {
+  transition: opacity 0.45s ease;
+}
 body.set-summary-mode #scoreboard-container,
 body.set-summary-mode .scoreboard,
-body.set-summary-mode #live-stats-panel,
-body.set-summary-mode #points-history-strip,
 body.set-summary-mode #ticker-container,
-body.set-summary-mode #player-stats-container { display: none !important; }
+body.set-summary-mode #player-stats-container {
+  /* ``!important`` overrides the inline ``opacity`` GSAP sets
+     when the operator toggles ``show_main_scoreboard`` — without
+     it the inline rule wins and the fade is skipped. */
+  opacity: 0 !important;
+  pointer-events: none;
+}
 
-.set-summary-panel[hidden] { display: none; }
+/* The set-summary panel uses the same opacity-driven fade. The
+   ``set_summary.js`` show/hide helpers set ``style.opacity`` +
+   ``style.pointerEvents`` inline so the browser always has a
+   committed "from" value to interpolate against — driving the
+   visibility via the ``[hidden]`` attribute would skip the
+   transition the first time the panel is inserted into the DOM. */
 
 /* ── Common: centred stage that fills ~2/3 of the viewport ──── */
 
@@ -42,6 +63,10 @@ body.set-summary-mode #player-stats-container { display: none !important; }
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   pointer-events: none;
+  /* Cross-fade in (and out via ``[hidden]``) so the toggle from
+     scoreboard → recap doesn't flash. */
+  opacity: 1;
+  transition: opacity 0.45s ease;
 }
 .set-summary-panel .ss-stage { align-self: center; }
 .set-summary-panel .ss-extras {

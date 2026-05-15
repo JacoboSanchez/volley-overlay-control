@@ -42,6 +42,16 @@ once a first tagged release ships.
   for the eight styles lives at
   ``docs/mockups/set-summary/index.html``.
 
+- **Cross-fade between scoreboard and set-summary recap.** The
+  scoreboard → recap toggle used to be an instant DOM swap
+  (``display: none`` slammed the scoreboard, ``hidden`` attribute
+  slammed the recap panel). Both surfaces now animate via a 450ms
+  ``opacity`` transition and keep their layout slot at all times,
+  so flipping the toggle produces a real cross-fade. The set-
+  summary panel manages its own ``opacity`` + ``pointer-events``
+  via inline styles so the transition has a guaranteed "from"
+  value when the panel is freshly created on the very first
+  activation.
 - **Quieter INFO log level.** Restructured per-call-site levels so
   ``LOGGING_LEVEL=info`` gives a readable picture of what the
   server is doing without drowning the operator in per-request

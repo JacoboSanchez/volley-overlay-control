@@ -352,7 +352,13 @@
     let panel = document.getElementById('set-summary-panel');
     if (panel) return panel;
     panel = el('div', { class: 'set-summary-panel', attrs: { id: 'set-summary-panel' } });
-    panel.setAttribute('hidden', '');
+    // Initial visual state is fully transparent + click-through;
+    // the show/hide helpers below flip both via inline styles so
+    // the CSS ``opacity`` transition has a guaranteed "from"
+    // value (attribute-driven rules sometimes skip the transition
+    // on freshly-inserted elements).
+    panel.style.opacity = '0';
+    panel.style.pointerEvents = 'none';
     const stage = el('div', { class: 'ss-stage', attrs: { id: 'set-summary-stage' } });
     stage.dataset.style = 'brand_ledger';
     panel.appendChild(stage);
@@ -1285,12 +1291,25 @@
       : null;
     ensureLiveTick();
 
-    panel.removeAttribute('hidden');
+    // Defer the opacity flip to the next animation frame so the
+    // browser paints the freshly-built panel at opacity:0 first;
+    // without this the very first activation skips the cross-fade
+    // because creation + show fall inside the same paint and the
+    // browser has no "from" value to interpolate from.
+    if (panel.style.opacity !== '1') {
+      requestAnimationFrame(() => {
+        panel.style.opacity = '1';
+        panel.style.pointerEvents = 'auto';
+      });
+    }
   }
 
   function hideSetSummary() {
     const panel = document.getElementById('set-summary-panel');
-    if (panel) panel.setAttribute('hidden', '');
+    if (panel) {
+      panel.style.opacity = '0';
+      panel.style.pointerEvents = 'none';
+    }
     _liveTickState = null;
   }
 
