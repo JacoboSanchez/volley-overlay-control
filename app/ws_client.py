@@ -246,7 +246,7 @@ class WSControlClient:
                     protocol, WS_CONTROL_PROTOCOL_VERSION,
                 )
             self._obs_client_count = msg.get("obs_clients", 0)
-            logger.info(
+            logger.debug(
                 "Handshake OK — overlay '%s', OBS clients: %d",
                 msg.get("overlay_id"), self._obs_client_count,
             )
@@ -259,7 +259,7 @@ class WSControlClient:
 
         elif msg_type == "obs_event":
             self._obs_client_count = msg.get("obs_clients", 0)
-            logger.info(
+            logger.debug(
                 "OBS event: %s (clients: %d)",
                 msg.get("event"), self._obs_client_count,
             )

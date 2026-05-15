@@ -103,7 +103,7 @@ class GameSession:
         self.customization_fetch_lock = threading.Lock()
         # Last access time for TTL-based cleanup
         self.last_accessed = time.monotonic()
-        logger.info(
+        logger.debug(
             "GameSession created for OID=%s (pts=%s, last=%s, sets=%s)",
             oid, self.points_limit, self.points_limit_last_set,
             self.sets_limit)

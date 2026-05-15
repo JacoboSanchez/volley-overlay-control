@@ -596,7 +596,7 @@ class Backend:
             self._overlay.on_customization_saved(get_model, to_save)
 
     def change_overlay_visibility(self, show):
-        Backend.logger.info('changing overlay visibility, show: %s', show)
+        Backend.logger.debug('changing overlay visibility, show: %s', show)
         self._ensure_overlay_backend()
         self._overlay.change_visibility_with_fallback(
             show, lambda: self.get_current_model(self.conf.oid),
@@ -662,7 +662,9 @@ class Backend:
         if response.status_code >= 400:
             logging.warning("response %s: '%s'", response.status_code, response.text)
         else:
-            logging.info("response status: %s", response.status_code)
+            # Routine 2xx broadcasts — DEBUG so the steady-state push
+            # stream doesn't drown INFO. Errors above stay at WARNING.
+            logging.debug("response status: %s", response.status_code)
             logging.debug("response message: '%s'", response.text)
         return response
 

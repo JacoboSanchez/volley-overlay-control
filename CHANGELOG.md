@@ -42,6 +42,22 @@ once a first tagged release ships.
   for the eight styles lives at
   ``docs/mockups/set-summary/index.html``.
 
+- **Quieter INFO log level.** Restructured per-call-site levels so
+  ``LOGGING_LEVEL=info`` gives a readable picture of what the
+  server is doing without drowning the operator in per-request
+  noise. Successful (HTTP 2xx / 3xx) ``uvicorn.access`` records
+  are demoted to ``DEBUG`` by the
+  ``HealthEndpointFilter`` — only client / server errors surface
+  at the default level, but the full access log comes back when
+  the operator enables ``DEBUG``. Per-interaction routes (display
+  toggles, session-reuse, customization saves, visibility
+  changes, per-broadcast 2xx response logs in
+  ``Backend.process_response``) and routine WS client/handshake
+  events also drop to ``DEBUG``. One-shot lifecycle events
+  (server boot, overlay create/delete/copy, theme applied,
+  preset created/deleted, WS heartbeat startup, WS zombie
+  eviction, session expiry, ``WSControlClient`` start/stop)
+  stay at ``INFO``.
 - **"Match looks abandoned" prompt on control-UI load.** When the
   operator opens the React control UI on a session whose current
   set has been live for more than an hour, a confirm dialog now

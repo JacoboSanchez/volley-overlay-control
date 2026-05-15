@@ -89,7 +89,7 @@ class WSHub:
         cls._connections.setdefault(oid, set()).add(ws)
         cls._last_seen[ws] = time.monotonic()
         cls._refresh_gauges()
-        logger.info(
+        logger.debug(
             "WS client connected for OID=%s (total=%d)",
             oid, len(cls._connections[oid]))
 
@@ -129,7 +129,7 @@ class WSHub:
                 del cls._connections[oid]
         cls._last_seen.pop(ws, None)
         cls._refresh_gauges()
-        logger.info("WS client disconnected for OID=%s", oid)
+        logger.debug("WS client disconnected for OID=%s", oid)
 
     # Per-socket send timeout. A slow/hung client must not stall broadcasts
     # to the rest of the subscribers (nor the main state-update path).
