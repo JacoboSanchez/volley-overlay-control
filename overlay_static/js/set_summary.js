@@ -181,12 +181,17 @@
     return node;
   }
 
+  // Deliberately *no* ``html:`` escape hatch. Every text-bearing
+  // node uses ``textContent`` (or a typed child node) so operator-
+  // editable values like team names / scores can never round-trip
+  // through ``innerHTML``. Composite values (e.g. the two-team
+  // ``home · away`` stat readouts) are assembled from DOM nodes via
+  // ``dualValueNode`` below.
   function el(tag, opts) {
     const n = document.createElement(tag);
     if (!opts) return n;
     if (opts.class) n.className = opts.class;
     if (opts.text != null) n.textContent = opts.text;
-    if (opts.html != null) n.innerHTML = opts.html;
     if (opts.style) {
       for (const k in opts.style) n.style.setProperty(k, opts.style[k]);
     }
@@ -195,6 +200,29 @@
     }
     if (opts.children) opts.children.forEach((c) => c && n.appendChild(c));
     return n;
+  }
+
+  // <span><span class="home">X</span> · <span class="away">Y</span></span>
+  // built from DOM nodes (no innerHTML). The colour-coded home/away
+  // dual readout that several variants use for per-team stats.
+  function dualValueNode(homeVal, awayVal) {
+    return el('span', {
+      children: [
+        el('span', { class: 'home', text: String(homeVal) }),
+        document.createTextNode(' · '),
+        el('span', { class: 'away', text: String(awayVal) }),
+      ],
+    });
+  }
+
+  // <span>label <strong>value</strong></span> as DOM nodes.
+  function labelStrongNode(label, value) {
+    return el('span', {
+      children: [
+        document.createTextNode(`${label} `),
+        el('strong', { text: String(value) }),
+      ],
+    });
   }
 
   function teamInitials(team, side) {
@@ -819,12 +847,12 @@
     // render with a 60%-tinted blend so the team origin reads at
     // a glance without hurting contrast on the dark tile.
     const rows = [
-      buildBentoStatRowHTML('🔥', t('streak'),
-        `<span class="home">${vm.longestSet[1] || 0}</span> · <span class="away">${vm.longestSet[2] || 0}</span>`),
-      buildBentoStatRowHTML('🏐', t('services'),
-        `<span class="home">${formatServices(vm.servicesSet, 1)}</span> · <span class="away">${formatServices(vm.servicesSet, 2)}</span>`),
-      buildBentoStatRowHTML('⏱', t('timeouts'),
-        `<span class="home">${vm.home.timeouts_taken || 0}</span> · <span class="away">${vm.away.timeouts_taken || 0}</span>`),
+      buildBentoStatRowDual('🔥', t('streak'),
+        vm.longestSet[1] || 0, vm.longestSet[2] || 0),
+      buildBentoStatRowDual('🏐', t('services'),
+        formatServices(vm.servicesSet, 1), formatServices(vm.servicesSet, 2)),
+      buildBentoStatRowDual('⏱', t('timeouts'),
+        vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
       buildBentoStatRow('∑', t('totalPoints'), vm.setTotalPoints),
     ];
     return el('div', { class: 'ss-tile ss-tile-stats', children: rows });
@@ -844,13 +872,15 @@
     });
   }
 
-  function buildBentoStatRowHTML(icon, label, valueHTML) {
+  function buildBentoStatRowDual(icon, label, homeVal, awayVal) {
+    const value = dualValueNode(homeVal, awayVal);
+    value.className = 'ss-stat-value';
     return el('div', {
       class: 'ss-stat-row',
       children: [
         el('span', { class: 'ss-stat-icon', text: icon }),
         el('span', { class: 'ss-stat-label', text: label }),
-        el('span', { class: 'ss-stat-value', html: valueHTML }),
+        value,
       ],
     });
   }
@@ -923,12 +953,12 @@
     const stats = el('div', {
       class: 'ss-stats-block',
       children: [
-        buildGlassStatRowHTML(t('longestStreak'),
-          `<span class="home">${vm.longestSet[1] || 0}</span> · <span class="away">${vm.longestSet[2] || 0}</span>`),
-        buildGlassStatRowHTML(t('servicesWon'),
-          `<span class="home">${formatServices(vm.servicesSet, 1)}</span> · <span class="away">${formatServices(vm.servicesSet, 2)}</span>`),
-        buildGlassStatRowHTML(t('timeoutsUsed'),
-          `<span class="home">${vm.home.timeouts_taken || 0}</span> · <span class="away">${vm.away.timeouts_taken || 0}</span>`),
+        buildGlassStatRowDual(t('longestStreak'),
+          vm.longestSet[1] || 0, vm.longestSet[2] || 0),
+        buildGlassStatRowDual(t('servicesWon'),
+          formatServices(vm.servicesSet, 1), formatServices(vm.servicesSet, 2)),
+        buildGlassStatRowDual(t('timeoutsUsed'),
+          vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
         buildGlassStatRow(t('totalPoints'), vm.setTotalPoints),
       ],
     });
@@ -975,12 +1005,14 @@
     });
   }
 
-  function buildGlassStatRowHTML(label, valueHTML) {
+  function buildGlassStatRowDual(label, homeVal, awayVal) {
+    const value = dualValueNode(homeVal, awayVal);
+    value.className = 'ss-value';
     return el('div', {
       class: 'ss-stat-row',
       children: [
         el('span', { class: 'ss-label', text: label }),
-        el('span', { class: 'ss-value', html: valueHTML }),
+        value,
       ],
     });
   }
@@ -1036,8 +1068,8 @@
         el('div', {
           class: 'ss-meta',
           children: [
-            el('span', { html: `${t('match')} <strong>${vm.team1Sets} – ${vm.team2Sets}</strong>` }),
-            el('span', { html: `${t('bestOf')} <strong>${vm.bestOf}</strong>` }),
+            labelStrongNode(t('match'), `${vm.team1Sets} – ${vm.team2Sets}`),
+            labelStrongNode(t('bestOf'), vm.bestOf),
             el('span', {
               class: 'ss-clock-block',
               children: [
@@ -1154,12 +1186,12 @@
     const stats = el('div', {
       class: 'ss-hero-stats',
       children: [
-        buildBumperStatCellHTML(t('streak'),
-          `<span class="home">${vm.longestSet[1] || 0}</span> · <span class="away">${vm.longestSet[2] || 0}</span>`),
-        buildBumperStatCellHTML(t('services'),
-          `<span class="home">${formatServices(vm.servicesSet, 1)}</span> · <span class="away">${formatServices(vm.servicesSet, 2)}</span>`),
-        buildBumperStatCellHTML(t('timeouts'),
-          `<span class="home">${vm.home.timeouts_taken || 0}</span> · <span class="away">${vm.away.timeouts_taken || 0}</span>`),
+        buildBumperStatCellDual(t('streak'),
+          vm.longestSet[1] || 0, vm.longestSet[2] || 0),
+        buildBumperStatCellDual(t('services'),
+          formatServices(vm.servicesSet, 1), formatServices(vm.servicesSet, 2)),
+        buildBumperStatCellDual(t('timeouts'),
+          vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
         buildBumperStatCell(t('totalPoints'), vm.setTotalPoints),
       ],
     });
@@ -1217,12 +1249,14 @@
     });
   }
 
-  function buildBumperStatCellHTML(label, valueHTML) {
+  function buildBumperStatCellDual(label, homeVal, awayVal) {
+    const value = dualValueNode(homeVal, awayVal);
+    value.className = 'ss-value';
     return el('div', {
       class: 'ss-stat-row',
       children: [
         el('span', { class: 'ss-label', text: label }),
-        el('span', { class: 'ss-value', html: valueHTML }),
+        value,
       ],
     });
   }
@@ -1293,8 +1327,15 @@
     const stage = panel.querySelector('.ss-stage');
     const extras = panel.querySelector('.ss-extras');
 
-    const requested = state.match_info.set_summary_style || 'brand_ledger';
-    const style = RENDERERS[requested] ? requested : 'brand_ledger';
+    // Resolve the requested variant against the known dispatcher
+    // keys. Anything else (typo, stale state, malicious payload)
+    // collapses to the default — guarded with ``Object.hasOwn`` so
+    // static analysis can prove the dispatch target is bounded.
+    const requested = state.match_info.set_summary_style;
+    const known = typeof requested === 'string'
+      && Object.prototype.hasOwnProperty.call(RENDERERS, requested);
+    const style = known ? requested : 'brand_ledger';
+    const renderer = RENDERERS[style];
     stage.dataset.style = style;
     extras.dataset.style = style;
 
@@ -1308,7 +1349,7 @@
     applyTeamColours(stage, vm.home, vm.away);
     applyTeamColours(extras, vm.home, vm.away);
 
-    RENDERERS[style](stage, vm, extras);
+    renderer(stage, vm, extras);
 
     // Configure / start the live-duration tick. Two independent
     // anchors:
