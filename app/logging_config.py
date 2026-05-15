@@ -156,9 +156,13 @@ class HealthEndpointFilter(logging.Filter):
         if path.startswith(self._PATHS):
             return False
         status = args[4] if len(args) >= 5 else None
-        try:
-            code = int(status) if status is not None else None
-        except (TypeError, ValueError):
+        code: int | None
+        if isinstance(status, (int, str, bytes)):
+            try:
+                code = int(status)
+            except (TypeError, ValueError):
+                code = None
+        else:
             code = None
         if code is not None and 200 <= code < 400:
             # Demote — the record still flows but only escapes when
