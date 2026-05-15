@@ -105,6 +105,11 @@ const REPORT_OID = 'practice-hall';
 // so the screenshot shows every section (scrolling) instead of just
 // the above-the-fold scoreboard.
 const SPECTATOR_VIEWPORT = { width: 414, height: 896 };
+// Set-summary overlays are stream-overlay surfaces — captured at the
+// canonical 16:9 OBS browser-source size so the cqw/cqh container
+// queries resolve to their full-stage values, matching what an
+// operator pipes to OBS.
+const OVERLAY_HD_VIEWPORT = { width: 1280, height: 720 };
 
 async function ensureDemoOverlay() {
   const adminHeaders = {
@@ -377,8 +382,24 @@ async function driveMatchState() {
   await post('/api/v1/game/set-score', { team: 1, set_number: 1, value: 25 });
 
   // Set 2 — Thunder Wolves 22, Solar Hawks 25. SH levels 1-1.
-  await post('/api/v1/game/set-score', { team: 1, set_number: 2, value: 22 });
-  await post('/api/v1/game/set-score', { team: 2, set_number: 2, value: 25 });
+  // Driven through real add_point events (instead of the fast
+  // set-score back-fill) so the audit log captures a rally-by-rally
+  // sequence — required for the set-summary recap screenshot to
+  // render a populated chart, per-set longest-streak / services-won
+  // values, and a non-zero set duration. The interleaved pattern
+  // mimics a real back-and-forth set with a couple of mini-streaks
+  // before SH closes it out.
+  const SET2_SEQUENCE = [
+    // T1 = Thunder Wolves, T2 = Solar Hawks. Final tally: T1=22, T2=25.
+    2, 1, 2, 2, 1, 1, 2, 1, 2, 2,
+    1, 1, 1, 2, 1, 2, 2, 1, 1, 2,
+    1, 2, 1, 1, 2, 2, 1, 2, 1, 2,
+    1, 2, 1, 2, 1, 2, 2, 1, 1, 2,
+    1, 2, 1, 2, 2, 2, 2,
+  ];
+  for (const team of SET2_SEQUENCE) {
+    await post('/api/v1/game/add-point', { team });
+  }
 
   // Set 3 (current) — 18-24 with SH on set point. The control UI's
   // MatchAlertIndicator surfaces a "set point" badge in the centre
@@ -581,6 +602,44 @@ async function captureSpectator(page) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureSetSummary(page, filename) {
+  // Trigger the set-summary panel for the demo overlay with a finished
+  // set selected (set 2 — Solar Hawks 25-22) so the recap renders real
+  // chart points + final score chips instead of an empty live set.
+  const post = (path, body) =>
+    fetch(`${BASE}${path}?oid=${encodeURIComponent(DEMO_OID)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body == null ? undefined : JSON.stringify(body),
+    });
+  await post('/api/v1/display/set-summary-style', { style: 'brand_columns' });
+  await post('/api/v1/display/set-summary', { enabled: true });
+
+  await page.setViewportSize(OVERLAY_HD_VIEWPORT);
+  // ?lang=en pins the overlay's strings to English so the README
+  // screenshot matches the rest of the captured surfaces (which are
+  // forced to en-US via the Playwright context locale).
+  await page.goto(`${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?lang=en`, {
+    waitUntil: 'networkidle',
+  });
+  // Wait for the panel to mount + opacity fade-in to finish.
+  await page.waitForFunction(() => {
+    const panel = document.getElementById('set-summary-panel');
+    if (!panel) return false;
+    return parseFloat(getComputedStyle(panel).opacity) >= 0.99;
+  }, null, { timeout: 5000 }).catch(() => {});
+  // One extra frame so the chart polylines + ticker clocks have
+  // settled on their first paint.
+  await page.waitForTimeout(800);
+
+  await page.screenshot({ path: resolve(OUT_DIR, filename) });
+
+  // Turn the panel back off so subsequent captures (mosaic, etc.)
+  // see the scoreboard, not the recap overlay.
+  await post('/api/v1/display/set-summary', { enabled: false });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureOverlayMosaic(page, filename) {
   // Mosaic is a full-page grid of every selectable style; needs a wider
   // viewport and enough vertical room to fit every cell, plus extra
@@ -677,6 +736,7 @@ async function main() {
     await setSimpleMode(true);
     await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png');
     await setSimpleMode(false);
+    await captureSetSummary(page, '10-overlay-set-summary.png');
     await captureMatchReport(page, reportMatchId);
     await captureSpectator(page);
   } finally {
