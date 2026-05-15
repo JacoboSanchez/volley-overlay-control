@@ -123,6 +123,29 @@ export default function App() {
   useScreenWakeLock(matchInProgress);
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+
+  // Stale-set prompt: if the operator opens the control UI on a
+  // session whose current set has been live for more than an hour
+  // the marker was probably abandoned (the operator forgot to reset
+  // it). Surface a one-shot dialog asking whether to reset or keep
+  // going. The ``firedRef`` guard makes sure we only ever fire once
+  // per page load so a refusal isn't re-asked while the WS keeps
+  // streaming the same stale state.
+  const [stalePromptOpen, setStalePromptOpen] = useState(false);
+  const stalePromptFiredRef = useRef(false);
+  const STALE_SET_THRESHOLD_SEC = 60 * 60;
+  useEffect(() => {
+    if (stalePromptFiredRef.current) return;
+    if (!state) return;
+    if (state.match_finished) return;
+    const startedAt = state.current_set_started_at;
+    if (typeof startedAt !== 'number' || startedAt <= 0) return;
+    const elapsed = Date.now() / 1000 - startedAt;
+    if (elapsed > STALE_SET_THRESHOLD_SEC) {
+      stalePromptFiredRef.current = true;
+      setStalePromptOpen(true);
+    }
+  }, [state]);
   // Coachmark fires once the first authoritative state lands and the
   // operator hasn't dismissed the tour yet. The dismissal flips
   // ``settings.gestureTourSeen`` to ``true`` and persists across
@@ -405,6 +428,7 @@ export default function App() {
   // the operator opted out via ``settings.keyboardShortcuts``.
   const anyModalOpen = dialog.open
     || resetConfirmOpen
+    || stalePromptOpen
     || coachmarkOpen
     || shareOpen
     || shortcutsHelpOpen;
@@ -651,6 +675,20 @@ export default function App() {
           setResetConfirmOpen(false);
         }}
         onClose={() => setResetConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={stalePromptOpen}
+        title={t('staleSet.title')}
+        message={t('staleSet.message')}
+        confirmLabel={t('staleSet.reset')}
+        cancelLabel={t('staleSet.continue')}
+        danger
+        onConfirm={() => {
+          confirmReset();
+          setStalePromptOpen(false);
+        }}
+        onClose={() => setStalePromptOpen(false)}
       />
 
       {shareOpen && (

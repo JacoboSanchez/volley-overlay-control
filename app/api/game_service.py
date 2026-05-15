@@ -124,6 +124,7 @@ class GameService:
             can_undo=session.undoable_forward_count > 0,
             match_started_at=session.match_started_at,
             match_finished_at=session.match_finished_at,
+            current_set_started_at=GameService._current_set_started_at(session),
             set_summary=bool(getattr(session, "set_summary", False)),
             set_summary_set_num=(
                 GameService._resolve_summary_set(session)
@@ -871,6 +872,42 @@ class GameService:
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def _current_set_started_at(session) -> float | None:
+        """Wall-clock timestamp of the first scoring event in the
+        operator's current set.
+
+        Used by the React control UI to detect abandoned sessions
+        on page load (current-set elapsed > 1h → prompt the
+        operator to reset). Returns ``None`` when:
+
+        * The match has not started yet (no point recorded).
+        * The current set has no scoring event yet (we're between
+          sets after a forward set transition).
+        * Computing the audit-derived stats failed for any reason
+          — fail safe by returning ``None`` so the client doesn't
+          surface a false positive prompt.
+
+        ``set_score`` (manual edits) are intentionally honoured
+        here: if the operator pulled a set forward by hand the
+        edit's timestamp is the only signal we have, and treating
+        the set as "just touched" is the right default.
+        """
+        try:
+            from app.api.live_stats import compute_live_stats
+            stats = compute_live_stats(session.oid)
+            points_by_set = stats.get("points_by_set") or {}
+            current = int(session.current_set)
+            events = (
+                points_by_set.get(current) or points_by_set.get(str(current)) or []
+            )
+            if not events:
+                return None
+            ts = events[0].get("ts")
+            return float(ts) if isinstance(ts, (int, float)) else None
+        except Exception:  # pragma: no cover - defensive
+            return None
 
     @staticmethod
     def _resolve_summary_set(session) -> int:

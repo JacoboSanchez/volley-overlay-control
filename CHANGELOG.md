@@ -42,6 +42,16 @@ once a first tagged release ships.
   for the eight styles lives at
   ``docs/mockups/set-summary/index.html``.
 
+- **"Match looks abandoned" prompt on control-UI load.** When the
+  operator opens the React control UI on a session whose current
+  set has been live for more than an hour, a confirm dialog now
+  surfaces asking whether to reset the match (the scoreboard
+  was probably left running by mistake) or keep going. Fires
+  once per page load — refusing it doesn't re-trigger on the
+  next WS broadcast. Backed by a new ``current_set_started_at``
+  timestamp on ``GameStateResponse``, derived from the first
+  scoring event of the operator's current set.
+
 ### Removed
 
 - **Live-stats panel and points-history strip dropped from the

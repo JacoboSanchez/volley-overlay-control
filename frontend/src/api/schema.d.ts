@@ -1360,6 +1360,8 @@ export interface components {
             };
             /** Current Set */
             current_set: number;
+            /** Current Set Started At */
+            current_set_started_at?: number | null;
             /** Match Finished */
             match_finished: boolean;
             /** Match Finished At */

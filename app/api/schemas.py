@@ -219,6 +219,13 @@ class GameStateResponse(BaseModel):
     # value instead of letting it keep ticking after match end.
     # Cleared on reset and on ``start_match``.
     match_finished_at: float | None = None
+    # Wall-clock seconds at the first scoring event recorded in the
+    # operator's current set, or ``None`` when no rally has been
+    # played in this set yet. The React control UI uses this to
+    # detect "abandoned" sessions on page load — if the current set
+    # has been live for more than an hour the operator probably left
+    # the scoreboard running by mistake and gets prompted to reset.
+    current_set_started_at: float | None = None
     # Set summary overlay (panel that replaces the scoreboard between
     # sets with a chart + key stats). ``set_summary`` is the operator
     # toggle. ``set_summary_set_num`` is the resolved set the panel

@@ -292,6 +292,17 @@
             "title": "Current Set",
             "type": "integer"
           },
+          "current_set_started_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Set Started At"
+          },
           "match_finished": {
             "title": "Match Finished",
             "type": "boolean"
