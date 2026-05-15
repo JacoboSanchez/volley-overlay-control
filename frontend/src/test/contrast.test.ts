@@ -27,6 +27,20 @@ describe('parseHexColor', () => {
     expect(parseHexColor('#12345')).toBeNull();
     expect(parseHexColor('#zzzzzz')).toBeNull();
   });
+
+  it('parses rgb() syntax (browser-returned getComputedStyle values)', () => {
+    expect(parseHexColor('rgb(26, 115, 232)')).toEqual({ r: 26, g: 115, b: 232 });
+    expect(parseHexColor('RGB(0,0,0)')).toEqual({ r: 0, g: 0, b: 0 });
+  });
+
+  it('parses rgba() syntax and discards alpha', () => {
+    expect(parseHexColor('rgba(255, 136, 0, 0.5)')).toEqual({ r: 255, g: 136, b: 0 });
+  });
+
+  it('rejects rgb() with out-of-range channels', () => {
+    expect(parseHexColor('rgb(256, 0, 0)')).toBeNull();
+    expect(parseHexColor('rgb(-1, 0, 0)')).toBeNull();
+  });
 });
 
 describe('relativeLuminance & contrastRatio', () => {

@@ -17,9 +17,33 @@ export interface Rgb {
   b: number;
 }
 
-export function parseHexColor(hex: string): Rgb | null {
-  if (typeof hex !== 'string') return null;
-  let s = hex.trim().replace(/^#/, '');
+export function parseHexColor(input: string): Rgb | null {
+  if (typeof input !== 'string') return null;
+  const raw = input.trim();
+  if (!raw) return null;
+
+  // Accept ``rgb(r, g, b)`` and ``rgba(r, g, b, a)`` syntax — that
+  // is what ``getComputedStyle`` returns in some browsers for CSS
+  // custom properties, and the hook in ``useSurfaceColor`` feeds
+  // its value straight through here. Alpha is discarded since the
+  // contrast helpers treat the surface as fully opaque anyway.
+  const rgbMatch = raw.match(
+    /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/i,
+  );
+  if (rgbMatch) {
+    const r = Number(rgbMatch[1]);
+    const g = Number(rgbMatch[2]);
+    const b = Number(rgbMatch[3]);
+    if (
+      Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)
+      && r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255
+    ) {
+      return { r, g, b };
+    }
+    return null;
+  }
+
+  let s = raw.replace(/^#/, '');
   if (s.length === 3) {
     s = s.split('').map((c) => c + c).join('');
   }

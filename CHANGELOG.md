@@ -12,34 +12,36 @@ once a first tagged release ships.
 
 - **Set summary overlay (opt-in).** New operator-toggled overlay that
   replaces the scoreboard between sets with a recap panel — chart of
-  the point progression, score, duration and key stats. Eight visual
-  styles ship as candidates (``brand_ledger``, ``bento``, ``glass``,
-  ``split_screen``, ``brand_columns``, ``podium``, ``bumper``,
-  ``jumbotron``), all fully implemented end-to-end (per-variant
-  HTML markup in ``overlay_static/js/set_summary.js`` + scoped CSS
-  in ``overlay_static/css/set_summary.css``, ported from
-  ``docs/mockups/set-summary/*.html``). The panel renders into a
-  centred 16:9 stage sized to roughly two thirds of the viewport
-  height (with equal margins above/below) — fully transparent
-  over the live stream so only the data regions get ``rgba()``
-  fills + ``backdrop-filter: blur(…)`` and any OBS scene
-  underneath stays legible. Chart-based variants generate their
-  SVG polylines from the live ``points_by_set`` payload (not
-  hard-coded mockup data). Wired end-to-end: new endpoints
-  ``POST /api/v1/display/set-summary{,-style}``, payload fields
-  ``match_info.{show_set_summary,set_summary_style,summary_set_num}``
-  picked up by ``set_summary.js``, plus a React control button
-  (icon ``summarize``), centre-panel "Set summary is live" notice
-  with inline style picker, and matching i18n strings in all six
-  locales. A WCAG-aware ``resolveTeamColour`` helper falls back
-  to a saturated mockup-palette accent when an operator's team
+  the point progression, score, duration and key stats. Six visual
+  styles ship as candidates (``brand_ledger``, ``brand_columns``,
+  ``bento``, ``glass``, ``podium``, ``bumper``), all fully
+  implemented end-to-end (per-variant HTML markup in
+  ``overlay_static/js/set_summary.js`` + scoped CSS in
+  ``overlay_static/css/set_summary.css``, ported from
+  ``docs/mockups/set-summary/*.html``). Two more variants
+  (``split_screen`` and ``jumbotron``) were prototyped during the
+  cycle and dropped before merge for being visually weaker than
+  the rest. The panel renders into a centred 16:9 stage sized to
+  roughly two thirds of the viewport height (with equal margins
+  above/below) — fully transparent over the live stream so only
+  the data regions get ``rgba()`` fills + ``backdrop-filter:
+  blur(…)`` and any OBS scene underneath stays legible. Chart-
+  based variants generate their SVG polylines from the live
+  ``points_by_set`` payload (not hard-coded mockup data). Wired
+  end-to-end: new endpoints ``POST /api/v1/display/set-summary
+  {,-style}``, payload fields ``match_info.{show_set_summary,
+  set_summary_style,summary_set_num}`` picked up by
+  ``set_summary.js``, plus a React control button (icon
+  ``summarize``), centre-panel "Set summary is live" notice with
+  inline style picker, and matching i18n strings in all six
+  locales. A WCAG-aware ``resolveTeamColour`` helper falls back to
+  a saturated mockup-palette accent when an operator's team
   ``color_primary`` is too close to white, so the variants that
   paint a full coloured panel (glass score tile, podium pillar,
-  jumbotron team-side, brand columns) don't render white-on-white.
-  **Off by default**: the feature lives behind a
-  ``setSummaryEnabled`` toggle in the Behavior config section so
-  existing setups don't get a surprise extra button. Mockup gallery
-  for the eight styles lives at
+  brand columns) don't render white-on-white. **Off by default**:
+  the feature lives behind a ``setSummaryEnabled`` toggle in the
+  Behavior config section so existing setups don't get a surprise
+  extra button. Mockup gallery for the six styles lives at
   ``docs/mockups/set-summary/index.html``.
 
 - **Set-summary variants now scale with the stage, not the
