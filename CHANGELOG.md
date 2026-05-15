@@ -15,17 +15,28 @@ once a first tagged release ships.
   the point progression, score, duration and key stats. Eight visual
   styles ship as candidates (``brand_ledger``, ``bento``, ``glass``,
   ``split_screen``, ``brand_columns``, ``podium``, ``bumper``,
-  ``jumbotron``); ``brand_ledger`` is implemented fully and the rest
-  fall back to it until they ship their bespoke CSS. The panel is
-  fully transparent over the live stream — only the data regions get
-  ``rgba()`` fills + ``backdrop-filter: blur(…)`` so any OBS scene
-  underneath stays legible. Wired end-to-end: new endpoints
+  ``jumbotron``), all fully implemented end-to-end (per-variant
+  HTML markup in ``overlay_static/js/set_summary.js`` + scoped CSS
+  in ``overlay_static/css/set_summary.css``, ported from
+  ``docs/mockups/set-summary/*.html``). The panel renders into a
+  centred 16:9 stage sized to roughly two thirds of the viewport
+  height (with equal margins above/below) — fully transparent
+  over the live stream so only the data regions get ``rgba()``
+  fills + ``backdrop-filter: blur(…)`` and any OBS scene
+  underneath stays legible. Chart-based variants generate their
+  SVG polylines from the live ``points_by_set`` payload (not
+  hard-coded mockup data). Wired end-to-end: new endpoints
   ``POST /api/v1/display/set-summary{,-style}``, payload fields
   ``match_info.{show_set_summary,set_summary_style,summary_set_num}``
-  picked up by ``overlay_static/js/set_summary.js``, plus a React
-  control button (icon ``summarize``), centre-panel "Set summary is
-  live" notice with inline style picker, and matching i18n strings
-  in all six locales. **Off by default**: the feature lives behind a
+  picked up by ``set_summary.js``, plus a React control button
+  (icon ``summarize``), centre-panel "Set summary is live" notice
+  with inline style picker, and matching i18n strings in all six
+  locales. A WCAG-aware ``resolveTeamColour`` helper falls back
+  to a saturated mockup-palette accent when an operator's team
+  ``color_primary`` is too close to white, so the variants that
+  paint a full coloured panel (glass score tile, podium pillar,
+  jumbotron team-side, brand columns) don't render white-on-white.
+  **Off by default**: the feature lives behind a
   ``setSummaryEnabled`` toggle in the Behavior config section so
   existing setups don't get a surprise extra button. Mockup gallery
   for the eight styles lives at
@@ -33,6 +44,27 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Set summary clock now ticks every second on a live set.** The
+  server-computed ``set_durations`` only refreshes when a new
+  audit event lands (each point triggers a broadcast), so the
+  duration shown in the recap panel used to visibly freeze
+  between rallies. ``set_summary.js`` now anchors a client-side
+  ``setInterval`` to the first scoring event's timestamp and
+  updates every node tagged with ``data-live-duration`` once per
+  second. The tick stays disabled when the displayed set has
+  already finished (recap shown during a set break or after match
+  end), so the rendered total never climbs past the real set
+  length.
+- **Set summary recap no longer pins to an unplayed set after
+  historical edits.** When the operator backfills earlier sets via
+  ``set_score`` after advancing the match, those audit records get
+  tagged with ``result.current_set`` and a running score of ``[0,
+  0]`` for the active set. Both the resolver
+  (``GameService._resolve_summary_set`` / the backend broadcast)
+  and the overlay's ledger renderer now ignore ``set_score`` events
+  when deciding "did this set actually see a rally?" — so the
+  recap rolls back to the previously played set, and the in-set
+  ledger no longer renders ghost ``0`` chips.
 - **Team-coloured icons stay readable on the panel surface.** The
   timeout dots, timeout button, serve icon, and points-history
   marker in the React control UI now run their colours through a

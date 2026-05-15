@@ -30,11 +30,8 @@ function SetSummaryActiveNotice({
   const displaySet = setNum && setNum > 0 ? setNum : '–';
   return (
     <div className="set-summary-notice" data-testid="set-summary-notice">
-      <div className="set-summary-notice-chip">
-        <span className="set-summary-notice-dot" aria-hidden="true" />
-        {t('setSummary.activeTitle')}
-      </div>
       <p className="set-summary-notice-body">
+        <span className="set-summary-notice-dot" aria-hidden="true" />
         {t('setSummary.activeBody', { n: displaySet })}
       </p>
       <SetSummaryStylePicker

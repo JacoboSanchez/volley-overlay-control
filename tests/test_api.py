@@ -194,6 +194,29 @@ class TestGameService:
         session.current_set = 3
         assert GameService._resolve_summary_set(session) == 2
 
+    def test_resolve_summary_set_ignores_set_score_only_audit(self, session):
+        # Reproduce the setpt scenario: the operator parked the match
+        # in set 3 (sets_won 1-1) and then went back to tweak earlier
+        # scores via ``set_score``. Those records carry
+        # ``result.current_set = 3`` even though no rally has been
+        # played in set 3 yet — without the action-type filter the
+        # resolver would pin the recap to set 3.
+        GameService.add_point(session, team=1)
+        GameService.add_set(session, team=1)
+        GameService.add_point(session, team=2)
+        GameService.add_set(session, team=2)
+        assert session.current_set == 3
+        # Use sub-win scores so ``check_set_won`` does not advance the
+        # current set on the operator under us.
+        GameService.set_score(session, team=1, set_number=1, value=24)
+        GameService.set_score(session, team=2, set_number=2, value=24)
+        assert session.current_set == 3
+        # No ``add_point`` in set 3 → recap should show set 2.
+        assert GameService._resolve_summary_set(session) == 2
+        # Once a real point lands in set 3 the recap follows.
+        GameService.add_point(session, team=1)
+        assert GameService._resolve_summary_set(session) == 3
+
     def test_match_finished_blocks_point(self, session):
         # Win 3 sets for team 1 to finish a best-of-5 match
         for _ in range(3):

@@ -1639,7 +1639,7 @@ export interface components {
              * Style
              * @enum {string}
              */
-            style: "brand_ledger" | "bento" | "glass" | "split_screen" | "brand_columns" | "podium" | "bumper" | "jumbotron";
+            style: "brand_ledger" | "bento" | "glass" | "brand_columns" | "podium" | "bumper";
         };
         /** SimpleModeRequest */
         SimpleModeRequest: {
@@ -3825,6 +3825,7 @@ export interface operations {
         parameters: {
             query?: {
                 style?: string;
+                lang?: string;
             };
             header?: never;
             path: {

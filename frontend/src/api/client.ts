@@ -167,11 +167,9 @@ export const SET_SUMMARY_STYLES = [
   'brand_ledger',
   'bento',
   'glass',
-  'split_screen',
   'brand_columns',
   'podium',
   'bumper',
-  'jumbotron',
 ] as const;
 export type SetSummaryStyle = typeof SET_SUMMARY_STYLES[number];
 

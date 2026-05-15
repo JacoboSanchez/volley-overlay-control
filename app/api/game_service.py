@@ -879,14 +879,25 @@ class GameService:
         Returns the current set if it has any recorded points yet, else
         the previous set so the operator can roll a recap between sets.
         Always clamped to at least 1.
+
+        Only ``add_point`` events count as "recorded points" — manual
+        ``set_score`` edits to historical sets get tagged with the
+        operator's current set via ``result.current_set`` and would
+        otherwise make the resolver pick a set that has not actually
+        been played.
         """
         try:
             from app.api.live_stats import compute_live_stats
             stats = compute_live_stats(session.oid)
             points_by_set = stats.get("points_by_set") or {}
             current = int(session.current_set)
-            current_events = points_by_set.get(current) or points_by_set.get(str(current))
-            if current_events:
+            current_events = (
+                points_by_set.get(current) or points_by_set.get(str(current)) or []
+            )
+            real_points = [
+                ev for ev in current_events if ev.get("action") == "add_point"
+            ]
+            if real_points:
                 return current
             return max(current - 1, 1)
         except Exception:  # pragma: no cover - defensive

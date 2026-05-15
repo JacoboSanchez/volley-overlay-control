@@ -60,21 +60,17 @@ SET_SUMMARY_STYLE_CHOICES = (
     "brand_ledger",
     "bento",
     "glass",
-    "split_screen",
     "brand_columns",
     "podium",
     "bumper",
-    "jumbotron",
 )
 SetSummaryStyle = Literal[
     "brand_ledger",
     "bento",
     "glass",
-    "split_screen",
     "brand_columns",
     "podium",
     "bumper",
-    "jumbotron",
 ]
 
 

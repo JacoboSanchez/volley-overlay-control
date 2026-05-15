@@ -3138,35 +3138,21 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(46, 204, 113, 0.45);
-  background: rgba(46, 204, 113, 0.08);
+  padding: 10px 14px;
   text-align: center;
   width: 100%;
   max-width: 320px;
 }
 
-.set-summary-notice-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(46, 204, 113, 0.18);
-  border: 1px solid rgba(46, 204, 113, 0.5);
-  color: var(--green, #2e7d32);
-  font-weight: 700;
-  font-size: 0.78rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
 .set-summary-notice-dot {
+  display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--green, #2e7d32);
+  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.18);
+  vertical-align: middle;
+  margin-right: 6px;
 }
 
 .set-summary-notice-body {

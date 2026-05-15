@@ -46,6 +46,7 @@
     <script>
         const OUTPUT_KEY = "{{ output_key }}";
         window.OVERLAY_STYLE = "{{ style }}";
+        window.OVERLAY_LOCALE = "{{ locale|default('en') }}";
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/${OUTPUT_KEY}`;
     </script>

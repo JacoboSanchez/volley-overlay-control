@@ -468,6 +468,19 @@ class Backend:
                     str(team): counts
                     for team, counts in stats["services"].items()
                 },
+                # Per-set variants of streak + services so the set-
+                # summary recap can show stats scoped to the displayed
+                # set instead of match-wide totals.
+                "longest_streak_by_set": {
+                    str(set_num): {str(t): v for t, v in by_team.items()}
+                    for set_num, by_team in stats["longest_streak_by_set"].items()
+                },
+                "services_by_set": {
+                    str(set_num): {
+                        str(t): counts for t, counts in by_team.items()
+                    }
+                    for set_num, by_team in stats["services_by_set"].items()
+                },
             }
             payload["overlay_control"]["points_history"] = stats[
                 "points_history"
@@ -496,7 +509,11 @@ class Backend:
 
         # Resolve summary_set_num — current_set when it has any
         # recorded points, else the previous set so the recap panel
-        # has something to show right after a set transition.
+        # has something to show right after a set transition. Only
+        # ``add_point`` events count: manual ``set_score`` edits to
+        # historical sets are tagged with the operator's current set
+        # and would otherwise pin the recap to a set that has not
+        # actually been played.
         try:
             points_by_set = payload["overlay_control"].get("points_by_set") or {}
             current_events = (
@@ -504,8 +521,11 @@ class Backend:
                 or points_by_set.get(current_set)
                 or []
             )
+            real_points = [
+                ev for ev in current_events if ev.get("action") == "add_point"
+            ]
             payload["match_info"]["summary_set_num"] = (
-                int(current_set) if current_events
+                int(current_set) if real_points
                 else max(int(current_set) - 1, 1)
             )
         except Exception:  # pragma: no cover - defensive

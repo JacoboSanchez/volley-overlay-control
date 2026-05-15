@@ -225,6 +225,89 @@ def _services_summary(
     return out
 
 
+def _longest_streak_by_set(audit: list[dict[str, Any]]) -> dict[int, dict[int, int]]:
+    """Longest consecutive ``add_point`` run per team in each set.
+
+    The set-summary recap shows the *set's* highlight streak per
+    team, so it needs the per-set breakdown rather than the match-
+    wide :func:`_longest_streak`. A manual ``set_score`` edit or an
+    opposite-team point both break the current run; once broken,
+    we start counting again from 1. Output schema::
+
+        { set_num: { 1: <home_longest>, 2: <away_longest> } }
+    """
+    by_set: dict[int, dict[int, int]] = {}
+    streak_team: int | None = None
+    streak_n = 0
+    streak_set: int | None = None
+    for r in audit:
+        if _is_undo_record(r):
+            continue
+        action = r.get("action")
+        set_num = _result_set(r)
+        # Any non-point action resets the run — including set_score
+        # edits, timeouts, and explicit reset events.
+        if action != "add_point":
+            streak_team, streak_n, streak_set = None, 0, None
+            continue
+        team = (r.get("params") or {}).get("team")
+        if team not in (1, 2):
+            continue
+        # If the set rolled over, restart counting in the new set.
+        if set_num != streak_set:
+            streak_team = team
+            streak_n = 1
+            streak_set = set_num
+        elif team == streak_team:
+            streak_n += 1
+        else:
+            streak_team = team
+            streak_n = 1
+        if streak_set is None:
+            continue
+        bucket = by_set.setdefault(streak_set, {1: 0, 2: 0})
+        if streak_n > bucket[team]:
+            bucket[team] = streak_n
+    return by_set
+
+
+def _services_by_set(
+    audit: list[dict[str, Any]],
+) -> dict[int, dict[int, dict[str, int]]]:
+    """Same ``served`` / ``won`` counts as :func:`_services_summary`
+    but bucketed per set so a single-set recap can show each team's
+    service hold rate for that set only. Output schema::
+
+        { set_num: { 1: {"served": n, "won": m},
+                     2: {"served": n, "won": m} } }
+    """
+    by_set: dict[int, dict[int, dict[str, int]]] = {}
+    prev_post_serve: int | None = None
+    for r in audit:
+        if _is_undo_record(r):
+            continue
+        action = r.get("action")
+        result = r.get("result") or {}
+        if action == "add_point" and prev_post_serve in (1, 2):
+            scoring = (r.get("params") or {}).get("team")
+            if scoring in (1, 2):
+                set_num = _result_set(r)
+                if set_num is not None:
+                    bucket = by_set.setdefault(set_num, {
+                        1: {"served": 0, "won": 0},
+                        2: {"served": 0, "won": 0},
+                    })
+                    bucket[prev_post_serve]["served"] += 1
+                    if prev_post_serve == scoring:
+                        bucket[prev_post_serve]["won"] += 1
+        serve_str = result.get("serve")
+        if serve_str == "A":
+            prev_post_serve = 1
+        elif serve_str == "B":
+            prev_post_serve = 2
+    return by_set
+
+
 def compute_live_stats(
     oid: str,
     *,
@@ -269,4 +352,9 @@ def compute_live_stats(
         # Services-won / services-total per team. The chart caption
         # uses these to label each side's hold rate.
         "services": _services_summary(audit),
+        # Per-set variants of streak/services so the set-summary
+        # recap can show stats that actually belong to the displayed
+        # set instead of match-wide totals.
+        "longest_streak_by_set": _longest_streak_by_set(audit),
+        "services_by_set": _services_by_set(audit),
     }

@@ -28,6 +28,33 @@ from app.password_hash import verify_password
 logger = logging.getLogger(__name__)
 
 
+_SUPPORTED_OVERLAY_LOCALES = {"en", "es", "pt", "it", "fr", "de"}
+
+
+def _resolve_overlay_locale(query_lang: str | None, request: Request) -> str:
+    """Pick the locale tag the overlay templates / JS will use.
+
+    Resolution order: ``?lang=<code>`` query param (operator override
+    when embedding the overlay in OBS) → ``OVERLAY_LOCALE`` env var →
+    the first acceptable language from ``Accept-Language`` →
+    ``"en"`` as a final fallback. Anything we don't recognise as a
+    supported 2-letter code is ignored.
+    """
+    if query_lang:
+        candidate = query_lang.strip().lower()[:2]
+        if candidate in _SUPPORTED_OVERLAY_LOCALES:
+            return candidate
+    env_lang = (os.environ.get("OVERLAY_LOCALE") or "").strip().lower()[:2]
+    if env_lang in _SUPPORTED_OVERLAY_LOCALES:
+        return env_lang
+    accept = request.headers.get("accept-language") or ""
+    for raw in accept.split(","):
+        tag = raw.split(";")[0].strip().lower()[:2]
+        if tag in _SUPPORTED_OVERLAY_LOCALES:
+            return tag
+    return "en"
+
+
 def _get_overlay_server_credential() -> str | None:
     """Return the configured overlay-server credential, hash-preferred.
 
@@ -174,7 +201,8 @@ def create_overlay_router(
 
     @router.get("/overlay/{overlay_id}", response_class=HTMLResponse)
     async def serve_overlay(
-        request: Request, overlay_id: str, style: str = None
+        request: Request, overlay_id: str, style: str = None,
+        lang: str = None,
     ):
         resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
         if resolved is None:
@@ -214,6 +242,7 @@ def create_overlay_router(
                 "style": style,
                 "available_styles": available,
                 "v": int(time.time()),
+                "locale": _resolve_overlay_locale(lang, request),
             },
         )
 

@@ -1,15 +1,18 @@
 /* ─────────────────────────────────────────────────────────────────
-   Set summary overlay — transparent panel that replaces the
-   scoreboard between sets in a 16:9 broadcast feed.
+   Set summary overlay — port of docs/mockups/set-summary/*.html.
 
-   Activated by `body.set-summary-mode` (toggled from app.js when
-   match_info.show_set_summary is true). The variant ("brand_ledger",
-   "bento", …) is selected via the panel's data-style attribute,
-   which app.js sets from match_info.set_summary_style.
+   Activated by ``body.set-summary-mode`` (toggled from app.js when
+   match_info.show_set_summary is true). The variant
+   ("brand_ledger", "brand_columns", "bento", "glass", "podium",
+   "bumper") is selected via the stage's data-style attribute, set
+   from match_info.set_summary_style.
 
-   Design intent: NO background on the panel itself — the live
-   stream shows through. Data regions get rgba() fills with
-   backdrop-filter blur so any underlying scene stays legible.
+   The wrapper is a transparent fixed overlay; the stage inside is a
+   16:9 panel that occupies roughly two thirds of the viewport
+   height (with equal margins above/below) and is horizontally
+   centred. Each variant's visual rules are scoped to
+   ``.ss-stage[data-style="X"]`` so the markup the JS emits is
+   plain HTML and the styling is fully CSS-driven.
    ───────────────────────────────────────────────────────────────── */
 
 body.set-summary-mode #scoreboard-container,
@@ -21,294 +24,1453 @@ body.set-summary-mode #player-stats-container { display: none !important; }
 
 .set-summary-panel[hidden] { display: none; }
 
+/* ── Common: centred stage that fills ~2/3 of the viewport ──── */
+
 .set-summary-panel {
   position: fixed;
   inset: 0;
-  /* transparent over the stream */
+  display: grid;
+  /* Two rows: the centred 16:9 stage occupies the 1fr top area;
+     ``.ss-extras`` sits at the bottom for variants that need to
+     break out of the stage frame (e.g. bento's wide ledger).
+     Variants that don't use it leave the slot empty and it
+     collapses to zero height. */
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  row-gap: clamp(10px, 1.2vw, 18px);
+  z-index: 100;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  display: grid;
-  z-index: 100;
-  /* Prevent panel content from overflowing its grid cell on narrow
-     viewports; columns shrink instead of pushing each other off-screen. */
-  min-width: 0;
+  pointer-events: none;
 }
-
-.set-summary-panel > * { min-width: 0; min-height: 0; }
-
-/* ─────────────────────────────────────────────────────────────────
-   Variant: brand_ledger  — chosen default
-   Three columns: home brand panel | centre (set + duration + ledger) | away brand panel
-   Proportional layout so the centre never overflows a narrow viewport.
-   ───────────────────────────────────────────────────────────────── */
-
-.set-summary-panel[data-style="brand_ledger"] {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+.set-summary-panel .ss-stage { align-self: center; }
+.set-summary-panel .ss-extras {
+  align-self: end;
+  pointer-events: auto;
+  /* Default extras zone is invisible/zero-height. Each variant's
+     CSS sets a width + visible markup on demand. */
 }
+.set-summary-panel .ss-extras:empty { display: none; }
 
-.set-summary-panel[data-style="brand_ledger"] .ss-team {
+.ss-stage {
+  /* Two-thirds of the viewport height (vh) drives the size; width
+     is derived from the 16:9 aspect ratio. Capped at 95vw so the
+     stage never bleeds off the sides on very tall viewports. */
+  width: min(95vw, calc(67vh * 16 / 9));
+  aspect-ratio: 16 / 9;
   position: relative;
-  padding: clamp(12px, 3vw, 48px) clamp(10px, 2.8vw, 44px);
+  display: grid;
+  /* Default to a single full-height row so variants with a
+     ``height: 100%`` child get a definite parent height. Variants
+     that need multi-row layouts override ``grid-template-rows``. */
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: auto;
+  /* Subtle outer shadow so the panel reads as a card over the
+     stream regardless of the variant chosen. */
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  border-radius: 16px;
+}
+
+.ss-stage > * { min-width: 0; min-height: 0; }
+
+/* Hide any element the variant did not generate so the empty
+   defaults from ensureStage() do not bleed through. */
+.ss-stage [hidden] { display: none !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   Shared helpers (used by multiple variants)
+   ───────────────────────────────────────────────────────────── */
+
+/* Shared clock-pair styles for the set + match elapsed clocks
+   that every variant now exposes. The match block is rendered a
+   notch dimmer than the set one so the operator's eye still
+   anchors on the current set duration first. */
+.ss-stage .ss-clocks {
+  display: inline-flex;
+  align-items: baseline;
+  gap: clamp(12px, 1.4vw, 22px);
+}
+.ss-stage .ss-clock-block {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ss-stage .ss-clock-label {
+  font: 700 clamp(11px, 0.95vw, 14px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+.ss-stage .ss-match-duration {
+  opacity: 0.8;
+}
+
+.ss-stage .ss-line-home { stroke: var(--ss-home, #d4314c); stroke-width: 3; fill: none; }
+.ss-stage .ss-line-away { stroke: var(--ss-away, #f0a020); stroke-width: 3; fill: none; }
+.ss-stage .ss-grid-faint { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1; stroke-dasharray: 2 3; }
+.ss-stage .ss-grid-main  { stroke: rgba(255, 255, 255, 0.18); stroke-width: 1; }
+.ss-stage .ss-timeout-line {
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Variant: brand_ledger
+   5 columns (home brand · home ledger strip · centre with set
+   number + duration · away ledger strip · away brand). The two
+   ledger strips sit on either side of the centre marker and span
+   the full panel height so they have plenty of vertical room for
+   each scoring chip.
+   ───────────────────────────────────────────────────────────── */
+
+.ss-stage[data-style="brand_ledger"] {
+  grid-template-columns:
+    minmax(0, 1fr)
+    clamp(54px, 6vw, 88px)
+    minmax(120px, 0.55fr)
+    clamp(54px, 6vw, 88px)
+    minmax(0, 1fr);
+  background: transparent;
+}
+
+.ss-stage[data-style="brand_ledger"] .ss-team {
+  position: relative;
+  padding: clamp(20px, 3vw, 48px) clamp(18px, 2.6vw, 44px);
   display: flex; flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  min-width: 0;
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
-
-.set-summary-panel[data-style="brand_ledger"] .ss-team-home {
+.ss-stage[data-style="brand_ledger"] .ss-team-home {
   background:
-    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.06) 0%, transparent 60%),
-    linear-gradient(135deg, var(--ss-home, rgba(212, 49, 76, 0.72)) 0%, rgba(0,0,0,0.55) 100%);
-  border-right: 1px solid rgba(255,255,255,0.12);
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
+    linear-gradient(135deg, var(--ss-home, #d4314c) 0%, rgba(0,0,0,0.55) 100%);
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team-away {
+.ss-stage[data-style="brand_ledger"] .ss-team-away {
   background:
-    radial-gradient(circle at 80% 80%, rgba(255,255,255,0.06) 0%, transparent 60%),
-    linear-gradient(225deg, var(--ss-away, rgba(240, 160, 32, 0.72)) 0%, rgba(0,0,0,0.55) 100%);
-  border-left: 1px solid rgba(255,255,255,0.12);
+    radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
+    linear-gradient(225deg, var(--ss-away, #f0a020) 0%, rgba(0,0,0,0.55) 100%);
   text-align: right;
 }
-
-.set-summary-panel[data-style="brand_ledger"] .ss-team::after {
+.ss-stage[data-style="brand_ledger"] .ss-team::after {
   content: '';
   position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%);
   pointer-events: none;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team > * {
+.ss-stage[data-style="brand_ledger"] .ss-team > * {
   position: relative; z-index: 1;
   text-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
-
-.set-summary-panel[data-style="brand_ledger"] .ss-team-header {
+.ss-stage[data-style="brand_ledger"] .ss-team-header {
   display: flex; align-items: center; gap: 18px;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team-away .ss-team-header {
-  flex-direction: row-reverse;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-logo {
-  width: clamp(36px, 6vw, 88px);
-  height: clamp(36px, 6vw, 88px);
+.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-header { flex-direction: row-reverse; }
+.ss-stage[data-style="brand_ledger"] .ss-logo {
+  width: clamp(48px, 4.5vw, 88px);
+  height: clamp(48px, 4.5vw, 88px);
   border-radius: 16px;
   background: rgba(255,255,255,0.18);
   border: 2px solid rgba(255,255,255,0.45);
   display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(14px, 2.6vw, 36px);
+  font-weight: 800; font-size: clamp(18px, 1.9vw, 36px);
   text-shadow: 0 2px 6px rgba(0,0,0,0.45);
   overflow: hidden;
   flex-shrink: 0;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-logo img {
-  width: 100%; height: 100%; object-fit: cover;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-team-name {
+.ss-stage[data-style="brand_ledger"] .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-stage[data-style="brand_ledger"] .ss-team-name {
   font-weight: 800;
-  font-size: clamp(16px, 2.8vw, 38px);
+  font-size: clamp(20px, 2vw, 38px);
   line-height: 1.05;
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team-tag {
+.ss-stage[data-style="brand_ledger"] .ss-team-tag {
   font-weight: 600;
-  font-size: clamp(9px, 1vw, 13px);
+  font-size: clamp(10px, 0.75vw, 13px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   margin-top: 6px;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team-score {
+.ss-stage[data-style="brand_ledger"] .ss-team-score {
   font-family: 'Menlo', 'Consolas', monospace;
   font-weight: 900;
-  font-size: clamp(56px, 14vw, 220px);
+  font-size: clamp(90px, 11vw, 220px);
   line-height: 0.82;
   letter-spacing: -0.06em;
   text-shadow: 0 8px 24px rgba(0,0,0,0.5);
   margin: 4px 0;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team-stat-list {
+.ss-stage[data-style="brand_ledger"] .ss-team-stat-list {
   display: flex; flex-direction: column; gap: 12px;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team-away .ss-team-stat-list {
-  align-items: flex-end;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-team-stat .ss-label {
+.ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-stat-list { align-items: flex-end; }
+.ss-stage[data-style="brand_ledger"] .ss-team-stat .ss-label {
   display: block;
   font-weight: 600;
-  font-size: clamp(9px, 0.9vw, 11px);
+  font-size: clamp(9px, 0.65vw, 11px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-team-stat .ss-value {
+.ss-stage[data-style="brand_ledger"] .ss-team-stat .ss-value {
   display: block;
   font-weight: 700;
-  font-size: clamp(14px, 2vw, 28px);
+  font-size: clamp(18px, 1.5vw, 28px);
   line-height: 1;
   font-family: 'Menlo', 'Consolas', monospace;
   letter-spacing: -0.02em;
 }
 
-/* Centre column */
-.set-summary-panel[data-style="brand_ledger"] .ss-centre {
+.ss-stage[data-style="brand_ledger"] .ss-centre {
   position: relative;
   background: rgba(15, 20, 30, 0.62);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border-left: 1px solid rgba(255,255,255,0.1);
-  border-right: 1px solid rgba(255,255,255,0.1);
-  padding: clamp(10px, 2vw, 24px) clamp(8px, 1.8vw, 24px) clamp(10px, 1.8vw, 20px);
-  display: grid;
-  grid-template-rows: auto 1fr;
-  row-gap: clamp(6px, 1vw, 12px);
+  padding: clamp(20px, 2vw, 32px) clamp(8px, 1vw, 14px);
+  display: flex; flex-direction: column;
+  align-items: center;
+  /* SET label + number anchored to the top edge; duration block
+     anchored to the bottom edge. The empty space in the middle
+     keeps the number visually dominant without crowding the
+     duration tick. */
+  justify-content: space-between;
   text-align: center;
-  min-height: 0;
-  min-width: 0;
+  min-height: 0; min-width: 0;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-set-header {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 2px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+.ss-stage[data-style="brand_ledger"] .ss-set-group,
+.ss-stage[data-style="brand_ledger"] .ss-duration-group {
+  display: flex; flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-set-label {
-  font-weight: 700; font-size: 11px;
+.ss-stage[data-style="brand_ledger"] .ss-set-label {
+  font-weight: 700; font-size: clamp(11px, 0.95vw, 14px);
   color: rgba(255,255,255,0.7);
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  letter-spacing: 0.3em; text-transform: uppercase;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-set-number {
+.ss-stage[data-style="brand_ledger"] .ss-set-number {
   font-weight: 900;
-  font-size: clamp(34px, 6vw, 68px);
+  font-size: clamp(72px, 8vw, 140px);
   line-height: 0.85;
   letter-spacing: -0.04em;
   text-shadow: 0 4px 16px rgba(0,0,0,0.6);
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-duration-label {
+.ss-stage[data-style="brand_ledger"] .ss-duration-label {
   display: block;
   font-weight: 600;
-  font-size: clamp(8px, 0.85vw, 9px);
+  font-size: clamp(9px, 0.75vw, 11px);
   color: rgba(255,255,255,0.7);
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  margin-top: 2px; margin-bottom: 4px;
+  letter-spacing: 0.24em; text-transform: uppercase;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-duration {
+.ss-stage[data-style="brand_ledger"] .ss-duration {
   display: flex; align-items: baseline; justify-content: center;
   gap: 8px;
   font-family: 'Menlo', 'Consolas', monospace;
   font-weight: 700;
-  font-size: clamp(16px, 2.4vw, 26px);
+  font-size: clamp(22px, 2.2vw, 34px);
   line-height: 1;
   color: #2ecc71;
   letter-spacing: 0.04em;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-duration::before {
+.ss-stage[data-style="brand_ledger"] .ss-duration::before {
   content: '⏱';
-  font-size: clamp(10px, 1.4vw, 16px);
+  font-size: clamp(14px, 1.2vw, 20px);
   opacity: 0.85;
 }
 
-/* Ledger */
-.set-summary-panel[data-style="brand_ledger"] .ss-ledger {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr;
-  column-gap: 4px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 10px 16px 12px;
-  min-height: 0;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  min-height: 0;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-col-head {
-  padding-bottom: 6px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.12);
-  display: flex; justify-content: center;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-col-head .ss-badge {
-  width: 30px; height: 30px;
-  border-radius: 8px;
-  display: grid; place-items: center;
-  font-weight: 800; font-size: 13px;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.45);
-  border: 1.5px solid rgba(255,255,255,0.3);
-  overflow: hidden;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-col-head .ss-badge img {
-  width: 100%; height: 100%; object-fit: cover;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-home .ss-col-head .ss-badge {
-  background: var(--ss-home, rgba(212, 49, 76, 0.85));
-  box-shadow: 0 0 16px rgba(212, 49, 76, 0.35);
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-away .ss-col-head .ss-badge {
-  background: var(--ss-away, rgba(240, 160, 32, 0.85));
-  box-shadow: 0 0 16px rgba(240, 160, 32, 0.35);
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-col-body {
-  /* JS sets grid-template-rows to `repeat(N, 1fr)` so all rows are
-     equidistant regardless of how many events the set had. */
+/* Ledger columns flank the centre. They are direct children of
+   the stage (no wrapping ``.ss-ledger``) so each gets the full
+   panel height to spread chips down vertically. JS sets
+   ``grid-template-rows`` per event count so all rows stay
+   equidistant. */
+.ss-stage[data-style="brand_ledger"] .ss-ledger-col {
   display: grid;
   width: 100%;
+  padding: clamp(12px, 1.4vw, 22px) 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   min-height: 0;
   overflow: hidden;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-point {
+.ss-stage[data-style="brand_ledger"] .ss-point {
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto;
-  min-width: 28px;
-  padding: 0 5px;
-  border-radius: 3px;
-  font: 700 10px/1 'Menlo', 'Consolas', monospace;
+  min-width: 38px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font: 700 clamp(11px, 1vw, 14px)/1 'Menlo', 'Consolas', monospace;
   letter-spacing: 0.02em;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-home .ss-point {
-  color: #ffb1bd;
-  background: rgba(212, 49, 76, 0.18);
+.ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point {
+  color: #fff;
+  background: color-mix(in srgb, var(--ss-home, #d4314c) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-home, #d4314c) 35%, transparent);
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-ledger-col-away .ss-point {
-  color: #ffd58a;
-  background: rgba(240, 160, 32, 0.18);
+.ss-stage[data-style="brand_ledger"] .ss-ledger-col-away .ss-point {
+  color: #fff;
+  background: color-mix(in srgb, var(--ss-away, #f0a020) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-away, #f0a020) 35%, transparent);
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-point.ss-empty {
-  visibility: hidden;
-}
-.set-summary-panel[data-style="brand_ledger"] .ss-point.ss-final {
-  background: rgba(255, 255, 255, 0.18);
+.ss-stage[data-style="brand_ledger"] .ss-point.ss-empty { visibility: hidden; }
+/* Final scoring chip — same brand colour as a regular chip so the
+   identity stays clear, but enlarged slightly and animated with a
+   breathing glow so the operator's eye locks onto the set-winning
+   point at a glance. */
+.ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point.ss-final {
+  background: color-mix(in srgb, var(--ss-home, #d4314c) 92%, transparent);
   color: #fff;
   font-weight: 900;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+  animation: ss-final-breathe-home 2.4s ease-in-out infinite;
 }
-.set-summary-panel[data-style="brand_ledger"] .ss-point.ss-timeout {
-  background: rgba(245, 197, 66, 0.3);
+.ss-stage[data-style="brand_ledger"] .ss-ledger-col-away .ss-point.ss-final {
+  background: color-mix(in srgb, var(--ss-away, #f0a020) 92%, transparent);
+  color: #fff;
+  font-weight: 900;
+  animation: ss-final-breathe-away 2.4s ease-in-out infinite;
+}
+@keyframes ss-final-breathe-home {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--ss-home, #d4314c) 55%, transparent),
+      0 0 6px 0 color-mix(in srgb, var(--ss-home, #d4314c) 45%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--ss-home, #d4314c) 10%, transparent),
+      0 0 18px 4px color-mix(in srgb, var(--ss-home, #d4314c) 75%, transparent);
+  }
+}
+@keyframes ss-final-breathe-away {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--ss-away, #f0a020) 55%, transparent),
+      0 0 6px 0 color-mix(in srgb, var(--ss-away, #f0a020) 45%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--ss-away, #f0a020) 10%, transparent),
+      0 0 18px 4px color-mix(in srgb, var(--ss-away, #f0a020) 75%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-stage[data-style="brand_ledger"] .ss-point.ss-final,
+  .ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-final,
+  .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-final {
+    animation: none;
+  }
+}
+.ss-stage[data-style="brand_ledger"] .ss-point.ss-timeout {
+  background: rgba(245, 197, 66, 0.32);
   color: #ffe48a;
   font-weight: 800;
-  font-size: 9px;
+  font-size: clamp(10px, 0.9vw, 12px);
 }
 
-/* ─────────────────────────────────────────────────────────────────
-   Variants — placeholders. Mirror the gallery mockup HTML files in
-   docs/mockups/set-summary/. Each variant only needs to redefine the
-   visual rules; the markup is the same. Implementations follow once
-   the operator opts into them via the style picker.
-   ───────────────────────────────────────────────────────────────── */
-.set-summary-panel[data-style="bento"],
-.set-summary-panel[data-style="glass"],
-.set-summary-panel[data-style="split_screen"],
-.set-summary-panel[data-style="brand_columns"],
-.set-summary-panel[data-style="podium"],
-.set-summary-panel[data-style="bumper"],
-.set-summary-panel[data-style="jumbotron"] {
-  /* Fallback to brand_ledger layout until each variant ships its
-     own CSS. See docs/mockups/set-summary/ for the reference designs. */
-  grid-template-columns: 1fr 460px 1fr;
+/* ─────────────────────────────────────────────────────────────
+   Variant: brand_columns
+   Mirrors docs/mockups/set-summary/brand-columns.html.
+   Three columns with brand-tinted side panels and a centre chart.
+   ───────────────────────────────────────────────────────────── */
+
+.ss-stage[data-style="brand_columns"] {
+  grid-template-columns: 1fr 0.85fr 1fr;
 }
+.ss-stage[data-style="brand_columns"] .ss-team {
+  position: relative;
+  padding: clamp(22px, 3.4vw, 56px) clamp(22px, 2.8vw, 48px);
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.ss-stage[data-style="brand_columns"] .ss-team-home {
+  background:
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
+    linear-gradient(135deg, var(--ss-home, #d4314c) 0%, rgba(0,0,0,0.62) 100%);
+}
+.ss-stage[data-style="brand_columns"] .ss-team-away {
+  background:
+    radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
+    linear-gradient(225deg, var(--ss-away, #f0a020) 0%, rgba(0,0,0,0.62) 100%);
+  text-align: right;
+}
+.ss-stage[data-style="brand_columns"] .ss-team::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%);
+  pointer-events: none;
+}
+.ss-stage[data-style="brand_columns"] .ss-team > * { position: relative; z-index: 1; }
+.ss-stage[data-style="brand_columns"] .ss-team-header {
+  display: flex; align-items: center; gap: 20px;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-header { flex-direction: row-reverse; }
+.ss-stage[data-style="brand_columns"] .ss-logo {
+  width: clamp(54px, 4.8vw, 88px);
+  height: clamp(54px, 4.8vw, 88px);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.18);
+  border: 2px solid rgba(255,255,255,0.45);
+  display: grid; place-items: center;
+  font-weight: 800; font-size: clamp(20px, 2vw, 36px);
+  overflow: hidden; flex-shrink: 0;
+}
+.ss-stage[data-style="brand_columns"] .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-stage[data-style="brand_columns"] .ss-team-name {
+  font-weight: 800; font-size: clamp(22px, 2.2vw, 42px);
+  line-height: 1.05; letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-tag {
+  font-weight: 600; font-size: clamp(10px, 0.8vw, 14px);
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.22em; text-transform: uppercase;
+  margin-top: 6px;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-score {
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-weight: 900;
+  font-size: clamp(110px, 12vw, 240px);
+  line-height: 0.82; letter-spacing: -0.06em;
+  text-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  margin: 4px 0;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-stat-list {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-stat-list { align-items: flex-end; }
+.ss-stage[data-style="brand_columns"] .ss-team-stat { display: flex; flex-direction: column; gap: 2px; }
+.ss-stage[data-style="brand_columns"] .ss-team-stat .ss-label {
+  font-weight: 600; font-size: clamp(10px, 0.7vw, 11px);
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.2em; text-transform: uppercase;
+}
+.ss-stage[data-style="brand_columns"] .ss-team-stat .ss-value {
+  font-weight: 700;
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: clamp(22px, 1.9vw, 32px);
+  letter-spacing: -0.02em;
+}
+.ss-stage[data-style="brand_columns"] .ss-centre {
+  background: rgba(15, 20, 30, 0.62);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  padding: clamp(22px, 3vw, 56px) clamp(14px, 1.5vw, 28px);
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  row-gap: 16px;
+  text-align: center;
+  border-left: 1px solid rgba(255,255,255,0.12);
+  border-right: 1px solid rgba(255,255,255,0.12);
+}
+.ss-stage[data-style="brand_columns"] .ss-set-pill {
+  display: inline-flex; align-items: center; gap: 10px;
+  align-self: center; justify-self: center;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(46, 204, 113, 0.12);
+  border: 1px solid rgba(46, 204, 113, 0.4);
+  font: 700 12px/1 -apple-system, sans-serif;
+  letter-spacing: 0.24em; text-transform: uppercase;
+  color: #2ecc71;
+}
+.ss-stage[data-style="brand_columns"] .ss-set-pill::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: #2ecc71;
+}
+.ss-stage[data-style="brand_columns"] .ss-chart-wrap {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 8px 0;
+  min-height: 0; min-width: 0;
+  overflow: hidden;
+}
+.ss-stage[data-style="brand_columns"] .ss-chart-wrap svg {
+  display: block;
+  width: 100%; height: 100%;
+  min-height: 0;
+}
+.ss-stage[data-style="brand_columns"] .ss-vs {
+  font: 800 clamp(20px, 1.6vw, 28px)/1 -apple-system, sans-serif;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.6em;
+}
+.ss-stage[data-style="brand_columns"] .ss-duration-block {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ss-stage[data-style="brand_columns"] .ss-duration-block .ss-label {
+  font-weight: 600; font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.22em; text-transform: uppercase;
+}
+.ss-stage[data-style="brand_columns"] .ss-duration-block .ss-value {
+  font: 700 clamp(24px, 2.4vw, 36px)/1 'Menlo', 'Consolas', monospace;
+  color: #2ecc71; letter-spacing: 0.04em;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Variant: bento
+   Modular tile grid à la Apple/Stripe with a wide bottom
+   ledger. Stage span overrides the common 16:9 box so the
+   ledger can stretch nearly edge-to-edge of the viewport. The
+   "frame" wrapping the core block uses a darker translucent
+   fill (~50% opacity) so the white text on top gets enough
+   contrast over any stream.
+   ───────────────────────────────────────────────────────────── */
+
+.ss-stage[data-style="bento"] {
+  /* Core block stays in the standard centred 16:9 stage; the
+     point ledger lives in ``.ss-extras`` and breaks out of this
+     frame so it can span the viewport width independently. */
+  padding: clamp(18px, 2vw, 32px);
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: clamp(10px, 1.2vw, 18px);
+  background: rgba(13, 17, 23, 0.55);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+}
+.ss-stage[data-style="bento"] .ss-header {
+  grid-column: 1 / -1;
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 0 6px;
+}
+.ss-stage[data-style="bento"] .ss-header .ss-title {
+  font: 800 clamp(22px, 2.1vw, 32px)/1 -apple-system, sans-serif;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.65);
+}
+.ss-stage[data-style="bento"] .ss-header .ss-title small {
+  color: rgba(255,255,255,0.65); font-weight: 400;
+}
+.ss-stage[data-style="bento"] .ss-header .ss-duration {
+  font: 700 clamp(18px, 1.7vw, 26px)/1 'Menlo', 'Consolas', monospace;
+  /* Soft warm amber instead of the previous bright green so the
+     clock blends with the muted tile palette and gives a steady
+     accent without screaming. */
+  color: #f5d27a; letter-spacing: 0.04em;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.65);
+}
+.ss-stage[data-style="bento"] .ss-tile {
+  background: rgba(22, 27, 34, 0.62);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: clamp(14px, 1.4vw, 20px) clamp(16px, 1.6vw, 22px);
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  position: relative;
+}
+.ss-stage[data-style="bento"] .ss-tile .ss-label {
+  font: 700 clamp(9px, 0.7vw, 11px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+}
+.ss-stage[data-style="bento"] .ss-tile .ss-value {
+  font: 800 clamp(30px, 3.4vw, 50px)/1 'Menlo', 'Consolas', monospace;
+  letter-spacing: -0.02em;
+}
+.ss-stage[data-style="bento"] .ss-tile .ss-sub {
+  font: 500 clamp(11px, 0.85vw, 13px)/1.3 -apple-system, sans-serif;
+  color: rgba(255,255,255,0.55);
+}
+.ss-stage[data-style="bento"] .ss-tile-score {
+  grid-column: 1 / span 4;
+  grid-row: 2;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--ss-home, #d4314c) 32%, transparent) 0%,
+      color-mix(in srgb, var(--ss-away, #f0a020) 32%, transparent) 100%),
+    rgba(15, 20, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: clamp(22px, 2.2vw, 32px);
+  /* Centre the teams group vertically so the score doesn't sit
+     at the top with a chunk of empty space below it. */
+  justify-content: center;
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team.away {
+  align-items: flex-end; text-align: right;
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-name {
+  font: 800 clamp(20px, 2vw, 32px)/1.1 -apple-system, sans-serif;
+  letter-spacing: -0.005em;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  overflow-wrap: anywhere;
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-tag {
+  display: inline-flex; align-items: center;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font: 800 clamp(9px, 0.8vw, 11px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.26em; text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team.away .ss-tag {
+  align-self: flex-end;
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team.home .ss-tag {
+  background: var(--ss-home, #ff5a73);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18),
+    0 8px 18px color-mix(in srgb, var(--ss-home, #ff5a73) 32%, transparent);
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team.away .ss-tag {
+  background: var(--ss-away, #ffb541);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18),
+    0 8px 18px color-mix(in srgb, var(--ss-away, #ffb541) 32%, transparent);
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-score {
+  font: 900 clamp(100px, 10vw, 200px)/0.85 'Menlo', 'Consolas', monospace;
+  letter-spacing: -0.06em;
+  color: #fff;
+  text-shadow: 0 6px 24px rgba(0,0,0,0.5);
+}
+.ss-stage[data-style="bento"] .ss-tile-score .ss-sep {
+  font: 800 clamp(40px, 4vw, 70px)/1 'Menlo', monospace;
+  color: rgba(255,255,255,0.32);
+}
+/* Stats tile replaces the previous chart tile in the same grid
+   slot. Hosts four stacked rows (streak, services, timeouts,
+   total points) so the core block stays compact and the wide
+   ledger underneath gets more room. */
+.ss-stage[data-style="bento"] .ss-tile-stats {
+  grid-column: 5 / span 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(14px, 1.4vw, 20px);
+  display: grid;
+  grid-template-rows: repeat(4, 1fr);
+  row-gap: clamp(6px, 0.8vw, 12px);
+}
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(8px, 1vw, 14px);
+  padding: clamp(8px, 1vw, 14px) clamp(2px, 0.4vw, 6px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row:last-child { border-bottom: none; }
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-icon {
+  font-size: clamp(20px, 1.8vw, 28px);
+  opacity: 0.65;
+}
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-label {
+  font: 700 clamp(11px, 0.95vw, 14px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+}
+/* Stat values always render in solid white. Team-colour tinting
+   was traded off because dark primaries (e.g. navy #060f8a) — or
+   even the 65%-white blend — never quite reached comfortable
+   contrast on the dark bento tile. The team origin of each stat
+   stays visible via the icon column on the left. */
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value {
+  font: 900 clamp(28px, 2.8vw, 42px)/1 'Menlo', 'Consolas', monospace;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value .home {
+  color: color-mix(in srgb, var(--ss-home, #ff5a73) 40%, #fff);
+}
+.ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value .away {
+  color: color-mix(in srgb, var(--ss-away, #ffb541) 40%, #fff);
+}
+
+/* Decoupled bottom ledger — sits in the panel's ``.ss-extras``
+   zone outside the 16:9 stage so it can span almost the full
+   viewport width without resizing the core block. Styled like a
+   bento tile so it visually belongs to this variant. */
+.ss-extras[data-style="bento"] .ss-bento-ledger {
+  width: min(96vw, 1840px);
+  background: rgba(22, 27, 34, 0.7);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: clamp(10px, 1vw, 16px) clamp(14px, 1.4vw, 22px);
+  margin-bottom: clamp(12px, 1.4vw, 22px);
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  row-gap: clamp(6px, 0.7vw, 10px);
+  min-width: 0;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.ss-extras[data-style="bento"] .ss-bumper-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(8px, 1vw, 14px);
+  min-width: 0;
+}
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-row-logo {
+  width: clamp(34px, 2.8vw, 48px);
+  height: clamp(34px, 2.8vw, 48px);
+  border-radius: 10px;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: clamp(13px, 1.1vw, 17px);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  flex-shrink: 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+}
+.ss-extras[data-style="bento"] .ss-bumper-row.home .ss-row-logo {
+  background: color-mix(in srgb, var(--ss-home, #ff5a73) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-home, #ff5a73) 35%, transparent);
+}
+.ss-extras[data-style="bento"] .ss-bumper-row.away .ss-row-logo {
+  background: color-mix(in srgb, var(--ss-away, #ffb541) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away, #ffb541) 35%, transparent);
+}
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-row-logo img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-row-score {
+  font: 900 clamp(22px, 2vw, 30px)/1 -apple-system, sans-serif;
+  color: #fff;
+  letter-spacing: -0.02em;
+  min-width: 2em;
+  padding-left: 6px;
+  text-align: right;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(2px, 0.25vw, 4px);
+  min-width: 0;
+  align-items: stretch;
+}
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-chip {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  font: 700 clamp(10px, 0.85vw, 13px)/1 'Menlo', 'Consolas', monospace;
+  color: #fff;
+  padding: 2px 2px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.ss-extras[data-style="bento"] .ss-bumper-row.home .ss-chip {
+  background: color-mix(in srgb, var(--ss-home, #ff5a73) 55%, transparent);
+}
+.ss-extras[data-style="bento"] .ss-bumper-row.away .ss-chip {
+  background: color-mix(in srgb, var(--ss-away, #ffb541) 55%, transparent);
+}
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-empty {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.18);
+  font-weight: 600;
+}
+.ss-extras[data-style="bento"] .ss-bumper-row.home .ss-chip.ss-final {
+  background: var(--ss-home, #ff5a73);
+  font-weight: 900;
+  animation: ss-final-breathe-home 2.4s ease-in-out infinite;
+}
+.ss-extras[data-style="bento"] .ss-bumper-row.away .ss-chip.ss-final {
+  background: var(--ss-away, #ffb541);
+  font-weight: 900;
+  animation: ss-final-breathe-away 2.4s ease-in-out infinite;
+}
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-timeout {
+  background: rgba(245, 197, 66, 0.32);
+  color: #ffe48a;
+  font-weight: 800;
+}
+
+.ss-stage[data-style="bento"] .ss-tile-icon {
+  position: absolute;
+  top: 14px; right: 18px;
+  font-size: 22px;
+  opacity: 0.4;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Variant: glass
+   Glassmorphism: frosted tiles over coloured background blobs.
+   Mirrors docs/mockups/set-summary/glass.html.
+   ───────────────────────────────────────────────────────────── */
+
+.ss-stage[data-style="glass"] {
+  padding: clamp(22px, 2.4vw, 36px) clamp(28px, 3.2vw, 48px);
+  grid-template-columns: 1fr 1fr;
+  /* Two rows now: header + body. The stats no longer have their
+     own footer row — they live inside the score tile below the
+     team rows so the user can scan ``teams + their stats`` in a
+     single column. */
+  grid-template-rows: auto 1fr;
+  gap: clamp(10px, 1.2vw, 18px);
+  position: relative; overflow: hidden;
+}
+.ss-stage[data-style="glass"] .ss-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.32;
+  pointer-events: none;
+}
+.ss-stage[data-style="glass"] .ss-blob-1 {
+  background: var(--ss-home, #ff4d6d);
+  width: 32%; aspect-ratio: 1;
+  top: -10%; left: -8%;
+}
+.ss-stage[data-style="glass"] .ss-blob-2 {
+  background: var(--ss-away, #ffc857);
+  width: 28%; aspect-ratio: 1;
+  top: -8%; right: -6%;
+}
+.ss-stage[data-style="glass"] .ss-blob-3 {
+  background: #5bdb7c;
+  width: 26%; aspect-ratio: 1;
+  bottom: -14%; left: 35%; opacity: 0.4;
+}
+.ss-stage[data-style="glass"] .ss-glass {
+  position: relative;
+  /* Darker tile background so white/coloured text stays legible
+     even when the stream behind the overlay is bright. */
+  background: rgba(12, 16, 24, 0.55);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 22px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 24px 50px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+.ss-stage[data-style="glass"] .ss-header {
+  grid-column: 1 / -1;
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: clamp(14px, 1.8vw, 26px);
+}
+/* Match score is now a first-class element in the glass header
+   instead of being buried inside a small grey meta line. */
+.ss-stage[data-style="glass"] .ss-match-score {
+  display: inline-flex; align-items: baseline; gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.ss-stage[data-style="glass"] .ss-match-score-label {
+  font: 700 clamp(10px, 0.85vw, 12px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+}
+.ss-stage[data-style="glass"] .ss-match-score-value {
+  font: 900 clamp(20px, 1.9vw, 26px)/1 -apple-system, sans-serif;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.ss-stage[data-style="glass"] .ss-match-score-value .home {
+  color: color-mix(in srgb, var(--ss-home, #ff4d6d) 40%, #fff);
+}
+.ss-stage[data-style="glass"] .ss-match-score-value .away {
+  color: color-mix(in srgb, var(--ss-away, #ffc857) 40%, #fff);
+}
+.ss-stage[data-style="glass"] .ss-header .ss-title {
+  display: flex; align-items: center; gap: 16px;
+  font: 700 clamp(14px, 1.15vw, 18px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+.ss-stage[data-style="glass"] .ss-pill {
+  padding: 6px 14px;
+  background: rgba(91, 219, 124, 0.2);
+  border: 1px solid rgba(91, 219, 124, 0.5);
+  color: #5bdb7c;
+  border-radius: 999px;
+  font-size: clamp(11px, 0.85vw, 13px);
+  letter-spacing: 0.22em;
+}
+.ss-stage[data-style="glass"] .ss-meta {
+  display: flex; gap: 24px;
+  font: 600 clamp(12px, 1vw, 14px)/1 'Menlo', 'Consolas', monospace;
+  color: rgba(255,255,255,0.65); letter-spacing: 0.04em;
+}
+.ss-stage[data-style="glass"] .ss-meta strong { color: #fff; }
+.ss-stage[data-style="glass"] .ss-score-tile {
+  padding: clamp(22px, 2.4vw, 32px) clamp(26px, 3vw, 40px);
+  display: flex; flex-direction: column;
+  justify-content: space-between; gap: 16px;
+}
+.ss-stage[data-style="glass"] .ss-score-tile .ss-teams {
+  display: flex; flex-direction: column; gap: 16px;
+}
+.ss-stage[data-style="glass"] .ss-team-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.ss-stage[data-style="glass"] .ss-team-row:last-child { border-bottom: none; }
+.ss-stage[data-style="glass"] .ss-team-row .ss-logo {
+  width: clamp(40px, 3.2vw, 56px); height: clamp(40px, 3.2vw, 56px);
+  border-radius: 14px;
+  display: grid; place-items: center;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  font: 800 clamp(16px, 1.4vw, 22px)/1 -apple-system, sans-serif;
+  overflow: hidden;
+}
+.ss-stage[data-style="glass"] .ss-team-row .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-stage[data-style="glass"] .ss-team-row .ss-name {
+  font: 700 clamp(20px, 1.7vw, 26px)/1.1 -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.ss-stage[data-style="glass"] .ss-team-row .ss-name .ss-tag {
+  display: block;
+  font: 600 clamp(9px, 0.75vw, 11px)/1 -apple-system, sans-serif;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.22em; text-transform: uppercase;
+  margin-top: 4px;
+}
+.ss-stage[data-style="glass"] .ss-team-row.home .ss-name strong { color: var(--ss-home, #ff4d6d); font-weight: 800; }
+.ss-stage[data-style="glass"] .ss-team-row.away .ss-name strong { color: var(--ss-away, #ffc857); font-weight: 800; }
+.ss-stage[data-style="glass"] .ss-team-row .ss-pts {
+  font: 900 clamp(60px, 6vw, 100px)/0.85 -apple-system, sans-serif;
+  letter-spacing: -0.05em;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.4);
+}
+.ss-stage[data-style="glass"] .ss-team-row.home .ss-pts { color: var(--ss-home, #ff4d6d); }
+.ss-stage[data-style="glass"] .ss-team-row.away .ss-pts { color: var(--ss-away, #ffc857); }
+.ss-stage[data-style="glass"] .ss-chart-tile {
+  padding: clamp(18px, 1.8vw, 24px) clamp(20px, 2vw, 28px);
+  display: flex; flex-direction: column; gap: 14px;
+  /* Without ``min-height: 0`` a flex column refuses to shrink below
+     its content's intrinsic size, so on smaller viewports the
+     chart-box ends up at the SVG default replaced-element height
+     and the polyline overflows. */
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.ss-stage[data-style="glass"] .ss-chart-tile .ss-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  flex: 0 0 auto;
+}
+.ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-label {
+  font: 700 clamp(11px, 0.9vw, 12px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+}
+.ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-duration {
+  font: 800 clamp(22px, 2.2vw, 28px)/1 -apple-system, sans-serif;
+  color: #5bdb7c; letter-spacing: -0.02em;
+}
+.ss-stage[data-style="glass"] .ss-chart-tile .ss-chart-box {
+  flex: 1 1 0;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+.ss-stage[data-style="glass"] .ss-chart-tile svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ss-stage[data-style="glass"] .ss-chart-tile .ss-line-home {
+  filter: drop-shadow(0 0 10px rgba(255, 77, 109, 0.6));
+}
+.ss-stage[data-style="glass"] .ss-chart-tile .ss-line-away {
+  filter: drop-shadow(0 0 10px rgba(255, 200, 87, 0.55));
+}
+/* Stats live inside the score tile (below the team rows) — same
+   column as the teams so the operator scans ``team + their stats``
+   in one place. Uniform white values with no <small> suffix so all
+   four rows render at the exact same font size. */
+.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block {
+  margin-top: clamp(8px, 1vw, 14px);
+  padding-top: clamp(8px, 1vw, 14px);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(6px, 0.8vw, 10px) clamp(10px, 1.2vw, 18px);
+}
+.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 4px 0;
+}
+.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-label {
+  font: 700 clamp(10px, 0.8vw, 12px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+}
+.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value {
+  font: 800 clamp(22px, 2vw, 30px)/1 -apple-system, sans-serif;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value .home {
+  color: color-mix(in srgb, var(--ss-home, #ff4d6d) 40%, #fff);
+}
+.ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value .away {
+  color: color-mix(in srgb, var(--ss-away, #ffc857) 40%, #fff);
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   Variant: podium
+   Winner pillar tall + runner-up shorter + chart ribbon floor.
+   Mirrors docs/mockups/set-summary/podium.html.
+   ───────────────────────────────────────────────────────────── */
+
+.ss-stage[data-style="podium"] {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 214, 74, 0.14) 0%, transparent 60%),
+    rgba(10, 13, 18, 0.62);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  padding: clamp(22px, 2.4vw, 36px) clamp(34px, 3.6vw, 56px) 0;
+  grid-template-rows: auto 1fr auto;
+  row-gap: 16px;
+}
+.ss-stage[data-style="podium"] .ss-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.ss-stage[data-style="podium"] .ss-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 214, 74, 0.14);
+  border: 1px solid rgba(255, 214, 74, 0.45);
+  color: #ffd64a;
+  font: 800 clamp(11px, 0.9vw, 12px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.24em; text-transform: uppercase;
+}
+.ss-stage[data-style="podium"] .ss-meta {
+  display: flex; gap: 28px;
+  font: 700 clamp(12px, 1vw, 14px)/1 'Menlo', 'Consolas', monospace;
+  color: rgba(255,255,255,0.55); letter-spacing: 0.08em;
+}
+.ss-stage[data-style="podium"] .ss-meta strong { color: #fff; }
+.ss-stage[data-style="podium"] .ss-podium {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: clamp(30px, 4.4vw, 60px);
+  padding: 0 clamp(20px, 2.8vw, 40px);
+}
+.ss-stage[data-style="podium"] .ss-pillar {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  padding: clamp(18px, 2vw, 28px) clamp(20px, 2.4vw, 32px) clamp(16px, 1.8vw, 22px);
+  display: flex; flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 -16px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+  min-width: 0;
+}
+.ss-stage[data-style="podium"] .ss-pillar::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.25) 100%);
+  border-top-left-radius: inherit; border-top-right-radius: inherit;
+  pointer-events: none;
+}
+.ss-stage[data-style="podium"] .ss-pillar > * { position: relative; z-index: 1; }
+.ss-stage[data-style="podium"] .ss-pillar.winner {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--ss-winner, var(--ss-home, #d4314c)) 92%, transparent) 0%,
+    color-mix(in srgb, var(--ss-winner, var(--ss-home, #d4314c)) 58%, transparent) 100%);
+  backdrop-filter: blur(8px);
+  height: 80%;
+}
+.ss-stage[data-style="podium"] .ss-pillar.runner-up {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--ss-loser, var(--ss-away, #f0a020)) 90%, transparent) 0%,
+    color-mix(in srgb, var(--ss-loser, var(--ss-away, #f0a020)) 48%, transparent) 100%);
+  backdrop-filter: blur(8px);
+  height: 56%;
+}
+.ss-stage[data-style="podium"] .ss-pillar .ss-team-name {
+  font: 800 clamp(22px, 2.2vw, 32px)/1.05 -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+  overflow-wrap: anywhere;
+}
+.ss-stage[data-style="podium"] .ss-pillar .ss-score {
+  font: 900 clamp(70px, 7.2vw, 130px)/0.85 'Menlo', 'Consolas', monospace;
+  letter-spacing: -0.05em;
+  text-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  margin: auto 0;
+}
+.ss-stage[data-style="podium"] .ss-pillar.runner-up .ss-score { font-size: clamp(52px, 5.4vw, 96px); }
+.ss-stage[data-style="podium"] .ss-pillar .ss-pillar-stat {
+  font: 600 clamp(11px, 0.95vw, 14px)/1.3 -apple-system, sans-serif;
+  color: rgba(255,255,255,0.85);
+  text-align: center;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.25);
+}
+.ss-stage[data-style="podium"] .ss-pillar .ss-pillar-stat strong {
+  font-weight: 800;
+  font-family: 'Menlo', monospace;
+  font-size: clamp(14px, 1.2vw, 18px);
+  display: block;
+  margin-bottom: 2px;
+}
+.ss-stage[data-style="podium"] .ss-floor {
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 18px clamp(20px, 2.4vw, 36px) clamp(16px, 1.8vw, 24px);
+  margin: 0 calc(-1 * clamp(34px, 3.6vw, 56px));
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+}
+.ss-stage[data-style="podium"] .ss-floor .ss-floor-label {
+  font: 700 clamp(10px, 0.9vw, 12px)/1 -apple-system, sans-serif;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.22em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.ss-stage[data-style="podium"] .ss-floor .ss-chart { height: clamp(48px, 6vw, 80px); }
+.ss-stage[data-style="podium"] .ss-floor .ss-chart svg { width: 100%; height: 100%; display: block; }
+.ss-stage[data-style="podium"] .ss-floor .ss-line-home,
+.ss-stage[data-style="podium"] .ss-floor .ss-line-away { stroke-width: 2.5; }
+.ss-stage[data-style="podium"] .ss-floor .ss-duration {
+  font: 700 clamp(18px, 1.7vw, 24px)/1 'Menlo', 'Consolas', monospace;
+  color: #ffd64a; letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Variant: bumper
+   Broadcast title card with a wide bottom ledger.
+
+   Layout overrides the common stage frame: the stage spans most
+   of the viewport width to give the bottom point ledger enough
+   room for 25 chips per team without resizing. The "core" sits
+   centred in the upper area (rounded glass card with the recap),
+   and the ledger lives below it across the full width.
+   ───────────────────────────────────────────────────────────── */
+
+.ss-stage[data-style="bumper"] {
+  /* Free-form stage shape so the ledger can span almost edge-to-edge. */
+  width: min(96vw, 1840px);
+  height: min(82vh, 920px);
+  aspect-ratio: auto;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  grid-template-rows: 1fr auto;
+  row-gap: clamp(12px, 1.4vw, 22px);
+  padding: 0;
+  overflow: visible;
+  font-family: 'Helvetica Neue', -apple-system, Arial, sans-serif;
+}
+
+/* ── Core card (centred) ─────────────────────────────── */
+.ss-stage[data-style="bumper"] .ss-bumper-core {
+  align-self: center;
+  justify-self: center;
+  width: min(1080px, 78%);
+  position: relative;
+  background:
+    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--ss-home, #ff3554) 26%, transparent) 0%, transparent 55%),
+    radial-gradient(circle at 80% 100%, color-mix(in srgb, var(--ss-away, #ffaa1f) 26%, transparent) 0%, transparent 55%),
+    linear-gradient(160deg, rgba(20, 24, 36, 0.94), rgba(8, 12, 22, 0.94));
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: clamp(18px, 2vw, 28px);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+.ss-stage[data-style="bumper"] .ss-bumper-core .ss-ribbon {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: clamp(12px, 1.4vw, 20px) clamp(20px, 2.6vw, 36px);
+  background: rgba(0, 0, 0, 0.28);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ss-stage[data-style="bumper"] .ss-set-badge {
+  display: inline-flex; align-items: baseline; gap: 12px;
+}
+.ss-stage[data-style="bumper"] .ss-set-badge .ss-tagline {
+  color: rgba(255, 255, 255, 0.55);
+  font: 700 clamp(11px, 1vw, 14px)/1 'Helvetica Neue', sans-serif;
+  letter-spacing: 0.32em; text-transform: uppercase;
+}
+.ss-stage[data-style="bumper"] .ss-set-badge .ss-num {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  font: 900 clamp(32px, 3.4vw, 50px)/1 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.02em;
+  color: #ffd64a;
+  text-shadow: 0 0 14px rgba(255, 214, 74, 0.45);
+}
+.ss-stage[data-style="bumper"] .ss-set-badge .ss-num small {
+  font-size: 0.4em;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-core .ss-duration {
+  font: 800 clamp(20px, 2vw, 30px)/1 'Menlo', 'Consolas', monospace;
+  color: #ffd64a;
+  letter-spacing: 0.04em;
+  display: inline-flex; align-items: baseline; gap: 8px;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-core .ss-duration::before {
+  content: '⏱';
+  font-size: 0.75em;
+  opacity: 0.85;
+}
+
+.ss-stage[data-style="bumper"] .ss-hero {
+  display: grid;
+  /* Three columns: home team | centre stats panel | away team.
+     The centre column takes the previously empty space and hosts
+     a 4-row stats stack (streak / services / timeouts / total) so
+     the visual real estate is actually used. */
+  grid-template-columns: 1fr minmax(180px, 0.85fr) 1fr;
+  align-items: center;
+  padding: clamp(16px, 2vw, 28px) clamp(22px, 2.8vw, 44px);
+  gap: clamp(14px, 2vw, 36px);
+  min-height: 0;
+}
+.ss-stage[data-style="bumper"] .ss-team {
+  display: flex; flex-direction: column;
+  gap: clamp(8px, 1vw, 14px);
+  min-width: 0;
+}
+.ss-stage[data-style="bumper"] .ss-team.home { align-items: flex-start; }
+.ss-stage[data-style="bumper"] .ss-team.away { align-items: flex-end; }
+.ss-stage[data-style="bumper"] .ss-team-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font: 800 clamp(10px, 0.9vw, 13px)/1 'Helvetica Neue', sans-serif;
+  letter-spacing: 0.28em; text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.ss-stage[data-style="bumper"] .ss-team.home .ss-team-tag {
+  background: var(--ss-home, #ff3554);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 10px 24px color-mix(in srgb, var(--ss-home, #ff3554) 32%, transparent);
+}
+.ss-stage[data-style="bumper"] .ss-team.away .ss-team-tag {
+  background: var(--ss-away, #ffaa1f);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 10px 24px color-mix(in srgb, var(--ss-away, #ffaa1f) 32%, transparent);
+}
+.ss-stage[data-style="bumper"] .ss-team-name {
+  font: 800 clamp(20px, 2vw, 30px)/1.05 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.005em;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  overflow-wrap: anywhere;
+}
+.ss-stage[data-style="bumper"] .ss-team.away .ss-team-name { text-align: right; }
+.ss-stage[data-style="bumper"] .ss-team-score {
+  font: 900 clamp(96px, 9.5vw, 180px)/0.82 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.06em;
+  background: linear-gradient(180deg,
+    #ffffff 0%,
+    color-mix(in srgb, var(--ss-home, #ff3554) 70%, white) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.45));
+  margin: 0;
+}
+.ss-stage[data-style="bumper"] .ss-team.away .ss-team-score {
+  background: linear-gradient(180deg,
+    #ffffff 0%,
+    color-mix(in srgb, var(--ss-away, #ffaa1f) 70%, white) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.ss-stage[data-style="bumper"] .ss-sep {
+  font: 900 clamp(34px, 4vw, 64px)/1 'Helvetica Neue', sans-serif;
+  color: rgba(255, 255, 255, 0.18);
+  letter-spacing: -0.04em;
+  align-self: center;
+  user-select: none;
+}
+
+/* Stats panel — sits in the centre column of the hero, between
+   the two team blocks. Four rows (streak, services, timeouts,
+   total points) with uniform white values so contrast against
+   the dark card stays consistent regardless of team colour. */
+.ss-stage[data-style="bumper"] .ss-hero-stats {
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: repeat(4, 1fr);
+  padding: clamp(10px, 1.2vw, 18px) clamp(12px, 1.4vw, 20px);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  text-align: center;
+  min-width: 0;
+}
+.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row:last-child { border-bottom: none; }
+.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-label {
+  font: 700 clamp(9px, 0.75vw, 11px)/1 'Helvetica Neue', sans-serif;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.22em; text-transform: uppercase;
+}
+.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value {
+  font: 900 clamp(18px, 1.7vw, 24px)/1 'Helvetica Neue', sans-serif;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value .home {
+  color: color-mix(in srgb, var(--ss-home, #ff3554) 40%, #fff);
+}
+.ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value .away {
+  color: color-mix(in srgb, var(--ss-away, #ffaa1f) 40%, #fff);
+}
+
+/* ── Bottom ledger (full stage width) ─────────────────── */
+.ss-stage[data-style="bumper"] .ss-bumper-ledger {
+  /* Sits outside the centred core card and spans almost the full
+     viewport width so the per-rally chips never have to shrink. */
+  background: rgba(8, 10, 16, 0.82);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: clamp(10px, 1vw, 16px);
+  padding: clamp(10px, 1vw, 16px) clamp(14px, 1.4vw, 22px);
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  row-gap: clamp(6px, 0.7vw, 10px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  min-width: 0;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(8px, 1vw, 14px);
+  min-width: 0;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-logo {
+  width: clamp(34px, 2.8vw, 48px);
+  height: clamp(34px, 2.8vw, 48px);
+  border-radius: 10px;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: clamp(13px, 1.1vw, 17px);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  flex-shrink: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row.home .ss-row-logo {
+  background: color-mix(in srgb, var(--ss-home, #ff3554) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-home, #ff3554) 35%, transparent);
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row.away .ss-row-logo {
+  background: color-mix(in srgb, var(--ss-away, #ffaa1f) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away, #ffaa1f) 35%, transparent);
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-logo img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-score {
+  font: 900 clamp(22px, 2vw, 30px)/1 'Helvetica Neue', sans-serif;
+  color: #fff;
+  letter-spacing: -0.02em;
+  /* min-width big enough for two/three digits so the score never
+     gets clipped against the ledger's right padding. */
+  min-width: 2em;
+  padding-left: 6px;
+  text-align: right;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(2px, 0.25vw, 4px);
+  min-width: 0;
+  align-items: stretch;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+  font: 700 clamp(10px, 0.85vw, 13px)/1 'Menlo', 'Consolas', monospace;
+  letter-spacing: 0.02em;
+  color: #fff;
+  padding: 2px 2px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row.home .ss-chip {
+  background: color-mix(in srgb, var(--ss-home, #ff3554) 60%, transparent);
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row.away .ss-chip {
+  background: color-mix(in srgb, var(--ss-away, #ffaa1f) 60%, transparent);
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-empty {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.18);
+  font-weight: 600;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row.home .ss-chip.ss-final {
+  background: var(--ss-home, #ff3554);
+  font-weight: 900;
+  animation: ss-final-breathe-home 2.4s ease-in-out infinite;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row.away .ss-chip.ss-final {
+  background: var(--ss-away, #ffaa1f);
+  font-weight: 900;
+  animation: ss-final-breathe-away 2.4s ease-in-out infinite;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-timeout {
+  background: rgba(245, 197, 66, 0.32);
+  color: #ffe48a;
+  font-weight: 800;
+}
+
