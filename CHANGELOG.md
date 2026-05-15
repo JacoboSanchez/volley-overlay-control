@@ -42,6 +42,20 @@ once a first tagged release ships.
   for the eight styles lives at
   ``docs/mockups/set-summary/index.html``.
 
+- **Set-summary variants now scale with the stage, not the
+  viewport.** The 149 ``clamp(min, X vw, max)`` rules across the
+  six variant stylesheets had their ``vw``/``vh`` swapped for
+  ``cqw``/``cqh`` (with ``container-type: size`` added to the
+  ``.ss-stage``) and their pixel minimums halved. With the old
+  setup the "ideal" term of ``clamp()`` bottomed out at its pixel
+  floor on small viewports, so a 480p preview kept full-HD font
+  sizes while the stage itself shrank — team names wrapped onto
+  three lines, ledger chips overflowed, scores cramped against
+  the column edges. Switching the scaling unit makes the inner
+  content track the stage size (which is itself derived from the
+  viewport via ``min(95vw, calc(67vh * 16/9))``) so every variant
+  preserves its proportions and information density at 480p,
+  720p and 1080p alike.
 - **Cross-fade between scoreboard and set-summary recap.** The
   scoreboard → recap toggle used to be an instant DOM swap
   (``display: none`` slammed the scoreboard, ``hidden`` attribute

@@ -58,7 +58,7 @@ body.set-summary-mode #player-stats-container {
      collapses to zero height. */
   grid-template-rows: 1fr auto;
   justify-items: center;
-  row-gap: clamp(10px, 1.2vw, 18px);
+  row-gap: clamp(5px, 1.8cqw, 18px);
   z-index: 100;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -90,6 +90,14 @@ body.set-summary-mode #player-stats-container {
      that need multi-row layouts override ``grid-template-rows``. */
   grid-template-rows: 1fr;
   overflow: hidden;
+  /* Become a CSS container so the ``cqw`` / ``cqh`` units used by
+     every variant scale with the stage instead of the raw
+     viewport. Without this the content "looked too big" on
+     smaller screens because ``vw``-based ``clamp()`` ideals
+     floored at their pixel minimums and stopped tracking the
+     (shrunk) stage. */
+  container-type: size;
+  container-name: ss-stage;
   min-width: 0;
   min-height: 0;
   pointer-events: auto;
@@ -116,7 +124,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage .ss-clocks {
   display: inline-flex;
   align-items: baseline;
-  gap: clamp(12px, 1.4vw, 22px);
+  gap: clamp(6px, 2.1cqw, 22px);
 }
 .ss-stage .ss-clock-block {
   display: inline-flex;
@@ -124,7 +132,7 @@ body.set-summary-mode #player-stats-container {
   gap: 8px;
 }
 .ss-stage .ss-clock-label {
-  font: 700 clamp(11px, 0.95vw, 14px)/1 -apple-system, sans-serif;
+  font: 700 clamp(5px, 1.425cqw, 14px)/1 -apple-system, sans-serif;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.7);
@@ -155,16 +163,16 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] {
   grid-template-columns:
     minmax(0, 1fr)
-    clamp(54px, 6vw, 88px)
+    clamp(27px, 9cqw, 88px)
     minmax(120px, 0.55fr)
-    clamp(54px, 6vw, 88px)
+    clamp(27px, 9cqw, 88px)
     minmax(0, 1fr);
   background: transparent;
 }
 
 .ss-stage[data-style="brand_ledger"] .ss-team {
   position: relative;
-  padding: clamp(20px, 3vw, 48px) clamp(18px, 2.6vw, 44px);
+  padding: clamp(10px, 4.5cqw, 48px) clamp(9px, 3.9cqw, 44px);
   display: flex; flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
@@ -197,13 +205,13 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-away .ss-team-header { flex-direction: row-reverse; }
 .ss-stage[data-style="brand_ledger"] .ss-logo {
-  width: clamp(48px, 4.5vw, 88px);
-  height: clamp(48px, 4.5vw, 88px);
+  width: clamp(24px, 6.75cqw, 88px);
+  height: clamp(24px, 6.75cqw, 88px);
   border-radius: 16px;
   background: rgba(255,255,255,0.18);
   border: 2px solid rgba(255,255,255,0.45);
   display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(18px, 1.9vw, 36px);
+  font-weight: 800; font-size: clamp(9px, 2.85cqw, 36px);
   text-shadow: 0 2px 6px rgba(0,0,0,0.45);
   overflow: hidden;
   flex-shrink: 0;
@@ -211,14 +219,14 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
 .ss-stage[data-style="brand_ledger"] .ss-team-name {
   font-weight: 800;
-  font-size: clamp(20px, 2vw, 38px);
+  font-size: clamp(10px, 3cqw, 38px);
   line-height: 1.05;
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-tag {
   font-weight: 600;
-  font-size: clamp(10px, 0.75vw, 13px);
+  font-size: clamp(5px, 1.125cqw, 13px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -227,7 +235,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-team-score {
   font-family: 'Menlo', 'Consolas', monospace;
   font-weight: 900;
-  font-size: clamp(90px, 11vw, 220px);
+  font-size: clamp(45px, 16.5cqw, 220px);
   line-height: 0.82;
   letter-spacing: -0.06em;
   text-shadow: 0 8px 24px rgba(0,0,0,0.5);
@@ -240,7 +248,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-team-stat .ss-label {
   display: block;
   font-weight: 600;
-  font-size: clamp(9px, 0.65vw, 11px);
+  font-size: clamp(4px, 0.975cqw, 11px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -248,7 +256,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-team-stat .ss-value {
   display: block;
   font-weight: 700;
-  font-size: clamp(18px, 1.5vw, 28px);
+  font-size: clamp(9px, 2.25cqw, 28px);
   line-height: 1;
   font-family: 'Menlo', 'Consolas', monospace;
   letter-spacing: -0.02em;
@@ -259,7 +267,7 @@ body.set-summary-mode #player-stats-container {
   background: rgba(15, 20, 30, 0.62);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
-  padding: clamp(20px, 2vw, 32px) clamp(8px, 1vw, 14px);
+  padding: clamp(10px, 3cqw, 32px) clamp(4px, 1.5cqw, 14px);
   display: flex; flex-direction: column;
   align-items: center;
   /* SET label + number anchored to the top edge; duration block
@@ -277,13 +285,13 @@ body.set-summary-mode #player-stats-container {
   gap: 6px;
 }
 .ss-stage[data-style="brand_ledger"] .ss-set-label {
-  font-weight: 700; font-size: clamp(11px, 0.95vw, 14px);
+  font-weight: 700; font-size: clamp(5px, 1.425cqw, 14px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.3em; text-transform: uppercase;
 }
 .ss-stage[data-style="brand_ledger"] .ss-set-number {
   font-weight: 900;
-  font-size: clamp(72px, 8vw, 140px);
+  font-size: clamp(36px, 12cqw, 140px);
   line-height: 0.85;
   letter-spacing: -0.04em;
   text-shadow: 0 4px 16px rgba(0,0,0,0.6);
@@ -291,7 +299,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-duration-label {
   display: block;
   font-weight: 600;
-  font-size: clamp(9px, 0.75vw, 11px);
+  font-size: clamp(4px, 1.125cqw, 11px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.24em; text-transform: uppercase;
 }
@@ -300,14 +308,14 @@ body.set-summary-mode #player-stats-container {
   gap: 8px;
   font-family: 'Menlo', 'Consolas', monospace;
   font-weight: 700;
-  font-size: clamp(22px, 2.2vw, 34px);
+  font-size: clamp(11px, 3.3cqw, 34px);
   line-height: 1;
   color: #2ecc71;
   letter-spacing: 0.04em;
 }
 .ss-stage[data-style="brand_ledger"] .ss-duration::before {
   content: '⏱';
-  font-size: clamp(14px, 1.2vw, 20px);
+  font-size: clamp(7px, 1.8cqw, 20px);
   opacity: 0.85;
 }
 
@@ -319,7 +327,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col {
   display: grid;
   width: 100%;
-  padding: clamp(12px, 1.4vw, 22px) 4px;
+  padding: clamp(6px, 2.1cqw, 22px) 4px;
   background: rgba(0, 0, 0, 0.25);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -332,7 +340,7 @@ body.set-summary-mode #player-stats-container {
   min-width: 38px;
   padding: 0 6px;
   border-radius: 4px;
-  font: 700 clamp(11px, 1vw, 14px)/1 'Menlo', 'Consolas', monospace;
+  font: 700 clamp(5px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
   letter-spacing: 0.02em;
 }
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point {
@@ -397,7 +405,7 @@ body.set-summary-mode #player-stats-container {
   background: rgba(245, 197, 66, 0.32);
   color: #ffe48a;
   font-weight: 800;
-  font-size: clamp(10px, 0.9vw, 12px);
+  font-size: clamp(5px, 1.35cqw, 12px);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -411,7 +419,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_columns"] .ss-team {
   position: relative;
-  padding: clamp(22px, 3.4vw, 56px) clamp(22px, 2.8vw, 48px);
+  padding: clamp(11px, 5.1cqw, 56px) clamp(11px, 4.2cqw, 48px);
   display: flex; flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
@@ -440,23 +448,23 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-header { flex-direction: row-reverse; }
 .ss-stage[data-style="brand_columns"] .ss-logo {
-  width: clamp(54px, 4.8vw, 88px);
-  height: clamp(54px, 4.8vw, 88px);
+  width: clamp(27px, 7.2cqw, 88px);
+  height: clamp(27px, 7.2cqw, 88px);
   border-radius: 16px;
   background: rgba(255,255,255,0.18);
   border: 2px solid rgba(255,255,255,0.45);
   display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(20px, 2vw, 36px);
+  font-weight: 800; font-size: clamp(10px, 3cqw, 36px);
   overflow: hidden; flex-shrink: 0;
 }
 .ss-stage[data-style="brand_columns"] .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
 .ss-stage[data-style="brand_columns"] .ss-team-name {
-  font-weight: 800; font-size: clamp(22px, 2.2vw, 42px);
+  font-weight: 800; font-size: clamp(11px, 3.3cqw, 42px);
   line-height: 1.05; letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="brand_columns"] .ss-team-tag {
-  font-weight: 600; font-size: clamp(10px, 0.8vw, 14px);
+  font-weight: 600; font-size: clamp(5px, 1.2cqw, 14px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.22em; text-transform: uppercase;
   margin-top: 6px;
@@ -464,7 +472,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_columns"] .ss-team-score {
   font-family: 'Menlo', 'Consolas', monospace;
   font-weight: 900;
-  font-size: clamp(110px, 12vw, 240px);
+  font-size: clamp(55px, 18cqw, 240px);
   line-height: 0.82; letter-spacing: -0.06em;
   text-shadow: 0 8px 32px rgba(0,0,0,0.5);
   margin: 4px 0;
@@ -475,21 +483,21 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_columns"] .ss-team-away .ss-team-stat-list { align-items: flex-end; }
 .ss-stage[data-style="brand_columns"] .ss-team-stat { display: flex; flex-direction: column; gap: 2px; }
 .ss-stage[data-style="brand_columns"] .ss-team-stat .ss-label {
-  font-weight: 600; font-size: clamp(10px, 0.7vw, 11px);
+  font-weight: 600; font-size: clamp(5px, 1.05cqw, 11px);
   color: rgba(255,255,255,0.7);
   letter-spacing: 0.2em; text-transform: uppercase;
 }
 .ss-stage[data-style="brand_columns"] .ss-team-stat .ss-value {
   font-weight: 700;
   font-family: 'Menlo', 'Consolas', monospace;
-  font-size: clamp(22px, 1.9vw, 32px);
+  font-size: clamp(11px, 2.85cqw, 32px);
   letter-spacing: -0.02em;
 }
 .ss-stage[data-style="brand_columns"] .ss-centre {
   background: rgba(15, 20, 30, 0.62);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
-  padding: clamp(22px, 3vw, 56px) clamp(14px, 1.5vw, 28px);
+  padding: clamp(11px, 4.5cqw, 56px) clamp(7px, 2.25cqw, 28px);
   display: grid;
   grid-template-rows: auto 1fr auto auto;
   row-gap: 16px;
@@ -523,7 +531,7 @@ body.set-summary-mode #player-stats-container {
   min-height: 0;
 }
 .ss-stage[data-style="brand_columns"] .ss-vs {
-  font: 800 clamp(20px, 1.6vw, 28px)/1 -apple-system, sans-serif;
+  font: 800 clamp(10px, 2.4cqw, 28px)/1 -apple-system, sans-serif;
   color: rgba(255,255,255,0.4);
   letter-spacing: 0.6em;
 }
@@ -536,7 +544,7 @@ body.set-summary-mode #player-stats-container {
   letter-spacing: 0.22em; text-transform: uppercase;
 }
 .ss-stage[data-style="brand_columns"] .ss-duration-block .ss-value {
-  font: 700 clamp(24px, 2.4vw, 36px)/1 'Menlo', 'Consolas', monospace;
+  font: 700 clamp(12px, 3.6cqw, 36px)/1 'Menlo', 'Consolas', monospace;
   color: #2ecc71; letter-spacing: 0.04em;
 }
 
@@ -554,10 +562,10 @@ body.set-summary-mode #player-stats-container {
   /* Core block stays in the standard centred 16:9 stage; the
      point ledger lives in ``.ss-extras`` and breaks out of this
      frame so it can span the viewport width independently. */
-  padding: clamp(18px, 2vw, 32px);
+  padding: clamp(9px, 3cqw, 32px);
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: auto 1fr;
-  gap: clamp(10px, 1.2vw, 18px);
+  gap: clamp(5px, 1.8cqw, 18px);
   background: rgba(13, 17, 23, 0.55);
   backdrop-filter: blur(8px) saturate(140%);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
@@ -568,7 +576,7 @@ body.set-summary-mode #player-stats-container {
   padding: 0 6px;
 }
 .ss-stage[data-style="bento"] .ss-header .ss-title {
-  font: 800 clamp(22px, 2.1vw, 32px)/1 -apple-system, sans-serif;
+  font: 800 clamp(11px, 3.15cqw, 32px)/1 -apple-system, sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
   text-shadow: 0 2px 8px rgba(0,0,0,0.65);
@@ -577,7 +585,7 @@ body.set-summary-mode #player-stats-container {
   color: rgba(255,255,255,0.65); font-weight: 400;
 }
 .ss-stage[data-style="bento"] .ss-header .ss-duration {
-  font: 700 clamp(18px, 1.7vw, 26px)/1 'Menlo', 'Consolas', monospace;
+  font: 700 clamp(9px, 2.55cqw, 26px)/1 'Menlo', 'Consolas', monospace;
   /* Soft warm amber instead of the previous bright green so the
      clock blends with the muted tile palette and gives a steady
      accent without screaming. */
@@ -590,23 +598,23 @@ body.set-summary-mode #player-stats-container {
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 18px;
-  padding: clamp(14px, 1.4vw, 20px) clamp(16px, 1.6vw, 22px);
+  padding: clamp(7px, 2.1cqw, 20px) clamp(8px, 2.4cqw, 22px);
   display: flex; flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   position: relative;
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-label {
-  font: 700 clamp(9px, 0.7vw, 11px)/1 -apple-system, sans-serif;
+  font: 700 clamp(4px, 1.05cqw, 11px)/1 -apple-system, sans-serif;
   letter-spacing: 0.18em; text-transform: uppercase;
   color: rgba(255,255,255,0.55);
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-value {
-  font: 800 clamp(30px, 3.4vw, 50px)/1 'Menlo', 'Consolas', monospace;
+  font: 800 clamp(15px, 5.1cqw, 50px)/1 'Menlo', 'Consolas', monospace;
   letter-spacing: -0.02em;
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-sub {
-  font: 500 clamp(11px, 0.85vw, 13px)/1.3 -apple-system, sans-serif;
+  font: 500 clamp(5px, 1.275cqw, 13px)/1.3 -apple-system, sans-serif;
   color: rgba(255,255,255,0.55);
 }
 .ss-stage[data-style="bento"] .ss-tile-score {
@@ -618,7 +626,7 @@ body.set-summary-mode #player-stats-container {
       color-mix(in srgb, var(--ss-away, #f0a020) 32%, transparent) 100%),
     rgba(15, 20, 30, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  padding: clamp(22px, 2.2vw, 32px);
+  padding: clamp(11px, 3.3cqw, 32px);
   /* Centre the teams group vertically so the score doesn't sit
      at the top with a chunk of empty space below it. */
   justify-content: center;
@@ -637,7 +645,7 @@ body.set-summary-mode #player-stats-container {
   align-items: flex-end; text-align: right;
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-name {
-  font: 800 clamp(20px, 2vw, 32px)/1.1 -apple-system, sans-serif;
+  font: 800 clamp(10px, 3cqw, 32px)/1.1 -apple-system, sans-serif;
   letter-spacing: -0.005em;
   color: #fff;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
@@ -648,7 +656,7 @@ body.set-summary-mode #player-stats-container {
   align-self: flex-start;
   padding: 4px 10px;
   border-radius: 4px;
-  font: 800 clamp(9px, 0.8vw, 11px)/1 -apple-system, sans-serif;
+  font: 800 clamp(4px, 1.2cqw, 11px)/1 -apple-system, sans-serif;
   letter-spacing: 0.26em; text-transform: uppercase;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
@@ -667,13 +675,13 @@ body.set-summary-mode #player-stats-container {
     0 8px 18px color-mix(in srgb, var(--ss-away, #ffb541) 32%, transparent);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-score {
-  font: 900 clamp(100px, 10vw, 200px)/0.85 'Menlo', 'Consolas', monospace;
+  font: 900 clamp(50px, 15cqw, 200px)/0.85 'Menlo', 'Consolas', monospace;
   letter-spacing: -0.06em;
   color: #fff;
   text-shadow: 0 6px 24px rgba(0,0,0,0.5);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-sep {
-  font: 800 clamp(40px, 4vw, 70px)/1 'Menlo', monospace;
+  font: 800 clamp(20px, 6cqw, 70px)/1 'Menlo', monospace;
   color: rgba(255,255,255,0.32);
 }
 /* Stats tile replaces the previous chart tile in the same grid
@@ -685,26 +693,26 @@ body.set-summary-mode #player-stats-container {
   grid-row: 2;
   min-width: 0;
   min-height: 0;
-  padding: clamp(14px, 1.4vw, 20px);
+  padding: clamp(7px, 2.1cqw, 20px);
   display: grid;
   grid-template-rows: repeat(4, 1fr);
-  row-gap: clamp(6px, 0.8vw, 12px);
+  row-gap: clamp(3px, 1.2cqw, 12px);
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(8px, 1vw, 14px);
-  padding: clamp(8px, 1vw, 14px) clamp(2px, 0.4vw, 6px);
+  gap: clamp(4px, 1.5cqw, 14px);
+  padding: clamp(4px, 1.5cqw, 14px) clamp(1px, 0.6cqw, 6px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row:last-child { border-bottom: none; }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-icon {
-  font-size: clamp(20px, 1.8vw, 28px);
+  font-size: clamp(10px, 2.7cqw, 28px);
   opacity: 0.65;
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-label {
-  font: 700 clamp(11px, 0.95vw, 14px)/1 -apple-system, sans-serif;
+  font: 700 clamp(5px, 1.425cqw, 14px)/1 -apple-system, sans-serif;
   letter-spacing: 0.2em; text-transform: uppercase;
   color: rgba(255,255,255,0.65);
 }
@@ -714,7 +722,7 @@ body.set-summary-mode #player-stats-container {
    contrast on the dark bento tile. The team origin of each stat
    stays visible via the icon column on the left. */
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value {
-  font: 900 clamp(28px, 2.8vw, 42px)/1 'Menlo', 'Consolas', monospace;
+  font: 900 clamp(14px, 4.2cqw, 42px)/1 'Menlo', 'Consolas', monospace;
   letter-spacing: -0.02em;
   color: #fff;
 }
@@ -736,11 +744,11 @@ body.set-summary-mode #player-stats-container {
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
-  padding: clamp(10px, 1vw, 16px) clamp(14px, 1.4vw, 22px);
-  margin-bottom: clamp(12px, 1.4vw, 22px);
+  padding: clamp(5px, 1.5cqw, 16px) clamp(7px, 2.1cqw, 22px);
+  margin-bottom: clamp(6px, 2.1cqw, 22px);
   display: grid;
   grid-template-rows: 1fr 1fr;
-  row-gap: clamp(6px, 0.7vw, 10px);
+  row-gap: clamp(3px, 1.05cqw, 10px);
   min-width: 0;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
 }
@@ -748,15 +756,15 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(8px, 1vw, 14px);
+  gap: clamp(4px, 1.5cqw, 14px);
   min-width: 0;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-row-logo {
-  width: clamp(34px, 2.8vw, 48px);
-  height: clamp(34px, 2.8vw, 48px);
+  width: clamp(17px, 4.2cqw, 48px);
+  height: clamp(17px, 4.2cqw, 48px);
   border-radius: 10px;
   display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(13px, 1.1vw, 17px);
+  font-weight: 800; font-size: clamp(6px, 1.65cqw, 17px);
   color: #fff;
   border: 2px solid rgba(255, 255, 255, 0.35);
   overflow: hidden;
@@ -775,7 +783,7 @@ body.set-summary-mode #player-stats-container {
   width: 100%; height: 100%; object-fit: cover;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-row-score {
-  font: 900 clamp(22px, 2vw, 30px)/1 -apple-system, sans-serif;
+  font: 900 clamp(11px, 3cqw, 30px)/1 -apple-system, sans-serif;
   color: #fff;
   letter-spacing: -0.02em;
   min-width: 2em;
@@ -787,14 +795,14 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  gap: clamp(2px, 0.25vw, 4px);
+  gap: clamp(1px, 0.375cqw, 4px);
   min-width: 0;
   align-items: stretch;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip {
   display: flex; align-items: center; justify-content: center;
   border-radius: 4px;
-  font: 700 clamp(10px, 0.85vw, 13px)/1 'Menlo', 'Consolas', monospace;
+  font: 700 clamp(5px, 1.275cqw, 13px)/1 'Menlo', 'Consolas', monospace;
   color: #fff;
   padding: 2px 2px;
   min-width: 0;
@@ -841,14 +849,14 @@ body.set-summary-mode #player-stats-container {
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="glass"] {
-  padding: clamp(22px, 2.4vw, 36px) clamp(28px, 3.2vw, 48px);
+  padding: clamp(11px, 3.6cqw, 36px) clamp(14px, 4.8cqw, 48px);
   grid-template-columns: 1fr 1fr;
   /* Two rows now: header + body. The stats no longer have their
      own footer row — they live inside the score tile below the
      team rows so the user can scan ``teams + their stats`` in a
      single column. */
   grid-template-rows: auto 1fr;
-  gap: clamp(10px, 1.2vw, 18px);
+  gap: clamp(5px, 1.8cqw, 18px);
   position: relative; overflow: hidden;
 }
 .ss-stage[data-style="glass"] .ss-blob {
@@ -891,7 +899,7 @@ body.set-summary-mode #player-stats-container {
   grid-column: 1 / -1;
   padding: 14px 24px;
   display: flex; align-items: center; justify-content: space-between;
-  gap: clamp(14px, 1.8vw, 26px);
+  gap: clamp(7px, 2.7cqw, 26px);
 }
 /* Match score is now a first-class element in the glass header
    instead of being buried inside a small grey meta line. */
@@ -903,12 +911,12 @@ body.set-summary-mode #player-stats-container {
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 .ss-stage[data-style="glass"] .ss-match-score-label {
-  font: 700 clamp(10px, 0.85vw, 12px)/1 -apple-system, sans-serif;
+  font: 700 clamp(5px, 1.275cqw, 12px)/1 -apple-system, sans-serif;
   letter-spacing: 0.22em; text-transform: uppercase;
   color: rgba(255,255,255,0.65);
 }
 .ss-stage[data-style="glass"] .ss-match-score-value {
-  font: 900 clamp(20px, 1.9vw, 26px)/1 -apple-system, sans-serif;
+  font: 900 clamp(10px, 2.85cqw, 26px)/1 -apple-system, sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
 }
@@ -920,7 +928,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="glass"] .ss-header .ss-title {
   display: flex; align-items: center; gap: 16px;
-  font: 700 clamp(14px, 1.15vw, 18px)/1 -apple-system, sans-serif;
+  font: 700 clamp(7px, 1.725cqw, 18px)/1 -apple-system, sans-serif;
   letter-spacing: 0.2em; text-transform: uppercase;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -930,17 +938,17 @@ body.set-summary-mode #player-stats-container {
   border: 1px solid rgba(91, 219, 124, 0.5);
   color: #5bdb7c;
   border-radius: 999px;
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(5px, 1.275cqw, 13px);
   letter-spacing: 0.22em;
 }
 .ss-stage[data-style="glass"] .ss-meta {
   display: flex; gap: 24px;
-  font: 600 clamp(12px, 1vw, 14px)/1 'Menlo', 'Consolas', monospace;
+  font: 600 clamp(6px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
   color: rgba(255,255,255,0.65); letter-spacing: 0.04em;
 }
 .ss-stage[data-style="glass"] .ss-meta strong { color: #fff; }
 .ss-stage[data-style="glass"] .ss-score-tile {
-  padding: clamp(22px, 2.4vw, 32px) clamp(26px, 3vw, 40px);
+  padding: clamp(11px, 3.6cqw, 32px) clamp(13px, 4.5cqw, 40px);
   display: flex; flex-direction: column;
   justify-content: space-between; gap: 16px;
 }
@@ -957,23 +965,23 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="glass"] .ss-team-row:last-child { border-bottom: none; }
 .ss-stage[data-style="glass"] .ss-team-row .ss-logo {
-  width: clamp(40px, 3.2vw, 56px); height: clamp(40px, 3.2vw, 56px);
+  width: clamp(20px, 4.8cqw, 56px); height: clamp(20px, 4.8cqw, 56px);
   border-radius: 14px;
   display: grid; place-items: center;
   background: rgba(255,255,255,0.12);
   border: 1px solid rgba(255,255,255,0.25);
-  font: 800 clamp(16px, 1.4vw, 22px)/1 -apple-system, sans-serif;
+  font: 800 clamp(8px, 2.1cqw, 22px)/1 -apple-system, sans-serif;
   overflow: hidden;
 }
 .ss-stage[data-style="glass"] .ss-team-row .ss-logo img { width: 100%; height: 100%; object-fit: cover; }
 .ss-stage[data-style="glass"] .ss-team-row .ss-name {
-  font: 700 clamp(20px, 1.7vw, 26px)/1.1 -apple-system, sans-serif;
+  font: 700 clamp(10px, 2.55cqw, 26px)/1.1 -apple-system, sans-serif;
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="glass"] .ss-team-row .ss-name .ss-tag {
   display: block;
-  font: 600 clamp(9px, 0.75vw, 11px)/1 -apple-system, sans-serif;
+  font: 600 clamp(4px, 1.125cqw, 11px)/1 -apple-system, sans-serif;
   color: rgba(255,255,255,0.6);
   letter-spacing: 0.22em; text-transform: uppercase;
   margin-top: 4px;
@@ -981,14 +989,14 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="glass"] .ss-team-row.home .ss-name strong { color: var(--ss-home, #ff4d6d); font-weight: 800; }
 .ss-stage[data-style="glass"] .ss-team-row.away .ss-name strong { color: var(--ss-away, #ffc857); font-weight: 800; }
 .ss-stage[data-style="glass"] .ss-team-row .ss-pts {
-  font: 900 clamp(60px, 6vw, 100px)/0.85 -apple-system, sans-serif;
+  font: 900 clamp(30px, 9cqw, 100px)/0.85 -apple-system, sans-serif;
   letter-spacing: -0.05em;
   text-shadow: 0 4px 18px rgba(0,0,0,0.4);
 }
 .ss-stage[data-style="glass"] .ss-team-row.home .ss-pts { color: var(--ss-home, #ff4d6d); }
 .ss-stage[data-style="glass"] .ss-team-row.away .ss-pts { color: var(--ss-away, #ffc857); }
 .ss-stage[data-style="glass"] .ss-chart-tile {
-  padding: clamp(18px, 1.8vw, 24px) clamp(20px, 2vw, 28px);
+  padding: clamp(9px, 2.7cqw, 24px) clamp(10px, 3cqw, 28px);
   display: flex; flex-direction: column; gap: 14px;
   /* Without ``min-height: 0`` a flex column refuses to shrink below
      its content's intrinsic size, so on smaller viewports the
@@ -1003,12 +1011,12 @@ body.set-summary-mode #player-stats-container {
   flex: 0 0 auto;
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-label {
-  font: 700 clamp(11px, 0.9vw, 12px)/1 -apple-system, sans-serif;
+  font: 700 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
   letter-spacing: 0.22em; text-transform: uppercase;
   color: rgba(255,255,255,0.55);
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-duration {
-  font: 800 clamp(22px, 2.2vw, 28px)/1 -apple-system, sans-serif;
+  font: 800 clamp(11px, 3.3cqw, 28px)/1 -apple-system, sans-serif;
   color: #5bdb7c; letter-spacing: -0.02em;
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-chart-box {
@@ -1035,24 +1043,24 @@ body.set-summary-mode #player-stats-container {
    in one place. Uniform white values with no <small> suffix so all
    four rows render at the exact same font size. */
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block {
-  margin-top: clamp(8px, 1vw, 14px);
-  padding-top: clamp(8px, 1vw, 14px);
+  margin-top: clamp(4px, 1.5cqw, 14px);
+  padding-top: clamp(4px, 1.5cqw, 14px);
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: clamp(6px, 0.8vw, 10px) clamp(10px, 1.2vw, 18px);
+  gap: clamp(3px, 1.2cqw, 10px) clamp(5px, 1.8cqw, 18px);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row {
   display: flex; flex-direction: column; gap: 4px;
   padding: 4px 0;
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-label {
-  font: 700 clamp(10px, 0.8vw, 12px)/1 -apple-system, sans-serif;
+  font: 700 clamp(5px, 1.2cqw, 12px)/1 -apple-system, sans-serif;
   letter-spacing: 0.18em; text-transform: uppercase;
   color: rgba(255,255,255,0.65);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value {
-  font: 800 clamp(22px, 2vw, 30px)/1 -apple-system, sans-serif;
+  font: 800 clamp(11px, 3cqw, 30px)/1 -apple-system, sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
 }
@@ -1076,7 +1084,7 @@ body.set-summary-mode #player-stats-container {
     rgba(10, 13, 18, 0.62);
   backdrop-filter: blur(14px) saturate(135%);
   -webkit-backdrop-filter: blur(14px) saturate(135%);
-  padding: clamp(22px, 2.4vw, 36px) clamp(34px, 3.6vw, 56px) 0;
+  padding: clamp(11px, 3.6cqw, 36px) clamp(17px, 5.4cqw, 56px) 0;
   grid-template-rows: auto 1fr auto;
   row-gap: 16px;
 }
@@ -1090,12 +1098,12 @@ body.set-summary-mode #player-stats-container {
   background: rgba(255, 214, 74, 0.14);
   border: 1px solid rgba(255, 214, 74, 0.45);
   color: #ffd64a;
-  font: 800 clamp(11px, 0.9vw, 12px)/1 -apple-system, sans-serif;
+  font: 800 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
   letter-spacing: 0.24em; text-transform: uppercase;
 }
 .ss-stage[data-style="podium"] .ss-meta {
   display: flex; gap: 28px;
-  font: 700 clamp(12px, 1vw, 14px)/1 'Menlo', 'Consolas', monospace;
+  font: 700 clamp(6px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
   color: rgba(255,255,255,0.55); letter-spacing: 0.08em;
 }
 .ss-stage[data-style="podium"] .ss-meta strong { color: #fff; }
@@ -1103,13 +1111,13 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: end;
-  gap: clamp(30px, 4.4vw, 60px);
-  padding: 0 clamp(20px, 2.8vw, 40px);
+  gap: clamp(15px, 6.6cqw, 60px);
+  padding: 0 clamp(10px, 4.2cqw, 40px);
 }
 .ss-stage[data-style="podium"] .ss-pillar {
   border-top-left-radius: 14px;
   border-top-right-radius: 14px;
-  padding: clamp(18px, 2vw, 28px) clamp(20px, 2.4vw, 32px) clamp(16px, 1.8vw, 22px);
+  padding: clamp(9px, 3cqw, 28px) clamp(10px, 3.6cqw, 32px) clamp(8px, 2.7cqw, 22px);
   display: flex; flex-direction: column;
   align-items: center;
   text-align: center;
@@ -1140,20 +1148,20 @@ body.set-summary-mode #player-stats-container {
   height: 56%;
 }
 .ss-stage[data-style="podium"] .ss-pillar .ss-team-name {
-  font: 800 clamp(22px, 2.2vw, 32px)/1.05 -apple-system, sans-serif;
+  font: 800 clamp(11px, 3.3cqw, 32px)/1.05 -apple-system, sans-serif;
   letter-spacing: -0.01em;
   margin-bottom: 14px;
   overflow-wrap: anywhere;
 }
 .ss-stage[data-style="podium"] .ss-pillar .ss-score {
-  font: 900 clamp(70px, 7.2vw, 130px)/0.85 'Menlo', 'Consolas', monospace;
+  font: 900 clamp(35px, 10.8cqw, 130px)/0.85 'Menlo', 'Consolas', monospace;
   letter-spacing: -0.05em;
   text-shadow: 0 6px 20px rgba(0,0,0,0.4);
   margin: auto 0;
 }
-.ss-stage[data-style="podium"] .ss-pillar.runner-up .ss-score { font-size: clamp(52px, 5.4vw, 96px); }
+.ss-stage[data-style="podium"] .ss-pillar.runner-up .ss-score { font-size: clamp(26px, 8.1cqw, 96px); }
 .ss-stage[data-style="podium"] .ss-pillar .ss-pillar-stat {
-  font: 600 clamp(11px, 0.95vw, 14px)/1.3 -apple-system, sans-serif;
+  font: 600 clamp(5px, 1.425cqw, 14px)/1.3 -apple-system, sans-serif;
   color: rgba(255,255,255,0.85);
   text-align: center;
   margin-top: auto;
@@ -1163,32 +1171,32 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="podium"] .ss-pillar .ss-pillar-stat strong {
   font-weight: 800;
   font-family: 'Menlo', monospace;
-  font-size: clamp(14px, 1.2vw, 18px);
+  font-size: clamp(7px, 1.8cqw, 18px);
   display: block;
   margin-bottom: 2px;
 }
 .ss-stage[data-style="podium"] .ss-floor {
   background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
   border-top: 1px solid rgba(255,255,255,0.08);
-  padding: 18px clamp(20px, 2.4vw, 36px) clamp(16px, 1.8vw, 24px);
-  margin: 0 calc(-1 * clamp(34px, 3.6vw, 56px));
+  padding: 18px clamp(10px, 3.6cqw, 36px) clamp(8px, 2.7cqw, 24px);
+  margin: 0 calc(-1 * clamp(17px, 5.4cqw, 56px));
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 24px;
 }
 .ss-stage[data-style="podium"] .ss-floor .ss-floor-label {
-  font: 700 clamp(10px, 0.9vw, 12px)/1 -apple-system, sans-serif;
+  font: 700 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
   color: rgba(255,255,255,0.55);
   letter-spacing: 0.22em; text-transform: uppercase;
   white-space: nowrap;
 }
-.ss-stage[data-style="podium"] .ss-floor .ss-chart { height: clamp(48px, 6vw, 80px); }
+.ss-stage[data-style="podium"] .ss-floor .ss-chart { height: clamp(24px, 9cqw, 80px); }
 .ss-stage[data-style="podium"] .ss-floor .ss-chart svg { width: 100%; height: 100%; display: block; }
 .ss-stage[data-style="podium"] .ss-floor .ss-line-home,
 .ss-stage[data-style="podium"] .ss-floor .ss-line-away { stroke-width: 2.5; }
 .ss-stage[data-style="podium"] .ss-floor .ss-duration {
-  font: 700 clamp(18px, 1.7vw, 24px)/1 'Menlo', 'Consolas', monospace;
+  font: 700 clamp(9px, 2.55cqw, 24px)/1 'Menlo', 'Consolas', monospace;
   color: #ffd64a; letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -1213,7 +1221,7 @@ body.set-summary-mode #player-stats-container {
   box-shadow: none;
   border-radius: 0;
   grid-template-rows: 1fr auto;
-  row-gap: clamp(12px, 1.4vw, 22px);
+  row-gap: clamp(6px, 2.1cqw, 22px);
   padding: 0;
   overflow: visible;
   font-family: 'Helvetica Neue', -apple-system, Arial, sans-serif;
@@ -1232,7 +1240,7 @@ body.set-summary-mode #player-stats-container {
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: clamp(18px, 2vw, 28px);
+  border-radius: clamp(9px, 3cqw, 28px);
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
@@ -1243,7 +1251,7 @@ body.set-summary-mode #player-stats-container {
 
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-ribbon {
   display: flex; align-items: center; justify-content: space-between;
-  padding: clamp(12px, 1.4vw, 20px) clamp(20px, 2.6vw, 36px);
+  padding: clamp(6px, 2.1cqw, 20px) clamp(10px, 3.9cqw, 36px);
   background: rgba(0, 0, 0, 0.28);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -1252,12 +1260,12 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bumper"] .ss-set-badge .ss-tagline {
   color: rgba(255, 255, 255, 0.55);
-  font: 700 clamp(11px, 1vw, 14px)/1 'Helvetica Neue', sans-serif;
+  font: 700 clamp(5px, 1.5cqw, 14px)/1 'Helvetica Neue', sans-serif;
   letter-spacing: 0.32em; text-transform: uppercase;
 }
 .ss-stage[data-style="bumper"] .ss-set-badge .ss-num {
   display: inline-flex; align-items: baseline; gap: 6px;
-  font: 900 clamp(32px, 3.4vw, 50px)/1 'Helvetica Neue', sans-serif;
+  font: 900 clamp(16px, 5.1cqw, 50px)/1 'Helvetica Neue', sans-serif;
   letter-spacing: -0.02em;
   color: #ffd64a;
   text-shadow: 0 0 14px rgba(255, 214, 74, 0.45);
@@ -1270,7 +1278,7 @@ body.set-summary-mode #player-stats-container {
   text-transform: uppercase;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-duration {
-  font: 800 clamp(20px, 2vw, 30px)/1 'Menlo', 'Consolas', monospace;
+  font: 800 clamp(10px, 3cqw, 30px)/1 'Menlo', 'Consolas', monospace;
   color: #ffd64a;
   letter-spacing: 0.04em;
   display: inline-flex; align-items: baseline; gap: 8px;
@@ -1289,13 +1297,13 @@ body.set-summary-mode #player-stats-container {
      the visual real estate is actually used. */
   grid-template-columns: 1fr minmax(180px, 0.85fr) 1fr;
   align-items: center;
-  padding: clamp(16px, 2vw, 28px) clamp(22px, 2.8vw, 44px);
-  gap: clamp(14px, 2vw, 36px);
+  padding: clamp(8px, 3cqw, 28px) clamp(11px, 4.2cqw, 44px);
+  gap: clamp(7px, 3cqw, 36px);
   min-height: 0;
 }
 .ss-stage[data-style="bumper"] .ss-team {
   display: flex; flex-direction: column;
-  gap: clamp(8px, 1vw, 14px);
+  gap: clamp(4px, 1.5cqw, 14px);
   min-width: 0;
 }
 .ss-stage[data-style="bumper"] .ss-team.home { align-items: flex-start; }
@@ -1304,7 +1312,7 @@ body.set-summary-mode #player-stats-container {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 6px 14px;
   border-radius: 4px;
-  font: 800 clamp(10px, 0.9vw, 13px)/1 'Helvetica Neue', sans-serif;
+  font: 800 clamp(5px, 1.35cqw, 13px)/1 'Helvetica Neue', sans-serif;
   letter-spacing: 0.28em; text-transform: uppercase;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -1322,7 +1330,7 @@ body.set-summary-mode #player-stats-container {
     0 10px 24px color-mix(in srgb, var(--ss-away, #ffaa1f) 32%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-team-name {
-  font: 800 clamp(20px, 2vw, 30px)/1.05 'Helvetica Neue', sans-serif;
+  font: 800 clamp(10px, 3cqw, 30px)/1.05 'Helvetica Neue', sans-serif;
   letter-spacing: -0.005em;
   color: #fff;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
@@ -1330,7 +1338,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bumper"] .ss-team.away .ss-team-name { text-align: right; }
 .ss-stage[data-style="bumper"] .ss-team-score {
-  font: 900 clamp(96px, 9.5vw, 180px)/0.82 'Helvetica Neue', sans-serif;
+  font: 900 clamp(48px, 14.25cqw, 180px)/0.82 'Helvetica Neue', sans-serif;
   letter-spacing: -0.06em;
   background: linear-gradient(180deg,
     #ffffff 0%,
@@ -1349,7 +1357,7 @@ body.set-summary-mode #player-stats-container {
   background-clip: text;
 }
 .ss-stage[data-style="bumper"] .ss-sep {
-  font: 900 clamp(34px, 4vw, 64px)/1 'Helvetica Neue', sans-serif;
+  font: 900 clamp(17px, 6cqw, 64px)/1 'Helvetica Neue', sans-serif;
   color: rgba(255, 255, 255, 0.18);
   letter-spacing: -0.04em;
   align-self: center;
@@ -1364,7 +1372,7 @@ body.set-summary-mode #player-stats-container {
   align-self: stretch;
   display: grid;
   grid-template-rows: repeat(4, 1fr);
-  padding: clamp(10px, 1.2vw, 18px) clamp(12px, 1.4vw, 20px);
+  padding: clamp(5px, 1.8cqw, 18px) clamp(6px, 2.1cqw, 20px);
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -1380,12 +1388,12 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row:last-child { border-bottom: none; }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-label {
-  font: 700 clamp(9px, 0.75vw, 11px)/1 'Helvetica Neue', sans-serif;
+  font: 700 clamp(4px, 1.125cqw, 11px)/1 'Helvetica Neue', sans-serif;
   color: rgba(255, 255, 255, 0.55);
   letter-spacing: 0.22em; text-transform: uppercase;
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value {
-  font: 900 clamp(18px, 1.7vw, 24px)/1 'Helvetica Neue', sans-serif;
+  font: 900 clamp(9px, 2.55cqw, 24px)/1 'Helvetica Neue', sans-serif;
   letter-spacing: -0.02em;
   color: #fff;
 }
@@ -1405,11 +1413,11 @@ body.set-summary-mode #player-stats-container {
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: clamp(10px, 1vw, 16px);
-  padding: clamp(10px, 1vw, 16px) clamp(14px, 1.4vw, 22px);
+  border-radius: clamp(5px, 1.5cqw, 16px);
+  padding: clamp(5px, 1.5cqw, 16px) clamp(7px, 2.1cqw, 22px);
   display: grid;
   grid-template-rows: 1fr 1fr;
-  row-gap: clamp(6px, 0.7vw, 10px);
+  row-gap: clamp(3px, 1.05cqw, 10px);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   min-width: 0;
 }
@@ -1417,15 +1425,15 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(8px, 1vw, 14px);
+  gap: clamp(4px, 1.5cqw, 14px);
   min-width: 0;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-logo {
-  width: clamp(34px, 2.8vw, 48px);
-  height: clamp(34px, 2.8vw, 48px);
+  width: clamp(17px, 4.2cqw, 48px);
+  height: clamp(17px, 4.2cqw, 48px);
   border-radius: 10px;
   display: grid; place-items: center;
-  font-weight: 800; font-size: clamp(13px, 1.1vw, 17px);
+  font-weight: 800; font-size: clamp(6px, 1.65cqw, 17px);
   color: #fff;
   border: 2px solid rgba(255, 255, 255, 0.35);
   overflow: hidden;
@@ -1444,7 +1452,7 @@ body.set-summary-mode #player-stats-container {
   width: 100%; height: 100%; object-fit: cover;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-score {
-  font: 900 clamp(22px, 2vw, 30px)/1 'Helvetica Neue', sans-serif;
+  font: 900 clamp(11px, 3cqw, 30px)/1 'Helvetica Neue', sans-serif;
   color: #fff;
   letter-spacing: -0.02em;
   /* min-width big enough for two/three digits so the score never
@@ -1458,14 +1466,14 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  gap: clamp(2px, 0.25vw, 4px);
+  gap: clamp(1px, 0.375cqw, 4px);
   min-width: 0;
   align-items: stretch;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip {
   display: flex; align-items: center; justify-content: center;
   border-radius: 4px;
-  font: 700 clamp(10px, 0.85vw, 13px)/1 'Menlo', 'Consolas', monospace;
+  font: 700 clamp(5px, 1.275cqw, 13px)/1 'Menlo', 'Consolas', monospace;
   letter-spacing: 0.02em;
   color: #fff;
   padding: 2px 2px;
