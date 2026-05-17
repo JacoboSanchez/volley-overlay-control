@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.4.0] - 2026-05-17
+
 ### Added
 
 - **Set summary overlay (opt-in).** New operator-toggled overlay that
