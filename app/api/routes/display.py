@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_session, verify_api_key
 from app.api.game_service import GameService
-from app.api.schemas import ActionResponse, SimpleModeRequest, VisibilityRequest
+from app.api.schemas import (
+    ActionResponse,
+    SetSummaryRequest,
+    SetSummaryStyleRequest,
+    SimpleModeRequest,
+    VisibilityRequest,
+)
 from app.api.session_manager import GameSession
 
 logger = logging.getLogger(__name__)
@@ -21,7 +27,7 @@ router = APIRouter()
 async def set_visibility(req: VisibilityRequest,
                          session: GameSession = Depends(get_session)):
     async with session.lock:
-        logger.info("Overlay visibility set to %s", req.visible)
+        logger.debug("Overlay visibility set to %s", req.visible)
         return GameService.set_visibility(session, req.visible)
 
 
@@ -33,5 +39,31 @@ async def set_visibility(req: VisibilityRequest,
 async def set_simple_mode(req: SimpleModeRequest,
                           session: GameSession = Depends(get_session)):
     async with session.lock:
-        logger.info("Simple mode set to %s", req.enabled)
+        logger.debug("Simple mode set to %s", req.enabled)
         return GameService.set_simple_mode(session, req.enabled)
+
+
+@router.post(
+    "/display/set-summary",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def set_set_summary(req: SetSummaryRequest,
+                          session: GameSession = Depends(get_session)):
+    """Toggle the set-summary overlay panel on/off."""
+    async with session.lock:
+        logger.debug("Set summary mode set to %s", req.enabled)
+        return GameService.set_set_summary_mode(session, req.enabled)
+
+
+@router.post(
+    "/display/set-summary-style",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def set_set_summary_style(req: SetSummaryStyleRequest,
+                                session: GameSession = Depends(get_session)):
+    """Pick the visual variant for the set-summary overlay."""
+    async with session.lock:
+        logger.debug("Set summary style set to %s", req.style)
+        return GameService.set_set_summary_style(session, req.style)

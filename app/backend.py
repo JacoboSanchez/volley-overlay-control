@@ -242,6 +242,8 @@ class Backend:
         match_finished_flag = False
         match_started_at: float | None = None
         match_finished_at: float | None = None
+        set_summary_flag = False
+        set_summary_style = "brand_ledger"
         getter = self._rule_overrides_getter
         if callable(getter):
             try:
@@ -265,6 +267,10 @@ class Backend:
             raw_finished = overrides.get("match_finished_at")
             if isinstance(raw_finished, (int, float)):
                 match_finished_at = float(raw_finished)
+            set_summary_flag = bool(overrides.get("set_summary", False))
+            raw_style = overrides.get("set_summary_style")
+            if isinstance(raw_style, str) and raw_style:
+                set_summary_style = raw_style
 
         payload = {
             "match_info": {
@@ -289,10 +295,27 @@ class Backend:
                 # timer at the actual end-of-match value instead of
                 # ticking forward indefinitely after match end.
                 "match_finished_at": match_finished_at,
+                # Server wall-clock at the moment this payload was
+                # composed. Clients use the delta between
+                # ``server_time`` and their own ``Date.now()`` on
+                # arrival to derive a clock-skew offset, then apply
+                # the offset to every live-tick computation (set
+                # duration, match elapsed, stale-set check) — so
+                # the displayed durations track the server even
+                # when the client's system clock is wrong.
+                "server_time": time.time(),
                 # Mirror of ``match_finished_flag`` so the spectator
                 # can render a "match finished" indicator without
                 # having to re-derive it from the per-team set counts.
                 "match_finished": match_finished_flag,
+                # Set summary overlay (operator-toggled panel that
+                # replaces the scoreboard between sets). ``show_set_summary``
+                # is the on/off flag; ``set_summary_style`` is the
+                # visual variant ('brand_ledger', 'bento', …). The
+                # actual set number is resolved further down once the
+                # live stats are available.
+                "show_set_summary": set_summary_flag,
+                "set_summary_style": set_summary_style,
             },
             "team_home": {
                 "name": cust.get_team_name(1),
@@ -454,6 +477,19 @@ class Backend:
                     str(team): counts
                     for team, counts in stats["services"].items()
                 },
+                # Per-set variants of streak + services so the set-
+                # summary recap can show stats scoped to the displayed
+                # set instead of match-wide totals.
+                "longest_streak_by_set": {
+                    str(set_num): {str(t): v for t, v in by_team.items()}
+                    for set_num, by_team in stats["longest_streak_by_set"].items()
+                },
+                "services_by_set": {
+                    str(set_num): {
+                        str(t): counts for t, counts in by_team.items()
+                    }
+                    for set_num, by_team in stats["services_by_set"].items()
+                },
             }
             payload["overlay_control"]["points_history"] = stats[
                 "points_history"
@@ -479,6 +515,20 @@ class Backend:
             payload["match_info"][
                 "show_only_current_set"
             ] = show_only_current_set
+
+        # Resolve summary_set_num — current_set when it has any
+        # recorded points, else the previous set so the recap panel
+        # has something to show right after a set transition. The
+        # rule lives in :func:`live_stats.resolve_summary_set_num`
+        # so :class:`GameService` and this broadcaster can't drift.
+        try:
+            from app.api.live_stats import resolve_summary_set_num
+            payload["match_info"]["summary_set_num"] = resolve_summary_set_num(
+                payload["overlay_control"].get("points_by_set"),
+                current_set,
+            )
+        except Exception:  # pragma: no cover - defensive
+            payload["match_info"]["summary_set_num"] = max(int(current_set) - 1, 1)
 
         if force_visibility is not None:
             payload["overlay_control"][
@@ -545,7 +595,7 @@ class Backend:
             self._overlay.on_customization_saved(get_model, to_save)
 
     def change_overlay_visibility(self, show):
-        Backend.logger.info('changing overlay visibility, show: %s', show)
+        Backend.logger.debug('changing overlay visibility, show: %s', show)
         self._ensure_overlay_backend()
         self._overlay.change_visibility_with_fallback(
             show, lambda: self.get_current_model(self.conf.oid),
@@ -611,7 +661,9 @@ class Backend:
         if response.status_code >= 400:
             logging.warning("response %s: '%s'", response.status_code, response.text)
         else:
-            logging.info("response status: %s", response.status_code)
+            # Routine 2xx broadcasts — DEBUG so the steady-state push
+            # stream doesn't drown INFO. Errors above stay at WARNING.
+            logging.debug("response status: %s", response.status_code)
             logging.debug("response message: '%s'", response.text)
         return response
 

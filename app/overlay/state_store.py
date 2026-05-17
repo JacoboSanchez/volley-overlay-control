@@ -57,6 +57,8 @@ _REPLACE_SUBTREES: tuple[tuple[str, ...], ...] = (
     ("overlay_control", "timeouts_by_set"),
     ("overlay_control", "stats", "set_durations"),
     ("overlay_control", "stats", "services"),
+    ("overlay_control", "stats", "services_by_set"),
+    ("overlay_control", "stats", "longest_streak_by_set"),
     ("overlay_control", "stats", "points_history"),
 )
 

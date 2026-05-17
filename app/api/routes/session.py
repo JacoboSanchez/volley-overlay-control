@@ -52,7 +52,7 @@ async def init_session(req: InitRequest, request: Request):
             # Refresh customization from the overlay server so the React UI
             # always sees the latest team names, colors, logos, etc.
             await run_in_threadpool(GameService.refresh_customization, session)
-            logger.info("Session reused for oid=%s", redact_oid(req.oid))
+            logger.debug("Session reused for oid=%s", redact_oid(req.oid))
             return ActionResponse(success=True, state=GameService.get_state(session))
 
         # New session: create Backend and validate OID

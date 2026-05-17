@@ -60,8 +60,14 @@ except ImportError:  # pragma: no cover — handled at runtime
 
         Mimics the chainable ``labels(...)`` API so call sites can
         unconditionally do ``METRIC.labels(foo='bar').inc()`` regardless
-        of whether the library is present.
+        of whether the library is present. Swallows the construction
+        signature (``name``, ``documentation``, ``labelnames=…``,
+        ``buckets=…``) so module-level definitions don't blow up when
+        ``prometheus_client`` is missing.
         """
+
+        def __init__(self, *_args, **_kwargs):
+            pass
 
         def labels(self, **_kwargs):
             return self

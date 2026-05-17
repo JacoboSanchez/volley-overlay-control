@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Set summary — Jumbotron LED</title>
+<style>
+  :root {
+    --bg: #000;
+    --led-on: #ffd64a;
+    --led-dim: rgba(255, 214, 74, 0.18);
+    --home: #ff4a5e;
+    --home-dim: rgba(255, 74, 94, 0.18);
+    --away: #4ad8ff;
+    --away-dim: rgba(74, 216, 255, 0.18);
+    --accent: #2ecc71;
+    --muted: rgba(255,255,255,0.4);
+    --text: #f0f6ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background:
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="30" r="14" fill="%23ffffff" opacity="0.12"/><circle cx="70" cy="20" r="9" fill="%23ffffff" opacity="0.08"/><circle cx="60" cy="80" r="20" fill="%23ffffff" opacity="0.06"/></svg>'),
+      linear-gradient(135deg, #2e7d32 0%, #1b5e20 35%, #f57c00 70%, #e65100 100%);
+    background-blend-mode: overlay, normal;
+    color: var(--text);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    display: grid; place-items: center;
+  }
+  .preview-label {
+    position: fixed; top: 12px; left: 12px;
+    font: 12px/1 'Menlo', 'Consolas', monospace;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    letter-spacing: 0.04em;
+    z-index: 10;
+  }
+  .overlay {
+    width: 1280px; height: 720px;
+    /* transparent over the stream — no TV frame */
+    position: relative;
+    overflow: hidden;
+  }
+  /* LED dot pattern — applied only to individual panels, removed here */
+  .led-mask { display: none; }
+  /* scanlines on the team-side and chart panels only, very subtle */
+  .scanlines {
+    position: absolute; inset: 36px 56px 24px;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.025) 0 1px,
+      transparent 1px 3px);
+    pointer-events: none;
+    z-index: 6;
+    opacity: 0.5;
+    border-radius: 8px;
+  }
+  .content {
+    position: relative;
+    height: 100%;
+    padding: 36px 56px 24px;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    row-gap: 18px;
+  }
+  /* ── Header ───────────────────────────────────────── */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    border-bottom: 2px dashed rgba(255, 214, 74, 0.35);
+    padding-bottom: 14px;
+  }
+  .header .corner-left, .header .corner-right {
+    font: 800 18px/1 'Helvetica Neue', sans-serif;
+    color: var(--led-on);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    text-shadow: 0 0 14px rgba(255, 214, 74, 0.6);
+  }
+  .header .corner-right { text-align: right; }
+  .header .title {
+    font: 900 26px/1 'Helvetica Neue', sans-serif;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: #fff;
+    padding: 4px 24px;
+    background: var(--led-on);
+    color: #1a1a1a;
+    border-radius: 4px;
+  }
+  /* ── Scoreboard ───────────────────────────────────── */
+  .scoreboard {
+    display: grid;
+    grid-template-columns: 1fr 200px 1fr;
+    align-items: center;
+    gap: 16px;
+  }
+  .team-side {
+    text-align: center;
+    padding: 18px;
+    border: 2px solid;
+    border-radius: 6px;
+    background: rgba(10, 13, 18, 0.55);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+  .team-side.home {
+    border-color: rgba(255, 74, 94, 0.55);
+    box-shadow: inset 0 0 24px rgba(255, 74, 94, 0.18),
+                0 0 18px rgba(255, 74, 94, 0.25);
+  }
+  .team-side.away {
+    border-color: rgba(74, 216, 255, 0.55);
+    box-shadow: inset 0 0 24px rgba(74, 216, 255, 0.18),
+                0 0 18px rgba(74, 216, 255, 0.25);
+  }
+  .team-side .team-name {
+    font: 900 22px/1 'Helvetica Neue', sans-serif;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .team-side.home .team-name { color: var(--home); text-shadow: 0 0 14px rgba(255,74,94,0.55); }
+  .team-side.away .team-name { color: var(--away); text-shadow: 0 0 14px rgba(74,216,255,0.55); }
+  .team-side .team-score {
+    font: 900 220px/0.82 'Helvetica Neue', sans-serif;
+    letter-spacing: -0.05em;
+  }
+  .team-side.home .team-score { color: var(--home); text-shadow: 0 0 22px rgba(255,74,94,0.5); }
+  .team-side.away .team-score { color: var(--away); text-shadow: 0 0 22px rgba(74,216,255,0.5); }
+  .centre-display {
+    text-align: center;
+    border: 2px solid rgba(255, 214, 74, 0.55);
+    border-radius: 6px;
+    padding: 16px 10px;
+    background: rgba(10, 13, 18, 0.55);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 0 18px rgba(255, 214, 74, 0.18);
+    display: flex; flex-direction: column;
+    gap: 6px;
+    justify-content: center;
+  }
+  .centre-display .label {
+    font: 900 12px/1 'Helvetica Neue', sans-serif;
+    color: var(--led-on);
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+  .centre-display .set-num {
+    font: 900 80px/0.85 'Helvetica Neue', sans-serif;
+    color: var(--led-on);
+    text-shadow: 0 0 20px rgba(255,214,74,0.65);
+  }
+  .centre-display .duration {
+    font: 700 22px/1 'Menlo', 'Consolas', monospace;
+    color: #fff;
+    letter-spacing: 0.04em;
+  }
+  /* ── Chart ────────────────────────────────────────── */
+  .chart-strip {
+    border: 2px solid rgba(255,255,255,0.16);
+    border-radius: 6px;
+    padding: 12px 18px;
+    background: rgba(10, 13, 18, 0.55);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 18px;
+    align-items: center;
+  }
+  .chart-strip .label {
+    font: 900 12px/1 'Helvetica Neue', sans-serif;
+    color: var(--led-on);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(255,214,74,0.4);
+  }
+  .chart-strip svg {
+    width: 100%;
+    height: 70px;
+  }
+  .grid-tick { stroke: rgba(255,255,255,0.08); stroke-width: 1; }
+  .line-home {
+    stroke: var(--home);
+    stroke-width: 3;
+    fill: none;
+    filter: drop-shadow(0 0 8px rgba(255,74,94,0.55));
+  }
+  .line-away {
+    stroke: var(--away);
+    stroke-width: 3;
+    fill: none;
+    filter: drop-shadow(0 0 8px rgba(74,216,255,0.55));
+  }
+  /* ── Marquee ──────────────────────────────────────── */
+  .marquee {
+    background: var(--led-on);
+    color: #1a1a1a;
+    padding: 8px 18px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    font: 900 13px/1 'Helvetica Neue', sans-serif;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+  .marquee .ticker-item {
+    white-space: nowrap;
+  }
+  .marquee .ticker-item span {
+    color: var(--home);
+    margin-left: 4px;
+  }
+  .marquee .ticker-item.away span { color: #1e6b8a; }
+</style>
+</head>
+<body>
+<div class="preview-label">jumbotron.html · 1280 × 720 · Stadium LED screen</div>
+<div class="overlay">
+  <div class="led-mask"></div>
+  <div class="scanlines"></div>
+  <div class="content">
+    <div class="header">
+      <div class="corner-left">▶ LIVE</div>
+      <div class="title">Set Recap</div>
+      <div class="corner-right">4:32</div>
+    </div>
+    <div class="scoreboard">
+      <div class="team-side home">
+        <div class="team-name">Wolves</div>
+        <div class="team-score">25</div>
+      </div>
+      <div class="centre-display">
+        <div class="label">Set</div>
+        <div class="set-num">2</div>
+        <div class="duration">final</div>
+      </div>
+      <div class="team-side away">
+        <div class="team-name">Hawks</div>
+        <div class="team-score">22</div>
+      </div>
+    </div>
+    <div class="chart-strip">
+      <div class="label">▶ Progression</div>
+      <svg viewBox="0 0 900 70" preserveAspectRatio="none">
+        <line class="grid-tick" x1="0" y1="68" x2="900" y2="68" />
+        <line class="grid-tick" x1="0" y1="35" x2="900" y2="35" />
+        <line class="grid-tick" x1="0" y1="2"  x2="900" y2="2"  />
+        <polyline class="line-home" points="
+          18,65 38,65 57,62 76,59 96,59 115,56 134,56 153,56 172,52 192,49 211,49 230,49
+          249,46 268,46 287,42 307,42 326,39 345,39 364,36 384,36 403,32 422,32 441,29 460,29
+          479,25 498,22 517,18 537,15 556,11 575,8
+          594,8 613,8 632,8 652,5 671,5 690,2 709,2 728,2 747,2 766,2 785,2 800,2 820,2 840,2 860,2 880,2 900,2
+        "/>
+        <polyline class="line-away" points="
+          18,68 38,65 57,65 76,65 96,62 115,62 134,59 153,56 172,56 192,56 211,52 230,49
+          249,49 268,46 287,46 307,42 326,42 345,39 364,39 384,36 403,36 422,32 441,32 460,29
+          479,29 498,29 517,29 537,29 556,29 575,29
+          594,25 613,22 632,18 652,18 671,15 690,15 709,11 728,11 747,8 766,8 785,5 800,5 820,5 840,5 860,5 880,5 900,5
+        "/>
+      </svg>
+    </div>
+    <div class="marquee">
+      <span class="ticker-item">🔥 6-Run by <span>Wolves</span></span>
+      <span class="ticker-item away">⏱ Timeout × 2 by <span>Hawks</span></span>
+      <span class="ticker-item">🎯 Set Point @ 24-22</span>
+      <span class="ticker-item">🏆 Wolves take set 2</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

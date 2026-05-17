@@ -54,7 +54,7 @@ async def get_customization(session: GameSession = Depends(get_session)):
 async def update_customization(data: dict,
                                session: GameSession = Depends(get_session)):
     async with session.lock:
-        logger.info("Customization updated (%d keys)", len(data))
+        logger.debug("Customization updated (%d keys)", len(data))
         return GameService.update_customization(session, data)
 
 

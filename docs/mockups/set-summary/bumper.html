@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Set summary — TV bumper</title>
+<style>
+  :root {
+    --bg: #08090d;
+    --text: #fff;
+    --muted: rgba(255,255,255,0.7);
+    --home: #ff3554;
+    --away: #ffaa1f;
+    --accent: #ffea4a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background:
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="30" r="14" fill="%23ffffff" opacity="0.12"/><circle cx="70" cy="20" r="9" fill="%23ffffff" opacity="0.08"/><circle cx="60" cy="80" r="20" fill="%23ffffff" opacity="0.06"/></svg>'),
+      linear-gradient(135deg, #2e7d32 0%, #1b5e20 35%, #f57c00 70%, #e65100 100%);
+    background-blend-mode: overlay, normal;
+    color: var(--text);
+    font-family: 'Helvetica Neue', -apple-system, Arial, sans-serif;
+    display: grid; place-items: center;
+  }
+  .preview-label {
+    position: fixed; top: 12px; left: 12px;
+    font: 12px/1 'Menlo', 'Consolas', monospace;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    letter-spacing: 0.04em;
+    z-index: 10;
+  }
+  .overlay {
+    width: 1280px; height: 720px;
+    /* transparent over the stream */
+    position: relative;
+    overflow: hidden;
+  }
+  /* ── Subtle brand colour accent corners (was: heavy diagonal stripes) ── */
+  .stripes {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(115deg,
+        rgba(255, 53, 84, 0.35) 0%,
+        rgba(255, 53, 84, 0.35) 6%,
+        transparent 8%, transparent 92%,
+        rgba(255, 170, 31, 0.35) 94%,
+        rgba(255, 170, 31, 0.35) 100%);
+    pointer-events: none;
+  }
+  /* ── Centre card ──────────────────────────────────── */
+  .card {
+    position: absolute;
+    inset: 60px 80px;
+    background: rgba(8, 9, 13, 0.55);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 2px solid rgba(255, 234, 74, 0.6);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6),
+                0 0 0 1px rgba(255,234,74,0.15);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 28px 48px 32px;
+  }
+  /* corner clips */
+  .card::before, .card::after {
+    content: '';
+    position: absolute;
+    width: 36px; height: 36px;
+    border: 3px solid var(--accent);
+  }
+  .card::before {
+    top: -2px; left: -2px;
+    border-right: none; border-bottom: none;
+  }
+  .card::after {
+    bottom: -2px; right: -2px;
+    border-left: none; border-top: none;
+  }
+  /* Header */
+  .recap-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+  .recap-header .tag {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 8px 16px;
+    background: var(--accent);
+    color: #08090d;
+    font: 900 14px/1 'Helvetica Neue', sans-serif;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    border-radius: 4px;
+  }
+  .recap-header .tag .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #08090d;
+  }
+  .recap-header .episode {
+    font: 700 14px/1 'Menlo', monospace;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  /* Hero */
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 12px 0;
+    gap: 32px;
+  }
+  .team {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .team.home { align-items: flex-start; }
+  .team.away { align-items: flex-end; text-align: right; }
+  .team-name {
+    font: 900 28px/1.05 'Helvetica Neue', sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .team.home .team-name { color: var(--home); }
+  .team.away .team-name { color: var(--away); }
+  .team-score {
+    font: 900 240px/0.82 'Helvetica Neue', sans-serif;
+    letter-spacing: -0.06em;
+    color: #fff;
+    text-shadow:
+      4px 4px 0 var(--home),
+      8px 8px 0 rgba(0,0,0,0.4);
+  }
+  .team.away .team-score {
+    text-shadow:
+      4px 4px 0 var(--away),
+      8px 8px 0 rgba(0,0,0,0.4);
+  }
+  .sep {
+    font: 900 100px/1 'Helvetica Neue', sans-serif;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+  }
+  /* Strip footer */
+  .strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 18px;
+  }
+  .strip .cell {
+    padding: 8px 12px;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+  .strip .cell + .cell {
+    border-left: 1px solid rgba(255,255,255,0.12);
+  }
+  .strip .cell .label {
+    font: 700 10px/1 'Helvetica Neue', sans-serif;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .strip .cell .value {
+    font: 900 26px/1 'Menlo', 'Consolas', monospace;
+    letter-spacing: -0.02em;
+  }
+  .strip .cell .value.accent { color: var(--accent); }
+  .strip .cell .value.home { color: var(--home); }
+  .strip .cell .value.away { color: var(--away); }
+</style>
+</head>
+<body>
+<div class="preview-label">bumper.html · 1280 × 720 · TV bumper</div>
+<div class="overlay">
+  <div class="stripes"></div>
+  <div class="card">
+    <div class="recap-header">
+      <span class="tag"><span class="dot"></span>Set recap</span>
+      <span class="episode">Set 02 · Final</span>
+    </div>
+    <div class="hero">
+      <div class="team home">
+        <span class="team-name">Thunder Wolves</span>
+        <span class="team-score">25</span>
+      </div>
+      <span class="sep">VS</span>
+      <div class="team away">
+        <span class="team-name">Solar Hawks</span>
+        <span class="team-score">22</span>
+      </div>
+    </div>
+    <div class="strip">
+      <div class="cell">
+        <span class="label">Duration</span>
+        <span class="value accent">4:32</span>
+      </div>
+      <div class="cell">
+        <span class="label">Streak</span>
+        <span class="value home">6</span>
+      </div>
+      <div class="cell">
+        <span class="label">Services</span>
+        <span class="value">8 / 6</span>
+      </div>
+      <div class="cell">
+        <span class="label">Timeouts</span>
+        <span class="value"><span class="home">0</span>·<span class="away">2</span></span>
+      </div>
+      <div class="cell">
+        <span class="label">Total points</span>
+        <span class="value">47</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

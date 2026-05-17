@@ -8,6 +8,111 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Set summary overlay (opt-in).** New operator-toggled overlay that
+  replaces the scoreboard between sets with a recap panel — chart of
+  the point progression, score, duration and key stats. Six visual
+  styles ship as candidates (``brand_ledger``, ``brand_columns``,
+  ``bento``, ``glass``, ``podium``, ``bumper``), all fully
+  implemented end-to-end (per-variant HTML markup in
+  ``overlay_static/js/set_summary.js`` + scoped CSS in
+  ``overlay_static/css/set_summary.css``, ported from
+  ``docs/mockups/set-summary/*.html``). Two more variants
+  (``split_screen`` and ``jumbotron``) were prototyped during the
+  cycle and dropped before merge for being visually weaker than
+  the rest. The panel renders into a centred 16:9 stage sized to
+  roughly two thirds of the viewport height (with equal margins
+  above/below) — fully transparent over the live stream so only
+  the data regions get ``rgba()`` fills + ``backdrop-filter:
+  blur(…)`` and any OBS scene underneath stays legible. Chart-
+  based variants generate their SVG polylines from the live
+  ``points_by_set`` payload (not hard-coded mockup data). Wired
+  end-to-end: new endpoints ``POST /api/v1/display/set-summary
+  {,-style}``, payload fields ``match_info.{show_set_summary,
+  set_summary_style,summary_set_num}`` picked up by
+  ``set_summary.js``, plus a React control button (icon
+  ``summarize``), centre-panel "Set summary is live" notice with
+  inline style picker, and matching i18n strings in all six
+  locales. A WCAG-aware ``resolveTeamColour`` helper falls back to
+  a saturated mockup-palette accent when an operator's team
+  ``color_primary`` is too close to white, so the variants that
+  paint a full coloured panel (glass score tile, podium pillar,
+  brand columns) don't render white-on-white. **Off by default**:
+  the feature lives behind a ``setSummaryEnabled`` toggle in the
+  Behavior config section so existing setups don't get a surprise
+  extra button. Mockup gallery for the six styles lives at
+  ``docs/mockups/set-summary/index.html``.
+
+- **Set-summary variants now scale with the stage, not the
+  viewport.** The 149 ``clamp(min, X vw, max)`` rules across the
+  six variant stylesheets had their ``vw``/``vh`` swapped for
+  ``cqw``/``cqh`` (with ``container-type: size`` added to the
+  ``.ss-stage``) and their pixel minimums halved. With the old
+  setup the "ideal" term of ``clamp()`` bottomed out at its pixel
+  floor on small viewports, so a 480p preview kept full-HD font
+  sizes while the stage itself shrank — team names wrapped onto
+  three lines, ledger chips overflowed, scores cramped against
+  the column edges. Switching the scaling unit makes the inner
+  content track the stage size (which is itself derived from the
+  viewport via ``min(95vw, calc(67vh * 16/9))``) so every variant
+  preserves its proportions and information density at 480p,
+  720p and 1080p alike.
+- **Cross-fade between scoreboard and set-summary recap.** The
+  scoreboard → recap toggle used to be an instant DOM swap
+  (``display: none`` slammed the scoreboard, ``hidden`` attribute
+  slammed the recap panel). Both surfaces now animate via a 450ms
+  ``opacity`` transition and keep their layout slot at all times,
+  so flipping the toggle produces a real cross-fade. The set-
+  summary panel manages its own ``opacity`` + ``pointer-events``
+  via inline styles so the transition has a guaranteed "from"
+  value when the panel is freshly created on the very first
+  activation.
+- **Quieter INFO log level.** Restructured per-call-site levels so
+  ``LOGGING_LEVEL=info`` gives a readable picture of what the
+  server is doing without drowning the operator in per-request
+  noise. Successful (HTTP 2xx / 3xx) ``uvicorn.access`` records
+  are demoted to ``DEBUG`` by the
+  ``HealthEndpointFilter`` — only client / server errors surface
+  at the default level, but the full access log comes back when
+  the operator enables ``DEBUG``. Per-interaction routes (display
+  toggles, session-reuse, customization saves, visibility
+  changes, per-broadcast 2xx response logs in
+  ``Backend.process_response``) and routine WS client/handshake
+  events also drop to ``DEBUG``. One-shot lifecycle events
+  (server boot, overlay create/delete/copy, theme applied,
+  preset created/deleted, WS heartbeat startup, WS zombie
+  eviction, session expiry, ``WSControlClient`` start/stop)
+  stay at ``INFO``.
+- **"Match looks abandoned" prompt on control-UI load.** When the
+  operator opens the React control UI on a session whose current
+  set has been live for more than an hour, a confirm dialog now
+  surfaces asking whether to reset the match (the scoreboard
+  was probably left running by mistake) or keep going. Fires
+  once per page load — refusing it doesn't re-trigger on the
+  next WS broadcast. Backed by a new ``current_set_started_at``
+  timestamp on ``GameStateResponse``, derived from the first
+  scoring event of the operator's current set.
+
+### Removed
+
+- **Live-stats panel and points-history strip dropped from the
+  in-broadcast overlay.** The two opt-in widgets used to sit on
+  top of the live scoreboard in the OBS browser source. Their
+  config toggles had already been removed from the operator UI,
+  and stale ``show_stats`` flags persisted on existing overlays
+  would still surface the panel — which on every non-``original``
+  variant rendered as raw black text in the top-left corner
+  because each variant's CSS (``pill.css``, ``ribbon.css``, …)
+  never carried the rules for ``.live-stats-panel`` or
+  ``.points-history-strip``. The elements are gone from
+  ``overlay_templates/base.html`` so the live broadcast shows
+  only the scoreboard (or the set-summary recap when activated).
+  The same stats keep flowing in ``overlay_control.stats`` for
+  the spectator (``/follow/{id}``) page and the set-summary
+  recap, both of which already render them through their own
+  markup.
+
 ### Dependencies
 
 - Bump `vite` from 6.4.2 to 8.0.13 and `@vitejs/plugin-react` from
@@ -19,6 +124,39 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Set summary clock now ticks every second on a live set.** The
+  server-computed ``set_durations`` only refreshes when a new
+  audit event lands (each point triggers a broadcast), so the
+  duration shown in the recap panel used to visibly freeze
+  between rallies. ``set_summary.js`` now anchors a client-side
+  ``setInterval`` to the first scoring event's timestamp and
+  updates every node tagged with ``data-live-duration`` once per
+  second. The tick stays disabled when the displayed set has
+  already finished (recap shown during a set break or after match
+  end), so the rendered total never climbs past the real set
+  length.
+- **Set summary recap no longer pins to an unplayed set after
+  historical edits.** When the operator backfills earlier sets via
+  ``set_score`` after advancing the match, those audit records get
+  tagged with ``result.current_set`` and a running score of ``[0,
+  0]`` for the active set. Both the resolver
+  (``GameService._resolve_summary_set`` / the backend broadcast)
+  and the overlay's ledger renderer now ignore ``set_score`` events
+  when deciding "did this set actually see a rally?" — so the
+  recap rolls back to the previously played set, and the in-set
+  ledger no longer renders ghost ``0`` chips.
+- **Team-coloured icons stay readable on the panel surface.** The
+  timeout dots, timeout button, serve icon, and points-history
+  marker in the React control UI now run their colours through a
+  WCAG-aware helper that lifts (or lowers) the HSL lightness only
+  when the contrast against the current ``--surface`` falls below
+  the threshold (4.5:1 for text/icons, 3:1 for UI shapes). The
+  hue and saturation are preserved so the two teams remain
+  visually distinct, and the helper re-evaluates automatically on
+  light/dark theme toggles. The default indigo accent
+  (``#5c6bc0``) — which only reached 3.27:1 against the dark
+  navy panel — is now lifted to a tone that clears 4.5:1 on dark
+  mode while staying recognisably indigo.
 - **Match timer no longer ticks past match end.** The HUD timer in
   the React control UI and the match/set counters on the
   `/follow/{id}` spectator page now freeze at the actual end-of-
@@ -42,6 +180,34 @@ once a first tagged release ships.
   merge. The store now force-replaces those audit-derived
   subtrees on every update so a Reset wipes the spectator chart,
   history, and per-set durations alongside the scoreboard.
+- **Bumper score digits no longer kiss the team-block edges.** The
+  oversized scores in the ``bumper`` set-summary variant were
+  rendered flush against the home/away team block borders (``align-
+  items: flex-start`` / ``flex-end`` with no horizontal padding),
+  and the 20px drop-shadow blur on each digit was being clipped by
+  the ``.ss-bumper-core`` ``overflow: hidden``. Both digits now sit
+  on ``clamp(4px, 1.4cqw, 16px)`` of internal padding, the negative
+  letter-spacing was relaxed from ``-0.06em`` to ``-0.04em``, and
+  the drop-shadow blur was tightened so the glyphs read fully
+  even at 480p.
+- **Chart polylines stay distinguishable when both teams share a
+  colour.** When the operator picks near-identical primaries (e.g.
+  two navy clubs), the home and away polylines used to overlap
+  into a single confused trace. A weighted RGB-distance check in
+  ``set_summary.js`` now flags ``colorsAreSimilar`` pairs (≈80
+  units, captures same-hue/lightness variants) and tags the away
+  polyline with a ``ss-line-away--dashed`` class so CSS renders
+  it as a dashed stroke — preserving the colour intent while
+  keeping the two series readable.
+- **"Final" pill no longer lies when the recap is shown mid-set.**
+  The ``glass`` and ``brand_columns`` headers hard-coded a green
+  "Set N · Final" pill regardless of whether the displayed set had
+  actually concluded. Now ``deriveViewModel`` exposes a
+  ``setFinished`` flag (true only when the team's ``set_history``
+  has a final score recorded for that set) and the renderers swap
+  to an amber ``Set N · Live`` pill with a pulsing indicator when
+  the set is still in play. Green/Final stays for sets the backend
+  has actually closed.
 
 ### Changed
 

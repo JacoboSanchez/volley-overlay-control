@@ -109,6 +109,10 @@ const translations: Record<string, TranslationDict> = {
     'config.reloadConfirm': 'Reload customization from server?',
     'config.resetMatch': 'Reset match',
     'config.resetConfirm': 'Reset the match?',
+    'staleSet.title': 'Match looks abandoned',
+    'staleSet.message': 'The current set has been live for more than an hour. The scoreboard was probably left running. Reset to start a new match, or continue this one.',
+    'staleSet.reset': 'Reset match',
+    'staleSet.continue': 'Continue',
     'config.logout': 'Logout',
     'config.logoutConfirm': 'Disconnect and return to OID entry?',
     'config.unsavedChangesConfirm': 'You have unsaved changes that will be lost. Leave anyway?',
@@ -255,6 +259,20 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Language',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Show set summary on overlay',
+    'setSummary.activeBody': 'Showing set {n} on the overlay. Tap to hide.',
+    'setSummary.hide': 'Hide summary',
+    'config.setSummary.label': 'Enable set summary overlay',
+    'config.setSummary.description': 'Adds a button to swap the scoreboard for a set summary panel (chart + key stats). Off by default.',
+    'config.setSummary.style.label': 'Default style',
+    'setSummary.style.brand_ledger': 'Ledger',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Glass',
+    'setSummary.style.brand_columns': 'Columns',
+    'setSummary.style.podium': 'Podium',
+    'setSummary.style.bumper': 'Bumper',
   },
   es: {
     // Init screen
@@ -362,6 +380,10 @@ const translations: Record<string, TranslationDict> = {
     'config.reloadConfirm': '¿Recargar personalización del servidor?',
     'config.resetMatch': 'Reiniciar partido',
     'config.resetConfirm': '¿Reiniciar el partido?',
+    'staleSet.title': 'Parece un partido abandonado',
+    'staleSet.message': 'El set actual lleva más de una hora en marcha. Es probable que el marcador se haya quedado encendido. Reinicia para empezar un partido nuevo o continúa con este.',
+    'staleSet.reset': 'Reiniciar partido',
+    'staleSet.continue': 'Continuar',
     'config.logout': 'Cerrar sesión',
     'config.logoutConfirm': '¿Desconectar y volver a la entrada de OID?',
     'config.unsavedChangesConfirm': 'Hay cambios sin guardar que se perderán. ¿Salir de todas formas?',
@@ -508,6 +530,20 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Idioma',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Mostrar resumen del set en el overlay',
+    'setSummary.activeBody': 'Mostrando el set {n} en el overlay. Toca para ocultar.',
+    'setSummary.hide': 'Ocultar resumen',
+    'config.setSummary.label': 'Activar overlay de resumen de set',
+    'config.setSummary.description': 'Añade un botón para sustituir el marcador por un panel con el resumen del set (gráfico + stats clave). Desactivado por defecto.',
+    'config.setSummary.style.label': 'Estilo por defecto',
+    'setSummary.style.brand_ledger': 'Histórico',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Cristal',
+    'setSummary.style.brand_columns': 'Columnas',
+    'setSummary.style.podium': 'Podio',
+    'setSummary.style.bumper': 'Cortinilla',
   },
   pt: {
     // Init screen
@@ -614,6 +650,10 @@ const translations: Record<string, TranslationDict> = {
     'config.reloadConfirm': 'Recarregar personalização do servidor?',
     'config.resetMatch': 'Reiniciar jogo',
     'config.resetConfirm': 'Reiniciar o jogo?',
+    'staleSet.title': 'Parece um jogo abandonado',
+    'staleSet.message': 'O set atual já dura mais de uma hora. Provavelmente o marcador ficou ligado. Reinicia para começar um jogo novo ou continua com este.',
+    'staleSet.reset': 'Reiniciar jogo',
+    'staleSet.continue': 'Continuar',
     'config.logout': 'Terminar sessão',
     'config.logoutConfirm': 'Desligar e voltar à introdução do OID?',
     'config.unsavedChangesConfirm': 'Há alterações não guardadas que serão perdidas. Sair mesmo assim?',
@@ -760,6 +800,20 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Idioma',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Mostrar resumo do set no overlay',
+    'setSummary.activeBody': 'A mostrar o set {n} no overlay. Toca para ocultar.',
+    'setSummary.hide': 'Ocultar resumo',
+    'config.setSummary.label': 'Ativar overlay de resumo de set',
+    'config.setSummary.description': 'Adiciona um botão para trocar o marcador por um painel com o resumo do set (gráfico + estatísticas). Desativado por padrão.',
+    'config.setSummary.style.label': 'Estilo por defeito',
+    'setSummary.style.brand_ledger': 'Histórico',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Vidro',
+    'setSummary.style.brand_columns': 'Colunas',
+    'setSummary.style.podium': 'Pódio',
+    'setSummary.style.bumper': 'Cortina',
   },
   it: {
     // Init screen
@@ -866,6 +920,10 @@ const translations: Record<string, TranslationDict> = {
     'config.reloadConfirm': 'Ricaricare la personalizzazione dal server?',
     'config.resetMatch': 'Reimposta partita',
     'config.resetConfirm': 'Reimpostare la partita?',
+    'staleSet.title': 'Partita probabilmente abbandonata',
+    'staleSet.message': 'Il set in corso dura da più di un\'ora. Probabilmente il tabellone è rimasto acceso. Reimposta per iniziare una nuova partita o continua questa.',
+    'staleSet.reset': 'Reimposta partita',
+    'staleSet.continue': 'Continua',
     'config.logout': 'Esci',
     'config.logoutConfirm': 'Disconnettersi e tornare all’inserimento OID?',
     'config.unsavedChangesConfirm': 'Ci sono modifiche non salvate che andranno perse. Uscire comunque?',
@@ -1012,6 +1070,20 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Lingua',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Mostra riepilogo del set sull’overlay',
+    'setSummary.activeBody': 'Mostro il set {n} sull’overlay. Tocca per nascondere.',
+    'setSummary.hide': 'Nascondi riepilogo',
+    'config.setSummary.label': 'Attiva overlay riepilogo set',
+    'config.setSummary.description': 'Aggiunge un pulsante per sostituire il tabellone con un pannello di riepilogo (grafico + statistiche chiave). Disattivato di default.',
+    'config.setSummary.style.label': 'Stile predefinito',
+    'setSummary.style.brand_ledger': 'Tabella',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Vetro',
+    'setSummary.style.brand_columns': 'Colonne',
+    'setSummary.style.podium': 'Podio',
+    'setSummary.style.bumper': 'Sigla',
   },
   fr: {
     // Init screen
@@ -1118,6 +1190,10 @@ const translations: Record<string, TranslationDict> = {
     'config.reloadConfirm': 'Recharger la personnalisation depuis le serveur ?',
     'config.resetMatch': 'Réinitialiser le match',
     'config.resetConfirm': 'Réinitialiser le match ?',
+    'staleSet.title': 'Match probablement abandonné',
+    'staleSet.message': 'Le set en cours dure depuis plus d\u2019une heure. Le tableau a sans doute été laissé en marche. Réinitialise pour démarrer un nouveau match ou continue celui-ci.',
+    'staleSet.reset': 'Réinitialiser le match',
+    'staleSet.continue': 'Continuer',
     'config.logout': 'Déconnexion',
     'config.logoutConfirm': 'Se déconnecter et revenir à la saisie de l’OID ?',
     'config.unsavedChangesConfirm': 'Des modifications non enregistrées seront perdues. Quitter quand même ?',
@@ -1264,6 +1340,20 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Langue',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Afficher le récap du set sur l’overlay',
+    'setSummary.activeBody': 'Affichage du set {n} sur l’overlay. Touchez pour masquer.',
+    'setSummary.hide': 'Masquer le récap',
+    'config.setSummary.label': 'Activer l’overlay récap du set',
+    'config.setSummary.description': 'Ajoute un bouton pour remplacer le tableau par un panneau récapitulatif (graphique + stats clés). Désactivé par défaut.',
+    'config.setSummary.style.label': 'Style par défaut',
+    'setSummary.style.brand_ledger': 'Tableau',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Verre',
+    'setSummary.style.brand_columns': 'Colonnes',
+    'setSummary.style.podium': 'Podium',
+    'setSummary.style.bumper': 'Habillage',
   },
   de: {
     // Init screen
@@ -1370,6 +1460,10 @@ const translations: Record<string, TranslationDict> = {
     'config.reloadConfirm': 'Anpassung vom Server neu laden?',
     'config.resetMatch': 'Spiel zurücksetzen',
     'config.resetConfirm': 'Das Spiel zurücksetzen?',
+    'staleSet.title': 'Spiel wirkt verlassen',
+    'staleSet.message': 'Der aktuelle Satz läuft seit über einer Stunde. Wahrscheinlich blieb das Scoreboard versehentlich an. Setze zurück, um ein neues Spiel zu starten, oder mache mit diesem weiter.',
+    'staleSet.reset': 'Spiel zurücksetzen',
+    'staleSet.continue': 'Weiter',
     'config.logout': 'Abmelden',
     'config.logoutConfirm': 'Abmelden und zur OID-Eingabe zurückkehren?',
     'config.unsavedChangesConfirm': 'Es gibt ungespeicherte Änderungen, die verloren gehen. Trotzdem verlassen?',
@@ -1516,6 +1610,20 @@ const translations: Record<string, TranslationDict> = {
 
     // Language
     'lang.label': 'Sprache',
+
+    // Set summary overlay
+    'setSummary.toggle': 'Satz-Recap auf Overlay zeigen',
+    'setSummary.activeBody': 'Zeige Satz {n} im Overlay. Tippen zum Ausblenden.',
+    'setSummary.hide': 'Recap ausblenden',
+    'config.setSummary.label': 'Satz-Recap-Overlay aktivieren',
+    'config.setSummary.description': 'Fügt eine Schaltfläche hinzu, um die Anzeigetafel durch ein Satz-Recap-Panel zu ersetzen (Chart + Schlüssel-Stats). Standardmäßig aus.',
+    'config.setSummary.style.label': 'Standardstil',
+    'setSummary.style.brand_ledger': 'Punkteliste',
+    'setSummary.style.bento': 'Bento',
+    'setSummary.style.glass': 'Glas',
+    'setSummary.style.brand_columns': 'Spalten',
+    'setSummary.style.podium': 'Podest',
+    'setSummary.style.bumper': 'Bumper',
   },
 };
 

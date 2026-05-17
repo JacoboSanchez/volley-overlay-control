@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Set summary — Brand ledger (transparent)</title>
+<style>
+  :root {
+    --text: #fff;
+    --muted: rgba(255, 255, 255, 0.7);
+    --border: rgba(255, 255, 255, 0.18);
+    --home: #d4314c;
+    --home-deep: rgba(122, 20, 36, 0.75);
+    --away: #f0a020;
+    --away-deep: rgba(122, 82, 16, 0.75);
+    --accent: #2ecc71;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    /* fake stream backdrop so transparency is visible */
+    background:
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="30" r="14" fill="%23ffffff" opacity="0.12"/><circle cx="70" cy="20" r="9" fill="%23ffffff" opacity="0.08"/><circle cx="60" cy="80" r="20" fill="%23ffffff" opacity="0.06"/></svg>'),
+      linear-gradient(135deg, #2e7d32 0%, #1b5e20 35%, #f57c00 70%, #e65100 100%);
+    background-blend-mode: overlay, normal;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: grid; place-items: center;
+  }
+  .preview-label {
+    position: fixed; top: 12px; left: 12px;
+    font: 12px/1 'Menlo', 'Consolas', monospace;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    letter-spacing: 0.04em;
+    z-index: 10;
+  }
+  .overlay {
+    width: 1280px; height: 720px;
+    display: grid;
+    grid-template-columns: 1fr 460px 1fr;
+    position: relative;
+    /* NO background here — transparent over the stream */
+  }
+  /* ── Brand columns (semi-transparent gradients) ───── */
+  .team-col {
+    position: relative;
+    padding: 48px 44px;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+  .team-col.home {
+    background:
+      linear-gradient(135deg,
+        rgba(212, 49, 76, 0.72) 0%,
+        var(--home-deep) 100%);
+    border-right: 1px solid rgba(255,255,255,0.12);
+  }
+  .team-col.away {
+    background:
+      linear-gradient(225deg,
+        rgba(240, 160, 32, 0.72) 0%,
+        var(--away-deep) 100%);
+    border-left: 1px solid rgba(255,255,255,0.12);
+    text-align: right;
+  }
+  /* subtle vignette */
+  .team-col::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.25) 100%);
+    pointer-events: none;
+  }
+  .team-col > * {
+    position: relative; z-index: 1;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .team-header {
+    display: flex; align-items: center; gap: 18px;
+  }
+  .team-col.away .team-header { flex-direction: row-reverse; }
+  .logo {
+    width: 88px; height: 88px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.18);
+    border: 2px solid rgba(255,255,255,0.45);
+    display: grid; place-items: center;
+    font: 800 36px/1 -apple-system, sans-serif;
+    letter-spacing: 0.02em;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  }
+  .team-name {
+    font: 800 38px/1.05 -apple-system, sans-serif;
+    letter-spacing: -0.01em;
+  }
+  .team-tag {
+    font: 600 13px/1 -apple-system, sans-serif;
+    color: var(--muted);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+  .team-score {
+    font: 900 220px/0.82 'Menlo', 'Consolas', monospace;
+    letter-spacing: -0.06em;
+    text-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    margin: 4px 0;
+  }
+  .team-stat-list {
+    display: flex; flex-direction: column;
+    gap: 12px;
+  }
+  .team-col.away .team-stat-list { align-items: flex-end; }
+  .team-stat {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .team-stat .label {
+    font: 600 11px/1 -apple-system, sans-serif;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .team-stat .value {
+    font: 700 28px/1 'Menlo', 'Consolas', monospace;
+    letter-spacing: -0.02em;
+  }
+  /* ── Centre column ────────────────────────────────── */
+  .centre {
+    position: relative;
+    background: rgba(15, 20, 30, 0.62);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    border-right: 1px solid rgba(255,255,255,0.1);
+    padding: 24px 24px 20px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    row-gap: 12px;
+    text-align: center;
+    min-height: 0;
+  }
+  .centre .set-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .centre .set-label {
+    font: 700 11px/1 -apple-system, sans-serif;
+    color: var(--muted);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .centre .set-number {
+    font: 900 68px/0.85 -apple-system, sans-serif;
+    letter-spacing: -0.04em;
+    color: #fff;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  }
+  .centre .duration {
+    display: flex; align-items: baseline; justify-content: center;
+    gap: 8px;
+    font: 700 26px/1 'Menlo', 'Consolas', monospace;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  .centre .duration::before {
+    content: '⏱';
+    font-size: 16px;
+    opacity: 0.85;
+  }
+  .centre .duration-label {
+    display: block;
+    font: 600 9px/1 -apple-system, sans-serif;
+    color: var(--muted);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    margin-bottom: 4px;
+  }
+  /* ── Point ledger ─────────────────────────────────── */
+  .ledger {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+    column-gap: 4px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 16px 12px;
+    min-height: 0;
+  }
+  .ledger-col {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 0;
+  }
+  .ledger-col .col-head {
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    display: flex; justify-content: center;
+  }
+  .ledger-col .col-head .badge {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: grid; place-items: center;
+    font: 800 13px/1 -apple-system, sans-serif;
+    letter-spacing: 0.04em;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+    border: 1.5px solid rgba(255,255,255,0.3);
+  }
+  .ledger-col.home .col-head .badge {
+    background: rgba(212, 49, 76, 0.85);
+    box-shadow: 0 0 16px rgba(212, 49, 76, 0.35);
+  }
+  .ledger-col.away .col-head .badge {
+    background: rgba(240, 160, 32, 0.85);
+    box-shadow: 0 0 16px rgba(240, 160, 32, 0.35);
+  }
+  /* 49 equidistant rows — one per chronological event (47 points + 2 timeouts) */
+  .ledger-col .col-body {
+    display: grid;
+    grid-template-rows: repeat(49, 1fr);
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .point {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    min-width: 28px;
+    padding: 0 5px;
+    border-radius: 3px;
+    font: 700 10px/1 'Menlo', 'Consolas', monospace;
+    letter-spacing: 0.02em;
+  }
+  .ledger-col.home .point {
+    color: #ffb1bd;
+    background: rgba(212, 49, 76, 0.18);
+  }
+  .ledger-col.away .point {
+    color: #ffd58a;
+    background: rgba(240, 160, 32, 0.18);
+  }
+  .point.empty {
+    background: transparent;
+    visibility: hidden;
+  }
+  /* Highlight the streak run */
+  .ledger-col.home .point.streak {
+    background: rgba(212, 49, 76, 0.55);
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 0 6px rgba(212, 49, 76, 0.45);
+  }
+  .ledger-col.home .point.final {
+    background: rgba(212, 49, 76, 0.9);
+    color: #fff;
+    font-weight: 900;
+    box-shadow: 0 0 10px rgba(212, 49, 76, 0.55);
+  }
+  /* Timeout marker — same row height as points, distinct colour */
+  .point.timeout-marker {
+    background: rgba(245, 197, 66, 0.3);
+    color: #ffe48a;
+    font-weight: 800;
+    font-size: 9px;
+  }
+</style>
+</head>
+<body>
+<div class="preview-label">brand-ledger.html · 1280 × 720 · Brand-columns variant (point ledger)</div>
+<div class="overlay">
+  <!-- Home -->
+  <div class="team-col home">
+    <div class="team-header">
+      <div class="logo">TW</div>
+      <div>
+        <div class="team-name">Thunder<br>Wolves</div>
+        <div class="team-tag">Home</div>
+      </div>
+    </div>
+    <div class="team-score">25</div>
+    <div class="team-stat-list">
+      <div class="team-stat">
+        <span class="label">Longest streak</span>
+        <span class="value">6 points</span>
+      </div>
+      <div class="team-stat">
+        <span class="label">Services won</span>
+        <span class="value">8 / 15</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Centre column: set number, duration, ledger -->
+  <div class="centre">
+    <div class="set-header">
+      <span class="set-label">Set</span>
+      <span class="set-number">2</span>
+      <span class="duration-label">Duration</span>
+      <span class="duration">4:32</span>
+    </div>
+
+    <div class="ledger">
+      <div class="ledger-col home">
+        <div class="col-head"><div class="badge">TW</div></div>
+        <div class="col-body">
+          <span class="point">1</span>
+          <span class="point empty">·</span>
+          <span class="point">2</span>
+          <span class="point">3</span>
+          <span class="point empty">·</span>
+          <span class="point">4</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point">5</span>
+          <span class="point">6</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point">7</span>
+          <span class="point empty">·</span>
+          <span class="point">8</span>
+          <span class="point empty">·</span>
+          <span class="point">9</span>
+          <span class="point empty">·</span>
+          <span class="point">10</span>
+          <span class="point empty">·</span>
+          <span class="point">11</span>
+          <span class="point empty">·</span>
+          <span class="point">12</span>
+          <span class="point empty">·</span>
+          <span class="point streak">13</span>
+          <span class="point streak">14</span>
+          <span class="point streak">15</span>
+          <span class="point streak">16</span>
+          <span class="point streak">17</span>
+          <span class="point streak">18</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point">19</span>
+          <span class="point empty">·</span>
+          <span class="point">20</span>
+          <span class="point empty">·</span>
+          <span class="point">21</span>
+          <span class="point empty">·</span>
+          <span class="point">22</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point">23</span>
+          <span class="point empty">·</span>
+          <span class="point">24</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point final">25</span>
+        </div>
+      </div>
+      <div class="ledger-col away">
+        <div class="col-head"><div class="badge">SH</div></div>
+        <div class="col-body">
+          <span class="point empty">·</span>
+          <span class="point">1</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point">2</span>
+          <span class="point empty">·</span>
+          <span class="point">3</span>
+          <span class="point">4</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point">5</span>
+          <span class="point">6</span>
+          <span class="point empty">·</span>
+          <span class="point">7</span>
+          <span class="point empty">·</span>
+          <span class="point">8</span>
+          <span class="point empty">·</span>
+          <span class="point">9</span>
+          <span class="point empty">·</span>
+          <span class="point">10</span>
+          <span class="point empty">·</span>
+          <span class="point">11</span>
+          <span class="point empty">·</span>
+          <span class="point">12</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point empty">·</span>
+          <span class="point">13</span>
+          <span class="point">14</span>
+          <span class="point">15</span>
+          <span class="point timeout-marker">T</span>
+          <span class="point empty">·</span>
+          <span class="point">16</span>
+          <span class="point empty">·</span>
+          <span class="point">17</span>
+          <span class="point empty">·</span>
+          <span class="point">18</span>
+          <span class="point empty">·</span>
+          <span class="point">19</span>
+          <span class="point timeout-marker">T</span>
+          <span class="point empty">·</span>
+          <span class="point">20</span>
+          <span class="point empty">·</span>
+          <span class="point">21</span>
+          <span class="point">22</span>
+          <span class="point empty">·</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Away -->
+  <div class="team-col away">
+    <div class="team-header">
+      <div class="logo">SH</div>
+      <div>
+        <div class="team-name">Solar<br>Hawks</div>
+        <div class="team-tag">Away</div>
+      </div>
+    </div>
+    <div class="team-score">22</div>
+    <div class="team-stat-list">
+      <div class="team-stat">
+        <span class="label">Longest streak</span>
+        <span class="value">3 points</span>
+      </div>
+      <div class="team-stat">
+        <span class="label">Timeouts used</span>
+        <span class="value">2 / 2</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

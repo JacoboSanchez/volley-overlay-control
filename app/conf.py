@@ -14,3 +14,6 @@ class Conf:
         self.points_last_set = int(EnvVarsManager.get_env_var('MATCH_GAME_POINTS_LAST_SET', 15))
         self.sets = int(EnvVarsManager.get_env_var('MATCH_SETS', 5))
         self.single_overlay = str(EnvVarsManager.get_env_var('SINGLE_OVERLAY_MODE', 'true')).lower() in ("yes", "true", "t", "1")
+        self.set_summary_default_style = EnvVarsManager.get_env_var(
+            'SET_SUMMARY_DEFAULT_STYLE', 'brand_ledger',
+        )

@@ -92,6 +92,15 @@ export interface ConfigPanelProps {
    * surfaces the entry point conditionally.
    */
   onShowShortcuts?: () => void;
+  /**
+   * Set summary overlay style (forwarded to BehaviorSection so the
+   * operator can pick the default style right next to the enable
+   * toggle without having to activate the recap first).
+   */
+  setSummaryStyle?: import('../api/client').SetSummaryStyle;
+  onChangeSetSummaryStyle?: (
+    style: import('../api/client').SetSummaryStyle,
+  ) => void;
 }
 
 export default function ConfigPanel({
@@ -106,6 +115,8 @@ export default function ConfigPanel({
   onToggleDarkMode,
   onToggleFullscreen,
   onShowShortcuts,
+  setSummaryStyle,
+  onChangeSetSummaryStyle,
 }: ConfigPanelProps) {
   const { t } = useI18n();
   const { settings, setSetting } = useSettings();
@@ -252,6 +263,8 @@ export default function ConfigPanel({
             settings={settings}
             setSetting={setSetting as BehaviorSectionProps['setSetting']}
             onShowShortcuts={onShowShortcuts}
+            setSummaryStyle={setSummaryStyle}
+            onChangeSetSummaryStyle={onChangeSetSummaryStyle}
           />
         );
       case 'rules':

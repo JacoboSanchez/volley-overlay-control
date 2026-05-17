@@ -52,6 +52,14 @@ export interface Settings {
    * score points.
    */
   keyboardShortcuts: boolean;
+  /**
+   * Feature flag for the "set summary overlay" — a recap panel that
+   * replaces the scoreboard between sets in OBS. Default OFF: the
+   * toggle button is hidden in ``ControlButtons`` until the operator
+   * opts in from the config panel. Existing setups don't get a
+   * surprise extra button.
+   */
+  setSummaryEnabled: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -72,6 +80,7 @@ const DEFAULTS: Settings = {
   haptics: false,
   gestureTourSeen: false,
   keyboardShortcuts: defaultKeyboardShortcutsEnabled(),
+  setSummaryEnabled: false,
 };
 
 /**

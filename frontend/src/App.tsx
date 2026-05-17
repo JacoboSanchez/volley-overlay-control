@@ -123,6 +123,38 @@ export default function App() {
   useScreenWakeLock(matchInProgress);
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+
+  // Stale-set prompt: if the operator opens the control UI on a
+  // session whose current set has been live for more than an hour
+  // the marker was probably abandoned (the operator forgot to reset
+  // it). Surface a one-shot dialog asking whether to reset or keep
+  // going. The ``firedRef`` guard makes sure we only ever fire once
+  // per page load so a refusal isn't re-asked while the WS keeps
+  // streaming the same stale state.
+  const [stalePromptOpen, setStalePromptOpen] = useState(false);
+  const stalePromptFiredRef = useRef(false);
+  const STALE_SET_THRESHOLD_SEC = 60 * 60;
+  useEffect(() => {
+    if (stalePromptFiredRef.current) return;
+    if (!state) return;
+    if (state.match_finished) return;
+    const startedAt = state.current_set_started_at;
+    if (typeof startedAt !== 'number' || startedAt <= 0) return;
+    // Prefer the server's wall clock when the payload includes it
+    // (every fresh state response carries ``server_time``), so the
+    // stale-set threshold isn't tripped by a client whose system
+    // clock is hours off. Fall back to ``Date.now()`` on the rare
+    // legacy payload that omits the field.
+    const nowSec = (typeof state.server_time === 'number'
+      && state.server_time > 0)
+      ? state.server_time
+      : Date.now() / 1000;
+    const elapsed = nowSec - startedAt;
+    if (elapsed > STALE_SET_THRESHOLD_SEC) {
+      stalePromptFiredRef.current = true;
+      setStalePromptOpen(true);
+    }
+  }, [state]);
   // Coachmark fires once the first authoritative state lands and the
   // operator hasn't dismissed the tour yet. The dismissal flips
   // ``settings.gestureTourSeen`` to ``true`` and persists across
@@ -199,6 +231,13 @@ export default function App() {
     // inactivity timer once ``match_started_at`` is stamped. Also covers
     // the pre-init case where ``state`` itself is still null.
     if (state?.match_started_at == null) return;
+    // When the set-summary recap is live, the operator must be able to
+    // turn it off in one tap — never auto-hide the HUD.
+    if (state?.set_summary) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setShowControls(true);
+      return;
+    }
     if (showControls && activeTab === 'scoreboard') {
       resetHideTimer();
       window.addEventListener('pointerdown', resetHideTimer, { passive: true });
@@ -289,6 +328,23 @@ export default function App() {
   const handleToggleSimpleMode = useCallback(() => {
     actions.setSimpleMode(!simpleMode);
   }, [actions, simpleMode]);
+
+  const setSummaryActive = state?.set_summary ?? false;
+  const setSummarySetNum = state?.set_summary_set_num ?? null;
+  const setSummaryStyle = (state?.set_summary_style ?? 'brand_ledger') as
+    import('./api/client').SetSummaryStyle;
+
+  const handleToggleSetSummary = useCallback(() => {
+    if (!settings.setSummaryEnabled) return;
+    actions.setSetSummary(!setSummaryActive);
+  }, [actions, setSummaryActive, settings.setSummaryEnabled]);
+
+  const handleChangeSetSummaryStyle = useCallback(
+    (style: import('./api/client').SetSummaryStyle) => {
+      actions.setSetSummaryStyle(style);
+    },
+    [actions],
+  );
 
   // Server-side LIFO: ``actions.undoLast()`` posts to /game/undo,
   // which pops from the audit log and reverses the action via the
@@ -381,6 +437,7 @@ export default function App() {
   // the operator opted out via ``settings.keyboardShortcuts``.
   const anyModalOpen = dialog.open
     || resetConfirmOpen
+    || stalePromptOpen
     || coachmarkOpen
     || shareOpen
     || shortcutsHelpOpen;
@@ -572,6 +629,12 @@ export default function App() {
           onOpenConfig={() => setActiveTab('config')}
           onOpenShare={handleOpenShare}
           onOpenHistory={() => setHistoryOpen(true)}
+          setSummaryEnabled={settings.setSummaryEnabled}
+          setSummaryActive={setSummaryActive}
+          setSummarySetNum={setSummarySetNum}
+          setSummaryStyle={setSummaryStyle}
+          onToggleSetSummary={handleToggleSetSummary}
+          onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
         />
         </ErrorBoundary>
       )}
@@ -596,6 +659,8 @@ export default function App() {
             }}
             onToggleFullscreen={handleToggleFullscreen}
             onShowShortcuts={() => setShortcutsHelpOpen(true)}
+            setSummaryStyle={setSummaryStyle}
+            onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
           />
         </ErrorBoundary>
       )}
@@ -619,6 +684,20 @@ export default function App() {
           setResetConfirmOpen(false);
         }}
         onClose={() => setResetConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={stalePromptOpen}
+        title={t('staleSet.title')}
+        message={t('staleSet.message')}
+        confirmLabel={t('staleSet.reset')}
+        cancelLabel={t('staleSet.continue')}
+        danger
+        onConfirm={() => {
+          confirmReset();
+          setStalePromptOpen(false);
+        }}
+        onClose={() => setStalePromptOpen(false)}
       />
 
       {shareOpen && (

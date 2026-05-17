@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Set summary — Cinemascope</title>
+<style>
+  :root {
+    --bg: #050505;
+    --text: #f0ebe4;
+    --muted: #8b8579;
+    --home: #e63b50;
+    --away: #f0a020;
+    --gold: #c8a26a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #1a1a1a;
+    color: var(--text);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    display: grid; place-items: center;
+  }
+  .preview-label {
+    position: fixed; top: 12px; left: 12px;
+    font: 12px/1 'Menlo', 'Consolas', monospace;
+    color: var(--muted); letter-spacing: 0.04em;
+    z-index: 10;
+  }
+  .overlay {
+    width: 1280px; height: 720px;
+    background:
+      radial-gradient(ellipse at center, #1a1a1a 0%, #000 80%),
+      #000;
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 100px 1fr 100px;
+  }
+  /* Letterbox bars */
+  .bar {
+    background: #000;
+    position: relative;
+  }
+  .bar.top {
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: flex-end;
+    padding: 0 64px 14px;
+    justify-content: space-between;
+  }
+  .bar.bottom {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: flex-start;
+    padding: 14px 64px 0;
+    justify-content: space-between;
+  }
+  .bar .marquee {
+    font: italic 600 14px/1 'Georgia', serif;
+    color: var(--muted);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .bar .timecode {
+    font: 700 14px/1 'Menlo', 'Consolas', monospace;
+    color: var(--gold);
+    letter-spacing: 0.2em;
+  }
+  /* film grain */
+  .grain {
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 5px 5px;
+    background-position: 0 0, 1px 2px;
+    pointer-events: none;
+    opacity: 0.6;
+    mix-blend-mode: overlay;
+  }
+  /* ── Stage ────────────────────────────────────────── */
+  .stage {
+    position: relative;
+    padding: 30px 64px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    align-items: center;
+  }
+  .credit-top {
+    text-align: center;
+    font: italic 18px/1.6 'Georgia', serif;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .credit-top::before, .credit-top::after {
+    content: '✦';
+    color: var(--gold);
+    margin: 0 14px;
+    font-size: 12px;
+    vertical-align: middle;
+  }
+  .title-card {
+    text-align: center;
+    padding: 16px 0;
+  }
+  .title-card .a-film-by {
+    font: italic 16px/1 'Georgia', serif;
+    color: var(--muted);
+    letter-spacing: 0.32em;
+    margin-bottom: 10px;
+  }
+  .title-card .feature {
+    font: 900 64px/1 'Georgia', serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 18px;
+  }
+  .title-card .vs-line {
+    font: italic 200 28px/1 'Georgia', serif;
+    color: var(--gold);
+    letter-spacing: 0.04em;
+    margin-bottom: 20px;
+  }
+  .title-card .score {
+    font: 900 180px/0.85 'Georgia', serif;
+    letter-spacing: -0.04em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 28px;
+  }
+  .title-card .score .home { color: var(--home); }
+  .title-card .score .away { color: var(--away); }
+  .title-card .score .sep {
+    font-style: italic;
+    color: var(--muted);
+    font-weight: 200;
+    font-size: 0.55em;
+  }
+  /* Credits */
+  .credits {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    text-align: center;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .credits .credit {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .credits .role {
+    font: italic 11px/1 'Georgia', serif;
+    color: var(--muted);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+  }
+  .credits .name {
+    font: 700 18px/1.2 'Georgia', serif;
+    letter-spacing: 0.02em;
+  }
+  .credits .name small {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 0.75em;
+  }
+</style>
+</head>
+<body>
+<div class="preview-label">cinema.html · 1280 × 720 · Cinemascope title</div>
+<div class="overlay">
+  <div class="bar top">
+    <span class="marquee">Now showing · Volley Live</span>
+    <span class="timecode">REEL 02 · 04:32</span>
+  </div>
+  <div class="stage">
+    <div class="grain"></div>
+    <div class="credit-top">An epic in five acts</div>
+    <div class="title-card">
+      <div class="a-film-by">Set two, finalised</div>
+      <div class="feature">The Wolves Strike</div>
+      <div class="vs-line">Thunder Wolves &nbsp;·&nbsp; Solar Hawks</div>
+      <div class="score">
+        <span class="home">25</span>
+        <span class="sep">/</span>
+        <span class="away">22</span>
+      </div>
+    </div>
+    <div class="credits">
+      <div class="credit">
+        <span class="role">Longest streak</span>
+        <span class="name">6 <small>· TW</small></span>
+      </div>
+      <div class="credit">
+        <span class="role">Services won</span>
+        <span class="name">8 <small>/ 6</small></span>
+      </div>
+      <div class="credit">
+        <span class="role">Timeouts used</span>
+        <span class="name">0 <small>· 2</small></span>
+      </div>
+      <div class="credit">
+        <span class="role">Total points</span>
+        <span class="name">47</span>
+      </div>
+    </div>
+  </div>
+  <div class="bar bottom">
+    <span class="timecode">SET 02 / 05</span>
+    <span class="marquee">Reel 03 · coming up</span>
+  </div>
+</div>
+</body>
+</html>

@@ -125,7 +125,19 @@ class RedactFilter(logging.Filter):
 
 
 class HealthEndpointFilter(logging.Filter):
-    """Drop noisy uvicorn.access records for periodic probes.
+    """Tame uvicorn.access so INFO stays useful at a glance.
+
+    Two policies layered together:
+
+    * Periodic liveness probes (``/health``, ``/manifest.webmanifest``,
+      ``/favicon.ico``) are dropped entirely — they fire on a clock
+      and would drown the signal at every log level.
+    * Successful responses (HTTP 2xx and 3xx) are demoted from
+      ``INFO`` to ``DEBUG``. At the default ``WARNING`` / operator
+      ``INFO`` levels the steady-state click-stream stays quiet so
+      only client / server errors surface. Dropping to ``DEBUG``
+      brings the full access log back when the operator is
+      investigating a specific request.
 
     Uvicorn emits access records whose ``record.args`` is the
     ``(client, method, path, version, status)`` tuple; anything else
@@ -141,7 +153,23 @@ class HealthEndpointFilter(logging.Filter):
         path = args[2]
         if not isinstance(path, str):
             return True
-        return not path.startswith(self._PATHS)
+        if path.startswith(self._PATHS):
+            return False
+        status = args[4] if len(args) >= 5 else None
+        code: int | None
+        if isinstance(status, (int, str, bytes)):
+            try:
+                code = int(status)
+            except (TypeError, ValueError):
+                code = None
+        else:
+            code = None
+        if code is not None and 200 <= code < 400:
+            # Demote — the record still flows but only escapes when
+            # the operator enables DEBUG explicitly.
+            record.levelno = logging.DEBUG
+            record.levelname = "DEBUG"
+        return True
 
 
 def _resolve_level() -> str:
@@ -246,7 +274,11 @@ def build_dict_config(
                 "handlers": default_handlers, "level": level, "propagate": False,
             },
             "uvicorn.access": {
-                "handlers": access_handlers, "level": "INFO", "propagate": False,
+                # Tracks ``LOGGING_LEVEL`` like the rest. The
+                # HealthEndpointFilter demotes successful 2xx / 3xx
+                # records to DEBUG so they only escape when the
+                # operator is explicitly debugging.
+                "handlers": access_handlers, "level": level, "propagate": False,
             },
         },
         "root": {"handlers": default_handlers, "level": level},

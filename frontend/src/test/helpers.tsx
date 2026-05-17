@@ -35,6 +35,9 @@ export const mockGameState: GameState = {
   serve: '1',
   config: { sets_limit: 5, points_limit: 25 },
   can_undo: false,
+  set_summary: false,
+  set_summary_set_num: null,
+  set_summary_style: 'brand_ledger',
 };
 
 export const mockCustomization = {

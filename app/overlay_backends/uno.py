@@ -121,7 +121,7 @@ class UnoOverlayBackend(OverlayBackend):
                 overlay_id = result[0].get('id')
                 if overlay_id:
                     self.conf.id = overlay_id
-                    logger.info('Updated conf.id to %s', overlay_id)
+                    logger.debug('Updated conf.id to %s', overlay_id)
 
     def send_overlay_state(self, payload, **kwargs) -> None:
         pass  # Uno overlays don't use this path

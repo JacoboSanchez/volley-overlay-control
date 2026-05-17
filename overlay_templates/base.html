@@ -7,6 +7,9 @@
     {% block head_fonts %}{% endblock %}
     <script src="/static/js/gsap.min.js?v=3.12.2"></script>
     {% block head_css %}{% endblock %}
+    <!-- Set summary overlay (loaded on every style; activated by
+         match_info.show_set_summary). Transparent over the stream. -->
+    <link rel="stylesheet" href="/static/css/set_summary.css?v={{ v }}">
 </head>
 <body>
 
@@ -25,27 +28,23 @@
     </div>
 
     <!--
-      Live stats panel and points-history strip. Hidden by default;
-      app.js shows them when ``overlay_control.show_stats`` and
-      ``overlay_control.show_points_history`` are truthy. Sit above
-      the ticker so they don't overlap text scrollers.
+      The live-stats panel and points-history strip used to live
+      here as opt-in widgets, but their config toggles were
+      removed from the operator UI and the consensus is that the
+      live overlay should show only the scoreboard (or the set
+      summary, when activated). The same data is still computed by
+      the backend and ships in ``overlay_control.stats`` for the
+      spectator page and the set-summary recap.
     -->
-    <div id="live-stats-panel" class="live-stats-panel" hidden>
-        <div class="live-stats-row" id="live-stats-streak"></div>
-        <div class="live-stats-row" id="live-stats-comeback"></div>
-        <div class="live-stats-row" id="live-stats-totals"></div>
-    </div>
-
-    <div id="points-history-strip" class="points-history-strip" hidden>
-        <div class="points-history-track" id="points-history-track"></div>
-    </div>
 
     <script>
         const OUTPUT_KEY = "{{ output_key }}";
         window.OVERLAY_STYLE = "{{ style }}";
+        window.OVERLAY_LOCALE = "{{ locale|default('en') }}";
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/${OUTPUT_KEY}`;
     </script>
+    <script src="/static/js/set_summary.js?v={{ v }}"></script>
     <script src="/static/js/app.js?v={{ v }}"></script>
 </body>
 </html>

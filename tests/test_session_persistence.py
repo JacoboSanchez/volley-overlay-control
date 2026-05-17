@@ -81,9 +81,12 @@ class TestGameSessionMeta:
         session = GameSession("oid", mock_conf, _backend_for())
         session.simple = True
         session.points_limit = 21
+        session.set_summary_style = "brand_ledger"
         meta = session.to_meta_dict()
         assert meta == {
             "simple": True,
+            "set_summary": False,
+            "set_summary_style": "brand_ledger",
             "points_limit": 21,
             "points_limit_last_set": session.points_limit_last_set,
             "sets_limit": session.sets_limit,

@@ -1,5 +1,7 @@
 import { useI18n } from '../../i18n';
 import { ConfigRange, ConfigSwitch } from './fields';
+import SetSummaryStylePicker from '../SetSummaryStylePicker';
+import type { SetSummaryStyle } from '../../api/client';
 
 export interface BehaviorSettings {
   autoHide: boolean;
@@ -8,12 +10,20 @@ export interface BehaviorSettings {
   autoSimpleOnTimeout: boolean;
   haptics: boolean;
   keyboardShortcuts: boolean;
+  setSummaryEnabled: boolean;
 }
 
 export interface BehaviorSectionProps {
   settings: BehaviorSettings;
   setSetting: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
   onShowShortcuts?: () => void;
+  /**
+   * Set summary overlay — currently selected style (from the broadcast
+   * state) and a handler to broadcast a change. When omitted the
+   * picker is skipped (e.g. before the session is ready).
+   */
+  setSummaryStyle?: SetSummaryStyle;
+  onChangeSetSummaryStyle?: (style: SetSummaryStyle) => void;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -25,7 +35,13 @@ const LANGUAGE_NAMES: Record<string, string> = {
   de: 'Deutsch',
 };
 
-export default function BehaviorSection({ settings, setSetting, onShowShortcuts }: BehaviorSectionProps) {
+export default function BehaviorSection({
+  settings,
+  setSetting,
+  onShowShortcuts,
+  setSummaryStyle,
+  onChangeSetSummaryStyle,
+}: BehaviorSectionProps) {
   const { t, lang, setLanguage, languages } = useI18n();
   return (
     <div className="config-section-behavior">
@@ -78,6 +94,31 @@ export default function BehaviorSection({ settings, setSetting, onShowShortcuts 
             {t('behavior.showShortcuts')}
           </button>
         </div>
+      )}
+
+      <div className="config-separator" />
+      <ConfigSwitch
+        label={t('config.setSummary.label')}
+        checked={settings.setSummaryEnabled}
+        onChange={(v) => setSetting('setSummaryEnabled', v)}
+      />
+      {settings.setSummaryEnabled && (
+        <>
+          <p className="config-help-text" style={{ margin: '0 0 0.75rem 1.5rem', fontSize: '0.85em', opacity: 0.7 }}>
+            {t('config.setSummary.description')}
+          </p>
+          {setSummaryStyle && onChangeSetSummaryStyle && (
+            <div className="config-field-group" style={{ paddingLeft: '1.5rem', marginBottom: '0.75rem' }}>
+              <label className="config-field-group-label">
+                {t('config.setSummary.style.label')}
+              </label>
+              <SetSummaryStylePicker
+                value={setSummaryStyle}
+                onChange={onChangeSetSummaryStyle}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <div className="config-separator" />

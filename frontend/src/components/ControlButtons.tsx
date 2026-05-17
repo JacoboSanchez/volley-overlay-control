@@ -36,12 +36,21 @@ export interface ControlButtonsProps {
    * only path that clears it back to ``null``.
    */
   matchFinished: boolean;
+  /**
+   * Set summary overlay — operator toggle that swaps the scoreboard
+   * for a recap panel. The button slot only renders when the
+   * feature is enabled in settings (``setSummaryEnabled``); the live
+   * state of the toggle is in ``setSummaryActive``.
+   */
+  setSummaryEnabled?: boolean;
+  setSummaryActive?: boolean;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
   onTogglePreview: () => void;
   onStartMatch: () => void;
   onReset: () => void;
+  onToggleSetSummary?: () => void;
 }
 
 /**
@@ -65,12 +74,15 @@ export default function ControlButtons({
   matchStartedAt,
   matchFinishedAt,
   matchFinished,
+  setSummaryEnabled,
+  setSummaryActive,
   onToggleVisibility,
   onToggleSimpleMode,
   onUndoLast,
   onTogglePreview,
   onStartMatch,
   onReset,
+  onToggleSetSummary,
 }: ControlButtonsProps) {
   const { t } = useI18n();
   // The Reset face stays up while the match is in progress, and
@@ -151,6 +163,30 @@ export default function ControlButtons({
           {showPreview ? 'tv' : 'tv_off'}
         </span>
       </button>
+
+      {setSummaryEnabled && onToggleSetSummary && (
+        <button
+          className="control-btn"
+          style={{
+            // Gated by the feature flag — when enabled and active,
+            // tint the icon orange to match the SIMPLE / FULL scoreboard
+            // family so it visually groups with the other display
+            // toggles.
+            borderColor: setSummaryActive
+              ? FULL_SCOREBOARD_COLOR
+              : PREVIEW_OFF_COLOR,
+            color: setSummaryActive
+              ? FULL_SCOREBOARD_COLOR
+              : PREVIEW_OFF_COLOR,
+          }}
+          onClick={onToggleSetSummary}
+          title={t('setSummary.toggle')}
+          aria-pressed={!!setSummaryActive}
+          data-testid="set-summary-button"
+        >
+          <span className="material-icons">summarize</span>
+        </button>
+      )}
 
       <button
         className="control-btn"

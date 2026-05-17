@@ -76,7 +76,7 @@ class CustomOverlayBackend(CustomOidMixin, OverlayBackend):
                         on_event=self._handle_ws_event,
                     )
                     self._ws_client.connect()
-                    logger.info('WS client initialized for %s', custom_id)
+                    logger.debug('WS client initialized for %s', custom_id)
         except Exception as e:
             logger.debug('WS discovery failed: %s', e)
 
@@ -255,7 +255,7 @@ class CustomOverlayBackend(CustomOidMixin, OverlayBackend):
         return State.OIDStatus.INVALID
 
     def fetch_and_update_overlay_id(self, oid: str) -> None:
-        logger.info('Custom overlay detected, skipping Uno ID fetch')
+        logger.debug('Custom overlay detected, skipping Uno ID fetch')
 
     def send_overlay_state(self, payload, **kwargs) -> None:
         """Push state to connected OBS clients via WS or HTTP fallback."""

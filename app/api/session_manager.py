@@ -39,6 +39,12 @@ class GameSession:
             backend.get_current_customization())
         self.visible = backend.is_visible()
         self.simple = False
+        # Set summary overlay (off by default — feature is hidden in the
+        # control UI unless the operator opts in via setSummaryEnabled).
+        self.set_summary: bool = False
+        self.set_summary_style: str = getattr(
+            conf, "set_summary_default_style", "brand_ledger"
+        )
         self.current_set = 1
         self.undo = False
         # Wall-clock seconds at which the current match started, or
@@ -97,7 +103,7 @@ class GameSession:
         self.customization_fetch_lock = threading.Lock()
         # Last access time for TTL-based cleanup
         self.last_accessed = time.monotonic()
-        logger.info(
+        logger.debug(
             "GameSession created for OID=%s (pts=%s, last=%s, sets=%s)",
             oid, self.points_limit, self.points_limit_last_set,
             self.sets_limit)
@@ -127,6 +133,8 @@ class GameSession:
                 float(self.match_finished_at)
                 if self.match_finished_at is not None else None
             ),
+            "set_summary": bool(self.set_summary),
+            "set_summary_style": str(self.set_summary_style),
         }
 
     def touch(self):
@@ -143,6 +151,8 @@ class GameSession:
         """
         return {
             "simple": bool(self.simple),
+            "set_summary": bool(self.set_summary),
+            "set_summary_style": str(self.set_summary_style),
             "points_limit": int(self.points_limit),
             "points_limit_last_set": int(self.points_limit_last_set),
             "sets_limit": int(self.sets_limit),
@@ -167,6 +177,13 @@ class GameSession:
             return
         if "simple" in meta:
             self.simple = bool(meta["simple"])
+        if "set_summary" in meta:
+            self.set_summary = bool(meta["set_summary"])
+        if "set_summary_style" in meta:
+            from app.api.schemas import SET_SUMMARY_STYLE_CHOICES
+            candidate = meta["set_summary_style"]
+            if isinstance(candidate, str) and candidate in SET_SUMMARY_STYLE_CHOICES:
+                self.set_summary_style = candidate
         for key in ("points_limit", "points_limit_last_set", "sets_limit"):
             value = meta.get(key)
             if value is None:

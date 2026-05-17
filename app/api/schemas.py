@@ -54,6 +54,34 @@ class SimpleModeRequest(BaseModel):
     enabled: bool
 
 
+# Set summary overlay — list of supported visual styles (mirrored in the
+# frontend `SET_SUMMARY_STYLES` constant and the runtime overlay CSS).
+SET_SUMMARY_STYLE_CHOICES = (
+    "brand_ledger",
+    "bento",
+    "glass",
+    "brand_columns",
+    "podium",
+    "bumper",
+)
+SetSummaryStyle = Literal[
+    "brand_ledger",
+    "bento",
+    "glass",
+    "brand_columns",
+    "podium",
+    "bumper",
+]
+
+
+class SetSummaryRequest(BaseModel):
+    enabled: bool
+
+
+class SetSummaryStyleRequest(BaseModel):
+    style: SetSummaryStyle
+
+
 class SetRulesRequest(BaseModel):
     """Body for ``POST /api/v1/session/rules``.
 
@@ -191,6 +219,28 @@ class GameStateResponse(BaseModel):
     # value instead of letting it keep ticking after match end.
     # Cleared on reset and on ``start_match``.
     match_finished_at: float | None = None
+    # Wall-clock seconds at the first scoring event recorded in the
+    # operator's current set, or ``None`` when no rally has been
+    # played in this set yet. The React control UI uses this to
+    # detect "abandoned" sessions on page load — if the current set
+    # has been live for more than an hour the operator probably left
+    # the scoreboard running by mistake and gets prompted to reset.
+    current_set_started_at: float | None = None
+    # Set summary overlay (panel that replaces the scoreboard between
+    # sets with a chart + key stats). ``set_summary`` is the operator
+    # toggle. ``set_summary_set_num`` is the resolved set the panel
+    # shows — current_set when it has points, otherwise the previous
+    # set so the operator can show a recap immediately after a set
+    # ends. ``set_summary_style`` is the visual variant.
+    set_summary: bool = False
+    set_summary_set_num: int | None = None
+    set_summary_style: str = "brand_ledger"
+    # Server wall-clock at the moment this response was composed.
+    # Lets clients derive a skew offset against their own ``Date.now()``
+    # so every live-tick calculation (match elapsed, set duration,
+    # stale-set "abandoned match" check) tracks the server even when
+    # the client's system clock is wrong.
+    server_time: float | None = None
 
 
 class ActionResponse(BaseModel):

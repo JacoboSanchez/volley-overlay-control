@@ -105,6 +105,19 @@ class GameService:
             points_limit_last_set=session.points_limit_last_set,
             match_finished=match_finished,
         ))
+        # Read+aggregate the audit log once. Both
+        # ``_current_set_started_at`` and ``_resolve_summary_set`` need
+        # ``points_by_set``; calling ``compute_live_stats`` twice per
+        # ``get_state`` is wasted I/O on a path that fires on every
+        # action and broadcast. ``None`` here is safe — the helpers
+        # treat it as "no stats available" and fall back to defaults.
+        points_by_set_cache: dict | None
+        try:
+            from app.api.live_stats import compute_live_stats
+            stats = compute_live_stats(session.oid)
+            points_by_set_cache = stats.get("points_by_set") or {}
+        except Exception:  # pragma: no cover - defensive
+            points_by_set_cache = None
         response = GameStateResponse(
             current_set=session.current_set,
             visible=session.visible,
@@ -124,6 +137,20 @@ class GameService:
             can_undo=session.undoable_forward_count > 0,
             match_started_at=session.match_started_at,
             match_finished_at=session.match_finished_at,
+            current_set_started_at=GameService._current_set_started_at(
+                session, points_by_set=points_by_set_cache,
+            ),
+            set_summary=bool(getattr(session, "set_summary", False)),
+            set_summary_set_num=(
+                GameService._resolve_summary_set(
+                    session, points_by_set=points_by_set_cache,
+                )
+                if getattr(session, "set_summary", False) else None
+            ),
+            set_summary_style=str(
+                getattr(session, "set_summary_style", "brand_ledger")
+            ),
+            server_time=time.time(),
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # Misconfigured env var must not turn every /state call into a 500;
@@ -831,6 +858,108 @@ class GameService:
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def set_set_summary_mode(session, enabled: bool) -> ActionResponse:
+        """Toggle the set-summary overlay panel.
+
+        The summary picks the "last played" set: if the current set has
+        any points, it's the current set; otherwise (just after a set
+        transition) it's the previous set so the operator can roll the
+        recap immediately on stream.
+        """
+        session.set_summary = bool(enabled)
+        session.persist_meta()
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def set_set_summary_style(session, style: str) -> ActionResponse:
+        """Pick the visual variant for the set-summary overlay.
+
+        ``style`` is validated against
+        :data:`app.api.schemas.SET_SUMMARY_STYLE_CHOICES`. Unknown styles
+        fall back to the existing value rather than raising — callers
+        get the validation through the FastAPI ``Literal`` type.
+        """
+        from app.api.schemas import SET_SUMMARY_STYLE_CHOICES
+        if style in SET_SUMMARY_STYLE_CHOICES:
+            session.set_summary_style = style
+            session.persist_meta()
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def _current_set_started_at(
+        session, points_by_set: dict | None = None,
+    ) -> float | None:
+        """Wall-clock timestamp of the first scoring event in the
+        operator's current set.
+
+        Used by the React control UI to detect abandoned sessions
+        on page load (current-set elapsed > 1h → prompt the
+        operator to reset). Returns ``None`` when:
+
+        * The match has not started yet (no point recorded).
+        * The current set has no scoring event yet (we're between
+          sets after a forward set transition).
+        * Computing the audit-derived stats failed for any reason
+          — fail safe by returning ``None`` so the client doesn't
+          surface a false positive prompt.
+
+        ``set_score`` (manual edits) are intentionally honoured
+        here: if the operator pulled a set forward by hand the
+        edit's timestamp is the only signal we have, and treating
+        the set as "just touched" is the right default.
+
+        Pass ``points_by_set`` when the caller has already invoked
+        ``compute_live_stats`` to avoid re-reading the audit log.
+        """
+        try:
+            if points_by_set is None:
+                from app.api.live_stats import compute_live_stats
+                stats = compute_live_stats(session.oid)
+                points_by_set = stats.get("points_by_set") or {}
+            current = int(session.current_set)
+            events = (
+                points_by_set.get(current) or points_by_set.get(str(current)) or []
+            )
+            if not events:
+                return None
+            ts = events[0].get("ts")
+            return float(ts) if isinstance(ts, (int, float)) else None
+        except Exception:  # pragma: no cover - defensive
+            return None
+
+    @staticmethod
+    def _resolve_summary_set(
+        session, points_by_set: dict | None = None,
+    ) -> int:
+        """Return the set number the summary panel should show.
+
+        Returns the current set if it has any recorded points yet, else
+        the previous set so the operator can roll a recap between sets.
+        Always clamped to at least 1.
+
+        Pass ``points_by_set`` to avoid an extra ``compute_live_stats``
+        call when the caller has the stats in hand already.
+
+        Only ``add_point`` events count as "recorded points" — manual
+        ``set_score`` edits to historical sets get tagged with the
+        operator's current set via ``result.current_set`` and would
+        otherwise make the resolver pick a set that has not actually
+        been played.
+        """
+        try:
+            from app.api.live_stats import compute_live_stats, resolve_summary_set_num
+            if points_by_set is None:
+                stats = compute_live_stats(session.oid)
+                points_by_set = stats.get("points_by_set")
+            return resolve_summary_set_num(points_by_set, session.current_set)
+        except Exception:  # pragma: no cover - defensive
+            return max(int(session.current_set) - 1, 1)
 
     @staticmethod
     def update_customization(session, data: dict) -> ActionResponse:
