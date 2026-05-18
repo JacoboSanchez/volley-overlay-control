@@ -708,6 +708,7 @@ function updateSetHistoryContainer(container, myHistory, theirHistory, currentSe
     const existing = Array.from(container.querySelectorAll(".set-score"));
     // Cap history to bestOfSets so a 3-set match never renders phantom set 4/5 cells
     const targetCount = Math.min(currentSet - 1, bestOfSets);
+    const cellWidth = parseFloat(getComputedStyle(container).getPropertyValue("--cell-w")) || 40;
 
     for (let i = 1; i <= targetCount; i++) {
         const setKey = `set_${i}`;
@@ -721,11 +722,11 @@ function updateSetHistoryContainer(container, myHistory, theirHistory, currentSe
             container.appendChild(el);
 
             if (isInitial) {
-                gsap.set(el, { width: 40, opacity: 1, marginLeft: (i === 1) ? 0 : 2 });
+                gsap.set(el, { width: cellWidth, opacity: 1, marginLeft: (i === 1) ? 0 : 2 });
             } else {
                 gsap.set(el, { width: 0, opacity: 0, marginLeft: 0 });
                 gsap.to(el, {
-                    width: 40,
+                    width: cellWidth,
                     opacity: 1,
                     marginLeft: (i === 1) ? 0 : 2,
                     duration: 0.5,
