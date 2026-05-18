@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.4.1] - 2026-05-18
+
 ### Changed
 
 - **Original overlay — larger score digits.** Bumped the font size of
