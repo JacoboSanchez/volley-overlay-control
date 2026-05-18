@@ -8,6 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Original overlay — larger score digits.** Bumped the font size of
+  the three number cells (current points, sets won, set history) from
+  ``18px`` to ``28px`` via a dedicated ``--score-font-size`` CSS
+  variable so the score reads clearly on stream. Team name keeps the
+  existing ``--font-size``. Cell width nudged from ``40px`` to ``44px``
+  to comfortably fit two-digit scores at the new size. The set-history
+  GSAP animation in ``overlay_static/js/app.js`` now reads the
+  ``--cell-w`` CSS variable from the container instead of a hardcoded
+  ``40``, so the grow-in transition stays in sync with whichever
+  overlay style is rendering.
+
 ## [5.4.0] - 2026-05-17
 
 ### Added

@@ -5,7 +5,8 @@
    Minimal two-line scoreboard.  Each row:
      [Logo] [Name  ●● ◄] [SetsWon] [S1 S2 … Pts]
        team colors          set colors  game colors
-   All text/numbers share the same font-size.
+   Team name uses --font-size; score numbers use the larger
+   --score-font-size so they read clearly on stream.
    ======================================================================== */
 
 :root {
@@ -20,8 +21,9 @@
     --game-bg: #ffffff;
     --game-text: #2a2f35;
     --font-size: 18px;
+    --score-font-size: 28px;
     --row-h: 44px;
-    --cell-w: 40px;
+    --cell-w: 44px;
 }
 
 body {
@@ -173,7 +175,7 @@ body {
     border: none !important;
     border-right: 1px solid rgba(255,255,255,0.12) !important;
     background: none;
-    font-size: var(--font-size);
+    font-size: var(--score-font-size);
     font-weight: 700;
     color: var(--game-text);
 }
@@ -190,7 +192,7 @@ body {
 }
 
 .points {
-    font-size: var(--font-size);
+    font-size: var(--score-font-size);
     font-weight: 700;
     position: absolute;
     color: var(--game-text);
@@ -204,6 +206,7 @@ body {
     justify-content: center;
     background: var(--set-bg);
     color: var(--set-text);
+    font-size: var(--score-font-size);
     flex-shrink: 0;
 }
 
