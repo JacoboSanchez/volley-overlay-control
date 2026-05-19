@@ -1,8 +1,10 @@
 """External custom overlay backend (WebSocket-first, HTTP fallback)."""
 
+from __future__ import annotations
+
 import copy
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
@@ -24,7 +26,7 @@ class CustomOverlayBackend(CustomOidMixin, OverlayBackend):
     def __init__(self, conf, session: requests.Session):
         self.conf = conf
         self.session = session
-        self._ws_client: Optional["WSControlClient"] = None
+        self._ws_client: WSControlClient | None = None
         self._obs_client_count = 0
         # Build overlay payload callback — set by Backend after construction
         self._build_payload = None
