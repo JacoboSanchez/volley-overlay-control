@@ -19,8 +19,7 @@ function computeLayout(): OrientationLayout {
   return {
     isPortrait: portrait,
     buttonSize: portrait ? Math.min(h / 4, 360) : Math.min(w / 3.5, 360),
-    hasRoomForPersistentControls:
-      Math.min(w, h) >= PERSISTENT_CONTROLS_MIN_DIMENSION,
+    hasRoomForPersistentControls: Math.min(w, h) >= PERSISTENT_CONTROLS_MIN_DIMENSION,
   };
 }
 

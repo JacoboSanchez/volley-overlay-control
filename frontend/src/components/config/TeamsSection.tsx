@@ -19,9 +19,19 @@ export interface TeamsSectionProps {
 export default function TeamsSection({ model, updateField, predefinedTeams }: TeamsSectionProps) {
   return (
     <div className="config-section-teams">
-      <TeamCard teamId={1} model={model} updateField={updateField} predefinedTeams={predefinedTeams} />
+      <TeamCard
+        teamId={1}
+        model={model}
+        updateField={updateField}
+        predefinedTeams={predefinedTeams}
+      />
       <div className="config-team-divider" />
-      <TeamCard teamId={2} model={model} updateField={updateField} predefinedTeams={predefinedTeams} />
+      <TeamCard
+        teamId={2}
+        model={model}
+        updateField={updateField}
+        predefinedTeams={predefinedTeams}
+      />
     </div>
   );
 }

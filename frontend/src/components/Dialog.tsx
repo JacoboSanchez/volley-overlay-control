@@ -58,9 +58,9 @@ export default function Dialog({
       const card = cardRef.current;
       if (!card) return;
       const focusable = card.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), textarea:not([disabled]), '
-          + 'input:not([disabled]), select:not([disabled]), '
-          + '[tabindex]:not([tabindex="-1"])',
+        'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+          'input:not([disabled]), select:not([disabled]), ' +
+          '[tabindex]:not([tabindex="-1"])',
       );
       if (focusable.length === 0) {
         e.preventDefault();

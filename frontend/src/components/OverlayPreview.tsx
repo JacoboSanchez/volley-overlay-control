@@ -116,13 +116,13 @@ export default function OverlayPreview({
   };
 
   const isUnoOverlay = !!(
-    safeOverlayUrl
-    && (safeOverlayUrl.hostname === 'overlays.uno'
-        || safeOverlayUrl.hostname.endsWith('.overlays.uno'))
+    safeOverlayUrl &&
+    (safeOverlayUrl.hostname === 'overlays.uno' ||
+      safeOverlayUrl.hostname.endsWith('.overlays.uno'))
   );
   const isCustomOverlay = !!(
-    (layoutId && (layoutId.startsWith('C-') || layoutId === 'auto'))
-    || (safeOverlayUrl && !isUnoOverlay)
+    (layoutId && (layoutId.startsWith('C-') || layoutId === 'auto')) ||
+    (safeOverlayUrl && !isUnoOverlay)
   );
 
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function OverlayPreview({
   // Shared 16:9 card geometry: both preview kinds render in the same
   // visual slot so a UNO scoreboard isn't squeezed into a tiny strip
   // jammed up against the match-point / side-switch pills above.
-  const cardHeight = cardWidth * 9 / 16;
+  const cardHeight = (cardWidth * 9) / 16;
 
   const fallbackOverlay = loadFailed ? (
     <div
@@ -153,13 +153,11 @@ export default function OverlayPreview({
       aria-live="polite"
       data-testid="overlay-preview-fallback"
     >
-      <span className="material-icons" aria-hidden="true">cloud_off</span>
+      <span className="material-icons" aria-hidden="true">
+        cloud_off
+      </span>
       <span className="preview-fallback-message">{t('preview.unavailable')}</span>
-      <button
-        type="button"
-        className="preview-fallback-retry"
-        onClick={handleRetry}
-      >
+      <button type="button" className="preview-fallback-retry" onClick={handleRetry}>
         {t('preview.retry')}
       </button>
     </div>
@@ -205,10 +203,7 @@ export default function OverlayPreview({
       >
         <div style={wrapperStyle}>
           <iframe
-            src={getBustedUrl(
-              safeOverlayUrl,
-              styleOverride ? { style: styleOverride } : {},
-            )}
+            src={getBustedUrl(safeOverlayUrl, styleOverride ? { style: styleOverride } : {})}
             width={iframeW}
             height={iframeH}
             style={{ border: 0, background: 'transparent' }}
@@ -228,7 +223,7 @@ export default function OverlayPreview({
   // --- Standard overlay (overlays.uno) ---
   const championship = layoutId === CHAMPIONSHIP_LAYOUT_ID;
   const iframeWidth = 600;
-  const iframeHeight = iframeWidth * 9 / 16;
+  const iframeHeight = (iframeWidth * 9) / 16;
 
   const regionW = (width / 100) * iframeWidth;
   const regionH = (height / (championship ? 60 : 100)) * iframeHeight;
@@ -243,21 +238,28 @@ export default function OverlayPreview({
   // ``* 0.95`` mirrors the custom-overlay path so both previews
   // leave the same small inset between the rendered scoreboard and
   // the card edge.
-  const scale = regionW > 0 && regionH > 0
-    ? Math.min(cardWidth / regionW, cardHeight / regionH) * 0.95
-    : 1;
+  const scale =
+    regionW > 0 && regionH > 0 ? Math.min(cardWidth / regionW, cardHeight / regionH) * 0.95 : 1;
 
   const src = getBustedUrl(safeOverlayUrl, { aspect: '16:9' });
 
   return (
     <div
       className="preview-container"
-      style={{ width: cardWidth, height: cardHeight, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}
+      style={{
+        width: cardWidth,
+        height: cardHeight,
+        overflow: 'hidden',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+      }}
     >
       <div
         style={{
           width: regionW,
-          height: regionH * 8 / 10,
+          height: (regionH * 8) / 10,
           overflow: 'hidden',
           position: 'relative',
           transform: `scale(${scale})`,
@@ -268,7 +270,13 @@ export default function OverlayPreview({
           src={src}
           width={iframeWidth}
           height={iframeHeight}
-          style={{ border: 0, background: 'transparent', position: 'absolute', top: -topPx, left: -leftPx }}
+          style={{
+            border: 0,
+            background: 'transparent',
+            position: 'absolute',
+            top: -topPx,
+            left: -leftPx,
+          }}
           sandbox="allow-scripts allow-same-origin"
           // ``allowTransparency`` is a non-standard iframe attribute that
           // React's typings model as boolean, but Chromium honours the

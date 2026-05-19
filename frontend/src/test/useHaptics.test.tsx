@@ -48,13 +48,17 @@ describe('useHaptics', () => {
 
   it('fires the named pattern through navigator.vibrate', () => {
     const { result } = renderHook(() => useHaptics(), { wrapper });
-    act(() => { result.current.pulse('tap'); });
+    act(() => {
+      result.current.pulse('tap');
+    });
     expect(vibrateMock).toHaveBeenCalledWith(HAPTIC_PATTERNS.tap);
   });
 
   it('expands array patterns into a fresh mutable array for the API', () => {
     const { result } = renderHook(() => useHaptics(), { wrapper });
-    act(() => { result.current.pulse('confirm'); });
+    act(() => {
+      result.current.pulse('confirm');
+    });
     expect(vibrateMock).toHaveBeenCalledTimes(1);
     const arg = vibrateMock.mock.calls[0]![0];
     expect(Array.isArray(arg)).toBe(true);
@@ -74,15 +78,21 @@ describe('useHaptics', () => {
   it('no-ops when haptics is disabled in settings', () => {
     localStorage.setItem('volley_haptics', 'false');
     const { result } = renderHook(() => useHaptics(), { wrapper });
-    act(() => { result.current.pulse('tap'); });
+    act(() => {
+      result.current.pulse('tap');
+    });
     expect(vibrateMock).not.toHaveBeenCalled();
   });
 
   it('swallows runtime errors raised by navigator.vibrate', () => {
-    vibrateMock.mockImplementation(() => { throw new Error('not allowed'); });
+    vibrateMock.mockImplementation(() => {
+      throw new Error('not allowed');
+    });
     const { result } = renderHook(() => useHaptics(), { wrapper });
     expect(() => {
-      act(() => { result.current.pulse('alert'); });
+      act(() => {
+        result.current.pulse('alert');
+      });
     }).not.toThrow();
   });
 
@@ -94,7 +104,9 @@ describe('useHaptics', () => {
     });
     const { result } = renderHook(() => useHaptics(), { wrapper });
     expect(result.current.supported).toBe(false);
-    act(() => { result.current.pulse('tap'); });
+    act(() => {
+      result.current.pulse('tap');
+    });
     expect(vibrateMock).not.toHaveBeenCalled();
   });
 });

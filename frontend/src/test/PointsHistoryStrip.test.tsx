@@ -12,10 +12,13 @@ const COMMON = {
   team2Name: 'Away',
 };
 
-function strip(events: RecentEvent[], opts: Partial<typeof COMMON> & {
-  team1Logo?: string | null;
-  team2Logo?: string | null;
-} = {}) {
+function strip(
+  events: RecentEvent[],
+  opts: Partial<typeof COMMON> & {
+    team1Logo?: string | null;
+    team2Logo?: string | null;
+  } = {},
+) {
   return (
     <PointsHistoryStrip
       events={events}
@@ -100,10 +103,7 @@ describe('PointsHistoryStrip', () => {
 
   it('uses the team name in chip aria-labels for accessibility', () => {
     render(strip([{ ts: 1, team: 1, kind: 'set_won' }]));
-    expect(screen.getByTestId('phs-chip-1-0')).toHaveAttribute(
-      'aria-label',
-      'Home: set won',
-    );
+    expect(screen.getByTestId('phs-chip-1-0')).toHaveAttribute('aria-label', 'Home: set won');
   });
 
   it('renders an SVG icon for set_won, match_won, timeout and manual chips', () => {

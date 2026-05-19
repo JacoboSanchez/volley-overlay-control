@@ -57,21 +57,23 @@ export function useHaptics(): UseHapticsResult {
   const { settings } = useSettings();
   const lastFire = useRef(0);
 
-  const supported = typeof navigator !== 'undefined'
-    && typeof navigator.vibrate === 'function';
+  const supported = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 
-  const pulse = useCallback((pattern: HapticPatternKey | HapticPattern) => {
-    if (!settings.haptics || !supported) return;
-    const now = Date.now();
-    if (now - lastFire.current < MIN_INTERVAL_MS) return;
-    lastFire.current = now;
-    try {
-      navigator.vibrate(readPattern(pattern));
-    } catch {
-      // Some runtimes throw on long patterns or permission policy
-      // violations; treat them as no-op rather than escalate.
-    }
-  }, [settings.haptics, supported]);
+  const pulse = useCallback(
+    (pattern: HapticPatternKey | HapticPattern) => {
+      if (!settings.haptics || !supported) return;
+      const now = Date.now();
+      if (now - lastFire.current < MIN_INTERVAL_MS) return;
+      lastFire.current = now;
+      try {
+        navigator.vibrate(readPattern(pattern));
+      } catch {
+        // Some runtimes throw on long patterns or permission policy
+        // violations; treat them as no-op rather than escalate.
+      }
+    },
+    [settings.haptics, supported],
+  );
 
   return { pulse, supported };
 }

@@ -4,9 +4,7 @@ import ScoreboardView from '../components/ScoreboardView';
 import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
 
 vi.mock('../components/TeamPanel', () => ({
-  default: ({ teamId }: { teamId: number }) => (
-    <div data-testid={`team-panel-${teamId}`} />
-  ),
+  default: ({ teamId }: { teamId: number }) => <div data-testid={`team-panel-${teamId}`} />,
 }));
 
 vi.mock('../components/CenterPanel', () => ({
@@ -68,11 +66,7 @@ describe('ScoreboardView top-right corner stack', () => {
     const buttons = Array.from(
       stack!.querySelectorAll<HTMLButtonElement>('button[data-testid]'),
     ).map((b) => b.dataset.testid);
-    expect(buttons).toEqual([
-      'config-tab-button',
-      'share-button',
-      'history-button',
-    ]);
+    expect(buttons).toEqual(['config-tab-button', 'share-button', 'history-button']);
   });
 
   it('invokes the matching callback when each top-right button is clicked', () => {

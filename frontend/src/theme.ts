@@ -41,17 +41,17 @@ export interface FontScale {
 export const DEFAULT_FONT_SCALE: FontScale = { scale: 1.0, offset_y: 0.0 };
 
 export const FONT_SCALES: Record<string, FontScale> = {
-  Default:           DEFAULT_FONT_SCALE,
-  'Digital Dismay':  { scale: 1.16, offset_y: 0.01 },
-  Aluminum:          { scale: 1.06, offset_y: 0.02 },
-  Atlas:             { scale: 0.96, offset_y: 0.01 },
-  Bypass:            { scale: 0.96, offset_y: 0.0 },
-  Catch:             { scale: 1.17, offset_y: 0.01 },
-  Devotee:           { scale: 1.14, offset_y: 0.02 },
+  Default: DEFAULT_FONT_SCALE,
+  'Digital Dismay': { scale: 1.16, offset_y: 0.01 },
+  Aluminum: { scale: 1.06, offset_y: 0.02 },
+  Atlas: { scale: 0.96, offset_y: 0.01 },
+  Bypass: { scale: 0.96, offset_y: 0.0 },
+  Catch: { scale: 1.17, offset_y: 0.01 },
+  Devotee: { scale: 1.14, offset_y: 0.02 },
   'Digital Readout': { scale: 1.39, offset_y: 0.0 },
-  'LED board':       { scale: 0.79, offset_y: -0.01 },
-  'Open 24':         { scale: 1.14, offset_y: -0.02 },
-  'Alarm Clock':     { scale: 1.01, offset_y: 0.01 },
+  'LED board': { scale: 0.79, offset_y: -0.01 },
+  'Open 24': { scale: 1.14, offset_y: -0.02 },
+  'Alarm Clock': { scale: 1.01, offset_y: 0.01 },
 };
 
 // Font names available for the score button selector

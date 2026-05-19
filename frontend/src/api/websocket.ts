@@ -27,13 +27,7 @@ export interface CreateWebSocketHandlers {
 
 export function createWebSocket(
   oid: string,
-  {
-    onStateUpdate,
-    onCustomizationUpdate,
-    onOpen,
-    onClose,
-    onError,
-  }: CreateWebSocketHandlers,
+  { onStateUpdate, onCustomizationUpdate, onOpen, onClose, onError }: CreateWebSocketHandlers,
 ): WebSocket {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;

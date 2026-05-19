@@ -122,12 +122,7 @@ function CenterPanel({
               {logo1 && (
                 <img src={logo1} alt="Team 1" className="team-logo" data-testid="team-1-logo" />
               )}
-              <ScoreTable
-                state={state}
-                setsLimit={setsLimit}
-                currentSet={currentSet}
-                teamId={1}
-              />
+              <ScoreTable state={state} setsLimit={setsLimit} currentSet={currentSet} teamId={1} />
             </div>
             <div className="current-set-indicator" data-testid="current-set-indicator">
               {currentSet}
@@ -136,12 +131,7 @@ function CenterPanel({
               {logo2 && (
                 <img src={logo2} alt="Team 2" className="team-logo" data-testid="team-2-logo" />
               )}
-              <ScoreTable
-                state={state}
-                setsLimit={setsLimit}
-                currentSet={currentSet}
-                teamId={2}
-              />
+              <ScoreTable state={state} setsLimit={setsLimit} currentSet={currentSet} teamId={2} />
             </div>
           </div>
         )}

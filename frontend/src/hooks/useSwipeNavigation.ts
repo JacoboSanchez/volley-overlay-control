@@ -67,42 +67,60 @@ export function useSwipeNavigation({
   const startRef = useRef<SwipeStart | null>(null);
   // "Latest ref" pattern: handlers read from optionsRef.current so the
   // returned SwipeHandlers object can stay identity-stable across renders.
-  const optionsRef = useRef<ResolvedOptions>({ onSwipeLeft, onSwipeRight, threshold, maxVerticalRatio, ignoreSelector });
+  const optionsRef = useRef<ResolvedOptions>({
+    onSwipeLeft,
+    onSwipeRight,
+    threshold,
+    maxVerticalRatio,
+    ignoreSelector,
+  });
   optionsRef.current = { onSwipeLeft, onSwipeRight, threshold, maxVerticalRatio, ignoreSelector };
 
-  return useMemo<SwipeHandlers>(() => ({
-    onTouchStart: (e) => {
-      if (e.touches.length !== 1) {
+  return useMemo<SwipeHandlers>(
+    () => ({
+      onTouchStart: (e) => {
+        if (e.touches.length !== 1) {
+          startRef.current = null;
+          return;
+        }
+        const touch = e.touches[0];
+        if (!touch) return;
+        const target = e.target as Node | null;
+        const element = target instanceof Element ? target : (target?.parentElement ?? null);
+        const { ignoreSelector: sel } = optionsRef.current;
+        const ignored = !!(
+          element &&
+          typeof element.closest === 'function' &&
+          element.closest(sel)
+        );
+        startRef.current = { x: touch.clientX, y: touch.clientY, ignored };
+      },
+      onTouchMove: (e) => {
+        if (e.touches.length > 1) startRef.current = null;
+      },
+      onTouchEnd: (e) => {
+        const start = startRef.current;
         startRef.current = null;
-        return;
-      }
-      const touch = e.touches[0];
-      if (!touch) return;
-      const target = e.target as Node | null;
-      const element = target instanceof Element ? target : target?.parentElement ?? null;
-      const { ignoreSelector: sel } = optionsRef.current;
-      const ignored = !!(element && typeof element.closest === 'function' && element.closest(sel));
-      startRef.current = { x: touch.clientX, y: touch.clientY, ignored };
-    },
-    onTouchMove: (e) => {
-      if (e.touches.length > 1) startRef.current = null;
-    },
-    onTouchEnd: (e) => {
-      const start = startRef.current;
-      startRef.current = null;
-      if (!start || start.ignored) return;
-      const touch = e.changedTouches[0];
-      if (!touch) return;
-      const { threshold: th, maxVerticalRatio: ratio, onSwipeLeft: left, onSwipeRight: right } = optionsRef.current;
-      const dx = touch.clientX - start.x;
-      const dy = touch.clientY - start.y;
-      if (Math.abs(dx) < th) return;
-      if (Math.abs(dy) > Math.abs(dx) * ratio) return;
-      if (dx < 0) left?.();
-      else right?.();
-    },
-    onTouchCancel: () => {
-      startRef.current = null;
-    },
-  }), []);
+        if (!start || start.ignored) return;
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+        const {
+          threshold: th,
+          maxVerticalRatio: ratio,
+          onSwipeLeft: left,
+          onSwipeRight: right,
+        } = optionsRef.current;
+        const dx = touch.clientX - start.x;
+        const dy = touch.clientY - start.y;
+        if (Math.abs(dx) < th) return;
+        if (Math.abs(dy) > Math.abs(dx) * ratio) return;
+        if (dx < 0) left?.();
+        else right?.();
+      },
+      onTouchCancel: () => {
+        startRef.current = null;
+      },
+    }),
+    [],
+  );
 }

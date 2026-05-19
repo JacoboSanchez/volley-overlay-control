@@ -3,9 +3,18 @@ import { HexColorPicker } from 'react-colorful';
 import { useI18n } from '../i18n';
 
 const PRESET_COLORS = [
-  '#ffffff', '#000000', '#060f8a', '#d32f2f', '#f9a825',
-  '#2e7d32', '#1565c0', '#6a1b9a', '#e65100', '#00838f',
-  '#4e342e', '#546e7a',
+  '#ffffff',
+  '#000000',
+  '#060f8a',
+  '#d32f2f',
+  '#f9a825',
+  '#2e7d32',
+  '#1565c0',
+  '#6a1b9a',
+  '#e65100',
+  '#00838f',
+  '#4e342e',
+  '#546e7a',
 ];
 
 const LS_KEY = 'volley_recentColors';
@@ -18,7 +27,9 @@ function getRecentColors(): string[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed.filter((c): c is string => typeof c === 'string');
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
   return [];
 }
 
@@ -28,7 +39,9 @@ function saveRecentColor(color: string) {
     const recent = getRecentColors().filter((c) => c !== normalized);
     recent.unshift(normalized);
     localStorage.setItem(LS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
 }
 
 export interface ColorPickerProps {
@@ -79,7 +92,10 @@ export default function ColorPicker({
       const maxTop = window.innerHeight - margin;
 
       let top: number;
-      if (rect.bottom + gap + popoverHeight > window.innerHeight && rect.top - gap - popoverHeight > 0) {
+      if (
+        rect.bottom + gap + popoverHeight > window.innerHeight &&
+        rect.top - gap - popoverHeight > 0
+      ) {
         top = rect.top - gap - popoverHeight;
       } else {
         top = rect.bottom + gap;
@@ -113,8 +129,10 @@ export default function ColorPicker({
     function handleClick(e: PointerEvent) {
       const target = e.target as Node;
       if (
-        popover.current && !popover.current.contains(target) &&
-        swatch.current && !swatch.current.contains(target)
+        popover.current &&
+        !popover.current.contains(target) &&
+        swatch.current &&
+        !swatch.current.contains(target)
       ) {
         setOpen(false);
       }
@@ -123,30 +141,39 @@ export default function ColorPicker({
     return () => document.removeEventListener('pointerdown', handleClick);
   }, [open]);
 
-  const applyColor = useCallback((newColor: string) => {
-    setHex(newColor);
-    onChange(newColor);
-    saveRecentColor(newColor);
-    setRecentColors(getRecentColors());
-  }, [onChange]);
+  const applyColor = useCallback(
+    (newColor: string) => {
+      setHex(newColor);
+      onChange(newColor);
+      saveRecentColor(newColor);
+      setRecentColors(getRecentColors());
+    },
+    [onChange],
+  );
 
-  const handlePickerChange = useCallback((newColor: string) => {
-    setHex(newColor);
-    onChange(newColor);
-  }, [onChange]);
+  const handlePickerChange = useCallback(
+    (newColor: string) => {
+      setHex(newColor);
+      onChange(newColor);
+    },
+    [onChange],
+  );
 
   const handlePickerChangeEnd = useCallback((newColor: string) => {
     saveRecentColor(newColor);
     setRecentColors(getRecentColors());
   }, []);
 
-  const handleHexInput = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setHex(val);
-    if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(val)) {
-      onChange(val);
-    }
-  }, [onChange]);
+  const handleHexInput = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setHex(val);
+      if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(val)) {
+        onChange(val);
+      }
+    },
+    [onChange],
+  );
 
   const handleHexBlur = useCallback(() => {
     if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(hex)) {
@@ -168,7 +195,10 @@ export default function ColorPicker({
       />
       {open && (
         <div ref={popover} className="color-picker-popover" style={popoverStyle}>
-          <div className="color-picker-presets" data-testid={testId ? `${testId}-presets` : undefined}>
+          <div
+            className="color-picker-presets"
+            data-testid={testId ? `${testId}-presets` : undefined}
+          >
             <span className="color-picker-section-label">{t('colorPicker.presets')}</span>
             <div className="color-picker-swatch-row">
               {PRESET_COLORS.map((c) => (
@@ -184,7 +214,10 @@ export default function ColorPicker({
             </div>
           </div>
           {recentColors.length > 0 && (
-            <div className="color-picker-recent" data-testid={testId ? `${testId}-recent` : undefined}>
+            <div
+              className="color-picker-recent"
+              data-testid={testId ? `${testId}-recent` : undefined}
+            >
               <span className="color-picker-section-label">{t('colorPicker.recent')}</span>
               <div className="color-picker-swatch-row">
                 {recentColors.map((c) => (

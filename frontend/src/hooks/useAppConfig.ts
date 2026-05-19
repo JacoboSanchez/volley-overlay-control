@@ -15,14 +15,19 @@ export function useAppConfig(): AppConfig {
 
   useEffect(() => {
     let cancelled = false;
-    api.getAppConfig().then((cfg) => {
-      if (cancelled) return;
-      setConfig(cfg);
-      if (cfg.title) document.title = cfg.title;
-    }).catch((err: unknown) => {
-      console.warn('Failed to fetch app config:', err);
-    });
-    return () => { cancelled = true; };
+    api
+      .getAppConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        setConfig(cfg);
+        if (cfg.title) document.title = cfg.title;
+      })
+      .catch((err: unknown) => {
+        console.warn('Failed to fetch app config:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return config;

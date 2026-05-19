@@ -55,12 +55,8 @@ describe('MatchTimer', () => {
     // Wall clock has advanced past the match end — timer must show
     // the *frozen* end-of-match value, not the larger live elapsed.
     vi.setSystemTime(new Date(start * 1000 + 600_000));
-    renderWithI18n(
-      <MatchTimer startedAt={start} finishedAt={start + 75} />,
-    );
+    renderWithI18n(<MatchTimer startedAt={start} finishedAt={start + 75} />);
     expect(screen.getByTestId('match-timer')).toHaveTextContent('1:15');
-    expect(screen.getByTestId('match-timer')).toHaveClass(
-      'match-timer-finished',
-    );
+    expect(screen.getByTestId('match-timer')).toHaveClass('match-timer-finished');
   });
 });

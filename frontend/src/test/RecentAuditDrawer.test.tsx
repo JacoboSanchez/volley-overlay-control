@@ -9,7 +9,12 @@ vi.mock('../api/client', () => ({
   getAudit: vi.fn(),
 }));
 
-function record(ts: number, action: string, params: Record<string, unknown> = {}, result?: Record<string, unknown>): AuditRecord {
+function record(
+  ts: number,
+  action: string,
+  params: Record<string, unknown> = {},
+  result?: Record<string, unknown>,
+): AuditRecord {
   return {
     ts,
     action,
@@ -30,12 +35,7 @@ describe('RecentAuditDrawer', () => {
 
   it('renders nothing when closed', () => {
     renderWithI18n(
-      <RecentAuditDrawer
-        oid="x"
-        open={false}
-        confirmedState={mockGameState}
-        onClose={vi.fn()}
-      />,
+      <RecentAuditDrawer oid="x" open={false} confirmedState={mockGameState} onClose={vi.fn()} />,
     );
     expect(screen.queryByTestId('recent-audit-drawer')).toBeNull();
     expect(api.getAudit).not.toHaveBeenCalled();
@@ -43,16 +43,9 @@ describe('RecentAuditDrawer', () => {
 
   it('renders the empty state when audit is empty', async () => {
     renderWithI18n(
-      <RecentAuditDrawer
-        oid="x"
-        open={true}
-        confirmedState={mockGameState}
-        onClose={vi.fn()}
-      />,
+      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
     );
-    await waitFor(() =>
-      expect(screen.getByText(/no recent actions/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/no recent actions/i)).toBeInTheDocument());
   });
 
   it('lists records newest-first with action labels', async () => {
@@ -61,20 +54,13 @@ describe('RecentAuditDrawer', () => {
       oid: 'x',
       count: 3,
       records: [
-        record(now - 60, 'add_point', { team: 1 },
-          { team_1: { score: 1 }, team_2: { score: 0 } }),
+        record(now - 60, 'add_point', { team: 1 }, { team_1: { score: 1 }, team_2: { score: 0 } }),
         record(now - 30, 'add_timeout', { team: 2 }),
-        record(now - 5, 'add_point', { team: 2 },
-          { team_1: { score: 1 }, team_2: { score: 1 } }),
+        record(now - 5, 'add_point', { team: 2 }, { team_1: { score: 1 }, team_2: { score: 1 } }),
       ],
     });
     renderWithI18n(
-      <RecentAuditDrawer
-        oid="x"
-        open={true}
-        confirmedState={mockGameState}
-        onClose={vi.fn()}
-      />,
+      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
     );
     const list = await screen.findByTestId('recent-audit-list');
     const rows = list.querySelectorAll('li');
@@ -93,17 +79,10 @@ describe('RecentAuditDrawer', () => {
     vi.mocked(api.getAudit).mockResolvedValue({
       oid: 'x',
       count: 1,
-      records: [
-        record(now - 1, 'add_point', { team: 1, undo: true }),
-      ],
+      records: [record(now - 1, 'add_point', { team: 1, undo: true })],
     });
     renderWithI18n(
-      <RecentAuditDrawer
-        oid="x"
-        open={true}
-        confirmedState={mockGameState}
-        onClose={vi.fn()}
-      />,
+      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
     );
     const list = await screen.findByTestId('recent-audit-list');
     const row = list.querySelector('li')!;
@@ -114,12 +93,7 @@ describe('RecentAuditDrawer', () => {
   it('closes via the close button and via Escape', async () => {
     const onClose = vi.fn();
     renderWithI18n(
-      <RecentAuditDrawer
-        oid="x"
-        open={true}
-        confirmedState={mockGameState}
-        onClose={onClose}
-      />,
+      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={onClose} />,
     );
     fireEvent.click(screen.getByTestId('recent-audit-close'));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -129,12 +103,7 @@ describe('RecentAuditDrawer', () => {
 
   it('refresh button forces a refetch', async () => {
     renderWithI18n(
-      <RecentAuditDrawer
-        oid="x"
-        open={true}
-        confirmedState={mockGameState}
-        onClose={vi.fn()}
-      />,
+      <RecentAuditDrawer oid="x" open={true} confirmedState={mockGameState} onClose={vi.fn()} />,
     );
     await waitFor(() => expect(api.getAudit).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByTestId('recent-audit-refresh'));

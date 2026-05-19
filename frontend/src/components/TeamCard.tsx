@@ -37,19 +37,21 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
   const [editing, setEditing] = useState(false);
 
   const teamNames = Object.keys(predefinedTeams);
-  const allNames = teamNames.includes(currentName) || !currentName
-    ? teamNames
-    : [...teamNames, currentName];
+  const allNames =
+    teamNames.includes(currentName) || !currentName ? teamNames : [...teamNames, currentName];
 
-  const handleTeamSelect = useCallback((name: string) => {
-    updateField(nameKey, name);
-    const team = predefinedTeams[name];
-    if (team) {
-      if (team.icon) updateField(logoKey, team.icon);
-      if (team.color) updateField(colorKey, team.color);
-      if (team.text_color) updateField(textColorKey, team.text_color);
-    }
-  }, [predefinedTeams, updateField, nameKey, logoKey, colorKey, textColorKey]);
+  const handleTeamSelect = useCallback(
+    (name: string) => {
+      updateField(nameKey, name);
+      const team = predefinedTeams[name];
+      if (team) {
+        if (team.icon) updateField(logoKey, team.icon);
+        if (team.color) updateField(colorKey, team.color);
+        if (team.text_color) updateField(textColorKey, team.text_color);
+      }
+    },
+    [predefinedTeams, updateField, nameKey, logoKey, colorKey, textColorKey],
+  );
 
   return (
     <div className="config-team-block">
@@ -60,7 +62,9 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
               src={logoUrl}
               alt={`Team ${teamId} logo`}
               className="config-logo-img"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
           ) : (
             <span className="material-icons config-logo-placeholder">image</span>
@@ -79,9 +83,14 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
                 autoFocus
                 data-testid={`team-${teamId}-name-selector`}
               />
-              <button className="config-combobox-btn"
-                onMouseDown={(e) => { e.preventDefault(); setEditing(false); }}
-                title={t('teams.backToList')}>
+              <button
+                className="config-combobox-btn"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setEditing(false);
+                }}
+                title={t('teams.backToList')}
+              >
                 <span className="material-icons">check</span>
               </button>
             </div>
@@ -95,10 +104,16 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
               >
                 <option value="">{t('teams.select')}</option>
                 {allNames.map((name) => (
-                  <option key={name} value={name}>{name}</option>
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
                 ))}
               </select>
-              <button className="config-combobox-btn" onClick={() => setEditing(true)} title={t('teams.customName')}>
+              <button
+                className="config-combobox-btn"
+                onClick={() => setEditing(true)}
+                title={t('teams.customName')}
+              >
                 <span className="material-icons">edit</span>
               </button>
             </div>

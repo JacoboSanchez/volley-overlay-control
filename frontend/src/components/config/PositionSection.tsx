@@ -12,10 +12,42 @@ interface PositionField {
 }
 
 const FIELDS: PositionField[] = [
-  { labelKey: 'position.height', key: 'Height', def: 10, min: 0, max: 100, step: 0.1, testId: 'height-input' },
-  { labelKey: 'position.width', key: 'Width', def: 30, min: 0, max: 100, step: 0.1, testId: 'width-input' },
-  { labelKey: 'position.hPos', key: 'Left-Right', def: -33, min: -50, max: 50, step: 0.1, testId: 'hpos-input' },
-  { labelKey: 'position.vPos', key: 'Up-Down', def: -41.1, min: -50, max: 50, step: 0.1, testId: 'vpos-input' },
+  {
+    labelKey: 'position.height',
+    key: 'Height',
+    def: 10,
+    min: 0,
+    max: 100,
+    step: 0.1,
+    testId: 'height-input',
+  },
+  {
+    labelKey: 'position.width',
+    key: 'Width',
+    def: 30,
+    min: 0,
+    max: 100,
+    step: 0.1,
+    testId: 'width-input',
+  },
+  {
+    labelKey: 'position.hPos',
+    key: 'Left-Right',
+    def: -33,
+    min: -50,
+    max: 50,
+    step: 0.1,
+    testId: 'hpos-input',
+  },
+  {
+    labelKey: 'position.vPos',
+    key: 'Up-Down',
+    def: -41.1,
+    min: -50,
+    max: 50,
+    step: 0.1,
+    testId: 'vpos-input',
+  },
 ];
 
 export interface PositionSectionProps {
@@ -36,17 +68,34 @@ export default function PositionSection({ model, updateField }: PositionSectionP
             <div key={f.key} className="config-stepper-group">
               <label className="config-label">{t(f.labelKey)}</label>
               <div className="config-stepper">
-                <button className="config-stepper-btn"
-                  onClick={() => updateField(f.key, Math.max(f.min, parseFloat((val - f.step).toFixed(1))))}
-                  title={t('position.decrease')}>−</button>
-                <input type="number" className="config-stepper-input"
-                  value={val} min={f.min} max={f.max} step={f.step}
+                <button
+                  className="config-stepper-btn"
+                  onClick={() =>
+                    updateField(f.key, Math.max(f.min, parseFloat((val - f.step).toFixed(1))))
+                  }
+                  title={t('position.decrease')}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  className="config-stepper-input"
+                  value={val}
+                  min={f.min}
+                  max={f.max}
+                  step={f.step}
                   onChange={(e) => updateField(f.key, parseFloat(e.target.value))}
                   data-testid={f.testId}
                 />
-                <button className="config-stepper-btn"
-                  onClick={() => updateField(f.key, Math.min(f.max, parseFloat((val + f.step).toFixed(1))))}
-                  title={t('position.increase')}>+</button>
+                <button
+                  className="config-stepper-btn"
+                  onClick={() =>
+                    updateField(f.key, Math.min(f.max, parseFloat((val + f.step).toFixed(1))))
+                  }
+                  title={t('position.increase')}
+                >
+                  +
+                </button>
               </div>
             </div>
           );

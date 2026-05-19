@@ -87,9 +87,7 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
   // Create form state
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
-  const [createCats, setCreateCats] = useState<Set<CategoryId>>(
-    () => new Set<CategoryId>(),
-  );
+  const [createCats, setCreateCats] = useState<Set<CategoryId>>(() => new Set<CategoryId>());
   const [creating, setCreating] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -257,28 +255,26 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
       )}
 
       {actionError && (
-        <div
-          className="preset-picker-action-error"
-          role="alert"
-          data-testid="preset-action-error"
-        >
-          <span className="material-icons" aria-hidden="true">error_outline</span>
+        <div className="preset-picker-action-error" role="alert" data-testid="preset-action-error">
+          <span className="material-icons" aria-hidden="true">
+            error_outline
+          </span>
           {actionError}
         </div>
       )}
 
       {loading ? (
         <div className="preset-picker-loading" data-testid="preset-picker-loading">
-          <span className="material-icons" aria-hidden="true">hourglass_top</span>
+          <span className="material-icons" aria-hidden="true">
+            hourglass_top
+          </span>
           {t('presets.loading')}
         </div>
       ) : error ? (
-        <div
-          className="preset-picker-error"
-          role="alert"
-          data-testid="preset-picker-error"
-        >
-          <span className="material-icons" aria-hidden="true">error_outline</span>
+        <div className="preset-picker-error" role="alert" data-testid="preset-picker-error">
+          <span className="material-icons" aria-hidden="true">
+            error_outline
+          </span>
           {error}
         </div>
       ) : sortedItems.length === 0 ? (
@@ -293,9 +289,7 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
               <li
                 key={item.slug}
                 className={
-                  isSystem
-                    ? 'preset-picker-item preset-picker-item-system'
-                    : 'preset-picker-item'
+                  isSystem ? 'preset-picker-item preset-picker-item-system' : 'preset-picker-item'
                 }
                 data-testid={`preset-item-${item.slug}`}
                 data-source={item.source}
@@ -308,18 +302,16 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
                       title={t('presets.systemTooltip')}
                       data-testid={`preset-system-chip-${item.slug}`}
                     >
-                      <span className="material-icons" aria-hidden="true">verified</span>
+                      <span className="material-icons" aria-hidden="true">
+                        verified
+                      </span>
                       {t('presets.systemBadge')}
                     </span>
                   )}
                 </div>
                 <div className="preset-picker-scopes">
                   {item.categories.map((c) => (
-                    <span
-                      key={c}
-                      className="preset-picker-scope-chip"
-                      title={categoryLabel(c, t)}
-                    >
+                    <span key={c} className="preset-picker-scope-chip" title={categoryLabel(c, t)}>
                       <span className="material-icons" aria-hidden="true">
                         {categoryIcon(c)}
                       </span>
@@ -334,7 +326,9 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
                     onClick={() => handleApply(item)}
                     data-testid={`preset-apply-${item.slug}`}
                   >
-                    <span className="material-icons" aria-hidden="true">download</span>
+                    <span className="material-icons" aria-hidden="true">
+                      download
+                    </span>
                     {t('presets.apply')}
                   </button>
                   {!isSystem && (
@@ -347,7 +341,9 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
                       aria-label={`${t('presets.delete')}: ${item.name}`}
                       data-testid={`preset-delete-${item.slug}`}
                     >
-                      <span className="material-icons" aria-hidden="true">delete</span>
+                      <span className="material-icons" aria-hidden="true">
+                        delete
+                      </span>
                     </button>
                   )}
                 </div>

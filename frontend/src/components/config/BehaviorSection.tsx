@@ -68,8 +68,11 @@ export default function BehaviorSection({
       {settings.autoSimple && (
         <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
           <label className="config-switch-label">
-            <input type="checkbox" checked={settings.autoSimpleOnTimeout}
-              onChange={(e) => setSetting('autoSimpleOnTimeout', e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={settings.autoSimpleOnTimeout}
+              onChange={(e) => setSetting('autoSimpleOnTimeout', e.target.checked)}
+            />
             {t('behavior.fullOnTimeout')}
           </label>
         </div>
@@ -86,11 +89,7 @@ export default function BehaviorSection({
       />
       {settings.keyboardShortcuts && onShowShortcuts && (
         <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
-          <button
-            type="button"
-            className="dialog-btn"
-            onClick={onShowShortcuts}
-          >
+          <button type="button" className="dialog-btn" onClick={onShowShortcuts}>
             {t('behavior.showShortcuts')}
           </button>
         </div>
@@ -104,18 +103,21 @@ export default function BehaviorSection({
       />
       {settings.setSummaryEnabled && (
         <>
-          <p className="config-help-text" style={{ margin: '0 0 0.75rem 1.5rem', fontSize: '0.85em', opacity: 0.7 }}>
+          <p
+            className="config-help-text"
+            style={{ margin: '0 0 0.75rem 1.5rem', fontSize: '0.85em', opacity: 0.7 }}
+          >
             {t('config.setSummary.description')}
           </p>
           {setSummaryStyle && onChangeSetSummaryStyle && (
-            <div className="config-field-group" style={{ paddingLeft: '1.5rem', marginBottom: '0.75rem' }}>
+            <div
+              className="config-field-group"
+              style={{ paddingLeft: '1.5rem', marginBottom: '0.75rem' }}
+            >
               <label className="config-field-group-label">
                 {t('config.setSummary.style.label')}
               </label>
-              <SetSummaryStylePicker
-                value={setSummaryStyle}
-                onChange={onChangeSetSummaryStyle}
-              />
+              <SetSummaryStylePicker value={setSummaryStyle} onChange={onChangeSetSummaryStyle} />
             </div>
           )}
         </>
@@ -124,9 +126,15 @@ export default function BehaviorSection({
       <div className="config-separator" />
       <div className="config-field-row">
         <label className="config-label">{t('lang.label')}</label>
-        <select className="config-select" value={lang} onChange={(e) => setLanguage(e.target.value)}>
+        <select
+          className="config-select"
+          value={lang}
+          onChange={(e) => setLanguage(e.target.value)}
+        >
           {(languages as string[]).map((l) => (
-            <option key={l} value={l}>{LANGUAGE_NAMES[l] ?? l}</option>
+            <option key={l} value={l}>
+              {LANGUAGE_NAMES[l] ?? l}
+            </option>
           ))}
         </select>
       </div>

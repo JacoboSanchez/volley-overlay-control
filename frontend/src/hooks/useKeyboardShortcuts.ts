@@ -120,37 +120,70 @@ export function useKeyboardShortcuts({
       const h = handlersRef.current;
       switch (name) {
         case 'pointTeam1':
-          if (h.onAddPoint) { e.preventDefault(); h.onAddPoint(1); }
+          if (h.onAddPoint) {
+            e.preventDefault();
+            h.onAddPoint(1);
+          }
           break;
         case 'pointTeam2':
-          if (h.onAddPoint) { e.preventDefault(); h.onAddPoint(2); }
+          if (h.onAddPoint) {
+            e.preventDefault();
+            h.onAddPoint(2);
+          }
           break;
         case 'undo':
-          if (h.onUndoLast) { e.preventDefault(); h.onUndoLast(); }
+          if (h.onUndoLast) {
+            e.preventDefault();
+            h.onUndoLast();
+          }
           break;
         case 'serveTeam1':
-          if (h.onChangeServe) { e.preventDefault(); h.onChangeServe(1); }
+          if (h.onChangeServe) {
+            e.preventDefault();
+            h.onChangeServe(1);
+          }
           break;
         case 'serveTeam2':
-          if (h.onChangeServe) { e.preventDefault(); h.onChangeServe(2); }
+          if (h.onChangeServe) {
+            e.preventDefault();
+            h.onChangeServe(2);
+          }
           break;
         case 'timeoutTeam1':
-          if (h.onAddTimeout) { e.preventDefault(); h.onAddTimeout(1); }
+          if (h.onAddTimeout) {
+            e.preventDefault();
+            h.onAddTimeout(1);
+          }
           break;
         case 'timeoutTeam2':
-          if (h.onAddTimeout) { e.preventDefault(); h.onAddTimeout(2); }
+          if (h.onAddTimeout) {
+            e.preventDefault();
+            h.onAddTimeout(2);
+          }
           break;
         case 'startMatch':
-          if (h.onStartMatch) { e.preventDefault(); h.onStartMatch(); }
+          if (h.onStartMatch) {
+            e.preventDefault();
+            h.onStartMatch();
+          }
           break;
         case 'toggleVisibility':
-          if (h.onToggleVisibility) { e.preventDefault(); h.onToggleVisibility(); }
+          if (h.onToggleVisibility) {
+            e.preventDefault();
+            h.onToggleVisibility();
+          }
           break;
         case 'toggleSimple':
-          if (h.onToggleSimpleMode) { e.preventDefault(); h.onToggleSimpleMode(); }
+          if (h.onToggleSimpleMode) {
+            e.preventDefault();
+            h.onToggleSimpleMode();
+          }
           break;
         case 'openHelp':
-          if (h.onOpenHelp) { e.preventDefault(); h.onOpenHelp(); }
+          if (h.onOpenHelp) {
+            e.preventDefault();
+            h.onOpenHelp();
+          }
           break;
       }
     };

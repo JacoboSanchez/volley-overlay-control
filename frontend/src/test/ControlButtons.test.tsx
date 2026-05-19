@@ -49,9 +49,7 @@ describe('ControlButtons', () => {
 
   it('disables undo button when canUndo is false', () => {
     const onUndoLast = vi.fn();
-    renderWithI18n(
-      <ControlButtons {...defaultProps} canUndo={false} onUndoLast={onUndoLast} />
-    );
+    renderWithI18n(<ControlButtons {...defaultProps} canUndo={false} onUndoLast={onUndoLast} />);
     const btn = screen.getByTestId('undo-button') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     fireEvent.click(btn);
@@ -80,7 +78,11 @@ describe('ControlButtons', () => {
     expect(screen.getByTestId('visibility-button')).toHaveTextContent('visibility');
 
     rerender(
-      <I18nProvider><SettingsProvider><ControlButtons {...defaultProps} visible={false} /></SettingsProvider></I18nProvider>
+      <I18nProvider>
+        <SettingsProvider>
+          <ControlButtons {...defaultProps} visible={false} />
+        </SettingsProvider>
+      </I18nProvider>,
     );
     expect(screen.getByTestId('visibility-button')).toHaveTextContent('visibility_off');
   });
@@ -112,9 +114,7 @@ describe('ControlButtons', () => {
   });
 
   it('shows the Reset button once the match is armed', () => {
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchStartedAt={1700000000} />,
-    );
+    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={1700000000} />);
     expect(screen.getByTestId('reset-button')).toBeInTheDocument();
     expect(screen.queryByTestId('start-match-button')).toBeNull();
   });
@@ -122,11 +122,7 @@ describe('ControlButtons', () => {
   it('calls onStartMatch when Start-match button clicked', () => {
     const onStartMatch = vi.fn();
     renderWithI18n(
-      <ControlButtons
-        {...defaultProps}
-        matchStartedAt={null}
-        onStartMatch={onStartMatch}
-      />,
+      <ControlButtons {...defaultProps} matchStartedAt={null} onStartMatch={onStartMatch} />,
     );
     fireEvent.click(screen.getByTestId('start-match-button'));
     expect(onStartMatch).toHaveBeenCalledOnce();
@@ -135,11 +131,7 @@ describe('ControlButtons', () => {
   it('calls onReset when Reset button clicked', () => {
     const onReset = vi.fn();
     renderWithI18n(
-      <ControlButtons
-        {...defaultProps}
-        matchStartedAt={1700000000}
-        onReset={onReset}
-      />,
+      <ControlButtons {...defaultProps} matchStartedAt={1700000000} onReset={onReset} />,
     );
     fireEvent.click(screen.getByTestId('reset-button'));
     expect(onReset).toHaveBeenCalledOnce();
@@ -152,13 +144,7 @@ describe('ControlButtons', () => {
     // restart. The Reset face must still win over Start so the
     // operator does not accidentally arm a new timer over the
     // visible just-finished scoreboard.
-    renderWithI18n(
-      <ControlButtons
-        {...defaultProps}
-        matchStartedAt={null}
-        matchFinished={true}
-      />,
-    );
+    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={null} matchFinished={true} />);
     expect(screen.getByTestId('reset-button')).toBeInTheDocument();
     expect(screen.queryByTestId('start-match-button')).toBeNull();
   });
@@ -181,9 +167,7 @@ describe('ControlButtons', () => {
   });
 
   it('renders the match timer once the match is armed', () => {
-    renderWithI18n(
-      <ControlButtons {...defaultProps} matchStartedAt={Date.now() / 1000} />,
-    );
+    renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={Date.now() / 1000} />);
     expect(screen.getByTestId('match-timer')).toBeInTheDocument();
   });
 });

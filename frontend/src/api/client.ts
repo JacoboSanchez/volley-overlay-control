@@ -82,35 +82,19 @@ export function getCustomization(oid: string): Promise<Record<string, unknown>> 
 
 // Game actions
 export function addPoint(oid: string, team: Team, undo = false): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/game/add-point${withOid(oid)}`,
-    { team, undo },
-  );
+  return request<ActionResponse>('POST', `/game/add-point${withOid(oid)}`, { team, undo });
 }
 
 export function addSet(oid: string, team: Team, undo = false): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/game/add-set${withOid(oid)}`,
-    { team, undo },
-  );
+  return request<ActionResponse>('POST', `/game/add-set${withOid(oid)}`, { team, undo });
 }
 
 export function addTimeout(oid: string, team: Team, undo = false): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/game/add-timeout${withOid(oid)}`,
-    { team, undo },
-  );
+  return request<ActionResponse>('POST', `/game/add-timeout${withOid(oid)}`, { team, undo });
 }
 
 export function changeServe(oid: string, team: Team): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/game/change-serve${withOid(oid)}`,
-    { team },
-  );
+  return request<ActionResponse>('POST', `/game/change-serve${withOid(oid)}`, { team });
 }
 
 export function setScore(
@@ -119,19 +103,15 @@ export function setScore(
   setNumber: number,
   value: number,
 ): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/game/set-score${withOid(oid)}`,
-    { team, set_number: setNumber, value },
-  );
+  return request<ActionResponse>('POST', `/game/set-score${withOid(oid)}`, {
+    team,
+    set_number: setNumber,
+    value,
+  });
 }
 
 export function setSets(oid: string, team: Team, value: number): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/game/set-sets${withOid(oid)}`,
-    { team, value },
-  );
+  return request<ActionResponse>('POST', `/game/set-sets${withOid(oid)}`, { team, value });
 }
 
 export function undoLast(oid: string): Promise<ActionResponse> {
@@ -148,19 +128,11 @@ export function startMatch(oid: string): Promise<ActionResponse> {
 
 // Display controls
 export function setVisibility(oid: string, visible: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/display/visibility${withOid(oid)}`,
-    { visible },
-  );
+  return request<ActionResponse>('POST', `/display/visibility${withOid(oid)}`, { visible });
 }
 
 export function setSimpleMode(oid: string, enabled: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/display/simple-mode${withOid(oid)}`,
-    { enabled },
-  );
+  return request<ActionResponse>('POST', `/display/simple-mode${withOid(oid)}`, { enabled });
 }
 
 export const SET_SUMMARY_STYLES = [
@@ -171,25 +143,14 @@ export const SET_SUMMARY_STYLES = [
   'podium',
   'bumper',
 ] as const;
-export type SetSummaryStyle = typeof SET_SUMMARY_STYLES[number];
+export type SetSummaryStyle = (typeof SET_SUMMARY_STYLES)[number];
 
 export function setSetSummary(oid: string, enabled: boolean): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/display/set-summary${withOid(oid)}`,
-    { enabled },
-  );
+  return request<ActionResponse>('POST', `/display/set-summary${withOid(oid)}`, { enabled });
 }
 
-export function setSetSummaryStyle(
-  oid: string,
-  style: SetSummaryStyle,
-): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/display/set-summary-style${withOid(oid)}`,
-    { style },
-  );
+export function setSetSummaryStyle(oid: string, style: SetSummaryStyle): Promise<ActionResponse> {
+  return request<ActionResponse>('POST', `/display/set-summary-style${withOid(oid)}`, { style });
 }
 
 export type MatchMode = 'indoor' | 'beach';
@@ -203,11 +164,7 @@ export interface SetRulesPayload {
 }
 
 export function setRules(oid: string, payload: SetRulesPayload): Promise<ActionResponse> {
-  return request<ActionResponse>(
-    'POST',
-    `/session/rules${withOid(oid)}`,
-    payload,
-  );
+  return request<ActionResponse>('POST', `/session/rules${withOid(oid)}`, payload);
 }
 
 // Customization
@@ -309,10 +266,5 @@ export function getAudit(
   limit: number = 20,
   signal?: AbortSignal,
 ): Promise<AuditResponse> {
-  return request<AuditResponse>(
-    'GET',
-    `/audit${withOid(oid)}&limit=${limit}`,
-    null,
-    signal,
-  );
+  return request<AuditResponse>('GET', `/audit${withOid(oid)}&limit=${limit}`, null, signal);
 }

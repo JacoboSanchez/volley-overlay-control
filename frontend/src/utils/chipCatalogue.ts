@@ -40,14 +40,14 @@ export interface ChipMeta {
 export const CHIP_CATALOGUE: Record<ChipKind, ChipMeta> = {
   'point-t1': { glyph: '+1', legendKey: 'history.legend.pointT1' },
   'point-t2': { glyph: '+1', legendKey: 'history.legend.pointT2' },
-  'point':    { glyph: '+1', legendKey: null },
-  'set':      { glyph: '🏆', legendKey: 'history.legend.set' },
-  'timeout':  { glyph: '⏸', legendKey: 'history.legend.timeout' },
-  'serve':    { glyph: '⇄', legendKey: 'history.legend.serve' },
-  'edit':     { glyph: '✎', legendKey: 'history.legend.edit' },
-  'reset':    { glyph: '⟲', legendKey: 'history.legend.reset' },
-  'undone':   { glyph: '↶', legendKey: 'history.legend.undone' },
-  'other':    { glyph: '•', legendKey: null },
+  point: { glyph: '+1', legendKey: null },
+  set: { glyph: '🏆', legendKey: 'history.legend.set' },
+  timeout: { glyph: '⏸', legendKey: 'history.legend.timeout' },
+  serve: { glyph: '⇄', legendKey: 'history.legend.serve' },
+  edit: { glyph: '✎', legendKey: 'history.legend.edit' },
+  reset: { glyph: '⟲', legendKey: 'history.legend.reset' },
+  undone: { glyph: '↶', legendKey: 'history.legend.undone' },
+  other: { glyph: '•', legendKey: null },
 };
 
 /**

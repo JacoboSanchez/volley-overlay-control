@@ -16,7 +16,9 @@ function Harness({ enabled = true, showInput, ...handlers }: HarnessProps) {
   return (
     <div>
       {showInput && <input data-testid="text-input" type="text" />}
-      <button data-testid="some-button" type="button">btn</button>
+      <button data-testid="some-button" type="button">
+        btn
+      </button>
     </div>
   );
 }
@@ -81,10 +83,7 @@ describe('useKeyboardShortcuts', () => {
     const onToggleVisibility = vi.fn();
     const onToggleSimpleMode = vi.fn();
     render(
-      <Harness
-        onToggleVisibility={onToggleVisibility}
-        onToggleSimpleMode={onToggleSimpleMode}
-      />,
+      <Harness onToggleVisibility={onToggleVisibility} onToggleSimpleMode={onToggleSimpleMode} />,
     );
     press('h');
     press('s');
@@ -101,9 +100,7 @@ describe('useKeyboardShortcuts', () => {
 
   it('ignores keystrokes coming from text inputs', () => {
     const onAddPoint = vi.fn();
-    const { getByTestId } = render(
-      <Harness onAddPoint={onAddPoint} showInput />,
-    );
+    const { getByTestId } = render(<Harness onAddPoint={onAddPoint} showInput />);
     const input = getByTestId('text-input') as HTMLInputElement;
     input.focus();
     fireEvent.keyDown(input, { key: 'a' });
@@ -190,7 +187,9 @@ describe('defaultKeyboardShortcutsEnabled', () => {
   it('returns true when matchMedia throws', () => {
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
-      value: () => { throw new Error('boom'); },
+      value: () => {
+        throw new Error('boom');
+      },
     });
     expect(defaultKeyboardShortcutsEnabled()).toBe(true);
   });

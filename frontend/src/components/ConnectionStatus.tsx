@@ -24,10 +24,7 @@ export interface ConnectionStatusProps {
  * the disconnect outlives the grace window, with ``aria-live`` so
  * screen readers also pick up the transition.
  */
-export default function ConnectionStatus({
-  connected,
-  graceMs = 1500,
-}: ConnectionStatusProps) {
+export default function ConnectionStatus({ connected, graceMs = 1500 }: ConnectionStatusProps) {
   const { t } = useI18n();
   const [showOffline, setShowOffline] = useState(false);
 
@@ -59,7 +56,9 @@ export default function ConnectionStatus({
       aria-label={t('conn.reconnecting')}
       data-testid="connection-status"
     >
-      <span className="material-icons" aria-hidden="true">cloud_off</span>
+      <span className="material-icons" aria-hidden="true">
+        cloud_off
+      </span>
       <span className="connection-status-label">{t('conn.reconnecting')}</span>
     </div>
   );
