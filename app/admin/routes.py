@@ -155,8 +155,8 @@ def _validate_overlay_id(value: str) -> str:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Overlay name may only contain letters, digits, '-', '_' and '.' "
-                f"(max {64} characters)."
+                "Overlay name may only contain letters, digits, '-', '_' and '.', "
+                "must be 1–64 characters, and cannot be '.' or '..'."
             ),
         ) from None
 

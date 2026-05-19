@@ -16,7 +16,11 @@ from __future__ import annotations
 
 import re
 
-from app.overlay_backends.utils import UNO_OID_LENGTH, matches_uno_format
+from app.overlay_backends.utils import (
+    UNO_OID_LENGTH,
+    matches_uno_format,
+    strip_legacy_prefix,
+)
 
 # API/session OID: same rules as legacy ``app.api.oid_validation``.
 API_OID_PATTERN = re.compile(r"^(?!.*\.\.)[A-Za-z0-9._\-/]{1,200}$")
@@ -76,8 +80,6 @@ def api_oid_overlay_base(oid: str) -> str | None:
     raw = oid
     if "/" in raw:
         raw = raw.split("/", 1)[0]
-    from app.overlay_backends.utils import strip_legacy_prefix
-
     base = strip_legacy_prefix(raw)
     return base if is_valid_overlay_id(base) else None
 

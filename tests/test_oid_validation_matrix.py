@@ -1,11 +1,13 @@
 """Cross-layer OID / overlay-id validation matrix.
 
 Ensures API OIDs, overlay-store ids, and admin names stay aligned via
-:mod:`app.id_validation`.
+:mod:`app.id_validation`. The legacy :mod:`app.api.oid_validation` shim is
+also locked here so callers that still import from it stay in sync.
 """
 
 import pytest
 
+from app.api.oid_validation import is_valid_oid as legacy_is_valid_oid
 from app.id_validation import (
     api_oid_compatible_with_overlay_store,
     api_oid_overlay_base,
@@ -78,7 +80,52 @@ def test_uno_oid_format() -> None:
     assert is_uno_oid("2cIXk2IjHvMuva6Wwele8j")
     assert not is_uno_oid("mybroadcast")
     assert not is_uno_oid("2cIXk2IjHvMuva6Wwele8")  # too short
+    assert not is_uno_oid("")
+    assert not is_uno_oid("2cIXk2IjHvMuva6Wwele8j!")  # non-alphanumeric
 
 
 def test_validate_api_oid_returns_input() -> None:
     assert validate_api_oid("demo-1") == "demo-1"
+
+
+@pytest.mark.parametrize(
+    "overlay_id",
+    ["", " ", "foo bar", "foo\x00bar", "foo\tbar", "foo\nbar"],
+)
+def test_overlay_store_rejects_empty_and_whitespace(overlay_id: str) -> None:
+    assert not is_valid_overlay_id(overlay_id)
+    with pytest.raises(ValueError):
+        validate_overlay_id(overlay_id)
+
+
+def test_legacy_oid_validation_matches_api_layer() -> None:
+    """The pre-unification shim must still mirror the new API rules.
+
+    Several modules (schemas, action_log, match_archive, session_persistence)
+    still import ``is_valid_oid`` from :mod:`app.api.oid_validation`. If that
+    shim ever drifts from :func:`is_valid_api_oid`, those callers silently
+    accept or reject OIDs the rest of the stack disagrees with.
+    """
+    cases = [
+        "mybroadcast",
+        "C-mybroadcast",
+        "mybroadcast/line",
+        "a" * 200,
+        "a" * 201,
+        "..",
+        "foo..bar",
+        "",
+        "foo bar",
+    ]
+    for value in cases:
+        assert legacy_is_valid_oid(value) == is_valid_api_oid(value), value
+
+
+def test_api_oid_overlay_base_rejects_legacy_prefix_only() -> None:
+    """``C-`` alone shouldn't map to any overlay; the segment must remain valid."""
+    assert api_oid_overlay_base("C-") is None
+    assert api_oid_overlay_base("C-mybroadcast") == "mybroadcast"
+    # Legacy prefix and bare id both reduce to the same overlay segment by
+    # design — pin that so a future "strip prefix" change can't silently
+    # cause collisions.
+    assert api_oid_overlay_base("mybroadcast") == api_oid_overlay_base("C-mybroadcast")
