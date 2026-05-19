@@ -27,6 +27,9 @@ def broadcast(
 ) -> None:
     """Notify all WebSocket frontend clients about the new state."""
     if state_response is None:
+        # See ``game_audit_hooks.archive_if_finished`` for the rationale —
+        # function-local import to break the cycle with ``game_service``,
+        # only exercised when callers omit ``state_response``.
         from app.api.game_service import GameService
 
         state_response = GameService.get_state(session)

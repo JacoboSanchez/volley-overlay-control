@@ -26,6 +26,13 @@ def archive_if_finished(
         return None
     try:
         if state_response is None:
+            # Function-local to break the import cycle with ``game_service`` —
+            # ``GameService._archive_if_finished`` delegates to us, and that
+            # module already imports this one at top-level. Callers on the hot
+            # path always pass ``state_response``; this fallback only fires
+            # when an internal helper invokes us without one (some tests
+            # exercise it). If ``GameService.get_state`` ever gets extracted
+            # to a neutral module, swap this for a top-level import.
             from app.api.game_service import GameService
 
             state_response = GameService.get_state(session)
