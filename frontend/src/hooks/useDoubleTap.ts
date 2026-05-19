@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  KeyboardEvent,
-  MouseEvent,
-  TouchEvent,
-} from 'react';
+import { useCallback, useEffect, useRef, KeyboardEvent, MouseEvent, TouchEvent } from 'react';
 import { DOUBLE_TAP_MS, LONG_PRESS_MS } from '../constants';
 
 export interface UseDoubleTapOptions {
@@ -16,9 +9,7 @@ export interface UseDoubleTapOptions {
   doubleTapMs?: number;
 }
 
-export type PressEvent =
-  | MouseEvent<HTMLElement>
-  | TouchEvent<HTMLElement>;
+export type PressEvent = MouseEvent<HTMLElement> | TouchEvent<HTMLElement>;
 
 export interface PressHandlers {
   onMouseDown: (e: MouseEvent<HTMLElement>) => void;
@@ -134,20 +125,28 @@ export function useDoubleTap({
     }
   }, [onClick, onDoubleTap, doubleTapMs]);
 
-  const startPress = useCallback((e: PressEvent) => {
-    if (e?.type === 'mousedown' && touchActive.current) return;
-    if (e?.type === 'touchstart') touchActive.current = true;
-    beginPress();
-  }, [beginPress]);
+  const startPress = useCallback(
+    (e: PressEvent) => {
+      if (e?.type === 'mousedown' && touchActive.current) return;
+      if (e?.type === 'touchstart') touchActive.current = true;
+      beginPress();
+    },
+    [beginPress],
+  );
 
-  const endPress = useCallback((e: PressEvent) => {
-    if (e?.type === 'touchend') {
-      e.preventDefault();
-      setTimeout(() => { touchActive.current = false; }, 50);
-    }
-    if (e?.type === 'mouseup' && touchActive.current) return;
-    finishPress();
-  }, [finishPress]);
+  const endPress = useCallback(
+    (e: PressEvent) => {
+      if (e?.type === 'touchend') {
+        e.preventDefault();
+        setTimeout(() => {
+          touchActive.current = false;
+        }, 50);
+      }
+      if (e?.type === 'mouseup' && touchActive.current) return;
+      finishPress();
+    },
+    [finishPress],
+  );
 
   const cancelPress = useCallback((e: PressEvent) => {
     if (e?.type === 'touchmove') touchActive.current = false;
@@ -158,25 +157,31 @@ export function useDoubleTap({
     doubleTapPending.current = false;
   }, []);
 
-  const onKeyDown = useCallback((e: KeyboardEvent<HTMLElement>) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    // Hold-down browsers fire keydown repeatedly; only the first edge counts
-    // so the long-press timer isn't reset every frame.
-    if (e.repeat) return;
-    // Suppress the browser default that would scroll the page on Space and
-    // synthesise a click on Enter (we manage activation ourselves).
-    e.preventDefault();
-    keyActive.current = true;
-    beginPress();
-  }, [beginPress]);
+  const onKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLElement>) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      // Hold-down browsers fire keydown repeatedly; only the first edge counts
+      // so the long-press timer isn't reset every frame.
+      if (e.repeat) return;
+      // Suppress the browser default that would scroll the page on Space and
+      // synthesise a click on Enter (we manage activation ourselves).
+      e.preventDefault();
+      keyActive.current = true;
+      beginPress();
+    },
+    [beginPress],
+  );
 
-  const onKeyUp = useCallback((e: KeyboardEvent<HTMLElement>) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    if (!keyActive.current) return;
-    keyActive.current = false;
-    e.preventDefault();
-    finishPress();
-  }, [finishPress]);
+  const onKeyUp = useCallback(
+    (e: KeyboardEvent<HTMLElement>) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (!keyActive.current) return;
+      keyActive.current = false;
+      e.preventDefault();
+      finishPress();
+    },
+    [finishPress],
+  );
 
   return {
     onMouseDown: startPress,

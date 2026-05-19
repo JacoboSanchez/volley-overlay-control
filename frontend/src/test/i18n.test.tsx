@@ -10,8 +10,12 @@ function TestConsumer() {
       <span data-testid="title">{t('app.title')}</span>
       <span data-testid="param">{t('dialog.setScore', { team: 1 })}</span>
       <span data-testid="languages">{languages.join(',')}</span>
-      <button onClick={() => setLanguage('es')} data-testid="switch-es">ES</button>
-      <button onClick={() => setLanguage('en')} data-testid="switch-en">EN</button>
+      <button onClick={() => setLanguage('es')} data-testid="switch-es">
+        ES
+      </button>
+      <button onClick={() => setLanguage('en')} data-testid="switch-en">
+        EN
+      </button>
     </div>
   );
 }
@@ -22,37 +26,61 @@ describe('i18n', () => {
   });
 
   it('defaults to English', () => {
-    render(<I18nProvider><TestConsumer /></I18nProvider>);
+    render(
+      <I18nProvider>
+        <TestConsumer />
+      </I18nProvider>,
+    );
     expect(screen.getByTestId('lang')).toHaveTextContent('en');
     expect(screen.getByTestId('title')).toHaveTextContent('Volley Scoreboard');
   });
 
   it('interpolates parameters', () => {
-    render(<I18nProvider><TestConsumer /></I18nProvider>);
+    render(
+      <I18nProvider>
+        <TestConsumer />
+      </I18nProvider>,
+    );
     expect(screen.getByTestId('param')).toHaveTextContent('Set score — Team 1');
   });
 
   it('switches to Spanish', () => {
-    render(<I18nProvider><TestConsumer /></I18nProvider>);
+    render(
+      <I18nProvider>
+        <TestConsumer />
+      </I18nProvider>,
+    );
     fireEvent.click(screen.getByTestId('switch-es'));
     expect(screen.getByTestId('lang')).toHaveTextContent('es');
     expect(screen.getByTestId('title')).toHaveTextContent('Marcador');
   });
 
   it('persists language to localStorage', () => {
-    render(<I18nProvider><TestConsumer /></I18nProvider>);
+    render(
+      <I18nProvider>
+        <TestConsumer />
+      </I18nProvider>,
+    );
     fireEvent.click(screen.getByTestId('switch-es'));
     expect(localStorage.getItem('volley_lang')).toBe('es');
   });
 
   it('restores language from localStorage', () => {
     localStorage.setItem('volley_lang', 'es');
-    render(<I18nProvider><TestConsumer /></I18nProvider>);
+    render(
+      <I18nProvider>
+        <TestConsumer />
+      </I18nProvider>,
+    );
     expect(screen.getByTestId('lang')).toHaveTextContent('es');
   });
 
   it('provides available languages', () => {
-    render(<I18nProvider><TestConsumer /></I18nProvider>);
+    render(
+      <I18nProvider>
+        <TestConsumer />
+      </I18nProvider>,
+    );
     expect(screen.getByTestId('languages')).toHaveTextContent('en,es,pt,it,fr,de');
   });
 
@@ -61,7 +89,11 @@ describe('i18n', () => {
       const { t } = useI18n();
       return <span data-testid="unknown">{t('nonexistent.key')}</span>;
     }
-    render(<I18nProvider><Consumer /></I18nProvider>);
+    render(
+      <I18nProvider>
+        <Consumer />
+      </I18nProvider>,
+    );
     expect(screen.getByTestId('unknown')).toHaveTextContent('nonexistent.key');
   });
 });

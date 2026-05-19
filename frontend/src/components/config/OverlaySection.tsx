@@ -67,12 +67,17 @@ export default function OverlaySection({
         <div className="config-theme-inline">
           <div className="config-field-group">
             <label className="config-field-group-label">{t('overlay.styleLabel')}</label>
-            <select className="config-select" value={asString(model['preferredStyle'], '')}
+            <select
+              className="config-select"
+              value={asString(model['preferredStyle'], '')}
               onChange={(e) => updateField('preferredStyle', e.target.value)}
-              data-testid="style-selector">
+              data-testid="style-selector"
+            >
               <option value="">{t('overlay.style')}</option>
               {styles.map((name) => (
-                <option key={name} value={name}>{name}</option>
+                <option key={name} value={name}>
+                  {name}
+                </option>
               ))}
             </select>
           </div>

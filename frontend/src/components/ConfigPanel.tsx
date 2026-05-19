@@ -20,14 +20,29 @@ const LinksSection = lazy(() => import('./config/LinksSection'));
 const MatchRulesSection = lazy(() => import('./config/MatchRulesSection'));
 const PresetPicker = lazy(() => import('./PresetPicker'));
 
-type Section = 'presets' | 'teams' | 'overlay' | 'position' | 'buttons' | 'rules' | 'behavior' | 'links';
+type Section =
+  | 'presets'
+  | 'teams'
+  | 'overlay'
+  | 'position'
+  | 'buttons'
+  | 'rules'
+  | 'behavior'
+  | 'links';
 
 // ``presets`` sits at the top so the operator notices the
 // saved-configuration entry point before drilling into individual
 // fields. Both env-driven ``APP_THEMES`` entries and operator-saved
 // presets live in that single section.
 const SECTIONS: readonly Section[] = [
-  'presets', 'teams', 'overlay', 'position', 'buttons', 'rules', 'behavior', 'links',
+  'presets',
+  'teams',
+  'overlay',
+  'position',
+  'buttons',
+  'rules',
+  'behavior',
+  'links',
 ];
 const SECTION_KEYS: Record<Section, string> = {
   presets: 'section.presets',
@@ -98,9 +113,7 @@ export interface ConfigPanelProps {
    * toggle without having to activate the recap first).
    */
   setSummaryStyle?: import('../api/client').SetSummaryStyle;
-  onChangeSetSummaryStyle?: (
-    style: import('../api/client').SetSummaryStyle,
-  ) => void;
+  onChangeSetSummaryStyle?: (style: import('../api/client').SetSummaryStyle) => void;
 }
 
 export default function ConfigPanel({
@@ -138,7 +151,9 @@ export default function ConfigPanel({
   }, [customization]);
 
   const isDirtyRef = useRef(isDirty);
-  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [styles, setStyles] = useState<string[]>([]);
@@ -148,10 +163,27 @@ export default function ConfigPanel({
 
   useEffect(() => {
     let cancelled = false;
-    api.getTeams().then((d) => { if (!cancelled) setPredefinedTeams(d as PredefinedTeams); }).catch(console.warn);
-    api.getLinks(oid).then((d) => { if (!cancelled) setLinks(d as LinksData); }).catch(console.warn);
-    api.getStyles(oid).then((d) => { if (!cancelled) setStyles(d); }).catch(console.warn);
-    return () => { cancelled = true; };
+    api
+      .getTeams()
+      .then((d) => {
+        if (!cancelled) setPredefinedTeams(d as PredefinedTeams);
+      })
+      .catch(console.warn);
+    api
+      .getLinks(oid)
+      .then((d) => {
+        if (!cancelled) setLinks(d as LinksData);
+      })
+      .catch(console.warn);
+    api
+      .getStyles(oid)
+      .then((d) => {
+        if (!cancelled) setStyles(d);
+      })
+      .catch(console.warn);
+    return () => {
+      cancelled = true;
+    };
   }, [oid]);
 
   const updateField = useCallback((key: string, value: unknown) => {
@@ -167,10 +199,14 @@ export default function ConfigPanel({
     [t],
   );
   const confirmExitIfDirtyRef = useRef(confirmExitIfDirty);
-  useEffect(() => { confirmExitIfDirtyRef.current = confirmExitIfDirty; }, [confirmExitIfDirty]);
+  useEffect(() => {
+    confirmExitIfDirtyRef.current = confirmExitIfDirty;
+  }, [confirmExitIfDirty]);
 
   const onBackRef = useRef(onBack);
-  useEffect(() => { onBackRef.current = onBack; }, [onBack]);
+  useEffect(() => {
+    onBackRef.current = onBack;
+  }, [onBack]);
 
   // Funnel both the explicit back button and a successful save through
   // history.back() so the popstate listener is the single exit point. That
@@ -180,7 +216,11 @@ export default function ConfigPanel({
     window.history.back();
   }, []);
 
-  const { run: handleSave, pending: saving, error: saveError } = useAsyncAction(
+  const {
+    run: handleSave,
+    pending: saving,
+    error: saveError,
+  } = useAsyncAction(
     async () => {
       await api.updateCustomization(oid, model);
       setIsDirty(false);
@@ -189,7 +229,7 @@ export default function ConfigPanel({
       window.history.back();
     },
     {
-      formatError: (e) => e instanceof Error ? e.message : t('config.failedToSave'),
+      formatError: (e) => (e instanceof Error ? e.message : t('config.failedToSave')),
     },
   );
 
@@ -230,7 +270,9 @@ export default function ConfigPanel({
   }, []);
 
   const isCustomOverlay = !!(
-    links?.overlay && typeof links.overlay === 'string' && !links.overlay.includes('overlays.uno')
+    links?.overlay &&
+    typeof links.overlay === 'string' &&
+    !links.overlay.includes('overlays.uno')
   );
 
   function renderSection(sec: Section | null) {
@@ -238,7 +280,9 @@ export default function ConfigPanel({
       case 'presets':
         return <PresetPicker model={model} onApplyPatch={handleApplyPatch} />;
       case 'teams':
-        return <TeamsSection model={model} updateField={updateField} predefinedTeams={predefinedTeams} />;
+        return (
+          <TeamsSection model={model} updateField={updateField} predefinedTeams={predefinedTeams} />
+        );
       case 'overlay':
         return (
           <OverlaySection
@@ -287,19 +331,32 @@ export default function ConfigPanel({
   return (
     <div className="config-panel">
       <div className="config-top-bar">
-        <button className="config-top-btn" onClick={handleBack} title={t('config.backToScoreboard')}
-          data-testid="scoreboard-tab-button">
+        <button
+          className="config-top-btn"
+          onClick={handleBack}
+          title={t('config.backToScoreboard')}
+          data-testid="scoreboard-tab-button"
+        >
           <span className="material-icons">arrow_back</span>
         </button>
         <span className="config-top-title">{t('config.title')}</span>
-        <a className="config-top-btn" href="/manage" title={t('config.openManage')}
-          aria-label={t('config.openManage')} data-testid="manage-link-button"
-          onClick={(e) => { if (!confirmExitIfDirtyRef.current()) e.preventDefault(); }}>
+        <a
+          className="config-top-btn"
+          href="/manage"
+          title={t('config.openManage')}
+          aria-label={t('config.openManage')}
+          data-testid="manage-link-button"
+          onClick={(e) => {
+            if (!confirmExitIfDirtyRef.current()) e.preventDefault();
+          }}
+        >
           <span className="material-icons">dashboard</span>
         </a>
       </div>
 
-      <div className={`config-body ${isPortrait ? 'config-body-portrait' : 'config-body-landscape'}`}>
+      <div
+        className={`config-body ${isPortrait ? 'config-body-portrait' : 'config-body-landscape'}`}
+      >
         {isPortrait ? (
           <div className="config-accordion">
             {SECTIONS.map((sec) => (
@@ -316,9 +373,7 @@ export default function ConfigPanel({
                 </button>
                 {activeSection === sec && (
                   <div className="config-accordion-body">
-                    <Suspense fallback={<ConfigSkeleton />}>
-                      {renderSection(sec)}
-                    </Suspense>
+                    <Suspense fallback={<ConfigSkeleton />}>{renderSection(sec)}</Suspense>
                   </div>
                 )}
               </div>
@@ -339,17 +394,20 @@ export default function ConfigPanel({
               ))}
             </nav>
             <div className="config-section-content">
-              <Suspense fallback={<ConfigSkeleton />}>
-                {renderSection(activeSection)}
-              </Suspense>
+              <Suspense fallback={<ConfigSkeleton />}>{renderSection(activeSection)}</Suspense>
             </div>
           </>
         )}
       </div>
 
       <div className="config-bottom-bar">
-        <button className="config-bottom-btn config-bottom-btn-save"
-          onClick={handleSave} disabled={saving || !isDirty} title={t('config.saveCustomization')} data-testid="save-button">
+        <button
+          className="config-bottom-btn config-bottom-btn-save"
+          onClick={handleSave}
+          disabled={saving || !isDirty}
+          title={t('config.saveCustomization')}
+          data-testid="save-button"
+        >
           <span className="material-icons">save</span>
           <span>{saving ? '...' : t('config.save')}</span>
         </button>
@@ -365,34 +423,37 @@ export default function ConfigPanel({
           </span>
         )}
         <div className="spacer" />
-        <button className="config-bottom-btn config-bottom-btn-fullscreen"
+        <button
+          className="config-bottom-btn config-bottom-btn-fullscreen"
           onClick={onToggleFullscreen}
           title={isFullscreen ? t('ctrl.exitFullscreen') : t('ctrl.fullscreen')}
-          data-testid="fullscreen-button">
-          <span className="material-icons">
-            {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-          </span>
+          data-testid="fullscreen-button"
+        >
+          <span className="material-icons">{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}</span>
         </button>
-        <button className="config-bottom-btn config-bottom-btn-theme"
+        <button
+          className="config-bottom-btn config-bottom-btn-theme"
           onClick={onToggleDarkMode}
           title={themeTitle(darkMode, t)}
-          data-testid="dark-mode-button">
+          data-testid="dark-mode-button"
+        >
           <span className="material-icons">{themeIcon(darkMode)}</span>
         </button>
-        <button className="config-bottom-btn config-bottom-btn-logout"
+        <button
+          className="config-bottom-btn config-bottom-btn-logout"
           onClick={() => setLogoutConfirmOpen(true)}
-          title={t('config.logout')} data-testid="logout-button">
+          title={t('config.logout')}
+          data-testid="logout-button"
+        >
           <span className="material-icons">logout</span>
         </button>
       </div>
 
       {saveError && (
-        <div
-          className="config-save-error"
-          role="alert"
-          data-testid="save-error-banner"
-        >
-          <span className="material-icons" aria-hidden="true">error_outline</span>
+        <div className="config-save-error" role="alert" data-testid="save-error-banner">
+          <span className="material-icons" aria-hidden="true">
+            error_outline
+          </span>
           <span className="config-save-error-message">{saveError}</span>
           <button
             type="button"
@@ -401,7 +462,9 @@ export default function ConfigPanel({
             disabled={saving}
             data-testid="save-error-retry"
           >
-            <span className="material-icons" aria-hidden="true">refresh</span>
+            <span className="material-icons" aria-hidden="true">
+              refresh
+            </span>
             {t('config.retry')}
           </button>
         </div>
@@ -418,7 +481,6 @@ export default function ConfigPanel({
         }}
         onClose={() => setLogoutConfirmOpen(false)}
       />
-
     </div>
   );
 }

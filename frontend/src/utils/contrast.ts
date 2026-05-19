@@ -27,16 +27,21 @@ export function parseHexColor(input: string): Rgb | null {
   // custom properties, and the hook in ``useSurfaceColor`` feeds
   // its value straight through here. Alpha is discarded since the
   // contrast helpers treat the surface as fully opaque anyway.
-  const rgbMatch = raw.match(
-    /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/i,
-  );
+  const rgbMatch = raw.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/i);
   if (rgbMatch) {
     const r = Number(rgbMatch[1]);
     const g = Number(rgbMatch[2]);
     const b = Number(rgbMatch[3]);
     if (
-      Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)
-      && r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255
+      Number.isFinite(r) &&
+      Number.isFinite(g) &&
+      Number.isFinite(b) &&
+      r >= 0 &&
+      r <= 255 &&
+      g >= 0 &&
+      g <= 255 &&
+      b >= 0 &&
+      b <= 255
     ) {
       return { r, g, b };
     }
@@ -45,7 +50,10 @@ export function parseHexColor(input: string): Rgb | null {
 
   let s = raw.replace(/^#/, '');
   if (s.length === 3) {
-    s = s.split('').map((c) => c + c).join('');
+    s = s
+      .split('')
+      .map((c) => c + c)
+      .join('');
   }
   if (s.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(s)) return null;
   return {
@@ -70,11 +78,7 @@ function channelLuminance(c: number): number {
 }
 
 export function relativeLuminance({ r, g, b }: Rgb): number {
-  return (
-    0.2126 * channelLuminance(r) +
-    0.7152 * channelLuminance(g) +
-    0.0722 * channelLuminance(b)
-  );
+  return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b);
 }
 
 export function contrastRatio(a: Rgb, b: Rgb): number {
@@ -128,7 +132,7 @@ function hueToRgb(p: number, q: number, t: number): number {
 }
 
 export function hslToRgb({ h, s, l }: Hsl): Rgb {
-  const hn = ((h % 360) + 360) % 360 / 360;
+  const hn = (((h % 360) + 360) % 360) / 360;
   if (s === 0) {
     const v = Math.round(l * 255);
     return { r: v, g: v, b: v };

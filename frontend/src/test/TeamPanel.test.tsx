@@ -35,8 +35,12 @@ const defaultProps: TeamPanelProps = {
 };
 
 describe('TeamPanel', () => {
-  beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('renders score for current set', () => {
     render(<TeamPanel {...defaultProps} />);
@@ -67,18 +71,24 @@ describe('TeamPanel', () => {
     render(<TeamPanel {...defaultProps} onAddPoint={onAddPoint} />);
     fireEvent.mouseDown(screen.getByTestId('team-1-score'));
     fireEvent.mouseUp(screen.getByTestId('team-1-score'));
-    act(() => { vi.advanceTimersByTime(400); });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
     expect(onAddPoint).toHaveBeenCalledWith(1);
   });
 
   it('calls onDoubleTapScore on rapid double-tap', () => {
     const onDoubleTapScore = vi.fn();
     const onAddPoint = vi.fn();
-    render(<TeamPanel {...defaultProps} onAddPoint={onAddPoint} onDoubleTapScore={onDoubleTapScore} />);
+    render(
+      <TeamPanel {...defaultProps} onAddPoint={onAddPoint} onDoubleTapScore={onDoubleTapScore} />,
+    );
     const btn = screen.getByTestId('team-1-score');
     fireEvent.mouseDown(btn);
     fireEvent.mouseUp(btn);
-    act(() => { vi.advanceTimersByTime(100); });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     fireEvent.mouseDown(btn);
     fireEvent.mouseUp(btn);
     expect(onDoubleTapScore).toHaveBeenCalledWith(1);
@@ -91,7 +101,9 @@ describe('TeamPanel', () => {
     const btn = screen.getByTestId('team-1-timeout');
     fireEvent.mouseDown(btn);
     fireEvent.mouseUp(btn);
-    act(() => { vi.advanceTimersByTime(400); });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
     expect(onAddTimeout).toHaveBeenCalledWith(1);
   });
 
@@ -103,12 +115,14 @@ describe('TeamPanel', () => {
         {...defaultProps}
         onAddTimeout={onAddTimeout}
         onDoubleTapTimeout={onDoubleTapTimeout}
-      />
+      />,
     );
     const btn = screen.getByTestId('team-1-timeout');
     fireEvent.mouseDown(btn);
     fireEvent.mouseUp(btn);
-    act(() => { vi.advanceTimersByTime(100); });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     fireEvent.mouseDown(btn);
     fireEvent.mouseUp(btn);
     expect(onDoubleTapTimeout).toHaveBeenCalledWith(1);
@@ -121,7 +135,9 @@ describe('TeamPanel', () => {
     const btn = screen.getByTestId('team-1-timeout');
     fireEvent.keyDown(btn, { key: 'Enter' });
     fireEvent.keyUp(btn, { key: 'Enter' });
-    act(() => { vi.advanceTimersByTime(400); });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
     expect(onAddTimeout).toHaveBeenCalledWith(1);
   });
 
@@ -133,12 +149,14 @@ describe('TeamPanel', () => {
         {...defaultProps}
         onAddTimeout={onAddTimeout}
         onDoubleTapTimeout={onDoubleTapTimeout}
-      />
+      />,
     );
     const btn = screen.getByTestId('team-1-timeout');
     fireEvent.keyDown(btn, { key: 'Enter' });
     fireEvent.keyUp(btn, { key: 'Enter' });
-    act(() => { vi.advanceTimersByTime(100); });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     fireEvent.keyDown(btn, { key: 'Enter' });
     fireEvent.keyUp(btn, { key: 'Enter' });
     expect(onDoubleTapTimeout).toHaveBeenCalledWith(1);

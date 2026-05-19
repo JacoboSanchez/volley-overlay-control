@@ -70,10 +70,10 @@ describe('useMatchAlertHaptics', () => {
   });
 
   it('vibrates with the alert pattern on transition into set point', () => {
-    const { rerender } = renderHook(
-      ({ s }) => useMatchAlertHaptics(s),
-      { wrapper, initialProps: { s: mockGameState as GameState } },
-    );
+    const { rerender } = renderHook(({ s }) => useMatchAlertHaptics(s), {
+      wrapper,
+      initialProps: { s: mockGameState as GameState },
+    });
     expect(vibrateMock).not.toHaveBeenCalled();
     rerender({ s: withSetPoint(1) });
     expect(vibrateMock).toHaveBeenCalledTimes(1);
@@ -81,10 +81,10 @@ describe('useMatchAlertHaptics', () => {
   });
 
   it('does not re-fire while the same alert persists', () => {
-    const { rerender } = renderHook(
-      ({ s }) => useMatchAlertHaptics(s),
-      { wrapper, initialProps: { s: withSetPoint(1) } },
-    );
+    const { rerender } = renderHook(({ s }) => useMatchAlertHaptics(s), {
+      wrapper,
+      initialProps: { s: withSetPoint(1) },
+    });
     expect(vibrateMock).toHaveBeenCalledTimes(1);
     // Same alert resent (e.g. WS rebroadcast on unrelated state change):
     rerender({ s: withSetPoint(1) });
@@ -92,10 +92,10 @@ describe('useMatchAlertHaptics', () => {
   });
 
   it('escalates from set point to match point when the alert sharpens', async () => {
-    const { rerender } = renderHook(
-      ({ s }) => useMatchAlertHaptics(s),
-      { wrapper, initialProps: { s: withSetPoint(2) } },
-    );
+    const { rerender } = renderHook(({ s }) => useMatchAlertHaptics(s), {
+      wrapper,
+      initialProps: { s: withSetPoint(2) },
+    });
     // Wait past the 50 ms throttle window so the next pulse isn't dropped.
     await new Promise((r) => setTimeout(r, 80));
     rerender({ s: withMatchPoint(2) });
@@ -104,10 +104,10 @@ describe('useMatchAlertHaptics', () => {
   });
 
   it('fires the finished pattern when the match ends', async () => {
-    const { rerender } = renderHook(
-      ({ s }) => useMatchAlertHaptics(s),
-      { wrapper, initialProps: { s: mockGameState as GameState } },
-    );
+    const { rerender } = renderHook(({ s }) => useMatchAlertHaptics(s), {
+      wrapper,
+      initialProps: { s: mockGameState as GameState },
+    });
     await new Promise((r) => setTimeout(r, 80));
     rerender({ s: { ...mockGameState, match_finished: true } });
     expect(vibrateMock).toHaveBeenCalledTimes(1);

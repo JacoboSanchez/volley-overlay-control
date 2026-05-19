@@ -19,13 +19,16 @@ export interface MatchRulesSectionProps {
   onChanged?: () => void;
 }
 
-const MODE_PRESETS: Record<api.MatchMode, {
-  points_limit: number;
-  points_limit_last_set: number;
-  sets_limit: number;
-}> = {
+const MODE_PRESETS: Record<
+  api.MatchMode,
+  {
+    points_limit: number;
+    points_limit_last_set: number;
+    sets_limit: number;
+  }
+> = {
   indoor: { points_limit: 25, points_limit_last_set: 15, sets_limit: 5 },
-  beach:  { points_limit: 21, points_limit_last_set: 15, sets_limit: 3 },
+  beach: { points_limit: 21, points_limit_last_set: 15, sets_limit: 3 },
 };
 
 const SETS_OPTIONS = [1, 3, 5];
@@ -42,15 +45,21 @@ export default function MatchRulesSection({
   const [pointsDraft, setPointsDraft] = useState<number | null>(pointsLimit);
   const [pointsLastDraft, setPointsLastDraft] = useState<number | null>(pointsLimitLastSet);
 
-  useEffect(() => { setPointsDraft(pointsLimit); }, [pointsLimit]);
-  useEffect(() => { setPointsLastDraft(pointsLimitLastSet); }, [pointsLimitLastSet]);
+  useEffect(() => {
+    setPointsDraft(pointsLimit);
+  }, [pointsLimit]);
+  useEffect(() => {
+    setPointsLastDraft(pointsLimitLastSet);
+  }, [pointsLimitLastSet]);
 
-  const { run: call, pending, error } = useAsyncAction<[api.SetRulesPayload]>(
-    async (payload) => {
-      await api.setRules(oid, payload);
-      onChanged?.();
-    },
-  );
+  const {
+    run: call,
+    pending,
+    error,
+  } = useAsyncAction<[api.SetRulesPayload]>(async (payload) => {
+    await api.setRules(oid, payload);
+    onChanged?.();
+  });
 
   function handleModeChange(newMode: api.MatchMode) {
     if (newMode === mode) return;
@@ -77,8 +86,7 @@ export default function MatchRulesSection({
     void call({ mode, reset_to_defaults: true });
   }
 
-  if (mode === null || pointsLimit === null
-      || pointsLimitLastSet === null || setsLimit === null) {
+  if (mode === null || pointsLimit === null || pointsLimitLastSet === null || setsLimit === null) {
     return (
       <div className="config-section-rules">
         <p className="config-label" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
@@ -90,9 +98,9 @@ export default function MatchRulesSection({
 
   const preset = MODE_PRESETS[mode];
   const isAtDefaults =
-    pointsLimit === preset.points_limit
-    && pointsLimitLastSet === preset.points_limit_last_set
-    && setsLimit === preset.sets_limit;
+    pointsLimit === preset.points_limit &&
+    pointsLimitLastSet === preset.points_limit_last_set &&
+    setsLimit === preset.sets_limit;
 
   return (
     <div className="config-section-rules">
@@ -114,7 +122,9 @@ export default function MatchRulesSection({
             disabled={pending}
             data-testid={`rules-mode-${m}`}
           >
-            <span className="material-icons">{m === 'indoor' ? 'sports_volleyball' : 'beach_access'}</span>
+            <span className="material-icons">
+              {m === 'indoor' ? 'sports_volleyball' : 'beach_access'}
+            </span>
             {t(`rules.mode.${m}`)}
           </button>
         ))}
@@ -122,7 +132,9 @@ export default function MatchRulesSection({
 
       <div className="config-separator" />
 
-      <label className="config-label" htmlFor="rules-sets">{t('rules.setsLimit')}</label>
+      <label className="config-label" htmlFor="rules-sets">
+        {t('rules.setsLimit')}
+      </label>
       <select
         id="rules-sets"
         className="config-select"
@@ -132,7 +144,9 @@ export default function MatchRulesSection({
         data-testid="rules-sets-select"
       >
         {SETS_OPTIONS.map((opt) => (
-          <option key={opt} value={opt}>{t(`rules.bestOf.${opt}`)}</option>
+          <option key={opt} value={opt}>
+            {t(`rules.bestOf.${opt}`)}
+          </option>
         ))}
       </select>
 
@@ -147,7 +161,9 @@ export default function MatchRulesSection({
         // best-of-3/5 later starts from sensible matching defaults.
         <div className="config-stepper-grid">
           <div className="config-stepper-group">
-            <label className="config-label" htmlFor="rules-points">{t('rules.pointsLimit')}</label>
+            <label className="config-label" htmlFor="rules-points">
+              {t('rules.pointsLimit')}
+            </label>
             <input
               id="rules-points"
               type="number"
@@ -157,11 +173,12 @@ export default function MatchRulesSection({
               value={pointsLastDraft ?? ''}
               onChange={(e) => setPointsLastDraft(parseInt(e.target.value, 10))}
               onBlur={() => {
-                if (pointsLastDraft !== null
-                    && !Number.isNaN(pointsLastDraft)
-                    && pointsLastDraft > 0
-                    && (pointsLastDraft !== pointsLimitLastSet
-                        || pointsLastDraft !== pointsLimit)) {
+                if (
+                  pointsLastDraft !== null &&
+                  !Number.isNaN(pointsLastDraft) &&
+                  pointsLastDraft > 0 &&
+                  (pointsLastDraft !== pointsLimitLastSet || pointsLastDraft !== pointsLimit)
+                ) {
                   void call({
                     points_limit: pointsLastDraft,
                     points_limit_last_set: pointsLastDraft,
@@ -176,7 +193,9 @@ export default function MatchRulesSection({
       ) : (
         <div className="config-stepper-grid">
           <div className="config-stepper-group">
-            <label className="config-label" htmlFor="rules-points">{t('rules.pointsLimit')}</label>
+            <label className="config-label" htmlFor="rules-points">
+              {t('rules.pointsLimit')}
+            </label>
             <input
               id="rules-points"
               type="number"
@@ -185,14 +204,15 @@ export default function MatchRulesSection({
               max={99}
               value={pointsDraft ?? ''}
               onChange={(e) => setPointsDraft(parseInt(e.target.value, 10))}
-              onBlur={() => pointsDraft !== null
-                && handlePointsCommit('points_limit', pointsDraft)}
+              onBlur={() => pointsDraft !== null && handlePointsCommit('points_limit', pointsDraft)}
               disabled={pending}
               data-testid="rules-points-input"
             />
           </div>
           <div className="config-stepper-group">
-            <label className="config-label" htmlFor="rules-points-last">{t('rules.pointsLimitLastSet')}</label>
+            <label className="config-label" htmlFor="rules-points-last">
+              {t('rules.pointsLimitLastSet')}
+            </label>
             <input
               id="rules-points-last"
               type="number"
@@ -201,8 +221,10 @@ export default function MatchRulesSection({
               max={99}
               value={pointsLastDraft ?? ''}
               onChange={(e) => setPointsLastDraft(parseInt(e.target.value, 10))}
-              onBlur={() => pointsLastDraft !== null
-                && handlePointsCommit('points_limit_last_set', pointsLastDraft)}
+              onBlur={() =>
+                pointsLastDraft !== null &&
+                handlePointsCommit('points_limit_last_set', pointsLastDraft)
+              }
               disabled={pending}
               data-testid="rules-points-last-input"
             />

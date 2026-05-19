@@ -3,17 +3,22 @@ import { renderHook, act } from '@testing-library/react';
 import { useIndoorMidpointAlert } from '../hooks/useIndoorMidpointAlert';
 import type { GameState } from '../api/client';
 
-function makeState(overrides: Partial<GameState> & {
-  t1?: number;
-  t2?: number;
-  set?: number;
-  mode?: 'indoor' | 'beach';
-  pointsLimitLastSet?: number;
-  matchFinished?: boolean;
-}): GameState {
+function makeState(
+  overrides: Partial<GameState> & {
+    t1?: number;
+    t2?: number;
+    set?: number;
+    mode?: 'indoor' | 'beach';
+    pointsLimitLastSet?: number;
+    matchFinished?: boolean;
+  },
+): GameState {
   const {
-    t1 = 0, t2 = 0, set = 5,
-    mode = 'indoor', pointsLimitLastSet = 15,
+    t1 = 0,
+    t2 = 0,
+    set = 5,
+    mode = 'indoor',
+    pointsLimitLastSet = 15,
     matchFinished = false,
   } = overrides;
   return {
@@ -159,9 +164,7 @@ describe('useIndoorMidpointAlert', () => {
   });
 
   it('handles the null-state case without throwing', () => {
-    const { result } = renderHook(() =>
-      useIndoorMidpointAlert(null, 5, 5),
-    );
+    const { result } = renderHook(() => useIndoorMidpointAlert(null, 5, 5));
     expect(result.current).toBe(false);
   });
 });

@@ -10,13 +10,19 @@ describe('OverlayPreview', () => {
 
   it('returns null when overlayUrl is empty', () => {
     const { container } = renderWithI18n(
-      <OverlayPreview overlayUrl="" x={0} y={0} width={30} height={10} layoutId="" />
+      <OverlayPreview overlayUrl="" x={0} y={0} width={30} height={10} layoutId="" />,
     );
     expect(container.innerHTML).toBe('');
   });
 
   it('returns null when overlayUrl is not provided', () => {
-    const props = { x: 0, y: 0, width: 30, height: 10, layoutId: '' } as unknown as OverlayPreviewProps;
+    const props = {
+      x: 0,
+      y: 0,
+      width: 30,
+      height: 10,
+      layoutId: '',
+    } as unknown as OverlayPreviewProps;
     const { container } = renderWithI18n(<OverlayPreview {...props} />);
     expect(container.innerHTML).toBe('');
   });
@@ -31,7 +37,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId="some-layout"
         cardWidth={300}
-      />
+      />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     expect(iframe).toBeInTheDocument();
@@ -49,7 +55,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId="auto"
         cardWidth={300}
-      />
+      />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     expect(iframe).toBeInTheDocument();
@@ -67,7 +73,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId="C-custom-layout"
         cardWidth={300}
-      />
+      />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     expect(iframe.getAttribute('src')).toContain('https://overlays.uno/output/abc');
@@ -84,7 +90,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId=""
         cardWidth={300}
-      />
+      />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');
@@ -100,7 +106,7 @@ describe('OverlayPreview', () => {
         width={30}
         height={10}
         layoutId=""
-      />
+      />,
     );
     const container = screen.getByTestId('overlay-preview').closest('.preview-container');
     // 16:9 box (cardWidth * 9 / 16 = 168.75), matching the custom-overlay
@@ -120,7 +126,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId="some-layout"
         cardWidth={400}
-      />
+      />,
     );
     const uno = screen.getByTestId('overlay-preview').closest('.preview-container');
     expect(uno).toHaveStyle({ width: '400px', height: '225px' });
@@ -136,7 +142,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId=""
         cardWidth={300}
-      />
+      />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     expect(iframe.getAttribute('src')).toContain('token=xyz');
@@ -154,7 +160,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId="auto"
         cardWidth={300}
-      />
+      />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     expect(iframe.getAttribute('width')).toBe('1920');
@@ -178,7 +184,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId=""
         cardWidth={300}
-      />
+      />,
     );
     expect(container.innerHTML).toBe('');
   });
@@ -197,10 +203,12 @@ describe('OverlayPreview', () => {
           height={10}
           layoutId=""
           cardWidth={300}
-        />
+        />,
       );
       expect(screen.queryByTestId('overlay-preview-fallback')).toBeNull();
-      act(() => { vi.advanceTimersByTime(7000); });
+      act(() => {
+        vi.advanceTimersByTime(7000);
+      });
       const fallback = screen.getByTestId('overlay-preview-fallback');
       expect(fallback).toBeInTheDocument();
       expect(fallback).toHaveTextContent(/unavailable/i);
@@ -222,11 +230,13 @@ describe('OverlayPreview', () => {
           height={10}
           layoutId=""
           cardWidth={300}
-        />
+        />,
       );
       const iframe = screen.getByTestId('overlay-preview');
       fireEvent.load(iframe);
-      act(() => { vi.advanceTimersByTime(7000); });
+      act(() => {
+        vi.advanceTimersByTime(7000);
+      });
       expect(screen.queryByTestId('overlay-preview-fallback')).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -245,9 +255,11 @@ describe('OverlayPreview', () => {
           height={10}
           layoutId=""
           cardWidth={300}
-        />
+        />,
       );
-      act(() => { vi.advanceTimersByTime(7000); });
+      act(() => {
+        vi.advanceTimersByTime(7000);
+      });
       const fallback = screen.getByTestId('overlay-preview-fallback');
       const retryBtn = fallback.querySelector('button')!;
       fireEvent.click(retryBtn);
@@ -269,7 +281,7 @@ describe('OverlayPreview', () => {
         height={10}
         layoutId=""
         cardWidth={300}
-      />
+      />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     // Custom path renders at 1920x1080; Uno path would be 600x...

@@ -20,15 +20,15 @@ variable to be set and the request to include a matching
 import copy
 import logging
 import os
-import re
 import time
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from app.auth_utils import get_admin_password, require_admin_token
+from app.auth_utils import get_admin_password, require_admin
+from app.id_validation import validate_overlay_id
 from app.match_report_signing import (
     DEFAULT_TTL_SECONDS,
     MAX_TTL_SECONDS,
@@ -39,12 +39,6 @@ from app.match_report_signing import (
 logger = logging.getLogger(__name__)
 
 _PAGE_PATH = os.path.join(os.path.dirname(__file__), "static", "overlays.html")
-
-# Custom overlay IDs are used as filenames and URL path components, so
-# only allow the characters that cannot collide with the filesystem or
-# HTTP path parsing. The bare ID is used directly as the OID.
-_OVERLAY_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
-
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -151,34 +145,20 @@ class MatchSignUrlResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def require_admin(authorization: str = Header(None)) -> None:
-    """Validate the admin Bearer token."""
-    require_admin_token(
-        authorization,
-        token=None,
-        # Bandit B106 false positive: this is the error message shown
-        # when the password env var is unset, not a hardcoded credential.
-        missing_password_detail=(  # nosec B106
-            "Overlay management is disabled. "
-            "Set OVERLAY_MANAGER_PASSWORD to enable it."
-        ),
-        missing_token_detail=(  # nosec B106
-            "Missing admin password. Use 'Authorization: Bearer <password>'."
-        ),
-        invalid_token_detail="Invalid admin password.",  # nosec B106
-    )
-
-
 def _validate_overlay_id(value: str) -> str:
     name = (value or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Overlay name is required.")
-    if not _OVERLAY_ID_PATTERN.fullmatch(name):
+    try:
+        return validate_overlay_id(name)
+    except ValueError:
         raise HTTPException(
             status_code=400,
-            detail="Overlay name may only contain letters, digits, '-', '_' and '.'.",
-        )
-    return name
+            detail=(
+                "Overlay name may only contain letters, digits, '-', '_' and '.', "
+                "must be 1–64 characters, and cannot be '.' or '..'."
+            ),
+        ) from None
 
 
 def _overlay_store():

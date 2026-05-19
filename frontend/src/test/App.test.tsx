@@ -178,7 +178,9 @@ describe('App', () => {
       Object.defineProperty(window, 'innerHeight', { configurable: true, value: 700 });
       vi.useFakeTimers();
     });
-    afterEach(() => { vi.useRealTimers(); });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
     async function bootApp() {
       renderWithI18n(<App />);
@@ -198,7 +200,9 @@ describe('App', () => {
       await bootApp();
       const hud = document.querySelector('.hud-controls')!;
       expect(hud.classList.contains('ui-hidden')).toBe(false);
-      act(() => { vi.advanceTimersByTime(HUD_AUTO_HIDE_MS + 500); });
+      act(() => {
+        vi.advanceTimersByTime(HUD_AUTO_HIDE_MS + 500);
+      });
       expect(hud.classList.contains('ui-hidden')).toBe(false);
     });
 
@@ -210,7 +214,9 @@ describe('App', () => {
       await bootApp();
       const hud = document.querySelector('.hud-controls')!;
       expect(hud.classList.contains('ui-hidden')).toBe(false);
-      act(() => { vi.advanceTimersByTime(HUD_AUTO_HIDE_MS + 500); });
+      act(() => {
+        vi.advanceTimersByTime(HUD_AUTO_HIDE_MS + 500);
+      });
       expect(hud.classList.contains('ui-hidden')).toBe(true);
     });
   });

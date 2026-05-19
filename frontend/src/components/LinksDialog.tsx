@@ -33,14 +33,20 @@ export default function LinksDialog({ links, onClose }: LinksDialogProps) {
 
   return (
     <Dialog open onClose={onClose} ariaLabelledBy="links-dialog-title">
-      <h3 className="dialog-title" id="links-dialog-title">{t('links.title')}</h3>
+      <h3 className="dialog-title" id="links-dialog-title">
+        {t('links.title')}
+      </h3>
       <div className="links-list">
         {links.control && (
           <div className="link-row">
             <a href={links.control} target="_blank" rel="noopener noreferrer" className="link-text">
               {t('links.control')}
             </a>
-            <button className="link-copy-btn" onClick={() => copyToClipboard(links.control!)} title={t('links.copyToClipboard')}>
+            <button
+              className="link-copy-btn"
+              onClick={() => copyToClipboard(links.control!)}
+              title={t('links.copyToClipboard')}
+            >
               <span className="material-icons">content_copy</span>
             </button>
           </div>
@@ -50,7 +56,11 @@ export default function LinksDialog({ links, onClose }: LinksDialogProps) {
             <a href={links.overlay} target="_blank" rel="noopener noreferrer" className="link-text">
               {t('links.overlay')}
             </a>
-            <button className="link-copy-btn" onClick={() => copyToClipboard(links.overlay!)} title={t('links.copyToClipboard')}>
+            <button
+              className="link-copy-btn"
+              onClick={() => copyToClipboard(links.overlay!)}
+              title={t('links.copyToClipboard')}
+            >
               <span className="material-icons">content_copy</span>
             </button>
           </div>
@@ -60,7 +70,11 @@ export default function LinksDialog({ links, onClose }: LinksDialogProps) {
             <a href={links.preview} target="_blank" rel="noopener noreferrer" className="link-text">
               {t('links.preview')}
             </a>
-            <button className="link-copy-btn" onClick={() => copyToClipboard(links.preview!)} title={t('links.copyToClipboard')}>
+            <button
+              className="link-copy-btn"
+              onClick={() => copyToClipboard(links.preview!)}
+              title={t('links.copyToClipboard')}
+            >
               <span className="material-icons">content_copy</span>
             </button>
           </div>
@@ -70,7 +84,11 @@ export default function LinksDialog({ links, onClose }: LinksDialogProps) {
             <a href={links.follow} target="_blank" rel="noopener noreferrer" className="link-text">
               {t('links.follow')}
             </a>
-            <button className="link-copy-btn" onClick={() => copyToClipboard(links.follow!)} title={t('links.copyToClipboard')}>
+            <button
+              className="link-copy-btn"
+              onClick={() => copyToClipboard(links.follow!)}
+              title={t('links.copyToClipboard')}
+            >
               <span className="material-icons">content_copy</span>
             </button>
           </div>

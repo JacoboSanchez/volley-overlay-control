@@ -50,9 +50,7 @@ describe('PresetPicker', () => {
   it('shows the empty state and the save-current toggle when no presets exist', async () => {
     vi.mocked(api.listPresets).mockResolvedValue({ items: [] });
     renderWithI18n(<PresetPicker model={{}} onApplyPatch={vi.fn()} />);
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-picker-empty')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-picker-empty')).toBeInTheDocument());
     expect(screen.getByTestId('preset-create-toggle')).toBeInTheDocument();
   });
 
@@ -61,9 +59,7 @@ describe('PresetPicker', () => {
       items: [POSITION_PRESET, TEAM_COLOR_PRESET],
     });
     renderWithI18n(<PresetPicker model={{}} onApplyPatch={vi.fn()} />);
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-item-court-a')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-item-court-a')).toBeInTheDocument());
     const courtA = screen.getByTestId('preset-item-court-a');
     expect(courtA).toHaveTextContent('Court A');
     expect(courtA).toHaveTextContent('Overlay position');
@@ -74,12 +70,8 @@ describe('PresetPicker', () => {
   it('passes the values to onApplyPatch when an item is applied', async () => {
     vi.mocked(api.listPresets).mockResolvedValue({ items: [POSITION_PRESET] });
     const onApplyPatch = vi.fn();
-    renderWithI18n(
-      <PresetPicker model={{}} onApplyPatch={onApplyPatch} />,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-apply-court-a')).toBeInTheDocument(),
-    );
+    renderWithI18n(<PresetPicker model={{}} onApplyPatch={onApplyPatch} />);
+    await waitFor(() => expect(screen.getByTestId('preset-apply-court-a')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('preset-apply-court-a'));
     expect(onApplyPatch).toHaveBeenCalledWith({ Height: 12, Width: 35 });
   });
@@ -90,16 +82,10 @@ describe('PresetPicker', () => {
       .mockResolvedValueOnce({ items: [] });
     vi.mocked(api.deletePreset).mockResolvedValue();
     renderWithI18n(<PresetPicker model={{}} onApplyPatch={vi.fn()} />);
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-delete-court-a')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-delete-court-a')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('preset-delete-court-a'));
-    await waitFor(() =>
-      expect(api.deletePreset).toHaveBeenCalledWith('court-a'),
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-picker-empty')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(api.deletePreset).toHaveBeenCalledWith('court-a'));
+    await waitFor(() => expect(screen.getByTestId('preset-picker-empty')).toBeInTheDocument());
     expect(api.listPresets).toHaveBeenCalledTimes(2);
   });
 
@@ -112,17 +98,13 @@ describe('PresetPicker', () => {
     const model = { Height: 12, Width: 35, 'Up-Down': -40, 'Left-Right': -30 };
     renderWithI18n(<PresetPicker model={model} onApplyPatch={vi.fn()} />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-create-toggle')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-create-toggle')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('preset-create-toggle'));
 
     // Submitting empty surfaces an inline error (name + categories
     // both missing) and does NOT call the API.
     fireEvent.click(screen.getByTestId('preset-create-submit'));
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-action-error')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-action-error')).toBeInTheDocument());
     expect(api.createPreset).not.toHaveBeenCalled();
 
     // Fill name + pick the position category, then save.
@@ -140,9 +122,7 @@ describe('PresetPicker', () => {
       'Left-Right': -30,
     });
     // Refresh ran (initial + post-create) and the new item shows up.
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-item-court-a')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-item-court-a')).toBeInTheDocument());
   });
 
   it('captures only the picked categories from the model on save', async () => {
@@ -161,9 +141,7 @@ describe('PresetPicker', () => {
       preferredStyle: 'esports',
     };
     renderWithI18n(<PresetPicker model={model} onApplyPatch={vi.fn()} />);
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-create-toggle')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-create-toggle')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('preset-create-toggle'));
     fireEvent.change(screen.getByTestId('preset-create-name'), {
       target: { value: 'Home colors' },
@@ -176,18 +154,13 @@ describe('PresetPicker', () => {
     const call = vi.mocked(api.createPreset).mock.calls[0];
     expect(call).toBeDefined();
     const values = call![1];
-    expect(Object.keys(values).sort()).toEqual([
-      'Team 1 Color',
-      'Team 1 Text Color',
-    ]);
+    expect(Object.keys(values).sort()).toEqual(['Team 1 Color', 'Team 1 Text Color']);
   });
 
   it('surfaces a load error from the API', async () => {
     vi.mocked(api.listPresets).mockRejectedValue(new Error('502 boom'));
     renderWithI18n(<PresetPicker model={{}} onApplyPatch={vi.fn()} />);
-    await waitFor(() =>
-      expect(screen.getByTestId('preset-picker-error')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('preset-picker-error')).toBeInTheDocument());
     expect(screen.getByTestId('preset-picker-error')).toHaveTextContent(/502/);
   });
 
@@ -197,25 +170,15 @@ describe('PresetPicker', () => {
     });
     renderWithI18n(<PresetPicker model={{}} onApplyPatch={vi.fn()} />);
     await waitFor(() =>
-      expect(
-        screen.getByTestId('preset-item-system-bright-court'),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('preset-item-system-bright-court')).toBeInTheDocument(),
     );
     // System chip is visible only on the env-driven entry.
-    expect(
-      screen.getByTestId('preset-system-chip-system-bright-court'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('preset-system-chip-court-a'),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('preset-system-chip-system-bright-court')).toBeInTheDocument();
+    expect(screen.queryByTestId('preset-system-chip-court-a')).not.toBeInTheDocument();
     // Apply button works on both; delete button is suppressed for the
     // system entry but present for the user entry.
-    expect(
-      screen.getByTestId('preset-apply-system-bright-court'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('preset-delete-system-bright-court'),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('preset-apply-system-bright-court')).toBeInTheDocument();
+    expect(screen.queryByTestId('preset-delete-system-bright-court')).not.toBeInTheDocument();
     expect(screen.getByTestId('preset-delete-court-a')).toBeInTheDocument();
   });
 
@@ -224,13 +187,9 @@ describe('PresetPicker', () => {
       items: [SYSTEM_THEME_PRESET],
     });
     const onApplyPatch = vi.fn();
-    renderWithI18n(
-      <PresetPicker model={{}} onApplyPatch={onApplyPatch} />,
-    );
+    renderWithI18n(<PresetPicker model={{}} onApplyPatch={onApplyPatch} />);
     await waitFor(() =>
-      expect(
-        screen.getByTestId('preset-apply-system-bright-court'),
-      ).toBeInTheDocument(),
+      expect(screen.getByTestId('preset-apply-system-bright-court')).toBeInTheDocument(),
     );
     fireEvent.click(screen.getByTestId('preset-apply-system-bright-court'));
     expect(onApplyPatch).toHaveBeenCalledWith({

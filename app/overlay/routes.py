@@ -19,8 +19,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict
 from starlette.concurrency import run_in_threadpool
 
-from app.admin.routes import require_admin
-from app.auth_utils import get_hashed_or_plaintext_env
+from app.auth_utils import get_hashed_or_plaintext_env, require_admin
 from app.overlay.state_store import OverlayStateStore
 from app.overlay.themes import PRESET_THEMES, get_theme_names
 from app.password_hash import verify_password

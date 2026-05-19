@@ -154,7 +154,9 @@ export default function RecentAuditDrawer({
               aria-label={t('history.refresh')}
               data-testid="recent-audit-refresh"
             >
-              <span className="material-icons" aria-hidden="true">refresh</span>
+              <span className="material-icons" aria-hidden="true">
+                refresh
+              </span>
             </button>
             <button
               ref={closeBtnRef}
@@ -165,7 +167,9 @@ export default function RecentAuditDrawer({
               aria-label={t('history.close')}
               data-testid="recent-audit-close"
             >
-              <span className="material-icons" aria-hidden="true">close</span>
+              <span className="material-icons" aria-hidden="true">
+                close
+              </span>
             </button>
           </div>
         </header>
@@ -186,9 +190,7 @@ export default function RecentAuditDrawer({
             <ol className="recent-audit-list" data-testid="recent-audit-list">
               {records.map((record) => {
                 const params = record.params ?? {};
-                const team = params.team === 1 || params.team === 2
-                  ? params.team
-                  : undefined;
+                const team = params.team === 1 || params.team === 2 ? params.team : undefined;
                 const isUndo = params.undo === true;
                 const kind = classifyChip(record.action, team, isUndo);
                 const label = actionLabel(record, t);
@@ -201,9 +203,7 @@ export default function RecentAuditDrawer({
                   >
                     <ActionChip kind={kind} glyphOnly />
                     <span className="recent-audit-row-label">{label}</span>
-                    {score && (
-                      <span className="recent-audit-row-score">{score}</span>
-                    )}
+                    {score && <span className="recent-audit-row-score">{score}</span>}
                     <span className="recent-audit-row-ts">{rel}</span>
                   </li>
                 );

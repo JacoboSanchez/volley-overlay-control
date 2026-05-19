@@ -87,9 +87,7 @@ describe('CenterPanel', () => {
   });
 
   it('applies the compact modifier when compactLandscape is true', () => {
-    const { container } = renderWithI18n(
-      <CenterPanel {...defaultProps} compactLandscape={true} />,
-    );
+    const { container } = renderWithI18n(<CenterPanel {...defaultProps} compactLandscape={true} />);
     expect(container.querySelector('.center-panel-compact')).not.toBeNull();
   });
 

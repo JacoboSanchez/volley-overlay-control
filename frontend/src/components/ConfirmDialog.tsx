@@ -58,7 +58,9 @@ export default function ConfirmDialog({
 
   return (
     <Dialog open={open} onClose={onClose} ariaLabelledBy="confirm-dialog-title">
-      <h3 className="dialog-title" id="confirm-dialog-title">{heading}</h3>
+      <h3 className="dialog-title" id="confirm-dialog-title">
+        {heading}
+      </h3>
       <p className="dialog-message">{message}</p>
       <div className="dialog-actions">
         <button

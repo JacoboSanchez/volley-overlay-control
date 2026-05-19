@@ -16,16 +16,9 @@ import threading
 from collections.abc import Callable
 
 from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
+from app.id_validation import is_valid_overlay_id, validate_overlay_id
 
 logger = logging.getLogger(__name__)
-
-
-# Strict allow-list for overlay ids that flow into filesystem paths.
-# Accepts alphanumerics, dot, underscore, and hyphen; 1-64 chars; rejects
-# the special dir names "." and ".." via the negative lookahead. Anything
-# else (path separators, NUL, whitespace, non-ASCII, …) fails closed, so
-# an untrusted id can never flow into ``open``/``unlink``/``rename``.
-_OVERLAY_ID_PATTERN = re.compile(r"^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$")
 
 
 # ---------------------------------------------------------------------------
@@ -215,15 +208,13 @@ class OverlayStateStore:
         """Validate *overlay_id* as a filesystem-safe identifier.
 
         Returns *overlay_id* unchanged when it matches the strict allow-list
-        (``_OVERLAY_ID_PATTERN``). Raises ``ValueError`` otherwise — this is
+        (:func:`app.id_validation.validate_overlay_id`). Raises ``ValueError`` otherwise — this is
         the single choke point between user-provided ids and the on-disk
         ``overlay_state_<id>.json`` paths, so rejecting here guarantees no
         path-traversal or arbitrary-filename value reaches ``open``,
         ``unlink``, or ``rename``.
         """
-        if not isinstance(overlay_id, str) or _OVERLAY_ID_PATTERN.match(overlay_id) is None:
-            raise ValueError(f"Invalid overlay id: {overlay_id!r}")
-        return overlay_id
+        return validate_overlay_id(overlay_id)
 
     @staticmethod
     def _hashed_basename(overlay_id: str) -> str:
@@ -383,7 +374,7 @@ class OverlayStateStore:
                 logger.warning("Skipping unreadable state file '%s': %s", filename, exc)
                 continue
             oid = (payload or {}).get("_meta", {}).get("overlay_id")
-            if not isinstance(oid, str) or _OVERLAY_ID_PATTERN.match(oid) is None:
+            if not is_valid_overlay_id(oid):
                 logger.warning("State file '%s' missing valid _meta.overlay_id", filename)
                 continue
             yield oid, filename
@@ -403,7 +394,7 @@ class OverlayStateStore:
         """Rename ``overlay_state_<id>.json`` → ``overlay_state_<hash>.json``.
 
         Runs once at init. For each legacy file whose stem matches
-        :data:`_OVERLAY_ID_PATTERN`, injects ``_meta.overlay_id`` into
+        :mod:`app.id_validation` overlay rules, injects ``_meta.overlay_id`` into
         the payload and rewrites to the hashed basename. No-op for files
         already in the new format.
         """
@@ -416,7 +407,7 @@ class OverlayStateStore:
             if m is None:
                 continue
             stem = m.group(1)
-            if _OVERLAY_ID_PATTERN.match(stem) is None:
+            if not is_valid_overlay_id(stem):
                 continue
             legacy_path = os.path.join(self._data_dir, filename)
             new_basename = self._hashed_basename(stem)

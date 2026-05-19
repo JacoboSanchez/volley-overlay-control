@@ -72,9 +72,10 @@ export function useScreenWakeLock(enabled: boolean): void {
     // ``document`` checks below do, so the hook can be imported
     // without blowing up before hydration. After hydration the
     // browser globals are populated and the effect re-runs.
-    const nav = (typeof navigator !== 'undefined'
-      ? (navigator as WakeLockNavigator)
-      : ({} as WakeLockNavigator));
+    const nav =
+      typeof navigator !== 'undefined'
+        ? (navigator as WakeLockNavigator)
+        : ({} as WakeLockNavigator);
     if (!nav.wakeLock || typeof nav.wakeLock.request !== 'function') {
       return undefined;
     }

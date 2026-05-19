@@ -113,7 +113,15 @@ interface RowProps {
   name: string;
 }
 
-function Row({ team, events, color, textColor, logo, name, surface }: RowProps & { surface: string }) {
+function Row({
+  team,
+  events,
+  color,
+  textColor,
+  logo,
+  name,
+  surface,
+}: RowProps & { surface: string }) {
   const markerColor = getReadableOnSurface(color, surface, MARKER_MIN_RATIO);
   return (
     <div className="phs-row" data-testid={`phs-row-${team}`}>

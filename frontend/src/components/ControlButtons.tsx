@@ -144,9 +144,7 @@ export default function ControlButtons({
         title={simpleMode ? t('ctrl.fullScoreboard') : t('ctrl.simpleScoreboard')}
         data-testid="simple-mode-button"
       >
-        <span className="material-icons">
-          {simpleMode ? 'window' : 'grid_on'}
-        </span>
+        <span className="material-icons">{simpleMode ? 'window' : 'grid_on'}</span>
       </button>
 
       <button
@@ -159,9 +157,7 @@ export default function ControlButtons({
         title={showPreview ? t('ctrl.hidePreview') : t('ctrl.showPreview')}
         data-testid="preview-button"
       >
-        <span className="material-icons">
-          {showPreview ? 'tv' : 'tv_off'}
-        </span>
+        <span className="material-icons">{showPreview ? 'tv' : 'tv_off'}</span>
       </button>
 
       {setSummaryEnabled && onToggleSetSummary && (
@@ -172,12 +168,8 @@ export default function ControlButtons({
             // tint the icon orange to match the SIMPLE / FULL scoreboard
             // family so it visually groups with the other display
             // toggles.
-            borderColor: setSummaryActive
-              ? FULL_SCOREBOARD_COLOR
-              : PREVIEW_OFF_COLOR,
-            color: setSummaryActive
-              ? FULL_SCOREBOARD_COLOR
-              : PREVIEW_OFF_COLOR,
+            borderColor: setSummaryActive ? FULL_SCOREBOARD_COLOR : PREVIEW_OFF_COLOR,
+            color: setSummaryActive ? FULL_SCOREBOARD_COLOR : PREVIEW_OFF_COLOR,
           }}
           onClick={onToggleSetSummary}
           title={t('setSummary.toggle')}
@@ -198,9 +190,7 @@ export default function ControlButtons({
         title={visible ? t('ctrl.hideOverlay') : t('ctrl.showOverlay')}
         data-testid="visibility-button"
       >
-        <span className="material-icons">
-          {visible ? 'visibility' : 'visibility_off'}
-        </span>
+        <span className="material-icons">{visible ? 'visibility' : 'visibility_off'}</span>
       </button>
     </div>
   );

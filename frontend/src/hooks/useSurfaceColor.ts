@@ -52,9 +52,7 @@ export function useCssVariableColor(varName: string, fallback: string): string {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       return fallback;
     }
-    const raw = getComputedStyle(document.documentElement)
-      .getPropertyValue(varName)
-      .trim();
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
     return raw || fallback;
   };
 

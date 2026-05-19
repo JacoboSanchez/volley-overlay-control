@@ -2,12 +2,7 @@ import { useEffect, useState } from 'react';
 import * as api from '../api/client';
 import type { GameState, AuditRecord, TeamState } from '../api/client';
 
-export type RecentEventKind =
-  | 'point_add'
-  | 'set_won'
-  | 'match_won'
-  | 'timeout'
-  | 'manual';
+export type RecentEventKind = 'point_add' | 'set_won' | 'match_won' | 'timeout' | 'manual';
 
 export interface RecentEvent {
   ts: number;

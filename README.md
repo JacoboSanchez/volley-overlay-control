@@ -129,7 +129,8 @@ If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot),
 
 1.  **Clone the repository** and install dependencies:
     ```bash
-    pip install -r requirements.txt
+    pip install -U pip uv
+    uv pip install -r requirements.lock -r requirements-dev.lock
     ```
 
 2.  **Build the frontend**:
@@ -294,9 +295,10 @@ its own URL and its own password prompt.
 
 From this page you can:
 
-*   **Create** a new custom overlay by name — the overlay's OID is
-    automatically `C-<name>`, and the built-in overlay engine persists its
-    state to `data/overlay_state_<name>.json`.
+*   **Create** a new custom overlay by name — use that name directly as the
+    OID in the control UI (the legacy `C-<name>` prefix is still accepted
+    for existing overlays). The built-in overlay engine persists state to
+    `data/overlay_state_<name>.json`.
 *   **Clone** an existing custom overlay into a new one — the clone inherits
     the source's colors, layout, preferred style and current state.
 *   **Delete** custom overlays no longer needed.
@@ -400,7 +402,7 @@ For a full audit of every route and its authentication requirements
 | Overlay not updating | Ensure the overlay control token is valid. Try calling `POST /api/v1/session/init` again. |
 | Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
 | "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
-| Custom overlay not receiving updates | Overlay IDs must start with `C-`. For built-in overlays, check that `overlay_templates/` exists. For external overlays, verify `APP_CUSTOM_OVERLAY_URL` is reachable. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+| Custom overlay not receiving updates | Confirm the overlay exists (create it from `/manage` if needed). Use the bare overlay id as the OID (`mybroadcast`, not `C-mybroadcast`, unless you created it under the legacy prefix). For built-in overlays, check that `overlay_templates/` exists. For external overlays, verify `APP_CUSTOM_OVERLAY_URL` is reachable. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
 
 ---
 
@@ -410,7 +412,7 @@ Contributions are welcome! Here's how to get started:
 
 1.  **Fork** the repository and create a feature branch.
 2.  **Install dependencies** and ensure tests pass:
-    - Backend: `pip install -r requirements.txt && pytest tests/`
+    - Backend: `uv pip install -r requirements.lock -r requirements-dev.lock && pytest tests/`
     - Frontend: `cd frontend && npm ci && npm test`
 3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
 4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.

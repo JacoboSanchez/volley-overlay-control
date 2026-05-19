@@ -114,8 +114,15 @@ def _resolve_target_addresses(host: str) -> list[str] | None:
     # Dedupe: ``getaddrinfo`` returns one entry per (family, socktype,
     # proto) tuple, so the same IP literal can appear multiple times
     # for a host that supports several socket flavours. The caller
-    # only cares about the unique address set.
-    return list({sockaddr[0] for _, _, _, _, sockaddr in addrinfo})
+    # only cares about the unique address set. ``sockaddr[0]`` is typed
+    # as a union (IPv4 vs IPv6 record shapes); narrow to ``str`` so the
+    # SSRF allowlist comparison never sees a non-string slip through.
+    addresses: set[str] = set()
+    for _, _, _, _, sockaddr in addrinfo:
+        addr = sockaddr[0]
+        if isinstance(addr, str):
+            addresses.add(addr)
+    return list(addresses)
 
 
 def _is_target_safe(url: str) -> tuple[bool, str]:
@@ -467,7 +474,8 @@ class WebhookDispatcher:
         still_failing: list[dict] = []
         skipped = 0
         for r in records:
-            target = targets_by_url.get(r.get("url"))
+            url = r.get("url")
+            target = targets_by_url.get(url) if isinstance(url, str) else None
             if target is None:
                 skipped += 1
                 still_failing.append(r)

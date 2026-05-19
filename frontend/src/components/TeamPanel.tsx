@@ -84,7 +84,7 @@ function TeamPanel({
   const handleDoubleTap = useCallback(() => onDoubleTapScore(teamId), [onDoubleTapScore, teamId]);
   const handleDoubleTapTimeoutCb = useCallback(
     () => onDoubleTapTimeout(teamId),
-    [onDoubleTapTimeout, teamId]
+    [onDoubleTapTimeout, teamId],
   );
   const handleLongPress = useCallback(() => onLongPressScore(teamId), [onLongPressScore, teamId]);
 
@@ -116,7 +116,7 @@ function TeamPanel({
         data-testid={`timeout-${teamId}-number-${i}`}
       >
         radio_button_unchecked
-      </span>
+      </span>,
     );
   }
 
@@ -124,7 +124,9 @@ function TeamPanel({
   const safeIconLogo = isSafeUrl(iconLogo) ? iconLogo : null;
   if (safeIconLogo) {
     const alpha = 1.0 - iconOpacity / 100;
-    let r = 0, g = 0, b = 0;
+    let r = 0,
+      g = 0,
+      b = 0;
     const hex = buttonColor.replace('#', '');
     if (hex.length === 6) {
       r = parseInt(hex.substring(0, 2), 16);
@@ -192,8 +194,10 @@ function TeamPanel({
             <span id={`team-${teamId}-timeout-help`} className="visually-hidden">
               Tap to add timeout, double-tap to undo.
             </span>
-            <div className={`timeout-dots ${isPortrait ? 'timeout-dots-col' : 'timeout-dots-row'}`}
-                 data-testid={`team-${teamId}-timeouts-display`}>
+            <div
+              className={`timeout-dots ${isPortrait ? 'timeout-dots-col' : 'timeout-dots-row'}`}
+              data-testid={`team-${teamId}-timeouts-display`}
+            >
               {timeoutDots}
             </div>
           </div>

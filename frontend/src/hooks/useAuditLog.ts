@@ -104,7 +104,8 @@ export function useAuditLog(
     setLoading(true);
     setError(null);
 
-    api.getAudit(oid, limit, controller.signal)
+    api
+      .getAudit(oid, limit, controller.signal)
       .then((res) => {
         if (controller.signal.aborted) return;
         // Backend returns records oldest-first within the page;

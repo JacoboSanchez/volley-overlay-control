@@ -14,7 +14,11 @@ export interface LinksSectionProps {
 }
 
 const LINK_KEYS: Array<keyof LinksSectionLinks> = [
-  'control', 'overlay', 'preview', 'latest_match_report', 'match_history',
+  'control',
+  'overlay',
+  'preview',
+  'latest_match_report',
+  'match_history',
 ];
 
 // Keys whose URL targets a server-rendered, locale-aware HTML
@@ -64,29 +68,36 @@ export default function LinksSection({ links }: LinksSectionProps) {
           <p className="config-label" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
             {t('links.noLinks')}
           </p>
-        ) : availableLinks.map((key) => {
-          const raw = links?.[key] as string;
-          // Only the locale-aware surfaces get the ``?lang=`` tag;
-          // overlay / preview / control URLs are passed through
-          // unchanged so we don't bloat them with a query param the
-          // target service has no use for.
-          const url = LOCALE_AWARE_KEYS.has(key) ? withLang(raw, lang) : raw;
-          return (
-            <div key={key} className="link-row">
-              <a href={url} target="_blank" rel="noopener noreferrer" className="link-text">
-                {t(`links.${key}`)}
-              </a>
-              <button className="link-copy-btn" title={t('links.copyToClipboard')}
-                onClick={() => {
-                  copyToClipboard(url);
-                  setCopiedKey(key);
-                  setTimeout(() => setCopiedKey(null), 1500);
-                }}>
-                <span className="material-icons">{copiedKey === key ? 'check' : 'content_copy'}</span>
-              </button>
-            </div>
-          );
-        })}
+        ) : (
+          availableLinks.map((key) => {
+            const raw = links?.[key] as string;
+            // Only the locale-aware surfaces get the ``?lang=`` tag;
+            // overlay / preview / control URLs are passed through
+            // unchanged so we don't bloat them with a query param the
+            // target service has no use for.
+            const url = LOCALE_AWARE_KEYS.has(key) ? withLang(raw, lang) : raw;
+            return (
+              <div key={key} className="link-row">
+                <a href={url} target="_blank" rel="noopener noreferrer" className="link-text">
+                  {t(`links.${key}`)}
+                </a>
+                <button
+                  className="link-copy-btn"
+                  title={t('links.copyToClipboard')}
+                  onClick={() => {
+                    copyToClipboard(url);
+                    setCopiedKey(key);
+                    setTimeout(() => setCopiedKey(null), 1500);
+                  }}
+                >
+                  <span className="material-icons">
+                    {copiedKey === key ? 'check' : 'content_copy'}
+                  </span>
+                </button>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

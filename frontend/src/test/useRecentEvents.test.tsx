@@ -57,18 +57,14 @@ describe('useRecentEvents', () => {
 
   it('returns empty and does not fetch when disabled', () => {
     getAuditSpy.mockResolvedValue({ oid: 'x', count: 0, records: [] });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', false, makeState(5, 3)),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', false, makeState(5, 3)));
     expect(result.current).toEqual([]);
     expect(getAuditSpy).not.toHaveBeenCalled();
   });
 
   it('returns empty and does not fetch when oid is null', () => {
     getAuditSpy.mockResolvedValue({ oid: 'x', count: 0, records: [] });
-    const { result } = renderHook(() =>
-      useRecentEvents(null, true, makeState(5, 3)),
-    );
+    const { result } = renderHook(() => useRecentEvents(null, true, makeState(5, 3)));
     expect(result.current).toEqual([]);
     expect(getAuditSpy).not.toHaveBeenCalled();
   });
@@ -87,9 +83,7 @@ describe('useRecentEvents', () => {
         rec(3, 'add_point', { team: 1 }),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(2, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(2, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(2));
     expect(result.current).toEqual([
       { ts: 1, team: 1, kind: 'point_add' },
@@ -102,11 +96,16 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(1, 'add_timeout', { team: 2 }, {
-          score_set: 1,
-          team_1: { score: 0, sets: 0, timeouts: 0 },
-          team_2: { score: 0, sets: 0, timeouts: 1 },
-        }),
+        rec(
+          1,
+          'add_timeout',
+          { team: 2 },
+          {
+            score_set: 1,
+            team_1: { score: 0, sets: 0, timeouts: 0 },
+            team_2: { score: 0, sets: 0, timeouts: 1 },
+          },
+        ),
       ],
     });
     const { result } = renderHook(() =>
@@ -129,31 +128,39 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(10, 'add_timeout', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 0, sets: 0, timeouts: 1 },
-          team_2: { score: 0, sets: 0, timeouts: 0 },
-        }),
+        rec(
+          10,
+          'add_timeout',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 0, sets: 0, timeouts: 1 },
+            team_2: { score: 0, sets: 0, timeouts: 0 },
+          },
+        ),
       ],
     });
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 1,
       records: [
-        rec(11, 'add_timeout', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 0, sets: 0, timeouts: 0 },
-          team_2: { score: 0, sets: 0, timeouts: 0 },
-        }),
+        rec(
+          11,
+          'add_timeout',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 0, sets: 0, timeouts: 0 },
+            team_2: { score: 0, sets: 0, timeouts: 0 },
+          },
+        ),
       ],
     });
     const { result, rerender } = renderHook(
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: makeState(0, 0, 0, 0, 1, 0) } },
     );
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'timeout')).toBe(true),
-    );
+    await waitFor(() => expect(result.current.some((e) => e.kind === 'timeout')).toBe(true));
     rerender({ s: makeState(0, 0, 0, 0, 0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current).toEqual([]));
@@ -166,16 +173,26 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(9, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 0 },
-          team_2: { score: 20, sets: 0 },
-        }),
-        rec(10, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 25, sets: 1 },
-          team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          9,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 24, sets: 0 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
+        rec(
+          10,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 1 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
       ],
     });
     // Second fetch: forward was popped, leaving the baseline point
@@ -186,25 +203,33 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(9, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 0 },
-          team_2: { score: 20, sets: 0 },
-        }),
-        rec(11, 'add_point', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 0 },
-          team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          9,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 24, sets: 0 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
+        rec(
+          11,
+          'add_point',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 24, sets: 0 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
       ],
     });
     const { result, rerender } = renderHook(
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: makeState(25, 20, 1, 0) } },
     );
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'set_won')).toBe(true),
-    );
+    await waitFor(() => expect(result.current.some((e) => e.kind === 'set_won')).toBe(true));
     rerender({ s: makeState(24, 20, 0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current).toHaveLength(1));
@@ -216,49 +241,68 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(9, 'add_point', { team: 1 }, {
-          score_set: 3,
-          team_1: { score: 24, sets: 2 },
-          team_2: { score: 20, sets: 1 },
-          match_finished: false,
-        }),
-        rec(10, 'add_point', { team: 1 }, {
-          score_set: 3,
-          team_1: { score: 25, sets: 3 },
-          team_2: { score: 20, sets: 1 },
-          match_finished: true,
-        }),
+        rec(
+          9,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 3,
+            team_1: { score: 24, sets: 2 },
+            team_2: { score: 20, sets: 1 },
+            match_finished: false,
+          },
+        ),
+        rec(
+          10,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 3,
+            team_1: { score: 25, sets: 3 },
+            team_2: { score: 20, sets: 1 },
+            match_finished: true,
+          },
+        ),
       ],
     });
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 2,
       records: [
-        rec(9, 'add_point', { team: 1 }, {
-          score_set: 3,
-          team_1: { score: 24, sets: 2 },
-          team_2: { score: 20, sets: 1 },
-          match_finished: false,
-        }),
-        rec(11, 'add_point', { team: 1, undo: true }, {
-          score_set: 3,
-          team_1: { score: 24, sets: 2 },
-          team_2: { score: 20, sets: 1 },
-          match_finished: false,
-        }),
+        rec(
+          9,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 3,
+            team_1: { score: 24, sets: 2 },
+            team_2: { score: 20, sets: 1 },
+            match_finished: false,
+          },
+        ),
+        rec(
+          11,
+          'add_point',
+          { team: 1, undo: true },
+          {
+            score_set: 3,
+            team_1: { score: 24, sets: 2 },
+            team_2: { score: 20, sets: 1 },
+            match_finished: false,
+          },
+        ),
       ],
     });
-    const finishedState = (): GameState => ({
-      ...makeState(25, 20, 3, 1),
-      match_finished: true,
-    } as unknown as GameState);
+    const finishedState = (): GameState =>
+      ({
+        ...makeState(25, 20, 3, 1),
+        match_finished: true,
+      }) as unknown as GameState;
     const { result, rerender } = renderHook(
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: finishedState() } },
     );
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'match_won')).toBe(true),
-    );
+    await waitFor(() => expect(result.current.some((e) => e.kind === 'match_won')).toBe(true));
     rerender({ s: makeState(24, 20, 2, 1) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current).toHaveLength(1));
@@ -274,16 +318,19 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(1, 'add_timeout', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 0, sets: 0, timeouts: 0 },
-          team_2: { score: 0, sets: 0, timeouts: 0 },
-        }),
+        rec(
+          1,
+          'add_timeout',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 0, sets: 0, timeouts: 0 },
+            team_2: { score: 0, sets: 0, timeouts: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(0, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(0, 0), 8));
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
     expect(result.current).toEqual([]);
   });
@@ -317,26 +364,39 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 3,
       records: [
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 1, sets: 0, timeouts: 0 },
-          team_2: { score: 0, sets: 0, timeouts: 0 },
-        }),
-        rec(2, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 2, sets: 0, timeouts: 1 },
-          team_2: { score: 0, sets: 0, timeouts: 0 },
-        }),
-        rec(3, 'add_timeout', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 2, sets: 0, timeouts: 0 },
-          team_2: { score: 0, sets: 0, timeouts: 0 },
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0, timeouts: 0 },
+            team_2: { score: 0, sets: 0, timeouts: 0 },
+          },
+        ),
+        rec(
+          2,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 2, sets: 0, timeouts: 1 },
+            team_2: { score: 0, sets: 0, timeouts: 0 },
+          },
+        ),
+        rec(
+          3,
+          'add_timeout',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 2, sets: 0, timeouts: 0 },
+            team_2: { score: 0, sets: 0, timeouts: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(2, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(2, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(2));
     expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
     expect(result.current[1]).toMatchObject({ team: 1, kind: 'point_add' });
@@ -347,23 +407,31 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 2 },
-          team_2: { score: 20, sets: 0 },
-          match_finished: false,
-        }),
-        rec(2, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 25, sets: 3 },
-          team_2: { score: 20, sets: 0 },
-          match_finished: true,
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 24, sets: 2 },
+            team_2: { score: 20, sets: 0 },
+            match_finished: false,
+          },
+        ),
+        rec(
+          2,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 3 },
+            team_2: { score: 20, sets: 0 },
+            match_finished: true,
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(0, 0, 3, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(0, 0, 3, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(3));
     expect(result.current[2]).toMatchObject({ team: 1, kind: 'match_won' });
     expect(result.current.some((e) => e.kind === 'set_won')).toBe(false);
@@ -374,17 +442,29 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1, team_1: { score: 1, sets: 0 }, team_2: { score: 0, sets: 0 },
-        }),
-        rec(2, 'add_set', { team: 1 }, {
-          score_set: 1, team_1: { score: 25, sets: 1 }, team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
+        rec(
+          2,
+          'add_set',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 1 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(0, 0, 1, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(0, 0, 1, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(2));
     expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
     expect(result.current[1]).toMatchObject({ team: 1, kind: 'set_won' });
@@ -395,17 +475,29 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1, team_1: { score: 24, sets: 0 }, team_2: { score: 20, sets: 0 },
-        }),
-        rec(2, 'add_point', { team: 1 }, {
-          score_set: 1, team_1: { score: 25, sets: 1 }, team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 24, sets: 0 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
+        rec(
+          2,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 1 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(0, 0, 1, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(0, 0, 1, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(3));
     expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add' });
     expect(result.current[1]).toMatchObject({ team: 1, kind: 'point_add' });
@@ -417,17 +509,29 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(1, 'add_set', { team: 1 }, {
-          score_set: 1, team_1: { score: 25, sets: 1 }, team_2: { score: 20, sets: 0 },
-        }),
-        rec(2, 'add_set', { team: 1, undo: true }, {
-          score_set: 1, team_1: { score: 25, sets: 0 }, team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          1,
+          'add_set',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 1 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
+        rec(
+          2,
+          'add_set',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 0 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(0, 0, 0, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(0, 0, 0, 0), 8));
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
     // No set_won — first record has no prev to diff against, second
     // record's sets decreased so the diff is negative.
@@ -439,25 +543,51 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 4,
       records: [
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1, team_1: { score: 1, sets: 0 }, team_2: { score: 0, sets: 0 },
-        }),
-        rec(2, 'add_point', { team: 1 }, {
-          score_set: 1, team_1: { score: 2, sets: 0 }, team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
+        rec(
+          2,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 2, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
         // Operator types 5 → chip shows 5 (absolute), not the +3 delta.
-        rec(3, 'set_score', { team: 1, set_number: 1, value: 5 }, {
-          score_set: 1, team_1: { score: 5, sets: 0 }, team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          3,
+          'set_score',
+          { team: 1, set_number: 1, value: 5 },
+          {
+            score_set: 1,
+            team_1: { score: 5, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
         // Operator corrects down to 4 → chip shows 4.
-        rec(4, 'set_score', { team: 1, set_number: 1, value: 4 }, {
-          score_set: 1, team_1: { score: 4, sets: 0 }, team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          4,
+          'set_score',
+          { team: 1, set_number: 1, value: 4 },
+          {
+            score_set: 1,
+            team_1: { score: 4, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(4, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(4, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(4));
     expect(result.current[2]).toMatchObject({ team: 1, kind: 'manual', value: 5 });
     expect(result.current[3]).toMatchObject({ team: 1, kind: 'manual', value: 4 });
@@ -468,14 +598,19 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(1, 'set_score', { team: 1, set_number: 1, value: 0 }, {
-          score_set: 1, team_1: { score: 0, sets: 0 }, team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          1,
+          'set_score',
+          { team: 1, set_number: 1, value: 0 },
+          {
+            score_set: 1,
+            team_1: { score: 0, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(0, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(0, 0), 8));
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
     expect(result.current).toEqual([]);
   });
@@ -504,9 +639,7 @@ describe('useRecentEvents', () => {
         rec(5, 'add_point', { team: 2 }),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(3, 2), 3),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(3, 2), 3));
     await waitFor(() => expect(result.current).toHaveLength(3));
     expect(result.current.map((e) => e.ts)).toEqual([3, 4, 5]);
   });
@@ -534,11 +667,16 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(10, 'add_point', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 0, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          10,
+          'add_point',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 0, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
       ],
     });
     getAuditSpy.mockResolvedValueOnce({
@@ -546,10 +684,11 @@ describe('useRecentEvents', () => {
       count: 0,
       records: [],
     });
-    const stateWithStart = (started: number | null): GameState => ({
-      ...makeState(0, 0),
-      match_started_at: started,
-    } as unknown as GameState);
+    const stateWithStart = (started: number | null): GameState =>
+      ({
+        ...makeState(0, 0),
+        match_started_at: started,
+      }) as unknown as GameState;
     const { result, rerender } = renderHook(
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: stateWithStart(1000) } },
@@ -570,11 +709,16 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(10, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 1, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          10,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
       ],
     });
     // Second fetch (after match reset): empty audit, fresh
@@ -585,10 +729,11 @@ describe('useRecentEvents', () => {
       count: 0,
       records: [],
     });
-    const stateWithStart = (started: number, points = 1): GameState => ({
-      ...makeState(points, 0),
-      match_started_at: started,
-    } as unknown as GameState);
+    const stateWithStart = (started: number, points = 1): GameState =>
+      ({
+        ...makeState(points, 0),
+        match_started_at: started,
+      }) as unknown as GameState;
     const { result, rerender } = renderHook(
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: stateWithStart(1000) } },
@@ -609,11 +754,16 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(1, 'add_set', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 25, sets: 3 },
-          team_2: { score: 20, sets: 1 },
-        }),
+        rec(
+          1,
+          'add_set',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 3 },
+            team_2: { score: 20, sets: 1 },
+          },
+        ),
       ],
     });
     getAuditSpy.mockResolvedValueOnce({
@@ -621,14 +771,11 @@ describe('useRecentEvents', () => {
       count: 0,
       records: [],
     });
-    const stateWithStart = (
-      started: number | null,
-      t1Sets: number,
-      t2Sets: number,
-    ): GameState => ({
-      ...makeState(0, 0, t1Sets, t2Sets),
-      match_started_at: started,
-    } as unknown as GameState);
+    const stateWithStart = (started: number | null, t1Sets: number, t2Sets: number): GameState =>
+      ({
+        ...makeState(0, 0, t1Sets, t2Sets),
+        match_started_at: started,
+      }) as unknown as GameState;
     const { result, rerender } = renderHook(
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: stateWithStart(1000, 3, 1) } },
@@ -650,11 +797,16 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 1,
       records: [
-        rec(10, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 1, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          10,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
       ],
     });
     getAuditSpy.mockResolvedValueOnce({
@@ -666,9 +818,7 @@ describe('useRecentEvents', () => {
       ({ s }: { s: GameState }) => useRecentEvents('oid', true, s, 8),
       { initialProps: { s: makeState(1, 0) } },
     );
-    await waitFor(() =>
-      expect(result.current.some((e) => e.kind === 'point_add')).toBe(true),
-    );
+    await waitFor(() => expect(result.current.some((e) => e.kind === 'point_add')).toBe(true));
     rerender({ s: makeState(0, 0) });
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current).toEqual([]));
@@ -685,37 +835,62 @@ describe('useRecentEvents', () => {
       oid: 'oid',
       count: 2,
       records: [
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 1, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
-        rec(2, 'add_point', { team: 2 }, {
-          score_set: 1,
-          team_1: { score: 1, sets: 0 },
-          team_2: { score: 1, sets: 0 },
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
+        rec(
+          2,
+          'add_point',
+          { team: 2 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 1, sets: 0 },
+          },
+        ),
       ],
     });
     getAuditSpy.mockResolvedValueOnce({
       oid: 'oid',
       count: 3,
       records: [
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 1, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
-        rec(3, 'add_point', { team: 2, undo: true }, {
-          score_set: 1,
-          team_1: { score: 1, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
-        rec(4, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 2, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
+        rec(
+          3,
+          'add_point',
+          { team: 2, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 1, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
+        rec(
+          4,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 2, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
       ],
     });
     const { result, rerender } = renderHook(
@@ -745,30 +920,43 @@ describe('useRecentEvents', () => {
       count: 3,
       records: [
         // Set-winning point — anchors prevSets to {1: 1}.
-        rec(1, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 25, sets: 1 },
-          team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          1,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 1 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
         // Undo that set win — post-state sets back to 0. Must
         // update prevSets even though no chip is emitted.
-        rec(2, 'add_point', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 24, sets: 0 },
-          team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          2,
+          'add_point',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 24, sets: 0 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
         // Fresh set-winning point — diff vs prevSets {1: 0} must
         // fire the trophy.
-        rec(3, 'add_point', { team: 1 }, {
-          score_set: 1,
-          team_1: { score: 25, sets: 1 },
-          team_2: { score: 20, sets: 0 },
-        }),
+        rec(
+          3,
+          'add_point',
+          { team: 1 },
+          {
+            score_set: 1,
+            team_1: { score: 25, sets: 1 },
+            team_2: { score: 20, sets: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(25, 20, 1, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(25, 20, 1, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(3));
     expect(result.current[0]).toMatchObject({ ts: 1, team: 1, kind: 'point_add' });
     expect(result.current[1]).toMatchObject({ ts: 3, team: 1, kind: 'point_add' });
@@ -785,30 +973,43 @@ describe('useRecentEvents', () => {
       count: 3,
       records: [
         // Operator types 5 → manual chip.
-        rec(1, 'set_score', { team: 1, set_number: 1, value: 5 }, {
-          score_set: 1,
-          team_1: { score: 5, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          1,
+          'set_score',
+          { team: 1, set_number: 1, value: 5 },
+          {
+            score_set: 1,
+            team_1: { score: 5, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
         // Undo the point that took them to 5 — post-state 4.
         // Tracker must advance to 4 so the next set_score's diff
         // is computed against 4, not against the stale 5.
-        rec(2, 'add_point', { team: 1, undo: true }, {
-          score_set: 1,
-          team_1: { score: 4, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          2,
+          'add_point',
+          { team: 1, undo: true },
+          {
+            score_set: 1,
+            team_1: { score: 4, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
         // Operator types 7 — differs from the post-undo 4 → chip.
-        rec(3, 'set_score', { team: 1, set_number: 1, value: 7 }, {
-          score_set: 1,
-          team_1: { score: 7, sets: 0 },
-          team_2: { score: 0, sets: 0 },
-        }),
+        rec(
+          3,
+          'set_score',
+          { team: 1, set_number: 1, value: 7 },
+          {
+            score_set: 1,
+            team_1: { score: 7, sets: 0 },
+            team_2: { score: 0, sets: 0 },
+          },
+        ),
       ],
     });
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(7, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(7, 0), 8));
     await waitFor(() => expect(result.current).toHaveLength(2));
     expect(result.current[0]).toMatchObject({ team: 1, kind: 'manual', value: 5 });
     expect(result.current[1]).toMatchObject({ team: 1, kind: 'manual', value: 7 });
@@ -817,9 +1018,7 @@ describe('useRecentEvents', () => {
   it('clears events on fetch error', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     getAuditSpy.mockRejectedValue(new Error('boom'));
-    const { result } = renderHook(() =>
-      useRecentEvents('oid', true, makeState(1, 0), 8),
-    );
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(1, 0), 8));
     await waitFor(() => expect(getAuditSpy).toHaveBeenCalled());
     expect(result.current).toEqual([]);
     warn.mockRestore();

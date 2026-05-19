@@ -10,11 +10,15 @@ describe('LinksSection', () => {
   });
 
   it('does not append lang to control / overlay / preview URLs', () => {
-    renderWithI18n(<LinksSection links={{
-      control: 'https://example.com/control?token=abc',
-      overlay: 'https://overlays.uno/output/abc?aspect=16:9',
-      preview: 'https://example.com/preview',
-    }} />);
+    renderWithI18n(
+      <LinksSection
+        links={{
+          control: 'https://example.com/control?token=abc',
+          overlay: 'https://overlays.uno/output/abc?aspect=16:9',
+          preview: 'https://example.com/preview',
+        }}
+      />,
+    );
     const anchors = screen.getAllByRole('link') as HTMLAnchorElement[];
     expect(anchors.map((a) => a.href)).toEqual([
       'https://example.com/control?token=abc',
@@ -30,10 +34,14 @@ describe('LinksSection', () => {
   });
 
   it('appends lang= to the match-report and history URLs', () => {
-    renderWithI18n(<LinksSection links={{
-      latest_match_report: '/match/abc/report',
-      match_history: '/matches?oid=foo',
-    }} />);
+    renderWithI18n(
+      <LinksSection
+        links={{
+          latest_match_report: '/match/abc/report',
+          match_history: '/matches?oid=foo',
+        }}
+      />,
+    );
     const anchors = screen.getAllByRole('link') as HTMLAnchorElement[];
     // Default i18n locale in tests is English.
     anchors.forEach((a) => {
@@ -45,18 +53,26 @@ describe('LinksSection', () => {
   });
 
   it('preserves an existing lang param by overwriting it', () => {
-    renderWithI18n(<LinksSection links={{
-      latest_match_report: '/match/abc/report?lang=fr',
-    }} />);
+    renderWithI18n(
+      <LinksSection
+        links={{
+          latest_match_report: '/match/abc/report?lang=fr',
+        }}
+      />,
+    );
     const a = screen.getByRole('link') as HTMLAnchorElement;
     expect(a.href).toContain('lang=en');
     expect(a.href).not.toContain('lang=fr');
   });
 
   it('leaves malformed URLs untouched', () => {
-    renderWithI18n(<LinksSection links={{
-      latest_match_report: 'not a url',
-    }} />);
+    renderWithI18n(
+      <LinksSection
+        links={{
+          latest_match_report: 'not a url',
+        }}
+      />,
+    );
     const a = screen.getByRole('link') as HTMLAnchorElement;
     // jsdom resolves the bare string against the document's base
     // URL; the helper falls back to the original on URL parse

@@ -44,8 +44,7 @@ export default function ActionChip({
   glyphOnly = false,
   label,
 }: ActionChipProps) {
-  const resolvedKind: ChipKind = kind
-    ?? classifyChip(action ?? '', team, wasUndone);
+  const resolvedKind: ChipKind = kind ?? classifyChip(action ?? '', team, wasUndone);
   const meta = CHIP_CATALOGUE[resolvedKind];
 
   return (
@@ -54,15 +53,10 @@ export default function ActionChip({
       data-kind={resolvedKind}
       data-testid="action-chip"
     >
-      <span
-        className={`chip-glyph chip-glyph-${resolvedKind}`}
-        aria-hidden="true"
-      >
+      <span className={`chip-glyph chip-glyph-${resolvedKind}`} aria-hidden="true">
         {meta.glyph}
       </span>
-      {!glyphOnly && label != null && (
-        <span className="action-chip-label">{label}</span>
-      )}
+      {!glyphOnly && label != null && <span className="action-chip-label">{label}</span>}
     </span>
   );
 }

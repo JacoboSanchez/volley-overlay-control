@@ -42,9 +42,7 @@ function SetSummaryStylePicker({ value, onChange, disabled }: SetSummaryStylePic
               if (!disabled && !selected) onChange(style);
             }}
           >
-            <span className="set-summary-style-name">
-              {t(`setSummary.style.${style}`)}
-            </span>
+            <span className="set-summary-style-name">{t(`setSummary.style.${style}`)}</span>
           </button>
         );
       })}

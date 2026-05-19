@@ -10,11 +10,19 @@ interface HarnessProps {
   innerNode?: React.ReactNode;
 }
 
-function Harness({ onSwipeLeft, onSwipeRight, threshold, maxVerticalRatio, innerNode }: HarnessProps) {
+function Harness({
+  onSwipeLeft,
+  onSwipeRight,
+  threshold,
+  maxVerticalRatio,
+  innerNode,
+}: HarnessProps) {
   const handlers = useSwipeNavigation({ onSwipeLeft, onSwipeRight, threshold, maxVerticalRatio });
   return (
     <div data-testid="surface" style={{ width: 400, height: 400 }} {...handlers}>
-      <button data-testid="inner-button" type="button">Tap me</button>
+      <button data-testid="inner-button" type="button">
+        Tap me
+      </button>
       <span data-testid="plain-area">empty</span>
       {innerNode}
     </div>
@@ -29,7 +37,9 @@ describe('useSwipeNavigation', () => {
   it('fires onSwipeLeft when finger moves left far enough', () => {
     const onSwipeLeft = vi.fn();
     const onSwipeRight = vi.fn();
-    const { getByTestId } = render(<Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />);
+    const { getByTestId } = render(
+      <Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />,
+    );
     const surface = getByTestId('plain-area');
 
     fireEvent.touchStart(surface, { touches: [touch(surface, 300, 200)] });
@@ -42,7 +52,9 @@ describe('useSwipeNavigation', () => {
   it('fires onSwipeRight when finger moves right far enough', () => {
     const onSwipeLeft = vi.fn();
     const onSwipeRight = vi.fn();
-    const { getByTestId } = render(<Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />);
+    const { getByTestId } = render(
+      <Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />,
+    );
     const surface = getByTestId('plain-area');
 
     fireEvent.touchStart(surface, { touches: [touch(surface, 50, 200)] });
@@ -66,7 +78,9 @@ describe('useSwipeNavigation', () => {
   it('ignores mostly-vertical gestures (treated as scrolling)', () => {
     const onSwipeLeft = vi.fn();
     const onSwipeRight = vi.fn();
-    const { getByTestId } = render(<Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />);
+    const { getByTestId } = render(
+      <Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />,
+    );
     const surface = getByTestId('plain-area');
 
     fireEvent.touchStart(surface, { touches: [touch(surface, 200, 100)] });
@@ -117,7 +131,9 @@ describe('useSwipeNavigation', () => {
     const { getByTestId } = render(<Harness onSwipeLeft={onSwipeLeft} />);
     const surface = getByTestId('plain-area');
 
-    fireEvent.touchStart(surface, { touches: [touch(surface, 300, 200), touch(surface, 250, 200)] });
+    fireEvent.touchStart(surface, {
+      touches: [touch(surface, 300, 200), touch(surface, 250, 200)],
+    });
     fireEvent.touchEnd(surface, { changedTouches: [touch(surface, 50, 200)] });
 
     expect(onSwipeLeft).not.toHaveBeenCalled();
@@ -138,7 +154,9 @@ describe('useSwipeNavigation', () => {
   it('does nothing on touchend without a prior touchstart', () => {
     const onSwipeLeft = vi.fn();
     const onSwipeRight = vi.fn();
-    const { getByTestId } = render(<Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />);
+    const { getByTestId } = render(
+      <Harness onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} />,
+    );
     const surface = getByTestId('plain-area');
 
     fireEvent.touchEnd(surface, { changedTouches: [touch(surface, 50, 200)] });
@@ -193,19 +211,89 @@ describe('useSwipeNavigation', () => {
 
   describe('default ignore selectors', () => {
     const samples: Array<{ selector: string; html: React.ReactElement }> = [
-      { selector: 'button', html: <button data-testid="t" type="button">b</button> },
+      {
+        selector: 'button',
+        html: (
+          <button data-testid="t" type="button">
+            b
+          </button>
+        ),
+      },
       { selector: 'input', html: <input data-testid="t" type="range" min={0} max={10} readOnly /> },
-      { selector: 'select', html: <select data-testid="t" defaultValue="a"><option value="a">a</option></select> },
+      {
+        selector: 'select',
+        html: (
+          <select data-testid="t" defaultValue="a">
+            <option value="a">a</option>
+          </select>
+        ),
+      },
       { selector: 'textarea', html: <textarea data-testid="t" defaultValue="" /> },
-      { selector: 'a', html: <a data-testid="t" href="#x">link</a> },
+      {
+        selector: 'a',
+        html: (
+          <a data-testid="t" href="#x">
+            link
+          </a>
+        ),
+      },
       { selector: 'label', html: <label data-testid="t">lbl</label> },
-      { selector: '[role="button"]', html: <div data-testid="t" role="button" tabIndex={0}>x</div> },
-      { selector: '[role="slider"]', html: <div data-testid="t" role="slider" tabIndex={0} aria-valuenow={0}>x</div> },
-      { selector: '[role="checkbox"]', html: <div data-testid="t" role="checkbox" tabIndex={0} aria-checked="false">x</div> },
-      { selector: '[role="switch"]', html: <div data-testid="t" role="switch" tabIndex={0} aria-checked="false">x</div> },
-      { selector: '[role="tab"]', html: <div data-testid="t" role="tab" tabIndex={0}>x</div> },
-      { selector: '[role="menuitem"]', html: <div data-testid="t" role="menuitem" tabIndex={0}>x</div> },
-      { selector: '[contenteditable="true"]', html: <div data-testid="t" contentEditable suppressContentEditableWarning>x</div> },
+      {
+        selector: '[role="button"]',
+        html: (
+          <div data-testid="t" role="button" tabIndex={0}>
+            x
+          </div>
+        ),
+      },
+      {
+        selector: '[role="slider"]',
+        html: (
+          <div data-testid="t" role="slider" tabIndex={0} aria-valuenow={0}>
+            x
+          </div>
+        ),
+      },
+      {
+        selector: '[role="checkbox"]',
+        html: (
+          <div data-testid="t" role="checkbox" tabIndex={0} aria-checked="false">
+            x
+          </div>
+        ),
+      },
+      {
+        selector: '[role="switch"]',
+        html: (
+          <div data-testid="t" role="switch" tabIndex={0} aria-checked="false">
+            x
+          </div>
+        ),
+      },
+      {
+        selector: '[role="tab"]',
+        html: (
+          <div data-testid="t" role="tab" tabIndex={0}>
+            x
+          </div>
+        ),
+      },
+      {
+        selector: '[role="menuitem"]',
+        html: (
+          <div data-testid="t" role="menuitem" tabIndex={0}>
+            x
+          </div>
+        ),
+      },
+      {
+        selector: '[contenteditable="true"]',
+        html: (
+          <div data-testid="t" contentEditable suppressContentEditableWarning>
+            x
+          </div>
+        ),
+      },
     ];
 
     it('covers every entry in DEFAULT_IGNORE_SELECTORS', () => {

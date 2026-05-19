@@ -45,7 +45,9 @@ export default function SetValueDialog({
   return (
     <Dialog open={open} onClose={onClose} ariaLabelledBy="set-value-dialog-title">
       <form onSubmit={handleSubmit}>
-        <h3 className="dialog-title" id="set-value-dialog-title">{title}</h3>
+        <h3 className="dialog-title" id="set-value-dialog-title">
+          {title}
+        </h3>
         <input
           ref={inputRef}
           type="number"
