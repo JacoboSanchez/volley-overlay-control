@@ -12,16 +12,11 @@ import { useMatchAlertHaptics } from './hooks/useMatchAlertHaptics';
 import { useScreenWakeLock } from './hooks/useScreenWakeLock';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import InitScreen from './components/InitScreen';
-import ShortcutsHelp from './components/ShortcutsHelp';
 import ScoreboardView from './components/ScoreboardView';
 import ScoreboardSkeleton from './components/ScoreboardSkeleton';
 import ConfigPanel from './components/ConfigPanel';
-import SetValueDialog from './components/SetValueDialog';
-import ConfirmDialog from './components/ConfirmDialog';
 import ConnectionStatus from './components/ConnectionStatus';
-import GestureCoachmark from './components/GestureCoachmark';
-import LinksDialog from './components/LinksDialog';
-import RecentAuditDrawer from './components/RecentAuditDrawer';
+import AppDialogs from './components/AppDialogs';
 import * as api from './api/client';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
@@ -676,53 +671,34 @@ export default function App() {
         </ErrorBoundary>
       )}
 
-      <SetValueDialog
-        open={dialog.open}
-        title={dialog.title}
-        initialValue={dialog.initialValue}
-        maxValue={dialog.maxValue}
-        onSubmit={handleDialogSubmit}
-        onClose={() => setDialog((d) => ({ ...d, open: false }))}
-      />
-
-      <ConfirmDialog
-        open={resetConfirmOpen}
-        message={t('config.resetConfirm')}
-        confirmLabel={t('config.resetMatch')}
-        danger
-        onConfirm={() => {
+      <AppDialogs
+        dialog={dialog}
+        onDialogSubmit={handleDialogSubmit}
+        onDialogClose={() => setDialog((d) => ({ ...d, open: false }))}
+        resetConfirmOpen={resetConfirmOpen}
+        onResetConfirm={() => {
           confirmReset();
           setResetConfirmOpen(false);
         }}
-        onClose={() => setResetConfirmOpen(false)}
-      />
-
-      <ConfirmDialog
-        open={stalePromptOpen}
-        title={t('staleSet.title')}
-        message={t('staleSet.message')}
-        confirmLabel={t('staleSet.reset')}
-        cancelLabel={t('staleSet.continue')}
-        danger
-        onConfirm={() => {
+        onResetConfirmClose={() => setResetConfirmOpen(false)}
+        stalePromptOpen={stalePromptOpen}
+        onStaleReset={() => {
           confirmReset();
           setStalePromptOpen(false);
         }}
-        onClose={() => setStalePromptOpen(false)}
-      />
-
-      {shareOpen && <LinksDialog links={shareLinks ?? {}} onClose={() => setShareOpen(false)} />}
-
-      <RecentAuditDrawer
+        onStaleClose={() => setStalePromptOpen(false)}
+        shareOpen={shareOpen}
+        shareLinks={shareLinks}
+        onShareClose={() => setShareOpen(false)}
         oid={oid}
-        open={historyOpen}
+        historyOpen={historyOpen}
         confirmedState={confirmedState}
-        onClose={() => setHistoryOpen(false)}
+        onHistoryClose={() => setHistoryOpen(false)}
+        coachmarkOpen={coachmarkOpen}
+        onCoachmarkDismiss={handleCoachmarkDismiss}
+        shortcutsHelpOpen={shortcutsHelpOpen}
+        onShortcutsHelpClose={() => setShortcutsHelpOpen(false)}
       />
-
-      <GestureCoachmark open={coachmarkOpen} onDismiss={handleCoachmarkDismiss} />
-
-      <ShortcutsHelp open={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
     </div>
   );
 }
