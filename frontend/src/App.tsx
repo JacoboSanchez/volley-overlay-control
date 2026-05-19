@@ -25,12 +25,7 @@ import RecentAuditDrawer from './components/RecentAuditDrawer';
 import * as api from './api/client';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
-import {
-  TEAM_A_COLOR,
-  TEAM_B_COLOR,
-  FONT_SCALES,
-  DEFAULT_FONT_SCALE,
-} from './theme';
+import { TEAM_A_COLOR, TEAM_B_COLOR, FONT_SCALES, DEFAULT_FONT_SCALE } from './theme';
 import { HUD_AUTO_HIDE_MS } from './constants';
 import { asColor, asString } from './utils/coerce';
 
@@ -117,9 +112,7 @@ export default function App() {
   // when the page is hidden — re-acquired automatically when the
   // operator returns to the tab. No-op on unsupported runtimes
   // (desktop browsers, pre-iOS-16.4 Safari).
-  const matchInProgress = !!state
-    && state.match_started_at != null
-    && !state.match_finished;
+  const matchInProgress = !!state && state.match_started_at != null && !state.match_finished;
   useScreenWakeLock(matchInProgress);
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -145,10 +138,10 @@ export default function App() {
     // stale-set threshold isn't tripped by a client whose system
     // clock is hours off. Fall back to ``Date.now()`` on the rare
     // legacy payload that omits the field.
-    const nowSec = (typeof state.server_time === 'number'
-      && state.server_time > 0)
-      ? state.server_time
-      : Date.now() / 1000;
+    const nowSec =
+      typeof state.server_time === 'number' && state.server_time > 0
+        ? state.server_time
+        : Date.now() / 1000;
     const elapsed = nowSec - startedAt;
     if (elapsed > STALE_SET_THRESHOLD_SEC) {
       stalePromptFiredRef.current = true;
@@ -169,7 +162,10 @@ export default function App() {
   // from either surface).
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState<{
-    control?: string; overlay?: string; preview?: string; follow?: string;
+    control?: string;
+    overlay?: string;
+    preview?: string;
+    follow?: string;
   } | null>(null);
 
   // Recent-audit drawer: a non-modal slide-in panel that surfaces
@@ -276,12 +272,16 @@ export default function App() {
         setOid(oidInput.trim());
       }
     },
-    [oidInput]
+    [oidInput],
   );
 
   useEffect(() => {
     if (oid) {
-      try { localStorage.setItem('volley_oid', oid); } catch (e) { console.warn('Failed to save OID:', e); }
+      try {
+        localStorage.setItem('volley_oid', oid);
+      } catch (e) {
+        console.warn('Failed to save OID:', e);
+      }
       initialize();
     }
   }, [oid, initialize]);
@@ -294,7 +294,7 @@ export default function App() {
         actions.setSimpleMode(true);
       }
     },
-    [actions, matchFinished, settings.autoSimple, simpleMode]
+    [actions, matchFinished, settings.autoSimple, simpleMode],
   );
 
   const handleAddSet = useCallback(
@@ -302,7 +302,7 @@ export default function App() {
       if (matchFinished) return;
       actions.addSet(team, false);
     },
-    [actions, matchFinished]
+    [actions, matchFinished],
   );
 
   const handleAddTimeout = useCallback(
@@ -313,12 +313,14 @@ export default function App() {
         actions.setSimpleMode(false);
       }
     },
-    [actions, matchFinished, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode]
+    [actions, matchFinished, settings.autoSimple, settings.autoSimpleOnTimeout, simpleMode],
   );
 
   const handleChangeServe = useCallback(
-    (team: Team) => { actions.changeServe(team); },
-    [actions]
+    (team: Team) => {
+      actions.changeServe(team);
+    },
+    [actions],
   );
 
   const handleToggleVisibility = useCallback(() => {
@@ -331,8 +333,8 @@ export default function App() {
 
   const setSummaryActive = state?.set_summary ?? false;
   const setSummarySetNum = state?.set_summary_set_num ?? null;
-  const setSummaryStyle = (state?.set_summary_style ?? 'brand_ledger') as
-    import('./api/client').SetSummaryStyle;
+  const setSummaryStyle = (state?.set_summary_style ??
+    'brand_ledger') as import('./api/client').SetSummaryStyle;
 
   const handleToggleSetSummary = useCallback(() => {
     if (!settings.setSummaryEnabled) return;
@@ -361,7 +363,8 @@ export default function App() {
       document.exitFullscreen();
       setIsFullscreen(false);
     } else {
-      document.documentElement.requestFullscreen()
+      document.documentElement
+        .requestFullscreen()
         .then(() => setIsFullscreen(true))
         .catch(() => setIsFullscreen(false));
     }
@@ -422,7 +425,11 @@ export default function App() {
   }, [actions]);
 
   const handleLogout = useCallback(() => {
-    try { localStorage.removeItem('volley_oid'); } catch (e) { console.warn('Failed to remove OID:', e); }
+    try {
+      localStorage.removeItem('volley_oid');
+    } catch (e) {
+      console.warn('Failed to remove OID:', e);
+    }
     setOid('');
     setOidInput('');
     setActiveTab('scoreboard');
@@ -435,17 +442,15 @@ export default function App() {
   // Keyboard shortcuts. Disabled while any dialog/coachmark is open
   // (those own focus and ESC handling) or on touch-only devices where
   // the operator opted out via ``settings.keyboardShortcuts``.
-  const anyModalOpen = dialog.open
-    || resetConfirmOpen
-    || stalePromptOpen
-    || coachmarkOpen
-    || shareOpen
-    || shortcutsHelpOpen;
+  const anyModalOpen =
+    dialog.open ||
+    resetConfirmOpen ||
+    stalePromptOpen ||
+    coachmarkOpen ||
+    shareOpen ||
+    shortcutsHelpOpen;
   useKeyboardShortcuts({
-    enabled: settings.keyboardShortcuts
-      && !anyModalOpen
-      && !!state
-      && activeTab === 'scoreboard',
+    enabled: settings.keyboardShortcuts && !anyModalOpen && !!state && activeTab === 'scoreboard',
     onAddPoint: handleAddPoint,
     onUndoLast: state?.can_undo ? handleUndoLast : undefined,
     onChangeServe: handleChangeServe,
@@ -461,7 +466,7 @@ export default function App() {
       pulse('confirm');
       actions.addPoint(team, true);
     },
-    [actions, pulse]
+    [actions, pulse],
   );
 
   const handleDoubleTapTimeout = useCallback(
@@ -469,7 +474,7 @@ export default function App() {
       pulse('confirm');
       actions.addTimeout(team, true);
     },
-    [actions, pulse]
+    [actions, pulse],
   );
 
   const handleLongPressScore = useCallback(
@@ -487,7 +492,7 @@ export default function App() {
         isSet: false,
       });
     },
-    [state, currentSet, t]
+    [state, currentSet, t],
   );
 
   const handleLongPressSet = useCallback(
@@ -503,7 +508,7 @@ export default function App() {
         isSet: true,
       });
     },
-    [state, setsLimit, t]
+    [state, setsLimit, t],
   );
 
   const handleDialogSubmit = useCallback(
@@ -516,7 +521,7 @@ export default function App() {
       }
       setDialog((d) => ({ ...d, open: false }));
     },
-    [dialog, actions, currentSet]
+    [dialog, actions, currentSet],
   );
 
   // Memoize the four button colours together so the strings keep
@@ -524,36 +529,42 @@ export default function App() {
   // colour input. Without this, every WebSocket state push would
   // hand fresh string instances to TeamPanel/CenterPanel and defeat
   // the React.memo wrappers that guard those subtrees.
-  const { btnColorA, btnTextA, btnColorB, btnTextB } = useMemo(() => ({
-    btnColorA: settings.followTeamColors
-      ? asColor(customization?.['Team 1 Color'], TEAM_A_COLOR)
-      : (settings.team1BtnColor ?? TEAM_A_COLOR),
-    btnTextA: settings.followTeamColors
-      ? asColor(customization?.['Team 1 Text Color'], '#ffffff')
-      : (settings.team1BtnText ?? '#ffffff'),
-    btnColorB: settings.followTeamColors
-      ? asColor(customization?.['Team 2 Color'], TEAM_B_COLOR)
-      : (settings.team2BtnColor ?? TEAM_B_COLOR),
-    btnTextB: settings.followTeamColors
-      ? asColor(customization?.['Team 2 Text Color'], '#ffffff')
-      : (settings.team2BtnText ?? '#ffffff'),
-  }), [
-    settings.followTeamColors,
-    settings.team1BtnColor,
-    settings.team1BtnText,
-    settings.team2BtnColor,
-    settings.team2BtnText,
-    customization,
-  ]);
+  const { btnColorA, btnTextA, btnColorB, btnTextB } = useMemo(
+    () => ({
+      btnColorA: settings.followTeamColors
+        ? asColor(customization?.['Team 1 Color'], TEAM_A_COLOR)
+        : (settings.team1BtnColor ?? TEAM_A_COLOR),
+      btnTextA: settings.followTeamColors
+        ? asColor(customization?.['Team 1 Text Color'], '#ffffff')
+        : (settings.team1BtnText ?? '#ffffff'),
+      btnColorB: settings.followTeamColors
+        ? asColor(customization?.['Team 2 Color'], TEAM_B_COLOR)
+        : (settings.team2BtnColor ?? TEAM_B_COLOR),
+      btnTextB: settings.followTeamColors
+        ? asColor(customization?.['Team 2 Text Color'], '#ffffff')
+        : (settings.team2BtnText ?? '#ffffff'),
+    }),
+    [
+      settings.followTeamColors,
+      settings.team1BtnColor,
+      settings.team1BtnText,
+      settings.team2BtnColor,
+      settings.team2BtnText,
+      customization,
+    ],
+  );
 
   const iconLogoA = settings.showIcon ? asString(customization?.['Team 1 Logo']) : null;
   const iconLogoB = settings.showIcon ? asString(customization?.['Team 2 Logo']) : null;
 
   const fontStyle = useMemo<ScoreButtonFontStyle>(() => {
-    const fontProps: FontScale =
-      FONT_SCALES[settings.selectedFont] ?? DEFAULT_FONT_SCALE;
+    const fontProps: FontScale = FONT_SCALES[settings.selectedFont] ?? DEFAULT_FONT_SCALE;
     return settings.selectedFont && settings.selectedFont !== 'Default'
-      ? { fontFamily: `'${settings.selectedFont}'`, fontScale: fontProps.scale, fontOffsetY: fontProps.offset_y }
+      ? {
+          fontFamily: `'${settings.selectedFont}'`,
+          fontScale: fontProps.scale,
+          fontOffsetY: fontProps.offset_y,
+        }
       : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
   }, [settings.selectedFont]);
 
@@ -586,56 +597,56 @@ export default function App() {
       <ConnectionStatus connected={connected} />
       {activeTab === 'scoreboard' && (
         <ErrorBoundary>
-        <ScoreboardView
-          state={state}
-          customization={customization}
-          currentSet={currentSet}
-          setsLimit={setsLimit}
-          isPortrait={isPortrait}
-          buttonSize={buttonSize}
-          previewData={previewData}
-          showPreview={settings.showPreview}
-          recentEvents={recentEvents}
-          // Landscape phones (no room for persistent controls) need the
-          // preview shrunk so the alert pills below it don't get pushed
-          // off the bottom of the viewport.
-          compactLandscape={compactLandscape}
-          showControls={showControls}
-          setShowControls={setShowControls}
-          canUndo={state?.can_undo ?? false}
-          simpleMode={simpleMode}
-          btnColorA={btnColorA}
-          btnTextA={btnTextA}
-          btnColorB={btnColorB}
-          btnTextB={btnTextB}
-          iconLogoA={iconLogoA}
-          iconLogoB={iconLogoB}
-          iconOpacity={settings.iconOpacity}
-          fontStyle={fontStyle}
-          onAddPoint={handleAddPoint}
-          onAddSet={handleAddSet}
-          onAddTimeout={handleAddTimeout}
-          onChangeServe={handleChangeServe}
-          onDoubleTapScore={handleDoubleTapScore}
-          onDoubleTapTimeout={handleDoubleTapTimeout}
-          onLongPressScore={handleLongPressScore}
-          onLongPressSet={handleLongPressSet}
-          onToggleVisibility={handleToggleVisibility}
-          onToggleSimpleMode={handleToggleSimpleMode}
-          onUndoLast={handleUndoLast}
-          onTogglePreview={handleTogglePreview}
-          onStartMatch={handleStartMatch}
-          onReset={handleReset}
-          onOpenConfig={() => setActiveTab('config')}
-          onOpenShare={handleOpenShare}
-          onOpenHistory={() => setHistoryOpen(true)}
-          setSummaryEnabled={settings.setSummaryEnabled}
-          setSummaryActive={setSummaryActive}
-          setSummarySetNum={setSummarySetNum}
-          setSummaryStyle={setSummaryStyle}
-          onToggleSetSummary={handleToggleSetSummary}
-          onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
-        />
+          <ScoreboardView
+            state={state}
+            customization={customization}
+            currentSet={currentSet}
+            setsLimit={setsLimit}
+            isPortrait={isPortrait}
+            buttonSize={buttonSize}
+            previewData={previewData}
+            showPreview={settings.showPreview}
+            recentEvents={recentEvents}
+            // Landscape phones (no room for persistent controls) need the
+            // preview shrunk so the alert pills below it don't get pushed
+            // off the bottom of the viewport.
+            compactLandscape={compactLandscape}
+            showControls={showControls}
+            setShowControls={setShowControls}
+            canUndo={state?.can_undo ?? false}
+            simpleMode={simpleMode}
+            btnColorA={btnColorA}
+            btnTextA={btnTextA}
+            btnColorB={btnColorB}
+            btnTextB={btnTextB}
+            iconLogoA={iconLogoA}
+            iconLogoB={iconLogoB}
+            iconOpacity={settings.iconOpacity}
+            fontStyle={fontStyle}
+            onAddPoint={handleAddPoint}
+            onAddSet={handleAddSet}
+            onAddTimeout={handleAddTimeout}
+            onChangeServe={handleChangeServe}
+            onDoubleTapScore={handleDoubleTapScore}
+            onDoubleTapTimeout={handleDoubleTapTimeout}
+            onLongPressScore={handleLongPressScore}
+            onLongPressSet={handleLongPressSet}
+            onToggleVisibility={handleToggleVisibility}
+            onToggleSimpleMode={handleToggleSimpleMode}
+            onUndoLast={handleUndoLast}
+            onTogglePreview={handleTogglePreview}
+            onStartMatch={handleStartMatch}
+            onReset={handleReset}
+            onOpenConfig={() => setActiveTab('config')}
+            onOpenShare={handleOpenShare}
+            onOpenHistory={() => setHistoryOpen(true)}
+            setSummaryEnabled={settings.setSummaryEnabled}
+            setSummaryActive={setSummaryActive}
+            setSummarySetNum={setSummarySetNum}
+            setSummaryStyle={setSummaryStyle}
+            onToggleSetSummary={handleToggleSetSummary}
+            onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
+          />
         </ErrorBoundary>
       )}
 
@@ -700,12 +711,7 @@ export default function App() {
         onClose={() => setStalePromptOpen(false)}
       />
 
-      {shareOpen && (
-        <LinksDialog
-          links={shareLinks ?? {}}
-          onClose={() => setShareOpen(false)}
-        />
-      )}
+      {shareOpen && <LinksDialog links={shareLinks ?? {}} onClose={() => setShareOpen(false)} />}
 
       <RecentAuditDrawer
         oid={oid}
@@ -714,15 +720,9 @@ export default function App() {
         onClose={() => setHistoryOpen(false)}
       />
 
-      <GestureCoachmark
-        open={coachmarkOpen}
-        onDismiss={handleCoachmarkDismiss}
-      />
+      <GestureCoachmark open={coachmarkOpen} onDismiss={handleCoachmarkDismiss} />
 
-      <ShortcutsHelp
-        open={shortcutsHelpOpen}
-        onClose={() => setShortcutsHelpOpen(false)}
-      />
+      <ShortcutsHelp open={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
     </div>
   );
 }
