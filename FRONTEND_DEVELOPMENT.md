@@ -46,7 +46,7 @@ The bundled React control UI (`frontend/`) is a reference implementation that us
 ```bash
 # Clone and install
 git clone <repo-url>
-pip install -r requirements.txt
+uv pip install -r requirements.lock
 
 # Build the frontend (optional — backend works without it)
 cd frontend && npm ci && npm run build && cd ..

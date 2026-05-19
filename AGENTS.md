@@ -102,7 +102,7 @@ volley-overlay-control/
 ├── overlay_static/            # Static assets for overlays (JS, CSS, images)
 ├── data/                      # Persisted runtime state — overlay_state_{id}.json, audit_<hash>.jsonl, matches/, .overlay_server_token (auto-generated, mode 0o600)
 │
-├── tests/                     # Pytest suite (181 tests)
+├── tests/                     # Pytest suite (850+ tests; see also frontend Vitest)
 │   ├── conftest.py            # Shared fixtures: load_test_env
 │   ├── test_state.py          # Unit tests for State model
 │   ├── test_game_manager.py   # Unit tests for scoring rules and set logic

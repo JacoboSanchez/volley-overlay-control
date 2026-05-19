@@ -314,8 +314,7 @@ The routers are registered in `main.py` **before** the SPA mount so that
 
 ```bash
 # Backend tests
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+uv pip install -r requirements.lock -r requirements-dev.lock
 pytest tests/
 
 # Frontend tests
@@ -424,7 +423,7 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # 3. Install backend dependencies
-pip install -r requirements.txt
+uv pip install -r requirements.lock -r requirements-dev.lock
 
 # 4. Build the frontend
 cd frontend && npm ci && npm run build && cd ..

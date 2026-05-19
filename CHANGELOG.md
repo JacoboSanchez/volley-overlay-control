@@ -8,6 +8,33 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- Unified overlay/API identifier validation in ``app/id_validation.py`` with
+  cross-layer matrix tests.
+- CI: Prettier format check on the frontend, Docker image build job, and
+  shared ``CUSTOMIZATION_CACHE_TTL_SECONDS`` env knob for backend caches.
+
+### Changed
+
+- Split ``GameService`` broadcast/audit/rapid-pair helpers and the match
+  report HTML shell into dedicated modules; ``require_admin`` now lives in
+  ``app/auth_utils`` (overlay routes no longer import from admin).
+- Frontend: dialog/modal UI extracted to ``AppDialogs.tsx``; locale strings
+  moved to ``frontend/src/i18n/translations.ts``.
+- Documentation: README/AGENTS/DEVELOPER_GUIDE aligned on bare overlay OIDs,
+  lockfile-based installs, and current test counts; AUTHENTICATION.md §9
+  documents secure-by-default operator choices.
+
+### Fixed
+
+- README troubleshooting no longer claims custom overlay IDs must use the
+  legacy ``C-`` prefix.
+
+### Removed
+
+- Unused ``MatchFinishedError`` exception in ``game_service``.
+
 ## [5.4.1] - 2026-05-18
 
 ### Changed
