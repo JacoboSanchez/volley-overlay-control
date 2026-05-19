@@ -2,6 +2,7 @@
 
 import copy
 import logging
+from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -10,6 +11,9 @@ import requests.exceptions
 from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends.base import CustomOidMixin, OverlayBackend
 from app.state import State
+
+if TYPE_CHECKING:
+    from app.ws_client import WSControlClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +24,7 @@ class CustomOverlayBackend(CustomOidMixin, OverlayBackend):
     def __init__(self, conf, session: requests.Session):
         self.conf = conf
         self.session = session
-        self._ws_client = None
+        self._ws_client: Optional["WSControlClient"] = None
         self._obs_client_count = 0
         # Build overlay payload callback — set by Backend after construction
         self._build_payload = None
@@ -257,7 +261,9 @@ class CustomOverlayBackend(CustomOidMixin, OverlayBackend):
     def fetch_and_update_overlay_id(self, oid: str) -> None:
         logger.debug('Custom overlay detected, skipping Uno ID fetch')
 
-    def send_overlay_state(self, payload, **kwargs) -> None:
+    def send_overlay_state(self, payload: dict, force_visibility=None,
+                           customization_state=None,
+                           show_only_current_set=None) -> None:
         """Push state to connected OBS clients via WS or HTTP fallback."""
         try:
             if self._ws_client and self._ws_client.is_connected:
