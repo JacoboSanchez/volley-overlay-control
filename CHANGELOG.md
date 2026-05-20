@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.4.2] - 2026-05-20
+
 ### Added
 
 - Unified overlay/API identifier validation in ``app/id_validation.py`` with
@@ -25,6 +27,9 @@ once a first tagged release ships.
 - Documentation: README/AGENTS/DEVELOPER_GUIDE aligned on bare overlay OIDs,
   lockfile-based installs, and current test counts; AUTHENTICATION.md §9
   documents secure-by-default operator choices.
+- Regenerated README screenshots (spectator page, match report, set summary
+  overlay, scoreboard phone view) to reflect the spectator/comeback fixes
+  below.
 
 ### Fixed
 
