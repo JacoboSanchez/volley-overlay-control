@@ -30,6 +30,20 @@ once a first tagged release ships.
 
 - README troubleshooting no longer claims custom overlay IDs must use the
   legacy ``C-`` prefix.
+- **Spectator page surfaced in the config Links section.** The follow
+  URL was already in the HUD share dialog but missing from the config
+  panel's Links list; it now renders alongside the other share links.
+- **Spectator share links preserve the operator's locale.** Both the
+  HUD share dialog and the config Links section now append
+  ``?lang=<active-locale>`` to the follow URL, so a Spanish operator
+  sharing the link no longer drops the spectator into English.
+- **Spectator comeback stat ends at the tie.** ``perSetStreakAndComeback``
+  now clamps the post-peak deficit at ``0`` so a team that recovered
+  from ``-5`` to a tie reads as a 5-point comeback instead of continuing
+  to count their subsequent lead as part of the recovery.
+- **Spectator streak/comeback rows show both teams' max.** ``Racha``,
+  ``Racha más larga`` and ``Remontada`` now render per-team values
+  side by side instead of collapsing to only the leading team's number.
 
 ### Removed
 

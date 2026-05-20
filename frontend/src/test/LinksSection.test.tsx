@@ -52,6 +52,22 @@ describe('LinksSection', () => {
     expect(history.href).toContain('oid=foo');
   });
 
+  it('renders the spectator (follow) link with lang= appended', () => {
+    renderWithI18n(
+      <LinksSection
+        links={{
+          follow: '/follow/abc123',
+        }}
+      />,
+    );
+    const a = screen.getByRole('link') as HTMLAnchorElement;
+    // The spectator page reads ``?lang=`` to pick its UI locale, so
+    // sharing from the config panel must carry the operator's
+    // active app locale.
+    expect(a.href).toContain('/follow/abc123');
+    expect(a.href).toContain('lang=en');
+  });
+
   it('preserves an existing lang param by overwriting it', () => {
     renderWithI18n(
       <LinksSection

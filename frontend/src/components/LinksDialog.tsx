@@ -13,11 +13,26 @@ export interface LinksDialogProps {
   onClose: () => void;
 }
 
+// The spectator (follow) page reads ``?lang=`` to pick its UI
+// locale (see ``overlay_static/js/spectator.js``). Append the
+// operator's active app locale so a shared link opens in the same
+// language they were using, instead of falling back to the
+// spectator browser's ``navigator.language``.
+function withLang(url: string, lang: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    parsed.searchParams.set('lang', lang);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Links dialog — control, overlay, and preview links with copy buttons.
  */
 export default function LinksDialog({ links, onClose }: LinksDialogProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).catch(() => {
       const ta = document.createElement('textarea');
@@ -30,6 +45,7 @@ export default function LinksDialog({ links, onClose }: LinksDialogProps) {
       document.body.removeChild(ta);
     });
   };
+  const followUrl = links.follow ? withLang(links.follow, lang) : undefined;
 
   return (
     <Dialog open onClose={onClose} ariaLabelledBy="links-dialog-title">
@@ -79,14 +95,14 @@ export default function LinksDialog({ links, onClose }: LinksDialogProps) {
             </button>
           </div>
         )}
-        {links.follow && (
+        {followUrl && (
           <div className="link-row">
-            <a href={links.follow} target="_blank" rel="noopener noreferrer" className="link-text">
+            <a href={followUrl} target="_blank" rel="noopener noreferrer" className="link-text">
               {t('links.follow')}
             </a>
             <button
               className="link-copy-btn"
-              onClick={() => copyToClipboard(links.follow!)}
+              onClick={() => copyToClipboard(followUrl)}
               title={t('links.copyToClipboard')}
             >
               <span className="material-icons">content_copy</span>
