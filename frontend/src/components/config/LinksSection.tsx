@@ -5,6 +5,7 @@ export interface LinksSectionLinks {
   control?: string;
   overlay?: string;
   preview?: string;
+  follow?: string;
   latest_match_report?: string;
   match_history?: string;
 }
@@ -17,17 +18,19 @@ const LINK_KEYS: Array<keyof LinksSectionLinks> = [
   'control',
   'overlay',
   'preview',
+  'follow',
   'latest_match_report',
   'match_history',
 ];
 
-// Keys whose URL targets a server-rendered, locale-aware HTML
-// surface (the match report and the matches index). We append the
-// operator's selected app locale as ``?lang=<code>`` so the
-// spectator sees the same language the operator was using when
-// they shared the link, rather than whatever ``Accept-Language``
+// Keys whose URL targets a locale-aware HTML surface (the match
+// report, the matches index, and the public spectator/follow page).
+// We append the operator's selected app locale as ``?lang=<code>``
+// so the spectator sees the same language the operator was using
+// when they shared the link, rather than whatever ``Accept-Language``
 // the spectator's browser happens to advertise.
 const LOCALE_AWARE_KEYS: ReadonlySet<keyof LinksSectionLinks> = new Set([
+  'follow',
   'latest_match_report',
   'match_history',
 ]);
