@@ -1128,6 +1128,27 @@ class TestMatchReportComebacks:
         assert "Bravo" in card
         assert "Alpha" not in card
 
+    def test_partial_comeback_recovery_caps_at_the_tie(self, client):
+        # Team 2 trailed 0-10 (peak deficit 10), crawled all the way
+        # back to a brief 10-12 lead, then bled out as team 1 closed
+        # 25-12. The "partial comeback" must be 10 (the tying
+        # recovery), not 12 — the +2 lead segment is a separate
+        # story and must not extend the "points recovered while
+        # trailing" counter.
+        scores = [(i, 0) for i in range(1, 11)]       # 1-0..10-0
+        scores += [(10, j) for j in range(1, 13)]     # 10-1..10-12
+        scores += [(k, 12) for k in range(11, 26)]    # 11-12..25-12
+        oid = "pc-cap-at-tie"
+        self._seed(oid, [scores])
+        match_id = self._archive(oid, winning_team=1)
+        body = client.get(f"/match/{match_id}/report").text
+        card = self._highlight_card(body, "Biggest partial comeback")
+        # 10 = peak deficit; the +2 lead segment is NOT credited.
+        assert "made up 10 pts" in card
+        assert "made up 12 pts" not in card
+        # Credited to the losing team (Bravo).
+        assert "Bravo" in card
+
     def test_loser_who_only_led_then_collapsed_is_not_a_comeback(self, client):
         # Team 2 leads 5-0 from the opening and then bleeds the lead
         # without ever trailing → final 5-25. Team 2 was *never*

@@ -37,13 +37,18 @@ once a first tagged release ships.
   HUD share dialog and the config Links section now append
   ``?lang=<active-locale>`` to the follow URL, so a Spanish operator
   sharing the link no longer drops the spectator into English.
-- **Spectator comeback stat ends at the tie.** ``perSetStreakAndComeback``
-  now clamps the post-peak deficit at ``0`` so a team that recovered
-  from ``-5`` to a tie reads as a 5-point comeback instead of continuing
-  to count their subsequent lead as part of the recovery.
+- **Comeback stat ends at the tie (spectator + match report).**
+  ``perSetStreakAndComeback`` (spectator) and ``_compute_stats``
+  (post-match HTML report) both clamp the post-peak deficit at ``0``
+  so a team that recovered from ``-5`` to a tie reads as a 5-point
+  comeback instead of continuing to count their subsequent lead as
+  part of the recovery. Matters most for a losing side that briefly
+  took the lead mid-set.
 - **Spectator streak/comeback rows show both teams' max.** ``Racha``,
   ``Racha más larga`` and ``Remontada`` now render per-team values
-  side by side instead of collapsing to only the leading team's number.
+  side by side instead of collapsing to only the leading team's
+  number. The longest-streak row is suppressed when it would only
+  repeat the same number already shown one row up under ``Racha``.
 
 ### Removed
 

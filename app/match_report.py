@@ -706,16 +706,23 @@ def _compute_stats(audit: list[dict]) -> dict:
             if loser_deficit > loser_peak_deficit:
                 loser_peak_deficit = loser_deficit
                 loser_min_after_peak = loser_deficit
-            elif loser_peak_deficit > 0 and loser_deficit < loser_min_after_peak:
+            elif loser_peak_deficit > 0:
                 # Only count "recovery" once the loser has actually
                 # trailed. Otherwise a team that led 5-0 from the
                 # start and then collapsed would post a phantom
                 # 5-point partial comeback — they never erased
                 # anything, they just bled their early lead.
-                loser_min_after_peak = loser_deficit
-                recovery = loser_peak_deficit - loser_min_after_peak
-                if recovery > loser_max_recovery:
-                    loser_max_recovery = recovery
+                # Clamp at 0: the comeback ends at the tie. A loser
+                # who briefly took a lead mid-set still gets credit
+                # for "points recovered while trailing" up to the
+                # tying point, but the subsequent lead points are a
+                # separate (and short-lived) story.
+                clamped = max(0, loser_deficit)
+                if clamped < loser_min_after_peak:
+                    loser_min_after_peak = clamped
+                    recovery = loser_peak_deficit - loser_min_after_peak
+                    if recovery > loser_max_recovery:
+                        loser_max_recovery = recovery
         if winner_peak_deficit > set_win_comeback[winner]["deficit"]:
             set_win_comeback[winner] = {
                 "deficit": winner_peak_deficit, "set": set_num,

@@ -848,10 +848,28 @@
         // Show each team's longest run in this set side by side so the
         // viewer can compare both squads' best stretch, not only the
         // overall leader's. Row appears whenever either team reached
-        // the >=3 threshold.
+        // the >=3 threshold, BUT skip it if the only thing it would
+        // add is the same number already shown one row up under
+        // "Streak" — that happens when one team's current trailing run
+        // is itself the longest of the set and the other team has no
+        // qualifying longest of its own. Without this guard the panel
+        // renders e.g. "5 / —" twice in a row.
         const lsHomeN = lsByTeam[1] || 0;
         const lsAwayN = lsByTeam[2] || 0;
-        const haveLongest = Math.max(lsHomeN, lsAwayN) >= 3;
+        const longestAddsInfo = (
+            // Other team has its own ≥3 run worth surfacing.
+            (cs.team !== 1 && lsHomeN >= 3) ||
+            (cs.team !== 2 && lsAwayN >= 3) ||
+            // Active team's longest is strictly larger than its
+            // current trailing run (i.e. an earlier, broken-up
+            // streak in this set was longer than what's running now).
+            (cs.team === 1 && lsHomeN > (cs.n || 0)) ||
+            (cs.team === 2 && lsAwayN > (cs.n || 0)) ||
+            // No current streak at all — the longest row is the only
+            // surface that carries streak info for this set.
+            (!cs.team)
+        );
+        const haveLongest = Math.max(lsHomeN, lsAwayN) >= 3 && longestAddsInfo;
         if (haveLongest) {
             setTeamCell(
                 'stat-longest-home',
