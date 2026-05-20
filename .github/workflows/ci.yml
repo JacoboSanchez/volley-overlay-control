@@ -109,6 +109,10 @@ jobs:
       working-directory: frontend
       run: npm run lint
 
+    - name: Prettier format check
+      working-directory: frontend
+      run: npm run format:check
+
     - name: Typecheck
       working-directory: frontend
       run: npm run typecheck
@@ -190,3 +194,13 @@ jobs:
       # we want HIGH+ findings to fail, not every advisory.
       run: |
         npm audit --omit=dev --audit-level=high
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Build production image
+      run: docker build -t volley-overlay-control:ci .

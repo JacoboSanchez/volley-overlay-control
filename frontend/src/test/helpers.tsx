@@ -7,11 +7,9 @@ import type { GameState } from '../api/client';
 export function renderWithI18n(ui: ReactElement, options: Omit<RenderOptions, 'wrapper'> = {}) {
   return render(
     <I18nProvider>
-      <SettingsProvider>
-        {ui}
-      </SettingsProvider>
+      <SettingsProvider>{ui}</SettingsProvider>
     </I18nProvider>,
-    options
+    options,
   );
 }
 

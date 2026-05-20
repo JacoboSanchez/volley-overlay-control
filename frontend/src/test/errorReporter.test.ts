@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  installErrorReporter,
-  reportClientError,
-  _resetForTests,
-} from '../utils/errorReporter';
+import { installErrorReporter, reportClientError, _resetForTests } from '../utils/errorReporter';
 
 describe('errorReporter', () => {
   let originalSendBeacon: typeof navigator.sendBeacon | undefined;
@@ -29,7 +25,8 @@ describe('errorReporter', () => {
   it('uses sendBeacon when available and includes href + UA', () => {
     const beacon = vi.fn().mockReturnValue(true);
     Object.defineProperty(navigator, 'sendBeacon', {
-      value: beacon, configurable: true,
+      value: beacon,
+      configurable: true,
     });
     reportClientError({ level: 'error', message: 'kapow', stack: 'at foo' });
     expect(beacon).toHaveBeenCalledTimes(1);
@@ -47,7 +44,8 @@ describe('errorReporter', () => {
 
   it('falls back to fetch with keepalive when sendBeacon is missing', () => {
     Object.defineProperty(navigator, 'sendBeacon', {
-      value: undefined, configurable: true,
+      value: undefined,
+      configurable: true,
     });
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
@@ -61,7 +59,8 @@ describe('errorReporter', () => {
   it('dedupes identical messages within the dedupe window', () => {
     const beacon = vi.fn().mockReturnValue(true);
     Object.defineProperty(navigator, 'sendBeacon', {
-      value: beacon, configurable: true,
+      value: beacon,
+      configurable: true,
     });
     reportClientError({ level: 'error', message: 'same' });
     reportClientError({ level: 'error', message: 'same' });
@@ -73,19 +72,21 @@ describe('errorReporter', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener');
     installErrorReporter();
     installErrorReporter();
-    const errorListenerCalls = addEventListener.mock.calls.filter(
-      (c) => c[0] === 'error',
-    );
+    const errorListenerCalls = addEventListener.mock.calls.filter((c) => c[0] === 'error');
     expect(errorListenerCalls).toHaveLength(1);
     addEventListener.mockRestore();
   });
 
   it('does not throw when reporting fails internally', () => {
     Object.defineProperty(navigator, 'sendBeacon', {
-      value: () => { throw new Error('blocked'); },
+      value: () => {
+        throw new Error('blocked');
+      },
       configurable: true,
     });
-    globalThis.fetch = (() => { throw new Error('blocked'); }) as unknown as typeof globalThis.fetch;
+    globalThis.fetch = (() => {
+      throw new Error('blocked');
+    }) as unknown as typeof globalThis.fetch;
     expect(() => reportClientError({ level: 'error', message: 'safe' })).not.toThrow();
   });
 });

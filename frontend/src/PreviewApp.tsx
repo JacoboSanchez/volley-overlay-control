@@ -121,7 +121,9 @@ function PreviewPageInner() {
           >
             <option value="">{t('preview.styleDefault')}</option>
             {styles.map((name) => (
-              <option key={name} value={name}>{name}</option>
+              <option key={name} value={name}>
+                {name}
+              </option>
             ))}
           </select>
         )}

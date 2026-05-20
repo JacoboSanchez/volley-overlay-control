@@ -34,11 +34,7 @@ function SetSummaryActiveNotice({
         <span className="set-summary-notice-dot" aria-hidden="true" />
         {t('setSummary.activeBody', { n: displaySet })}
       </p>
-      <SetSummaryStylePicker
-        value={style}
-        onChange={onChangeStyle}
-        disabled={busy}
-      />
+      <SetSummaryStylePicker value={style} onChange={onChangeStyle} disabled={busy} />
       <button
         type="button"
         className="set-summary-notice-cta"

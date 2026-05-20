@@ -50,7 +50,7 @@ describe('api/client', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ oid: 'test-oid' }),
-      })
+      }),
     );
   });
 
@@ -59,7 +59,7 @@ describe('api/client', () => {
     await getState('my oid');
     expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/state?oid=my%20oid',
-      expect.objectContaining({ method: 'GET' })
+      expect.objectContaining({ method: 'GET' }),
     );
   });
 
@@ -71,7 +71,7 @@ describe('api/client', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ team: 1, undo: true }),
-      })
+      }),
     );
   });
 
@@ -98,7 +98,7 @@ describe('api/client', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ visible: false }),
-      })
+      }),
     );
   });
 
@@ -107,7 +107,7 @@ describe('api/client', () => {
     await resetGame('oid');
     expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/v1/game/reset?oid=oid',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({ method: 'POST' }),
     );
   });
 
@@ -119,7 +119,7 @@ describe('api/client', () => {
       expect.objectContaining({
         method: 'PUT',
         body: JSON.stringify({ Height: 10 }),
-      })
+      }),
     );
   });
 });

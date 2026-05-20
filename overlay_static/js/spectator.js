@@ -794,8 +794,8 @@
         const setEvents = bySet[String(setNum)] || bySet[setNum] || [];
         const perSet = perSetStreakAndComeback(setEvents);
         const cs = perSet.currentStreak;
-        const ls = perSet.longestStreak;
-        const comeback = perSet.comeback;
+        const lsByTeam = perSet.longestStreakByTeam;
+        const cbByTeam = perSet.comebackByTeam;
 
         // ── Total points per team ──
         // ``set_history`` carries every set's running score, including
@@ -832,8 +832,10 @@
         }
         toggleStatRow('stat-row-services', !haveServices);
 
-        // ── Current streak (only the team that has it) ──
-        const haveStreak = cs.team && (cs.n || 0) >= 2;
+        // ── Current streak (only one team can hold the trailing run) ──
+        // Renders both team cells: the active team gets the count,
+        // the other shows an em-dash so the row keeps a stable shape.
+        const haveStreak = !!cs.team && (cs.n || 0) >= 2;
         if (haveStreak) {
             const homeVal = cs.team === 1 ? t('stats.streak.cell', { n: cs.n }) : '—';
             const awayVal = cs.team === 2 ? t('stats.streak.cell', { n: cs.n }) : '—';
@@ -842,26 +844,65 @@
         }
         toggleStatRow('stat-row-streak', !haveStreak);
 
-        // ── Longest streak (only the team that holds it) ──
-        const haveLongest = ls.team && (ls.n || 0) >= 3 && ls.n > (cs.n || 0);
+        // ── Longest streak per team ──
+        // Show each team's longest run in this set side by side so the
+        // viewer can compare both squads' best stretch, not only the
+        // overall leader's. Row appears whenever either team reached
+        // the >=3 threshold, BUT skip it if the only thing it would
+        // add is the same number already shown one row up under
+        // "Streak" — that happens when one team's current trailing run
+        // is itself the longest of the set and the other team has no
+        // qualifying longest of its own. Without this guard the panel
+        // renders e.g. "5 / —" twice in a row.
+        const lsHomeN = lsByTeam[1] || 0;
+        const lsAwayN = lsByTeam[2] || 0;
+        const longestAddsInfo = (
+            // Other team has its own ≥3 run worth surfacing.
+            (cs.team !== 1 && lsHomeN >= 3) ||
+            (cs.team !== 2 && lsAwayN >= 3) ||
+            // Active team's longest is strictly larger than its
+            // current trailing run (i.e. an earlier, broken-up
+            // streak in this set was longer than what's running now).
+            (cs.team === 1 && lsHomeN > (cs.n || 0)) ||
+            (cs.team === 2 && lsAwayN > (cs.n || 0)) ||
+            // No current streak at all — the longest row is the only
+            // surface that carries streak info for this set.
+            (!cs.team)
+        );
+        const haveLongest = Math.max(lsHomeN, lsAwayN) >= 3 && longestAddsInfo;
         if (haveLongest) {
-            const homeVal = ls.team === 1 ? t('stats.streak.cell', { n: ls.n }) : '—';
-            const awayVal = ls.team === 2 ? t('stats.streak.cell', { n: ls.n }) : '—';
-            setTeamCell('stat-longest-home', homeVal, ls.team !== 1);
-            setTeamCell('stat-longest-away', awayVal, ls.team !== 2);
+            setTeamCell(
+                'stat-longest-home',
+                lsHomeN > 0 ? t('stats.streak.cell', { n: lsHomeN }) : '—',
+                lsHomeN === 0,
+            );
+            setTeamCell(
+                'stat-longest-away',
+                lsAwayN > 0 ? t('stats.streak.cell', { n: lsAwayN }) : '—',
+                lsAwayN === 0,
+            );
         }
         toggleStatRow('stat-row-longest', !haveLongest);
 
-        // ── Partial comeback (only the team that pulled it off) ──
-        // Scoped to the viewed set.
-        const haveComeback = !!comeback.team && (comeback.n || 0) >= 3;
+        // ── Partial comeback per team ──
+        // Points recovered while losing, capped at the tie (see
+        // ``perSetStreakAndComeback`` for the clamping rule). Shows
+        // each team's biggest such recovery so a set where both
+        // squads fought back from a deficit surfaces both numbers.
+        const cbHomeN = cbByTeam[1] || 0;
+        const cbAwayN = cbByTeam[2] || 0;
+        const haveComeback = Math.max(cbHomeN, cbAwayN) >= 3;
         if (haveComeback) {
-            const homeVal = comeback.team === 1
-                ? t('stats.comeback.cell', { n: comeback.n }) : '—';
-            const awayVal = comeback.team === 2
-                ? t('stats.comeback.cell', { n: comeback.n }) : '—';
-            setTeamCell('stat-comeback-home', homeVal, comeback.team !== 1);
-            setTeamCell('stat-comeback-away', awayVal, comeback.team !== 2);
+            setTeamCell(
+                'stat-comeback-home',
+                cbHomeN > 0 ? t('stats.comeback.cell', { n: cbHomeN }) : '—',
+                cbHomeN === 0,
+            );
+            setTeamCell(
+                'stat-comeback-away',
+                cbAwayN > 0 ? t('stats.comeback.cell', { n: cbAwayN }) : '—',
+                cbAwayN === 0,
+            );
         }
         toggleStatRow('stat-row-comeback', !haveComeback);
     }
@@ -889,23 +930,31 @@
      *
      * Returns:
      *   {
-     *     currentStreak: {team, n},   // trailing run of consecutive
-     *                                 // ``add_point`` by one team
-     *     longestStreak: {team, n},   // longest such run in this set
-     *     comeback:      {team, n},   // largest deficit reduction by
-     *                                 // one team within this set
+     *     currentStreak: {team, n},        // trailing run of consecutive
+     *                                      // ``add_point`` by one team
+     *     longestStreakByTeam: {1, 2},     // longest such run per team
+     *     comebackByTeam:      {1, 2},     // largest points-while-losing
+     *                                      // recovered per team — capped
+     *                                      // at the tie (deficit reaches 0)
      *   }
      */
     function perSetStreakAndComeback(events) {
         const out = {
             currentStreak: { team: null, n: 0 },
-            longestStreak: { team: null, n: 0 },
-            comeback: { team: null, n: 0 },
+            longestStreakByTeam: { 1: 0, 2: 0 },
+            comebackByTeam: { 1: 0, 2: 0 },
         };
         if (!Array.isArray(events) || events.length === 0) return out;
 
         let streakTeam = null;
         let streakN = 0;
+        // Per-team "comeback" tracking. ``peak`` is the largest deficit
+        // the team faced so far in the set; ``minAfter`` is the
+        // smallest deficit seen *after* that peak — but clamped at 0
+        // so the comeback ends at the tie. A team that recovers past
+        // the tie into a lead has finished a comeback equal to the
+        // peak deficit; further points are the *new* lead, not part
+        // of the recovery.
         const cb = {
             1: { peak: 0, minAfter: 0, recovery: 0 },
             2: { peak: 0, minAfter: 0, recovery: 0 },
@@ -926,8 +975,8 @@
                 streakTeam = team;
                 streakN = 1;
             }
-            if (streakN > out.longestStreak.n) {
-                out.longestStreak = { team: streakTeam, n: streakN };
+            if (streakN > out.longestStreakByTeam[streakTeam]) {
+                out.longestStreakByTeam[streakTeam] = streakN;
             }
             const score = Array.isArray(ev.score) ? ev.score : [0, 0];
             const s1 = score[0] || 0;
@@ -939,21 +988,24 @@
                 if (deficit > cb[t].peak) {
                     cb[t].peak = deficit;
                     cb[t].minAfter = deficit;
-                } else if (cb[t].peak > 0 && deficit < cb[t].minAfter) {
-                    cb[t].minAfter = deficit;
-                    const rec = cb[t].peak - cb[t].minAfter;
-                    if (rec > cb[t].recovery) cb[t].recovery = rec;
+                } else if (cb[t].peak > 0) {
+                    // Clamp at 0: once the deficit hits the tie the
+                    // comeback is complete; any subsequent lead does
+                    // not extend the "points recovered while losing"
+                    // counter.
+                    const clamped = Math.max(0, deficit);
+                    if (clamped < cb[t].minAfter) {
+                        cb[t].minAfter = clamped;
+                        const rec = cb[t].peak - cb[t].minAfter;
+                        if (rec > cb[t].recovery) cb[t].recovery = rec;
+                    }
                 }
             }
         }
         out.currentStreak = streakTeam !== null
             ? { team: streakTeam, n: streakN }
             : { team: null, n: 0 };
-        const bestRec = Math.max(cb[1].recovery, cb[2].recovery);
-        if (bestRec > 0) {
-            const team = cb[1].recovery >= cb[2].recovery ? 1 : 2;
-            out.comeback = { team: team, n: bestRec };
-        }
+        out.comebackByTeam = { 1: cb[1].recovery, 2: cb[2].recovery };
         return out;
     }
 

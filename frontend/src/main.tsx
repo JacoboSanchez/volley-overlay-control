@@ -14,8 +14,7 @@ const PreviewApp = lazy(() => import('./PreviewApp'));
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element #root not found');
 
-const isPreviewRoute =
-  window.location.pathname.replace(/\/+$/, '').endsWith('/preview');
+const isPreviewRoute = window.location.pathname.replace(/\/+$/, '').endsWith('/preview');
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
@@ -30,5 +29,5 @@ ReactDOM.createRoot(root).render(
         </I18nProvider>
       )}
     </Suspense>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

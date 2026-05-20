@@ -65,9 +65,11 @@ export default function MatchAlertIndicator({
   if (!alert) return null;
 
   const labelKey =
-    alert.kind === 'finished' ? 'alerts.matchFinished'
-    : alert.kind === 'match-point' ? 'alerts.matchPoint'
-    : 'alerts.setPoint';
+    alert.kind === 'finished'
+      ? 'alerts.matchFinished'
+      : alert.kind === 'match-point'
+        ? 'alerts.matchPoint'
+        : 'alerts.setPoint';
   const label = t(labelKey);
 
   // For team-bearing alerts (set / match point) the icon is a filled
@@ -86,9 +88,7 @@ export default function MatchAlertIndicator({
 
   // Screen readers can't see the icon's position, so spell the team out
   // in the accessible name.
-  const ariaLabel = alert.team
-    ? `${label} — ${t('alerts.team', { team: alert.team })}`
-    : label;
+  const ariaLabel = alert.team ? `${label} — ${t('alerts.team', { team: alert.team })}` : label;
 
   return (
     <div

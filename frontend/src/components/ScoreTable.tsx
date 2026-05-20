@@ -43,15 +43,11 @@ export default function ScoreTable({ state, setsLimit, currentSet, teamId }: Sco
         data-testid={`team-${teamId}-set-${i}-score`}
       >
         {String(score).padStart(2, '0')}
-      </div>
+      </div>,
     );
   }
 
   if (cells.length === 0) return null;
 
-  return (
-    <div className="score-column">
-      {cells}
-    </div>
-  );
+  return <div className="score-column">{cells}</div>;
 }

@@ -123,7 +123,9 @@ class UnoOverlayBackend(OverlayBackend):
                     self.conf.id = overlay_id
                     logger.debug('Updated conf.id to %s', overlay_id)
 
-    def send_overlay_state(self, payload, **kwargs) -> None:
+    def send_overlay_state(self, payload: dict, force_visibility=None,
+                           customization_state=None,
+                           show_only_current_set=None) -> None:
         pass  # Uno overlays don't use this path
 
     def send_json_model(self, to_save: dict) -> None:

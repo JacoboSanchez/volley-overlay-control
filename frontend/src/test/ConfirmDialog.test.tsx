@@ -38,12 +38,7 @@ describe('ConfirmDialog', () => {
     const onConfirm = vi.fn();
     const onClose = vi.fn();
     renderWithI18n(
-      <ConfirmDialog
-        open={true}
-        message="Logout?"
-        onConfirm={onConfirm}
-        onClose={onClose}
-      />,
+      <ConfirmDialog open={true} message="Logout?" onConfirm={onConfirm} onClose={onClose} />,
     );
     fireEvent.click(screen.getByTestId('confirm-dialog-ok'));
     expect(onConfirm).toHaveBeenCalledOnce();
@@ -54,12 +49,7 @@ describe('ConfirmDialog', () => {
     const onConfirm = vi.fn();
     const onClose = vi.fn();
     renderWithI18n(
-      <ConfirmDialog
-        open={true}
-        message="Logout?"
-        onConfirm={onConfirm}
-        onClose={onClose}
-      />,
+      <ConfirmDialog open={true} message="Logout?" onConfirm={onConfirm} onClose={onClose} />,
     );
     fireEvent.click(screen.getByTestId('confirm-dialog-cancel'));
     expect(onConfirm).not.toHaveBeenCalled();

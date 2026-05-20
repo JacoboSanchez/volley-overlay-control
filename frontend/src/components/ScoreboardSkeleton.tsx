@@ -20,9 +20,7 @@ export interface ScoreboardSkeletonProps {
  * Uses the same shimmer animation as ``ConfigSkeleton`` to stay
  * tonally consistent with the rest of the loading states.
  */
-export default function ScoreboardSkeleton({
-  isPortrait = false,
-}: ScoreboardSkeletonProps) {
+export default function ScoreboardSkeleton({ isPortrait = false }: ScoreboardSkeletonProps) {
   const { t } = useI18n();
   return (
     <div

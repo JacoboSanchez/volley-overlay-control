@@ -6,7 +6,9 @@ import { renderWithI18n, mockCustomization } from './helpers';
 
 // Mock the API module
 vi.mock('../api/client', () => ({
-  getTeams: vi.fn().mockResolvedValue({ Home: { icon: '', color: '#0000ff', text_color: '#ffffff' } }),
+  getTeams: vi
+    .fn()
+    .mockResolvedValue({ Home: { icon: '', color: '#0000ff', text_color: '#ffffff' } }),
   getStyles: vi.fn().mockResolvedValue([]),
   getLinks: vi.fn().mockResolvedValue({ control: '', overlay: '', preview: '' }),
   getCustomization: vi.fn().mockResolvedValue({}),
@@ -198,9 +200,7 @@ describe('ConfigPanel', () => {
   });
 
   it('surfaces a retryable error banner when save fails', async () => {
-    vi.mocked(api.updateCustomization).mockRejectedValueOnce(
-      new Error('Server is on fire'),
-    );
+    vi.mocked(api.updateCustomization).mockRejectedValueOnce(new Error('Server is on fire'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
@@ -223,7 +223,11 @@ describe('ConfigPanel', () => {
   });
 
   it('hides gradient toggle for custom overlays', async () => {
-    vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: 'http://custom-overlay.example.com/output', preview: '' });
+    vi.mocked(api.getLinks).mockResolvedValue({
+      control: '',
+      overlay: 'http://custom-overlay.example.com/output',
+      preview: '',
+    });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
@@ -233,7 +237,11 @@ describe('ConfigPanel', () => {
   });
 
   it('shows gradient toggle for standard overlays', async () => {
-    vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: 'https://overlays.uno/output/abc', preview: '' });
+    vi.mocked(api.getLinks).mockResolvedValue({
+      control: '',
+      overlay: 'https://overlays.uno/output/abc',
+      preview: '',
+    });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);

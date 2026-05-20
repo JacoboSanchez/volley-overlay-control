@@ -1,7 +1,10 @@
 import logging
 import time
 
-from app.api import action_log, match_archive
+from app.api import action_log
+from app.api import game_audit_hooks as _audit_hooks
+from app.api import game_broadcast as _broadcast
+from app.api import game_rapid_pair as _rapid_pair
 from app.api.match_rules import (
     compute_match_point_info,
     compute_side_switch,
@@ -20,8 +23,7 @@ from app.api.schemas import (
     TeamState,
     is_safe_logo_url,
 )
-from app.api.webhooks import webhook_dispatcher
-from app.api.ws_hub import WSHub
+from app.customization_cache_ttl import customization_cache_ttl_seconds
 from app.env_vars_manager import EnvVarsManager
 from app.state import State
 
@@ -39,18 +41,13 @@ logger = logging.getLogger(__name__)
 # Outside the window the actions stay separate. Tuned to match the
 # operator's "wait, that wasn't right" reflex without being so wide
 # that a deliberate next-rally tap could be mistaken for a recovery.
-RAPID_PAIR_WINDOW_S = 5.0
+RAPID_PAIR_WINDOW_S = _rapid_pair.RAPID_PAIR_WINDOW_S
 
 # Short TTL for the customization read-through cache. The overlay server is
 # authoritative, but the React UI polls this endpoint on every config panel
 # open; coalescing into a 5 s window avoids a burst of redundant round-trips
 # without letting the UI show truly stale data.
-CUSTOMIZATION_CACHE_TTL_SECONDS = 5.0
-
-
-class MatchFinishedError(Exception):
-    """Raised when an action is blocked because the match is already over."""
-    pass
+CUSTOMIZATION_CACHE_TTL_SECONDS = customization_cache_ttl_seconds()
 
 
 class GameService:
@@ -294,78 +291,7 @@ class GameService:
 
     @staticmethod
     def _consume_rapid_pair(session, team: int, undo: bool) -> bool:
-        """Return ``True`` when the incoming ``add_point`` collapses
-        with the most recent opposite-kind action on the same team
-        within :data:`RAPID_PAIR_WINDOW_S`.
-
-        On a hit the cache is cleared, the audit log is rewritten so
-        neither half of the pair surfaces (the original forward, if
-        any, is restored from its tombstone), and the caller can
-        assume the audit-log side of the action is already done — it
-        only needs to apply the state-level mutation and skip the
-        normal ``_audit`` append.
-
-        On a miss returns ``False`` and leaves the cache untouched
-        so the caller can update it after the normal flow completes.
-        """
-        cached = session.rapid_pair_cache.get(team)
-        if not cached:
-            return False
-        if cached.get("kind") == ("undo" if undo else "forward"):
-            # Same direction as the cached entry — not a pair. Treat
-            # as a fresh action; the caller will overwrite the cache.
-            return False
-        now = time.time()
-        ts = cached.get("ts")
-        if not isinstance(ts, (int, float)) or now - ts > RAPID_PAIR_WINDOW_S:
-            # Stale cache: drop it so the caller starts fresh.
-            session.rapid_pair_cache.pop(team, None)
-            return False
-
-        audit_ts = cached.get("audit_ts")
-        if undo:
-            # Case A — tap, then double-tap-undo within the window.
-            # The just-added forward is tombstoned and no undo is
-            # appended. Net audit: nothing for the pair. The counter
-            # only follows the on-disk state: a failed tombstone
-            # write would leave the forward visible, so we hold off
-            # decrementing until the tombstone landed.
-            if audit_ts is not None and action_log.tombstone_ts(
-                session.oid, audit_ts,
-            ):
-                session.undoable_forward_count = max(
-                    0, session.undoable_forward_count - 1,
-                )
-        else:
-            # Case B — double-tap-undo, then tap within the window.
-            # Tombstone the undo we just wrote and resurrect the
-            # forward the undo had originally hidden so the timeline
-            # reads as if neither happened. Both writes must land or
-            # neither side-effect should: if the undo tombstone fails
-            # but the restore succeeds, ``_collapse_undos`` in the
-            # report would pair the orphan undo with the restored
-            # forward and hide both, defeating the recovery. So we
-            # gate the restore (and the counter bump) on the
-            # tombstone landing. Mirrors Case A: a missing
-            # ``audit_ts`` means the seed never recorded a
-            # writable reference, so we cannot tombstone the undo
-            # — falling through to the restore in that case would
-            # recreate the orphan-undo + restored-forward state
-            # this fix is meant to prevent.
-            tombstone_ok = audit_ts is not None and action_log.tombstone_ts(
-                session.oid, audit_ts,
-            )
-            if tombstone_ok:
-                popped_ref = cached.get("popped_ref_ts")
-                if popped_ref is not None and action_log.restore_popped(
-                    session.oid, popped_ref,
-                ):
-                    # The recovered forward is undoable again — increment
-                    # the counter we decremented when the undo landed.
-                    session.undoable_forward_count += 1
-
-        session.rapid_pair_cache.pop(team, None)
-        return True
+        return _rapid_pair.consume_rapid_pair(session, team, undo)
 
     @staticmethod
     def _record_rapid_pair_seed(
@@ -375,45 +301,11 @@ class GameService:
         audit_record: dict | None,
         popped: dict | None,
     ) -> None:
-        """Stash the action that just landed so a near-future
-        opposite-kind action on the same team can collapse with it.
-
-        Called after a *normal* ``add_point`` flow completes — i.e.
-        when no rapid pair was consumed. The cache is per-team so a
-        deliberate forward on team 1 doesn't accidentally pair with
-        a stray double-tap on team 2.
-        """
-        if not isinstance(audit_record, dict):
-            # The audit-append failed; nothing to refer back to.
-            session.rapid_pair_cache.pop(team, None)
-            return
-        ts = audit_record.get("ts")
-        if not isinstance(ts, (int, float)):
-            session.rapid_pair_cache.pop(team, None)
-            return
-        entry: dict = {
-            "kind": "undo" if undo else "forward",
-            "ts": time.time(),
-            "audit_ts": ts,
-        }
-        if undo and isinstance(popped, dict):
-            popped_ts = popped.get("ts")
-            if isinstance(popped_ts, (int, float)):
-                entry["popped_ref_ts"] = popped_ts
-        session.rapid_pair_cache[team] = entry
+        _rapid_pair.record_rapid_pair_seed(session, team, undo, audit_record, popped)
 
     @staticmethod
     def _invalidate_rapid_pair_cache(session) -> None:
-        """Drop every per-team rapid-pair cache entry.
-
-        Called from the non-``add_point`` mutation paths
-        (``add_set``, ``add_timeout``, ``change_serve``,
-        ``set_score``, ``set_sets_value``, ``reset``,
-        ``set_rules``) so a tap that follows an unrelated action
-        can never trigger a false-positive recovery.
-        """
-        if session.rapid_pair_cache:
-            session.rapid_pair_cache.clear()
+        _rapid_pair.invalidate_rapid_pair_cache(session)
 
     @staticmethod
     def add_point(session, team: int, undo: bool = False) -> ActionResponse:
@@ -1053,33 +945,11 @@ class GameService:
 
     @staticmethod
     def _save_and_broadcast(session, state_response: GameStateResponse | None = None):
-        """Persist state to the overlay backend and notify WS clients.
-
-        Callers that already computed the post-mutation
-        ``GameStateResponse`` should pass it via *state_response* —
-        :func:`get_state` is non-trivial (iterates the set range,
-        computes side-switch / match-point info), so reusing the
-        same object across the broadcast and the API response avoids
-        recomputing the payload twice on every action.
-        """
-        session.game_manager.save(session.simple, session.current_set)
-        session.persist_meta()
-        GameService._broadcast(session, state_response)
+        _broadcast.save_and_broadcast(session, state_response)
 
     @staticmethod
     def _broadcast(session, state_response: GameStateResponse | None = None):
-        """Notify all WebSocket frontend clients about the new state.
-
-        See :func:`_save_and_broadcast` for the *state_response* reuse
-        contract. The payload is encoded directly via
-        :meth:`pydantic.BaseModel.model_dump_json` so we skip the
-        intermediate ``model_dump`` → dict → ``json.dumps`` round-trip
-        that the previous code path went through on every action.
-        """
-        if state_response is None:
-            state_response = GameService.get_state(session)
-        payload_json = state_response.model_dump_json()
-        WSHub.broadcast_payload_json_sync(session.oid, payload_json)
+        _broadcast.broadcast(session, state_response)
 
     @staticmethod
     def _archive_if_finished(
@@ -1088,43 +958,9 @@ class GameService:
         winning_team: int,
         state_response: GameStateResponse | None = None,
     ) -> str | None:
-        """Archive the match when it transitions to finished.
-
-        Called from add_point and add_set after the mutation completes.
-        Returns the new ``match_id`` (or ``None`` if no archive happened).
-        ``match_started_at`` is intentionally left in place so the HUD
-        timer and the spectator page can render the final elapsed
-        duration (``match_finished_at - match_started_at``) until the
-        operator hits Reset — which is the only path that clears both
-        timestamps and returns the session to the pre-match idle state.
-
-        Callers that have a fresh post-mutation ``GameStateResponse``
-        should pass it via *state_response* to avoid the redundant
-        ``get_state`` recompute the archive payload would otherwise
-        trigger.
-        """
-        if was_finished_before or not session.game_manager.match_finished(session.sets_limit):
-            return None
-        try:
-            if state_response is None:
-                state_response = GameService.get_state(session)
-            final_state = state_response.model_dump()
-            customization = session.customization.get_model()
-            match_id = match_archive.archive_match(
-                oid=session.oid,
-                final_state=final_state,
-                customization=customization,
-                started_at=getattr(session, "match_started_at", None),
-                winning_team=winning_team,
-                points_limit=session.points_limit,
-                points_limit_last_set=session.points_limit_last_set,
-                sets_limit=session.sets_limit,
-            )
-            session.persist_meta()
-            return match_id
-        except Exception as exc:
-            logger.warning("Match archive failed: %s", exc)
-            return None
+        return _audit_hooks.archive_if_finished(
+            session, was_finished_before, winning_team, state_response,
+        )
 
     @staticmethod
     def _audit(
@@ -1134,103 +970,10 @@ class GameService:
         popped_forward: dict | None = None,
         target_set: int | None = None,
     ) -> dict | None:
-        """Append an audit-log record for the action just performed
-        and, atomically with the append, keep
-        ``session.undoable_forward_count`` in sync.
-
-        The counter is the cached source of truth for
-        ``GameStateResponse.can_undo``. It must never disagree with
-        what's on disk, so it is updated *only* after a successful
-        ``action_log.append``. If the append fails (filesystem error,
-        readonly mount, …) we leave the counter alone — a future
-        restart's ``count_undoable_forwards`` rehydration will
-        produce the same answer the in-memory counter does now.
-
-        For undoable actions:
-          * a forward call (``params.undo`` falsy) increments;
-          * an undo call decrements iff *popped_forward* is not
-            ``None`` (a forward was actually consumed).
-        Non-undoable actions never touch the counter.
-
-        *target_set* names the set that the action operated on.
-        For most actions this is ``session.current_set``; for
-        set-winning ``add_point``/``add_set`` calls the caller
-        passes the *previous* set so the audit log records the
-        final scores (e.g. 25-23) instead of the next set's empty
-        0-0. The ``current_set`` field in the result still reports
-        the post-action value so a reader can see the advance.
-
-        Best-effort — file errors don't propagate. Returns the
-        record that was written (so the caller can read its
-        assigned ``ts``) or ``None`` when the append failed.
-        """
-        try:
-            state = session.game_manager.get_current_state()
-            score_set = (
-                target_set if target_set is not None else session.current_set
-            )
-            t1_score = state.get_game(1, score_set)
-            t2_score = state.get_game(2, score_set)
-            serve = state.get_current_serve()
-            result = {
-                "current_set": session.current_set,
-                # ``score_set`` tags which set the team scores below
-                # correspond to. Usually identical to ``current_set``;
-                # diverges for set-winning add_point/add_set calls
-                # where ``current_set`` advances to the next set but
-                # the meaningful scores belong to the one that just
-                # ended.
-                "score_set": score_set,
-                "match_finished": session.game_manager.match_finished(session.sets_limit),
-                "team_1": {
-                    "sets": state.get_sets(1),
-                    "score": t1_score,
-                    "timeouts": state.get_timeout(1),
-                },
-                "team_2": {
-                    "sets": state.get_sets(2),
-                    "score": t2_score,
-                    "timeouts": state.get_timeout(2),
-                },
-                "serve": serve.value if hasattr(serve, "value") else str(serve),
-            }
-            written = action_log.append(session.oid, action, params, result)
-        except Exception as exc:
-            logger.warning("Audit append failed: %s", exc)
-            return None
-
-        # ``action_log.append`` swallows internal write errors and
-        # returns ``None`` instead of raising. The counter must only
-        # follow the on-disk truth, so skip the bookkeeping in that
-        # case — a future ``count_undoable_forwards`` rehydration
-        # will reconcile the in-memory state with whatever actually
-        # landed on disk.
-        if written is None:
-            return None
-
-        if action in action_log.UNDOABLE_ACTIONS:
-            if params.get("undo"):
-                if popped_forward is not None:
-                    session.undoable_forward_count = max(
-                        0, session.undoable_forward_count - 1,
-                    )
-            else:
-                session.undoable_forward_count += 1
-        return written
+        return _audit_hooks.audit(
+            session, action, params, popped_forward, target_set,
+        )
 
     @staticmethod
     def _fire(session, event: str, state_response, details: dict) -> None:
-        """Fire a webhook event for the current session.
-
-        Caller is responsible for choosing when to fire (e.g. only on
-        non-undo mutations). The dispatcher handles env-var
-        configuration, target filtering, and async delivery.
-        """
-        try:
-            payload = {
-                "state": state_response.model_dump(),
-                "details": details,
-            }
-            webhook_dispatcher.dispatch(event, session.oid, payload)
-        except Exception as exc:
-            logger.warning("Webhook dispatch for %s failed: %s", event, exc)
+        _audit_hooks.fire_webhook(session, event, state_response, details)

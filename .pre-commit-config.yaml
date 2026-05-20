@@ -30,6 +30,12 @@ repos:
         exclude: ^tests/
   - repo: local
     hooks:
+      - id: frontend-prettier
+        name: frontend prettier
+        entry: bash -c 'cd frontend && npm run format:check'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
       - id: frontend-eslint
         name: frontend eslint
         # Run from inside frontend/ so ESLint resolves the local config

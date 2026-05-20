@@ -120,7 +120,9 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
     def fetch_and_update_overlay_id(self, oid: str) -> None:
         logger.debug('Local overlay detected, skipping ID fetch')
 
-    def send_overlay_state(self, payload, **kwargs) -> None:
+    def send_overlay_state(self, payload: dict, force_visibility=None,
+                           customization_state=None,
+                           show_only_current_set=None) -> None:
         """Push state update into the in-process state store."""
         custom_id = self._custom_id()
         self._store().ensure_overlay(custom_id)

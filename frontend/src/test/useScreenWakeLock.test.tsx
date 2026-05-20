@@ -75,10 +75,9 @@ describe('useScreenWakeLock', () => {
   });
 
   it('releases the sentinel when disabled', async () => {
-    const { rerender } = renderHook(
-      ({ on }: { on: boolean }) => useScreenWakeLock(on),
-      { initialProps: { on: true } },
-    );
+    const { rerender } = renderHook(({ on }: { on: boolean }) => useScreenWakeLock(on), {
+      initialProps: { on: true },
+    });
     await waitFor(() => expect(sentinels).toHaveLength(1));
     rerender({ on: false });
     await waitFor(() => expect(sentinels[0]!.release).toHaveBeenCalled());
@@ -144,25 +143,18 @@ describe('useScreenWakeLock', () => {
   it('does not re-bind the visibility listener when enabled flips', async () => {
     const addSpy = vi.spyOn(document, 'addEventListener');
     const removeSpy = vi.spyOn(document, 'removeEventListener');
-    const { rerender } = renderHook(
-      ({ on }: { on: boolean }) => useScreenWakeLock(on),
-      { initialProps: { on: true } },
-    );
-    const visibilityAdds = addSpy.mock.calls.filter(
-      ([type]) => type === 'visibilitychange',
-    ).length;
+    const { rerender } = renderHook(({ on }: { on: boolean }) => useScreenWakeLock(on), {
+      initialProps: { on: true },
+    });
+    const visibilityAdds = addSpy.mock.calls.filter(([type]) => type === 'visibilitychange').length;
     expect(visibilityAdds).toBe(1);
     rerender({ on: false });
     rerender({ on: true });
     rerender({ on: false });
     // No further binds — listener stays mounted.
-    const finalAdds = addSpy.mock.calls.filter(
-      ([type]) => type === 'visibilitychange',
-    ).length;
+    const finalAdds = addSpy.mock.calls.filter(([type]) => type === 'visibilitychange').length;
     expect(finalAdds).toBe(1);
-    expect(removeSpy.mock.calls.filter(
-      ([type]) => type === 'visibilitychange',
-    )).toHaveLength(0);
+    expect(removeSpy.mock.calls.filter(([type]) => type === 'visibilitychange')).toHaveLength(0);
     addSpy.mockRestore();
     removeSpy.mockRestore();
   });
@@ -172,15 +164,17 @@ describe('useScreenWakeLock', () => {
     // overlap. Without the isRequestingRef guard the second would
     // race the first and orphan a sentinel.
     let resolveFirst: ((s: ReturnType<typeof makeSentinel>) => void) | undefined;
-    request.mockImplementationOnce(() => new Promise((resolve) => {
-      const s = makeSentinel();
-      sentinels.push(s);
-      resolveFirst = resolve;
-    }));
-    const { rerender } = renderHook(
-      ({ on }: { on: boolean }) => useScreenWakeLock(on),
-      { initialProps: { on: true } },
+    request.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          const s = makeSentinel();
+          sentinels.push(s);
+          resolveFirst = resolve;
+        }),
     );
+    const { rerender } = renderHook(({ on }: { on: boolean }) => useScreenWakeLock(on), {
+      initialProps: { on: true },
+    });
     // Mount triggers acquire #1 (still pending).
     expect(request).toHaveBeenCalledTimes(1);
     // Visibility flip → would normally call acquire #2; the guard

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  ReactNode,
+} from 'react';
 import { TEAM_A_COLOR, TEAM_B_COLOR } from '../theme';
 import { defaultKeyboardShortcutsEnabled } from './useKeyboardShortcuts';
 
@@ -108,7 +116,9 @@ function readAll(): Settings {
       // double-cast the previous version needed to bypass keyof Settings's
       // write-side narrowness.
       if (v !== null) Object.assign(result, { [key]: JSON.parse(v) });
-    } catch { /* use default */ }
+    } catch {
+      /* use default */
+    }
   }
   return result;
 }
@@ -154,9 +164,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     };
     apply();
 
-    if (settings.darkMode !== 'auto'
-        || typeof window === 'undefined'
-        || typeof window.matchMedia !== 'function') {
+    if (
+      settings.darkMode !== 'auto' ||
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
       return;
     }
 
@@ -167,11 +179,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ settings, setSetting }), [settings, setSetting]);
 
-  return (
-    <SettingsContext.Provider value={value}>
-      {children}
-    </SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings(): SettingsContextValue {

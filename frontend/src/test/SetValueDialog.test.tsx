@@ -6,14 +6,28 @@ import { renderWithI18n } from './helpers';
 describe('SetValueDialog', () => {
   it('does not render when closed', () => {
     const { container } = renderWithI18n(
-      <SetValueDialog open={false} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={vi.fn()} />
+      <SetValueDialog
+        open={false}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
     expect(container.querySelector('.dialog-overlay')).not.toBeInTheDocument();
   });
 
   it('renders when open', () => {
     renderWithI18n(
-      <SetValueDialog open={true} title="Set Score" initialValue={10} maxValue={99} onSubmit={vi.fn()} onClose={vi.fn()} />
+      <SetValueDialog
+        open={true}
+        title="Set Score"
+        initialValue={10}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
     expect(screen.getByText('Set Score')).toBeInTheDocument();
     expect(screen.getByDisplayValue('10')).toBeInTheDocument();
@@ -21,7 +35,14 @@ describe('SetValueDialog', () => {
 
   it('shows OK and Cancel buttons', () => {
     renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={vi.fn()} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
     expect(screen.getByText('OK')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
@@ -30,7 +51,14 @@ describe('SetValueDialog', () => {
   it('calls onSubmit with clamped value on submit', () => {
     const onSubmit = vi.fn();
     renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={5} maxValue={25} onSubmit={onSubmit} onClose={vi.fn()} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={5}
+        maxValue={25}
+        onSubmit={onSubmit}
+        onClose={vi.fn()}
+      />,
     );
     fireEvent.click(screen.getByText('OK'));
     expect(onSubmit).toHaveBeenCalledWith(5);
@@ -39,7 +67,14 @@ describe('SetValueDialog', () => {
   it('calls onClose when Cancel clicked', () => {
     const onClose = vi.fn();
     renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={onClose}
+      />,
     );
     fireEvent.click(screen.getByText('Cancel'));
     expect(onClose).toHaveBeenCalledOnce();
@@ -48,7 +83,14 @@ describe('SetValueDialog', () => {
   it('calls onClose when backdrop clicked', () => {
     const onClose = vi.fn();
     const { container } = renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={onClose}
+      />,
     );
     fireEvent.click(container.querySelector('.dialog-backdrop')!);
     expect(onClose).toHaveBeenCalledOnce();
@@ -57,7 +99,14 @@ describe('SetValueDialog', () => {
   it('calls onClose when Escape pressed', () => {
     const onClose = vi.fn();
     renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={onClose} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={onClose}
+      />,
     );
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
@@ -65,7 +114,14 @@ describe('SetValueDialog', () => {
 
   it('renders with role="dialog" and aria-modal', () => {
     const { container } = renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={99} onSubmit={vi.fn()} onClose={vi.fn()} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
     const card = container.querySelector('[role="dialog"]');
     expect(card).not.toBeNull();
@@ -75,7 +131,14 @@ describe('SetValueDialog', () => {
   it('clamps value to maxValue', () => {
     const onSubmit = vi.fn();
     renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={0} maxValue={10} onSubmit={onSubmit} onClose={vi.fn()} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={10}
+        onSubmit={onSubmit}
+        onClose={vi.fn()}
+      />,
     );
     const input = screen.getByDisplayValue('0');
     fireEvent.change(input, { target: { value: '50' } });
@@ -86,7 +149,14 @@ describe('SetValueDialog', () => {
   it('submits 0 when input is cleared (empty)', () => {
     const onSubmit = vi.fn();
     renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={5} maxValue={99} onSubmit={onSubmit} onClose={vi.fn()} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={5}
+        maxValue={99}
+        onSubmit={onSubmit}
+        onClose={vi.fn()}
+      />,
     );
     const input = screen.getByDisplayValue('5');
     fireEvent.change(input, { target: { value: '' } });
@@ -97,7 +167,14 @@ describe('SetValueDialog', () => {
   it('clamps negative values to 0', () => {
     const onSubmit = vi.fn();
     renderWithI18n(
-      <SetValueDialog open={true} title="Test" initialValue={5} maxValue={99} onSubmit={onSubmit} onClose={vi.fn()} />
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={5}
+        maxValue={99}
+        onSubmit={onSubmit}
+        onClose={vi.fn()}
+      />,
     );
     const input = screen.getByDisplayValue('5');
     fireEvent.change(input, { target: { value: '-10' } });

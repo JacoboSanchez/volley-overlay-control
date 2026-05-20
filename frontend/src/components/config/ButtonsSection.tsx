@@ -56,13 +56,17 @@ export default function ButtonsSection({ settings, setSetting }: ButtonsSectionP
               testId="color-picker-team-2-text"
             />
           </div>
-          <button className="config-icon-btn" data-testid="reset-colors-button" title={t('buttons.resetColors')}
+          <button
+            className="config-icon-btn"
+            data-testid="reset-colors-button"
+            title={t('buttons.resetColors')}
             onClick={() => {
               setSetting('team1BtnColor', '#2196f3');
               setSetting('team1BtnText', '#ffffff');
               setSetting('team2BtnColor', '#f44336');
               setSetting('team2BtnText', '#ffffff');
-            }}>
+            }}
+          >
             <span className="material-icons">replay</span>
           </button>
         </>
@@ -87,8 +91,10 @@ export default function ButtonsSection({ settings, setSetting }: ButtonsSectionP
       <div className="config-separator" />
       <div className="config-field-row">
         <label className="config-label">{t('buttons.buttonFont')}</label>
-        <FontSelector value={settings.selectedFont}
-          onChange={(name) => setSetting('selectedFont', name)} />
+        <FontSelector
+          value={settings.selectedFont}
+          onChange={(name) => setSetting('selectedFont', name)}
+        />
       </div>
     </div>
   );

@@ -30,9 +30,7 @@ export function useAsyncAction<T extends unknown[]>(
   const [error, setError] = useState<string | null>(null);
   const fnRef = useRef(fn);
   fnRef.current = fn;
-  const formatRef = useRef<((err: unknown) => string) | undefined>(
-    options?.formatError,
-  );
+  const formatRef = useRef<((err: unknown) => string) | undefined>(options?.formatError);
   formatRef.current = options?.formatError;
 
   const run = useCallback(async (...args: T) => {

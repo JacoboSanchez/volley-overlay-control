@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  TEAM_A_COLOR,
-  TEAM_B_COLOR,
-  FONT_SCALES,
-  FONT_OPTIONS,
-} from '../theme';
+import { TEAM_A_COLOR, TEAM_B_COLOR, FONT_SCALES, FONT_OPTIONS } from '../theme';
 
 describe('theme', () => {
   it('exports team colors as hex strings', () => {

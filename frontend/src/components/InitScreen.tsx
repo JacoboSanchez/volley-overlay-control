@@ -39,24 +39,37 @@ function normalizeOverlays(data: unknown): PredefinedOverlay[] {
   return [];
 }
 
-export default function InitScreen({ oidInput, setOidInput, onSubmit, onSelect, error, title }: InitScreenProps) {
+export default function InitScreen({
+  oidInput,
+  setOidInput,
+  onSubmit,
+  onSelect,
+  error,
+  title,
+}: InitScreenProps) {
   const { t } = useI18n();
   const [predefinedOverlays, setPredefinedOverlays] = useState<PredefinedOverlay[]>([]);
 
   useEffect(() => {
-    api.getOverlays().then((data) => {
-      setPredefinedOverlays(normalizeOverlays(data));
-    }).catch((err: unknown) => {
-      console.warn('Failed to fetch predefined overlays:', err);
-    });
+    api
+      .getOverlays()
+      .then((data) => {
+        setPredefinedOverlays(normalizeOverlays(data));
+      })
+      .catch((err: unknown) => {
+        console.warn('Failed to fetch predefined overlays:', err);
+      });
   }, []);
 
-  const handleOverlaySelect = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
-    setOidInput(e.target.value);
-    if (e.target.value) {
-      onSelect(e.target.value);
-    }
-  }, [setOidInput, onSelect]);
+  const handleOverlaySelect = useCallback(
+    (e: ChangeEvent<HTMLSelectElement>) => {
+      setOidInput(e.target.value);
+      if (e.target.value) {
+        onSelect(e.target.value);
+      }
+    },
+    [setOidInput, onSelect],
+  );
 
   return (
     <div className="init-screen">
@@ -64,17 +77,17 @@ export default function InitScreen({ oidInput, setOidInput, onSubmit, onSelect, 
       {predefinedOverlays.length > 0 && (
         <div className="init-overlay-selector">
           <label className="init-label">{t('app.selectOverlay')}</label>
-          <select
-            className="init-select"
-            defaultValue=""
-            onChange={handleOverlaySelect}
-          >
+          <select className="init-select" defaultValue="" onChange={handleOverlaySelect}>
             <option value="">{t('app.selectOverlayPlaceholder')}</option>
             {predefinedOverlays.map((o) => (
-              <option key={o.oid} value={o.oid}>{o.name}</option>
+              <option key={o.oid} value={o.oid}>
+                {o.name}
+              </option>
             ))}
           </select>
-          <div className="init-divider"><span>{t('app.orManualOid')}</span></div>
+          <div className="init-divider">
+            <span>{t('app.orManualOid')}</span>
+          </div>
         </div>
       )}
       <form onSubmit={onSubmit} className="init-form">

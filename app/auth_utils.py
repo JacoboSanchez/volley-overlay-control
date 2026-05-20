@@ -23,7 +23,7 @@ pin the key to the hash bytes instead, which keeps the same
 
 from __future__ import annotations
 
-from fastapi import HTTPException
+from fastapi import Header, HTTPException
 
 from app.env_vars_manager import EnvVarsManager
 from app.password_hash import verify_password
@@ -152,3 +152,19 @@ def require_admin_token(
         )
     if not verify_password(provided, expected):
         raise HTTPException(status_code=403, detail=invalid_token_detail)
+
+
+def require_admin(authorization: str = Header(None)) -> None:
+    """FastAPI dependency: validate the overlay-manager admin Bearer token."""
+    require_admin_token(
+        authorization,
+        token=None,
+        missing_password_detail=(
+            "Overlay management is disabled. "
+            "Set OVERLAY_MANAGER_PASSWORD to enable it."
+        ),
+        missing_token_detail=(
+            "Missing admin password. Use 'Authorization: Bearer <password>'."
+        ),
+        invalid_token_detail="Invalid admin password.",
+    )

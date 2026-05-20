@@ -27,7 +27,7 @@ def sync_dispatcher(monkeypatch):
     """Run webhook deliveries synchronously and capture them."""
     d = WebhookDispatcher()
     monkeypatch.setattr(webhooks, "webhook_dispatcher", d)
-    monkeypatch.setattr("app.api.game_service.webhook_dispatcher", d)
+    monkeypatch.setattr("app.api.game_audit_hooks.webhook_dispatcher", d)
     return d
 
 

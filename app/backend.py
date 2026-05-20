@@ -10,6 +10,10 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from app.customization_cache import CustomizationCache
+from app.customization_cache_ttl import (
+    BACKEND_DEFAULT_TTL_SECONDS,
+    customization_cache_ttl_seconds,
+)
 from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends import (
     CustomOverlayBackend,
@@ -20,12 +24,9 @@ from app.overlay_backends import (
 )
 from app.state import State
 
-# TTL for the in-memory customization cache. Overlay customization (team names,
-# colors, geometry) rarely changes during a match, but if an operator edits it
-# in another tab or via the admin panel a stale cache would delay propagation
-# for the duration of the match. 60s balances freshness against the cost of
-# extra GET round-trips on every save.
-_CUSTOMIZATION_CACHE_TTL_SECONDS = 60.0
+_CUSTOMIZATION_CACHE_TTL_SECONDS = customization_cache_ttl_seconds(
+    default=BACKEND_DEFAULT_TTL_SECONDS,
+)
 
 # Warn when a single remote overlay call exceeds this duration. Conservative so
 # it only fires on real slowdowns, not on a cold-start connection setup.

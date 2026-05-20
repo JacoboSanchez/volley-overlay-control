@@ -29,12 +29,12 @@ export function useIndoorMidpointAlert(
     const lastSetTarget = state?.config?.points_limit_last_set as number | undefined;
     const isLastSet = setsLimit > 0 && currentSet === setsLimit;
     const eligible =
-      !!state
-      && !state.match_finished
-      && mode === 'indoor'
-      && isLastSet
-      && typeof lastSetTarget === 'number'
-      && lastSetTarget > 0;
+      !!state &&
+      !state.match_finished &&
+      mode === 'indoor' &&
+      isLastSet &&
+      typeof lastSetTarget === 'number' &&
+      lastSetTarget > 0;
 
     if (!eligible) {
       // Reset so a later eligible window (entering the deciding set)

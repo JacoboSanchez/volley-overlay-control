@@ -64,56 +64,59 @@ export default function GestureCoachmark({ open, onDismiss }: GestureCoachmarkPr
   // it would block the Skip / Back buttons' native click activation
   // and force every keyboard user into "advance only" mode. The
   // focused button handles Enter by itself.
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!open) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onDismiss();
-      return;
-    }
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      setStepIndex((i) => {
-        if (i >= STEPS.length - 1) {
-          onDismiss();
-          return i;
-        }
-        return i + 1;
-      });
-      return;
-    }
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      setStepIndex((i) => Math.max(0, i - 1));
-      return;
-    }
-    if (e.key !== 'Tab') return;
-    // Focus trap. Mirrors ``Dialog`` (frontend/src/components/Dialog
-    // .tsx) so the coachmark behaves the same as every other modal
-    // surface when keyboard users tab past either edge.
-    const card = cardRef.current;
-    if (!card) return;
-    const focusable = card.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), '
-        + 'input:not([disabled]), select:not([disabled]), '
-        + '[tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable.length === 0) {
-      e.preventDefault();
-      card.focus();
-      return;
-    }
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || active === card)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }, [open, onDismiss]);
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (!open) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onDismiss();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setStepIndex((i) => {
+          if (i >= STEPS.length - 1) {
+            onDismiss();
+            return i;
+          }
+          return i + 1;
+        });
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setStepIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      // Focus trap. Mirrors ``Dialog`` (frontend/src/components/Dialog
+      // .tsx) so the coachmark behaves the same as every other modal
+      // surface when keyboard users tab past either edge.
+      const card = cardRef.current;
+      if (!card) return;
+      const focusable = card.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), ' +
+          'input:not([disabled]), select:not([disabled]), ' +
+          '[tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) {
+        e.preventDefault();
+        card.focus();
+        return;
+      }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === card)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    },
+    [open, onDismiss],
+  );
 
   useEffect(() => {
     if (!open) return undefined;
@@ -135,11 +138,7 @@ export default function GestureCoachmark({ open, onDismiss }: GestureCoachmarkPr
       aria-labelledby="gesture-coachmark-title"
       data-testid="gesture-coachmark"
     >
-      <div
-        ref={cardRef}
-        className="gesture-coachmark-card"
-        tabIndex={-1}
-      >
+      <div ref={cardRef} className="gesture-coachmark-card" tabIndex={-1}>
         <div className="gesture-coachmark-icon" aria-hidden="true">
           <span className="material-icons">{step.icon}</span>
         </div>
@@ -155,8 +154,7 @@ export default function GestureCoachmark({ open, onDismiss }: GestureCoachmarkPr
             <span
               key={i}
               className={
-                'gesture-coachmark-dot'
-                + (i === stepIndex ? ' gesture-coachmark-dot-active' : '')
+                'gesture-coachmark-dot' + (i === stepIndex ? ' gesture-coachmark-dot-active' : '')
               }
               aria-hidden="true"
             />

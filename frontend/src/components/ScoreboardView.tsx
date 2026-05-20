@@ -8,12 +8,7 @@ import type { ConfigModel } from './TeamCard';
 import type { PreviewData } from './CenterPanel';
 import type { ScoreButtonFontStyle } from './ScoreButton';
 import type { RecentEvent } from '../hooks/useRecentEvents';
-import {
-  TEAM_A_SERVE_ACTIVE,
-  TEAM_B_SERVE_ACTIVE,
-  TEAM_A_LIGHT,
-  TEAM_B_LIGHT,
-} from '../theme';
+import { TEAM_A_SERVE_ACTIVE, TEAM_B_SERVE_ACTIVE, TEAM_A_LIGHT, TEAM_B_LIGHT } from '../theme';
 
 export interface ScoreboardViewProps {
   state: GameState;
@@ -66,9 +61,7 @@ export interface ScoreboardViewProps {
   setSummarySetNum?: number | null;
   setSummaryStyle?: import('../api/client').SetSummaryStyle;
   onToggleSetSummary?: () => void;
-  onChangeSetSummaryStyle?: (
-    style: import('../api/client').SetSummaryStyle,
-  ) => void;
+  onChangeSetSummaryStyle?: (style: import('../api/client').SetSummaryStyle) => void;
 }
 
 export default function ScoreboardView({
@@ -122,7 +115,9 @@ export default function ScoreboardView({
 
   return (
     <>
-      <div className={`main-layout ${isPortrait ? 'main-layout-portrait' : 'main-layout-landscape'}`}>
+      <div
+        className={`main-layout ${isPortrait ? 'main-layout-portrait' : 'main-layout-landscape'}`}
+      >
         <TeamPanel
           teamId={1}
           teamState={state.team_1}
@@ -204,7 +199,9 @@ export default function ScoreboardView({
             aria-label={t('ctrl.config')}
             data-testid="config-tab-button"
           >
-            <span className="material-icons" aria-hidden="true">settings</span>
+            <span className="material-icons" aria-hidden="true">
+              settings
+            </span>
           </button>
           <button
             className="top-corner-icon-btn"
@@ -213,7 +210,9 @@ export default function ScoreboardView({
             aria-label={t('share.title')}
             data-testid="share-button"
           >
-            <span className="material-icons" aria-hidden="true">share</span>
+            <span className="material-icons" aria-hidden="true">
+              share
+            </span>
           </button>
           <button
             className="top-corner-icon-btn"
@@ -222,7 +221,9 @@ export default function ScoreboardView({
             aria-label={t('history.title')}
             data-testid="history-button"
           >
-            <span className="material-icons" aria-hidden="true">history</span>
+            <span className="material-icons" aria-hidden="true">
+              history
+            </span>
           </button>
         </div>
 

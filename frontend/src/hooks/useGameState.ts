@@ -2,11 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo, Dispatch, SetStateAc
 import * as api from '../api/client';
 import type { GameState, ActionResponse, Team, TeamState } from '../api/client';
 import { createWebSocket } from '../api/websocket';
-import {
-  WS_RECONNECT_BASE_MS,
-  WS_RECONNECT_FACTOR,
-  WS_RECONNECT_MAX_MS,
-} from '../constants';
+import { WS_RECONNECT_BASE_MS, WS_RECONNECT_FACTOR, WS_RECONNECT_MAX_MS } from '../constants';
 
 type Customization = Record<string, unknown>;
 
@@ -105,23 +101,20 @@ export function useGameState(oid: string | null): UseGameStateResult {
   // impure setState updater. Updated eagerly on every state write.
   const stateRef = useRef<GameState | null>(null);
 
-  const applyState = useCallback(
-    (next: GameState | null, confirmed: boolean = true) => {
-      stateRef.current = next;
-      setState(next);
-      // ``confirmedState`` deliberately excludes optimistic writes so cache
-      // keys derived from it (e.g. the recent-events refetch trigger) do
-      // not advance until the server has acknowledged the change. Without
-      // this gate the optimistic add-point bumps the scoring key
-      // immediately, the audit refetch races the in-flight POST, and the
-      // newly-appended audit row is missed — producing the "chip appears
-      // one action late" symptom.
-      if (confirmed) {
-        setConfirmedState(next);
-      }
-    },
-    [],
-  );
+  const applyState = useCallback((next: GameState | null, confirmed: boolean = true) => {
+    stateRef.current = next;
+    setState(next);
+    // ``confirmedState`` deliberately excludes optimistic writes so cache
+    // keys derived from it (e.g. the recent-events refetch trigger) do
+    // not advance until the server has acknowledged the change. Without
+    // this gate the optimistic add-point bumps the scoring key
+    // immediately, the audit refetch races the in-flight POST, and the
+    // newly-appended audit row is missed — producing the "chip appears
+    // one action late" symptom.
+    if (confirmed) {
+      setConfirmedState(next);
+    }
+  }, []);
 
   const closeWs = useCallback(() => {
     if (reconnectTimer.current) {
@@ -215,54 +208,62 @@ export function useGameState(oid: string | null): UseGameStateResult {
     };
   }, [oid, closeWs]);
 
-  const handleAction = useCallback(async (
-    actionFn: () => Promise<ActionResponse>,
-    optimisticUpdater?: (prev: GameState) => GameState,
-  ): Promise<ActionResponse> => {
-    // Capture the snapshot synchronously from the ref (not from an impure
-    // setState updater) so rollback is reliable even if actionFn rejects
-    // before React processes the update.
-    const snapshot = stateRef.current;
-    const shouldApplyOptimistic = Boolean(optimisticUpdater && snapshot);
-    if (shouldApplyOptimistic && snapshot && optimisticUpdater) {
-      applyState(optimisticUpdater(snapshot), false);
-    }
-    try {
-      const res = await actionFn();
-      if (res.success && res.state) {
-        applyState(res.state);
-      } else if (!res.success && shouldApplyOptimistic) {
-        applyState(snapshot, false);
+  const handleAction = useCallback(
+    async (
+      actionFn: () => Promise<ActionResponse>,
+      optimisticUpdater?: (prev: GameState) => GameState,
+    ): Promise<ActionResponse> => {
+      // Capture the snapshot synchronously from the ref (not from an impure
+      // setState updater) so rollback is reliable even if actionFn rejects
+      // before React processes the update.
+      const snapshot = stateRef.current;
+      const shouldApplyOptimistic = Boolean(optimisticUpdater && snapshot);
+      if (shouldApplyOptimistic && snapshot && optimisticUpdater) {
+        applyState(optimisticUpdater(snapshot), false);
       }
-      return res;
-    } catch (e) {
-      if (shouldApplyOptimistic) {
-        applyState(snapshot, false);
+      try {
+        const res = await actionFn();
+        if (res.success && res.state) {
+          applyState(res.state);
+        } else if (!res.success && shouldApplyOptimistic) {
+          applyState(snapshot, false);
+        }
+        return res;
+      } catch (e) {
+        if (shouldApplyOptimistic) {
+          applyState(snapshot, false);
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        setError(message);
+        return { success: false, message };
       }
-      const message = e instanceof Error ? e.message : String(e);
-      setError(message);
-      return { success: false, message };
-    }
-  }, [applyState]);
+    },
+    [applyState],
+  );
 
-  const actions = useMemo<GameActions>(() => ({
-    addPoint: (team, undo = false) => handleAction(
-      () => api.addPoint(oid!, team, undo),
-      undo ? undefined : (prev) => optimisticAddPoint(prev, team),
-    ),
-    addSet: (team, undo = false) => handleAction(() => api.addSet(oid!, team, undo)),
-    addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid!, team, undo)),
-    changeServe: (team) => handleAction(() => api.changeServe(oid!, team)),
-    setScore: (team, setNumber, value) => handleAction(() => api.setScore(oid!, team, setNumber, value)),
-    setSets: (team, value) => handleAction(() => api.setSets(oid!, team, value)),
-    reset: () => handleAction(() => api.resetGame(oid!)),
-    setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
-    setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
-    setSetSummary: (enabled) => handleAction(() => api.setSetSummary(oid!, enabled)),
-    setSetSummaryStyle: (style) => handleAction(() => api.setSetSummaryStyle(oid!, style)),
-    undoLast: () => handleAction(() => api.undoLast(oid!)),
-    startMatch: () => handleAction(() => api.startMatch(oid!)),
-  }), [oid, handleAction]);
+  const actions = useMemo<GameActions>(
+    () => ({
+      addPoint: (team, undo = false) =>
+        handleAction(
+          () => api.addPoint(oid!, team, undo),
+          undo ? undefined : (prev) => optimisticAddPoint(prev, team),
+        ),
+      addSet: (team, undo = false) => handleAction(() => api.addSet(oid!, team, undo)),
+      addTimeout: (team, undo = false) => handleAction(() => api.addTimeout(oid!, team, undo)),
+      changeServe: (team) => handleAction(() => api.changeServe(oid!, team)),
+      setScore: (team, setNumber, value) =>
+        handleAction(() => api.setScore(oid!, team, setNumber, value)),
+      setSets: (team, value) => handleAction(() => api.setSets(oid!, team, value)),
+      reset: () => handleAction(() => api.resetGame(oid!)),
+      setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
+      setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
+      setSetSummary: (enabled) => handleAction(() => api.setSetSummary(oid!, enabled)),
+      setSetSummaryStyle: (style) => handleAction(() => api.setSetSummaryStyle(oid!, style)),
+      undoLast: () => handleAction(() => api.undoLast(oid!)),
+      startMatch: () => handleAction(() => api.startMatch(oid!)),
+    }),
+    [oid, handleAction],
+  );
 
   const refreshCustomization = useCallback(async () => {
     if (!oid) return;

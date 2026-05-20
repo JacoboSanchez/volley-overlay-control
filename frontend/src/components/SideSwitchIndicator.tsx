@@ -29,9 +29,10 @@ export default function SideSwitchIndicator({
   // The countdown branch only makes sense when the backend supplied
   // ``info`` (beach mode); the indoor transient alert has no notion
   // of "points until next switch", so it always renders pending.
-  const label = pending || !info
-    ? t('rules.sideSwitchPending')
-    : t('rules.sideSwitchInN', { n: info.points_until_switch });
+  const label =
+    pending || !info
+      ? t('rules.sideSwitchPending')
+      : t('rules.sideSwitchInN', { n: info.points_until_switch });
 
   return (
     <div

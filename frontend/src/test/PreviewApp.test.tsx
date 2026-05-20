@@ -32,9 +32,7 @@ describe('PreviewApp', () => {
   });
 
   it('renders the toolbar with zoom, theme and fullscreen controls', () => {
-    setLocation(
-      '?output=https%3A%2F%2Foverlays.uno%2Foutput%2Fabc&x=0&y=0&width=30&height=10',
-    );
+    setLocation('?output=https%3A%2F%2Foverlays.uno%2Foutput%2Fabc&x=0&y=0&width=30&height=10');
     render(<PreviewApp />);
     const toolbar = screen.getByTestId('preview-toolbar');
     expect(toolbar).toBeInTheDocument();
@@ -42,9 +40,7 @@ describe('PreviewApp', () => {
   });
 
   it('toggles backdrop class when light/dark button is clicked', async () => {
-    setLocation(
-      '?output=https%3A%2F%2Foverlays.uno%2Foutput%2Fabc&x=0&y=0&width=30&height=10',
-    );
+    setLocation('?output=https%3A%2F%2Foverlays.uno%2Foutput%2Fabc&x=0&y=0&width=30&height=10');
     const { container } = render(<PreviewApp />);
     const page = container.querySelector('.preview-page') as HTMLElement;
     expect(page.classList.contains('preview-page--dark')).toBe(true);
