@@ -55,6 +55,14 @@ _KEYS_BY_CATEGORY: dict[str, tuple[str, ...]] = {
         "Color 2",
         "Text Color 1",
         "Text Color 2",
+        # Operator UI language, propagated to OBS-embedded overlays so
+        # the set-summary recap renders in the operator's chosen
+        # language even though the overlay URL is fixed in OBS and
+        # cannot carry ``?lang=``. Captured under ``style`` so it
+        # round-trips through the preset model; the control UI's
+        # locale-sync effect re-asserts the operator's choice if a
+        # preset import overwrote it.
+        "locale",
     ),
 }
 

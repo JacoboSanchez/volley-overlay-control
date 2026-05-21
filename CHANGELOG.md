@@ -8,6 +8,20 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Set-summary overlay follows the operator's UI language live.** The
+  OBS browser-source URL is fixed in the streaming app, so the
+  ``?lang=`` strategy used by the spectator (follow) page cannot
+  reach an embedded overlay once OBS is configured. The control UI
+  now syncs the operator's locale onto the overlay's
+  ``raw_remote_customization.locale`` whenever it changes, and
+  ``set_summary.js`` re-reads ``window.OVERLAY_LOCALE`` on each
+  WebSocket update — so the recap re-renders in the operator's
+  chosen language without touching OBS. ``locale`` is also seeded
+  into the served overlay HTML so the first render boots in the
+  right language before any WS message arrives.
+
 ## [5.4.2] - 2026-05-20
 
 ### Added

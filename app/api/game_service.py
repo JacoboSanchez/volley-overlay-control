@@ -16,6 +16,7 @@ from app.api.schemas import (
     LOGO_KEYS,
     MAX_CUSTOMIZATION_KEYS,
     MAX_STRING_VALUE_LENGTH,
+    SUPPORTED_OVERLAY_LOCALES,
     ActionResponse,
     BeachSideSwitch,
     GameStateResponse,
@@ -901,6 +902,21 @@ class GameService:
                         message=(
                             f"Logo URL for '{key}' must use http(s) or "
                             f"data:image scheme."
+                        ),
+                    )
+            elif key == 'locale':
+                if value is None:
+                    continue
+                if (
+                    not isinstance(value, str)
+                    or value.strip().lower() not in SUPPORTED_OVERLAY_LOCALES
+                ):
+                    return ActionResponse(
+                        success=False,
+                        state=GameService.get_state(session),
+                        message=(
+                            f"Value for 'locale' must be one of "
+                            f"{sorted(SUPPORTED_OVERLAY_LOCALES)}."
                         ),
                     )
             elif isinstance(value, str):

@@ -45,6 +45,7 @@ describe('App', () => {
     vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState });
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
     vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });
+    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
   });
 
   it('renders OID entry screen initially', () => {
@@ -143,6 +144,27 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'persist-oid');
+    });
+  });
+
+  it("syncs the operator's UI locale onto the overlay customization", async () => {
+    // The OBS browser source URL is fixed in the streaming app and
+    // cannot carry ``?lang=``, so the operator's UI language is the
+    // only live channel for the set-summary overlay to learn which
+    // language to render in. The locale-sync effect pushes it onto
+    // ``raw_remote_customization.locale`` whenever the operator's
+    // ``lang`` differs from what the customization currently carries.
+    // ``mockCustomization`` has no ``locale`` key — the operator's
+    // saved-or-default ``en`` should land on the first cycle.
+    renderWithI18n(<App />);
+    const input = screen.getByPlaceholderText('my-overlay');
+    fireEvent.change(input, { target: { value: 'locale-sync-oid' } });
+    fireEvent.submit(input.closest('form')!);
+    await waitFor(() => {
+      expect(api.updateCustomization).toHaveBeenCalledWith(
+        'locale-sync-oid',
+        { locale: expect.any(String) },
+      );
     });
   });
 

@@ -52,7 +52,7 @@ function getInitialOid(): string {
 }
 
 export default function App() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
   const { isPortrait, buttonSize, hasRoomForPersistentControls } = useOrientation();
@@ -94,6 +94,31 @@ export default function App() {
     actions,
     refreshCustomization,
   } = useGameState(oid);
+
+  // Push the operator's UI language onto the overlay's customization so
+  // OBS-embedded overlays (whose URL is fixed in the streaming app and
+  // cannot carry ``?lang=``) follow the operator's language live. The
+  // ref guards against re-sending the same value on unrelated
+  // customization refreshes.
+  const lastSyncedLocaleRef = useRef<string | null>(null);
+  const customizationLocale = asString(customization?.['locale']);
+  useEffect(() => {
+    if (!oid) return;
+    if (!customization) return;
+    if (lastSyncedLocaleRef.current === lang) return;
+    if (customizationLocale === lang) {
+      lastSyncedLocaleRef.current = lang;
+      return;
+    }
+    lastSyncedLocaleRef.current = lang;
+    api
+      .updateCustomization(oid, { locale: lang })
+      .then(() => refreshCustomization())
+      .catch((e) => {
+        lastSyncedLocaleRef.current = null;
+        console.warn('Failed to sync overlay locale:', e);
+      });
+  }, [oid, lang, customization, customizationLocale, refreshCustomization]);
 
   const { pulse } = useHaptics();
   // Set / match / finished transitions vibrate via the shared

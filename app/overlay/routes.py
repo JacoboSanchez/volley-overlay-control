@@ -30,17 +30,28 @@ logger = logging.getLogger(__name__)
 _SUPPORTED_OVERLAY_LOCALES = {"en", "es", "pt", "it", "fr", "de"}
 
 
-def _resolve_overlay_locale(query_lang: str | None, request: Request) -> str:
+def _resolve_overlay_locale(
+    query_lang: str | None,
+    request: Request,
+    persisted_locale: str | None = None,
+) -> str:
     """Pick the locale tag the overlay templates / JS will use.
 
     Resolution order: ``?lang=<code>`` query param (operator override
-    when embedding the overlay in OBS) → ``OVERLAY_LOCALE`` env var →
-    the first acceptable language from ``Accept-Language`` →
+    when embedding the overlay in OBS) → ``raw_remote_customization.locale``
+    persisted with the overlay (operator's UI language, pushed live by
+    the control app so OBS browser sources whose URL is fixed in the
+    streaming app still follow language changes) → ``OVERLAY_LOCALE``
+    env var → the first acceptable language from ``Accept-Language`` →
     ``"en"`` as a final fallback. Anything we don't recognise as a
     supported 2-letter code is ignored.
     """
     if query_lang:
         candidate = query_lang.strip().lower()[:2]
+        if candidate in _SUPPORTED_OVERLAY_LOCALES:
+            return candidate
+    if persisted_locale:
+        candidate = persisted_locale.strip().lower()[:2]
         if candidate in _SUPPORTED_OVERLAY_LOCALES:
             return candidate
     env_lang = (os.environ.get("OVERLAY_LOCALE") or "").strip().lower()[:2]
@@ -211,11 +222,16 @@ def create_overlay_router(
         available = await run_in_threadpool(store.get_available_styles_list)
         renderable = await run_in_threadpool(store.get_renderable_styles)
 
+        # Always load the persisted state — both ``preferredStyle`` and
+        # the operator-chosen ``locale`` live on
+        # ``raw_remote_customization`` and we want to honour the locale
+        # on the initial HTML render so the page boots in the correct
+        # language before any WebSocket update arrives.
+        state = await store.load_persisted_state_async(overlay_id)
+        customization = state.get("raw_remote_customization") or {}
+
         if not style:
-            state = await store.load_persisted_state_async(overlay_id)
-            preferred = state.get("raw_remote_customization", {}).get(
-                "preferredStyle"
-            )
+            preferred = customization.get("preferredStyle")
             if preferred and preferred in available:
                 style = preferred
             else:
@@ -232,6 +248,8 @@ def create_overlay_router(
 
         template_name = "index.html" if style == "default" else f"{style}.html"
 
+        persisted_locale = customization.get("locale")
+
         return templates.TemplateResponse(
             request=request,
             name=template_name,
@@ -241,7 +259,9 @@ def create_overlay_router(
                 "style": style,
                 "available_styles": available,
                 "v": int(time.time()),
-                "locale": _resolve_overlay_locale(lang, request),
+                "locale": _resolve_overlay_locale(
+                    lang, request, persisted_locale,
+                ),
             },
         )
 
