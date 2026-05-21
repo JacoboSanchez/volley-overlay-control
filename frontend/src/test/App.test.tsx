@@ -155,10 +155,7 @@ describe('App', () => {
     fireEvent.change(input, { target: { value: 'locale-sync-oid' } });
     fireEvent.submit(input.closest('form')!);
     await waitFor(() => {
-      expect(api.updateCustomization).toHaveBeenCalledWith(
-        'locale-sync-oid',
-        { locale: 'en' },
-      );
+      expect(api.updateCustomization).toHaveBeenCalledWith('locale-sync-oid', { locale: 'en' });
     });
   });
 
