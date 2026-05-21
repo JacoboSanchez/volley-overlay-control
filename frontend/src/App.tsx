@@ -107,9 +107,10 @@ export default function App() {
   const customizationLocale = asString(customization?.['locale']);
   useEffect(() => {
     if (!oid) return;
+    const attemptKey = oid + ':' + lang;
     if (customizationLocale === lang) return;
-    if (lastAttemptedLocaleRef.current === lang) return;
-    lastAttemptedLocaleRef.current = lang;
+    if (lastAttemptedLocaleRef.current === attemptKey) return;
+    lastAttemptedLocaleRef.current = attemptKey;
     api
       .updateCustomization(oid, { locale: lang })
       .then(() => refreshCustomization())
