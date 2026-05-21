@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.4.3] - 2026-05-21
+
 ### Added
 
 - **Set-summary overlay follows the operator's UI language live.** The
@@ -21,6 +23,20 @@ once a first tagged release ships.
   chosen language without touching OBS. ``locale`` is also seeded
   into the served overlay HTML so the first render boots in the
   right language before any WS message arrives.
+
+### Changed
+
+- README badges refreshed (license / CI / Docker / React / TypeScript
+  badges added, Python badge bumped to ``3.11+``) and the Prerequisites
+  section now states Python 3.11+ explicitly.
+
+### Dependencies
+
+- Backend: ``uvicorn[standard]`` minimum bumped from ``>=0.46.0`` to
+  ``>=0.47.0``; ``requests`` pinned from ``2.34.1`` to ``2.34.2``.
+- Frontend: ``react-colorful`` from ``5.6.1`` to ``5.7.0``,
+  ``@types/react`` from ``19.2.14`` to ``19.2.15``, and
+  ``@vitest/coverage-v8`` from ``4.1.6`` to ``4.1.7``.
 
 ## [5.4.2] - 2026-05-20
 
