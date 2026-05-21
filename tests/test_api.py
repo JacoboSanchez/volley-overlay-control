@@ -234,6 +234,21 @@ class TestGameService:
         result = GameService.update_customization(session, new_data)
         assert result.success is True
 
+    def test_update_customization_accepts_supported_locale(self, session):
+        result = GameService.update_customization(session, {"locale": "es"})
+        assert result.success is True
+        assert session.customization.get_model().get("locale") == "es"
+
+    def test_update_customization_rejects_unknown_locale(self, session):
+        result = GameService.update_customization(session, {"locale": "xx"})
+        assert result.success is False
+        assert "locale" in (result.message or "")
+
+    def test_update_customization_rejects_non_string_locale(self, session):
+        result = GameService.update_customization(session, {"locale": 123})
+        assert result.success is False
+        assert "locale" in (result.message or "")
+
     def test_refresh_customization_caches_within_ttl(self, session):
         """Back-to-back refreshes within the TTL must hit the backend once."""
         session.backend.get_current_customization.reset_mock()

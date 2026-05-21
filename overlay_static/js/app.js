@@ -76,7 +76,27 @@ function connectWebSocket() {
     };
 }
 
+// Supported locales — mirrors match_report_i18n.SUPPORTED_LOCALES on
+// the backend and the LABELS keys in set_summary.js / spectator.js.
+const SUPPORTED_OVERLAY_LOCALES = new Set(['en', 'es', 'pt', 'it', 'fr', 'de']);
+
+// Re-applied on every state push so a locale change pushed by the
+// operator (via raw_remote_customization.locale) lands before the next
+// SetSummary.render(state) — the OBS browser source URL is fixed in
+// the streaming app so we can't carry the locale in the URL.
+function applyStateLocale(state) {
+    const next = state && state.raw_remote_customization
+        ? state.raw_remote_customization.locale
+        : null;
+    if (!next || typeof next !== 'string') return;
+    const candidate = next.slice(0, 2).toLowerCase();
+    if (SUPPORTED_OVERLAY_LOCALES.has(candidate)) {
+        window.OVERLAY_LOCALE = candidate;
+    }
+}
+
 function processStateUpdate(newState) {
+    applyStateLocale(newState);
     if (!previousState) {
         // Initial render
         renderFullState(newState);

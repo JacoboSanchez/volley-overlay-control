@@ -109,6 +109,9 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     'Logos', 'Gradient',
     'Height', 'Width', 'Left-Right', 'Up-Down',
     'preferredStyle',
+    # Operator UI locale, broadcast to OBS-embedded overlays (whose URL
+    # is fixed in the streaming app and cannot carry ``?lang=``).
+    'locale',
 }
 
 # Per-value bounds for ``PUT /customization``. Logos can hold base64

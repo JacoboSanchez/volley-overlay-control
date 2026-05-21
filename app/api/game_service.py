@@ -25,6 +25,7 @@ from app.api.schemas import (
 )
 from app.customization_cache_ttl import customization_cache_ttl_seconds
 from app.env_vars_manager import EnvVarsManager
+from app.match_report_i18n import SUPPORTED_LOCALES as _SUPPORTED_LOCALES
 from app.state import State
 
 logger = logging.getLogger(__name__)
@@ -901,6 +902,21 @@ class GameService:
                         message=(
                             f"Logo URL for '{key}' must use http(s) or "
                             f"data:image scheme."
+                        ),
+                    )
+            elif key == 'locale':
+                if value is None:
+                    continue
+                if (
+                    not isinstance(value, str)
+                    or value.strip().lower() not in _SUPPORTED_LOCALES
+                ):
+                    return ActionResponse(
+                        success=False,
+                        state=GameService.get_state(session),
+                        message=(
+                            f"Value for 'locale' must be one of "
+                            f"{list(_SUPPORTED_LOCALES)}."
                         ),
                     )
             elif isinstance(value, str):

@@ -77,9 +77,16 @@ class TestPresetCategoriesPartition:
         covered: set[str] = set()
         for cat in preset_categories.CATEGORY_ORDER:
             covered.update(preset_categories.keys_for_category(cat))
-        assert covered == set(ALLOWED_CUSTOMIZATION_KEYS), (
+        # Non-preset keys (per-operator/per-session knobs that don't
+        # belong to a saved preset) are opted out via
+        # ``_NON_PRESET_KEYS`` and are intentionally excluded from the
+        # partition.
+        assert covered == (
+            set(ALLOWED_CUSTOMIZATION_KEYS) - preset_categories._NON_PRESET_KEYS
+        ), (
             "Each ``ALLOWED_CUSTOMIZATION_KEYS`` member must belong to "
-            "exactly one preset category."
+            "exactly one preset category (or be opted out via "
+            "``_NON_PRESET_KEYS``)."
         )
 
     def test_categories_for_keys_returns_canonical_order(self):

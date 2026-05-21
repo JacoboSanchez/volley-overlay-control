@@ -58,6 +58,48 @@ def test_follow_serves_spectator_html(client):
     assert "test-overlay" not in body
 
 
+# ---------------------------------------------------------------------------
+# /overlay/{id} locale resolution
+# ---------------------------------------------------------------------------
+
+
+def test_overlay_picks_persisted_locale_over_env(client, monkeypatch):
+    cli, store = client
+    monkeypatch.setenv("OVERLAY_LOCALE", "de")
+    store.set_raw_config("test-overlay", customization={"locale": "es"})
+    res = cli.get(
+        "/overlay/test-overlay",
+        headers={"Accept-Language": "fr"},
+    )
+    assert res.status_code == 200
+    assert 'window.OVERLAY_LOCALE = "es"' in res.text
+
+
+def test_overlay_falls_back_to_env_when_no_persisted_locale(client, monkeypatch):
+    cli, _ = client
+    monkeypatch.setenv("OVERLAY_LOCALE", "pt")
+    res = cli.get("/overlay/test-overlay")
+    assert res.status_code == 200
+    assert 'window.OVERLAY_LOCALE = "pt"' in res.text
+
+
+def test_overlay_query_lang_overrides_persisted_locale(client):
+    cli, store = client
+    store.set_raw_config("test-overlay", customization={"locale": "es"})
+    res = cli.get("/overlay/test-overlay?lang=fr")
+    assert res.status_code == 200
+    assert 'window.OVERLAY_LOCALE = "fr"' in res.text
+
+
+def test_overlay_ignores_unsupported_persisted_locale(client, monkeypatch):
+    cli, store = client
+    monkeypatch.setenv("OVERLAY_LOCALE", "it")
+    store.set_raw_config("test-overlay", customization={"locale": "xx"})
+    res = cli.get("/overlay/test-overlay")
+    assert res.status_code == 200
+    assert 'window.OVERLAY_LOCALE = "it"' in res.text
+
+
 def test_follow_resolves_by_output_key(client):
     cli, _ = client
     output_key = OverlayStateStore.get_output_key("test-overlay")

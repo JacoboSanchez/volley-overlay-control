@@ -20,6 +20,12 @@ from pydantic import BaseModel, ConfigDict
 from starlette.concurrency import run_in_threadpool
 
 from app.auth_utils import get_hashed_or_plaintext_env, require_admin
+from app.match_report_i18n import (
+    SUPPORTED_LOCALES,
+)
+from app.match_report_i18n import (
+    resolve_locale as _resolve_accept_language,
+)
 from app.overlay.state_store import OverlayStateStore
 from app.overlay.themes import PRESET_THEMES, get_theme_names
 from app.password_hash import verify_password
@@ -27,31 +33,33 @@ from app.password_hash import verify_password
 logger = logging.getLogger(__name__)
 
 
-_SUPPORTED_OVERLAY_LOCALES = {"en", "es", "pt", "it", "fr", "de"}
+def _normalise_locale(raw: str | None) -> str | None:
+    if not raw or not isinstance(raw, str):
+        return None
+    candidate = raw.strip().lower()[:2]
+    return candidate if candidate in SUPPORTED_LOCALES else None
 
 
-def _resolve_overlay_locale(query_lang: str | None, request: Request) -> str:
+def _resolve_overlay_locale(
+    query_lang: str | None,
+    request: Request,
+    persisted_locale: str | None = None,
+) -> str:
     """Pick the locale tag the overlay templates / JS will use.
 
     Resolution order: ``?lang=<code>`` query param (operator override
-    when embedding the overlay in OBS) → ``OVERLAY_LOCALE`` env var →
-    the first acceptable language from ``Accept-Language`` →
-    ``"en"`` as a final fallback. Anything we don't recognise as a
-    supported 2-letter code is ignored.
+    when embedding the overlay in OBS) → ``raw_remote_customization.locale``
+    persisted with the overlay (operator's UI language, pushed live by
+    the control app so OBS browser sources whose URL is fixed in the
+    streaming app still follow language changes) → ``OVERLAY_LOCALE``
+    env var → ``Accept-Language`` (q-weighted via
+    :func:`app.match_report_i18n.resolve_locale`) → ``"en"``.
     """
-    if query_lang:
-        candidate = query_lang.strip().lower()[:2]
-        if candidate in _SUPPORTED_OVERLAY_LOCALES:
-            return candidate
-    env_lang = (os.environ.get("OVERLAY_LOCALE") or "").strip().lower()[:2]
-    if env_lang in _SUPPORTED_OVERLAY_LOCALES:
-        return env_lang
-    accept = request.headers.get("accept-language") or ""
-    for raw in accept.split(","):
-        tag = raw.split(";")[0].strip().lower()[:2]
-        if tag in _SUPPORTED_OVERLAY_LOCALES:
-            return tag
-    return "en"
+    for candidate in (query_lang, persisted_locale, os.environ.get("OVERLAY_LOCALE")):
+        normalised = _normalise_locale(candidate)
+        if normalised is not None:
+            return normalised
+    return _resolve_accept_language(request.headers.get("accept-language"))
 
 
 def _get_overlay_server_credential() -> str | None:
@@ -211,11 +219,15 @@ def create_overlay_router(
         available = await run_in_threadpool(store.get_available_styles_list)
         renderable = await run_in_threadpool(store.get_renderable_styles)
 
+        # Read the in-memory snapshot (lazy-loaded from disk on first
+        # touch). ``preferredStyle`` and the operator-chosen ``locale``
+        # both live on ``raw_remote_customization`` so the page boots in
+        # the right language and style before any WS update arrives.
+        state = await run_in_threadpool(store.get_state, overlay_id)
+        customization = state.get("raw_remote_customization") or {}
+
         if not style:
-            state = await store.load_persisted_state_async(overlay_id)
-            preferred = state.get("raw_remote_customization", {}).get(
-                "preferredStyle"
-            )
+            preferred = customization.get("preferredStyle")
             if preferred and preferred in available:
                 style = preferred
             else:
@@ -232,6 +244,8 @@ def create_overlay_router(
 
         template_name = "index.html" if style == "default" else f"{style}.html"
 
+        persisted_locale = customization.get("locale")
+
         return templates.TemplateResponse(
             request=request,
             name=template_name,
@@ -241,7 +255,9 @@ def create_overlay_router(
                 "style": style,
                 "available_styles": available,
                 "v": int(time.time()),
-                "locale": _resolve_overlay_locale(lang, request),
+                "locale": _resolve_overlay_locale(
+                    lang, request, persisted_locale,
+                ),
             },
         )
 

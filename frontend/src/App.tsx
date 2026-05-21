@@ -52,7 +52,7 @@ function getInitialOid(): string {
 }
 
 export default function App() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
   const { isPortrait, buttonSize, hasRoomForPersistentControls } = useOrientation();
@@ -94,6 +94,30 @@ export default function App() {
     actions,
     refreshCustomization,
   } = useGameState(oid);
+
+  // Push the operator's UI language onto the overlay's customization so
+  // OBS-embedded overlays (whose URL is fixed in the streaming app and
+  // cannot carry ``?lang=``) follow language changes live. The ref
+  // pins per-``lang`` attempts so a failing backend doesn't retry on
+  // every parent re-render (only when the operator picks a new
+  // language). Invariant: the control WS broadcasts ``state_update``
+  // only, never ``customization_update`` — so a second operator's
+  // PUT cannot bounce this effect into a ping-pong.
+  const lastAttemptedLocaleRef = useRef<string | null>(null);
+  const customizationLocale = asString(customization?.['locale']);
+  useEffect(() => {
+    if (!oid) return;
+    const attemptKey = oid + ':' + lang;
+    if (customizationLocale === lang) return;
+    if (lastAttemptedLocaleRef.current === attemptKey) return;
+    lastAttemptedLocaleRef.current = attemptKey;
+    api
+      .updateCustomization(oid, { locale: lang })
+      .then(() => refreshCustomization())
+      .catch((e) => {
+        console.warn('Failed to sync overlay locale:', e);
+      });
+  }, [oid, lang, customizationLocale, refreshCustomization]);
 
   const { pulse } = useHaptics();
   // Set / match / finished transitions vibrate via the shared

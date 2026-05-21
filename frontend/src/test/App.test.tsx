@@ -45,6 +45,7 @@ describe('App', () => {
     vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState });
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
     vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });
+    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
   });
 
   it('renders OID entry screen initially', () => {
@@ -143,6 +144,18 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'persist-oid');
+    });
+  });
+
+  it("syncs the operator's UI locale onto the overlay customization", async () => {
+    // ``mockCustomization`` has no ``locale`` key; the test renders
+    // under the default I18nProvider so the resolved lang is ``en``.
+    renderWithI18n(<App />);
+    const input = screen.getByPlaceholderText('my-overlay');
+    fireEvent.change(input, { target: { value: 'locale-sync-oid' } });
+    fireEvent.submit(input.closest('form')!);
+    await waitFor(() => {
+      expect(api.updateCustomization).toHaveBeenCalledWith('locale-sync-oid', { locale: 'en' });
     });
   });
 
