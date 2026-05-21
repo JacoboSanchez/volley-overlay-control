@@ -109,17 +109,10 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     'Logos', 'Gradient',
     'Height', 'Width', 'Left-Right', 'Up-Down',
     'preferredStyle',
-    # Operator-chosen locale propagated through the overlay's
-    # ``raw_remote_customization`` so OBS-embedded overlays (whose URL
-    # is fixed in the streaming app and cannot carry ``?lang=``) pick
-    # up the operator's language change live.
+    # Operator UI locale, broadcast to OBS-embedded overlays (whose URL
+    # is fixed in the streaming app and cannot carry ``?lang=``).
     'locale',
 }
-
-# Locale codes the set-summary overlay knows how to render. Keep in
-# sync with the LABELS dictionaries in ``overlay_static/js/set_summary.js``
-# and with ``_resolve_overlay_locale`` in ``app/overlay/routes.py``.
-SUPPORTED_OVERLAY_LOCALES = frozenset({'en', 'es', 'pt', 'it', 'fr', 'de'})
 
 # Per-value bounds for ``PUT /customization``. Logos can hold base64
 # data URLs so they get a much larger budget than the rest. Everything

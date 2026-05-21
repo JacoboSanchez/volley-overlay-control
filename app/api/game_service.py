@@ -16,7 +16,6 @@ from app.api.schemas import (
     LOGO_KEYS,
     MAX_CUSTOMIZATION_KEYS,
     MAX_STRING_VALUE_LENGTH,
-    SUPPORTED_OVERLAY_LOCALES,
     ActionResponse,
     BeachSideSwitch,
     GameStateResponse,
@@ -26,6 +25,7 @@ from app.api.schemas import (
 )
 from app.customization_cache_ttl import customization_cache_ttl_seconds
 from app.env_vars_manager import EnvVarsManager
+from app.match_report_i18n import SUPPORTED_LOCALES as _SUPPORTED_LOCALES
 from app.state import State
 
 logger = logging.getLogger(__name__)
@@ -909,14 +909,14 @@ class GameService:
                     continue
                 if (
                     not isinstance(value, str)
-                    or value.strip().lower() not in SUPPORTED_OVERLAY_LOCALES
+                    or value.strip().lower() not in _SUPPORTED_LOCALES
                 ):
                     return ActionResponse(
                         success=False,
                         state=GameService.get_state(session),
                         message=(
                             f"Value for 'locale' must be one of "
-                            f"{sorted(SUPPORTED_OVERLAY_LOCALES)}."
+                            f"{list(_SUPPORTED_LOCALES)}."
                         ),
                     )
             elif isinstance(value, str):

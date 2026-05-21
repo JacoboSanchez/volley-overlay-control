@@ -55,26 +55,29 @@ _KEYS_BY_CATEGORY: dict[str, tuple[str, ...]] = {
         "Color 2",
         "Text Color 1",
         "Text Color 2",
-        # Operator UI language, propagated to OBS-embedded overlays so
-        # the set-summary recap renders in the operator's chosen
-        # language even though the overlay URL is fixed in OBS and
-        # cannot carry ``?lang=``. Captured under ``style`` so it
-        # round-trips through the preset model; the control UI's
-        # locale-sync effect re-asserts the operator's choice if a
-        # preset import overwrote it.
-        "locale",
     ),
 }
+
+
+# Allow-listed customization keys that intentionally do NOT belong to
+# any preset category — they're per-operator/per-session knobs whose
+# round-trip through a saved preset would surprise the operator that
+# loads it. ``locale`` (the operator's UI language, pushed onto the
+# overlay so OBS browser sources follow language changes) is the only
+# such key today.
+_NON_PRESET_KEYS: frozenset[str] = frozenset({"locale"})
 
 
 def _validate_partition() -> dict[str, str]:
     """Build (and check) the reverse ``key → category`` map.
 
     Raises ``RuntimeError`` if the categories don't partition
-    ``ALLOWED_CUSTOMIZATION_KEYS`` exactly. The check runs once at
-    import time, so adding a new allow-listed key without slotting it
-    into a category fails fast in the test suite rather than silently
-    producing un-categorised presets in production.
+    ``ALLOWED_CUSTOMIZATION_KEYS`` exactly (minus the explicit
+    :data:`_NON_PRESET_KEYS` exemption). The check runs once at import
+    time, so adding a new allow-listed key without slotting it into a
+    category — or into the non-preset opt-out — fails fast in the
+    test suite rather than silently producing un-categorised presets
+    in production.
     """
     reverse: dict[str, str] = {}
     for cat, keys in _KEYS_BY_CATEGORY.items():
@@ -84,14 +87,19 @@ def _validate_partition() -> dict[str, str]:
                     f"Customization key '{key}' is in both "
                     f"'{reverse[key]}' and '{cat}' categories.",
                 )
+            if key in _NON_PRESET_KEYS:
+                raise RuntimeError(
+                    f"Customization key '{key}' is both in category "
+                    f"'{cat}' and in ``_NON_PRESET_KEYS``.",
+                )
             reverse[key] = cat
-    leftover = set(ALLOWED_CUSTOMIZATION_KEYS) - set(reverse)
+    leftover = set(ALLOWED_CUSTOMIZATION_KEYS) - set(reverse) - _NON_PRESET_KEYS
     if leftover:
         raise RuntimeError(
             "ALLOWED_CUSTOMIZATION_KEYS members not assigned to any "
             f"preset category: {sorted(leftover)}. Either slot them "
-            "into ``_KEYS_BY_CATEGORY`` or remove them from the "
-            "allow-list.",
+            "into ``_KEYS_BY_CATEGORY`` or list them in "
+            "``_NON_PRESET_KEYS``.",
         )
     extra = set(reverse) - set(ALLOWED_CUSTOMIZATION_KEYS)
     if extra:

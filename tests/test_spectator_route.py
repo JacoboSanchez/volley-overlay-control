@@ -64,13 +64,6 @@ def test_follow_serves_spectator_html(client):
 
 
 def test_overlay_picks_persisted_locale_over_env(client, monkeypatch):
-    """The operator's UI locale lands on
-    ``raw_remote_customization.locale`` via the customization endpoint;
-    ``serve_overlay`` must surface it on the first HTML render so the
-    page boots in the operator's language before any WS update lands.
-    This wins over ``OVERLAY_LOCALE`` (server-wide fallback) because
-    the OBS browser-source URL is fixed in the streaming app — the
-    operator has no way to pass ``?lang=`` once OBS is configured."""
     cli, store = client
     monkeypatch.setenv("OVERLAY_LOCALE", "de")
     store.set_raw_config("test-overlay", customization={"locale": "es"})
@@ -83,8 +76,6 @@ def test_overlay_picks_persisted_locale_over_env(client, monkeypatch):
 
 
 def test_overlay_falls_back_to_env_when_no_persisted_locale(client, monkeypatch):
-    """When the operator has not synced a locale yet, the legacy
-    server-wide ``OVERLAY_LOCALE`` env var still applies."""
     cli, _ = client
     monkeypatch.setenv("OVERLAY_LOCALE", "pt")
     res = cli.get("/overlay/test-overlay")
@@ -93,9 +84,6 @@ def test_overlay_falls_back_to_env_when_no_persisted_locale(client, monkeypatch)
 
 
 def test_overlay_query_lang_overrides_persisted_locale(client):
-    """``?lang=`` is the operator's manual override and stays
-    authoritative — useful when an OBS preview is opened in a browser
-    tab for ad-hoc inspection in a different language."""
     cli, store = client
     store.set_raw_config("test-overlay", customization={"locale": "es"})
     res = cli.get("/overlay/test-overlay?lang=fr")
@@ -104,8 +92,6 @@ def test_overlay_query_lang_overrides_persisted_locale(client):
 
 
 def test_overlay_ignores_unsupported_persisted_locale(client, monkeypatch):
-    """A junk persisted value (e.g. left over from a manual /manage
-    edit) must not poison the page — fall through to env/header."""
     cli, store = client
     monkeypatch.setenv("OVERLAY_LOCALE", "it")
     store.set_raw_config("test-overlay", customization={"locale": "xx"})

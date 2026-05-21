@@ -76,26 +76,21 @@ function connectWebSocket() {
     };
 }
 
-// Locale codes the overlay JS can render — kept in sync with the LABELS
-// dictionaries in set_summary.js and SUPPORTED_OVERLAY_LOCALES on the
-// backend.
-const _SUPPORTED_OVERLAY_LOCALES = new Set(['en', 'es', 'pt', 'it', 'fr', 'de']);
+// Supported locales — mirrors match_report_i18n.SUPPORTED_LOCALES on
+// the backend and the LABELS keys in set_summary.js / spectator.js.
+const SUPPORTED_OVERLAY_LOCALES = new Set(['en', 'es', 'pt', 'it', 'fr', 'de']);
 
-// The operator picks the language in the control UI; it gets pushed
-// onto ``raw_remote_customization.locale`` and broadcast over the
-// overlay WebSocket. The OBS browser source URL is fixed in the
-// streaming app, so this is the only channel the operator has to
-// change the set-summary overlay's language live. Re-syncing
-// ``window.OVERLAY_LOCALE`` from every incoming state means the next
-// ``window.SetSummary.render(state)`` call picks up the new language
-// without a page reload.
+// Re-applied on every state push so a locale change pushed by the
+// operator (via raw_remote_customization.locale) lands before the next
+// SetSummary.render(state) — the OBS browser source URL is fixed in
+// the streaming app so we can't carry the locale in the URL.
 function applyStateLocale(state) {
     const next = state && state.raw_remote_customization
         ? state.raw_remote_customization.locale
         : null;
     if (!next || typeof next !== 'string') return;
     const candidate = next.slice(0, 2).toLowerCase();
-    if (_SUPPORTED_OVERLAY_LOCALES.has(candidate)) {
+    if (SUPPORTED_OVERLAY_LOCALES.has(candidate)) {
         window.OVERLAY_LOCALE = candidate;
     }
 }

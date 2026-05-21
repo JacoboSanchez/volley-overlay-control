@@ -235,19 +235,11 @@ class TestGameService:
         assert result.success is True
 
     def test_update_customization_accepts_supported_locale(self, session):
-        """Operator UI locale syncs onto ``raw_remote_customization`` so
-        OBS overlays — whose URL is fixed in the streaming app — follow
-        the operator's language live."""
         result = GameService.update_customization(session, {"locale": "es"})
         assert result.success is True
-        saved = session.customization.get_model()
-        assert saved.get("locale") == "es"
+        assert session.customization.get_model().get("locale") == "es"
 
     def test_update_customization_rejects_unknown_locale(self, session):
-        """Anything outside the LABELS dictionaries in
-        ``set_summary.js`` would silently render English on the overlay
-        — fail loudly at the API boundary instead of letting bad data
-        persist."""
         result = GameService.update_customization(session, {"locale": "xx"})
         assert result.success is False
         assert "locale" in (result.message or "")

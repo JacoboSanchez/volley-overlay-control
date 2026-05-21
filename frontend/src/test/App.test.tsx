@@ -148,14 +148,8 @@ describe('App', () => {
   });
 
   it("syncs the operator's UI locale onto the overlay customization", async () => {
-    // The OBS browser source URL is fixed in the streaming app and
-    // cannot carry ``?lang=``, so the operator's UI language is the
-    // only live channel for the set-summary overlay to learn which
-    // language to render in. The locale-sync effect pushes it onto
-    // ``raw_remote_customization.locale`` whenever the operator's
-    // ``lang`` differs from what the customization currently carries.
-    // ``mockCustomization`` has no ``locale`` key — the operator's
-    // saved-or-default ``en`` should land on the first cycle.
+    // ``mockCustomization`` has no ``locale`` key; the test renders
+    // under the default I18nProvider so the resolved lang is ``en``.
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('my-overlay');
     fireEvent.change(input, { target: { value: 'locale-sync-oid' } });
@@ -163,7 +157,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(api.updateCustomization).toHaveBeenCalledWith(
         'locale-sync-oid',
-        { locale: expect.any(String) },
+        { locale: 'en' },
       );
     });
   });

@@ -97,28 +97,26 @@ export default function App() {
 
   // Push the operator's UI language onto the overlay's customization so
   // OBS-embedded overlays (whose URL is fixed in the streaming app and
-  // cannot carry ``?lang=``) follow the operator's language live. The
-  // ref guards against re-sending the same value on unrelated
-  // customization refreshes.
-  const lastSyncedLocaleRef = useRef<string | null>(null);
+  // cannot carry ``?lang=``) follow language changes live. The ref
+  // pins per-``lang`` attempts so a failing backend doesn't retry on
+  // every parent re-render (only when the operator picks a new
+  // language). Invariant: the control WS broadcasts ``state_update``
+  // only, never ``customization_update`` — so a second operator's
+  // PUT cannot bounce this effect into a ping-pong.
+  const lastAttemptedLocaleRef = useRef<string | null>(null);
   const customizationLocale = asString(customization?.['locale']);
   useEffect(() => {
     if (!oid) return;
-    if (!customization) return;
-    if (lastSyncedLocaleRef.current === lang) return;
-    if (customizationLocale === lang) {
-      lastSyncedLocaleRef.current = lang;
-      return;
-    }
-    lastSyncedLocaleRef.current = lang;
+    if (customizationLocale === lang) return;
+    if (lastAttemptedLocaleRef.current === lang) return;
+    lastAttemptedLocaleRef.current = lang;
     api
       .updateCustomization(oid, { locale: lang })
       .then(() => refreshCustomization())
       .catch((e) => {
-        lastSyncedLocaleRef.current = null;
         console.warn('Failed to sync overlay locale:', e);
       });
-  }, [oid, lang, customization, customizationLocale, refreshCustomization]);
+  }, [oid, lang, customizationLocale, refreshCustomization]);
 
   const { pulse } = useHaptics();
   // Set / match / finished transitions vibrate via the shared
