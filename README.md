@@ -1,8 +1,12 @@
 # Volley Overlay Control
 
-![License](https://img.shields.io/badge/license-Apache%202-blue)
-![Python](https://img.shields.io/badge/python-3.x-blue.svg)
+![License](https://img.shields.io/github/license/jacobosanchez/volley-overlay-control)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+![CI](https://github.com/jacobosanchez/volley-overlay-control/actions/workflows/ci.yml/badge.svg)
+![Docker](https://img.shields.io/badge/docker-available-2496ED?logo=docker&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)
+![React](https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/typescript-5.x-3178C6?logo=typescript&logoColor=white)
 
 **Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend, a FastAPI backend, and a **built-in overlay engine** into a single deployable service.
 
