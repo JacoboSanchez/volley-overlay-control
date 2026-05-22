@@ -11,6 +11,7 @@ import { useHaptics } from './hooks/useHaptics';
 import { useMatchAlertHaptics } from './hooks/useMatchAlertHaptics';
 import { useScreenWakeLock } from './hooks/useScreenWakeLock';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useAutoSetSummary } from './hooks/useAutoSetSummary';
 import InitScreen from './components/InitScreen';
 import ScoreboardView from './components/ScoreboardView';
 import ScoreboardSkeleton from './components/ScoreboardSkeleton';
@@ -145,11 +146,14 @@ export default function App() {
   // streaming the same stale state.
   const [stalePromptOpen, setStalePromptOpen] = useState(false);
   const stalePromptFiredRef = useRef(false);
-  const STALE_SET_THRESHOLD_SEC = 60 * 60;
   useEffect(() => {
     if (stalePromptFiredRef.current) return;
     if (!state) return;
     if (state.match_finished) return;
+    const thresholdSec = settings.staleSetThresholdMinutes * 60;
+    // 0 disables the prompt entirely — operators running long all-day
+    // tournaments or short rec matches turn it off here.
+    if (thresholdSec <= 0) return;
     const startedAt = state.current_set_started_at;
     if (typeof startedAt !== 'number' || startedAt <= 0) return;
     // Prefer the server's wall clock when the payload includes it
@@ -162,11 +166,22 @@ export default function App() {
         ? state.server_time
         : Date.now() / 1000;
     const elapsed = nowSec - startedAt;
-    if (elapsed > STALE_SET_THRESHOLD_SEC) {
+    if (elapsed > thresholdSec) {
       stalePromptFiredRef.current = true;
       setStalePromptOpen(true);
     }
-  }, [state]);
+  }, [state, settings.staleSetThresholdMinutes]);
+  // Auto-trigger the set-summary recap on each set transition (operator
+  // opt-in via the Behavior section). The recap waits ``delaySec`` so
+  // the broadcast camera has time to linger on the players' reaction
+  // before the overlay covers them, then dismisses after ``durationSec``.
+  useAutoSetSummary({
+    state: confirmedState,
+    enabled: settings.setSummaryEnabled && settings.autoShowSetSummary,
+    delaySec: settings.autoShowSetSummaryDelay,
+    durationSec: settings.autoShowSetSummaryDuration,
+    setSetSummary: (v) => actions.setSetSummary(v),
+  });
   // Coachmark fires once the first authoritative state lands and the
   // operator hasn't dismissed the tour yet. The dismissal flips
   // ``settings.gestureTourSeen`` to ``true`` and persists across

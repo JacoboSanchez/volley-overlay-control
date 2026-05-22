@@ -162,7 +162,10 @@ def is_safe_logo_url(value: object) -> bool:
 
 class TeamState(BaseModel):
     sets: int
-    timeouts: int
+    timeouts: int  # Current-set timeouts (kept for backwards compat).
+    # Per-set timeout history keyed by ``"set_N"`` so an operator-side
+    # undo across set boundaries can surface the prior set's count.
+    timeouts_by_set: dict = {}
     scores: dict  # {"set_1": 5, "set_2": 12, ...}
     serving: bool
 

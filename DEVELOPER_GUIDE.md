@@ -185,7 +185,7 @@ The "Brain" of the application. Enforces volleyball rules.
 - **Responsibility**: Manipulate `State` safely.
 - **Key Methods**:
   - `add_game(team, ...)` — Increments score. Handles "Winning by 2", point limits, and match completion.
-  - `add_set(team)` — Increments set count. Resets timeouts and serve for the next set.
+  - `add_set(team)` — Increments set count and resets serve. Timeouts are tracked per-set, so the new set's counter naturally starts at 0 while the prior set's history is preserved (undoing a set-winning point across a set boundary brings the previous set's timeouts back).
   - `change_serve(team)` — Updates the serving indicator.
   - `match_finished()` — Returns `True` if a team has reached the set limit.
   - `save(simple, current_set)` — Persists state via `Backend`.

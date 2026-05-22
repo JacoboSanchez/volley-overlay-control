@@ -8,6 +8,44 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Auto-trigger set-summary recap on set end.** New operator opt-in in
+  the Behavior section: when a set closes, the recap overlay appears
+  automatically after a configurable delay (default 5 s, range 0–30) so
+  the broadcast camera can linger on the players' reaction before the
+  overlay covers them, then auto-dismisses after a configurable duration
+  (default 15 s, range 5–60). The dismiss yields to live play
+  immediately if a point lands in the next set, and the show is
+  suppressed entirely if a point lands during the pre-show delay (the
+  rally already resumed). Undoing the set-winning point clears any
+  pending timers and force-hides the recap. End-of-match transitions
+  show the recap but skip the auto-dismiss so the operator clears the
+  final recap on their own.
+- **Configurable abandoned-match prompt threshold.** The 1-hour
+  stale-set detection that surfaces the "match looks abandoned" dialog
+  on control-UI load is now operator-tunable from the Behavior section
+  (range 0–240 minutes, step 5). Setting the value to 0 disables the
+  prompt entirely — long all-day tournaments can opt out without
+  losing the dialog for shorter recreational matches.
+
+### Fixed
+
+- **Per-set timeout history (closes the previous undo-across-set-
+  boundaries limitation).** Timeouts used to live in a single per-team
+  counter that was zeroed on every forward set transition, so undoing
+  a set-winning point couldn't restore the prior set's timeout state.
+  Storage now keeps a per-(team, set) array; ``State.get_timeout`` /
+  ``set_timeout`` gain an optional ``set_num`` argument (defaulting to
+  the current set, so existing call sites are untouched). ``add_set``
+  no longer zeroes the counters — the new set starts at 0 naturally
+  because no entry has been written yet, and the previous set's
+  history survives. ``TeamState`` gains a ``timeouts_by_set`` field
+  (current-set ``timeouts`` is preserved for backwards compatibility).
+  Legacy state files using only the flat ``Team N Timeouts`` key load
+  transparently: the legacy value lands in the current set's slot, and
+  the next save writes the new per-set keys alongside.
+
 ## [5.4.3] - 2026-05-21
 
 ### Added

@@ -1675,6 +1675,13 @@ export interface components {
             sets: number;
             /** Timeouts */
             timeouts: number;
+            /**
+             * Timeouts By Set
+             * @default {}
+             */
+            timeouts_by_set: {
+                [key: string]: unknown;
+            };
         };
         /** TeamStateModel */
         TeamStateModel: {

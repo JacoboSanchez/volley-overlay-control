@@ -334,16 +334,57 @@ def test_change_serve_force(game_manager):
     state = game_manager.get_current_state()
     assert state.get_current_serve() == State.SERVE_1
 
-def test_add_set_resets_timeouts_and_serve(game_manager):
-    """Tests that after a set is won, timeouts and serve are reset."""
+def test_add_set_preserves_per_set_timeouts_and_resets_serve(game_manager):
+    """After a set is won, per-set timeout history is preserved and serve
+    is reset. Operator-facing "current set timeouts" reads 0 once
+    ``current_set`` advances (managed by the session layer)."""
     game_manager.add_timeout(1, False)
     game_manager.add_timeout(2, False)
     game_manager.change_serve(1)
     game_manager.add_set(1, False)
     state = game_manager.get_current_state()
-    assert state.get_timeout(1) == 0
-    assert state.get_timeout(2) == 0
+    # The set-1 timeouts are still recorded in the per-set arrays.
+    assert state.get_timeout(1, set_num=1) == 1
+    assert state.get_timeout(2, set_num=1) == 1
+    # Set 2 starts clean.
+    assert state.get_timeout(1, set_num=2) == 0
+    assert state.get_timeout(2, set_num=2) == 0
+    # Serve still resets on a forward set transition.
     assert state.get_current_serve() == State.SERVE_NONE
+
+
+def test_undo_set_winning_point_restores_prior_set_timeouts(game_manager):
+    """The whole point of per-set timeout history: when an operator
+    undoes a set-winning point and the session has already advanced to
+    the next set, the prior set's timeouts must still be readable."""
+    # Set 1: team 1 burns both timeouts mid-set.
+    game_manager.add_timeout(1, False)
+    game_manager.add_timeout(1, False)
+    # Build a 24-15 score so the next add_game wins set 1.
+    for _ in range(15):
+        game_manager.add_game(2, 1, 25, 15, 5, False)
+    for _ in range(24):
+        game_manager.add_game(1, 1, 25, 15, 5, False)
+    # Set-winning point.
+    game_manager.add_game(1, 1, 25, 15, 5, False)
+    state = game_manager.get_current_state()
+    assert state.get_sets(1) == 1
+    # Pretend the session advanced current_set to 2 (game_service does
+    # this via _compute_current_set after a set is won).
+    state.set_current_set(2)
+    # In set 2, no timeouts have been taken yet — the default current-set
+    # accessor reads 0.
+    assert state.get_timeout(1) == 0
+    # Undo the set-winning point (passes new current_set=2 like real flow).
+    game_manager.add_game(1, 2, 25, 15, 5, True)
+    # Set 1 is no longer won; we should be back to the operator's prior
+    # state (24-15) with both set-1 timeouts intact.
+    assert state.get_sets(1) == 0
+    assert state.get_game(1, 1) == 24
+    # Roll current_set back to 1 (what the session would do).
+    state.set_current_set(1)
+    # The crux of the fix: timeouts taken in set 1 are still recorded.
+    assert state.get_timeout(1) == 2
 
 def test_check_set_won(game_manager):
     """Tests the check_set_won method."""

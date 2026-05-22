@@ -168,13 +168,16 @@ The entire match lives in a flat dictionary with these keys:
     "Team 2 Sets": int,
     "Team 1 Game 1 Score": int, # 0–25  (set 1)
     ...                         # Game 2–5 for both teams
-    "Team 1 Timeouts": int,     # 0–2 per set
+    "Team 1 Timeouts": int,     # current-set timeouts (legacy compat)
     "Team 2 Timeouts": int,
+    "Team 1 Set 1 Timeouts": int, # per-set timeout history
+    ...                           # Set 2–5 for both teams
     "Current Set": int,         # 1–5
 }
 ```
 
 - Access scores via `state.get_game(team, set_num)` / `state.set_game(team, set_num, value)`.
+- Access timeouts via `state.get_timeout(team, set_num=None)` / `state.set_timeout(team, value, set_num=None)`; `set_num=None` (the default) targets the current set, preserving the legacy `get_timeout(team)` call shape. Full history is available via `state.get_timeouts_by_set(team)`.
 - The `simplify_model()` method strips all but the current set's data for "simple mode".
 
 ---
@@ -184,7 +187,7 @@ The entire match lives in a flat dictionary with these keys:
 - **Points to win a set:** `MATCH_GAME_POINTS` (default 25) — must win by 2.
 - **Points to win the final set:** `MATCH_GAME_POINTS_LAST_SET` (default 15) — must win by 2.
 - **Sets in a match:** `MATCH_SETS` (default 5); match ends when a team wins `(sets // 2) + 1` sets.
-- **Timeouts per set:** Max 2.
+- **Timeouts per set:** Max 2. Stored per-(team, set) so undoing a set-winning point across a set boundary restores the prior set's count — `add_set` no longer zeroes the counter.
 - **Undo:** Pass `undo=True` to `add_game()`, `add_set()`, or `add_timeout()` to reverse the action.
 - **Auto serve switch:** `add_game()` calls `change_serve()` automatically after each point.
 

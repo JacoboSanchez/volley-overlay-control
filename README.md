@@ -38,7 +38,7 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 |---|---|
 | ![Mosaic preview grid showing every overlay style with full match data](docs/screenshots/06-overlay-mosaic-full.png) | ![Mosaic preview grid showing every overlay style in simple mode](docs/screenshots/07-overlay-mosaic-simple.png) |
 
-**Set-summary recap overlay** (opt-in) fades in over the scoreboard between sets to surface the just-played set's score, point-progression chart and key stats. Ships in six visual variants — the `brand_columns` example below pairs each team's brand-coloured column with a centre chart panel:
+**Set-summary recap overlay** (opt-in) fades in over the scoreboard between sets to surface the just-played set's score, point-progression chart and key stats. Ships in six visual variants — the `brand_columns` example below pairs each team's brand-coloured column with a centre chart panel. An optional "auto-show" mode triggers the recap automatically after each set, with a configurable pre-show delay so the broadcast camera can stay on the players' reaction first.
 
 <p align="center"><img src="docs/screenshots/10-overlay-set-summary.png" alt="Set-summary recap overlay (brand_columns variant) — Thunder Wolves 22 vs Solar Hawks 25 with point-progression chart and per-set stats" width="65%"></p>
 

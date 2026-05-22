@@ -1131,6 +1131,12 @@
           "timeouts": {
             "title": "Timeouts",
             "type": "integer"
+          },
+          "timeouts_by_set": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Timeouts By Set",
+            "type": "object"
           }
         },
         "required": [

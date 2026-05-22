@@ -11,6 +11,10 @@ export interface BehaviorSettings {
   haptics: boolean;
   keyboardShortcuts: boolean;
   setSummaryEnabled: boolean;
+  autoShowSetSummary: boolean;
+  autoShowSetSummaryDelay: number;
+  autoShowSetSummaryDuration: number;
+  staleSetThresholdMinutes: number;
 }
 
 export interface BehaviorSectionProps {
@@ -120,8 +124,53 @@ export default function BehaviorSection({
               <SetSummaryStylePicker value={setSummaryStyle} onChange={onChangeSetSummaryStyle} />
             </div>
           )}
+          <div style={{ paddingLeft: '1.5rem' }}>
+            <ConfigSwitch
+              label={t('behavior.autoShowSetSummary')}
+              checked={settings.autoShowSetSummary}
+              onChange={(v) => setSetting('autoShowSetSummary', v)}
+            />
+            {settings.autoShowSetSummary && (
+              <>
+                <ConfigRange
+                  label={t('behavior.autoShowSetSummary.delay', {
+                    value: settings.autoShowSetSummaryDelay,
+                  })}
+                  value={settings.autoShowSetSummaryDelay}
+                  min={0}
+                  max={30}
+                  step={1}
+                  onChange={(v) => setSetting('autoShowSetSummaryDelay', v)}
+                />
+                <ConfigRange
+                  label={t('behavior.autoShowSetSummary.duration', {
+                    value: settings.autoShowSetSummaryDuration,
+                  })}
+                  value={settings.autoShowSetSummaryDuration}
+                  min={5}
+                  max={60}
+                  step={1}
+                  onChange={(v) => setSetting('autoShowSetSummaryDuration', v)}
+                />
+              </>
+            )}
+          </div>
         </>
       )}
+
+      <div className="config-separator" />
+      <ConfigRange
+        label={
+          settings.staleSetThresholdMinutes <= 0
+            ? t('behavior.staleSetThreshold.off')
+            : t('behavior.staleSetThreshold', { value: settings.staleSetThresholdMinutes })
+        }
+        value={settings.staleSetThresholdMinutes}
+        min={0}
+        max={240}
+        step={5}
+        onChange={(v) => setSetting('staleSetThresholdMinutes', v)}
+      />
 
       <div className="config-separator" />
       <div className="config-field-row">

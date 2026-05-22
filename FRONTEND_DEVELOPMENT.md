@@ -82,12 +82,14 @@ Response:
     "team_1": {
       "sets": 0,
       "timeouts": 0,
+      "timeouts_by_set": {"set_1": 0, "set_2": 0, "set_3": 0, "set_4": 0, "set_5": 0},
       "scores": {"set_1": 0, "set_2": 0, "set_3": 0, "set_4": 0, "set_5": 0},
       "serving": false
     },
     "team_2": {
       "sets": 0,
       "timeouts": 0,
+      "timeouts_by_set": {"set_1": 0, "set_2": 0, "set_3": 0, "set_4": 0, "set_5": 0},
       "scores": {"set_1": 0, "set_2": 0, "set_3": 0, "set_4": 0, "set_5": 0},
       "serving": false
     },
@@ -207,7 +209,7 @@ Add or undo a set win.
 {"team": 2, "undo": false}
 ```
 
-- Resets timeouts for both teams on new set
+- Timeouts are tracked per-set, so a new set's counter naturally starts at 0 while the prior set's history is preserved — undoing a set-winning point across the boundary restores the previous set's timeouts.
 - Resets serve on new set
 
 #### `POST /api/v1/game/add-timeout?oid=<OID>`
@@ -446,8 +448,8 @@ All messages from the server are JSON with a `type` field:
     "visible": true,
     "simple_mode": false,
     "match_finished": false,
-    "team_1": { "sets": 0, "timeouts": 0, "scores": {...}, "serving": true },
-    "team_2": { "sets": 0, "timeouts": 0, "scores": {...}, "serving": false },
+    "team_1": { "sets": 0, "timeouts": 0, "timeouts_by_set": {...}, "scores": {...}, "serving": true },
+    "team_2": { "sets": 0, "timeouts": 0, "timeouts_by_set": {...}, "scores": {...}, "serving": false },
     "serve": "A",
     "config": { "points_limit": 25, "points_limit_last_set": 15, "sets_limit": 5 }
   }
@@ -501,6 +503,7 @@ This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **n
 |-------|------|-------------|
 | `sets` | int | Number of sets won (0–3) |
 | `timeouts` | int | Timeouts taken in current set (0–2) |
+| `timeouts_by_set` | object | Per-set timeout history: `{"set_1": 2, "set_2": 0, ...}`. The `timeouts` field above mirrors the current-set entry. |
 | `scores` | object | Per-set scores: `{"set_1": 5, "set_2": 0, ...}` |
 | `serving` | bool | Whether this team currently has serve |
 
