@@ -42,9 +42,7 @@ function totalSets(state: GameState | null): number | null {
 
 function currentSetScore(state: GameState | null): number | null {
   if (!state) return null;
-  const setNum =
-    state.current_set ||
-    (state.team_1?.sets ?? 0) + (state.team_2?.sets ?? 0) + 1;
+  const setNum = state.current_set || (state.team_1?.sets ?? 0) + (state.team_2?.sets ?? 0) + 1;
   const key = `set_${setNum}`;
   const t1 = state.team_1?.scores as Record<string, unknown> | undefined;
   const t2 = state.team_2?.scores as Record<string, unknown> | undefined;

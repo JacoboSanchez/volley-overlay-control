@@ -3,14 +3,16 @@ import { renderHook } from '@testing-library/react';
 import { useAutoSetSummary } from '../hooks/useAutoSetSummary';
 import type { GameState } from '../api/client';
 
-function makeState(opts: {
-  t1Sets?: number;
-  t2Sets?: number;
-  t1Score?: number;
-  t2Score?: number;
-  currentSet?: number;
-  matchFinished?: boolean;
-} = {}): GameState {
+function makeState(
+  opts: {
+    t1Sets?: number;
+    t2Sets?: number;
+    t1Score?: number;
+    t2Score?: number;
+    currentSet?: number;
+    matchFinished?: boolean;
+  } = {},
+): GameState {
   const {
     t1Sets = 0,
     t2Sets = 0,
