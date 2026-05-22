@@ -71,9 +71,14 @@ class GameService:
             for i in range(1, session.sets_limit + 1):
                 scores[f"set_{i}"] = state.get_game(team, i)
                 timeouts_by_set[f"set_{i}"] = state.get_timeout(team, set_num=i)
+            # Pin to ``session.current_set`` (not the implicit
+            # ``state.current_set`` default) — the latter only updates in
+            # ``GameManager.save`` after this response is built, so it
+            # lags by one tick on a set-winning point and would report
+            # the previous set's count.
             return TeamState(
                 sets=state.get_sets(team),
-                timeouts=state.get_timeout(team),
+                timeouts=state.get_timeout(team, set_num=session.current_set),
                 timeouts_by_set=timeouts_by_set,
                 scores=scores,
                 serving=(serve == State.SERVE_1 if team == 1 else serve == State.SERVE_2),

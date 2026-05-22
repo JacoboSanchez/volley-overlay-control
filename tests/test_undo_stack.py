@@ -60,6 +60,35 @@ class TestUndoLast:
         records = action_log.read_all("undo-5")
         assert any(r["action"] == "change_serve" for r in records)
 
+    def test_state_response_timeouts_match_session_current_set(
+        self, mock_conf, api_backend,
+    ):
+        """After a set-winning point, the broadcast response must report
+        the new set's timeout count (0), not the closed set's count.
+
+        ``state._state.current_set`` lags ``session.current_set`` by one
+        tick — it only updates in ``GameManager.save`` which runs after
+        ``get_state``. The legacy ``timeouts`` field therefore has to
+        pin to ``session.current_set`` explicitly; if it falls back to
+        ``state.current_set`` (the default), the response would expose
+        the closed set's count under the new set's banner.
+        """
+        session = SessionManager.get_or_create("timeouts-current-set", mock_conf, api_backend)
+        # Burn one timeout for each team in set 1.
+        GameService.add_timeout(session, team=1)
+        GameService.add_timeout(session, team=2)
+        # Drive team 1 to 25-0 — the last point wins the set.
+        for _ in range(25):
+            response = GameService.add_point(session, team=1)
+        # Session advanced to set 2; the broadcast response must show 0
+        # timeouts for both teams (the new set's count), not 1 each.
+        assert response.state.current_set == 2
+        assert response.state.team_1.timeouts == 0
+        assert response.state.team_2.timeouts == 0
+        # The per-set history still records set 1's burns.
+        assert response.state.team_1.timeouts_by_set["set_1"] == 1
+        assert response.state.team_2.timeouts_by_set["set_1"] == 1
+
     def test_undo_does_not_pop_undo_entries(self, mock_conf, api_backend):
         session = SessionManager.get_or_create("undo-6", mock_conf, api_backend)
         GameService.add_point(session, team=1)
