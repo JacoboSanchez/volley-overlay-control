@@ -37,14 +37,14 @@
       },
       "AppConfigResponse": {
         "properties": {
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
           "stale_set_threshold_minutes": {
             "default": 60,
             "title": "Stale Set Threshold Minutes",
             "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
           }
         },
         "required": [

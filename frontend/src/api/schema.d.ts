@@ -1236,13 +1236,13 @@ export interface components {
         };
         /** AppConfigResponse */
         AppConfigResponse: {
-            /** Title */
-            title: string;
             /**
              * Stale Set Threshold Minutes
              * @default 60
              */
             stale_set_threshold_minutes: number;
+            /** Title */
+            title: string;
         };
         /**
          * BeachSideSwitch
