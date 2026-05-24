@@ -1236,6 +1236,11 @@ export interface components {
         };
         /** AppConfigResponse */
         AppConfigResponse: {
+            /**
+             * Stale Set Threshold Minutes
+             * @default 60
+             */
+            stale_set_threshold_minutes: number;
             /** Title */
             title: string;
         };
@@ -1675,6 +1680,13 @@ export interface components {
             sets: number;
             /** Timeouts */
             timeouts: number;
+            /**
+             * Timeouts By Set
+             * @default {}
+             */
+            timeouts_by_set: {
+                [key: string]: unknown;
+            };
         };
         /** TeamStateModel */
         TeamStateModel: {

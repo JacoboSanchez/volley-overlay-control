@@ -68,6 +68,25 @@ export interface Settings {
    * surprise extra button.
    */
   setSummaryEnabled: boolean;
+  /**
+   * When ``setSummaryEnabled`` is on, fire the recap automatically
+   * after each set transition. Off by default so the operator opts in
+   * explicitly — auto-pilot behaviour is surprising for someone used
+   * to driving the recap by hand.
+   */
+  autoShowSetSummary: boolean;
+  /**
+   * Seconds to wait between a set ending and the recap appearing —
+   * gives the broadcast camera time to linger on the players' reaction
+   * before the overlay covers them. ``0`` skips the wait.
+   */
+  autoShowSetSummaryDelay: number;
+  /**
+   * Seconds the recap stays visible before auto-dismissing. The
+   * dismiss is also cut short the moment play resumes (a new point in
+   * the next set yields back to the live scoreboard immediately).
+   */
+  autoShowSetSummaryDuration: number;
 }
 
 const DEFAULTS: Settings = {
@@ -89,6 +108,9 @@ const DEFAULTS: Settings = {
   gestureTourSeen: false,
   keyboardShortcuts: defaultKeyboardShortcutsEnabled(),
   setSummaryEnabled: false,
+  autoShowSetSummary: false,
+  autoShowSetSummaryDelay: 5,
+  autoShowSetSummaryDuration: 15,
 };
 
 /**

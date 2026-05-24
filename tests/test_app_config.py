@@ -9,7 +9,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api import api_router
-from app.app_config import DEFAULT_APP_TITLE, get_app_title
+from app.app_config import (
+    DEFAULT_APP_TITLE,
+    DEFAULT_STALE_SET_THRESHOLD_MINUTES,
+    get_app_title,
+    get_stale_set_threshold_minutes,
+)
 from app.bootstrap import (
     _inject_title_into_html,
     _render_index_html,
@@ -26,21 +31,53 @@ def client():
 
 def test_app_config_returns_default_title(client, monkeypatch):
     monkeypatch.delenv("APP_TITLE", raising=False)
+    monkeypatch.delenv("STALE_SET_THRESHOLD_MINUTES", raising=False)
     res = client.get("/api/v1/app-config")
     assert res.status_code == 200
-    assert res.json() == {"title": DEFAULT_APP_TITLE}
+    assert res.json() == {
+        "title": DEFAULT_APP_TITLE,
+        "stale_set_threshold_minutes": DEFAULT_STALE_SET_THRESHOLD_MINUTES,
+    }
 
 
 def test_app_config_returns_env_title(client, monkeypatch):
     monkeypatch.setenv("APP_TITLE", "My Liga Volley")
+    monkeypatch.delenv("STALE_SET_THRESHOLD_MINUTES", raising=False)
     res = client.get("/api/v1/app-config")
     assert res.status_code == 200
-    assert res.json() == {"title": "My Liga Volley"}
+    assert res.json() == {
+        "title": "My Liga Volley",
+        "stale_set_threshold_minutes": DEFAULT_STALE_SET_THRESHOLD_MINUTES,
+    }
 
 
 def test_app_config_falls_back_when_env_is_blank(monkeypatch):
     monkeypatch.setenv("APP_TITLE", "   ")
     assert get_app_title() == DEFAULT_APP_TITLE
+
+
+def test_stale_set_threshold_reads_env(client, monkeypatch):
+    monkeypatch.setenv("STALE_SET_THRESHOLD_MINUTES", "15")
+    res = client.get("/api/v1/app-config")
+    assert res.status_code == 200
+    assert res.json()["stale_set_threshold_minutes"] == 15
+
+
+def test_stale_set_threshold_disabled_by_zero(client, monkeypatch):
+    monkeypatch.setenv("STALE_SET_THRESHOLD_MINUTES", "0")
+    res = client.get("/api/v1/app-config")
+    assert res.status_code == 200
+    assert res.json()["stale_set_threshold_minutes"] == 0
+
+
+def test_stale_set_threshold_clamps_negative_to_zero(monkeypatch):
+    monkeypatch.setenv("STALE_SET_THRESHOLD_MINUTES", "-30")
+    assert get_stale_set_threshold_minutes() == 0
+
+
+def test_stale_set_threshold_falls_back_on_garbage(monkeypatch):
+    monkeypatch.setenv("STALE_SET_THRESHOLD_MINUTES", "not-a-number")
+    assert get_stale_set_threshold_minutes() == DEFAULT_STALE_SET_THRESHOLD_MINUTES
 
 
 def test_inject_title_replaces_tag():

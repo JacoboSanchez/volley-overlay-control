@@ -17,12 +17,14 @@ export const mockGameState: GameState = {
   team_1: {
     sets: 1,
     timeouts: 1,
+    timeouts_by_set: { set_1: 0, set_2: 1 },
     serving: true,
     scores: { set_1: 25, set_2: 12 },
   },
   team_2: {
     sets: 0,
     timeouts: 0,
+    timeouts_by_set: { set_1: 0, set_2: 0 },
     serving: false,
     scores: { set_1: 20, set_2: 10 },
   },

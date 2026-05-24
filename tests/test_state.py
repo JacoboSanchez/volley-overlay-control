@@ -73,9 +73,104 @@ def test_get_and_set_timeout(state):
     """Tests the getter and setter for timeouts, including type conversion."""
     state.set_timeout(1, 2)
     assert state.get_timeout(1) == 2
-    assert state.get_current_model()[State.T1TIMEOUTS_INT] == '2' # Internal representation is string
+    # The flat legacy key carries the current-set value.
+    assert state.get_current_model()[State.T1TIMEOUTS_INT] == '2'
+    # The per-set key also carries it.
+    assert state.get_current_model()[State._t_timeouts_key(1, 1)] == '2'
     state.set_timeout(2, 0)
     assert state.get_timeout(2) == 0
+
+
+def test_timeouts_per_set(state):
+    """Per-set timeout getters/setters target the requested set, and
+    the default (no ``set_num`` arg) follows the current set."""
+    state.set_timeout(1, 2, set_num=1)
+    state.set_timeout(1, 1, set_num=2)
+    state.set_current_set(2)
+    # No arg → current set (2) value.
+    assert state.get_timeout(1) == 1
+    # Explicit set 1 is unchanged.
+    assert state.get_timeout(1, set_num=1) == 2
+    # Full history surfaces both sets.
+    history = state.get_timeouts_by_set(1)
+    assert history[1] == 2
+    assert history[2] == 1
+    assert history[3] == 0
+
+
+def test_state_loads_legacy_flat_timeout(state):
+    """A pre-refactor state file with only the flat ``Team N Timeouts``
+    key should land the legacy value in the current set's slot."""
+    legacy = {
+        State.CURRENT_SET_INT: 3,
+        State.T1TIMEOUTS_INT: '2',
+        State.T2TIMEOUTS_INT: '1',
+    }
+    loaded = State(new_state=legacy)
+    assert loaded.get_timeout(1, set_num=3) == 2
+    assert loaded.get_timeout(2, set_num=3) == 1
+    # Other sets are clean.
+    assert loaded.get_timeout(1, set_num=1) == 0
+    assert loaded.get_timeout(2, set_num=2) == 0
+
+
+def test_get_timeout_returns_zero_for_out_of_bounds_set(state):
+    """``get_timeout`` must not raise on an out-of-bounds ``set_num``:
+    that would crash the state-broadcast hot path if (e.g.) a manual
+    ``set_current_set`` ever lands ``current_set`` above 5. Returns 0
+    — meaningfully "no timeouts in a set that doesn't exist".
+    Bounds-checking remains the service layer's job."""
+    # Direct out-of-bounds via explicit ``set_num``.
+    assert state.get_timeout(1, set_num=6) == 0
+    assert state.get_timeout(2, set_num=0) == 0
+    # Same behaviour when current_set itself is out of bounds and we
+    # rely on the default.
+    state.set_current_set(99)
+    assert state.get_timeout(1) == 0
+    assert state.get_timeout(2) == 0
+    # Bad ``team`` still raises (consistent with other accessors).
+    with pytest.raises(KeyError):
+        state.get_timeout(3, set_num=1)
+
+
+def test_set_timeout_is_noop_for_out_of_bounds_set(state):
+    """``set_timeout`` mirrors ``get_timeout``: out-of-bounds
+    ``set_num`` is a silent no-op rather than a crash."""
+    state.set_timeout(1, 1, set_num=1)
+    state.set_timeout(1, 9, set_num=6)  # No-op, must not mutate slot 1.
+    state.set_timeout(1, 9, set_num=0)  # No-op.
+    assert state.get_timeout(1, set_num=1) == 1
+    with pytest.raises(KeyError):
+        state.set_timeout(3, 1, set_num=1)  # Bad team still raises.
+
+
+def test_to_dict_legacy_timeouts_zero_when_current_set_out_of_bounds(state):
+    """If ``current_set`` ever ends up out of bounds, the legacy
+    ``Team N Timeouts`` keys must surface 0 (via the
+    out-of-bounds-safe ``get_timeout``), not silently fall back to
+    set 1's count under the legacy banner."""
+    state.set_timeout(1, 2, set_num=1)
+    state.set_current_set(99)
+    model = state.get_current_model()
+    assert model[State.T1TIMEOUTS_INT] == '0'
+    # Per-set history is untouched.
+    assert model[State._t_timeouts_key(1, 1)] == '2'
+
+
+def test_state_round_trip_preserves_per_set_history(state):
+    """Serialize-then-deserialize must preserve the full per-set
+    timeout history (not just the current set)."""
+    state.set_timeout(1, 2, set_num=1)
+    state.set_timeout(2, 1, set_num=1)
+    state.set_timeout(1, 1, set_num=2)
+    state.set_current_set(2)
+    round_tripped = State(new_state=state.get_current_model())
+    assert round_tripped.get_timeouts_by_set(1) == {
+        1: 2, 2: 1, 3: 0, 4: 0, 5: 0,
+    }
+    assert round_tripped.get_timeouts_by_set(2) == {
+        1: 1, 2: 0, 3: 0, 4: 0, 5: 0,
+    }
 
 def test_get_and_set_sets(state):
     """Tests the getter and setter for sets, including type conversion."""

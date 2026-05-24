@@ -3,6 +3,7 @@ import * as api from '../api/client';
 import type { AppConfig } from '../api/client';
 
 const DEFAULT_TITLE = 'Volley Scoreboard';
+const DEFAULT_STALE_SET_THRESHOLD_MINUTES = 60;
 
 /**
  * Fetch runtime app configuration from the backend on mount and set
@@ -11,7 +12,10 @@ const DEFAULT_TITLE = 'Volley Scoreboard';
  * default while the request is in flight.
  */
 export function useAppConfig(): AppConfig {
-  const [config, setConfig] = useState<AppConfig>({ title: DEFAULT_TITLE });
+  const [config, setConfig] = useState<AppConfig>({
+    title: DEFAULT_TITLE,
+    stale_set_threshold_minutes: DEFAULT_STALE_SET_THRESHOLD_MINUTES,
+  });
 
   useEffect(() => {
     let cancelled = false;

@@ -38,7 +38,7 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 |---|---|
 | ![Mosaic preview grid showing every overlay style with full match data](docs/screenshots/06-overlay-mosaic-full.png) | ![Mosaic preview grid showing every overlay style in simple mode](docs/screenshots/07-overlay-mosaic-simple.png) |
 
-**Set-summary recap overlay** (opt-in) fades in over the scoreboard between sets to surface the just-played set's score, point-progression chart and key stats. Ships in six visual variants — the `brand_columns` example below pairs each team's brand-coloured column with a centre chart panel:
+**Set-summary recap overlay** (opt-in) fades in over the scoreboard between sets to surface the just-played set's score, point-progression chart and key stats. Ships in six visual variants — the `brand_columns` example below pairs each team's brand-coloured column with a centre chart panel. An optional "auto-show" mode triggers the recap automatically after each set, with a configurable pre-show delay so the broadcast camera can stay on the players' reaction first.
 
 <p align="center"><img src="docs/screenshots/10-overlay-set-summary.png" alt="Set-summary recap overlay (brand_columns variant) — Thunder Wolves 22 vs Solar Hawks 25 with point-progression chart and per-set stats" width="65%"></p>
 
@@ -193,6 +193,7 @@ Configure the application using the following environment variables:
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
+| `STALE_SET_THRESHOLD_MINUTES` | Minutes a single set may run before the control-UI "match looks abandoned" prompt fires on the next page load. `0` disables the prompt entirely (useful for long all-day tournaments). Negative values clamp to `0`; non-numeric values fall back to the default. | `60` |
 | `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
 | `ENABLE_MULTITHREAD` | If `true`, overlay API calls run in a thread pool. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |

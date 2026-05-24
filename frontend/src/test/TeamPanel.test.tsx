@@ -7,6 +7,7 @@ import { mockGameState } from './helpers';
 const baseTeamState: TeamState = {
   sets: 1,
   timeouts: 2,
+  timeouts_by_set: { set_1: 1, set_2: 2 },
   serving: true,
   scores: { set_1: 25, set_2: 15 },
 };

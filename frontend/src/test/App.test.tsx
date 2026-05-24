@@ -41,7 +41,10 @@ describe('App', () => {
       writable: true,
     });
     vi.mocked(api.getOverlays).mockResolvedValue([]);
-    vi.mocked(api.getAppConfig).mockResolvedValue({ title: 'Volley Scoreboard' });
+    vi.mocked(api.getAppConfig).mockResolvedValue({
+      title: 'Volley Scoreboard',
+      stale_set_threshold_minutes: 60,
+    });
     vi.mocked(api.initSession).mockResolvedValue({ success: true, state: mockGameState });
     vi.mocked(api.getCustomization).mockResolvedValue(mockCustomization);
     vi.mocked(api.getLinks).mockResolvedValue({ control: '', overlay: '', preview: '' });

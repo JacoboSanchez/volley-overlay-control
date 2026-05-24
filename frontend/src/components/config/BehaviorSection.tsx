@@ -11,6 +11,9 @@ export interface BehaviorSettings {
   haptics: boolean;
   keyboardShortcuts: boolean;
   setSummaryEnabled: boolean;
+  autoShowSetSummary: boolean;
+  autoShowSetSummaryDelay: number;
+  autoShowSetSummaryDuration: number;
 }
 
 export interface BehaviorSectionProps {
@@ -120,6 +123,37 @@ export default function BehaviorSection({
               <SetSummaryStylePicker value={setSummaryStyle} onChange={onChangeSetSummaryStyle} />
             </div>
           )}
+          <div style={{ paddingLeft: '1.5rem' }}>
+            <ConfigSwitch
+              label={t('behavior.autoShowSetSummary')}
+              checked={settings.autoShowSetSummary}
+              onChange={(v) => setSetting('autoShowSetSummary', v)}
+            />
+            {settings.autoShowSetSummary && (
+              <>
+                <ConfigRange
+                  label={t('behavior.autoShowSetSummary.delay', {
+                    value: settings.autoShowSetSummaryDelay,
+                  })}
+                  value={settings.autoShowSetSummaryDelay}
+                  min={0}
+                  max={30}
+                  step={1}
+                  onChange={(v) => setSetting('autoShowSetSummaryDelay', v)}
+                />
+                <ConfigRange
+                  label={t('behavior.autoShowSetSummary.duration', {
+                    value: settings.autoShowSetSummaryDuration,
+                  })}
+                  value={settings.autoShowSetSummaryDuration}
+                  min={5}
+                  max={60}
+                  step={1}
+                  onChange={(v) => setSetting('autoShowSetSummaryDuration', v)}
+                />
+              </>
+            )}
+          </div>
         </>
       )}
 

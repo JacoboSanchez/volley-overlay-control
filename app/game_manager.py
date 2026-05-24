@@ -134,9 +134,10 @@ class GameManager:
                   self.main_state.set_sets(team, current_sets - 1)
         else:
             self.main_state.set_sets(team, current_sets + 1)
-            # Reset timeouts and serve for the new set
-            self.main_state.set_timeout(1, 0)
-            self.main_state.set_timeout(2, 0)
+            # Reset serve for the new set. Timeouts are tracked per-set
+            # in ``team*_timeouts_by_set`` so the new set's counter is
+            # already 0 — explicit zeroing here would clobber the prior
+            # set's history (the bug this refactor fixes).
             self.change_serve(0)
 
 

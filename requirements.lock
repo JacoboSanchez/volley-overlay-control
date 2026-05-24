@@ -40,17 +40,15 @@ python-dotenv==1.2.2
     #   uvicorn
 pyyaml==6.0.3
     # via uvicorn
-requests==2.33.1
+requests==2.34.2
     # via -r requirements.txt
-starlette==1.0.0
+starlette==1.0.1
     # via fastapi
 typing-extensions==4.15.0
     # via
-    #   anyio
     #   fastapi
     #   pydantic
     #   pydantic-core
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.2
     # via
@@ -60,7 +58,7 @@ urllib3==2.7.0
     # via
     #   -r requirements.txt
     #   requests
-uvicorn==0.46.0
+uvicorn==0.47.0
     # via -r requirements.txt
 uvloop==0.22.1
     # via uvicorn

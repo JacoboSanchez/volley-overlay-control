@@ -595,11 +595,11 @@ def _logo_url(customization: dict, team: int) -> str | None:
 def _timeouts_per_set(audit: list[dict]) -> dict[int, dict[int, int]]:
     """Count ``add_timeout`` actions per (set, team) from the audit log.
 
-    Per-team timeout counters reset to zero on every set transition
-    (see :meth:`GameManager.add_set`), so timeouts are intrinsically
-    per-set and the audit log carries enough to rebuild that table
-    even though the snapshot's ``team_X.timeouts`` only reflects the
-    final set. Returns ``{set_num: {team: count}}``; callers consult
+    The live snapshot's ``team_X.timeouts`` is the current set's count,
+    so reconstructing the full per-set table for the printed report
+    requires walking the audit log (each ``add_timeout`` record
+    carries the set it landed in via ``result.current_set``). Returns
+    ``{set_num: {team: count}}``; callers consult
     ``.get(set, {}).get(team, 0)`` for safe lookup.
     """
     out: dict[int, dict[int, int]] = {}

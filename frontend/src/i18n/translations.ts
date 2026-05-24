@@ -232,6 +232,9 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.showPreview': 'Show overlay preview',
     'behavior.keyboardShortcuts': 'Keyboard shortcuts',
     'behavior.showShortcuts': 'Show shortcuts (?)',
+    'behavior.autoShowSetSummary': 'Auto-show recap on set end',
+    'behavior.autoShowSetSummary.delay': 'Wait {value}s after the final point',
+    'behavior.autoShowSetSummary.duration': 'Hide recap after {value}s',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Keyboard shortcuts',
@@ -512,6 +515,9 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.showPreview': 'Mostrar vista previa del overlay',
     'behavior.keyboardShortcuts': 'Atajos de teclado',
     'behavior.showShortcuts': 'Ver atajos (?)',
+    'behavior.autoShowSetSummary': 'Mostrar resumen automáticamente al terminar el set',
+    'behavior.autoShowSetSummary.delay': 'Esperar {value}s tras el punto final',
+    'behavior.autoShowSetSummary.duration': 'Ocultar resumen después de {value}s',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Atajos de teclado',
@@ -791,6 +797,9 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.showPreview': 'Mostrar pré-visualização do overlay',
     'behavior.keyboardShortcuts': 'Atalhos de teclado',
     'behavior.showShortcuts': 'Ver atalhos (?)',
+    'behavior.autoShowSetSummary': 'Mostrar recapitulação automaticamente ao terminar o set',
+    'behavior.autoShowSetSummary.delay': 'Aguardar {value}s após o ponto final',
+    'behavior.autoShowSetSummary.duration': 'Ocultar recapitulação após {value}s',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Atalhos de teclado',
@@ -1070,6 +1079,9 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.showPreview': 'Mostra anteprima overlay',
     'behavior.keyboardShortcuts': 'Scorciatoie da tastiera',
     'behavior.showShortcuts': 'Mostra scorciatoie (?)',
+    'behavior.autoShowSetSummary': 'Mostra il riepilogo automaticamente alla fine del set',
+    'behavior.autoShowSetSummary.delay': 'Attendi {value}s dopo il punto finale',
+    'behavior.autoShowSetSummary.duration': 'Nascondi il riepilogo dopo {value}s',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Scorciatoie da tastiera',
@@ -1350,6 +1362,9 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.showPreview': 'Afficher l’aperçu de l’overlay',
     'behavior.keyboardShortcuts': 'Raccourcis clavier',
     'behavior.showShortcuts': 'Voir les raccourcis (?)',
+    'behavior.autoShowSetSummary': 'Afficher le récapitulatif automatiquement en fin de set',
+    'behavior.autoShowSetSummary.delay': 'Attendre {value}s après le point final',
+    'behavior.autoShowSetSummary.duration': 'Masquer le récapitulatif après {value}s',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Raccourcis clavier',
@@ -1630,6 +1645,9 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.showPreview': 'Overlay-Vorschau anzeigen',
     'behavior.keyboardShortcuts': 'Tastenkürzel',
     'behavior.showShortcuts': 'Tastenkürzel anzeigen (?)',
+    'behavior.autoShowSetSummary': 'Recap am Satzende automatisch einblenden',
+    'behavior.autoShowSetSummary.delay': '{value}s nach dem letzten Punkt warten',
+    'behavior.autoShowSetSummary.duration': 'Recap nach {value}s ausblenden',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Tastenkürzel',
