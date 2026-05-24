@@ -114,6 +114,49 @@ def test_state_loads_legacy_flat_timeout(state):
     assert loaded.get_timeout(2, set_num=2) == 0
 
 
+def test_get_timeout_returns_zero_for_out_of_bounds_set(state):
+    """``get_timeout`` must not raise on an out-of-bounds ``set_num``:
+    that would crash the state-broadcast hot path if (e.g.) a manual
+    ``set_current_set`` ever lands ``current_set`` above 5. Returns 0
+    — meaningfully "no timeouts in a set that doesn't exist".
+    Bounds-checking remains the service layer's job."""
+    # Direct out-of-bounds via explicit ``set_num``.
+    assert state.get_timeout(1, set_num=6) == 0
+    assert state.get_timeout(2, set_num=0) == 0
+    # Same behaviour when current_set itself is out of bounds and we
+    # rely on the default.
+    state.set_current_set(99)
+    assert state.get_timeout(1) == 0
+    assert state.get_timeout(2) == 0
+    # Bad ``team`` still raises (consistent with other accessors).
+    with pytest.raises(KeyError):
+        state.get_timeout(3, set_num=1)
+
+
+def test_set_timeout_is_noop_for_out_of_bounds_set(state):
+    """``set_timeout`` mirrors ``get_timeout``: out-of-bounds
+    ``set_num`` is a silent no-op rather than a crash."""
+    state.set_timeout(1, 1, set_num=1)
+    state.set_timeout(1, 9, set_num=6)  # No-op, must not mutate slot 1.
+    state.set_timeout(1, 9, set_num=0)  # No-op.
+    assert state.get_timeout(1, set_num=1) == 1
+    with pytest.raises(KeyError):
+        state.set_timeout(3, 1, set_num=1)  # Bad team still raises.
+
+
+def test_to_dict_legacy_timeouts_zero_when_current_set_out_of_bounds(state):
+    """If ``current_set`` ever ends up out of bounds, the legacy
+    ``Team N Timeouts`` keys must surface 0 (via the
+    out-of-bounds-safe ``get_timeout``), not silently fall back to
+    set 1's count under the legacy banner."""
+    state.set_timeout(1, 2, set_num=1)
+    state.set_current_set(99)
+    model = state.get_current_model()
+    assert model[State.T1TIMEOUTS_INT] == '0'
+    # Per-set history is untouched.
+    assert model[State._t_timeouts_key(1, 1)] == '2'
+
+
 def test_state_round_trip_preserves_per_set_history(state):
     """Serialize-then-deserialize must preserve the full per-set
     timeout history (not just the current set)."""

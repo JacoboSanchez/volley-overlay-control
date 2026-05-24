@@ -160,14 +160,18 @@ class State:
         per-set history.
         """
         s = self._state
-        current_set = s.current_set if 1 <= s.current_set <= 5 else 1
         d = {
             'Serve': s.serve.value,
             'Current Set': str(s.current_set),
             'Team 1 Sets': str(s.team1_sets),
             'Team 2 Sets': str(s.team2_sets),
-            'Team 1 Timeouts': str(s.team1_timeouts_by_set[current_set]),
-            'Team 2 Timeouts': str(s.team2_timeouts_by_set[current_set]),
+            # Route through ``get_timeout`` so out-of-bounds
+            # ``current_set`` (defensive — shouldn't happen via the
+            # normal session flow, but a stray manual ``set_current_set``
+            # could) yields 0 instead of indexing into the array with
+            # an arbitrary fallback set.
+            'Team 1 Timeouts': str(self.get_timeout(1)),
+            'Team 2 Timeouts': str(self.get_timeout(2)),
         }
         for i in range(1, 6):
             d[f'Team 1 Game {i} Score'] = str(s.team1_scores[i])
@@ -223,14 +227,21 @@ class State:
         """Return the timeouts taken by *team* in *set_num*.
 
         ``set_num`` defaults to the current set when omitted, preserving
-        the historical ``get_timeout(team)`` call shape.
+        the historical ``get_timeout(team)`` call shape. An invalid
+        ``team`` raises ``KeyError`` (consistent with the other team-
+        keyed accessors). An out-of-bounds ``set_num`` returns ``0``:
+        the per-set timeout count for a set that doesn't exist (e.g.
+        a manual edit landing the current set above ``sets_limit``)
+        is meaningfully zero, and a hard raise here would crash the
+        state-broadcast hot path on what should be a service-layer
+        guard.
         """
         if team not in (1, 2):
             raise KeyError(f'Team {team} Timeouts')
         if set_num is None:
             set_num = self._state.current_set
         if not (1 <= set_num <= 5):
-            raise KeyError(f'Team {team} Set {set_num} Timeouts')
+            return 0
         slots = (
             self._state.team1_timeouts_by_set if team == 1
             else self._state.team2_timeouts_by_set
@@ -239,13 +250,19 @@ class State:
 
     def set_timeout(self, team, value, set_num=None):
         """Set the timeout count for *team* in *set_num* (defaults to
-        the current set)."""
+        the current set).
+
+        An invalid ``team`` raises ``KeyError`` (consistent with the
+        other team-keyed setters). An out-of-bounds ``set_num`` is a
+        no-op for the same reason ``get_timeout`` returns ``0`` —
+        bounds belong in the service layer, not the data accessors.
+        """
         if team not in (1, 2):
             raise KeyError(f'Team {team} Timeouts')
         if set_num is None:
             set_num = self._state.current_set
         if not (1 <= set_num <= 5):
-            raise KeyError(f'Team {team} Set {set_num} Timeouts')
+            return
         slots = (
             self._state.team1_timeouts_by_set if team == 1
             else self._state.team2_timeouts_by_set
