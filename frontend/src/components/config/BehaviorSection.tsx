@@ -14,7 +14,6 @@ export interface BehaviorSettings {
   autoShowSetSummary: boolean;
   autoShowSetSummaryDelay: number;
   autoShowSetSummaryDuration: number;
-  staleSetThresholdMinutes: number;
 }
 
 export interface BehaviorSectionProps {
@@ -157,20 +156,6 @@ export default function BehaviorSection({
           </div>
         </>
       )}
-
-      <div className="config-separator" />
-      <ConfigRange
-        label={
-          settings.staleSetThresholdMinutes <= 0
-            ? t('behavior.staleSetThreshold.off')
-            : t('behavior.staleSetThreshold', { value: settings.staleSetThresholdMinutes })
-        }
-        value={settings.staleSetThresholdMinutes}
-        min={0}
-        max={240}
-        step={5}
-        onChange={(v) => setSetting('staleSetThresholdMinutes', v)}
-      />
 
       <div className="config-separator" />
       <div className="config-field-row">

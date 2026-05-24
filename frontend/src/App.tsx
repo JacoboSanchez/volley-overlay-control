@@ -150,9 +150,10 @@ export default function App() {
     if (stalePromptFiredRef.current) return;
     if (!state) return;
     if (state.match_finished) return;
-    const thresholdSec = settings.staleSetThresholdMinutes * 60;
-    // 0 disables the prompt entirely — operators running long all-day
-    // tournaments or short rec matches turn it off here.
+    // Threshold is configured server-side via the
+    // ``STALE_SET_THRESHOLD_MINUTES`` env var and arrives on the
+    // ``/api/v1/app-config`` response. ``0`` disables the prompt.
+    const thresholdSec = (appConfig.stale_set_threshold_minutes ?? 60) * 60;
     if (thresholdSec <= 0) return;
     const startedAt = state.current_set_started_at;
     if (typeof startedAt !== 'number' || startedAt <= 0) return;
@@ -170,7 +171,7 @@ export default function App() {
       stalePromptFiredRef.current = true;
       setStalePromptOpen(true);
     }
-  }, [state, settings.staleSetThresholdMinutes]);
+  }, [state, appConfig.stale_set_threshold_minutes]);
   // Auto-trigger the set-summary recap on each set transition (operator
   // opt-in via the Behavior section). The recap waits ``delaySec`` so
   // the broadcast camera has time to linger on the players' reaction

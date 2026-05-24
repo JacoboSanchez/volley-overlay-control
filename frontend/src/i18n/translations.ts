@@ -235,8 +235,6 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.autoShowSetSummary': 'Auto-show recap on set end',
     'behavior.autoShowSetSummary.delay': 'Wait {value}s after the final point',
     'behavior.autoShowSetSummary.duration': 'Hide recap after {value}s',
-    'behavior.staleSetThreshold': 'Abandoned-match prompt after {value} min',
-    'behavior.staleSetThreshold.off': 'Abandoned-match prompt: off',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Keyboard shortcuts',
@@ -520,8 +518,6 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.autoShowSetSummary': 'Mostrar resumen automáticamente al terminar el set',
     'behavior.autoShowSetSummary.delay': 'Esperar {value}s tras el punto final',
     'behavior.autoShowSetSummary.duration': 'Ocultar resumen después de {value}s',
-    'behavior.staleSetThreshold': 'Aviso de partido olvidado tras {value} min',
-    'behavior.staleSetThreshold.off': 'Aviso de partido olvidado: desactivado',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Atajos de teclado',
@@ -804,8 +800,6 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.autoShowSetSummary': 'Mostrar recapitulação automaticamente ao terminar o set',
     'behavior.autoShowSetSummary.delay': 'Aguardar {value}s após o ponto final',
     'behavior.autoShowSetSummary.duration': 'Ocultar recapitulação após {value}s',
-    'behavior.staleSetThreshold': 'Aviso de partida abandonada após {value} min',
-    'behavior.staleSetThreshold.off': 'Aviso de partida abandonada: desativado',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Atalhos de teclado',
@@ -1088,8 +1082,6 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.autoShowSetSummary': 'Mostra il riepilogo automaticamente alla fine del set',
     'behavior.autoShowSetSummary.delay': 'Attendi {value}s dopo il punto finale',
     'behavior.autoShowSetSummary.duration': 'Nascondi il riepilogo dopo {value}s',
-    'behavior.staleSetThreshold': 'Avviso di partita abbandonata dopo {value} min',
-    'behavior.staleSetThreshold.off': 'Avviso di partita abbandonata: disattivato',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Scorciatoie da tastiera',
@@ -1373,8 +1365,6 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.autoShowSetSummary': 'Afficher le récapitulatif automatiquement en fin de set',
     'behavior.autoShowSetSummary.delay': 'Attendre {value}s après le point final',
     'behavior.autoShowSetSummary.duration': 'Masquer le récapitulatif après {value}s',
-    'behavior.staleSetThreshold': 'Alerte match abandonné après {value} min',
-    'behavior.staleSetThreshold.off': 'Alerte match abandonné : désactivée',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Raccourcis clavier',
@@ -1658,8 +1648,6 @@ export const translations: Record<string, TranslationDict> = {
     'behavior.autoShowSetSummary': 'Recap am Satzende automatisch einblenden',
     'behavior.autoShowSetSummary.delay': '{value}s nach dem letzten Punkt warten',
     'behavior.autoShowSetSummary.duration': 'Recap nach {value}s ausblenden',
-    'behavior.staleSetThreshold': 'Hinweis "Spiel vergessen" nach {value} min',
-    'behavior.staleSetThreshold.off': 'Hinweis "Spiel vergessen": aus',
 
     // Keyboard shortcuts help modal
     'shortcuts.title': 'Tastenkürzel',

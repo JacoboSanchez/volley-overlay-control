@@ -1238,6 +1238,11 @@ export interface components {
         AppConfigResponse: {
             /** Title */
             title: string;
+            /**
+             * Stale Set Threshold Minutes
+             * @default 60
+             */
+            stale_set_threshold_minutes: number;
         };
         /**
          * BeachSideSwitch

@@ -257,3 +257,7 @@ class ActionResponse(BaseModel):
 
 class AppConfigResponse(BaseModel):
     title: str
+    # Minutes a single set may be live before the control-UI abandoned-
+    # match prompt fires (0 disables). Sourced from the
+    # ``STALE_SET_THRESHOLD_MINUTES`` env var; defaults to 60.
+    stale_set_threshold_minutes: int = 60

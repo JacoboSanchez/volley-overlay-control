@@ -87,12 +87,6 @@ export interface Settings {
    * the next set yields back to the live scoreboard immediately).
    */
   autoShowSetSummaryDuration: number;
-  /**
-   * Minutes a single set may be live before the abandoned-match
-   * prompt fires on the next page load. ``0`` disables the prompt
-   * entirely.
-   */
-  staleSetThresholdMinutes: number;
 }
 
 const DEFAULTS: Settings = {
@@ -117,7 +111,6 @@ const DEFAULTS: Settings = {
   autoShowSetSummary: false,
   autoShowSetSummaryDelay: 5,
   autoShowSetSummaryDuration: 15,
-  staleSetThresholdMinutes: 60,
 };
 
 /**

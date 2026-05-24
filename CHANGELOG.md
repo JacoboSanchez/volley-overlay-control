@@ -24,10 +24,13 @@ once a first tagged release ships.
   final recap on their own.
 - **Configurable abandoned-match prompt threshold.** The 1-hour
   stale-set detection that surfaces the "match looks abandoned" dialog
-  on control-UI load is now operator-tunable from the Behavior section
-  (range 0–240 minutes, step 5). Setting the value to 0 disables the
-  prompt entirely — long all-day tournaments can opt out without
-  losing the dialog for shorter recreational matches.
+  on control-UI load is now configurable via the
+  ``STALE_SET_THRESHOLD_MINUTES`` environment variable (default
+  ``60``). Set it to ``0`` to disable the prompt entirely — long
+  all-day tournaments can opt out without losing the dialog for
+  shorter recreational matches. The frontend reads the value from
+  ``GET /api/v1/app-config`` on boot, so changing the env var only
+  needs a container restart (no client refresh required after that).
 
 ### Fixed
 

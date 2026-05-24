@@ -217,7 +217,7 @@ The entire match lives in a flat dictionary with these keys:
 
 Config is loaded by `app/conf.py` -> `Conf` class from environment variables (`.env` or Docker compose).
 
-Key variables: `UNO_OVERLAY_OID`, `APP_PORT`, `MATCH_GAME_POINTS`, `MATCH_SETS`, `SCOREBOARD_USERS`, `APP_CUSTOM_OVERLAY_URL`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`, `OVERLAY_MANAGER_PASSWORD` (enables the `/manage` admin page).
+Key variables: `UNO_OVERLAY_OID`, `APP_PORT`, `MATCH_GAME_POINTS`, `MATCH_SETS`, `STALE_SET_THRESHOLD_MINUTES` (minutes a single set may run before the control-UI abandoned-match prompt fires; `0` disables), `SCOREBOARD_USERS`, `APP_CUSTOM_OVERLAY_URL`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`, `OVERLAY_MANAGER_PASSWORD` (enables the `/manage` admin page).
 
 Full list in [README.md](README.md).
 

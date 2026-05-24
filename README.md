@@ -193,6 +193,7 @@ Configure the application using the following environment variables:
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
+| `STALE_SET_THRESHOLD_MINUTES` | Minutes a single set may run before the control-UI "match looks abandoned" prompt fires on the next page load. `0` disables the prompt entirely (useful for long all-day tournaments). Negative values clamp to `0`; non-numeric values fall back to the default. | `60` |
 | `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
 | `ENABLE_MULTITHREAD` | If `true`, overlay API calls run in a thread pool. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
