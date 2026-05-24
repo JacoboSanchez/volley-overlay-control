@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.4.4] - 2026-05-24
+
 ### Added
 
 - **Auto-trigger set-summary recap on set end.** New operator opt-in in
@@ -48,6 +50,16 @@ once a first tagged release ships.
   Legacy state files using only the flat ``Team N Timeouts`` key load
   transparently: the legacy value lands in the current set's slot, and
   the next save writes the new per-set keys alongside.
+
+### Dependencies
+
+- Bump ``starlette`` from ``1.0.0`` to ``1.0.1`` to clear
+  ``PYSEC-2026-161``. The runtime ``requirements.lock`` was also
+  re-synced with the ``requirements.txt`` drift left over from
+  v5.4.3 — ``uvicorn`` ``0.46.0`` → ``0.47.0`` and ``requests``
+  ``2.33.1`` → ``2.34.2`` (both already advertised in the v5.4.3
+  changelog as ``requirements.txt`` floor bumps; only the lockfile
+  pins were stale).
 
 ## [5.4.3] - 2026-05-21
 
