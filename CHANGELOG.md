@@ -8,6 +8,39 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Type errors surfaced by the wider `mypy` scope (below).** Bringing the
+  whole package under the type checker exposed two genuine gaps that the
+  old allowlist hid: a return-type widening in ``app/api/match_archive.py``
+  (the heterogeneous payload dict widened the inferred return type — the
+  ``match_id`` is now a typed local) and three numeric-vs-``None`` typing
+  gaps in ``app/match_report.py`` (the streak/rally accumulator dicts and
+  ``effective_duration`` now carry explicit annotations). No runtime
+  behaviour changes.
+
+### Changed
+
+- **`mypy` now type-checks the whole `app` package + `main.py`.** Coverage
+  was previously maintained as an explicit module-by-module allowlist;
+  with the backend fully clean it is checked wholesale so new modules can
+  no longer escape the gate silently. The conditional ``prometheus_client``
+  import shim in ``app/metrics.py`` now carries explicit
+  ``# type: ignore[…, unused-ignore]`` codes so it passes whether or not
+  ``prometheus_client`` (and its real type stubs) is installed — CI has it,
+  the pre-commit hook env does not.
+- **Pinned `ruff` and `mypy` in CI to match the pre-commit hooks.** CI
+  previously installed the floating "latest" of each while
+  ``.pre-commit-config.yaml`` pinned much older versions, so local
+  pre-commit and CI could disagree (the root cause of the type-check
+  drift above). Both now run `ruff==0.15.8` / `mypy==1.19.1`; bumping
+  them is a deliberate change that should land in its own PR.
+
+### Documentation
+
+- Corrected stale paths in ``AGENTS.md``: ``app/overlay_backends`` and
+  ``app/api/routes`` are packages (directories), not single modules.
+
 ## [5.4.4] - 2026-05-24
 
 ### Added

@@ -34,7 +34,12 @@ jobs:
         python -m pip install --upgrade pip uv
         # Install pinned runtime + dev dependencies from lockfiles for reproducible builds.
         uv pip install --system -r requirements.lock -r requirements-dev.lock
-        uv pip install --system ruff mypy
+        # Pin ruff and mypy to the same versions as .pre-commit-config.yaml so
+        # local pre-commit and CI run identical checks. Floating to "latest"
+        # previously let a newer mypy surface errors that a stale pinned
+        # pre-commit hook never saw. Bumping these is a deliberate change that
+        # should land in its own PR with the new findings reviewed.
+        uv pip install --system ruff==0.15.8 mypy==1.19.1
 
     - name: Lint with ruff
       run: ruff check .
