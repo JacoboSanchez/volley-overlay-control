@@ -8,6 +8,36 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Type-check gate is green again.** Resolved seven `mypy` errors that
+  the CI type-check step (which installs the latest `mypy`) reported but
+  the stale pinned pre-commit hook never saw: three redundant
+  `# type: ignore` comments in ``app/metrics.py``, a return-type mismatch
+  in ``app/api/match_archive.py`` (the heterogeneous payload dict widened
+  the inferred return type — the ``match_id`` is now a typed local), and
+  three numeric-vs-``None`` typing gaps in ``app/match_report.py``
+  (the streak/rally accumulator dicts and ``effective_duration`` now
+  carry explicit annotations). No runtime behaviour changes.
+
+### Changed
+
+- **`mypy` now type-checks the whole `app` package + `main.py`.** Coverage
+  was previously maintained as an explicit module-by-module allowlist;
+  with the backend fully clean it is checked wholesale so new modules can
+  no longer escape the gate silently.
+- **Pinned `ruff` and `mypy` in CI to match the pre-commit hooks.** CI
+  previously installed the floating "latest" of each while
+  ``.pre-commit-config.yaml`` pinned much older versions, so local
+  pre-commit and CI could disagree (the root cause of the type-check
+  drift above). Both now run `ruff==0.15.8` / `mypy==1.19.1`; bumping
+  them is a deliberate change that should land in its own PR.
+
+### Documentation
+
+- Corrected stale paths in ``AGENTS.md``: ``app/overlay_backends`` and
+  ``app/api/routes`` are packages (directories), not single modules.
+
 ## [5.4.4] - 2026-05-24
 
 ### Added

@@ -52,7 +52,7 @@ volley-overlay-control/
 │   ├── state.py               # Data model — match state dictionary
 │   ├── game_manager.py        # Business logic — volleyball rules & score mutations
 │   ├── backend.py             # Coordinator — delegates to overlay backend strategies
-│   ├── overlay_backends.py    # Strategy: UnoOverlayBackend, LocalOverlayBackend, CustomOverlayBackend
+│   ├── overlay_backends/      # Strategy pkg: uno.py (UnoOverlayBackend), local.py (LocalOverlayBackend), custom.py (CustomOverlayBackend), utils.py (resolve_overlay_kind)
 │   ├── ws_client.py           # Persistent WebSocket client for external overlay servers (optional)
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
@@ -127,11 +127,11 @@ volley-overlay-control/
 | Model | `State` | `app/state.py` | Single source of truth; match state dict |
 | Controller | `GameManager` | `app/game_manager.py` | Enforces volleyball rules; mutates State |
 | Service | `GameService` | `app/api/game_service.py` | Single entry point for all game actions |
-| API | `api_router` | `app/api/routes.py` | REST + WebSocket endpoints for frontends |
+| API | `api_router` | `app/api/routes/` | REST + WebSocket endpoints for frontends (domain-split package; exported via `app/api/__init__.py`) |
 | Session | `SessionManager` | `app/api/session_manager.py` | Thread-safe game session management by OID |
 | WS Hub | `WSHub` | `app/api/ws_hub.py` | WebSocket notification hub for real-time state push |
 | Sync | `Backend` | `app/backend.py` | Coordinator — delegates to overlay backend strategies |
-| Overlay | `LocalOverlayBackend` | `app/overlay_backends.py` | In-process overlay state management (default for custom overlays) |
+| Overlay | `LocalOverlayBackend` | `app/overlay_backends/local.py` | In-process overlay state management (default for custom overlays) |
 | Overlay | `OverlayStateStore` | `app/overlay/state_store.py` | In-memory + JSON persistence for overlay state |
 | Overlay | `ObsBroadcastHub` | `app/overlay/broadcast.py` | Debounced WebSocket broadcasts to OBS browser sources |
 | Admin | `admin_router`, `admin_page_router` | `app/admin/routes.py` | `/manage` page + `/api/v1/admin/custom-overlays` CRUD for custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`) |
@@ -281,7 +281,7 @@ cd frontend && npm test
 Always use `State` accessor methods; never read/write `state.current_model` directly.
 
 ### Adding a new API endpoint
-1. Add the route in `app/api/routes.py`.
+1. Add the route to the matching domain module under `app/api/routes/` (e.g. `game.py`, `session.py`, `customization.py`).
 2. Add schemas in `app/api/schemas.py`.
 3. Add business logic in `app/api/game_service.py`.
 

@@ -38,7 +38,7 @@ import html
 import logging
 import re
 import time
-from typing import overload
+from typing import Any, overload
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
@@ -637,7 +637,7 @@ def _compute_stats(audit: list[dict]) -> dict:
     Storing both per team lets the renderer detect a tie when both
     sides happen to share the same maximum.
     """
-    longest_streak = {"team": None, "n": 0, "set": None}
+    longest_streak: dict[str, Any] = {"team": None, "n": 0, "set": None}
     # Per-team peak deficit erased by the eventual set winner.
     set_win_comeback: dict[int, dict] = {
         1: {"deficit": 0, "set": None},
@@ -648,7 +648,7 @@ def _compute_stats(audit: list[dict]) -> dict:
         1: {"deficit": 0, "set": None},
         2: {"deficit": 0, "set": None},
     }
-    longest_rally = {"duration_s": 0.0, "set": None}
+    longest_rally: dict[str, Any] = {"duration_s": 0.0, "set": None}
     total_points = 0
 
     by_set: dict[int, list[dict]] = {}
@@ -1537,6 +1537,7 @@ async def match_report(
     else:
         effective_started_at = first_scoring_ts
     ended_at = payload.get("ended_at")
+    effective_duration: float | None
     if (
         effective_started_at is not None
         and isinstance(ended_at, (int, float))

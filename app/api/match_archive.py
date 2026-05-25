@@ -222,8 +222,9 @@ def archive_match(
     ts = _ts_for_now()
     path = _path_for(oid, ts)
     ended_at = datetime.datetime.now(datetime.UTC).timestamp()
+    match_id = os.path.basename(path)[: -len(".json")]
     payload = {
-        "match_id": os.path.basename(path)[:-len(".json")],
+        "match_id": match_id,
         "oid": oid,
         "started_at": started_at,
         "ended_at": ended_at,
@@ -246,7 +247,7 @@ def archive_match(
         logger.warning("Failed to archive match for %r: %s", oid, exc)
         return None
     _index_append(_summary_from_payload(payload))
-    return payload["match_id"]
+    return match_id
 
 
 def list_matches(oid: str | None = None) -> list[dict]:

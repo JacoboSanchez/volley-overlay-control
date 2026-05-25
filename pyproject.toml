@@ -94,43 +94,12 @@ extend-immutable-calls = [
 "app/overlay/routes.py" = ["C901"]
 
 [tool.mypy]
-# Core API + routes + middleware are now clean; keep the list explicit so we
-# stay in control of what gets type-checked and expand module-by-module.
+# The entire backend package is type-checked. Coverage was previously
+# expanded module-by-module; now that the whole package is clean, checking
+# ``app`` wholesale keeps new modules from silently escaping the gate.
 files = [
-    "app/api/session_manager.py",
-    "app/api/game_service.py",
-    "app/api/game_broadcast.py",
-    "app/api/game_audit_hooks.py",
-    "app/api/game_rapid_pair.py",
-    "app/api/schemas.py",
-    "app/api/ws_hub.py",
-    "app/api/webhooks.py",
-    "app/api/action_log.py",
-    "app/api/routes",
-    "app/api/middleware",
-    "app/id_validation.py",
-    "app/customization_cache_ttl.py",
-    "app/state.py",
-    "app/game_manager.py",
-    "app/customization.py",
-    "app/customization_cache.py",
-    "app/backend.py",
-    "app/conf.py",
-    "app/oid_utils.py",
-    "app/env_vars_manager.py",
-    "app/app_storage.py",
-    "app/logging_config.py",
-    "app/logging_context.py",
-    "app/logging_utils.py",
-    "app/match_report_i18n.py",
-    "app/match_report_signing.py",
-    "app/match_report_template.py",
-    "app/password_hash.py",
-    "app/auth_utils.py",
-    "app/security_bootstrap.py",
-    "app/overlay/state_store.py",
-    "app/overlay/routes.py",
-    "app/overlay_backends",
+    "app",
+    "main.py",
 ]
 python_version = "3.11"
 follow_imports = "silent"
