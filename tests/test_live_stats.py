@@ -232,3 +232,45 @@ class TestAuditCount:
         # action_log.read_all already strips undo pairs at the tombstone
         # layer, so audit_count reflects the *visible* records.
         assert stats["audit_count"] >= 0
+
+
+class TestMemoization:
+    """``compute_live_stats`` is memoized against ``action_log.version``."""
+
+    def test_repeated_calls_hit_cache(self):
+        oid = "memo-hit"
+        _add_point(oid, 1, (1, 0))
+        first = compute_live_stats(oid)
+        second = compute_live_stats(oid)
+        # Same version → identical cached object, no recompute.
+        assert first is second
+
+    def test_append_invalidates_cache(self):
+        oid = "memo-append"
+        _add_point(oid, 1, (1, 0))
+        first = compute_live_stats(oid)
+        _add_point(oid, 1, (2, 0))
+        second = compute_live_stats(oid)
+        assert first is not second
+        assert second["total_points"] == 2
+
+    def test_clear_invalidates_cache(self):
+        oid = "memo-clear"
+        _add_point(oid, 1, (1, 0))
+        assert compute_live_stats(oid)["total_points"] == 1
+        action_log.clear(oid)
+        after = compute_live_stats(oid)
+        assert after["total_points"] == 0
+        assert after["audit_count"] == 0
+
+    def test_distinct_history_limits_cached_separately(self):
+        oid = "memo-limit"
+        for i in range(1, 6):
+            _add_point(oid, 1, (i, 0))
+        full = compute_live_stats(oid, history_limit=30)
+        capped = compute_live_stats(oid, history_limit=2)
+        # Different tail lengths are distinct cache entries (not aliased).
+        assert len(full["points_history"]) == 5
+        assert len(capped["points_history"]) == 2
+        # The originally-cached payload is unaffected by the second call.
+        assert len(compute_live_stats(oid, history_limit=30)["points_history"]) == 5

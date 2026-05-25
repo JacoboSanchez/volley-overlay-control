@@ -87,11 +87,22 @@ def isolate_session_meta(tmp_path_factory, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def isolate_action_log(tmp_path_factory, monkeypatch):
-    """Redirect the per-OID audit log to a per-test temp dir."""
-    from app.api import action_log
+    """Redirect the per-OID audit log to a per-test temp dir.
+
+    Also resets ``action_log``'s in-memory per-OID state (the monotonic
+    timestamp tracker and the mutation-version counter) and drops the
+    ``live_stats`` memoization cache. These live at module scope and are
+    deliberately not persisted, so without an explicit reset a fresh test
+    reusing an OID would inherit the previous test's version counter and
+    could be served a stale cached stats payload for a now-empty log.
+    """
+    from app.api import action_log, live_stats
 
     seed_dir = tmp_path_factory.mktemp("action_log")
     monkeypatch.setattr(action_log, "_data_dir", lambda: str(seed_dir))
+    action_log._version_per_oid.clear()
+    action_log._last_ts_per_oid.clear()
+    live_stats.clear_cache()
 
 
 @pytest.fixture(autouse=True)

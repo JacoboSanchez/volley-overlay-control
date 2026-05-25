@@ -111,11 +111,14 @@ class GameService:
             points_limit_last_set=session.points_limit_last_set,
             match_finished=match_finished,
         ))
-        # Read+aggregate the audit log once. Both
-        # ``_current_set_started_at`` and ``_resolve_summary_set`` need
-        # ``points_by_set``; calling ``compute_live_stats`` twice per
-        # ``get_state`` is wasted I/O on a path that fires on every
-        # action and broadcast. ``None`` here is safe — the helpers
+        # Both ``_current_set_started_at`` and ``_resolve_summary_set``
+        # need ``points_by_set``, so derive it once and pass it down
+        # rather than letting each helper re-fetch. ``compute_live_stats``
+        # is memoized against the audit-log version, so on this hot path
+        # (fires on every action and broadcast) the call is a cache hit
+        # whenever the log is unchanged, and the one real computation per
+        # audit mutation is shared with the overlay push, which needs the
+        # full stats payload anyway. ``None`` here is safe — the helpers
         # treat it as "no stats available" and fall back to defaults.
         points_by_set_cache: dict | None
         try:
