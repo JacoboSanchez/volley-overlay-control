@@ -53,7 +53,7 @@ except ImportError:  # pragma: no cover — handled at runtime
     )
     PROMETHEUS_AVAILABLE = False
     CONTENT_TYPE_LATEST = "text/plain; version=0.0.4; charset=utf-8"
-    REGISTRY = None
+    REGISTRY = None  # type: ignore[assignment, unused-ignore]
 
     class _NoOp:
         """Stand-in for missing Counter/Gauge/Histogram/etc.
@@ -94,9 +94,9 @@ except ImportError:  # pragma: no cover — handled at runtime
         def __exit__(self, *args):
             return False
 
-    Counter = Gauge = Histogram = _NoOp
+    Counter = Gauge = Histogram = _NoOp  # type: ignore[assignment, misc, unused-ignore]
 
-    def generate_latest(*_a, **_kw):
+    def generate_latest(*_a, **_kw):  # type: ignore[misc, unused-ignore]
         return b""
 
 
