@@ -274,3 +274,33 @@ class TestMemoization:
         assert len(capped["points_history"]) == 2
         # The originally-cached payload is unaffected by the second call.
         assert len(compute_live_stats(oid, history_limit=30)["points_history"]) == 5
+
+    def test_stale_compute_does_not_regress_cache(self, monkeypatch):
+        """A compute racing behind a newer mutation must not clobber the
+        newer cache entry — doing so would force a miss on every read
+        until the next mutation."""
+        from app.api import live_stats
+
+        oid = "memo-race"
+        _add_point(oid, 1, (1, 0))  # action_log.version(oid) == 1
+
+        # Capture ver=1 at entry, then during the (mocked) computation
+        # simulate a concurrent writer: bump to v2 and store a v2 payload,
+        # exactly as a competing thread would.
+        def racing_compute(o, *, history_limit=30):
+            _add_point(o, 1, (2, 0))  # bumps version to 2
+            live_stats._STATS_CACHE[o] = (
+                action_log.version(o),
+                {history_limit: {"marker": "v2"}},
+            )
+            return {"marker": "v1"}
+
+        monkeypatch.setattr(live_stats, "_compute_live_stats", racing_compute)
+        result = live_stats.compute_live_stats(oid, history_limit=30)
+
+        # The caller still receives its own freshly-computed payload.
+        assert result == {"marker": "v1"}
+        # But the cache retains the NEWER v2 entry rather than regressing.
+        entry = live_stats._STATS_CACHE[oid]
+        assert entry[0] == action_log.version(oid) == 2
+        assert entry[1][30] == {"marker": "v2"}

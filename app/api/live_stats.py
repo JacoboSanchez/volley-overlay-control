@@ -390,14 +390,20 @@ def compute_live_stats(
     # Compute outside the lock — the audit read + aggregation passes are
     # the expensive part and must not serialize unrelated OIDs. A
     # concurrent miss for the same (oid, version) just recomputes an
-    # identical payload; the store below is idempotent.
+    # identical payload.
     result = _compute_live_stats(oid, history_limit=history_limit)
     with _CACHE_LOCK:
         entry = _STATS_CACHE.get(oid)
-        if entry is None or entry[0] != ver:
-            entry = (ver, {})
-            _STATS_CACHE[oid] = entry
-        entry[1][history_limit] = result
+        if entry is None or entry[0] < ver:
+            # First entry, or ours is newer — install it.
+            _STATS_CACHE[oid] = (ver, {history_limit: result})
+        elif entry[0] == ver:
+            # Same version already cached — add/refresh this history_limit.
+            entry[1][history_limit] = result
+        # entry[0] > ver: a newer version landed while we computed off a
+        # stale snapshot. Drop our result rather than regress the cached
+        # version, which would force a miss on every subsequent read until
+        # the next mutation. The caller still gets ``result`` below.
     return result
 
 
