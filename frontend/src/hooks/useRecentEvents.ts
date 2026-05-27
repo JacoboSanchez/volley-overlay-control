@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as api from '../api/client';
-import type { GameState, AuditRecord, TeamState } from '../api/client';
+import type { GameState, AuditRecord, TeamState, PointType } from '../api/client';
 
 export type RecentEventKind = 'point_add' | 'set_won' | 'match_won' | 'timeout' | 'manual';
 
@@ -10,6 +10,11 @@ export interface RecentEvent {
   kind: RecentEventKind;
   /** Absolute new score — present only for kind === 'manual'. */
   value?: number;
+  /**
+   * Optional per-point classification — present only for
+   * kind === 'point_add' when the operator tagged the point.
+   */
+  pointType?: PointType;
 }
 
 const DEFAULT_AUDIT_FETCH_LIMIT = 40;
@@ -82,9 +87,14 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
     if (validTeam && !undo) {
       const t = team as 1 | 2;
       switch (r.action) {
-        case 'add_point':
-          events.push({ ts: r.ts, team: t, kind: 'point_add' });
+        case 'add_point': {
+          const pt =
+            typeof params.point_type === 'string'
+              ? (params.point_type as PointType)
+              : undefined;
+          events.push({ ts: r.ts, team: t, kind: 'point_add', pointType: pt });
           break;
+        }
         case 'add_timeout':
           events.push({ ts: r.ts, team: t, kind: 'timeout' });
           break;

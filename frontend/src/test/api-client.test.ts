@@ -75,6 +75,27 @@ describe('api/client', () => {
     );
   });
 
+  it('addPoint omits classification tags when not provided', async () => {
+    mockFetchOk({ success: true });
+    await addPoint('oid', 1);
+    const body = JSON.parse(fetchMock().mock.calls[0]![1].body);
+    expect(body).toEqual({ team: 1, undo: false });
+    expect(body).not.toHaveProperty('point_type');
+    expect(body).not.toHaveProperty('error_type');
+  });
+
+  it('addPoint includes point_type and error_type when provided', async () => {
+    mockFetchOk({ success: true });
+    await addPoint('oid', 2, false, 'opp_error', 'serve_error');
+    const body = JSON.parse(fetchMock().mock.calls[0]![1].body);
+    expect(body).toEqual({
+      team: 2,
+      undo: false,
+      point_type: 'opp_error',
+      error_type: 'serve_error',
+    });
+  });
+
   it('throws on non-ok response', async () => {
     mockFetchError(500, 'Server error');
     await expect(getState('oid')).rejects.toThrow('API GET /state?oid=oid failed (500)');

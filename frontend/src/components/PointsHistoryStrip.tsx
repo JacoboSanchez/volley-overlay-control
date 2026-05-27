@@ -19,6 +19,15 @@ export interface PointsHistoryStripProps {
 
 const ICON_VIEWBOX = '0 0 24 24';
 
+// Compact glyph for a tagged point. Language-neutral single letters so
+// the chip stays tiny; the full type is spelled out in the aria-label.
+const POINT_TYPE_ABBR: Record<string, string> = {
+  ace: 'A',
+  kill: 'K',
+  block: 'B',
+  opp_error: 'E',
+};
+
 function ClockIcon() {
   return (
     <svg viewBox={ICON_VIEWBOX} className="phs-icon" aria-hidden="true">
@@ -70,7 +79,11 @@ function PencilIcon() {
 function chipContent(ev: RecentEvent) {
   switch (ev.kind) {
     case 'point_add':
-      return <span className="phs-chip-text">+1</span>;
+      return (
+        <span className="phs-chip-text">
+          {ev.pointType ? (POINT_TYPE_ABBR[ev.pointType] ?? '+1') : '+1'}
+        </span>
+      );
     case 'set_won':
       return <StarIcon />;
     case 'match_won':
@@ -92,7 +105,7 @@ function chipContent(ev: RecentEvent) {
 function chipAriaLabel(ev: RecentEvent, teamName: string): string {
   switch (ev.kind) {
     case 'point_add':
-      return `${teamName}: +1`;
+      return ev.pointType ? `${teamName}: +1 (${ev.pointType})` : `${teamName}: +1`;
     case 'set_won':
       return `${teamName}: set won`;
     case 'match_won':

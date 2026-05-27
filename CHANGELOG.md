@@ -21,9 +21,17 @@ once a first tagged release ships.
   untyped point exactly as before). Live stats (`/api/v1/live-stats`)
   and the printed match report now expose a per-team breakdown of point
   types, with opponent errors further broken down by cause; the report
-  block is localized across all six supported locales. The control-UI
-  surface (an opt-in operator toggle and the score-button picker) lands
-  in a follow-up.
+  block is localized across all six supported locales.
+- **Control-UI point-type picker (opt-in).** Two new Behavior settings
+  — "Track point types" and "Detailed opponent errors" (both off by
+  default) — gate a score-button picker: with tracking on, tapping a
+  team's score opens a quick chooser (ace / kill / block / opponent
+  error / quick point), and with detailed errors on, an opponent error
+  expands into a cause step (serve / attack / reception / ball-handling
+  / net / position / other). The fast tap-to-score flow is unchanged
+  when tracking is off. Tagged points show a compact glyph in the
+  points-history strip. Picker labels are localized across all six
+  locales.
 
 ### Fixed
 

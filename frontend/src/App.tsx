@@ -18,6 +18,7 @@ import ScoreboardSkeleton from './components/ScoreboardSkeleton';
 import ConfigPanel from './components/ConfigPanel';
 import ConnectionStatus from './components/ConnectionStatus';
 import AppDialogs from './components/AppDialogs';
+import PointTypePicker from './components/PointTypePicker';
 import * as api from './api/client';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { ScoreButtonFontStyle } from './components/ScoreButton';
@@ -213,6 +214,11 @@ export default function App() {
   // Behavior section as a "Show shortcuts" entry.
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
+  // Per-point classification picker. Holds the team whose score tap is
+  // awaiting a point-type choice, or ``null`` when closed. Only used
+  // when ``settings.trackPointTypes`` is on.
+  const [pointPickerTeam, setPointPickerTeam] = useState<Team | null>(null);
+
   // Gate preview fetch on session readiness — /api/v1/links returns 404 until
   // initSession has created the session.
   const previewData = usePreview(oid, settings.showPreview, !!state);
@@ -321,15 +327,32 @@ export default function App() {
     }
   }, [oid, initialize]);
 
-  const handleAddPoint = useCallback(
-    (team: Team) => {
-      if (matchFinished) return;
-      actions.addPoint(team, false);
+  // Score a point (optionally tagged). Shared by the direct tap path
+  // and the point-type picker so the auto-simple side-effect stays in
+  // one place.
+  const commitPoint = useCallback(
+    (team: Team, pointType?: api.PointType, errorType?: api.ErrorType) => {
+      actions.addPoint(team, false, pointType, errorType);
       if (settings.autoSimple && !simpleMode) {
         actions.setSimpleMode(true);
       }
     },
-    [actions, matchFinished, settings.autoSimple, simpleMode],
+    [actions, settings.autoSimple, simpleMode],
+  );
+
+  const handleAddPoint = useCallback(
+    (team: Team) => {
+      if (matchFinished) return;
+      // Opt-in classification: defer scoring to the picker so the
+      // operator can tag how the point was won. Off by default — the
+      // tap scores immediately, unchanged.
+      if (settings.trackPointTypes) {
+        setPointPickerTeam(team);
+        return;
+      }
+      commitPoint(team);
+    },
+    [matchFinished, settings.trackPointTypes, commitPoint],
   );
 
   const handleAddSet = useCallback(
@@ -739,6 +762,25 @@ export default function App() {
         shortcutsHelpOpen={shortcutsHelpOpen}
         onShortcutsHelpClose={() => setShortcutsHelpOpen(false)}
       />
+
+      {pointPickerTeam !== null && (
+        <PointTypePicker
+          team={pointPickerTeam}
+          teamName={
+            pointPickerTeam === 1
+              ? asString(customization?.['Team 1 Name']) || 'Team 1'
+              : asString(customization?.['Team 2 Name']) || 'Team 2'
+          }
+          color={pointPickerTeam === 1 ? btnColorA : btnColorB}
+          textColor={pointPickerTeam === 1 ? btnTextA : btnTextB}
+          extendedErrors={settings.extendedErrorTracking}
+          onPick={(pt, et) => {
+            commitPoint(pointPickerTeam, pt, et);
+            setPointPickerTeam(null);
+          }}
+          onClose={() => setPointPickerTeam(null)}
+        />
+      )}
     </div>
   );
 }
