@@ -1234,6 +1234,32 @@ export interface components {
             /** Success */
             success: boolean;
         };
+        /**
+         * AddPointRequest
+         * @description Body for ``POST /api/v1/game/add-point``.
+         *
+         *     Extends the shared team-action body with optional scouting tags.
+         *     ``point_type`` classifies how the rally was won; ``error_type``
+         *     sub-classifies an opponent error and is only valid when
+         *     ``point_type == "opp_error"``. Both are ignored on undo and may be
+         *     omitted entirely to record an untyped point exactly as before.
+         */
+        AddPointRequest: {
+            /** Error Type */
+            error_type?: ("serve_error" | "attack_error" | "reception_error" | "ball_handling" | "net_fault" | "position_fault" | "other") | null;
+            /** Point Type */
+            point_type?: ("ace" | "kill" | "block" | "opp_error") | null;
+            /**
+             * Team
+             * @enum {integer}
+             */
+            team: 1 | 2;
+            /**
+             * Undo
+             * @default false
+             */
+            undo: boolean;
+        };
         /** AppConfigResponse */
         AppConfigResponse: {
             /**
@@ -2706,7 +2732,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TeamActionRequest"];
+                "application/json": components["schemas"]["AddPointRequest"];
             };
         };
         responses: {

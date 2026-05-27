@@ -320,7 +320,13 @@ class GameService:
         _rapid_pair.invalidate_rapid_pair_cache(session)
 
     @staticmethod
-    def add_point(session, team: int, undo: bool = False) -> ActionResponse:
+    def add_point(
+        session,
+        team: int,
+        undo: bool = False,
+        point_type: str | None = None,
+        error_type: str | None = None,
+    ) -> ActionResponse:
         if not undo:
             blocked = GameService._match_finished_response(session)
             if blocked is not None:
@@ -389,8 +395,16 @@ class GameService:
         # the pre-increment counter and the UI's undo button would lag
         # one action behind.
         if not rapid_pair:
+            params: dict[str, object] = {"team": team, "undo": undo}
+            # Scouting tags only attach to forward points; an undo
+            # reverses a point and carries no classification of its own.
+            if not undo:
+                if point_type:
+                    params["point_type"] = point_type
+                if error_type:
+                    params["error_type"] = error_type
             audit_record = GameService._audit(
-                session, "add_point", {"team": team, "undo": undo},
+                session, "add_point", params,
                 popped_forward=popped,
                 target_set=target_set_before_advance,
             )

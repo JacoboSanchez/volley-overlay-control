@@ -113,6 +113,50 @@ class TestGameRoutes:
         r2 = client.post("/api/v1/game/start-match?oid=abc")
         assert r2.json()["state"]["match_started_at"] == anchor
 
+    def test_add_point_records_point_type(self, client, fake_backend_cls):
+        from app.api import action_log
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        r = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1, "point_type": "ace"},
+        )
+        assert r.status_code == 200
+        records = [
+            rec for rec in action_log.read_all("abc")
+            if rec.get("action") == "add_point"
+        ]
+        assert records[-1]["params"].get("point_type") == "ace"
+
+    def test_add_point_opp_error_with_error_type(self, client, fake_backend_cls):
+        from app.api import action_log
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        r = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 2, "point_type": "opp_error",
+                  "error_type": "net_fault"},
+        )
+        assert r.status_code == 200
+        rec = action_log.read_all("abc")[-1]
+        assert rec["params"].get("point_type") == "opp_error"
+        assert rec["params"].get("error_type") == "net_fault"
+
+    def test_add_point_error_type_requires_opp_error(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        # error_type alongside a non-opp_error point_type is rejected.
+        r = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1, "point_type": "kill", "error_type": "serve_error"},
+        )
+        assert r.status_code == 422
+
+    def test_add_point_rejects_unknown_point_type(self, client, fake_backend_cls):
+        client.post("/api/v1/session/init", json={"oid": "abc"})
+        r = client.post(
+            "/api/v1/game/add-point?oid=abc",
+            json={"team": 1, "point_type": "nonsense"},
+        )
+        assert r.status_code == 422
+
     def test_add_set_updates_count(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
         r = client.post(

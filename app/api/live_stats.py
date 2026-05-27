@@ -440,6 +440,11 @@ def _compute_live_stats(
         "longest_rally": base["longest_rally"],
         "total_points": base["total_points"],
         "set_durations": base["set_durations"],
+        # Optional per-point classification tallies (opt-in). Always
+        # present (zeroed) so consumers don't need a None check; the
+        # error breakdown is a subset of the ``opp_error`` total.
+        "point_types": base["point_types"],
+        "error_types": base["error_types"],
         "points_history": _recent_points(events, history_limit),
         # Per-set buckets capped at 60 events (more than enough for
         # any indoor or beach set, including extreme deuce stretches).

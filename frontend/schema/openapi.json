@@ -35,6 +35,66 @@
         "title": "ActionResponse",
         "type": "object"
       },
+      "AddPointRequest": {
+        "description": "Body for ``POST /api/v1/game/add-point``.\n\nExtends the shared team-action body with optional scouting tags.\n``point_type`` classifies how the rally was won; ``error_type``\nsub-classifies an opponent error and is only valid when\n``point_type == \"opp_error\"``. Both are ignored on undo and may be\nomitted entirely to record an untyped point exactly as before.",
+        "properties": {
+          "error_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "serve_error",
+                  "attack_error",
+                  "reception_error",
+                  "ball_handling",
+                  "net_fault",
+                  "position_fault",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          },
+          "point_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ace",
+                  "kill",
+                  "block",
+                  "opp_error"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Type"
+          },
+          "team": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Team",
+            "type": "integer"
+          },
+          "undo": {
+            "default": false,
+            "title": "Undo",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "team"
+        ],
+        "title": "AddPointRequest",
+        "type": "object"
+      },
       "AppConfigResponse": {
         "properties": {
           "stale_set_threshold_minutes": {
@@ -3023,7 +3083,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TeamActionRequest"
+                "$ref": "#/components/schemas/AddPointRequest"
               }
             }
           },

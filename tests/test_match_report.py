@@ -1973,3 +1973,74 @@ class TestDeleteArchivedMatch:
         response = c.delete(f"/matches/{match_id}")
         assert response.status_code == 401
         assert match_archive.load_match(match_id) is not None
+
+
+class TestPointTypeBreakdown:
+    """Per-point classification breakdown in stats + highlights render."""
+
+    @staticmethod
+    def _point(team, score_pair, *, point_type=None, error_type=None, ts=1.0):
+        params = {"team": team, "undo": False}
+        if point_type:
+            params["point_type"] = point_type
+        if error_type:
+            params["error_type"] = error_type
+        return {
+            "ts": ts,
+            "action": "add_point",
+            "params": params,
+            "result": {
+                "current_set": 1,
+                "team_1": {"score": score_pair[0]},
+                "team_2": {"score": score_pair[1]},
+                "serve": "A" if team == 1 else "B",
+            },
+        }
+
+    def test_compute_stats_tallies_types_and_errors(self):
+        from app.match_report import _compute_stats
+
+        audit = [
+            self._point(1, (1, 0), point_type="ace", ts=1.0),
+            self._point(1, (2, 0), point_type="kill", ts=2.0),
+            self._point(1, (3, 0), point_type="opp_error",
+                        error_type="serve_error", ts=3.0),
+            self._point(2, (3, 1), point_type="block", ts=4.0),
+        ]
+        stats = _compute_stats(audit)
+        assert stats["point_types"][1] == {
+            "ace": 1, "kill": 1, "block": 0, "opp_error": 1,
+        }
+        assert stats["point_types"][2]["block"] == 1
+        assert stats["error_types"][1]["serve_error"] == 1
+
+    def test_render_highlights_includes_localized_breakdown(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = [
+            self._point(1, (1, 0), point_type="ace", ts=1.0),
+            self._point(1, (2, 0), point_type="opp_error",
+                        error_type="net_fault", ts=2.0),
+        ]
+        stats = _compute_stats(audit)
+        html_en = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Points won" in html_en
+        assert "ace" in html_en
+        assert "net" in html_en  # error cause detail
+        # Locale labels resolve (Spanish "Puntos ganados").
+        html_es = _render_highlights(
+            stats, "es", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Puntos ganados" in html_es
+
+    def test_untyped_match_renders_no_breakdown_card(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = [self._point(1, (1, 0), ts=1.0)]
+        stats = _compute_stats(audit)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Points won" not in html

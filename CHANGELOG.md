@@ -8,6 +8,23 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Per-point classification (opt-in scouting tags).** `POST
+  /api/v1/game/add-point` now accepts an optional `point_type` (`ace`,
+  `kill`, `block`, `opp_error`) and, for opponent errors, an optional
+  `error_type` sub-classification (`serve_error`, `attack_error`,
+  `reception_error`, `ball_handling`, `net_fault`, `position_fault`,
+  `other`) — the latter is rejected (422) unless `point_type ==
+  "opp_error"`. Tags ride along in the per-OID audit log `params`, are
+  ignored on undo, and are fully optional (omitting them records an
+  untyped point exactly as before). Live stats (`/api/v1/live-stats`)
+  and the printed match report now expose a per-team breakdown of point
+  types, with opponent errors further broken down by cause; the report
+  block is localized across all six supported locales. The control-UI
+  surface (an opt-in operator toggle and the score-button picker) lands
+  in a follow-up.
+
 ### Fixed
 
 - **Type errors surfaced by the wider `mypy` scope (below).** Bringing the

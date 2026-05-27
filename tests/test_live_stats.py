@@ -304,3 +304,87 @@ class TestMemoization:
         entry = live_stats._STATS_CACHE[oid]
         assert entry[0] == action_log.version(oid) == 2
         assert entry[1][30] == {"marker": "v2"}
+
+
+def _add_typed_point(
+    oid: str,
+    team: int,
+    score_pair: tuple[int, int],
+    *,
+    point_type: str | None = None,
+    error_type: str | None = None,
+    set_num: int = 1,
+):
+    """Append an ``add_point`` audit record carrying optional scouting tags."""
+    params: dict = {"team": team, "undo": False}
+    if point_type:
+        params["point_type"] = point_type
+    if error_type:
+        params["error_type"] = error_type
+    action_log.append(
+        oid,
+        "add_point",
+        params,
+        {
+            "current_set": set_num,
+            "team_1": {"score": score_pair[0], "sets": 0, "timeouts": 0},
+            "team_2": {"score": score_pair[1], "sets": 0, "timeouts": 0},
+            "serve": "A" if team == 1 else "B",
+        },
+    )
+
+
+class TestPointTypes:
+    def test_tallies_per_team(self):
+        oid = "pt-tally"
+        _add_typed_point(oid, 1, (1, 0), point_type="ace")
+        _add_typed_point(oid, 1, (2, 0), point_type="kill")
+        _add_typed_point(oid, 2, (2, 1), point_type="block")
+        stats = compute_live_stats(oid)
+        assert stats["point_types"][1] == {
+            "ace": 1, "kill": 1, "block": 0, "opp_error": 0,
+        }
+        assert stats["point_types"][2] == {
+            "ace": 0, "kill": 0, "block": 1, "opp_error": 0,
+        }
+
+    def test_untyped_points_are_not_counted(self):
+        oid = "pt-untyped"
+        _add_typed_point(oid, 1, (1, 0))  # no tag
+        stats = compute_live_stats(oid)
+        assert sum(stats["point_types"][1].values()) == 0
+        assert stats["total_points"] == 1
+
+    def test_error_breakdown_is_subset_of_opp_error(self):
+        oid = "pt-errors"
+        _add_typed_point(oid, 1, (1, 0), point_type="opp_error",
+                         error_type="serve_error")
+        _add_typed_point(oid, 1, (2, 0), point_type="opp_error",
+                         error_type="serve_error")
+        _add_typed_point(oid, 1, (3, 0), point_type="opp_error")  # untyped error
+        stats = compute_live_stats(oid)
+        assert stats["point_types"][1]["opp_error"] == 3
+        assert stats["error_types"][1]["serve_error"] == 2
+        # The error breakdown never exceeds the opp_error total.
+        assert (
+            sum(stats["error_types"][1].values())
+            <= stats["point_types"][1]["opp_error"]
+        )
+
+    def test_undo_record_excluded_from_tally(self):
+        oid = "pt-undo"
+        _add_typed_point(oid, 1, (1, 0), point_type="ace")
+        # A bare undo record (params.undo) must not affect the tally.
+        action_log.append(
+            oid,
+            "add_point",
+            {"team": 1, "undo": True},
+            {
+                "current_set": 1,
+                "team_1": {"score": 0, "sets": 0, "timeouts": 0},
+                "team_2": {"score": 0, "sets": 0, "timeouts": 0},
+                "serve": "A",
+            },
+        )
+        stats = compute_live_stats(oid)
+        assert stats["point_types"][1]["ace"] == 1

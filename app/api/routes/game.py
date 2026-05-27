@@ -6,6 +6,7 @@ from app.api.dependencies import get_session, verify_api_key
 from app.api.game_service import GameService
 from app.api.schemas import (
     ActionResponse,
+    AddPointRequest,
     ServeRequest,
     SetScoreRequest,
     SetSetsRequest,
@@ -21,10 +22,13 @@ router = APIRouter()
     response_model=ActionResponse,
     dependencies=[Depends(verify_api_key)],
 )
-async def add_point(req: TeamActionRequest,
+async def add_point(req: AddPointRequest,
                     session: GameSession = Depends(get_session)):
     async with session.lock:
-        return GameService.add_point(session, req.team, req.undo)
+        return GameService.add_point(
+            session, req.team, req.undo,
+            point_type=req.point_type, error_type=req.error_type,
+        )
 
 
 @router.post(
