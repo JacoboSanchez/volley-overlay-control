@@ -10,6 +10,7 @@ final report when the match ends — no second source of truth to drift.
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from app.api import action_log
@@ -342,7 +343,71 @@ def _services_by_set(
     return by_set
 
 
+# Version-keyed memoization. ``compute_live_stats`` is a pure function of
+# the OID's audit log, which only changes on append/tombstone/clear. A
+# single scoring action fans out to a get_state response, an overlay push,
+# and N client broadcasts — all recomputing identical stats from the same
+# log. Caching the result against ``action_log.version(oid)`` collapses
+# that to one computation per audit mutation, and lets idle polling
+# (spectator ``/live-stats``, control-UI ``/state``) hit the cache for
+# free. Keyed by ``history_limit`` too, since that only affects the
+# ``points_history`` tail slice and different consumers request different
+# lengths.
+_CACHE_LOCK = threading.Lock()
+# oid -> (version, {history_limit: payload})
+_STATS_CACHE: dict[str, tuple[int, dict[int, dict[str, Any]]]] = {}
+
+
+def clear_cache() -> None:
+    """Drop every memoized live-stats payload.
+
+    Used by the test harness for per-test isolation; production never
+    needs it (entries self-invalidate when ``action_log.version`` moves).
+    """
+    with _CACHE_LOCK:
+        _STATS_CACHE.clear()
+
+
 def compute_live_stats(
+    oid: str,
+    *,
+    history_limit: int = 30,
+) -> dict[str, Any]:
+    """Read the audit log for *oid* and return a live-stats payload.
+
+    Memoized against :func:`action_log.version` — repeated calls between
+    audit mutations return the cached payload without re-reading or
+    re-parsing the log. See :func:`_compute_live_stats` for the payload
+    shape and field semantics.
+    """
+    ver = action_log.version(oid)
+    with _CACHE_LOCK:
+        entry = _STATS_CACHE.get(oid)
+        if entry is not None and entry[0] == ver:
+            hit = entry[1].get(history_limit)
+            if hit is not None:
+                return hit
+    # Compute outside the lock — the audit read + aggregation passes are
+    # the expensive part and must not serialize unrelated OIDs. A
+    # concurrent miss for the same (oid, version) just recomputes an
+    # identical payload.
+    result = _compute_live_stats(oid, history_limit=history_limit)
+    with _CACHE_LOCK:
+        entry = _STATS_CACHE.get(oid)
+        if entry is None or entry[0] < ver:
+            # First entry, or ours is newer — install it.
+            _STATS_CACHE[oid] = (ver, {history_limit: result})
+        elif entry[0] == ver:
+            # Same version already cached — add/refresh this history_limit.
+            entry[1][history_limit] = result
+        # entry[0] > ver: a newer version landed while we computed off a
+        # stale snapshot. Drop our result rather than regress the cached
+        # version, which would force a miss on every subsequent read until
+        # the next mutation. The caller still gets ``result`` below.
+    return result
+
+
+def _compute_live_stats(
     oid: str,
     *,
     history_limit: int = 30,

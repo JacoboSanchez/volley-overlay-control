@@ -21,6 +21,16 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Live-stats are memoized against the audit-log version.**
+  ``compute_live_stats`` reads and re-parses the entire per-OID audit log
+  and runs ~9 aggregation passes over it. A single scoring action fans
+  out to a control-UI state response, an overlay push, and one broadcast
+  per connected client — each previously recomputing the identical stats
+  from scratch. The result is now cached per OID keyed by a new
+  ``action_log.version`` counter (bumped on every append / tombstone /
+  clear / delete), so the work runs at most once per audit mutation and
+  idle polling (spectator ``/live-stats``, control-UI ``/state``) hits
+  the cache for free. No change to the returned values.
 - **`mypy` now type-checks the whole `app` package + `main.py`.** Coverage
   was previously maintained as an explicit module-by-module allowlist;
   with the backend fully clean it is checked wholesale so new modules can

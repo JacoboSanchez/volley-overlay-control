@@ -97,6 +97,30 @@ _last_ts_per_oid: dict[str, float] = {}
 # stays human-readable in the audit log.
 _TS_MIN_STEP = 1e-6
 
+# Per-OID monotonic mutation counter. Bumped under ``_lock_for(oid)`` on
+# every append / tombstone / clear / delete, so pure read-derived caches
+# (notably :mod:`app.api.live_stats`) can detect staleness without
+# re-reading and re-parsing the whole JSONL log on every state response.
+_version_per_oid: dict[str, int] = {}
+
+
+def _bump_version(oid: str) -> None:
+    """Increment the OID's mutation counter. Caller holds ``_lock_for(oid)``."""
+    _version_per_oid[oid] = _version_per_oid.get(oid, 0) + 1
+
+
+def version(oid: str) -> int:
+    """Return the OID's current mutation counter (``0`` if never written).
+
+    The counter increments on every mutation of the OID's log. If a
+    reader observes the same value twice, the log is byte-identical
+    between the two observations, so any computation derived purely from
+    the log can be cached against this value. The counter lives in
+    process memory: it is monotonic for the lifetime of the process and
+    deliberately not persisted (a restart re-reads the file anyway).
+    """
+    return _version_per_oid.get(oid, 0)
+
 
 def _next_ts(oid: str) -> float:
     """Return a per-OID strictly-monotonic timestamp.
@@ -270,6 +294,7 @@ def _append_log_line(
             ) + "\n"
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
+            _bump_version(oid)
         return record
     except Exception as exc:
         logger.warning(error_msg, oid, exc)
@@ -487,6 +512,7 @@ def clear(oid: str) -> None:
         with _lock_for(oid):
             _remove_all_log_files_locked(path)
             _last_ts_per_oid.pop(oid, None)
+            _bump_version(oid)
     except Exception as exc:
         logger.warning("Failed to clear audit log for %r: %s", oid, exc)
 
@@ -503,6 +529,7 @@ def delete(oid: str) -> bool:
         with _lock_for(oid):
             removed = _remove_all_log_files_locked(path)
             _last_ts_per_oid.pop(oid, None)
+            _bump_version(oid)
         return removed
     except OSError as exc:
         logger.warning("Failed to delete audit log for %r: %s", oid, exc)
@@ -586,6 +613,7 @@ def pop_last_forward(
             # cancelled by a tombstone in the active file.
             with open(path, "a", encoding="utf-8") as f:
                 f.write(line)
+            _bump_version(oid)
             return target
     except Exception as exc:
         logger.warning("Failed to pop last forward record for %r: %s", oid, exc)
