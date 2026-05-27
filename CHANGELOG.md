@@ -18,8 +18,9 @@ once a first tagged release ships.
   `other`) — the latter is rejected (422) unless `point_type ==
   "opp_error"`. Tags ride along in the per-OID audit log `params`, are
   ignored on undo, and are fully optional (omitting them records an
-  untyped point exactly as before). Live stats (`/api/v1/live-stats`)
-  and the printed match report now expose a per-team breakdown of point
+  untyped point exactly as before). Live stats
+  (`/api/v1/matches/live/stats`) and the printed match report now expose
+  a per-team breakdown of point
   types, with opponent errors further broken down by cause; the report
   block is localized across all six supported locales.
 - **Control-UI point-type picker (opt-in).** Two new Behavior settings

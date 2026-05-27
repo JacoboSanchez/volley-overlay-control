@@ -206,8 +206,8 @@ Add or undo a point.
   `attack_error` \| `reception_error` \| `ball_handling` \| `net_fault` \|
   `position_fault` \| `other`) — rejected with `422` unless `point_type` is
   `opp_error`. Both are optional; omitting them records an untyped point. The
-  tags are aggregated per team in `/api/v1/live-stats` (`point_types` /
-  `error_types`) and in the printed match report.
+  tags are aggregated per team in `/api/v1/matches/live/stats`
+  (`point_types` / `error_types`) and in the printed match report.
 
   ```json
   {"team": 1, "point_type": "opp_error", "error_type": "serve_error"}
