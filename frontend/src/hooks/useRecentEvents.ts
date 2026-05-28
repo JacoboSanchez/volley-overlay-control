@@ -89,9 +89,7 @@ function classifyRecords(records: AuditRecord[]): RecentEvent[] {
       switch (r.action) {
         case 'add_point': {
           const pt =
-            typeof params.point_type === 'string'
-              ? (params.point_type as PointType)
-              : undefined;
+            typeof params.point_type === 'string' ? (params.point_type as PointType) : undefined;
           events.push({ ts: r.ts, team: t, kind: 'point_add', pointType: pt });
           break;
         }
