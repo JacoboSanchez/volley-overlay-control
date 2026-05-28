@@ -12,6 +12,21 @@ type Schemas = components['schemas'];
 
 export type Team = 1 | 2;
 
+// Per-point classification vocabulary — mirrors the backend
+// ``POINT_TYPES`` / ``ERROR_TYPES`` in ``app/api/schemas.py``. Keep in sync.
+export const POINT_TYPES = ['ace', 'kill', 'block', 'opp_error'] as const;
+export type PointType = (typeof POINT_TYPES)[number];
+export const ERROR_TYPES = [
+  'serve_error',
+  'attack_error',
+  'reception_error',
+  'ball_handling',
+  'net_fault',
+  'position_fault',
+  'other',
+] as const;
+export type ErrorType = (typeof ERROR_TYPES)[number];
+
 export type GameState = Schemas['GameStateResponse'];
 export type ActionResponse = Schemas['ActionResponse'];
 export type AppConfig = Schemas['AppConfigResponse'];
@@ -81,8 +96,19 @@ export function getCustomization(oid: string): Promise<Record<string, unknown>> 
 }
 
 // Game actions
-export function addPoint(oid: string, team: Team, undo = false): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', `/game/add-point${withOid(oid)}`, { team, undo });
+export function addPoint(
+  oid: string,
+  team: Team,
+  undo = false,
+  pointType?: PointType,
+  errorType?: ErrorType,
+): Promise<ActionResponse> {
+  const body: Record<string, unknown> = { team, undo };
+  // Scouting tags are optional; only send them when set so an untyped
+  // point posts the same minimal body as before.
+  if (pointType) body.point_type = pointType;
+  if (errorType) body.error_type = errorType;
+  return request<ActionResponse>('POST', `/game/add-point${withOid(oid)}`, body);
 }
 
 export function addSet(oid: string, team: Team, undo = false): Promise<ActionResponse> {

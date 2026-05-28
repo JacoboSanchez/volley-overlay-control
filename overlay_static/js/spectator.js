@@ -51,6 +51,22 @@
             'stats.longest.label': 'Longest streak',
             'stats.comeback.label': 'Comeback',
             'stats.comeback.cell': '-{n}',
+            'lastPoint.label': 'Last point',
+            'stats.aces.label': 'Aces',
+            'stats.kills.label': 'Kills',
+            'stats.blocks.label': 'Blocks',
+            'stats.oppErrors.label': 'Opponent errors',
+            'pointType.ace': 'Ace',
+            'pointType.kill': 'Kill',
+            'pointType.block': 'Block',
+            'pointType.opp_error': 'Opponent error',
+            'errorType.serve_error': 'Serve error',
+            'errorType.attack_error': 'Attack error',
+            'errorType.reception_error': 'Reception error',
+            'errorType.ball_handling': 'Ball-handling error',
+            'errorType.net_fault': 'Net fault',
+            'errorType.position_fault': 'Positional fault',
+            'errorType.other': 'Other',
             'footer.label': 'Live updates',
         },
         es: {
@@ -89,6 +105,22 @@
             'stats.longest.label': 'Racha más larga',
             'stats.comeback.label': 'Remontada',
             'stats.comeback.cell': '-{n}',
+            'lastPoint.label': 'Último punto',
+            'stats.aces.label': 'Saques directos',
+            'stats.kills.label': 'Ataques',
+            'stats.blocks.label': 'Bloqueos',
+            'stats.oppErrors.label': 'Errores rival',
+            'pointType.ace': 'Saque directo',
+            'pointType.kill': 'Ataque',
+            'pointType.block': 'Bloqueo',
+            'pointType.opp_error': 'Error rival',
+            'errorType.serve_error': 'Error de saque',
+            'errorType.attack_error': 'Error de ataque',
+            'errorType.reception_error': 'Error de recepción',
+            'errorType.ball_handling': 'Falta de toque',
+            'errorType.net_fault': 'Falta de red',
+            'errorType.position_fault': 'Falta de rotación',
+            'errorType.other': 'Otro',
             'footer.label': 'Actualización en vivo',
         },
         pt: {
@@ -127,6 +159,22 @@
             'stats.longest.label': 'Sequência mais longa',
             'stats.comeback.label': 'Recuperação',
             'stats.comeback.cell': '-{n}',
+            'lastPoint.label': 'Último ponto',
+            'stats.aces.label': 'Aces',
+            'stats.kills.label': 'Ataques',
+            'stats.blocks.label': 'Blocos',
+            'stats.oppErrors.label': 'Erros adversário',
+            'pointType.ace': 'Ace',
+            'pointType.kill': 'Ataque',
+            'pointType.block': 'Bloco',
+            'pointType.opp_error': 'Erro do adversário',
+            'errorType.serve_error': 'Erro de serviço',
+            'errorType.attack_error': 'Erro de ataque',
+            'errorType.reception_error': 'Erro de receção',
+            'errorType.ball_handling': 'Falta de toque',
+            'errorType.net_fault': 'Falta na rede',
+            'errorType.position_fault': 'Falta de posição',
+            'errorType.other': 'Outro',
             'footer.label': 'Atualizações ao vivo',
         },
         it: {
@@ -165,6 +213,22 @@
             'stats.longest.label': 'Serie più lunga',
             'stats.comeback.label': 'Rimonta',
             'stats.comeback.cell': '-{n}',
+            'lastPoint.label': 'Ultimo punto',
+            'stats.aces.label': 'Ace',
+            'stats.kills.label': 'Attacchi',
+            'stats.blocks.label': 'Muri',
+            'stats.oppErrors.label': 'Errori avversari',
+            'pointType.ace': 'Ace',
+            'pointType.kill': 'Attacco',
+            'pointType.block': 'Muro',
+            'pointType.opp_error': 'Errore avversario',
+            'errorType.serve_error': 'Errore di battuta',
+            'errorType.attack_error': 'Errore di attacco',
+            'errorType.reception_error': 'Errore di ricezione',
+            'errorType.ball_handling': 'Fallo di palleggio',
+            'errorType.net_fault': 'Fallo a rete',
+            'errorType.position_fault': 'Fallo di posizione',
+            'errorType.other': 'Altro',
             'footer.label': 'Aggiornamenti in diretta',
         },
         fr: {
@@ -203,6 +267,22 @@
             'stats.longest.label': 'Plus longue série',
             'stats.comeback.label': 'Remontée',
             'stats.comeback.cell': '-{n}',
+            'lastPoint.label': 'Dernier point',
+            'stats.aces.label': 'Aces',
+            'stats.kills.label': 'Attaques',
+            'stats.blocks.label': 'Contres',
+            'stats.oppErrors.label': 'Fautes adverses',
+            'pointType.ace': 'Ace',
+            'pointType.kill': 'Attaque',
+            'pointType.block': 'Contre',
+            'pointType.opp_error': 'Faute adverse',
+            'errorType.serve_error': 'Faute au service',
+            'errorType.attack_error': "Faute d'attaque",
+            'errorType.reception_error': 'Faute de réception',
+            'errorType.ball_handling': 'Faute de touche',
+            'errorType.net_fault': 'Faute au filet',
+            'errorType.position_fault': 'Faute de position',
+            'errorType.other': 'Autre',
             'footer.label': 'Mises à jour en direct',
         },
         de: {
@@ -241,6 +321,22 @@
             'stats.longest.label': 'Längste Serie',
             'stats.comeback.label': 'Aufholjagd',
             'stats.comeback.cell': '-{n}',
+            'lastPoint.label': 'Letzter Punkt',
+            'stats.aces.label': 'Asse',
+            'stats.kills.label': 'Angriffe',
+            'stats.blocks.label': 'Blocks',
+            'stats.oppErrors.label': 'Gegnerfehler',
+            'pointType.ace': 'Ass',
+            'pointType.kill': 'Angriff',
+            'pointType.block': 'Block',
+            'pointType.opp_error': 'Gegnerfehler',
+            'errorType.serve_error': 'Aufschlagfehler',
+            'errorType.attack_error': 'Angriffsfehler',
+            'errorType.reception_error': 'Annahmefehler',
+            'errorType.ball_handling': 'Ballführungsfehler',
+            'errorType.net_fault': 'Netzfehler',
+            'errorType.position_fault': 'Stellungsfehler',
+            'errorType.other': 'Sonstige',
             'footer.label': 'Live-Updates',
         },
     };
@@ -905,6 +1001,63 @@
             );
         }
         toggleStatRow('stat-row-comeback', !haveComeback);
+
+        // ── Per-point classification (opt-in scouting tags) ──
+        // Match-wide counts per team, surfaced one row per type and
+        // only when at least one team has recorded that type — so a
+        // match scored without tags shows none of these rows.
+        const pointTypes = stats.point_types || {};
+        const ptHome = pointTypes['1'] || pointTypes[1] || {};
+        const ptAway = pointTypes['2'] || pointTypes[2] || {};
+        const PT_ROWS = [
+            ['stat-row-aces', 'stat-aces-home', 'stat-aces-away', 'ace'],
+            ['stat-row-kills', 'stat-kills-home', 'stat-kills-away', 'kill'],
+            ['stat-row-blocks', 'stat-blocks-home', 'stat-blocks-away', 'block'],
+            ['stat-row-opperr', 'stat-opperr-home', 'stat-opperr-away', 'opp_error'],
+        ];
+        for (const [rowId, homeId, awayId, key] of PT_ROWS) {
+            const h = ptHome[key] || 0;
+            const a = ptAway[key] || 0;
+            const have = (h + a) > 0;
+            if (have) {
+                setTeamCell(homeId, String(h), h === 0);
+                setTeamCell(awayId, String(a), a === 0);
+            }
+            toggleStatRow(rowId, !have);
+        }
+    }
+
+    // ── Render: last-point classification badge ────────────────────
+
+    /*
+     * Show how the most recent point was won (e.g. "Kill — Home", or
+     * "Opponent error · serve — Away"). Hidden when no point has been
+     * scored or the last point was recorded untyped, so the badge only
+     * appears for operators using the opt-in classification.
+     */
+    function renderLastPoint(broadcast) {
+        const el = $('last-point');
+        if (!el) return;
+        const oc = broadcast.overlay_control || {};
+        const stats = oc.stats || {};
+        const lp = stats.last_point;
+        if (!lp || !lp.point_type) {
+            el.hidden = true;
+            return;
+        }
+        const team = lp.team === 1
+            ? (broadcast.team_home || {})
+            : (broadcast.team_away || {});
+        const color = team.color_primary || (lp.team === 1 ? '#E21836' : '#0047AB');
+        const dot = $('last-point-dot');
+        if (dot) dot.style.backgroundColor = color;
+        let label = t('pointType.' + lp.point_type);
+        if (lp.point_type === 'opp_error' && lp.error_type) {
+            label += ' · ' + t('errorType.' + lp.error_type);
+        }
+        const name = team.name || '';
+        setText('last-point-text', name ? (label + ' — ' + name) : label);
+        el.hidden = false;
     }
 
     function toggleStatRow(rowId, empty) {
@@ -1335,6 +1488,7 @@
         renderTimers(broadcast);
         renderHistory(broadcast);
         renderStats(broadcast);
+        renderLastPoint(broadcast);
         renderSetChart(broadcast);
     }
 

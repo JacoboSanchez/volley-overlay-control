@@ -14,6 +14,8 @@ export interface BehaviorSettings {
   autoShowSetSummary: boolean;
   autoShowSetSummaryDelay: number;
   autoShowSetSummaryDuration: number;
+  trackPointTypes: boolean;
+  extendedErrorTracking: boolean;
 }
 
 export interface BehaviorSectionProps {
@@ -95,6 +97,28 @@ export default function BehaviorSection({
           <button type="button" className="dialog-btn" onClick={onShowShortcuts}>
             {t('behavior.showShortcuts')}
           </button>
+        </div>
+      )}
+
+      <div className="config-separator" />
+      <ConfigSwitch
+        label={t('behavior.trackPointTypes')}
+        checked={settings.trackPointTypes}
+        onChange={(v) => setSetting('trackPointTypes', v)}
+      />
+      {settings.trackPointTypes && (
+        <div style={{ paddingLeft: '1.5rem' }}>
+          <p
+            className="config-help-text"
+            style={{ margin: '0 0 0.5rem', fontSize: '0.85em', opacity: 0.7 }}
+          >
+            {t('behavior.trackPointTypes.description')}
+          </p>
+          <ConfigSwitch
+            label={t('behavior.extendedErrorTracking')}
+            checked={settings.extendedErrorTracking}
+            onChange={(v) => setSetting('extendedErrorTracking', v)}
+          />
         </div>
       )}
 

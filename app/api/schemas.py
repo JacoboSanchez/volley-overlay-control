@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.api.oid_validation import OID_PATTERN
 
@@ -29,6 +29,55 @@ class InitRequest(BaseModel):
 class TeamActionRequest(BaseModel):
     team: Literal[1, 2]
     undo: bool = False
+
+
+# Per-point classification vocabulary (optional, opt-in scouting tags).
+# ``POINT_TYPES`` / ``ERROR_TYPES`` are the single source of truth; the
+# frontend mirrors them in ``frontend/src/api/client.ts`` and the match
+# report / live stats aggregate against them. Keep the tuples and the
+# ``Literal`` aliases below in sync.
+POINT_TYPES = ("ace", "kill", "block", "opp_error")
+PointType = Literal["ace", "kill", "block", "opp_error"]
+
+ERROR_TYPES = (
+    "serve_error",
+    "attack_error",
+    "reception_error",
+    "ball_handling",
+    "net_fault",
+    "position_fault",
+    "other",
+)
+ErrorType = Literal[
+    "serve_error",
+    "attack_error",
+    "reception_error",
+    "ball_handling",
+    "net_fault",
+    "position_fault",
+    "other",
+]
+
+
+class AddPointRequest(TeamActionRequest):
+    """Body for ``POST /api/v1/game/add-point``.
+
+    Extends the shared team-action body with optional scouting tags.
+    ``point_type`` classifies how the rally was won; ``error_type``
+    sub-classifies an opponent error and is only valid when
+    ``point_type == "opp_error"``. Both are ignored on undo and may be
+    omitted entirely to record an untyped point exactly as before.
+    """
+    point_type: PointType | None = None
+    error_type: ErrorType | None = None
+
+    @model_validator(mode="after")
+    def _error_type_requires_opp_error(self) -> "AddPointRequest":
+        if self.error_type is not None and self.point_type != "opp_error":
+            raise ValueError(
+                "error_type is only valid when point_type == 'opp_error'."
+            )
+        return self
 
 
 class SetScoreRequest(BaseModel):

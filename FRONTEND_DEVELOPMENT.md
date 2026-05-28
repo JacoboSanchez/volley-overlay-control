@@ -200,6 +200,18 @@ Add or undo a point.
 - Automatically advances the serve
 - Returns `success: false` when match is already finished (unless `undo: true`)
 - With `undo: true`, when the current set has no score for the requested team (typically right after a set-winning point advanced the session to the next set), the undo falls back to the prior set so that the score *and* the set win are reverted together
+- **Optional point classification** (ignored on undo): pass `point_type`
+  (`ace` \| `kill` \| `block` \| `opp_error`) to tag how the rally was won. For
+  opponent errors you may additionally pass `error_type` (`serve_error` \|
+  `attack_error` \| `reception_error` \| `ball_handling` \| `net_fault` \|
+  `position_fault` \| `other`) — rejected with `422` unless `point_type` is
+  `opp_error`. Both are optional; omitting them records an untyped point. The
+  tags are aggregated per team in `/api/v1/matches/live/stats`
+  (`point_types` / `error_types`) and in the printed match report.
+
+  ```json
+  {"team": 1, "point_type": "opp_error", "error_type": "serve_error"}
+  ```
 
 #### `POST /api/v1/game/add-set?oid=<OID>`
 

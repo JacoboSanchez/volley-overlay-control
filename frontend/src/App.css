@@ -2685,6 +2685,33 @@ body {
   line-height: 1.4;
 }
 
+/* ── Point-type picker (opt-in scouting) ──────────────────────────── */
+
+.point-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.point-picker-btn {
+  justify-content: center;
+  padding: 0.85rem 0.5rem;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.4));
+  color: var(--text);
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.point-picker-team-dot {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
 /* ── Keyboard shortcuts help dialog ───────────────────────────────── */
 
 .shortcuts-help {

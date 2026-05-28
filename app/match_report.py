@@ -44,6 +44,7 @@ from fastapi import APIRouter, Header, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 
 from app.api import match_archive
+from app.api.schemas import ERROR_TYPES, POINT_TYPES
 from app.auth_utils import require_admin_token as _require_admin_token
 from app.env_vars_manager import EnvVarsManager
 from app.match_report_i18n import (
@@ -650,6 +651,26 @@ def _compute_stats(audit: list[dict]) -> dict:
     }
     longest_rally: dict[str, Any] = {"duration_s": 0.0, "set": None}
     total_points = 0
+    # Per-team total of won rallies (every ``add_point`` for the team,
+    # tagged or not), used as the denominator for the point-composition
+    # percentages in the report.
+    total_points_by_team: dict[int, int] = {1: 0, 2: 0}
+    # Optional per-point classification tallies (opt-in scouting tags).
+    # ``point_types`` counts every tagged forward point per team;
+    # ``error_types`` breaks the ``opp_error`` total into its specific
+    # causes (a subset of opp_error — untyped opp_errors aren't here).
+    point_types: dict[int, dict[str, int]] = {
+        1: dict.fromkeys(POINT_TYPES, 0),
+        2: dict.fromkeys(POINT_TYPES, 0),
+    }
+    error_types: dict[int, dict[str, int]] = {
+        1: dict.fromkeys(ERROR_TYPES, 0),
+        2: dict.fromkeys(ERROR_TYPES, 0),
+    }
+    # Per-set point-type tallies, so the set-summary recap can scope the
+    # breakdown to the displayed set (same pattern as the per-set streak
+    # / services variants). Only sets that have a tagged point appear.
+    point_types_by_set: dict[int, dict[int, dict[str, int]]] = {}
 
     by_set: dict[int, list[dict]] = {}
     for record in audit:
@@ -677,6 +698,24 @@ def _compute_stats(audit: list[dict]) -> dict:
             if streak_n > longest_streak["n"]:
                 longest_streak = {"team": team, "n": streak_n, "set": set_num}
             total_points += 1
+            if team in (1, 2):
+                total_points_by_team[team] += 1
+                params = r.get("params") or {}
+                pt = params.get("point_type")
+                if pt in point_types[team]:
+                    point_types[team][pt] += 1
+                    pts_set = point_types_by_set.setdefault(
+                        set_num,
+                        {
+                            1: dict.fromkeys(POINT_TYPES, 0),
+                            2: dict.fromkeys(POINT_TYPES, 0),
+                        },
+                    )
+                    pts_set[team][pt] += 1
+                    if pt == "opp_error":
+                        et = params.get("error_type")
+                        if et in error_types[team]:
+                            error_types[team][et] += 1
 
         # Comebacks. Walk the running scores once, then split:
         #   * winner's peak deficit  → set_win comeback for the winner
@@ -759,7 +798,11 @@ def _compute_stats(audit: list[dict]) -> dict:
         "partial_comeback": partial_comeback,
         "longest_rally": longest_rally,
         "total_points": total_points,
+        "total_points_by_team": total_points_by_team,
         "set_durations": _set_durations_from_audit(audit),
+        "point_types": point_types,
+        "error_types": error_types,
+        "point_types_by_set": point_types_by_set,
     }
 
 
@@ -1218,6 +1261,88 @@ def _render_highlights(
                 _fmt_seconds(shortest[1]),
                 _t(locale, "setLabel", n=shortest[0]),
             )
+
+    # Per-point classification breakdown (opt-in scouting tags). One
+    # card per team that recorded at least one classified point; the
+    # value is the classified total and the detail spells out the mix,
+    # with opponent errors further broken down by cause when tracked.
+    point_types = stats.get("point_types") or {}
+    error_types = stats.get("error_types") or {}
+    _pt_label_keys = {
+        "ace": "pointTypeAce",
+        "kill": "pointTypeKill",
+        "block": "pointTypeBlock",
+        "opp_error": "pointTypeOppError",
+    }
+    _et_label_keys = {
+        "serve_error": "errorTypeServe",
+        "attack_error": "errorTypeAttack",
+        "reception_error": "errorTypeReception",
+        "ball_handling": "errorTypeBallHandling",
+        "net_fault": "errorTypeNet",
+        "position_fault": "errorTypePosition",
+        "other": "errorTypeOther",
+    }
+    totals_by_team = stats.get("total_points_by_team") or {}
+
+    def _pct(n: int, denom: int) -> int:
+        return round(100 * n / denom) if denom else 0
+
+    # Card 1 — point composition: how each team scored, each type as a
+    # share of that team's total points won (the remainder, if any, is
+    # untagged). Shown only for teams with at least one classified point.
+    for team in (1, 2):
+        counts = point_types.get(team) or {}
+        total_typed = sum(v for v in counts.values() if isinstance(v, int))
+        if total_typed <= 0:
+            continue
+        team_total = totals_by_team.get(team) or 0
+        parts = []
+        for k in ("ace", "kill", "block", "opp_error"):
+            n = counts.get(k) or 0
+            if not n:
+                continue
+            # "Label: N" (plural category label) reads grammatically at
+            # any count, unlike "N label" which yields "3 kill".
+            label = f"{_t(locale, _pt_label_keys[k])}: {n}"
+            if team_total:
+                label += f" ({_pct(n, team_total)}%)"
+            parts.append(label)
+        _card(
+            f"{_team_label(team)} · {_t(locale, 'pointTypesHeading')}",
+            str(total_typed),
+            " · ".join(parts),
+        )
+
+    # Card 2 — own errors: points a team gave away through its own faults,
+    # i.e. the opponent's ``opp_error`` tally (and its cause breakdown),
+    # plus the share of the opponent's points those mistakes accounted for.
+    for team in (1, 2):
+        opp = 2 if team == 1 else 1
+        gifted = (point_types.get(opp) or {}).get("opp_error") or 0
+        if gifted <= 0:
+            continue
+        opp_total = totals_by_team.get(opp) or 0
+        errs = error_types.get(opp) or {}
+        # "Label: N" (plural cause label) — grammatical at any count and
+        # self-describing, so no separate "errors:" lead-in is needed.
+        err_parts = [
+            f"{_t(locale, _et_label_keys[k])}: {errs[k]}"
+            for k in ERROR_TYPES
+            if errs.get(k)
+        ]
+        detail = (
+            _t(locale, "ownErrorsShare", pct=_pct(gifted, opp_total))
+            if opp_total else ""
+        )
+        if err_parts:
+            sep = " — " if detail else ""
+            detail += sep + " · ".join(err_parts)
+        _card(
+            f"{_team_label(team)} · {_t(locale, 'ownErrorsHeading')}",
+            str(gifted),
+            detail,
+        )
 
     if not cards:
         # Empty matches still render an explicit "no highlights" card

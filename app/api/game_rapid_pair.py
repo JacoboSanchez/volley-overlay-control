@@ -14,8 +14,21 @@ if TYPE_CHECKING:
 RAPID_PAIR_WINDOW_S = 5.0
 
 
-def consume_rapid_pair(session: GameSession, team: int, undo: bool) -> bool:
-    """Return True when the incoming add_point collapses with a recent opposite action."""
+def consume_rapid_pair(
+    session: GameSession,
+    team: int,
+    undo: bool,
+    point_type: str | None = None,
+    error_type: str | None = None,
+) -> bool:
+    """Return True when the incoming add_point collapses with a recent opposite action.
+
+    ``point_type`` / ``error_type`` are the classification tags of the
+    *incoming* forward tap (``None`` on an undo). They gate the recovery
+    branch: an undo→tap collapse only fires when the re-tap reproduces
+    the same point, classification included — see the recovery comment
+    below.
+    """
     cached = session.rapid_pair_cache.get(team)
     if not cached:
         return False
@@ -32,6 +45,18 @@ def consume_rapid_pair(session: GameSession, team: int, undo: bool) -> bool:
         if audit_ts is not None and action_log.tombstone_ts(session.oid, audit_ts):
             session.undoable_forward_count = max(0, session.undoable_forward_count - 1)
     else:
+        # Recovery: a forward tap reversing a just-applied undo. Only
+        # collapse when the re-tap reproduces the *same* point — its
+        # classification included. If the operator re-tags it differently
+        # (e.g. undo an "ace", then re-score the rally as a "kill"), bail
+        # so the new tag lands as a fresh forward record instead of
+        # silently restoring the old tag.
+        if (
+            cached.get("popped_point_type") != point_type
+            or cached.get("popped_error_type") != error_type
+        ):
+            session.rapid_pair_cache.pop(team, None)
+            return False
         tombstone_ok = audit_ts is not None and action_log.tombstone_ts(
             session.oid, audit_ts,
         )
@@ -70,6 +95,12 @@ def record_rapid_pair_seed(
         popped_ts = popped.get("ts")
         if isinstance(popped_ts, (int, float)):
             entry["popped_ref_ts"] = popped_ts
+            # Remember the original point's tags so a quick re-tap can
+            # tell "same point" (collapse) from "re-classified" (record
+            # the new tag instead of restoring the old one).
+            popped_params = popped.get("params") or {}
+            entry["popped_point_type"] = popped_params.get("point_type")
+            entry["popped_error_type"] = popped_params.get("error_type")
     session.rapid_pair_cache[team] = entry
 
 

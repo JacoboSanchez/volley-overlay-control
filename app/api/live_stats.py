@@ -76,6 +76,34 @@ def _current_streak(audit: list[dict[str, Any]]) -> dict[str, Any]:
     return {"team": streak_team, "n": streak_n, "set": streak_set}
 
 
+def _last_point(audit: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Most recent non-undo ``add_point`` with its classification.
+
+    Returns ``{"team", "set", "point_type", "error_type"}`` for the
+    latest scored point, or ``None`` when no point has been scored yet.
+    ``point_type`` / ``error_type`` are ``None`` when the point was
+    recorded untyped. The audit is already tombstone-filtered, so an
+    undone point never wins the walk; explicit undo records are skipped
+    too. Lets the spectator page surface "how the last point was won".
+    """
+    for r in reversed(audit):
+        if _is_undo_record(r):
+            continue
+        if r.get("action") != "add_point":
+            continue
+        params = r.get("params") or {}
+        team = params.get("team")
+        if team not in (1, 2):
+            continue
+        return {
+            "team": team,
+            "set": _result_set(r),
+            "point_type": params.get("point_type"),
+            "error_type": params.get("error_type"),
+        }
+    return None
+
+
 def _scoring_events(audit: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Walk the audit once and return all scoring events as flat dicts.
 
@@ -440,6 +468,17 @@ def _compute_live_stats(
         "longest_rally": base["longest_rally"],
         "total_points": base["total_points"],
         "set_durations": base["set_durations"],
+        # Optional per-point classification tallies (opt-in). Always
+        # present (zeroed) so consumers don't need a None check; the
+        # error breakdown is a subset of the ``opp_error`` total.
+        "point_types": base["point_types"],
+        "error_types": base["error_types"],
+        # Per-set point-type tallies so the set-summary recap can scope
+        # the breakdown to the displayed set.
+        "point_types_by_set": base["point_types_by_set"],
+        # Classification of the most recent scored point (or ``None``),
+        # used by the spectator page to show how the last point was won.
+        "last_point": _last_point(audit),
         "points_history": _recent_points(events, history_limit),
         # Per-set buckets capped at 60 events (more than enough for
         # any indoor or beach set, including extreme deuce stretches).

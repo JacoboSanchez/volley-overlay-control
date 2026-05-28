@@ -35,7 +35,12 @@ function optimisticAddPoint(prev: GameState, team: Team): GameState {
 }
 
 export interface GameActions {
-  addPoint: (team: Team, undo?: boolean) => Promise<ActionResponse>;
+  addPoint: (
+    team: Team,
+    undo?: boolean,
+    pointType?: api.PointType,
+    errorType?: api.ErrorType,
+  ) => Promise<ActionResponse>;
   addSet: (team: Team, undo?: boolean) => Promise<ActionResponse>;
   addTimeout: (team: Team, undo?: boolean) => Promise<ActionResponse>;
   changeServe: (team: Team) => Promise<ActionResponse>;
@@ -243,9 +248,9 @@ export function useGameState(oid: string | null): UseGameStateResult {
 
   const actions = useMemo<GameActions>(
     () => ({
-      addPoint: (team, undo = false) =>
+      addPoint: (team, undo = false, pointType, errorType) =>
         handleAction(
-          () => api.addPoint(oid!, team, undo),
+          () => api.addPoint(oid!, team, undo, pointType, errorType),
           undo ? undefined : (prev) => optimisticAddPoint(prev, team),
         ),
       addSet: (team, undo = false) => handleAction(() => api.addSet(oid!, team, undo)),

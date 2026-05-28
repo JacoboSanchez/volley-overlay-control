@@ -87,6 +87,21 @@ export interface Settings {
    * the next set yields back to the live scoreboard immediately).
    */
   autoShowSetSummaryDuration: number;
+  /**
+   * Opt-in per-point classification. When ``true`` a tap on a score
+   * button opens a quick picker (ace / kill / block / opponent error /
+   * quick point) instead of scoring immediately, so the operator can
+   * tag how the rally was won. Default OFF — the fast tap-to-score
+   * flow is unchanged for everyone who doesn't opt in.
+   */
+  trackPointTypes: boolean;
+  /**
+   * When ``trackPointTypes`` is on, expand "opponent error" into a
+   * second step that classifies the specific cause (serve / attack /
+   * reception / ball-handling / net / position / other). No effect
+   * while ``trackPointTypes`` is off. Default OFF.
+   */
+  extendedErrorTracking: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -111,6 +126,8 @@ const DEFAULTS: Settings = {
   autoShowSetSummary: false,
   autoShowSetSummaryDelay: 5,
   autoShowSetSummaryDuration: 15,
+  trackPointTypes: false,
+  extendedErrorTracking: false,
 };
 
 /**

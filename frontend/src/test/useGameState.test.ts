@@ -130,7 +130,7 @@ describe('useGameState', () => {
       await result.current.actions.addPoint(1);
     });
 
-    expect(api.addPoint).toHaveBeenCalledWith('oid', 1, false);
+    expect(api.addPoint).toHaveBeenCalledWith('oid', 1, false, undefined, undefined);
     expect(result.current.state).toEqual(updatedState);
   });
 
@@ -190,7 +190,7 @@ describe('useGameState', () => {
       await result.current.actions.addPoint(2, true);
     });
 
-    expect(api.addPoint).toHaveBeenCalledWith('oid', 2, true);
+    expect(api.addPoint).toHaveBeenCalledWith('oid', 2, true, undefined, undefined);
   });
 
   it('action sets error on exception', async () => {

@@ -91,6 +91,25 @@ describe('useRecentEvents', () => {
     ]);
   });
 
+  it('maps params.point_type onto the point_add event', async () => {
+    getAuditSpy.mockResolvedValue({
+      oid: 'oid',
+      count: 2,
+      records: [
+        rec(1, 'add_point', { team: 1, point_type: 'ace' }),
+        rec(2, 'add_point', { team: 2, point_type: 'opp_error', error_type: 'net_fault' }),
+      ],
+    });
+    const { result } = renderHook(() => useRecentEvents('oid', true, makeState(1, 1), 8));
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    expect(result.current[0]).toMatchObject({ team: 1, kind: 'point_add', pointType: 'ace' });
+    expect(result.current[1]).toMatchObject({
+      team: 2,
+      kind: 'point_add',
+      pointType: 'opp_error',
+    });
+  });
+
   it('emits a forward timeout chip on add_timeout', async () => {
     getAuditSpy.mockResolvedValue({
       oid: 'oid',

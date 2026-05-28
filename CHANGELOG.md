@@ -8,6 +8,47 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Per-point classification (opt-in scouting tags).** `POST
+  /api/v1/game/add-point` now accepts an optional `point_type` (`ace`,
+  `kill`, `block`, `opp_error`) and, for opponent errors, an optional
+  `error_type` sub-classification (`serve_error`, `attack_error`,
+  `reception_error`, `ball_handling`, `net_fault`, `position_fault`,
+  `other`) — the latter is rejected (422) unless `point_type ==
+  "opp_error"`. Tags ride along in the per-OID audit log `params`, are
+  ignored on undo, and are fully optional (omitting them records an
+  untyped point exactly as before). Live stats
+  (`/api/v1/matches/live/stats`) and the printed match report now expose
+  a per-team breakdown of point
+  types, with opponent errors further broken down by cause; the report
+  block is localized across all six supported locales. The match report
+  additionally shows each type as a percentage of the team's points
+  (point composition) and an "own errors" card attributing points given
+  away to the faulting team (count, cause breakdown, and share of the
+  opponent's points).
+- **Control-UI point-type picker (opt-in).** Two new Behavior settings
+  — "Track point types" and "Detailed opponent errors" (both off by
+  default) — gate a score-button picker: with tracking on, tapping a
+  team's score opens a quick chooser (ace / kill / block / opponent
+  error / quick point), and with detailed errors on, an opponent error
+  expands into a cause step (serve / attack / reception / ball-handling
+  / net / position / other). The fast tap-to-score flow is unchanged
+  when tracking is off. Tagged points show a compact glyph in the
+  points-history strip. Picker labels are localized across all six
+  locales.
+- **Point-type stats on the spectator page and overlay recap.** The
+  public `/follow/{id}` spectator page now shows a per-team breakdown
+  (aces / kills / blocks / opponent errors) and a "last point" badge
+  indicating how the most recent rally was won (including the error
+  cause for tagged opponent errors). The set-summary recap overlay (the
+  ledger, columns, bento, glass and bumper variants) shows the same
+  breakdown scoped to the displayed set. All rows are gated to non-empty,
+  so a match scored without tags is visually unchanged. The backend now
+  ships `point_types_by_set` and `last_point` in
+  `/api/v1/matches/live/stats` and the overlay broadcast. New labels are
+  localized across all six locales.
+
 ### Fixed
 
 - **Type errors surfaced by the wider `mypy` scope (below).** Bringing the
@@ -50,6 +91,12 @@ once a first tagged release ships.
 
 - Corrected stale paths in ``AGENTS.md``: ``app/overlay_backends`` and
   ``app/api/routes`` are packages (directories), not single modules.
+- Added a README screenshot (`docs/screenshots/11-point-type-picker.png`)
+  of the opt-in per-point classification picker open over the
+  scoreboard, plus a capture step for it in `scripts/screenshots/`. The
+  capture pipeline now honours an optional `SCREENSHOT_CHROMIUM_PATH`
+  to use a pre-provisioned Chromium where the managed-browser download
+  is blocked.
 
 ## [5.4.4] - 2026-05-24
 

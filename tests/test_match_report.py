@@ -1973,3 +1973,120 @@ class TestDeleteArchivedMatch:
         response = c.delete(f"/matches/{match_id}")
         assert response.status_code == 401
         assert match_archive.load_match(match_id) is not None
+
+
+class TestPointTypeBreakdown:
+    """Per-point classification breakdown in stats + highlights render."""
+
+    @staticmethod
+    def _point(team, score_pair, *, point_type=None, error_type=None, ts=1.0):
+        params = {"team": team, "undo": False}
+        if point_type:
+            params["point_type"] = point_type
+        if error_type:
+            params["error_type"] = error_type
+        return {
+            "ts": ts,
+            "action": "add_point",
+            "params": params,
+            "result": {
+                "current_set": 1,
+                "team_1": {"score": score_pair[0]},
+                "team_2": {"score": score_pair[1]},
+                "serve": "A" if team == 1 else "B",
+            },
+        }
+
+    def test_compute_stats_tallies_types_and_errors(self):
+        from app.match_report import _compute_stats
+
+        audit = [
+            self._point(1, (1, 0), point_type="ace", ts=1.0),
+            self._point(1, (2, 0), point_type="kill", ts=2.0),
+            self._point(1, (3, 0), point_type="opp_error",
+                        error_type="serve_error", ts=3.0),
+            self._point(2, (3, 1), point_type="block", ts=4.0),
+        ]
+        stats = _compute_stats(audit)
+        assert stats["point_types"][1] == {
+            "ace": 1, "kill": 1, "block": 0, "opp_error": 1,
+        }
+        assert stats["point_types"][2]["block"] == 1
+        assert stats["error_types"][1]["serve_error"] == 1
+        # Per-team totals back the composition percentages.
+        assert stats["total_points_by_team"] == {1: 3, 2: 1}
+
+    def test_composition_card_shows_percentages(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        # Team 1 wins 4 points: 1 ace + 3 kills → ace = 25%, kill = 75%.
+        audit = [
+            self._point(1, (1, 0), point_type="ace", ts=1.0),
+            self._point(1, (2, 0), point_type="kill", ts=2.0),
+            self._point(1, (3, 0), point_type="kill", ts=3.0),
+            self._point(1, (4, 0), point_type="kill", ts=4.0),
+        ]
+        stats = _compute_stats(audit)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Aces: 1 (25%)" in html
+        assert "Kills: 3 (75%)" in html
+
+    def test_own_errors_card_attributes_faults_to_faulting_team(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        # Team 1 wins 3 points off team 2's faults (2 serve, 1 net);
+        # team 2 wins 1 clean point. So team 2's "own errors" = 3.
+        audit = [
+            self._point(1, (1, 0), point_type="opp_error",
+                        error_type="serve_error", ts=1.0),
+            self._point(1, (2, 0), point_type="opp_error",
+                        error_type="serve_error", ts=2.0),
+            self._point(1, (3, 0), point_type="opp_error",
+                        error_type="net_fault", ts=3.0),
+            self._point(2, (3, 1), point_type="kill", ts=4.0),
+        ]
+        stats = _compute_stats(audit)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        # The own-errors card is attributed to Beta (team 2), who gave
+        # away the 3 points, with the cause breakdown and the share of
+        # Alpha's points (3 of Alpha's 3 = 100%).
+        assert "Beta · Own errors" in html
+        assert "100% of opponent points" in html
+        assert "Serve errors: 2" in html and "Net faults: 1" in html
+        # Alpha committed no faults → no own-errors card for Alpha.
+        assert "Alpha · Own errors" not in html
+
+    def test_render_highlights_includes_localized_breakdown(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = [
+            self._point(1, (1, 0), point_type="ace", ts=1.0),
+            self._point(1, (2, 0), point_type="opp_error",
+                        error_type="net_fault", ts=2.0),
+        ]
+        stats = _compute_stats(audit)
+        html_en = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Points won" in html_en
+        assert "Aces: 1" in html_en
+        assert "Net faults: 1" in html_en  # error cause detail
+        # Locale labels resolve (Spanish "Puntos ganados").
+        html_es = _render_highlights(
+            stats, "es", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Puntos ganados" in html_es
+
+    def test_untyped_match_renders_no_breakdown_card(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = [self._point(1, (1, 0), ts=1.0)]
+        stats = _compute_stats(audit)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Points won" not in html

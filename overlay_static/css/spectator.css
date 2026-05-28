@@ -717,3 +717,36 @@ html, body {
     .team-name { font-size: 1.1rem; }
     .team-serve { width: 22px; height: 22px; }
 }
+
+/* ── Last-point classification badge (opt-in scouting) ──────────── */
+.spectator-last-point {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 2px 16px 10px;
+    font-size: 0.8rem;
+}
+.spectator-last-point[hidden] { display: none !important; }
+.last-point-label {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    font-size: 0.7rem;
+}
+.last-point-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--panel-bg-strong);
+    font-weight: 700;
+}
+.last-point-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}

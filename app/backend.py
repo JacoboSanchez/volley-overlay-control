@@ -491,6 +491,30 @@ class Backend:
                     }
                     for set_num, by_team in stats["services_by_set"].items()
                 },
+                # Per-point classification (opt-in scouting tags). Sent
+                # with string team keys for a stable JSON round-trip;
+                # the spectator stats panel renders a per-type row and
+                # the last-point indicator. ``error_types`` is a subset
+                # of each team's ``opp_error`` total.
+                "point_types": {
+                    str(team): counts
+                    for team, counts in stats["point_types"].items()
+                },
+                "error_types": {
+                    str(team): counts
+                    for team, counts in stats["error_types"].items()
+                },
+                # Per-set point types so the set-summary recap (the
+                # overlay's stats view) can show a breakdown scoped to
+                # the displayed set. Nested string keys for JSON round-
+                # trip stability.
+                "point_types_by_set": {
+                    str(set_num): {
+                        str(t): counts for t, counts in by_team.items()
+                    }
+                    for set_num, by_team in stats["point_types_by_set"].items()
+                },
+                "last_point": stats.get("last_point"),
             }
             payload["overlay_control"]["points_history"] = stats[
                 "points_history"
