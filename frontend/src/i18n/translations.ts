@@ -545,7 +545,7 @@ export const translations: Record<string, TranslationDict> = {
     'pointPicker.title': '¿Cómo se ganó el punto?',
     'pointPicker.quick': 'Punto rápido',
     'pointPicker.back': 'Atrás',
-    'pointType.ace': 'Ace',
+    'pointType.ace': 'Saque directo',
     'pointType.kill': 'Ataque',
     'pointType.block': 'Bloqueo',
     'pointType.opp_error': 'Error rival',

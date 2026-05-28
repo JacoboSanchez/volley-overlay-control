@@ -42,7 +42,7 @@
       setWinner: 'Ganador del set', runnerUp: 'Segundo',
       live: 'EN VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Aún sin puntos en este set',
-      ptAce: 'Aces', ptKill: 'Ataques', ptBlock: 'Bloqueos', ptOppError: 'Errores rival',
+      ptAce: 'Saques directos', ptKill: 'Ataques', ptBlock: 'Bloqueos', ptOppError: 'Errores rival',
     },
     pt: {
       set: 'Set', final: 'Final', duration: 'Duração',

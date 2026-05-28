@@ -146,7 +146,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "groupedSetLabel": "Set {n}",
         "noScoreEvolution": "No hay datos suficientes para graficar este set.",
         "pointTypesHeading": "Puntos ganados",
-        "pointTypeAce": "ace",
+        "pointTypeAce": "saque directo",
         "pointTypeKill": "ataque",
         "pointTypeBlock": "bloqueo",
         "pointTypeOppError": "error rival",
