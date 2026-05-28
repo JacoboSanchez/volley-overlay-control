@@ -186,6 +186,74 @@ class TestRapidPairCaseB:
         # only the team 2 forward should remain.
         assert kinds == [(2, False)]
 
+    def test_reclassified_retap_records_new_tag_not_old(
+        self, api_session, monkeypatch,
+    ):
+        """Recovery must not silently keep a stale classification.
+
+        Undo an ``ace``, then re-score the rally as a ``kill`` within
+        the rapid-pair window: the recovery should NOT restore the old
+        ace record — the operator re-classified the point, so the new
+        ``kill`` tag must land as a fresh forward instead.
+        """
+        import time as _time
+
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
+        # Tagged forward, parked beyond the window so the undo doesn't
+        # pair with it as Case A.
+        GameService.add_point(api_session, team=1, point_type="ace")
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 1.0
+
+        # Standalone undo → tombstones the ace, seeds the undo cache.
+        GameService.add_point(api_session, team=1, undo=True)
+        assert api_session.undoable_forward_count == 0
+
+        # Quick re-tap, re-classified as a kill.
+        clock[0] += 1.0
+        GameService.add_point(api_session, team=1, point_type="kill")
+
+        state = GameService.get_state(api_session)
+        assert state.team_1.scores["set_1"] == 1
+        assert api_session.undoable_forward_count == 1
+
+        forwards = [
+            r for r in _visible_records(api_session.oid)
+            if not r["params"].get("undo")
+        ]
+        assert len(forwards) == 1
+        # The new tag won; the old ace did not come back from its tombstone.
+        assert forwards[0]["params"].get("point_type") == "kill"
+
+    def test_same_tag_retap_still_collapses(self, api_session, monkeypatch):
+        """A re-tap with the *same* classification still collapses
+        (restores the original record), so the timeline keeps its
+        original ts and no orphan undo lingers.
+        """
+        import time as _time
+
+        from app.api import game_service as gs
+
+        clock = [1_000_000.0]
+        monkeypatch.setattr(gs.time, "time", lambda: clock[0])
+        monkeypatch.setattr(_time, "time", lambda: clock[0])
+
+        GameService.add_point(api_session, team=1, point_type="ace")
+        clock[0] += gs.RAPID_PAIR_WINDOW_S + 1.0
+        GameService.add_point(api_session, team=1, undo=True)
+        clock[0] += 1.0
+        GameService.add_point(api_session, team=1, point_type="ace")
+
+        records = _visible_records(api_session.oid)
+        assert len(records) == 1
+        assert records[0]["params"].get("point_type") == "ace"
+        assert records[0]["params"].get("undo", False) is False
+        assert api_session.undoable_forward_count == 1
+
 
 # ---------------------------------------------------------------------------
 # Cache invalidation — non-add_point actions wipe the seed.
