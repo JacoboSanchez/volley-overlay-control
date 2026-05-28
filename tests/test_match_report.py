@@ -2030,8 +2030,8 @@ class TestPointTypeBreakdown:
         html = _render_highlights(
             stats, "en", team1_name="Alpha", team2_name="Beta",
         )
-        assert "1 ace (25%)" in html
-        assert "3 kill (75%)" in html
+        assert "Aces: 1 (25%)" in html
+        assert "Kills: 3 (75%)" in html
 
     def test_own_errors_card_attributes_faults_to_faulting_team(self):
         from app.match_report import _compute_stats, _render_highlights
@@ -2056,7 +2056,7 @@ class TestPointTypeBreakdown:
         # Alpha's points (3 of Alpha's 3 = 100%).
         assert "Beta · Own errors" in html
         assert "100% of opponent points" in html
-        assert "2 serve" in html and "1 net" in html
+        assert "Serve errors: 2" in html and "Net faults: 1" in html
         # Alpha committed no faults → no own-errors card for Alpha.
         assert "Alpha · Own errors" not in html
 
@@ -2073,8 +2073,8 @@ class TestPointTypeBreakdown:
             stats, "en", team1_name="Alpha", team2_name="Beta",
         )
         assert "Points won" in html_en
-        assert "ace" in html_en
-        assert "net" in html_en  # error cause detail
+        assert "Aces: 1" in html_en
+        assert "Net faults: 1" in html_en  # error cause detail
         # Locale labels resolve (Spanish "Puntos ganados").
         html_es = _render_highlights(
             stats, "es", team1_name="Alpha", team2_name="Beta",

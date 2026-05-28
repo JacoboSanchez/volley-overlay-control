@@ -28,6 +28,16 @@ const POINT_TYPE_ABBR: Record<string, string> = {
   opp_error: 'E',
 };
 
+// Readable words for screen readers, so the aria-label never announces
+// the raw programmatic token (e.g. "opp_error"). Matches the
+// English-only convention of this strip's other aria-labels.
+const POINT_TYPE_ARIA: Record<string, string> = {
+  ace: 'ace',
+  kill: 'kill',
+  block: 'block',
+  opp_error: 'opponent error',
+};
+
 function ClockIcon() {
   return (
     <svg viewBox={ICON_VIEWBOX} className="phs-icon" aria-hidden="true">
@@ -105,7 +115,9 @@ function chipContent(ev: RecentEvent) {
 function chipAriaLabel(ev: RecentEvent, teamName: string): string {
   switch (ev.kind) {
     case 'point_add':
-      return ev.pointType ? `${teamName}: +1 (${ev.pointType})` : `${teamName}: +1`;
+      return ev.pointType
+        ? `${teamName}: +1 (${POINT_TYPE_ARIA[ev.pointType] ?? ev.pointType})`
+        : `${teamName}: +1`;
     case 'set_won':
       return `${teamName}: set won`;
     case 'match_won':

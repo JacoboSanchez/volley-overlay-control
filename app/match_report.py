@@ -1302,7 +1302,9 @@ def _render_highlights(
             n = counts.get(k) or 0
             if not n:
                 continue
-            label = f"{n} {_t(locale, _pt_label_keys[k])}"
+            # "Label: N" (plural category label) reads grammatically at
+            # any count, unlike "N label" which yields "3 kill".
+            label = f"{_t(locale, _pt_label_keys[k])}: {n}"
             if team_total:
                 label += f" ({_pct(n, team_total)}%)"
             parts.append(label)
@@ -1322,8 +1324,10 @@ def _render_highlights(
             continue
         opp_total = totals_by_team.get(opp) or 0
         errs = error_types.get(opp) or {}
+        # "Label: N" (plural cause label) — grammatical at any count and
+        # self-describing, so no separate "errors:" lead-in is needed.
         err_parts = [
-            f"{errs[k]} {_t(locale, _et_label_keys[k])}"
+            f"{_t(locale, _et_label_keys[k])}: {errs[k]}"
             for k in ERROR_TYPES
             if errs.get(k)
         ]
@@ -1333,9 +1337,7 @@ def _render_highlights(
         )
         if err_parts:
             sep = " — " if detail else ""
-            detail += (
-                f"{sep}{_t(locale, 'errorsLabel')}: " + " · ".join(err_parts)
-            )
+            detail += sep + " · ".join(err_parts)
         _card(
             f"{_team_label(team)} · {_t(locale, 'ownErrorsHeading')}",
             str(gifted),
