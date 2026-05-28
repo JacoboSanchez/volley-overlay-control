@@ -22,7 +22,11 @@ once a first tagged release ships.
   (`/api/v1/matches/live/stats`) and the printed match report now expose
   a per-team breakdown of point
   types, with opponent errors further broken down by cause; the report
-  block is localized across all six supported locales.
+  block is localized across all six supported locales. The match report
+  additionally shows each type as a percentage of the team's points
+  (point composition) and an "own errors" card attributing points given
+  away to the faulting team (count, cause breakdown, and share of the
+  opponent's points).
 - **Control-UI point-type picker (opt-in).** Two new Behavior settings
   — "Track point types" and "Detailed opponent errors" (both off by
   default) — gate a score-button picker: with tracking on, tapping a

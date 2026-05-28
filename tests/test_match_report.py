@@ -2013,6 +2013,52 @@ class TestPointTypeBreakdown:
         }
         assert stats["point_types"][2]["block"] == 1
         assert stats["error_types"][1]["serve_error"] == 1
+        # Per-team totals back the composition percentages.
+        assert stats["total_points_by_team"] == {1: 3, 2: 1}
+
+    def test_composition_card_shows_percentages(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        # Team 1 wins 4 points: 1 ace + 3 kills → ace = 25%, kill = 75%.
+        audit = [
+            self._point(1, (1, 0), point_type="ace", ts=1.0),
+            self._point(1, (2, 0), point_type="kill", ts=2.0),
+            self._point(1, (3, 0), point_type="kill", ts=3.0),
+            self._point(1, (4, 0), point_type="kill", ts=4.0),
+        ]
+        stats = _compute_stats(audit)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "1 ace (25%)" in html
+        assert "3 kill (75%)" in html
+
+    def test_own_errors_card_attributes_faults_to_faulting_team(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        # Team 1 wins 3 points off team 2's faults (2 serve, 1 net);
+        # team 2 wins 1 clean point. So team 2's "own errors" = 3.
+        audit = [
+            self._point(1, (1, 0), point_type="opp_error",
+                        error_type="serve_error", ts=1.0),
+            self._point(1, (2, 0), point_type="opp_error",
+                        error_type="serve_error", ts=2.0),
+            self._point(1, (3, 0), point_type="opp_error",
+                        error_type="net_fault", ts=3.0),
+            self._point(2, (3, 1), point_type="kill", ts=4.0),
+        ]
+        stats = _compute_stats(audit)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        # The own-errors card is attributed to Beta (team 2), who gave
+        # away the 3 points, with the cause breakdown and the share of
+        # Alpha's points (3 of Alpha's 3 = 100%).
+        assert "Beta · Own errors" in html
+        assert "100% of opponent points" in html
+        assert "2 serve" in html and "1 net" in html
+        # Alpha committed no faults → no own-errors card for Alpha.
+        assert "Alpha · Own errors" not in html
 
     def test_render_highlights_includes_localized_breakdown(self):
         from app.match_report import _compute_stats, _render_highlights
