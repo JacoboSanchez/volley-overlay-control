@@ -96,6 +96,14 @@
             </div>
         </section>
 
+        <div class="spectator-last-point" id="last-point" hidden aria-live="polite">
+            <span class="last-point-label" data-i18n="lastPoint.label"></span>
+            <span class="last-point-chip" id="last-point-chip">
+                <span class="last-point-dot" id="last-point-dot" aria-hidden="true"></span>
+                <span class="last-point-text" id="last-point-text"></span>
+            </span>
+        </div>
+
         <section class="spectator-set-chart" aria-label="Set progression">
             <div class="set-chart-header">
                 <span class="set-chart-title" data-i18n="chart.title"></span>
@@ -159,6 +167,26 @@
                     <span class="stats-cell stats-cell-home" id="stat-comeback-home">—</span>
                     <span class="stats-label" data-i18n="stats.comeback.label"></span>
                     <span class="stats-cell stats-cell-away" id="stat-comeback-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-aces">
+                    <span class="stats-cell stats-cell-home" id="stat-aces-home">—</span>
+                    <span class="stats-label" data-i18n="stats.aces.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-aces-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-kills">
+                    <span class="stats-cell stats-cell-home" id="stat-kills-home">—</span>
+                    <span class="stats-label" data-i18n="stats.kills.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-kills-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-blocks">
+                    <span class="stats-cell stats-cell-home" id="stat-blocks-home">—</span>
+                    <span class="stats-label" data-i18n="stats.blocks.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-blocks-away">—</span>
+                </div>
+                <div class="stats-row" id="stat-row-opperr">
+                    <span class="stats-cell stats-cell-home" id="stat-opperr-home">—</span>
+                    <span class="stats-label" data-i18n="stats.oppErrors.label"></span>
+                    <span class="stats-cell stats-cell-away" id="stat-opperr-away">—</span>
                 </div>
             </div>
         </section>

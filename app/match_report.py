@@ -663,6 +663,10 @@ def _compute_stats(audit: list[dict]) -> dict:
         1: dict.fromkeys(ERROR_TYPES, 0),
         2: dict.fromkeys(ERROR_TYPES, 0),
     }
+    # Per-set point-type tallies, so the set-summary recap can scope the
+    # breakdown to the displayed set (same pattern as the per-set streak
+    # / services variants). Only sets that have a tagged point appear.
+    point_types_by_set: dict[int, dict[int, dict[str, int]]] = {}
 
     by_set: dict[int, list[dict]] = {}
     for record in audit:
@@ -695,6 +699,14 @@ def _compute_stats(audit: list[dict]) -> dict:
                 pt = params.get("point_type")
                 if pt in point_types[team]:
                     point_types[team][pt] += 1
+                    pts_set = point_types_by_set.setdefault(
+                        set_num,
+                        {
+                            1: dict.fromkeys(POINT_TYPES, 0),
+                            2: dict.fromkeys(POINT_TYPES, 0),
+                        },
+                    )
+                    pts_set[team][pt] += 1
                     if pt == "opp_error":
                         et = params.get("error_type")
                         if et in error_types[team]:
@@ -784,6 +796,7 @@ def _compute_stats(audit: list[dict]) -> dict:
         "set_durations": _set_durations_from_audit(audit),
         "point_types": point_types,
         "error_types": error_types,
+        "point_types_by_set": point_types_by_set,
     }
 
 

@@ -29,6 +29,7 @@
       setWinner: 'Set winner', runnerUp: 'Runner-up',
       live: 'LIVE', vs: 'VS', pointsShort: 'pts',
       empty: 'No points yet this set',
+      ptAce: 'Aces', ptKill: 'Kills', ptBlock: 'Blocks', ptOppError: 'Opp. errors',
     },
     es: {
       set: 'Set', final: 'Final', duration: 'Duración',
@@ -41,6 +42,7 @@
       setWinner: 'Ganador del set', runnerUp: 'Segundo',
       live: 'EN VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Aún sin puntos en este set',
+      ptAce: 'Aces', ptKill: 'Ataques', ptBlock: 'Bloqueos', ptOppError: 'Errores rival',
     },
     pt: {
       set: 'Set', final: 'Final', duration: 'Duração',
@@ -53,6 +55,7 @@
       setWinner: 'Vencedor do set', runnerUp: 'Segundo',
       live: 'AO VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Ainda sem pontos neste set',
+      ptAce: 'Aces', ptKill: 'Ataques', ptBlock: 'Blocos', ptOppError: 'Erros adv.',
     },
     it: {
       set: 'Set', final: 'Finale', duration: 'Durata',
@@ -65,6 +68,7 @@
       setWinner: 'Vincitore del set', runnerUp: 'Secondo',
       live: 'LIVE', vs: 'VS', pointsShort: 'pti',
       empty: 'Nessun punto in questo set',
+      ptAce: 'Ace', ptKill: 'Attacchi', ptBlock: 'Muri', ptOppError: 'Errori avv.',
     },
     fr: {
       set: 'Set', final: 'Final', duration: 'Durée',
@@ -77,6 +81,7 @@
       setWinner: 'Vainqueur du set', runnerUp: 'Finaliste',
       live: 'EN DIRECT', vs: 'VS', pointsShort: 'pts',
       empty: 'Pas encore de points dans ce set',
+      ptAce: 'Aces', ptKill: 'Attaques', ptBlock: 'Contres', ptOppError: 'Fautes adv.',
     },
     de: {
       set: 'Satz', final: 'Final', duration: 'Dauer',
@@ -89,6 +94,7 @@
       setWinner: 'Satzgewinner', runnerUp: 'Zweiter',
       live: 'LIVE', vs: 'VS', pointsShort: 'Pkt',
       empty: 'Noch keine Punkte in diesem Satz',
+      ptAce: 'Asse', ptKill: 'Angriffe', ptBlock: 'Blocks', ptOppError: 'Gegnerfehler',
     },
   };
 
@@ -361,6 +367,27 @@
       2: (setServicesRaw['2'] || setServicesRaw[2] || { served: 0, won: 0 }),
     };
 
+    // Per-set point-type tallies (opt-in scouting tags). One readout
+    // row per type that has at least one tagged point in the displayed
+    // set, so a set scored without tags adds nothing to the recap.
+    const pointTypesBySet = stats.point_types_by_set || {};
+    const setPtRaw = pointTypesBySet[setNum] || pointTypesBySet[String(setNum)] || {};
+    const ptHome = setPtRaw['1'] || setPtRaw[1] || {};
+    const ptAway = setPtRaw['2'] || setPtRaw[2] || {};
+    const pointTypeRows = [
+      ['ace', 'ptAce'],
+      ['kill', 'ptKill'],
+      ['block', 'ptBlock'],
+      ['opp_error', 'ptOppError'],
+    ]
+      .map(([key, labelKey]) => ({
+        key,
+        label: t(labelKey),
+        home: Number(ptHome[key] || 0),
+        away: Number(ptAway[key] || 0),
+      }))
+      .filter((r) => (r.home + r.away) > 0);
+
     // Total points in the displayed set = sum of both team scores.
     const setTotalPoints = (homeScore || 0) + (awayScore || 0);
 
@@ -392,7 +419,7 @@
       stats,
       // Per-set values (preferred over match-wide so the recap
       // matches what the operator just watched).
-      longestSet, servicesSet, setTotalPoints,
+      longestSet, servicesSet, setTotalPoints, pointTypeRows,
       setFinished,
       matchFinished: !!matchInfo.match_finished,
       bestOf: matchInfo.best_of_sets || 5,
@@ -515,6 +542,11 @@
     awayStats.appendChild(buildStat(t('longestStreak'), vm.longestSet[2] || 0));
     awayStats.appendChild(buildStat(t('servicesWon'),
       formatServices(vm.servicesSet, 2)));
+
+    vm.pointTypeRows.forEach((row) => {
+      homeStats.appendChild(buildStat(row.label, row.home));
+      awayStats.appendChild(buildStat(row.label, row.away));
+    });
 
     const homeCol = el('div', {
       class: 'ss-team ss-team-home',
@@ -658,6 +690,11 @@
     awayStats.appendChild(buildStat(t('longestStreak'),
       vm.longestSet[2] ? `${vm.longestSet[2]} ${t('pointsShort')}` : '–'));
     awayStats.appendChild(buildStat(t('servicesWon'), formatServices(vm.servicesSet, 2)));
+
+    vm.pointTypeRows.forEach((row) => {
+      homeStats.appendChild(buildStat(row.label, row.home));
+      awayStats.appendChild(buildStat(row.label, row.away));
+    });
 
     stage.appendChild(el('div', {
       class: 'ss-team ss-team-home',
@@ -872,6 +909,9 @@
         vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
       buildBentoStatRow('∑', t('totalPoints'), vm.setTotalPoints),
     ];
+    vm.pointTypeRows.forEach((row) => {
+      rows.push(buildBentoStatRowDual('•', row.label, row.home, row.away));
+    });
     return el('div', { class: 'ss-tile ss-tile-stats', children: rows });
   }
 
@@ -977,6 +1017,8 @@
         buildGlassStatRowDual(t('timeoutsUsed'),
           vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
         buildGlassStatRow(t('totalPoints'), vm.setTotalPoints),
+        ...vm.pointTypeRows.map((row) =>
+          buildGlassStatRowDual(row.label, row.home, row.away)),
       ],
     });
 
@@ -1210,6 +1252,8 @@
         buildBumperStatCellDual(t('timeouts'),
           vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
         buildBumperStatCell(t('totalPoints'), vm.setTotalPoints),
+        ...vm.pointTypeRows.map((row) =>
+          buildBumperStatCellDual(row.label, row.home, row.away)),
       ],
     });
 

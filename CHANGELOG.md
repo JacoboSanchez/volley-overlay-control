@@ -33,6 +33,17 @@ once a first tagged release ships.
   when tracking is off. Tagged points show a compact glyph in the
   points-history strip. Picker labels are localized across all six
   locales.
+- **Point-type stats on the spectator page and overlay recap.** The
+  public `/follow/{id}` spectator page now shows a per-team breakdown
+  (aces / kills / blocks / opponent errors) and a "last point" badge
+  indicating how the most recent rally was won (including the error
+  cause for tagged opponent errors). The set-summary recap overlay (the
+  ledger, columns, bento, glass and bumper variants) shows the same
+  breakdown scoped to the displayed set. All rows are gated to non-empty,
+  so a match scored without tags is visually unchanged. The backend now
+  ships `point_types_by_set` and `last_point` in
+  `/api/v1/matches/live/stats` and the overlay broadcast. New labels are
+  localized across all six locales.
 
 ### Fixed
 

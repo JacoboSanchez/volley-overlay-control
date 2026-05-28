@@ -388,3 +388,44 @@ class TestPointTypes:
         )
         stats = compute_live_stats(oid)
         assert stats["point_types"][1]["ace"] == 1
+
+    def test_point_types_by_set(self):
+        oid = "pt-by-set"
+        _add_typed_point(oid, 1, (1, 0), point_type="ace", set_num=1)
+        _add_typed_point(oid, 1, (2, 0), point_type="kill", set_num=1)
+        _add_typed_point(oid, 2, (0, 1), point_type="block", set_num=2)
+        stats = compute_live_stats(oid)
+        by_set = stats["point_types_by_set"]
+        assert by_set[1][1] == {"ace": 1, "kill": 1, "block": 0, "opp_error": 0}
+        assert by_set[2][2] == {"ace": 0, "kill": 0, "block": 1, "opp_error": 0}
+        # A set with no tagged points never appears as a key.
+        assert 3 not in by_set
+
+    def test_untyped_set_absent_from_point_types_by_set(self):
+        oid = "pt-by-set-untyped"
+        _add_typed_point(oid, 1, (1, 0))  # no tag
+        stats = compute_live_stats(oid)
+        assert stats["point_types_by_set"] == {}
+
+
+class TestLastPoint:
+    def test_returns_latest_tagged_point(self):
+        oid = "lp-tagged"
+        _add_typed_point(oid, 1, (1, 0), point_type="ace")
+        _add_typed_point(oid, 2, (1, 1), point_type="opp_error",
+                         error_type="net_fault", set_num=1)
+        lp = compute_live_stats(oid)["last_point"]
+        assert lp == {
+            "team": 2, "set": 1,
+            "point_type": "opp_error", "error_type": "net_fault",
+        }
+
+    def test_none_when_no_points(self):
+        assert compute_live_stats("lp-empty")["last_point"] is None
+
+    def test_untyped_last_point_has_null_type(self):
+        oid = "lp-untyped"
+        _add_typed_point(oid, 1, (1, 0))  # no tag
+        lp = compute_live_stats(oid)["last_point"]
+        assert lp["team"] == 1
+        assert lp["point_type"] is None
