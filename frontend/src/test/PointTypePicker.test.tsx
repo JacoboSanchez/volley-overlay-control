@@ -49,10 +49,12 @@ describe('PointTypePicker', () => {
     expect(onPick).toHaveBeenCalledWith('opp_error', 'serve_error');
   });
 
-  it('generic error sends opp_error with no cause', () => {
+  it('"Other" covers the no-specific-cause case', () => {
     const { onPick } = setup(true);
     fireEvent.click(screen.getByTestId('point-picker-opp_error'));
-    fireEvent.click(screen.getByTestId('point-picker-error-generic'));
-    expect(onPick).toHaveBeenCalledWith('opp_error');
+    // The generic-error button was removed; "Other" is the catch-all.
+    expect(screen.queryByTestId('point-picker-error-generic')).toBeNull();
+    fireEvent.click(screen.getByTestId('point-picker-error-other'));
+    expect(onPick).toHaveBeenCalledWith('opp_error', 'other');
   });
 });

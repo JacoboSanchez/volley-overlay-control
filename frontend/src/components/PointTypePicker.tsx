@@ -97,14 +97,6 @@ export default function PointTypePicker({
           <div className="dialog-actions">
             <button
               type="button"
-              className="dialog-btn"
-              data-testid="point-picker-error-generic"
-              onClick={() => onPick('opp_error')}
-            >
-              {t('errorPicker.generic')}
-            </button>
-            <button
-              type="button"
               className="dialog-btn dialog-btn-cancel"
               onClick={() => setStep('main')}
             >

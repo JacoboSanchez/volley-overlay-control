@@ -119,7 +119,7 @@
             'errorType.reception_error': 'Error de recepción',
             'errorType.ball_handling': 'Falta de toque',
             'errorType.net_fault': 'Falta de red',
-            'errorType.position_fault': 'Falta de posición',
+            'errorType.position_fault': 'Falta de rotación',
             'errorType.other': 'Otro',
             'footer.label': 'Actualización en vivo',
         },

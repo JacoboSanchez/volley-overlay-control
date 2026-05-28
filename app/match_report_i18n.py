@@ -156,7 +156,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "errorTypeReception": "recepción",
         "errorTypeBallHandling": "toque",
         "errorTypeNet": "red",
-        "errorTypePosition": "posición",
+        "errorTypePosition": "rotación",
         "errorTypeOther": "otro",
     },
     "pt": {
