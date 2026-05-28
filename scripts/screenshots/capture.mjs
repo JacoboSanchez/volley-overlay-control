@@ -493,6 +493,45 @@ async function captureScoreboardPhone(page) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function capturePointTypePicker(page) {
+  // Opt-in per-point classification turns a score tap into a quick
+  // picker (ace / kill / block / opponent error / quick point) instead
+  // of scoring immediately. Seed the operator setting, reload so the
+  // SPA picks it up, then tap a team's score button to open the
+  // dialog. The tap only opens the picker — it does not mutate match
+  // state — so the scoreboard behind the modal keeps the fixture's
+  // mid-match score.
+  await page.goto(`${BASE}/?oid=${encodeURIComponent(DEMO_OID)}`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('volley_trackPointTypes', JSON.stringify(true));
+    } catch (_) { /* ignore */ }
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  await page.waitForSelector('[data-testid="team-1-score"]', { timeout: 5000 });
+  // A single tap fires onClick after the double-tap disambiguation
+  // delay; the picker's type buttons carry point-picker-* testids, so
+  // waiting on one absorbs that delay without a fixed sleep.
+  await page.click('[data-testid="team-1-score"]');
+  await page.waitForSelector('[data-testid="point-picker-ace"]', { timeout: 5000 });
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: resolve(OUT_DIR, '11-point-type-picker.png'),
+    fullPage: false,
+  });
+  // Dismiss the dialog and clear the opt-in so later captures (config
+  // panel, mosaic, …) run against the default fast-score flow.
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.evaluate(() => {
+    try {
+      localStorage.removeItem('volley_trackPointTypes');
+    } catch (_) { /* ignore */ }
+  });
+}
+
 async function captureConfigPanel(page) {
   await page.goto(`${BASE}/?oid=${encodeURIComponent(DEMO_OID)}`, {
     waitUntil: 'networkidle',
@@ -691,7 +730,14 @@ async function main() {
   await ensureFinishedMatchForReport();
   const reportMatchId = await fetchLatestMatchId();
 
-  const browser = await chromium.launch({ headless: true });
+  // Allow pointing at a pre-provisioned Chromium (e.g. CI / sandboxes
+  // where the managed-browser download host is blocked). Unset → use
+  // Playwright's bundled browser exactly as before.
+  const launchOpts = { headless: true };
+  if (process.env.SCREENSHOT_CHROMIUM_PATH) {
+    launchOpts.executablePath = process.env.SCREENSHOT_CHROMIUM_PATH;
+  }
+  const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({
     viewport: MOBILE_LANDSCAPE_VIEWPORT,
     // Render at 1× to keep PNGs lightweight for the README. The captured
@@ -726,6 +772,7 @@ async function main() {
     await captureInitScreen(page);
     await captureScoreboard(page);
     await captureScoreboardPhone(page);
+    await capturePointTypePicker(page);
     await captureConfigPanel(page);
     await captureManagePage(page);
     // Mosaic captured twice — once with the full match data, once with

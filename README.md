@@ -24,6 +24,10 @@ It includes 16 overlay style templates served directly to OBS browser sources �
 |---|---|
 | ![Connect screen](docs/screenshots/01-init-screen.png) | ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) |
 
+| Per-point classification picker (opt-in) |
+|---|
+| <p align="center"><img src="docs/screenshots/11-point-type-picker.png" alt="Scoreboard with the opt-in point-type picker open — ace, kill, block, opponent error, or quick point" width="65%"></p> |
+
 | Custom overlay manager (`/manage`) | Match report (`/match/{id}/report`) |
 |---|---|
 | ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |

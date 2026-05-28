@@ -41,6 +41,8 @@ Output PNGs are written to `docs/screenshots/`. The orchestrator:
 | `07-overlay-mosaic-simple.png` | `?style=mosaic` preview grid in simple mode (current set only). | 1600×1800 (mosaic grid) |
 | `08-match-report.png` | Print-friendly match report at `/match/{id}/report` for a finished 3-1 demo match. | 1024×1100 (compact desktop) |
 | `09-spectator-page.png` | Public spectator (follow) page at `/follow/{id}` — header, scoreboard, set chart, history table, and live stats. Captured `fullPage` so every section is in-frame. | 414×896 (phone portrait) |
+| `10-overlay-set-summary.png` | Set-summary recap overlay (`brand_columns` variant) at the canonical OBS browser-source size. | 1280×720 (overlay HD) |
+| `11-point-type-picker.png` | Scoreboard with the opt-in per-point classification dialog open (ace / kill / block / opponent error / quick point), shown after tapping a team's score with "Track point types" enabled. | 844×390 (mobile-landscape) |
 
 The control UI shots default to **844×390** because the operator's
 primary use case is a phone held sideways during a match. `/manage`

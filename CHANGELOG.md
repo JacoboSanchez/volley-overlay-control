@@ -91,6 +91,12 @@ once a first tagged release ships.
 
 - Corrected stale paths in ``AGENTS.md``: ``app/overlay_backends`` and
   ``app/api/routes`` are packages (directories), not single modules.
+- Added a README screenshot (`docs/screenshots/11-point-type-picker.png`)
+  of the opt-in per-point classification picker open over the
+  scoreboard, plus a capture step for it in `scripts/screenshots/`. The
+  capture pipeline now honours an optional `SCREENSHOT_CHROMIUM_PATH`
+  to use a pre-provisioned Chromium where the managed-browser download
+  is blocked.
 
 ## [5.4.4] - 2026-05-24
 
