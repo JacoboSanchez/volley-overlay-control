@@ -1636,6 +1636,6 @@ body.set-summary-mode #player-stats-container {
   font: 800 clamp(9px, 2.25cqw, 24px)/1 'Menlo', 'Consolas', monospace;
   color: #fff;
 }
-.ss-pt-chip-n.home { color: color-mix(in srgb, var(--ss-home, #7ea2ff) 45%, #fff); }
-.ss-pt-chip-n.away { color: color-mix(in srgb, var(--ss-away, #ff8f8f) 45%, #fff); }
+.ss-pt-chip-n.home { color: color-mix(in srgb, var(--ss-home, #d4314c) 45%, #fff); }
+.ss-pt-chip-n.away { color: color-mix(in srgb, var(--ss-away, #f0a020) 45%, #fff); }
 .ss-pt-chip.is-zero .ss-pt-chip-n { color: rgba(255, 255, 255, 0.28); }
