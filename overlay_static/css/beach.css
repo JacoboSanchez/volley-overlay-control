@@ -9,13 +9,14 @@
     --text-light: #FFFFFF;
     --font-main: 'Montserrat', sans-serif;
 
-    /* The centre set-score block is deliberately fixed to a white card
-       with black numerals — the largest element on the board. */
-    --set-bg: #FFFFFF;
-    --set-text: #111111;
+    /* The centre cards carry the live (current-set) score: a white,
+       raised card with black numerals — the focal point of the board. */
+    --score-bg: #FFFFFF;
+    --score-text: #111111;
 
     --serve-glow: #FFDD00;
-    --bar-height: 96px;
+    --team-height: 72px;   /* team sections are the shorter bars */
+    --score-height: 116px; /* the white score cards stand taller */
 }
 
 body {
@@ -30,72 +31,58 @@ body {
     color: var(--text-light);
 }
 
-/* ── Main horizontal bar ─────────────────────────────────────────────
-   Beach matches are two-a-side, so the layout reads left → centre →
-   right: HOME team, the big white set score, then the AWAY team. */
+/* ── Main bar ────────────────────────────────────────────────────────
+   Mirrored around the centre: HOME (logo outside → score inside),
+   the two white score cards, then AWAY (score inside → logo outside).
+   `align-items: center` lets the taller score cards rise above the
+   shorter team bars on both edges. The gaps separate the white score
+   block from the team sections. */
 .scoreboard {
     position: absolute;
     display: flex;
     flex-direction: row;
-    align-items: stretch;
-    height: var(--bar-height);
+    align-items: center;
+    gap: 14px;
     background: transparent;
     /* GSAP fades this in */
     opacity: 0;
     transform-origin: top left;
-    filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.45));
 }
 
-/* ── Team panels ─────────────────────────────────────────────────── */
+/* ── Team panels (shorter than the score cards) ──────────────────── */
 .team {
     display: flex;
-    align-items: stretch;
+    align-items: center;
+    height: var(--team-height);
     position: relative;
-    height: 100%;
+    border-radius: 10px;
     overflow: hidden;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     transition: opacity 0.3s ease;
 }
 
 .team-home {
-    border-radius: 10px 0 0 10px;
-    background: linear-gradient(100deg, var(--home-primary), color-mix(in srgb, var(--home-primary) 78%, #000));
+    background: linear-gradient(100deg, var(--home-primary), color-mix(in srgb, var(--home-primary) 80%, #000));
 }
 
 .team-away {
-    flex-direction: row-reverse;
-    border-radius: 0 10px 10px 0;
-    background: linear-gradient(260deg, var(--away-primary), color-mix(in srgb, var(--away-primary) 78%, #000));
+    background: linear-gradient(260deg, var(--away-primary), color-mix(in srgb, var(--away-primary) 80%, #000));
 }
 
-/* Serving indicator — a bright sun-yellow bar on the outer edge that
-   lights up for the team currently serving. */
-.serving-indicator {
-    width: 8px;
-    height: 100%;
-    flex-shrink: 0;
-    background-color: rgba(255, 255, 255, 0.12);
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.serving-indicator.active {
-    background-color: var(--serve-glow);
-    box-shadow: 0 0 16px var(--serve-glow);
-}
-
-/* ── Logo ────────────────────────────────────────────────────────── */
+/* ── Logo — always on the exterior edge ──────────────────────────── */
 .logo-container {
-    width: 88px;
+    width: 78px;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.18);
+    background: rgba(0, 0, 0, 0.20);
     flex-shrink: 0;
 }
 
 .team-logo {
-    max-width: 62px;
-    max-height: 62px;
+    max-width: 54px;
+    max-height: 54px;
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
@@ -105,15 +92,15 @@ body {
     display: none;
 }
 
-/* ── Name + timeouts ─────────────────────────────────────────────── */
+/* ── Name + sets-won + timeouts ──────────────────────────────────── */
 .team-info {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 8px;
-    padding: 0 26px;
-    min-width: 260px;
-    max-width: 360px;
+    gap: 7px;
+    padding: 0 22px;
+    min-width: 220px;
+    max-width: 320px;
     box-sizing: border-box;
 }
 
@@ -122,7 +109,7 @@ body {
 }
 
 .team-name {
-    font-size: 34px;
+    font-size: 30px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -137,14 +124,50 @@ body {
 .team-home .team-name { color: var(--home-secondary); }
 .team-away .team-name { color: var(--away-secondary); }
 
+.team-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.team-away .team-meta {
+    flex-direction: row-reverse;
+}
+
+/* Compact sets-won badge — keeps the match score visible without
+   competing with the big live-score cards. */
+.sets-badge {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
+    background: rgba(0, 0, 0, 0.28);
+    color: #FFFFFF;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-meta::before {
+    content: "SETS";
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: 0.7;
+}
+
 .timeout-container {
     display: flex;
-    gap: 6px;
+    gap: 5px;
 }
 
 .timeout-dot {
-    width: 26px;
-    height: 6px;
+    width: 22px;
+    height: 5px;
     border-radius: 3px;
     background: rgba(255, 255, 255, 0.25);
     transition: background 0.3s ease, box-shadow 0.3s ease;
@@ -155,61 +178,68 @@ body {
     box-shadow: 0 0 8px var(--serve-glow);
 }
 
-/* ── Point score (per team) ──────────────────────────────────────── */
-.points-container {
-    width: 110px;
+/* Serving indicator — a slim bar on the inner edge (facing the centre)
+   that lights up for the serving team. */
+.serving-indicator {
+    width: 7px;
+    height: 58%;
+    border-radius: 4px;
+    margin: 0 12px;
+    flex-shrink: 0;
+    background-color: rgba(255, 255, 255, 0.16);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.serving-indicator.active {
+    background-color: var(--serve-glow);
+    box-shadow: 0 0 14px var(--serve-glow);
+}
+
+/* ── Centre: current-set score, two tall raised white cards ──────── */
+.score-block {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    height: var(--score-height);
+    flex-shrink: 0;
+}
+
+.score-card {
+    width: 104px;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     overflow: hidden;
-    background: rgba(0, 0, 0, 0.28);
-    flex-shrink: 0;
+    background: var(--score-bg);
+    color: var(--score-text);
+    border-radius: 14px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
 }
 
+/* A coloured cap on top of each card ties it to its team. */
+.score-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 9px;
+}
+
+.score-home::before { background: var(--home-primary); }
+.score-away::before { background: var(--away-primary); }
+
 .points {
-    font-size: 64px;
+    font-size: 76px;
     font-weight: 900;
     line-height: 1;
     position: absolute;
-    color: var(--text-light);
-    text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.5);
+    color: var(--score-text);
     font-variant-numeric: tabular-nums;
-}
-
-/* ── Centre set score — the focal point ──────────────────────────────
-   White card, black numerals, noticeably larger than everything else. */
-.sets-block {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 0 22px;
-    height: 100%;
-    background: var(--set-bg);
-    color: var(--set-text);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
-    z-index: 5;
-    flex-shrink: 0;
-}
-
-.sets {
-    font-size: 84px;
-    font-weight: 900;
-    line-height: 1;
-    color: var(--set-text);
-    font-variant-numeric: tabular-nums;
-    min-width: 56px;
-    text-align: center;
-}
-
-.sets-separator {
-    font-size: 56px;
-    font-weight: 700;
-    color: rgba(17, 17, 17, 0.35);
-    line-height: 1;
-    transform: translateY(-4px);
+    /* nudge below the coloured cap */
+    margin-top: 6px;
 }
 
 /* ── Bottom Ticker (shared widget, restyled for the beach palette) ── */

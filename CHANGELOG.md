@@ -11,13 +11,17 @@ once a first tagged release ships.
 ### Added
 
 - **New `beach` overlay style.** A scoreboard layout tailored for beach
-  volleyball: the two teams sit on the left and right of a horizontal bar
-  with the set score in the centre rendered as a white card with large
-  black numerals (deliberately the biggest element on the board), a
-  sun-yellow serving indicator and timeout pips, and optional team logos.
-  Auto-discovered by the overlay engine (`overlay_templates/beach.html` +
-  `overlay_static/css/beach.css`), so it appears in the style picker and
-  is selectable per overlay like any other style.
+  volleyball, mirrored around the centre: the two teams sit on the left
+  and right with their logos on the outer edges and their live scores
+  toward the middle. The current-set score is rendered as two tall,
+  raised white cards with large black numerals (a coloured cap ties each
+  card to its team) — the focal point of the board — visually separated
+  from the shorter team sections, which carry the team name, a compact
+  sets-won badge, a sun-yellow serving indicator and timeout pips.
+  Logos are optional. Auto-discovered by the overlay engine
+  (`overlay_templates/beach.html` + `overlay_static/css/beach.css`), so
+  it appears in the style picker and is selectable per overlay like any
+  other style.
 
 ### Fixed
 

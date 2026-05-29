@@ -12,47 +12,50 @@
 
 {% block body_content %}
     <div id="scoreboard-container" class="scoreboard">
-        <!-- Left team (home) -->
+        <!-- Left team (home) — logo on the exterior, score toward the centre. -->
         <div class="team team-home">
-            <div class="serving-indicator" id="home-serving"></div>
             <div class="logo-container">
                 <img class="team-logo" id="home-logo" src="" alt="" onerror="this.style.display='none'">
             </div>
             <div class="team-info">
                 <div class="team-name" id="home-name">HOME</div>
-                <div class="timeout-container" id="home-timeouts">
-                    <div class="timeout-dot"></div>
-                    <div class="timeout-dot"></div>
+                <div class="team-meta">
+                    <div class="sets-badge" id="home-sets">0</div>
+                    <div class="timeout-container" id="home-timeouts">
+                        <div class="timeout-dot"></div>
+                        <div class="timeout-dot"></div>
+                    </div>
                 </div>
             </div>
-            <div class="points-container">
+            <div class="serving-indicator" id="home-serving"></div>
+        </div>
+
+        <!-- Centre: current set score — two tall, raised white cards. -->
+        <div class="score-block">
+            <div class="score-card score-home">
                 <div class="points" id="home-points">0</div>
             </div>
-        </div>
-
-        <!-- Center set score — white background, black numbers, largest. -->
-        <div class="sets-block">
-            <div class="sets sets-home" id="home-sets">0</div>
-            <div class="sets-separator">-</div>
-            <div class="sets sets-away" id="away-sets">0</div>
-        </div>
-
-        <!-- Right team (away) -->
-        <div class="team team-away">
-            <div class="points-container">
+            <div class="score-card score-away">
                 <div class="points" id="away-points">0</div>
             </div>
+        </div>
+
+        <!-- Right team (away) — mirrored: score toward the centre, logo exterior. -->
+        <div class="team team-away">
+            <div class="serving-indicator" id="away-serving"></div>
             <div class="team-info">
                 <div class="team-name" id="away-name">AWAY</div>
-                <div class="timeout-container" id="away-timeouts">
-                    <div class="timeout-dot"></div>
-                    <div class="timeout-dot"></div>
+                <div class="team-meta">
+                    <div class="sets-badge" id="away-sets">0</div>
+                    <div class="timeout-container" id="away-timeouts">
+                        <div class="timeout-dot"></div>
+                        <div class="timeout-dot"></div>
+                    </div>
                 </div>
             </div>
             <div class="logo-container">
                 <img class="team-logo" id="away-logo" src="" alt="" onerror="this.style.display='none'">
             </div>
-            <div class="serving-indicator" id="away-serving"></div>
         </div>
     </div>
 {% endblock %}
