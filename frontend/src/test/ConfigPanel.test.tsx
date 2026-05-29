@@ -164,11 +164,12 @@ describe('ConfigPanel', () => {
     expect(defaultProps.onLogout).not.toHaveBeenCalled();
   });
 
-  it('renders language selector in behavior section', async () => {
+  it('renders language selector in general section', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    // In landscape mode, click the behavior sidebar item
-    const behaviorButton = screen.getByText('Behavior').closest('button')!;
-    fireEvent.click(behaviorButton);
+    // In landscape mode, click the General sidebar item (language now
+    // lives there after the Behavior section was split up).
+    const generalButton = screen.getByText('General').closest('button')!;
+    fireEvent.click(generalButton);
     await waitFor(() => {
       expect(screen.getByText('English')).toBeInTheDocument();
     });

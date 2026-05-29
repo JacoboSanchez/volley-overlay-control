@@ -62,6 +62,15 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Config: the Behavior section was split into focused sections.** The
+  single, long "Behavior" settings list is replaced by four top-level
+  sections that plug into the existing accordion/sidebar navigation:
+  **Display** (auto-hide, auto simple mode), **Statistics** (point-type
+  tracking, detailed opponent errors), **Set summary** (recap overlay,
+  default style, auto-show timing), and **General** (haptic feedback,
+  keyboard shortcuts, language). Every individual setting is unchanged —
+  only its grouping moved — so operators can scan and find options more
+  easily. New section labels are localized across all six locales.
 - **Live-stats are memoized against the audit-log version.**
   ``compute_live_stats`` reads and re-parses the entire per-OID audit log
   and runs ~9 aggregation passes over it. A single scoring action fans
