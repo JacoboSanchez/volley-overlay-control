@@ -117,8 +117,8 @@ class TestGameSessionMeta:
     def test_apply_meta_ignores_non_dict(self, mock_conf):
         session = GameSession("oid", mock_conf, _backend_for())
         original = session.simple
-        session.apply_meta(None)  # type: ignore[arg-type]
-        session.apply_meta("garbage")  # type: ignore[arg-type]
+        session.apply_meta(None)
+        session.apply_meta("garbage")
         assert session.simple == original
 
 

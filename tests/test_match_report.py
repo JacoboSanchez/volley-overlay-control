@@ -365,6 +365,7 @@ class TestMatchReport:
                         "team_2": {"score": 1}}},
         ]
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -632,6 +633,7 @@ class TestMatchReportRichSections:
                         "team_2": {"score": 0}}},
         ]
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -680,6 +682,7 @@ class TestMatchReportRichSections:
                         "team_2": {"score": 1}}},
         ]
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -723,6 +726,7 @@ class TestMatchReportRichSections:
                         "team_2": {"score": 1}}},
         ]
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -762,6 +766,7 @@ class TestMatchReportRichSections:
                         "team_2": {"score": 1}}},
         ]
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -805,6 +810,7 @@ class TestMatchReportRichSections:
                         "team_2": {"score": 0}}},
         ]
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -1001,6 +1007,7 @@ class TestMatchReportComebacks:
                 ts += 30.0
                 prev = (s1, s2)
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -1195,6 +1202,7 @@ class TestMatchReportPregameTrim:
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
         from app.api import action_log as _al
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
@@ -1364,6 +1372,7 @@ class TestMatchReportTimeoutsInline:
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
         from app.api import action_log as _al
         path = _al._path(oid)
+        assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             for r in records:

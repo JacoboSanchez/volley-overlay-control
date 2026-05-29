@@ -201,7 +201,7 @@ class TestDispatch:
         # orderings).
         records: list[stdlogging.LogRecord] = []
         handler = stdlogging.Handler(level=stdlogging.WARNING)
-        handler.emit = records.append  # type: ignore[assignment]
+        handler.emit = records.append
         webhook_logger = stdlogging.getLogger("app.api.webhooks")
         prior_level = webhook_logger.level
         webhook_logger.addHandler(handler)

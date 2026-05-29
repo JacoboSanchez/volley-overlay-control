@@ -71,6 +71,14 @@ once a first tagged release ships.
   gaps in ``app/match_report.py`` (the streak/rally accumulator dicts and
   ``effective_duration`` now carry explicit annotations). No runtime
   behaviour changes.
+- **Keyboard access for the scoreboard wake-handle and serve toggle.** The
+  show/hide-controls handle (`ScoreboardView`) and the per-team serve icon
+  (`TeamPanel`) were click-only `<div>`/`<span>` elements; they now expose
+  `role="button"`, are focusable (`tabIndex`), carry an `aria-label` (and
+  `aria-pressed` on the serve toggle), and respond to Enter/Space — so the
+  controls are operable without a pointer. Both also gain a
+  `:focus-visible` outline so keyboard focus is clearly indicated
+  (WCAG 2.4.7).
 
 ### Changed
 

@@ -80,6 +80,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
                 onChange={(e) => updateField(nameKey, e.target.value)}
                 onBlur={() => setEditing(false)}
                 placeholder={t('teams.customPlaceholder')}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- focus the inline editor the moment edit mode opens
                 autoFocus
                 data-testid={`team-${teamId}-name-selector`}
               />

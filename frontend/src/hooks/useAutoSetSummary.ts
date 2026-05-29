@@ -185,6 +185,5 @@ export function useAutoSetSummary(opts: UseAutoSetSummaryOptions): void {
   // Cleanup on unmount.
   useEffect(() => {
     return () => clearAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

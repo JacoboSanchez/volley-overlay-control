@@ -204,6 +204,10 @@ function TeamPanel({
           {!isPortrait && <div className="spacer" />}
           <span
             className="material-icons serve-icon"
+            role="button"
+            tabIndex={0}
+            aria-label={`Team ${teamId} serve`}
+            aria-pressed={isServing}
             style={{
               color: readableServeColor,
               opacity: isServing ? 1 : 0.4,
@@ -211,6 +215,12 @@ function TeamPanel({
               fontSize: '2rem',
             }}
             onClick={() => onChangeServe(teamId)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onChangeServe(teamId);
+              }
+            }}
             data-testid={`team-${teamId}-serve`}
           >
             sports_volleyball

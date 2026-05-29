@@ -98,6 +98,7 @@ export default function InitScreen({
           value={oidInput}
           onChange={(e) => setOidInput(e.target.value)}
           placeholder={t('app.oidPlaceholder')}
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- sole actionable control on an otherwise empty connect screen
           autoFocus={predefinedOverlays.length === 0}
         />
         <button className="init-button" type="submit" disabled={!oidInput.trim()}>

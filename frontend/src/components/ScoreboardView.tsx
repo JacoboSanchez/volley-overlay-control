@@ -230,7 +230,16 @@ export default function ScoreboardView({
         <div className="control-buttons-wrapper">
           <div
             className="wakeup-handle"
+            role="button"
+            tabIndex={0}
+            aria-label={showControls ? t('ctrl.hideControls') : t('ctrl.showControls')}
             onClick={() => setShowControls(!showControls)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setShowControls(!showControls);
+              }
+            }}
             title={showControls ? t('ctrl.hideControls') : t('ctrl.showControls')}
           >
             <span className="material-icons">{showControls ? 'expand_more' : 'expand_less'}</span>

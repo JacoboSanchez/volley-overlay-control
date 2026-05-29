@@ -56,9 +56,9 @@ def test_sanitize_rejects_bad_inputs(bad_id):
 
 def test_sanitize_rejects_non_string():
     with pytest.raises(ValueError):
-        OverlayStateStore._sanitize_id(None)  # type: ignore[arg-type]
+        OverlayStateStore._sanitize_id(None)
     with pytest.raises(ValueError):
-        OverlayStateStore._sanitize_id(b"bytes")  # type: ignore[arg-type]
+        OverlayStateStore._sanitize_id(b"bytes")
 
 
 def test_overlay_exists_returns_false_for_invalid_id(store):

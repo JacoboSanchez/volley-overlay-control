@@ -219,6 +219,7 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
               onChange={(e) => setCreateName(e.target.value)}
               maxLength={120}
               data-testid="preset-create-name"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- focus the name field when the create form opens
               autoFocus
             />
           </label>
