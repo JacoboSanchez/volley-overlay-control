@@ -926,6 +926,11 @@ body {
   cursor: pointer;
 }
 
+.wakeup-handle:focus-visible {
+  outline: 2px solid var(--blue, #2196f3);
+  outline-offset: 2px;
+}
+
 .control-buttons {
   position: relative;
   display: flex;
@@ -3314,6 +3319,12 @@ body {
 
 .serve-icon {
   transition: opacity 0.2s;
+}
+
+.serve-icon:focus-visible {
+  outline: 2px solid var(--blue, #2196f3);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* ── Set summary active notice & style picker ────────────────────────── */
