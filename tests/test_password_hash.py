@@ -57,7 +57,7 @@ def test_hash_rejects_empty_password():
 
 def test_hash_rejects_non_string_password():
     with pytest.raises(TypeError):
-        ph.hash_password(b"bytes")  # type: ignore[arg-type]
+        ph.hash_password(b"bytes")
 
 
 def test_hash_rejects_non_power_of_two_n():
@@ -109,8 +109,8 @@ def test_verify_returns_false_on_malformed_record(malformed):
 
 
 def test_verify_returns_false_for_non_string_inputs():
-    assert ph.verify_password(123, "scrypt$n=16384,r=8,p=1$ab$cd") is False  # type: ignore[arg-type]
-    assert ph.verify_password("pw", None) is False  # type: ignore[arg-type]
+    assert ph.verify_password(123, "scrypt$n=16384,r=8,p=1$ab$cd") is False
+    assert ph.verify_password("pw", None) is False
 
 
 def test_verify_rejects_n_above_max_log2_cap():

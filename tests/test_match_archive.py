@@ -172,7 +172,7 @@ class TestMatchArchive:
         assert match_archive.delete_match("match_aaaaaaaaaaaaaaaaaaaa_../boom") is False
         assert match_archive.delete_match("") is False
         # Non-string types must not crash.
-        assert match_archive.delete_match(None) is False  # type: ignore[arg-type]
+        assert match_archive.delete_match(None) is False
 
 
 # ---------------------------------------------------------------------------

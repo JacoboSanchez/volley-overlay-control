@@ -276,7 +276,7 @@ def test_list_overlay_disabled_when_admin_unset(overlay_client_no_admin):
 # and backward-compatible no-op when the env var is unset.
 
 
-OVERLAY_TOKEN_GATED_ROUTES = [
+OVERLAY_TOKEN_GATED_ROUTES: list[tuple[str, str, dict | None]] = [
     ("POST", "/api/state/any-id", {}),
     ("GET", "/create/overlay/any-id", None),
     ("POST", "/create/overlay/any-id", None),

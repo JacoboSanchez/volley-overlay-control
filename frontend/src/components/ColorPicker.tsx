@@ -27,7 +27,7 @@ function getRecentColors(): string[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed.filter((c): c is string => typeof c === 'string');
     }
-  } catch (e) {
+  } catch {
     /* ignore */
   }
   return [];
@@ -39,7 +39,7 @@ function saveRecentColor(color: string) {
     const recent = getRecentColors().filter((c) => c !== normalized);
     recent.unshift(normalized);
     localStorage.setItem(LS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
-  } catch (e) {
+  } catch {
     /* ignore */
   }
 }

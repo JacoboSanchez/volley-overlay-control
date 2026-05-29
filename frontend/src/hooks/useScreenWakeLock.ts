@@ -159,7 +159,6 @@ export function useScreenWakeLock(enabled: boolean): void {
     };
     // Mount-once binding. ``enabled`` is read via ref above; the
     // toggle effect below drives acquire/release on each flip.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Drive acquire/release from the latest ``enabled`` value
