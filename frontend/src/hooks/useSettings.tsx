@@ -39,7 +39,7 @@ export interface Settings {
    * vibrates briefly on confirmed double-tap-undo gestures and on
    * set / match / finished transitions. Defaults to ``false`` so a
    * fresh install doesn't surprise the operator with vibration on
-   * the first scoring tap; the toggle in BehaviorSection opts in.
+   * the first scoring tap; the toggle in GeneralSection opts in.
    * Devices without ``navigator.vibrate`` (desktop browsers, iOS
    * Safari pre-18.4) no-op silently regardless of the toggle.
    */

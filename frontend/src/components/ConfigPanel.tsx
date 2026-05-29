@@ -9,13 +9,19 @@ import ConfirmDialog from './ConfirmDialog';
 import type { ConfigModel, PredefinedTeams } from './TeamCard';
 import type { LinksSectionLinks } from './config/LinksSection';
 import type { ButtonsSectionProps } from './config/ButtonsSection';
-import type { BehaviorSectionProps } from './config/BehaviorSection';
+import type { DisplaySectionProps } from './config/DisplaySection';
+import type { StatsSectionProps } from './config/StatsSection';
+import type { RecapSectionProps } from './config/RecapSection';
+import type { GeneralSectionProps } from './config/GeneralSection';
 
 const TeamsSection = lazy(() => import('./config/TeamsSection'));
 const OverlaySection = lazy(() => import('./config/OverlaySection'));
 const PositionSection = lazy(() => import('./config/PositionSection'));
 const ButtonsSection = lazy(() => import('./config/ButtonsSection'));
-const BehaviorSection = lazy(() => import('./config/BehaviorSection'));
+const DisplaySection = lazy(() => import('./config/DisplaySection'));
+const StatsSection = lazy(() => import('./config/StatsSection'));
+const RecapSection = lazy(() => import('./config/RecapSection'));
+const GeneralSection = lazy(() => import('./config/GeneralSection'));
 const LinksSection = lazy(() => import('./config/LinksSection'));
 const MatchRulesSection = lazy(() => import('./config/MatchRulesSection'));
 const PresetPicker = lazy(() => import('./PresetPicker'));
@@ -27,7 +33,10 @@ type Section =
   | 'position'
   | 'buttons'
   | 'rules'
-  | 'behavior'
+  | 'display'
+  | 'stats'
+  | 'recap'
+  | 'general'
   | 'links';
 
 // ``presets`` sits at the top so the operator notices the
@@ -41,7 +50,10 @@ const SECTIONS: readonly Section[] = [
   'position',
   'buttons',
   'rules',
-  'behavior',
+  'display',
+  'stats',
+  'recap',
+  'general',
   'links',
 ];
 const SECTION_KEYS: Record<Section, string> = {
@@ -51,7 +63,10 @@ const SECTION_KEYS: Record<Section, string> = {
   position: 'section.position',
   buttons: 'section.buttons',
   rules: 'section.rules',
-  behavior: 'section.behavior',
+  display: 'section.display',
+  stats: 'section.stats',
+  recap: 'section.recap',
+  general: 'section.general',
   links: 'section.links',
 };
 const SECTION_ICONS: Record<Section, string> = {
@@ -61,7 +76,10 @@ const SECTION_ICONS: Record<Section, string> = {
   position: 'open_with',
   buttons: 'touch_app',
   rules: 'rule',
-  behavior: 'tune',
+  display: 'visibility',
+  stats: 'query_stats',
+  recap: 'summarize',
+  general: 'settings',
   links: 'link',
 };
 
@@ -103,12 +121,12 @@ export interface ConfigPanelProps {
   onToggleFullscreen: () => void;
   /**
    * Opens the keyboard shortcuts help modal. Only meaningful while
-   * ``settings.keyboardShortcuts`` is on — the BehaviorSection
+   * ``settings.keyboardShortcuts`` is on — the GeneralSection
    * surfaces the entry point conditionally.
    */
   onShowShortcuts?: () => void;
   /**
-   * Set summary overlay style (forwarded to BehaviorSection so the
+   * Set summary overlay style (forwarded to RecapSection so the
    * operator can pick the default style right next to the enable
    * toggle without having to activate the recap first).
    */
@@ -301,14 +319,35 @@ export default function ConfigPanel({
             setSetting={setSetting as ButtonsSectionProps['setSetting']}
           />
         );
-      case 'behavior':
+      case 'display':
         return (
-          <BehaviorSection
+          <DisplaySection
             settings={settings}
-            setSetting={setSetting as BehaviorSectionProps['setSetting']}
-            onShowShortcuts={onShowShortcuts}
+            setSetting={setSetting as DisplaySectionProps['setSetting']}
+          />
+        );
+      case 'stats':
+        return (
+          <StatsSection
+            settings={settings}
+            setSetting={setSetting as StatsSectionProps['setSetting']}
+          />
+        );
+      case 'recap':
+        return (
+          <RecapSection
+            settings={settings}
+            setSetting={setSetting as RecapSectionProps['setSetting']}
             setSummaryStyle={setSummaryStyle}
             onChangeSetSummaryStyle={onChangeSetSummaryStyle}
+          />
+        );
+      case 'general':
+        return (
+          <GeneralSection
+            settings={settings}
+            setSetting={setSetting as GeneralSectionProps['setSetting']}
+            onShowShortcuts={onShowShortcuts}
           />
         );
       case 'rules':
