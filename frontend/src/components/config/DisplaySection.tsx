@@ -38,15 +38,12 @@ export default function DisplaySection({ settings, setSetting }: DisplaySectionP
         onChange={(v) => setSetting('autoSimple', v)}
       />
       {settings.autoSimple && (
-        <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
-          <label className="config-switch-label">
-            <input
-              type="checkbox"
-              checked={settings.autoSimpleOnTimeout}
-              onChange={(e) => setSetting('autoSimpleOnTimeout', e.target.checked)}
-            />
-            {t('behavior.fullOnTimeout')}
-          </label>
+        <div style={{ paddingLeft: '1.5rem' }}>
+          <ConfigSwitch
+            label={t('behavior.fullOnTimeout')}
+            checked={settings.autoSimpleOnTimeout}
+            onChange={(v) => setSetting('autoSimpleOnTimeout', v)}
+          />
         </div>
       )}
     </div>

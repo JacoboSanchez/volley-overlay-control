@@ -55,7 +55,7 @@ export default function GeneralSection({
           value={lang}
           onChange={(e) => setLanguage(e.target.value)}
         >
-          {(languages as string[]).map((l) => (
+          {languages.map((l) => (
             <option key={l} value={l}>
               {LANGUAGE_NAMES[l] ?? l}
             </option>
