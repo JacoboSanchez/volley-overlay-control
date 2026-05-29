@@ -1,0 +1,279 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap');
+
+:root {
+    --home-primary: #0077B6;
+    --home-secondary: #FFFFFF;
+    --away-primary: #F4A300;
+    --away-secondary: #1A1A1A;
+
+    --text-light: #FFFFFF;
+    --font-main: 'Montserrat', sans-serif;
+
+    /* The centre set-score block is deliberately fixed to a white card
+       with black numerals — the largest element on the board. */
+    --set-bg: #FFFFFF;
+    --set-text: #111111;
+
+    --serve-glow: #FFDD00;
+    --bar-height: 96px;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    /* For OBS Browser source */
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: var(--font-main);
+    color: var(--text-light);
+}
+
+/* ── Main horizontal bar ─────────────────────────────────────────────
+   Beach matches are two-a-side, so the layout reads left → centre →
+   right: HOME team, the big white set score, then the AWAY team. */
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    height: var(--bar-height);
+    background: transparent;
+    /* GSAP fades this in */
+    opacity: 0;
+    transform-origin: top left;
+    filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.45));
+}
+
+/* ── Team panels ─────────────────────────────────────────────────── */
+.team {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    transition: opacity 0.3s ease;
+}
+
+.team-home {
+    border-radius: 10px 0 0 10px;
+    background: linear-gradient(100deg, var(--home-primary), color-mix(in srgb, var(--home-primary) 78%, #000));
+}
+
+.team-away {
+    flex-direction: row-reverse;
+    border-radius: 0 10px 10px 0;
+    background: linear-gradient(260deg, var(--away-primary), color-mix(in srgb, var(--away-primary) 78%, #000));
+}
+
+/* Serving indicator — a bright sun-yellow bar on the outer edge that
+   lights up for the team currently serving. */
+.serving-indicator {
+    width: 8px;
+    height: 100%;
+    flex-shrink: 0;
+    background-color: rgba(255, 255, 255, 0.12);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.serving-indicator.active {
+    background-color: var(--serve-glow);
+    box-shadow: 0 0 16px var(--serve-glow);
+}
+
+/* ── Logo ────────────────────────────────────────────────────────── */
+.logo-container {
+    width: 88px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.18);
+    flex-shrink: 0;
+}
+
+.team-logo {
+    max-width: 62px;
+    max-height: 62px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+/* When logos are toggled off, app.js adds `.no-logos`. */
+.scoreboard.no-logos .logo-container {
+    display: none;
+}
+
+/* ── Name + timeouts ─────────────────────────────────────────────── */
+.team-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 26px;
+    min-width: 260px;
+    max-width: 360px;
+    box-sizing: border-box;
+}
+
+.team-away .team-info {
+    align-items: flex-end;
+}
+
+.team-name {
+    font-size: 34px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-shadow: 1px 2px 3px rgba(0, 0, 0, 0.35);
+}
+
+.team-home .team-name { color: var(--home-secondary); }
+.team-away .team-name { color: var(--away-secondary); }
+
+.timeout-container {
+    display: flex;
+    gap: 6px;
+}
+
+.timeout-dot {
+    width: 26px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.25);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.timeout-dot.active {
+    background: var(--serve-glow);
+    box-shadow: 0 0 8px var(--serve-glow);
+}
+
+/* ── Point score (per team) ──────────────────────────────────────── */
+.points-container {
+    width: 110px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.28);
+    flex-shrink: 0;
+}
+
+.points {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1;
+    position: absolute;
+    color: var(--text-light);
+    text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.5);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Centre set score — the focal point ──────────────────────────────
+   White card, black numerals, noticeably larger than everything else. */
+.sets-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 22px;
+    height: 100%;
+    background: var(--set-bg);
+    color: var(--set-text);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    z-index: 5;
+    flex-shrink: 0;
+}
+
+.sets {
+    font-size: 84px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--set-text);
+    font-variant-numeric: tabular-nums;
+    min-width: 56px;
+    text-align: center;
+}
+
+.sets-separator {
+    font-size: 56px;
+    font-weight: 700;
+    color: rgba(17, 17, 17, 0.35);
+    line-height: 1;
+    transform: translateY(-4px);
+}
+
+/* ── Bottom Ticker (shared widget, restyled for the beach palette) ── */
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 60px;
+    background: linear-gradient(90deg, transparent, rgba(0, 119, 182, 0.92) 10%, rgba(0, 119, 182, 0.92) 90%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-light);
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}
+
+/* ── Player Stats (shared widget) ────────────────────────────────── */
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: rgba(0, 119, 182, 0.92);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    min-width: 300px;
+    opacity: 0;
+    border-left: 6px solid var(--serve-glow);
+}
+
+.player-stats-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: #FFF;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 5px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 24px;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.player-stats-label { color: rgba(255, 255, 255, 0.75); }
+.player-stats-value { color: #FFF; }
