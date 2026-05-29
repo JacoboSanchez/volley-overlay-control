@@ -29,7 +29,7 @@
       setWinner: 'Set winner', runnerUp: 'Runner-up',
       live: 'LIVE', vs: 'VS', pointsShort: 'pts',
       empty: 'No points yet this set',
-      ptAce: 'Aces', ptKill: 'Kills', ptBlock: 'Blocks', ptOppError: 'Opp. errors',
+      chipAce: 'Ace', chipKill: 'Kill', chipBlock: 'Block', chipOppErr: 'Opp. err',
     },
     es: {
       set: 'Set', final: 'Final', duration: 'Duración',
@@ -42,7 +42,7 @@
       setWinner: 'Ganador del set', runnerUp: 'Segundo',
       live: 'EN VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Aún sin puntos en este set',
-      ptAce: 'Saques directos', ptKill: 'Ataques', ptBlock: 'Bloqueos', ptOppError: 'Errores rival',
+      chipAce: 'Saque', chipKill: 'Ataque', chipBlock: 'Bloqueo', chipOppErr: 'Err. riv',
     },
     pt: {
       set: 'Set', final: 'Final', duration: 'Duração',
@@ -55,7 +55,7 @@
       setWinner: 'Vencedor do set', runnerUp: 'Segundo',
       live: 'AO VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Ainda sem pontos neste set',
-      ptAce: 'Aces', ptKill: 'Ataques', ptBlock: 'Blocos', ptOppError: 'Erros adv.',
+      chipAce: 'Saque', chipKill: 'Ataque', chipBlock: 'Bloco', chipOppErr: 'Err. adv',
     },
     it: {
       set: 'Set', final: 'Finale', duration: 'Durata',
@@ -68,7 +68,7 @@
       setWinner: 'Vincitore del set', runnerUp: 'Secondo',
       live: 'LIVE', vs: 'VS', pointsShort: 'pti',
       empty: 'Nessun punto in questo set',
-      ptAce: 'Ace', ptKill: 'Attacchi', ptBlock: 'Muri', ptOppError: 'Errori avv.',
+      chipAce: 'Ace', chipKill: 'Attacco', chipBlock: 'Muro', chipOppErr: 'Err. avv',
     },
     fr: {
       set: 'Set', final: 'Final', duration: 'Durée',
@@ -81,7 +81,7 @@
       setWinner: 'Vainqueur du set', runnerUp: 'Finaliste',
       live: 'EN DIRECT', vs: 'VS', pointsShort: 'pts',
       empty: 'Pas encore de points dans ce set',
-      ptAce: 'Aces', ptKill: 'Attaques', ptBlock: 'Contres', ptOppError: 'Fautes adv.',
+      chipAce: 'Ace', chipKill: 'Attaque', chipBlock: 'Contre', chipOppErr: 'Faute adv',
     },
     de: {
       set: 'Satz', final: 'Final', duration: 'Dauer',
@@ -94,7 +94,7 @@
       setWinner: 'Satzgewinner', runnerUp: 'Zweiter',
       live: 'LIVE', vs: 'VS', pointsShort: 'Pkt',
       empty: 'Noch keine Punkte in diesem Satz',
-      ptAce: 'Asse', ptKill: 'Angriffe', ptBlock: 'Blocks', ptOppError: 'Gegnerfehler',
+      chipAce: 'Ass', chipKill: 'Angriff', chipBlock: 'Block', chipOppErr: 'Geg.-F.',
     },
   };
 
@@ -374,19 +374,22 @@
     const setPtRaw = pointTypesBySet[setNum] || pointTypesBySet[String(setNum)] || {};
     const ptHome = setPtRaw['1'] || setPtRaw[1] || {};
     const ptAway = setPtRaw['2'] || setPtRaw[2] || {};
-    const pointTypeRows = [
-      ['ace', 'ptAce'],
-      ['kill', 'ptKill'],
-      ['block', 'ptBlock'],
-      ['opp_error', 'ptOppError'],
-    ]
-      .map(([key, labelKey]) => ({
-        key,
-        label: t(labelKey),
-        home: Number(ptHome[key] || 0),
-        away: Number(ptAway[key] || 0),
-      }))
-      .filter((r) => (r.home + r.away) > 0);
+    // Per-team counts for all four types (zeros kept — rendered dimmed),
+    // shown as a compact chip strip rather than one row per type so the
+    // fixed-size recap panel can't overflow. ``hasPointTypes`` gates the
+    // whole block off when the set was scored without any tags.
+    const pointTypes = [
+      ['ace', 'chipAce'],
+      ['kill', 'chipKill'],
+      ['block', 'chipBlock'],
+      ['opp_error', 'chipOppErr'],
+    ].map(([key, labelKey]) => ({
+      key,
+      label: t(labelKey),
+      home: Number(ptHome[key] || 0),
+      away: Number(ptAway[key] || 0),
+    }));
+    const hasPointTypes = pointTypes.some((p) => (p.home + p.away) > 0);
 
     // Total points in the displayed set = sum of both team scores.
     const setTotalPoints = (homeScore || 0) + (awayScore || 0);
@@ -419,7 +422,7 @@
       stats,
       // Per-set values (preferred over match-wide so the recap
       // matches what the operator just watched).
-      longestSet, servicesSet, setTotalPoints, pointTypeRows,
+      longestSet, servicesSet, setTotalPoints, pointTypes, hasPointTypes,
       setFinished,
       matchFinished: !!matchInfo.match_finished,
       bestOf: matchInfo.best_of_sets || 5,
@@ -543,10 +546,10 @@
     awayStats.appendChild(buildStat(t('servicesWon'),
       formatServices(vm.servicesSet, 2)));
 
-    vm.pointTypeRows.forEach((row) => {
-      homeStats.appendChild(buildStat(row.label, row.home));
-      awayStats.appendChild(buildStat(row.label, row.away));
-    });
+    if (vm.hasPointTypes) {
+      homeStats.appendChild(buildPtChipStrip(vm, 1));
+      awayStats.appendChild(buildPtChipStrip(vm, 2));
+    }
 
     const homeCol = el('div', {
       class: 'ss-team ss-team-home',
@@ -635,6 +638,48 @@
     return `${block.won || 0} / ${block.served}`;
   }
 
+  // ── Point-type breakdown (compact chips) ───────────────────────
+  // A bounded chip strip (one chip per type, short label + count, zeros
+  // dimmed) replaces the per-type stat rows so the fixed-size recap
+  // panel can never overflow no matter how many types were tagged.
+
+  function buildPtChip(label, value, teamClass) {
+    return el('span', {
+      class: 'ss-pt-chip' + (value === 0 ? ' is-zero' : ''),
+      children: [
+        el('span', { class: 'ss-pt-chip-k', text: label }),
+        el('span', { class: 'ss-pt-chip-n ' + (teamClass || ''), text: String(value) }),
+      ],
+    });
+  }
+
+  function buildPtChipStrip(vm, team) {
+    const teamClass = team === 1 ? 'home' : 'away';
+    return el('div', {
+      class: 'ss-pt-chips',
+      children: (vm.pointTypes || []).map((p) =>
+        buildPtChip(p.label, team === 1 ? p.home : p.away, teamClass)),
+    });
+  }
+
+  // Combined two-row breakdown (team logo + chip strip per side) for the
+  // tile / centre variants. Returns ``null`` when nothing was tagged so
+  // the block disappears entirely; always exactly two lines otherwise.
+  function buildPtBreakdown(vm) {
+    if (!vm.hasPointTypes) return null;
+    const row = (team, side) => el('div', {
+      class: 'ss-pt-row',
+      children: [
+        teamLogoNode(team === 1 ? vm.home : vm.away, side, 'ss-pt-logo'),
+        buildPtChipStrip(vm, team),
+      ],
+    });
+    return el('div', {
+      class: 'ss-pt-breakdown',
+      children: [row(1, 'home'), row(2, 'away')],
+    });
+  }
+
   function buildLedger(vm) {
     const merged = [];
     vm.setPoints.forEach((p) => merged.push({ ...p, kind: 'point' }));
@@ -691,10 +736,10 @@
       vm.longestSet[2] ? `${vm.longestSet[2]} ${t('pointsShort')}` : '–'));
     awayStats.appendChild(buildStat(t('servicesWon'), formatServices(vm.servicesSet, 2)));
 
-    vm.pointTypeRows.forEach((row) => {
-      homeStats.appendChild(buildStat(row.label, row.home));
-      awayStats.appendChild(buildStat(row.label, row.away));
-    });
+    if (vm.hasPointTypes) {
+      homeStats.appendChild(buildPtChipStrip(vm, 1));
+      awayStats.appendChild(buildPtChipStrip(vm, 2));
+    }
 
     stage.appendChild(el('div', {
       class: 'ss-team ss-team-home',
@@ -909,10 +954,10 @@
         vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
       buildBentoStatRow('∑', t('totalPoints'), vm.setTotalPoints),
     ];
-    vm.pointTypeRows.forEach((row) => {
-      rows.push(buildBentoStatRowDual('•', row.label, row.home, row.away));
-    });
-    return el('div', { class: 'ss-tile ss-tile-stats', children: rows });
+    const tile = el('div', { class: 'ss-tile ss-tile-stats', children: rows });
+    const breakdown = buildPtBreakdown(vm);
+    if (breakdown) tile.appendChild(breakdown);
+    return tile;
   }
 
   function buildBentoStatRow(icon, label, value) {
@@ -1017,23 +1062,23 @@
         buildGlassStatRowDual(t('timeoutsUsed'),
           vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
         buildGlassStatRow(t('totalPoints'), vm.setTotalPoints),
-        ...vm.pointTypeRows.map((row) =>
-          buildGlassStatRowDual(row.label, row.home, row.away)),
       ],
     });
 
+    const scoreTileChildren = [
+      el('div', {
+        class: 'ss-teams',
+        children: [
+          buildGlassTeamRow(vm, 'home'),
+          buildGlassTeamRow(vm, 'away'),
+        ],
+      }),
+      stats,
+    ];
+
     stage.appendChild(el('div', {
       class: 'ss-glass ss-score-tile',
-      children: [
-        el('div', {
-          class: 'ss-teams',
-          children: [
-            buildGlassTeamRow(vm, 'home'),
-            buildGlassTeamRow(vm, 'away'),
-          ],
-        }),
-        stats,
-      ],
+      children: scoreTileChildren,
     }));
 
     const chartTile = el('div', {
@@ -1052,6 +1097,18 @@
     box.appendChild(buildSvgChart(vm, { width: 480, height: 360, padTop: 8, padBottom: 6 }));
     chartTile.appendChild(box);
     stage.appendChild(chartTile);
+
+    // Full-width breakdown band below both tiles — mirrors the top
+    // header strip. Spans the score + chart columns so the two-line
+    // chip strip gets the whole width instead of cramming the tile.
+    const glassBreakdown = buildPtBreakdown(vm);
+    if (glassBreakdown) {
+      // ``ss-glass`` gives the band the same frosted-dark tile backing
+      // as the score/chart tiles so its labels stay legible over any
+      // scene; ``ss-pt-breakdown-wide`` makes it span both columns.
+      glassBreakdown.classList.add('ss-glass', 'ss-pt-breakdown-wide');
+      stage.appendChild(glassBreakdown);
+    }
   }
 
   function buildGlassStatRow(label, value) {
@@ -1252,8 +1309,6 @@
         buildBumperStatCellDual(t('timeouts'),
           vm.home.timeouts_taken || 0, vm.away.timeouts_taken || 0),
         buildBumperStatCell(t('totalPoints'), vm.setTotalPoints),
-        ...vm.pointTypeRows.map((row) =>
-          buildBumperStatCellDual(row.label, row.home, row.away)),
       ],
     });
 
@@ -1280,9 +1335,12 @@
       ],
     });
 
+    const coreChildren = [ribbon, hero];
+    const bumperBreakdown = buildPtBreakdown(vm);
+    if (bumperBreakdown) coreChildren.push(bumperBreakdown);
     const core = el('div', {
       class: 'ss-bumper-core',
-      children: [ribbon, hero],
+      children: coreChildren,
     });
 
     // Bottom ledger — full stage width so 25+ chips fit per team

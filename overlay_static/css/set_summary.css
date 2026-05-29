@@ -717,16 +717,21 @@ body.set-summary-mode #player-stats-container {
   min-width: 0;
   min-height: 0;
   padding: clamp(7px, 2.1cqw, 20px);
-  display: grid;
-  grid-template-rows: repeat(4, 1fr);
-  row-gap: clamp(3px, 1.2cqw, 12px);
+  /* Flex column (not a fixed 4-row grid) so the optional point-type
+     breakdown sits below the four core rows without the tile clipping
+     it. Core rows share the free space; the breakdown takes only its
+     natural two lines. */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  row-gap: clamp(2px, 0.9cqw, 9px);
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: clamp(4px, 1.5cqw, 14px);
-  padding: clamp(4px, 1.5cqw, 14px) clamp(1px, 0.6cqw, 6px);
+  padding: clamp(2px, 0.8cqw, 8px) clamp(1px, 0.6cqw, 6px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-row:last-child { border-bottom: none; }
@@ -745,9 +750,10 @@ body.set-summary-mode #player-stats-container {
    contrast on the dark bento tile. The team origin of each stat
    stays visible via the icon column on the left. */
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value {
-  font: 900 clamp(14px, 4.2cqw, 42px)/1 'Menlo', 'Consolas', monospace;
+  font: 900 clamp(11px, 2.85cqw, 28px)/1 'Menlo', 'Consolas', monospace;
   letter-spacing: -0.02em;
   color: #fff;
+  white-space: nowrap;
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value .home {
   color: color-mix(in srgb, var(--ss-home, #ff5a73) 40%, #fff);
@@ -874,13 +880,24 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="glass"] {
   padding: clamp(11px, 3.6cqw, 36px) clamp(14px, 4.8cqw, 48px);
   grid-template-columns: 1fr 1fr;
-  /* Two rows now: header + body. The stats no longer have their
-     own footer row — they live inside the score tile below the
-     team rows so the user can scan ``teams + their stats`` in a
-     single column. */
-  grid-template-rows: auto 1fr;
+  /* header · body (two tiles) · full-width point-type breakdown band.
+     The body uses ``minmax(0, 1fr)`` (not bare ``1fr``) so it can't
+     grow to its content and shove the band off-stage; the tiles get
+     ``min-height: 0`` + clip so they stay within that capped row. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: clamp(5px, 1.8cqw, 18px);
   position: relative; overflow: hidden;
+}
+.ss-stage[data-style="glass"] .ss-glass.ss-score-tile,
+.ss-stage[data-style="glass"] .ss-glass.ss-chart-tile {
+  min-height: 0;
+  overflow: hidden;
+}
+.ss-stage[data-style="glass"] > .ss-pt-breakdown-wide {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: clamp(5px, 1.5cqw, 16px) clamp(9px, 3cqw, 32px);
+  border-top: none;
 }
 .ss-stage[data-style="glass"] .ss-blob {
   position: absolute;
@@ -981,19 +998,19 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="glass"] .ss-meta strong { color: #fff; }
 .ss-stage[data-style="glass"] .ss-score-tile {
-  padding: clamp(11px, 3.6cqw, 32px) clamp(13px, 4.5cqw, 40px);
+  padding: clamp(9px, 3cqw, 28px) clamp(13px, 4.5cqw, 40px);
   display: flex; flex-direction: column;
-  justify-content: space-between; gap: 16px;
+  justify-content: space-between; gap: clamp(6px, 1.8cqw, 14px);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-teams {
-  display: flex; flex-direction: column; gap: 16px;
+  display: flex; flex-direction: column; gap: clamp(6px, 1.8cqw, 14px);
 }
 .ss-stage[data-style="glass"] .ss-team-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
-  padding: 14px 0;
+  padding: clamp(5px, 1.5cqw, 12px) 0;
   border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 .ss-stage[data-style="glass"] .ss-team-row:last-child { border-bottom: none; }
@@ -1278,8 +1295,16 @@ body.set-summary-mode #player-stats-container {
     0 24px 60px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   display: grid;
-  grid-template-rows: auto 1fr;
+  /* ribbon · hero · optional point-type breakdown. The hero (1fr)
+     yields room to the breakdown's auto row instead of the block
+     overflowing the core into the bottom ledger. */
+  grid-template-rows: auto 1fr auto;
   overflow: hidden;
+}
+.ss-stage[data-style="bumper"] .ss-bumper-core > .ss-pt-breakdown {
+  margin: 0;
+  padding: clamp(5px, 1.5cqw, 16px) clamp(11px, 3.9cqw, 36px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .ss-stage[data-style="bumper"] .ss-bumper-core .ss-ribbon {
@@ -1371,7 +1396,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bumper"] .ss-team.away .ss-team-name { text-align: right; }
 .ss-stage[data-style="bumper"] .ss-team-score {
-  font: 900 clamp(44px, 13cqw, 168px)/0.9 'Helvetica Neue', sans-serif;
+  font: 900 clamp(40px, 11cqw, 132px)/0.9 'Helvetica Neue', sans-serif;
   letter-spacing: -0.04em;
   background: linear-gradient(180deg,
     #ffffff 0%,
@@ -1541,3 +1566,76 @@ body.set-summary-mode #player-stats-container {
   font-weight: 800;
 }
 
+
+/* ── Point-type breakdown (compact chips, shared across variants) ──
+   A bounded chip strip — one chip per type (short label + count, zeros
+   dimmed), team-coloured. Replaces the per-type stat rows so the
+   fixed-size recap panel can't overflow no matter how many types were
+   tagged. Used two ways: the combined block (.ss-pt-breakdown, two
+   rows with a team logo) in the tile/centre variants, and a bare
+   .ss-pt-chips strip appended under each team's stat column in the
+   split-column variants. */
+.ss-pt-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1.2cqw, 12px);
+  margin-top: clamp(5px, 1.5cqw, 16px);
+  padding-top: clamp(5px, 1.5cqw, 16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  min-width: 0;
+}
+.ss-pt-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, 1.5cqw, 14px);
+  min-width: 0;
+}
+.ss-pt-logo {
+  flex: 0 0 auto;
+  width: clamp(16px, 3.6cqw, 40px);
+  height: clamp(16px, 3.6cqw, 40px);
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  font: 800 clamp(7px, 1.5cqw, 16px)/1 -apple-system, sans-serif;
+  color: #fff;
+}
+.ss-pt-logo img { width: 100%; height: 100%; object-fit: cover; }
+.ss-pt-chips {
+  display: flex;
+  gap: clamp(3px, 1cqw, 10px);
+  min-width: 0;
+}
+.ss-pt-row > .ss-pt-chips { flex: 1 1 auto; }
+.ss-team-stat-list > .ss-pt-chips {
+  width: 100%;
+  margin-top: clamp(4px, 1.2cqw, 12px);
+}
+.ss-pt-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1px, 0.4cqw, 4px);
+  padding: clamp(3px, 1cqw, 10px) clamp(2px, 0.6cqw, 6px);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: clamp(5px, 1.2cqw, 10px);
+}
+.ss-pt-chip-k {
+  font: 700 clamp(4px, 1.05cqw, 11px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+.ss-pt-chip-n {
+  font: 800 clamp(9px, 2.25cqw, 24px)/1 'Menlo', 'Consolas', monospace;
+  color: #fff;
+}
+.ss-pt-chip-n.home { color: color-mix(in srgb, var(--ss-home, #7ea2ff) 45%, #fff); }
+.ss-pt-chip-n.away { color: color-mix(in srgb, var(--ss-away, #ff8f8f) 45%, #fff); }
+.ss-pt-chip.is-zero .ss-pt-chip-n { color: rgba(255, 255, 255, 0.28); }
