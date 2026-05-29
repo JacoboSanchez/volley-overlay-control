@@ -8,6 +8,18 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Set-summary recap overlay overflowed with point-type stats.** The
+  per-point breakdown was added to the recap as one stat row per type,
+  which overran the fixed-size stat panels (services wrapped, the
+  opponent-errors row was clipped off the bottom). It now renders as a
+  bounded compact chip strip — short label + count per type, zeros
+  dimmed, team-coloured, headed by the team logo — that can't overflow
+  no matter how many types were tagged. Ledger/columns render it as a
+  per-team strip under each column; bento/bumper as a two-row block
+  below the core stats; glass as a full-width band spanning both tiles.
+
 ### Added
 
 - **Per-point classification (opt-in scouting tags).** `POST
