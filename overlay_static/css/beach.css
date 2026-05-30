@@ -290,16 +290,19 @@ body {
     font-size: 32px;
 }
 
-/* Timeouts stack vertically by the logo to stay compact (and not taller
-   than the logo icon). */
+/* Timeouts render as two slim vertical lines side by side — like the
+   serving indicator split in two — so they fill the bar height next to
+   the tall sets numeral and use the space more naturally. */
 .scoreboard.compact-mode .timeout-container {
-    flex-direction: column;
+    flex-direction: row;
     gap: 4px;
+    align-items: center;
 }
 
 .scoreboard.compact-mode .timeout-dot {
-    width: 18px;
-    height: 5px;
+    width: 6px;
+    height: 34px;
+    border-radius: 3px;
 }
 
 /* ── Bottom Ticker (shared widget, restyled for the beach palette) ── */
