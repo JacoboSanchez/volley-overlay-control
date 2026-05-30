@@ -290,18 +290,18 @@ body {
     font-size: 32px;
 }
 
-/* Timeouts render as two slim vertical lines side by side — like the
-   serving indicator split in two — so they fill the bar height next to
-   the tall sets numeral and use the space more naturally. */
+/* Timeouts read as a single vertical line — like the serving indicator
+   — but split into two short segments stacked with a gap, as if a piece
+   of the centre had been erased. */
 .scoreboard.compact-mode .timeout-container {
-    flex-direction: row;
-    gap: 4px;
+    flex-direction: column;
+    gap: 6px;
     align-items: center;
 }
 
 .scoreboard.compact-mode .timeout-dot {
-    width: 6px;
-    height: 34px;
+    width: 7px;
+    height: 15px;
     border-radius: 3px;
 }
 
