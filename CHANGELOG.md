@@ -28,6 +28,10 @@ once a first tagged release ships.
   `overlay_static/css/beach.css`), so it appears in the style picker and
   is selectable per overlay like any other style.
 
+### Changed
+
+- **Beach overlay: team-name bars now expand to fit the longest name (both sides symmetric) and shrink the font instead of truncating; the SETS label, timeout dots and serving indicator now use each team's name colour for contrast.**
+
 ### Fixed
 
 - **Set-summary recap overlay overflowed with point-type stats.** The
