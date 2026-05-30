@@ -17,6 +17,7 @@
     --serve-glow: #FFDD00;
     --team-height: 72px;   /* team sections are the shorter bars */
     --score-height: 116px; /* the white score cards stand taller */
+    --name-bar-width: 304px; /* fixed so both name bars are symmetric */
 }
 
 body {
@@ -92,24 +93,28 @@ body {
     display: none;
 }
 
-/* ── Name + sets-won + timeouts ──────────────────────────────────── */
-.team-info {
+/* ── Name + sets-won + timeouts ──────────────────────────────────────
+   Fixed-width so the two bars are exactly the same size (symmetric);
+   the name ellipsises rather than stretching its bar. NB: the class is
+   deliberately NOT `.team-info` so the shared app.js equalizeNamePanels()
+   (which would force display:grid / justify-items:start and undo the
+   right-aligned away side) leaves this template alone. */
+.name-bar {
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 7px;
     padding: 0 22px;
-    min-width: 220px;
-    max-width: 320px;
+    width: var(--name-bar-width);
     box-sizing: border-box;
 }
 
-.team-away .team-info {
+.team-away .name-bar {
     align-items: flex-end;
 }
 
 .team-name {
-    font-size: 30px;
+    font-size: 29px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -240,6 +245,37 @@ body {
     font-variant-numeric: tabular-nums;
     /* nudge below the coloured cap */
     margin-top: 6px;
+}
+
+/* ── Simple mode (operator "show only current set") ──────────────────
+   app.js toggles `.compact-mode` on #scoreboard-container. We drop the
+   team names and lift the sets-won counter onto the name line, without
+   the "SETS" label. The big white live-score cards stay as the focus.
+   Expanded mode (no class) keeps the full layout above. */
+.scoreboard.compact-mode .team-name {
+    display: none;
+}
+
+.scoreboard.compact-mode .name-bar {
+    width: auto;
+    padding: 0 20px;
+}
+
+.scoreboard.compact-mode .team-meta::before {
+    content: none;
+}
+
+.scoreboard.compact-mode .team-meta {
+    gap: 16px;
+}
+
+/* The sets counter takes the name's place — promoted to a large numeral. */
+.scoreboard.compact-mode .sets-badge {
+    min-width: 44px;
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 32px;
 }
 
 /* ── Bottom Ticker (shared widget, restyled for the beach palette) ── */

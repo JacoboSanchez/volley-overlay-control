@@ -16,12 +16,16 @@ once a first tagged release ships.
   toward the middle. The current-set score is rendered as two tall,
   raised white cards with large black numerals (a coloured cap ties each
   card to its team) — the focal point of the board — visually separated
-  from the shorter team sections, which carry the team name, a compact
+  from the shorter team sections, which carry the team name (both name
+  bars are a fixed equal width so the board stays symmetric), a compact
   sets-won badge, a sun-yellow serving indicator and timeout pips.
-  Logos are optional. Auto-discovered by the overlay engine
-  (`overlay_templates/beach.html` + `overlay_static/css/beach.css`), so
-  it appears in the style picker and is selectable per overlay like any
-  other style.
+  Logos are optional. In simple mode (the operator's "show only current
+  set" toggle) the team names are dropped and the sets-won counter is
+  promoted onto the name line as a large numeral (no "SETS" label),
+  keeping the big live-score cards as the focus. Auto-discovered by the
+  overlay engine (`overlay_templates/beach.html` +
+  `overlay_static/css/beach.css`), so it appears in the style picker and
+  is selectable per overlay like any other style.
 
 ### Fixed
 
