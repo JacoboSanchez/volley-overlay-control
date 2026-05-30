@@ -8,6 +8,26 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **New `beach` overlay style.** A scoreboard layout tailored for beach
+  volleyball, mirrored around the centre: the two teams sit on the left
+  and right with their logos on the outer edges and their live scores
+  toward the middle. The current-set score is rendered as two tall,
+  raised white cards with large black numerals (a coloured cap ties each
+  card to its team) — the focal point of the board — visually separated
+  from the shorter team sections, which carry the team name (both name
+  bars are a fixed equal width so the board stays symmetric), a compact
+  sets-won badge, a sun-yellow serving indicator and timeout pips.
+  Logos are optional. In simple mode (the operator's "show only current
+  set" toggle) the team names are dropped and the sets-won counter is
+  promoted onto the name line as a large numeral (no "SETS" label), with
+  the timeout markers moved out beside the logo and stacked vertically to
+  stay compact — keeping the big live-score cards as the focus. Auto-discovered by the
+  overlay engine (`overlay_templates/beach.html` +
+  `overlay_static/css/beach.css`), so it appears in the style picker and
+  is selectable per overlay like any other style.
+
 ### Fixed
 
 - **Set-summary recap overlay overflowed with point-type stats.** The

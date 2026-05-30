@@ -1,0 +1,372 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap');
+
+:root {
+    --home-primary: #0077B6;
+    --home-secondary: #FFFFFF;
+    --away-primary: #F4A300;
+    --away-secondary: #1A1A1A;
+
+    --text-light: #FFFFFF;
+    --font-main: 'Montserrat', sans-serif;
+
+    /* The centre cards carry the live (current-set) score: a white,
+       raised card with black numerals — the focal point of the board. */
+    --score-bg: #FFFFFF;
+    --score-text: #111111;
+
+    --serve-glow: #FFDD00;
+    --team-height: 72px;   /* team sections are the shorter bars */
+    --score-height: 116px; /* the white score cards stand taller */
+    --name-bar-width: 304px; /* fixed so both name bars are symmetric */
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    /* For OBS Browser source */
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: var(--font-main);
+    color: var(--text-light);
+}
+
+/* ── Main bar ────────────────────────────────────────────────────────
+   Mirrored around the centre: HOME (logo outside → score inside),
+   the two white score cards, then AWAY (score inside → logo outside).
+   `align-items: center` lets the taller score cards rise above the
+   shorter team bars on both edges. The gaps separate the white score
+   block from the team sections. */
+.scoreboard {
+    position: absolute;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    background: transparent;
+    /* GSAP fades this in */
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Team panels (shorter than the score cards) ──────────────────── */
+.team {
+    display: flex;
+    align-items: center;
+    height: var(--team-height);
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transition: opacity 0.3s ease;
+}
+
+.team-home {
+    background: linear-gradient(100deg, var(--home-primary), color-mix(in srgb, var(--home-primary) 80%, #000));
+}
+
+.team-away {
+    background: linear-gradient(260deg, var(--away-primary), color-mix(in srgb, var(--away-primary) 80%, #000));
+}
+
+/* ── Logo — always on the exterior edge ──────────────────────────── */
+.logo-container {
+    width: 78px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.20);
+    flex-shrink: 0;
+}
+
+.team-logo {
+    max-width: 54px;
+    max-height: 54px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+/* When logos are toggled off, app.js adds `.no-logos`. */
+.scoreboard.no-logos .logo-container {
+    display: none;
+}
+
+/* ── Name + sets-won + timeouts ──────────────────────────────────────
+   Fixed-width so the two bars are exactly the same size (symmetric);
+   the name ellipsises rather than stretching its bar. NB: the class is
+   deliberately NOT `.team-info` so the shared app.js equalizeNamePanels()
+   (which would force display:grid / justify-items:start and undo the
+   right-aligned away side) leaves this template alone. */
+.name-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 22px;
+    width: var(--name-bar-width);
+    box-sizing: border-box;
+}
+
+.team-away .name-bar {
+    align-items: flex-end;
+}
+
+.team-name {
+    font-size: 29px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-shadow: 1px 2px 3px rgba(0, 0, 0, 0.35);
+}
+
+.team-home .team-name { color: var(--home-secondary); }
+.team-away .team-name { color: var(--away-secondary); }
+
+.team-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.team-away .team-meta {
+    flex-direction: row-reverse;
+}
+
+/* Compact sets-won badge — keeps the match score visible without
+   competing with the big live-score cards. */
+.sets-badge {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
+    background: rgba(0, 0, 0, 0.28);
+    color: #FFFFFF;
+    font-variant-numeric: tabular-nums;
+}
+
+.team-meta::before {
+    content: "SETS";
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: 0.7;
+}
+
+.timeout-container {
+    display: flex;
+    gap: 5px;
+}
+
+.timeout-dot {
+    width: 22px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.25);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.timeout-dot.active {
+    background: var(--serve-glow);
+    box-shadow: 0 0 8px var(--serve-glow);
+}
+
+/* Serving indicator — a slim bar on the inner edge (facing the centre)
+   that lights up for the serving team. */
+.serving-indicator {
+    width: 7px;
+    height: 58%;
+    border-radius: 4px;
+    margin: 0 12px;
+    flex-shrink: 0;
+    background-color: rgba(255, 255, 255, 0.16);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.serving-indicator.active {
+    background-color: var(--serve-glow);
+    box-shadow: 0 0 14px var(--serve-glow);
+}
+
+/* ── Centre: current-set score, two tall raised white cards ──────── */
+.score-block {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    height: var(--score-height);
+    flex-shrink: 0;
+}
+
+.score-card {
+    width: 104px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: var(--score-bg);
+    color: var(--score-text);
+    border-radius: 14px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+/* A coloured cap on top of each card ties it to its team. */
+.score-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 9px;
+}
+
+.score-home::before { background: var(--home-primary); }
+.score-away::before { background: var(--away-primary); }
+
+.points {
+    font-size: 76px;
+    font-weight: 900;
+    line-height: 1;
+    position: absolute;
+    color: var(--score-text);
+    font-variant-numeric: tabular-nums;
+    /* nudge below the coloured cap */
+    margin-top: 6px;
+}
+
+/* ── Simple mode (operator "show only current set") ──────────────────
+   app.js toggles `.compact-mode` on #scoreboard-container. We drop the
+   team names and lift the sets-won counter onto the name line, without
+   the "SETS" label. The big white live-score cards stay as the focus.
+   Expanded mode (no class) keeps the full layout above. */
+.scoreboard.compact-mode .team-name {
+    display: none;
+}
+
+.scoreboard.compact-mode .name-bar {
+    width: 150px;
+    padding: 0 16px;
+}
+
+.scoreboard.compact-mode .team-meta::before {
+    content: none;
+}
+
+/* Push the sets counter and the timeouts to opposite ends of the bar:
+   the sets numeral toward the centre, the timeouts out by the logo. */
+.scoreboard.compact-mode .team-meta {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0;
+}
+
+.scoreboard.compact-mode .team-home .team-meta {
+    flex-direction: row-reverse; /* timeouts left (by logo), sets right */
+}
+
+.scoreboard.compact-mode .team-away .team-meta {
+    flex-direction: row;         /* sets left, timeouts right (by logo) */
+}
+
+/* The sets counter takes the name's place — promoted to a large numeral. */
+.scoreboard.compact-mode .sets-badge {
+    min-width: 44px;
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 32px;
+}
+
+/* Timeouts read as a single vertical line — like the serving indicator
+   — but split into two short segments stacked with a gap, as if a piece
+   of the centre had been erased. */
+.scoreboard.compact-mode .timeout-container {
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+.scoreboard.compact-mode .timeout-dot {
+    width: 7px;
+    height: 15px;
+    border-radius: 3px;
+}
+
+/* ── Bottom Ticker (shared widget, restyled for the beach palette) ── */
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 60px;
+    background: linear-gradient(90deg, transparent, rgba(0, 119, 182, 0.92) 10%, rgba(0, 119, 182, 0.92) 90%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.ticker-text-wrapper {
+    overflow: hidden;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.ticker-text {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-light);
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}
+
+/* ── Player Stats (shared widget) ────────────────────────────────── */
+.player-stats {
+    position: absolute;
+    top: 250px;
+    left: 40px;
+    background: rgba(0, 119, 182, 0.92);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    min-width: 300px;
+    opacity: 0;
+    border-left: 6px solid var(--serve-glow);
+}
+
+.player-stats-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: #FFF;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 5px;
+}
+
+.player-stats-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 24px;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.player-stats-label { color: rgba(255, 255, 255, 0.75); }
+.player-stats-value { color: #FFF; }
