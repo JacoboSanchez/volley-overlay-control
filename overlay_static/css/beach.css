@@ -257,16 +257,28 @@ body {
 }
 
 .scoreboard.compact-mode .name-bar {
-    width: auto;
-    padding: 0 20px;
+    width: 150px;
+    padding: 0 16px;
 }
 
 .scoreboard.compact-mode .team-meta::before {
     content: none;
 }
 
+/* Push the sets counter and the timeouts to opposite ends of the bar:
+   the sets numeral toward the centre, the timeouts out by the logo. */
 .scoreboard.compact-mode .team-meta {
-    gap: 16px;
+    width: 100%;
+    justify-content: space-between;
+    gap: 0;
+}
+
+.scoreboard.compact-mode .team-home .team-meta {
+    flex-direction: row-reverse; /* timeouts left (by logo), sets right */
+}
+
+.scoreboard.compact-mode .team-away .team-meta {
+    flex-direction: row;         /* sets left, timeouts right (by logo) */
 }
 
 /* The sets counter takes the name's place — promoted to a large numeral. */
@@ -276,6 +288,18 @@ body {
     padding: 0 12px;
     border-radius: 9px;
     font-size: 32px;
+}
+
+/* Timeouts stack vertically by the logo to stay compact (and not taller
+   than the logo icon). */
+.scoreboard.compact-mode .timeout-container {
+    flex-direction: column;
+    gap: 4px;
+}
+
+.scoreboard.compact-mode .timeout-dot {
+    width: 18px;
+    height: 5px;
 }
 
 /* ── Bottom Ticker (shared widget, restyled for the beach palette) ── */

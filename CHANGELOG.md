@@ -21,8 +21,9 @@ once a first tagged release ships.
   sets-won badge, a sun-yellow serving indicator and timeout pips.
   Logos are optional. In simple mode (the operator's "show only current
   set" toggle) the team names are dropped and the sets-won counter is
-  promoted onto the name line as a large numeral (no "SETS" label),
-  keeping the big live-score cards as the focus. Auto-discovered by the
+  promoted onto the name line as a large numeral (no "SETS" label), with
+  the timeout markers moved out beside the logo and stacked vertically to
+  stay compact — keeping the big live-score cards as the focus. Auto-discovered by the
   overlay engine (`overlay_templates/beach.html` +
   `overlay_static/css/beach.css`), so it appears in the style picker and
   is selectable per overlay like any other style.
