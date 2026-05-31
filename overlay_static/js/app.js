@@ -586,9 +586,9 @@ function updateStateDiff(oldState, newState) {
 // (down to BEACH_NAME_MIN_FONT) so the full name still shows. Both sides
 // always share the same width and font size.
 const BEACH_NAME_BASE_FONT = 29;  // matches .team-name font-size in beach.css
-const BEACH_NAME_MIN_FONT = 17;
+const BEACH_NAME_MIN_FONT = 16;
 const BEACH_NAME_MIN_BAR = 260;
-const BEACH_NAME_MAX_BAR = 440;
+const BEACH_NAME_MAX_BAR = 480;
 const BEACH_NAME_PADDING = 44;    // .name-bar horizontal padding (2 * 22px)
 
 // Measure the rendered width of a beach team name at a given font size with
@@ -633,17 +633,20 @@ function fitBeachNames() {
     const homeText = homeName.textContent || "";
     const awayText = awayName.textContent || "";
 
+    // Shrink the type one step at a time, re-measuring each time, until the
+    // longer name fits the widest bar we allow (or we hit the legibility
+    // floor). We can't shrink proportionally in a single step because the
+    // fixed 1px letter-spacing does not scale with the font size, so a
+    // proportional guess lands a few pixels too wide and the name still
+    // clips — the measured loop accounts for it exactly.
+    const maxContent = BEACH_NAME_MAX_BAR - BEACH_NAME_PADDING;
     let fontSize = BEACH_NAME_BASE_FONT;
     let maxText = Math.max(
         measureBeachName(homeText, fontSize),
         measureBeachName(awayText, fontSize)
     );
-
-    // Shrink the type proportionally only when the longer name would overflow
-    // the widest bar we allow, never below the legibility floor.
-    const maxContent = BEACH_NAME_MAX_BAR - BEACH_NAME_PADDING;
-    if (maxText > maxContent) {
-        fontSize = Math.max(BEACH_NAME_MIN_FONT, fontSize * (maxContent / maxText));
+    while (maxText > maxContent && fontSize > BEACH_NAME_MIN_FONT) {
+        fontSize -= 1;
         maxText = Math.max(
             measureBeachName(homeText, fontSize),
             measureBeachName(awayText, fontSize)
