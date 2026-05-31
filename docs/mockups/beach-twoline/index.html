@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Beach overlay — variante dos líneas (mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  /* ── Page chrome (mockup only — not part of the overlay) ───────────── */
+  :root {
+    --pg-bg: #0d1117;
+    --pg-text: #e6edf3;
+    --pg-muted: #8b949e;
+    --pg-border: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--pg-bg);
+    color: var(--pg-text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    padding: 40px 28px 64px;
+  }
+  main { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .lead { color: var(--pg-muted); line-height: 1.55; max-width: 820px; margin-bottom: 26px; }
+  .lead code {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1px 6px; border-radius: 4px;
+    font-family: 'Menlo', 'Consolas', monospace; font-size: 0.9em;
+  }
+  .stage-label { color: var(--pg-muted); font-size: 13px; margin: 28px 0 10px; text-transform: uppercase; letter-spacing: 1px; }
+  /* A "broadcast-like" backdrop so the transparent overlay reads as it
+     would over live video. The checker hints at OBS transparency. */
+  .stage {
+    border: 1px solid var(--pg-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.55)),
+      repeating-conic-gradient(#1b2230 0% 25%, #232c3d 0% 50%) 50% / 36px 36px,
+      linear-gradient(160deg, #2b5876, #4e4376);
+    padding: 60px 56px;
+    display: flex;
+    align-items: flex-end;
+    min-height: 320px;
+  }
+  .stage.bottom-left { align-items: flex-end; justify-content: flex-start; }
+
+  /* ════════════════════════════════════════════════════════════════════
+     OVERLAY — "beach two-line" scoreboard
+     Left → right:  [HOME score]  ·  [two name bars]  ·  [AWAY score]
+     The two score cards each span the full height of the two stacked
+     name bars (top = home: name→logo, bottom = away: logo→name).
+     Palette + type mirror the existing beach.css.
+     ════════════════════════════════════════════════════════════════════ */
+  .sb2 {
+    /* Team colours (defaults match beach.css; JS overrides at runtime) */
+    --home-primary: #0077B6;
+    --home-secondary: #FFFFFF;
+    --away-primary: #F4A300;
+    --away-secondary: #1A1A1A;
+    --serve-glow: #FFDD00;
+
+    --score-bg: #FFFFFF;
+    --score-text: #111111;
+    --bar-height: 60px;        /* one name bar */
+    --bar-gap: 8px;            /* gap between the two bars */
+    --name-bar-width: 360px;   /* both bars share this (JS fits to longest) */
+
+    font-family: 'Montserrat', sans-serif;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 12px;
+    color: #fff;
+  }
+
+  /* ── Score cards — tall, span both name bars ───────────────────────── */
+  .sb2-score {
+    width: 132px;
+    /* exactly the height of the two stacked bars + the gap between them */
+    height: calc(var(--bar-height) * 2 + var(--bar-gap));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: var(--score-bg);
+    color: var(--score-text);
+    border-radius: 14px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    flex-shrink: 0;
+  }
+  /* A coloured cap ties each card to its team (left edge here, since the
+     cards flank the names horizontally). */
+  .sb2-score::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 9px;
+  }
+  .sb2-score.home::before { left: 0; background: var(--home-primary); }
+  .sb2-score.away::before { right: 0; background: var(--away-primary); }
+  .sb2-points {
+    font-size: 82px;
+    font-weight: 900;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Centre: two stacked name bars ─────────────────────────────────── */
+  /* Each team groups ALL its info next to its OWN score card. Order, from
+     closest to that team's score outward to the centre:
+        sets (big numerals) → logo → serving indicator → name
+     So the names end up on the inner edge and nothing from the rival
+     appears on the wrong side of your score. */
+  .sb2-names {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bar-gap);
+    flex-shrink: 0;
+  }
+  .sb2-bar {
+    height: var(--bar-height);
+    width: var(--name-bar-width);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 6px;
+    position: relative;
+  }
+  .sb2-bar.home {
+    /* score is to the LEFT → sets,logo,serve,name read left→right */
+    flex-direction: row;
+    background: linear-gradient(100deg, var(--home-primary), color-mix(in srgb, var(--home-primary) 80%, #000));
+  }
+  .sb2-bar.away {
+    /* score is to the RIGHT → mirror so sets sits next to it */
+    flex-direction: row-reverse;
+    background: linear-gradient(260deg, var(--away-primary), color-mix(in srgb, var(--away-primary) 80%, #000));
+  }
+
+  /* Sets-won — promoted to a large numeral, sitting closest to the score. */
+  .sb2-sets {
+    min-width: 42px; height: 42px; padding: 0 10px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 900; line-height: 1;
+    background: rgba(0, 0, 0, 0.28);
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  .sb2-logo {
+    width: 48px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.20);
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+  .sb2-logo img { max-width: 40px; max-height: 40px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
+
+  /* serving indicator — slim glowing bar between the logo and the name */
+  .sb2-bar .serve {
+    width: 6px; height: 60%;
+    border-radius: 3px;
+    flex-shrink: 0;
+    background-color: rgba(255, 255, 255, 0.16);
+  }
+  .sb2-bar.home.serving .serve {
+    background-color: var(--home-secondary);
+    box-shadow: 0 0 12px var(--home-secondary);
+  }
+  .sb2-bar.away.serving .serve {
+    background-color: var(--away-secondary);
+    box-shadow: 0 0 12px var(--away-secondary);
+  }
+
+  .sb2-name {
+    flex: 1;
+    padding: 0 14px;
+    font-size: 26px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 1px 2px 3px rgba(0, 0, 0, 0.35);
+  }
+  /* name hugs the inner (centre) edge of each bar */
+  .sb2-bar.home .sb2-name { color: var(--home-secondary); text-align: right; }
+  .sb2-bar.away .sb2-name { color: var(--away-secondary); text-align: left; }
+
+  .variants { display: flex; flex-direction: column; gap: 8px; }
+  .note { color: var(--pg-muted); font-size: 13px; line-height: 1.55; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--pg-border); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Beach overlay — variante "dos líneas" (mockup)</h1>
+  <p class="lead">
+    De izquierda a derecha: <strong>marcador local</strong> (alto = las dos
+    barras), las <strong>dos barras</strong> apiladas (arriba local, abajo
+    visitante) y el <strong>marcador visitante</strong> (mismo alto). Cada
+    equipo agrupa <strong>toda su info junto a su propio marcador</strong>,
+    en orden de más próximo a más lejano del marcador:
+    <strong>sets (números grandes) → icono → saque → nombre</strong>. Así el
+    nombre queda en el borde interior y nada del rival aparece al otro lado
+    de tu marcador. Tipografía y paleta heredadas de <code>beach.css</code>.
+    Preview estático para validar la composición antes de implementarlo.
+  </p>
+
+  <!-- Variante A: colores por defecto, nombres cortos -->
+  <div class="stage-label">A · Nombres cortos · saque del local</div>
+  <div class="stage bottom-left">
+    <div class="sb2">
+      <div class="sb2-score home"><span class="sb2-points">21</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home serving">
+          <div class="sb2-sets">1</div>
+          <div class="sb2-logo"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%23ffffff'/&gt;&lt;text x='20' y='26' font-size='16' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%230077B6'&gt;L&lt;/text&gt;&lt;/svg&gt;" alt="" /></div>
+          <div class="serve"></div>
+          <div class="sb2-name">Thunder Wolves</div>
+        </div>
+        <div class="sb2-bar away">
+          <div class="sb2-sets">0</div>
+          <div class="sb2-logo"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%231a1a1a'/&gt;&lt;text x='20' y='26' font-size='16' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%23F4A300'&gt;V&lt;/text&gt;&lt;/svg&gt;" alt="" /></div>
+          <div class="serve"></div>
+          <div class="sb2-name">Solar Hawks</div>
+        </div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">18</span></div>
+    </div>
+  </div>
+
+  <!-- Variante B: nombre largo (caso "Club Ourense Voleib Praia") -->
+  <div class="stage-label">B · Nombre largo · saque del visitante</div>
+  <div class="stage bottom-left">
+    <div class="sb2" style="--home-primary:#1f6f3b; --home-secondary:#FFFFFF; --away-primary:#C0392B; --away-secondary:#FFFFFF; --name-bar-width:430px;">
+      <div class="sb2-score home"><span class="sb2-points">9</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home">
+          <div class="sb2-sets">0</div>
+          <div class="sb2-logo"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%23ffffff'/&gt;&lt;text x='20' y='26' font-size='14' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%231f6f3b'&gt;OUR&lt;/text&gt;&lt;/svg&gt;" alt="" /></div>
+          <div class="serve"></div>
+          <div class="sb2-name" style="font-size:22px;">Club Ourense Voleib Praia</div>
+        </div>
+        <div class="sb2-bar away serving">
+          <div class="sb2-sets">1</div>
+          <div class="sb2-logo"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%23ffffff'/&gt;&lt;text x='20' y='26' font-size='15' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%23C0392B'&gt;CV&lt;/text&gt;&lt;/svg&gt;" alt="" /></div>
+          <div class="serve"></div>
+          <div class="sb2-name" style="font-size:22px;">Voley Vigo</div>
+        </div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">13</span></div>
+    </div>
+  </div>
+
+  <p class="note">
+    <strong>Notas de implementación (pendiente de tu OK):</strong>
+    serían un template nuevo <code>beach_twoline.html</code> + CSS
+    <code>beach_twoline.css</code> autodescubiertos por el motor de overlays
+    (como el resto de estilos). Reutilizaría el mismo
+    <code>fitBeachNames()</code> de <code>app.js</code> para ajustar el ancho
+    de barra al nombre más largo (los dos lados simétricos), y los mismos
+    resaltados por color de equipo. La altura de cada tarjeta de marcador se
+    calcula como <code>2·barra + gap</code> para cuadrar exactamente con las
+    dos barras. Los <code>sets</code>/saque mostrados son opcionales: dime si
+    los quieres dentro o los dejo fuera para una composición más limpia.
+  </p>
+</main>
+</body>
+</html>
