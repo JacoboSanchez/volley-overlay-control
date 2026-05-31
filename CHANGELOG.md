@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.5.0] - 2026-05-31
+
 ### Added
 
 - **New `beach_twoline` overlay style.** A two-line variant of the beach
