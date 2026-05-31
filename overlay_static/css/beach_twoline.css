@@ -108,6 +108,10 @@ body {
 .beach-tl .tl-bar.home {
     flex-direction: row;
     padding: 0 0 0 6px;
+    /* Solid fallback first: OBS/CEF older than Chromium 111 ignores the
+       whole declaration if color-mix() is unsupported, which would leave
+       the bar transparent. */
+    background: var(--home-primary);
     background: linear-gradient(100deg, var(--home-primary), color-mix(in srgb, var(--home-primary) 80%, #000));
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tl-fade)), transparent 100%);
             mask-image: linear-gradient(to right, #000 calc(100% - var(--tl-fade)), transparent 100%);
@@ -116,6 +120,7 @@ body {
     flex-direction: row-reverse;
     align-self: flex-end;
     padding: 0 6px 0 0;
+    background: var(--away-primary);  /* solid fallback (see .tl-bar.home) */
     background: linear-gradient(260deg, var(--away-primary), color-mix(in srgb, var(--away-primary) 80%, #000));
     -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--tl-fade)), transparent 100%);
             mask-image: linear-gradient(to left, #000 calc(100% - var(--tl-fade)), transparent 100%);
