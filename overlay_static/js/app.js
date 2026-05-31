@@ -492,8 +492,12 @@ function updateStateDiff(oldState, newState) {
         withEl("scoreboard-container", container => {
             container.classList.toggle("compact-mode", !!newState.match_info.show_only_current_set);
         });
-        // Re-fit beach names when they reappear leaving compact mode.
-        fitBeachNames();
+        // Re-fit beach names only when they reappear leaving compact mode;
+        // entering it hides the names and CSS pins the bar width, so a
+        // re-fit there would be a wasted reflow.
+        if (!newState.match_info.show_only_current_set) {
+            fitBeachNames();
+        }
     }
 
     // Set summary recap panel toggle / re-render. Re-render also on
