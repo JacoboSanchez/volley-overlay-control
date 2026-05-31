@@ -10,6 +10,23 @@ once a first tagged release ships.
 
 ### Added
 
+- **New `beach_twoline` overlay style.** A two-line variant of the beach
+  board: each team's tall white score card sits on the outer edge and
+  spans both of the two stacked name bars (home on top, away on bottom).
+  Per team, from its own score outward to the centre, the bar reads
+  sets (a large numeral) → logo → name. Expanded mode shows the team
+  name only; simple mode (the operator's "show only current set" toggle)
+  shows the logo only — or just the sets numeral when a team has no
+  logo. Serving is shown by the coloured line decorating that team's
+  score card (the card is otherwise fully white), and a short
+  transparent "fade tail" on each bar's inner end (toward the other
+  team's score) detaches it from the wrong card so the score↔bar pairing
+  stays unambiguous even in the symmetric simple/no-logo case. Long names
+  grow both bars symmetrically and shrink the font rather than truncating
+  (shared measuring logic with the classic beach board). Auto-discovered
+  by the overlay engine (`overlay_templates/beach_twoline.html` +
+  `overlay_static/css/beach_twoline.css`), so it appears in the style
+  picker and is selectable per overlay like any other style.
 - **New `beach` overlay style.** A scoreboard layout tailored for beach
   volleyball, mirrored around the centre: the two teams sit on the left
   and right with their logos on the outer edges and their live scores

@@ -280,6 +280,7 @@ function renderFullState(state) {
     withEl("away-name", el => { el.textContent = state.team_away.name; });
     equalizeNamePanels();
     fitBeachNames();
+    fitBeachTwoLineNames();
 
     // 4b. Logo visibility toggle (from remote-scoreboard "Logos" setting).
     // Run before the per-logo URL branches so those have the final say on
@@ -402,6 +403,7 @@ function updateStateDiff(oldState, newState) {
         oldState.team_away.name !== newState.team_away.name) {
         equalizeNamePanels();
         fitBeachNames();
+        fitBeachTwoLineNames();
     }
 
     // Logo visibility toggle (runs before per-logo URL updates so the
@@ -497,6 +499,7 @@ function updateStateDiff(oldState, newState) {
         // re-fit there would be a wasted reflow.
         if (!newState.match_info.show_only_current_set) {
             fitBeachNames();
+            fitBeachTwoLineNames();
         }
     }
 
@@ -664,6 +667,78 @@ function fitBeachNames() {
     const barWidth = Math.min(
         BEACH_NAME_MAX_BAR,
         Math.max(BEACH_NAME_MIN_BAR, Math.ceil(maxText) + BEACH_NAME_PADDING + 2)
+    );
+    container.style.setProperty("--name-bar-width", barWidth + "px");
+}
+
+// ── Beach "two-line" name fitting ────────────────────────────────────
+// The two-line board (beach_twoline) keeps both name bars symmetric just
+// like the classic beach board, but the bar chrome differs (a large sets
+// numeral, no inline logo in expanded mode, and a fade tail), so the fixed
+// padding constant above doesn't apply. Measure the non-name chrome from a
+// live bar instead, then grow both bars to the longer name and shrink the
+// font (never clipping) exactly as fitBeachNames does. Reuses the same
+// offscreen measurer (identical font weight / spacing / transform).
+const BEACH_TL_BASE_FONT = 26;  // matches .tl-name font-size in beach_twoline.css
+const BEACH_TL_MIN_FONT = 16;
+const BEACH_TL_MIN_BAR = 220;
+const BEACH_TL_MAX_BAR = 460;
+const BEACH_TL_GAP = 12;        // .tl-bar flex gap
+const BEACH_TL_BAR_PAD = 6;     // single-side bar padding (inner side is 0)
+const BEACH_TL_NAME_PAD = 28;   // .tl-name horizontal padding (2 * 14px)
+let beachTLFontsHooked = false;
+
+function fitBeachTwoLineNames() {
+    const container = document.getElementById("scoreboard-container");
+    if (!container || !container.classList.contains("beach-tl")) return;
+    // Simple mode hides the names and CSS shrinks the bars to content, so a
+    // fit there would measure hidden (zero-width) nodes for nothing.
+    if (container.classList.contains("compact-mode")) return;
+
+    const homeName = document.getElementById("home-name");
+    const awayName = document.getElementById("away-name");
+    const bar = container.querySelector(".tl-bar.home");
+    if (!homeName || !awayName || !bar) return;
+
+    // Re-fit once the Montserrat webfont is ready (first measure can use
+    // fallback metrics), just once.
+    if (document.fonts && !beachTLFontsHooked) {
+        beachTLFontsHooked = true;
+        document.fonts.ready.then(() => fitBeachTwoLineNames());
+    }
+
+    // Non-name chrome measured live: sets numeral + fade tail + the two
+    // gaps flanking the name + one-side bar padding + the name's own padding.
+    const sets = bar.querySelector(".tl-sets");
+    const tail = bar.querySelector(".tl-tail");
+    const chrome =
+        (sets ? sets.offsetWidth : 0) +
+        (tail ? tail.offsetWidth : 0) +
+        2 * BEACH_TL_GAP + BEACH_TL_BAR_PAD + BEACH_TL_NAME_PAD;
+
+    const homeText = homeName.textContent || "";
+    const awayText = awayName.textContent || "";
+
+    const maxContent = BEACH_TL_MAX_BAR - chrome;
+    let fontSize = BEACH_TL_BASE_FONT;
+    let maxText = Math.max(
+        measureBeachName(homeText, fontSize),
+        measureBeachName(awayText, fontSize)
+    );
+    while (maxText > maxContent && fontSize > BEACH_TL_MIN_FONT) {
+        fontSize -= 1;
+        maxText = Math.max(
+            measureBeachName(homeText, fontSize),
+            measureBeachName(awayText, fontSize)
+        );
+    }
+
+    homeName.style.fontSize = fontSize + "px";
+    awayName.style.fontSize = fontSize + "px";
+
+    const barWidth = Math.min(
+        BEACH_TL_MAX_BAR,
+        Math.max(BEACH_TL_MIN_BAR, Math.ceil(maxText) + chrome + 2)
     );
     container.style.setProperty("--name-bar-width", barWidth + "px");
 }

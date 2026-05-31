@@ -1,0 +1,227 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap');
+
+:root {
+    --home-primary: #0077B6;
+    --home-secondary: #FFFFFF;
+    --away-primary: #F4A300;
+    --away-secondary: #1A1A1A;
+
+    --text-light: #FFFFFF;
+    --font-main: 'Montserrat', sans-serif;
+
+    --score-bg: #FFFFFF;
+    --score-text: #111111;
+
+    --bar-height: 60px;        /* one name bar */
+    --bar-gap: 8px;            /* gap between the two stacked bars */
+    --name-bar-width: 340px;   /* expanded bars share this (app.js fits it) */
+    --tl-fade: 40px;           /* extra space on each bar's inner end that fades out */
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: var(--font-main);
+    color: var(--text-light);
+}
+
+/* ── Main bar: HOME score · name bars · AWAY score ────────────────────
+   align-items:stretch lets the two tall score cards rise to exactly the
+   height of the two stacked name bars (+ the gap between them). */
+.scoreboard.beach-tl {
+    position: absolute;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 12px;
+    background: transparent;
+    opacity: 0;            /* GSAP fades this in */
+    transform-origin: top left;
+}
+
+/* ── Score cards (outer edges, span both bars) ───────────────────────── */
+.beach-tl .score-card {
+    width: 132px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: var(--score-bg);
+    color: var(--score-text);
+    border-radius: 14px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+    flex-shrink: 0;
+}
+
+/* Serving indicator: the coloured line that decorates the score card.
+   Transparent by default (the card reads fully white); team-coloured when
+   that team is serving (#home-serving / #away-serving get `.active` from
+   app.js). Sits on the inner edge, facing the name bars. */
+.beach-tl .serve-line {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 9px;
+    background: transparent;
+    transition: background 0.3s ease;
+}
+.beach-tl .score-home .serve-line { right: 0; }
+.beach-tl .score-away .serve-line { left: 0; }
+.beach-tl .score-home .serve-line.active { background: var(--home-primary); }
+.beach-tl .score-away .serve-line.active { background: var(--away-primary); }
+
+.beach-tl .points {
+    font-size: 78px;
+    font-weight: 900;
+    line-height: 1;
+    position: absolute;
+    color: var(--score-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Centre: two stacked name bars ───────────────────────────────────── */
+.beach-tl .tl-names {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bar-gap);
+    align-items: flex-start;
+    flex-shrink: 0;
+}
+
+.beach-tl .tl-bar {
+    height: var(--bar-height);
+    width: var(--name-bar-width);
+    border-radius: 10px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+}
+/* No padding on the inner side so the fade tail meets the bar edge exactly. */
+.beach-tl .tl-bar.home {
+    flex-direction: row;
+    padding: 0 0 0 6px;
+    /* Solid fallback first: OBS/CEF older than Chromium 111 ignores the
+       whole declaration if color-mix() is unsupported, which would leave
+       the bar transparent. */
+    background: var(--home-primary);
+    background: linear-gradient(100deg, var(--home-primary), color-mix(in srgb, var(--home-primary) 80%, #000));
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tl-fade)), transparent 100%);
+            mask-image: linear-gradient(to right, #000 calc(100% - var(--tl-fade)), transparent 100%);
+}
+.beach-tl .tl-bar.away {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+    padding: 0 6px 0 0;
+    background: var(--away-primary);  /* solid fallback (see .tl-bar.home) */
+    background: linear-gradient(260deg, var(--away-primary), color-mix(in srgb, var(--away-primary) 80%, #000));
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--tl-fade)), transparent 100%);
+            mask-image: linear-gradient(to left, #000 calc(100% - var(--tl-fade)), transparent 100%);
+}
+
+/* The fade tail — extra transparent-fading space at the inner end. */
+.beach-tl .tl-tail {
+    width: var(--tl-fade);
+    align-self: stretch;
+    flex-shrink: 0;
+}
+
+/* Sets-won — large numeral sitting closest to that team's score card. */
+.beach-tl .tl-sets {
+    min-width: 42px;
+    height: 42px;
+    padding: 0 10px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    background: rgba(0, 0, 0, 0.28);
+    color: #FFFFFF;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+/* Logo: app.js drives the <img> display inline (block when a logo_url is
+   set, none otherwise). display:contents keeps the wrapper out of the flex
+   layout so a missing logo leaves no gap. The icon shows only in simple
+   mode; expanded mode hides it (see below). */
+.beach-tl .logo-container {
+    display: contents;
+}
+.beach-tl .team-logo {
+    width: 48px;
+    height: 42px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.beach-tl .tl-name {
+    flex: 1;
+    padding: 0 14px;
+    font-size: 26px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 1px 2px 3px rgba(0, 0, 0, 0.35);
+}
+/* name hugs the inner (centre) edge, toward the other team's score */
+.beach-tl .tl-bar.home .tl-name { color: var(--home-secondary); text-align: right; }
+.beach-tl .tl-bar.away .tl-name { color: var(--away-secondary); text-align: left; }
+
+/* ── Expanded mode (default): name only, no icon ─────────────────────
+   !important beats the inline display:block app.js sets on the <img>. */
+.beach-tl:not(.compact-mode) .team-logo {
+    display: none !important;
+}
+
+/* ── Simple mode (operator "show only current set"): icon only ───────
+   Hide the name; the bar shrinks to its content and the icon shows only
+   when present (app.js leaves the <img> at display:none with no logo_url,
+   so that team collapses to just its sets numeral). */
+.beach-tl.compact-mode .tl-name {
+    display: none;
+}
+.beach-tl.compact-mode .tl-bar {
+    width: auto;
+}
+
+/* When logos are toggled off globally, app.js hides the wrapper inline. */
+
+/* ── Bottom Ticker (shared widget, beach palette) ────────────────────── */
+.ticker {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 60px;
+    background: linear-gradient(90deg, transparent, rgba(0, 119, 182, 0.92) 10%, rgba(0, 119, 182, 0.92) 90%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+.ticker-text-wrapper { overflow: hidden; width: 100%; display: flex; justify-content: center; }
+.ticker-text {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-light);
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px #000;
+}

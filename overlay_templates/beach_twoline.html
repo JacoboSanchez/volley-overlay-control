@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block head_meta %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% endblock %}
+
+{% block title %}Beach Volleyball Overlay (two-line) - {{ target_id }}{% endblock %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/beach_twoline.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    {# Two-line beach board:
+         [HOME score] · [two stacked name bars] · [AWAY score]
+       Each tall white score card spans both bars. Per team, from its OWN
+       score outward to the centre: sets (big) → logo → name. A short
+       transparent "fade tail" on each bar's inner end (toward the OTHER
+       team's score) detaches it from the wrong card. Serving is shown by the
+       coloured line on the score card (#home-serving / #away-serving .active).
+       Expanded mode shows the name; simple mode (compact-mode) shows the
+       logo only (or just the sets numeral when a team has no logo). Element
+       IDs match the shared app.js so state updates need no special-casing. #}
+    <div id="scoreboard-container" class="scoreboard beach-tl">
+        <!-- HOME score card (outer left), spans both bars. -->
+        <div class="score-card score-home">
+            <div class="serve-line" id="home-serving"></div>
+            <div class="points" id="home-points">0</div>
+        </div>
+
+        <!-- Centre: two stacked name bars (home top, away bottom). -->
+        <div class="tl-names">
+            <div class="tl-bar home">
+                <div class="tl-sets" id="home-sets">0</div>
+                <div class="logo-container"><img class="team-logo" id="home-logo" src="" alt="" onerror="this.style.display='none'"></div>
+                <div class="team-name tl-name" id="home-name">HOME</div>
+                <div class="tl-tail"></div>
+            </div>
+            <div class="tl-bar away">
+                <div class="tl-sets" id="away-sets">0</div>
+                <div class="logo-container"><img class="team-logo" id="away-logo" src="" alt="" onerror="this.style.display='none'"></div>
+                <div class="team-name tl-name" id="away-name">AWAY</div>
+                <div class="tl-tail"></div>
+            </div>
+        </div>
+
+        <!-- AWAY score card (outer right), spans both bars. -->
+        <div class="score-card score-away">
+            <div class="serve-line" id="away-serving"></div>
+            <div class="points" id="away-points">0</div>
+        </div>
+    </div>
+{% endblock %}
