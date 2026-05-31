@@ -192,15 +192,21 @@
   .sb2-bar.away .sb2-name { color: var(--away-secondary); text-align: left; }
 
   /* ── Mode toggles ──────────────────────────────────────────────────
-     Expanded → name only (logo hidden).
+     Expanded → name only (logo hidden). The name width is auto-fit by
+                the inline script below (mirrors fitBeachNames()), so long
+                names show in full instead of clipping with an ellipsis.
      Simple   → logo only if present (name hidden); empty logos collapse,
-                so a team without a logo shows just its sets numeral. */
+                so a team without a logo shows just its sets numeral. Each
+                bar shrinks to its content and hugs its own score card, so
+                the icon sits flush against the inner edge (no dead space). */
   .sb2.expanded .sb2-logo { display: none; }
 
   .sb2.simple .sb2-name { display: none; }
   .sb2.simple .sb2-logo.empty { display: none; }
-  /* Without a name the bars need far less width — keep them tidy. */
-  .sb2.simple { --name-bar-width: 150px; }
+  /* Fit each simple-mode bar to its content and pin it to its score card. */
+  .sb2.simple .sb2-names { align-items: flex-start; }
+  .sb2.simple .sb2-bar { width: auto; }
+  .sb2.simple .sb2-bar.away { align-self: flex-end; }
 
   .note { color: var(--pg-muted); font-size: 13px; line-height: 1.55; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--pg-border); }
   .note strong { color: var(--pg-text); }
@@ -244,18 +250,18 @@
   <!-- ── Expanded mode, long name, away serving ── -->
   <div class="stage-label">Expandido · nombre largo · saque del VISITANTE (línea roja en su marcador)</div>
   <div class="stage bottom-left">
-    <div class="sb2 expanded" style="--home-primary:#1f6f3b; --home-secondary:#FFFFFF; --away-primary:#C0392B; --away-secondary:#FFFFFF; --name-bar-width:430px;">
+    <div class="sb2 expanded" style="--home-primary:#1f6f3b; --home-secondary:#FFFFFF; --away-primary:#C0392B; --away-secondary:#FFFFFF;">
       <div class="sb2-score home"><span class="sb2-points">9</span></div>
       <div class="sb2-names">
         <div class="sb2-bar home">
           <div class="sb2-sets">0</div>
           <div class="sb2-logo"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%23ffffff'/&gt;&lt;text x='20' y='26' font-size='14' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%231f6f3b'&gt;OUR&lt;/text&gt;&lt;/svg&gt;" alt="" /></div>
-          <div class="sb2-name" style="font-size:22px;">Club Ourense Voleib Praia</div>
+          <div class="sb2-name">Club Ourense Voleib Praia</div>
         </div>
         <div class="sb2-bar away">
           <div class="sb2-sets">1</div>
           <div class="sb2-logo"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%23ffffff'/&gt;&lt;text x='20' y='26' font-size='15' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%23C0392B'&gt;CV&lt;/text&gt;&lt;/svg&gt;" alt="" /></div>
-          <div class="sb2-name" style="font-size:22px;">Voley Vigo</div>
+          <div class="sb2-name">Voley Vigo</div>
         </div>
       </div>
       <div class="sb2-score away serving"><span class="sb2-points">13</span></div>
@@ -296,5 +302,60 @@
     nombre en modo expandido.
   </p>
 </main>
+
+<script>
+  // Mirrors fitBeachNames() from app.js so the mockup behaves like the real
+  // overlay: each expanded board grows BOTH name bars to fit the longer of
+  // the two names (symmetric) and only shrinks the font when the longest
+  // name would exceed the max bar width — never truncating with an ellipsis.
+  // Measured step-by-step because the fixed 1px letter-spacing does not
+  // scale proportionally with the font size.
+  const BASE_FONT = 26, MIN_FONT = 16, MIN_BAR = 220, MAX_BAR = 460, PAD = 28 + 42 + 12 + 12;
+  // PAD ≈ name h-padding (2*14) + sets (~42) + logo-gap budget; the script
+  // measures live so this is only a starting allowance for the bar chrome.
+
+  function measure(text, fontSize) {
+    let m = document.getElementById('sb2-measure');
+    if (!m) {
+      m = document.createElement('span');
+      m.id = 'sb2-measure';
+      Object.assign(m.style, {
+        position: 'absolute', left: '-9999px', top: '0', visibility: 'hidden',
+        whiteSpace: 'nowrap', fontFamily: "'Montserrat', sans-serif",
+        fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px',
+      });
+      document.body.appendChild(m);
+    }
+    m.style.fontSize = fontSize + 'px';
+    m.textContent = text || '';
+    return m.offsetWidth;
+  }
+
+  function fitExpanded(sb2) {
+    const names = [...sb2.querySelectorAll('.sb2-name')];
+    if (!names.length) return;
+    // Width available for text inside a bar = bar width − non-name chrome.
+    // Measure the actual non-name chrome from the first bar so PAD is exact.
+    const bar = sb2.querySelector('.sb2-bar');
+    const chrome = [...bar.children].reduce((w, el) =>
+      el.classList.contains('sb2-name') ? w : w + el.offsetWidth, 0)
+      + 28 /* name h-padding */ + 24 /* gaps */;
+
+    let font = BASE_FONT;
+    const longest = () => Math.max(...names.map(n => measure(n.textContent, font)));
+    const maxContent = MAX_BAR - chrome;
+    while (longest() > maxContent && font > MIN_FONT) font -= 1;
+    names.forEach(n => { n.style.fontSize = font + 'px'; });
+
+    const barW = Math.min(MAX_BAR, Math.max(MIN_BAR, Math.ceil(longest()) + chrome + 4));
+    sb2.style.setProperty('--name-bar-width', barW + 'px');
+  }
+
+  function fitAll() {
+    document.querySelectorAll('.sb2.expanded').forEach(fitExpanded);
+  }
+  document.fonts ? document.fonts.ready.then(fitAll) : fitAll();
+  fitAll();
+</script>
 </body>
 </html>
