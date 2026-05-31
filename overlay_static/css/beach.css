@@ -184,14 +184,17 @@ body {
 }
 
 /* Active timeout dots glow in each team's name colour for contrast
-   against its own primary-coloured bar. */
+   against its own primary-coloured bar. The solid box-shadow is a
+   fallback for OBS/CEF builds older than Chromium 111 (no color-mix). */
 .team-home .timeout-dot.active {
     background: var(--home-secondary);
+    box-shadow: 0 0 8px var(--home-secondary);
     box-shadow: 0 0 8px color-mix(in srgb, var(--home-secondary) 65%, transparent);
 }
 
 .team-away .timeout-dot.active {
     background: var(--away-secondary);
+    box-shadow: 0 0 8px var(--away-secondary);
     box-shadow: 0 0 8px color-mix(in srgb, var(--away-secondary) 65%, transparent);
 }
 
@@ -208,14 +211,17 @@ body {
 }
 
 /* The serving indicator lights up in the serving team's name colour so
-   it stays legible against that team's primary-coloured bar. */
+   it stays legible against that team's primary-coloured bar. The solid
+   box-shadow is a fallback for OBS/CEF builds older than Chromium 111. */
 .team-home .serving-indicator.active {
     background-color: var(--home-secondary);
+    box-shadow: 0 0 14px var(--home-secondary);
     box-shadow: 0 0 14px color-mix(in srgb, var(--home-secondary) 65%, transparent);
 }
 
 .team-away .serving-indicator.active {
     background-color: var(--away-secondary);
+    box-shadow: 0 0 14px var(--away-secondary);
     box-shadow: 0 0 14px color-mix(in srgb, var(--away-secondary) 65%, transparent);
 }
 

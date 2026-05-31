@@ -594,6 +594,7 @@ const BEACH_NAME_MIN_FONT = 16;
 const BEACH_NAME_MIN_BAR = 260;
 const BEACH_NAME_MAX_BAR = 480;
 const BEACH_NAME_PADDING = 44;    // .name-bar horizontal padding (2 * 22px)
+let beachFontsHooked = false;
 
 // Measure the rendered width of a beach team name at a given font size with
 // an offscreen node, so the live (possibly clipped) element is untouched and
@@ -629,8 +630,8 @@ function fitBeachNames() {
 
     // The first measurement can land before the Montserrat webfont loads
     // (fallback metrics differ). Re-fit once it is ready, just once.
-    if (document.fonts && !window.__beachFontsHooked) {
-        window.__beachFontsHooked = true;
+    if (document.fonts && !beachFontsHooked) {
+        beachFontsHooked = true;
         document.fonts.ready.then(() => fitBeachNames());
     }
 
