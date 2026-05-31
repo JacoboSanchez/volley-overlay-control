@@ -162,8 +162,13 @@ body {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 1px;
-    opacity: 0.7;
+    opacity: 0.85;
 }
+
+/* The "SETS" label tracks each team's name colour so it keeps contrast
+   against the team's primary background (same colour as .team-name). */
+.team-home .team-meta::before { color: var(--home-secondary); }
+.team-away .team-meta::before { color: var(--away-secondary); }
 
 .timeout-container {
     display: flex;
@@ -178,9 +183,19 @@ body {
     transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
-.timeout-dot.active {
-    background: var(--serve-glow);
-    box-shadow: 0 0 8px var(--serve-glow);
+/* Active timeout dots glow in each team's name colour for contrast
+   against its own primary-coloured bar. The solid box-shadow is a
+   fallback for OBS/CEF builds older than Chromium 111 (no color-mix). */
+.team-home .timeout-dot.active {
+    background: var(--home-secondary);
+    box-shadow: 0 0 8px var(--home-secondary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--home-secondary) 65%, transparent);
+}
+
+.team-away .timeout-dot.active {
+    background: var(--away-secondary);
+    box-shadow: 0 0 8px var(--away-secondary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--away-secondary) 65%, transparent);
 }
 
 /* Serving indicator — a slim bar on the inner edge (facing the centre)
@@ -195,9 +210,19 @@ body {
     transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.serving-indicator.active {
-    background-color: var(--serve-glow);
-    box-shadow: 0 0 14px var(--serve-glow);
+/* The serving indicator lights up in the serving team's name colour so
+   it stays legible against that team's primary-coloured bar. The solid
+   box-shadow is a fallback for OBS/CEF builds older than Chromium 111. */
+.team-home .serving-indicator.active {
+    background-color: var(--home-secondary);
+    box-shadow: 0 0 14px var(--home-secondary);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--home-secondary) 65%, transparent);
+}
+
+.team-away .serving-indicator.active {
+    background-color: var(--away-secondary);
+    box-shadow: 0 0 14px var(--away-secondary);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--away-secondary) 65%, transparent);
 }
 
 /* ── Centre: current-set score, two tall raised white cards ──────── */

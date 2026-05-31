@@ -279,6 +279,7 @@ function renderFullState(state) {
     withEl("home-name", el => { el.textContent = state.team_home.name; });
     withEl("away-name", el => { el.textContent = state.team_away.name; });
     equalizeNamePanels();
+    fitBeachNames();
 
     // 4b. Logo visibility toggle (from remote-scoreboard "Logos" setting).
     // Run before the per-logo URL branches so those have the final say on
@@ -400,6 +401,7 @@ function updateStateDiff(oldState, newState) {
     if (oldState.team_home.name !== newState.team_home.name ||
         oldState.team_away.name !== newState.team_away.name) {
         equalizeNamePanels();
+        fitBeachNames();
     }
 
     // Logo visibility toggle (runs before per-logo URL updates so the
@@ -490,6 +492,12 @@ function updateStateDiff(oldState, newState) {
         withEl("scoreboard-container", container => {
             container.classList.toggle("compact-mode", !!newState.match_info.show_only_current_set);
         });
+        // Re-fit beach names only when they reappear leaving compact mode;
+        // entering it hides the names and CSS pins the bar width, so a
+        // re-fit there would be a wasted reflow.
+        if (!newState.match_info.show_only_current_set) {
+            fitBeachNames();
+        }
     }
 
     // Set summary recap panel toggle / re-render. Re-render also on
@@ -573,6 +581,91 @@ function updateStateDiff(oldState, newState) {
     // helper restarts the keyframe via a forced reflow if the same
     // class re-applies on a rapid follow-up event.
     dispatchAlertTransitions(oldState, newState);
+}
+
+// ── Beach name fitting ───────────────────────────────────────────────
+// The beach board keeps both name bars symmetric. Rather than clipping a
+// long name with an ellipsis, widen both bars to fit the longer of the two
+// names, and only when that would exceed BEACH_NAME_MAX_BAR shrink the type
+// (down to BEACH_NAME_MIN_FONT) so the full name still shows. Both sides
+// always share the same width and font size.
+const BEACH_NAME_BASE_FONT = 29;  // matches .team-name font-size in beach.css
+const BEACH_NAME_MIN_FONT = 16;
+const BEACH_NAME_MIN_BAR = 260;
+const BEACH_NAME_MAX_BAR = 480;
+const BEACH_NAME_PADDING = 44;    // .name-bar horizontal padding (2 * 22px)
+let beachFontsHooked = false;
+
+// Measure the rendered width of a beach team name at a given font size with
+// an offscreen node, so the live (possibly clipped) element is untouched and
+// short names report their true width.
+function measureBeachName(text, fontSize) {
+    let m = document.getElementById("beach-name-measure");
+    if (!m) {
+        m = document.createElement("span");
+        m.id = "beach-name-measure";
+        m.style.position = "absolute";
+        m.style.left = "-9999px";
+        m.style.top = "0";
+        m.style.visibility = "hidden";
+        m.style.whiteSpace = "nowrap";
+        m.style.fontFamily = "'Montserrat', sans-serif";
+        m.style.fontWeight = "800";
+        m.style.textTransform = "uppercase";
+        m.style.letterSpacing = "1px";
+        document.body.appendChild(m);
+    }
+    m.style.fontSize = fontSize + "px";
+    m.textContent = text || "";
+    return m.offsetWidth;
+}
+
+function fitBeachNames() {
+    const container = document.getElementById("scoreboard-container");
+    const homeName = document.getElementById("home-name");
+    const awayName = document.getElementById("away-name");
+    if (!container || !homeName || !awayName) return;
+    // Only the beach template uses `.name-bar`; bail out for every other style.
+    if (!container.querySelector(".name-bar")) return;
+
+    // The first measurement can land before the Montserrat webfont loads
+    // (fallback metrics differ). Re-fit once it is ready, just once.
+    if (document.fonts && !beachFontsHooked) {
+        beachFontsHooked = true;
+        document.fonts.ready.then(() => fitBeachNames());
+    }
+
+    const homeText = homeName.textContent || "";
+    const awayText = awayName.textContent || "";
+
+    // Shrink the type one step at a time, re-measuring each time, until the
+    // longer name fits the widest bar we allow (or we hit the legibility
+    // floor). We can't shrink proportionally in a single step because the
+    // fixed 1px letter-spacing does not scale with the font size, so a
+    // proportional guess lands a few pixels too wide and the name still
+    // clips — the measured loop accounts for it exactly.
+    const maxContent = BEACH_NAME_MAX_BAR - BEACH_NAME_PADDING;
+    let fontSize = BEACH_NAME_BASE_FONT;
+    let maxText = Math.max(
+        measureBeachName(homeText, fontSize),
+        measureBeachName(awayText, fontSize)
+    );
+    while (maxText > maxContent && fontSize > BEACH_NAME_MIN_FONT) {
+        fontSize -= 1;
+        maxText = Math.max(
+            measureBeachName(homeText, fontSize),
+            measureBeachName(awayText, fontSize)
+        );
+    }
+
+    homeName.style.fontSize = fontSize + "px";
+    awayName.style.fontSize = fontSize + "px";
+
+    const barWidth = Math.min(
+        BEACH_NAME_MAX_BAR,
+        Math.max(BEACH_NAME_MIN_BAR, Math.ceil(maxText) + BEACH_NAME_PADDING + 2)
+    );
+    container.style.setProperty("--name-bar-width", barWidth + "px");
 }
 
 function equalizeNamePanels() {
