@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Beach two-line — cola de desvanecimiento (espacio extra)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root { --pg-bg:#0d1117; --pg-text:#e6edf3; --pg-muted:#8b949e; --pg-border:rgba(255,255,255,.08); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--pg-bg); color:var(--pg-text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:40px 28px 64px; }
+  main { max-width:1180px; margin:0 auto; }
+  h1 { font-size:26px; letter-spacing:-0.02em; margin-bottom:6px; }
+  .lead { color:var(--pg-muted); line-height:1.55; max-width:860px; margin-bottom:22px; }
+  .opt-title { font-size:15px; margin:30px 0 4px; color:var(--pg-text); font-weight:600; }
+  .opt-desc { color:var(--pg-muted); font-size:13px; line-height:1.5; margin-bottom:10px; max-width:820px; }
+  .stage {
+    border:1px solid var(--pg-border); border-radius:12px; overflow:hidden;
+    background:
+      linear-gradient(135deg, rgba(0,0,0,.35), rgba(0,0,0,.55)),
+      repeating-conic-gradient(#1b2230 0% 25%, #232c3d 0% 50%) 50% / 36px 36px,
+      linear-gradient(160deg,#2b5876,#4e4376);
+    padding:44px 48px; display:flex; align-items:flex-end; justify-content:flex-start; min-height:220px;
+  }
+
+  /* ── Shared two-line scoreboard core ───────────────────────────────── */
+  .sb2 {
+    --home-primary:#0077B6; --home-secondary:#FFFFFF;
+    --away-primary:#F4A300; --away-secondary:#1A1A1A;
+    --score-bg:#FFFFFF; --score-text:#111111;
+    --bar-height:60px; --bar-gap:8px;
+    --fade-tail: 40px;   /* EXTRA space appended at the inner end that fades out */
+    font-family:'Montserrat',sans-serif; display:flex; flex-direction:row; align-items:stretch; gap:12px; color:#fff;
+  }
+  .sb2-score {
+    width:132px; height:calc(var(--bar-height)*2 + var(--bar-gap));
+    display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;
+    background:var(--score-bg); color:var(--score-text); border-radius:14px;
+    box-shadow:0 10px 26px rgba(0,0,0,.45); flex-shrink:0;
+  }
+  .sb2-points { font-size:78px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+
+  .sb2-names { display:flex; flex-direction:column; gap:var(--bar-gap); align-items:flex-start; }
+  .sb2-bar {
+    height:var(--bar-height); border-radius:10px; overflow:hidden;
+    box-shadow:0 6px 16px rgba(0,0,0,.4); display:flex; align-items:center; gap:12px; padding:0 6px; position:relative;
+  }
+  /* The fade lives in an EXTRA spacer (.sb2-tail) added at the inner end —
+     the end toward the OTHER team's score. Only that added space tapers to
+     transparent, so sets/name never lose pixels. The mask fades exactly the
+     tail width (fixed px), leaving the content region fully solid.          */
+  .sb2-tail { width:var(--fade-tail); flex-shrink:0; align-self:stretch; }
+  .sb2-bar.home {
+    flex-direction:row;
+    background:linear-gradient(100deg,var(--home-primary),color-mix(in srgb,var(--home-primary) 80%,#000));
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--fade-tail)), transparent 100%);
+            mask-image: linear-gradient(to right, #000 calc(100% - var(--fade-tail)), transparent 100%);
+  }
+  .sb2-bar.away {
+    flex-direction:row-reverse; align-self:flex-end;
+    background:linear-gradient(260deg,var(--away-primary),color-mix(in srgb,var(--away-primary) 80%,#000));
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--fade-tail)), transparent 100%);
+            mask-image: linear-gradient(to left, #000 calc(100% - var(--fade-tail)), transparent 100%);
+  }
+  .sb2-sets {
+    min-width:42px; height:42px; padding:0 10px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:900; line-height:1;
+    background:rgba(0,0,0,.28); color:#fff; font-variant-numeric:tabular-nums; flex-shrink:0;
+  }
+  .sb2-name {
+    flex:1; padding:0 14px; font-size:26px; font-weight:800; text-transform:uppercase; letter-spacing:1px;
+    line-height:1; white-space:nowrap; overflow:hidden; text-shadow:1px 2px 3px rgba(0,0,0,.35);
+  }
+  .sb2-bar.home .sb2-name { color:var(--home-secondary); text-align:right; }
+  .sb2-bar.away .sb2-name { color:var(--away-secondary); text-align:left; }
+
+  /* simple-mode bars shrink to content (+ the fade tail) & hug their score */
+  .simple .sb2-bar { width:auto; }
+  .simple .sb2-name { display:none; }
+
+  .tail-sm { --fade-tail: 28px; }
+  .tail-md { --fade-tail: 40px; }
+  .tail-lg { --fade-tail: 52px; }
+
+  .note { color:var(--pg-muted); font-size:13px; line-height:1.55; margin-top:28px; padding-top:18px; border-top:1px solid var(--pg-border); }
+  .note strong { color:var(--pg-text); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cola de desvanecimiento — espacio extra que no toca el contenido</h1>
+  <p class="lead">
+    Ahora el fundido es un <strong>espacio a mayores</strong> añadido en el
+    borde interior de la barra (hacia el número del marcador del otro equipo):
+    solo esa cola se desvanece a transparente, así que <strong>sets y nombre
+    quedan intactos</strong>. La barra se "despega" del marcador contrario sin
+    perder legibilidad. Local arriba (azul), visitante abajo (naranja).
+    Intensidad media por defecto; abajo comparo tres longitudes de cola.
+  </p>
+
+  <div class="opt-title">Expandido · cola corta (40px)</div>
+  <div class="stage">
+    <div class="sb2 tail-md" style="--name-bar-width:340px;">
+      <div class="sb2-score home"><span class="sb2-points">21</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home" style="width:340px;"><div class="sb2-sets">1</div><div class="sb2-name">Thunder Wolves</div><div class="sb2-tail"></div></div>
+        <div class="sb2-bar away" style="width:340px;"><div class="sb2-sets">0</div><div class="sb2-name">Solar Hawks</div><div class="sb2-tail"></div></div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">18</span></div>
+    </div>
+  </div>
+
+  <div class="opt-title">Simple sin icono · cola corta (40px)</div>
+  <div class="opt-desc">El caso que querías resolver: la cola fundida separa cada barra del marcador contrario, dejando los sets totalmente sólidos.</div>
+  <div class="stage">
+    <div class="sb2 simple tail-md">
+      <div class="sb2-score home"><span class="sb2-points">21</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home"><div class="sb2-sets">1</div><div class="sb2-tail"></div></div>
+        <div class="sb2-bar away"><div class="sb2-sets">0</div><div class="sb2-tail"></div></div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">18</span></div>
+    </div>
+  </div>
+
+  <div class="opt-title">Simple con icono · cola corta (40px)</div>
+  <div class="opt-desc">Comprobación con icono: el degradado queda después del icono, sin tocarlo.</div>
+  <div class="stage">
+    <div class="sb2 simple tail-md">
+      <div class="sb2-score home"><span class="sb2-points">21</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home">
+          <div class="sb2-sets">1</div>
+          <div style="width:48px;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);border-radius:8px;flex-shrink:0;"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%23ffffff'/&gt;&lt;text x='20' y='26' font-size='16' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%230077B6'&gt;L&lt;/text&gt;&lt;/svg&gt;" style="max-width:40px;max-height:40px;" alt="" /></div>
+          <div class="sb2-tail"></div>
+        </div>
+        <div class="sb2-bar away">
+          <div class="sb2-sets">0</div>
+          <div style="width:48px;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);border-radius:8px;flex-shrink:0;"><img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'&gt;&lt;circle cx='20' cy='20' r='18' fill='%231a1a1a'/&gt;&lt;text x='20' y='26' font-size='16' font-family='Montserrat,sans-serif' font-weight='900' text-anchor='middle' fill='%23F4A300'&gt;V&lt;/text&gt;&lt;/svg&gt;" style="max-width:40px;max-height:40px;" alt="" /></div>
+          <div class="sb2-tail"></div>
+        </div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">18</span></div>
+    </div>
+  </div>
+
+  <div class="opt-title">Comparativa de longitud de cola (simple sin icono): 28 · 40 · 52px</div>
+  <div class="stage" style="gap:40px;flex-wrap:wrap;">
+    <div class="sb2 simple tail-sm">
+      <div class="sb2-score home"><span class="sb2-points">21</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home"><div class="sb2-sets">1</div><div class="sb2-tail"></div></div>
+        <div class="sb2-bar away"><div class="sb2-sets">0</div><div class="sb2-tail"></div></div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">18</span></div>
+    </div>
+    <div class="sb2 simple tail-md">
+      <div class="sb2-score home"><span class="sb2-points">21</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home"><div class="sb2-sets">1</div><div class="sb2-tail"></div></div>
+        <div class="sb2-bar away"><div class="sb2-sets">0</div><div class="sb2-tail"></div></div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">18</span></div>
+    </div>
+    <div class="sb2 simple tail-lg">
+      <div class="sb2-score home"><span class="sb2-points">21</span></div>
+      <div class="sb2-names">
+        <div class="sb2-bar home"><div class="sb2-sets">1</div><div class="sb2-tail"></div></div>
+        <div class="sb2-bar away"><div class="sb2-sets">0</div><div class="sb2-tail"></div></div>
+      </div>
+      <div class="sb2-score away"><span class="sb2-points">18</span></div>
+    </div>
+  </div>
+
+  <p class="note">
+    <strong>Nota:</strong> la cola es un <code>.sb2-tail</code> de ancho fijo
+    al final de la barra; la <code>mask-image</code> funde exactamente ese
+    ancho, por lo que el contenido nunca pierde píxeles. Como no afecta al
+    contenido, puede ir en ambos modos. El saque (línea de color del marcador)
+    es independiente y convive sin estorbar.
+  </p>
+</main>
+</body>
+</html>
