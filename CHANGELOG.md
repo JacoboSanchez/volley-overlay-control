@@ -8,6 +8,28 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Environment variable docs synced with the code.** Documented
+  previously missing tunables across `README.md`, `.env.example` and
+  `docker-compose.yml`: `METRICS_REQUIRE_ADMIN`, `STRICT_OID_ACCESS`,
+  `CUSTOMIZATION_CACHE_TTL_SECONDS`, `MATCH_REPORT_PUBLIC_DELETE`,
+  `MINIMIZE_BACKEND_USAGE`, `REMOTE_CONFIG_URL`, `WEBHOOKS_EVENTS`,
+  `WEBHOOKS_TIMEOUT_S`, `WEBHOOKS_ALLOW_PRIVATE_IPS`, `APP_DEFAULT_LOGO`,
+  `DEFAULT_TEAM_LOGO`, `OVERLAY_LOCALE`, `SET_SUMMARY_DEFAULT_STYLE`,
+  `UNO_OVERLAY_ID` and `APP_RELOAD`. A new test
+  (`tests/test_env_docs.py`) now fails CI whenever a backend env-var
+  read is missing from the operator docs, so the lists can no longer
+  drift.
+
+### Removed
+
+- **Dead `DEFAULT_HIDE_TIMEOUT` / `APP_DARK_MODE` startup validation.**
+  Both env vars were validated and normalised at startup but never read
+  anywhere else in the codebase (NiceGUI-era leftovers); the validator
+  blocks and their tests are gone. Setting either variable was — and
+  remains — a no-op.
+
 ## [5.5.0] - 2026-05-31
 
 ### Added
