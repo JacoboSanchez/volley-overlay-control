@@ -7,10 +7,9 @@
    match_info.set_summary_style and calls the matching builder
    below; unknown styles fall back to "brand_ledger".
 
-   Designs are ported from docs/mockups/set-summary/*.html. The
-   wrapper centres the stage in a 16:9 box that fills roughly two
-   thirds of the viewport height (with equal margins above/below),
-   driven from CSS in set_summary.css (.ss-stage rule).
+   The wrapper centres the stage in a 16:9 box that fills roughly
+   two thirds of the viewport height (with equal margins
+   above/below), driven from CSS in set_summary.css (.ss-stage rule).
    ───────────────────────────────────────────────────────────────── */
 
 (function () {
