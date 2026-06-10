@@ -35,7 +35,7 @@ export function useCoachmark({
     if (state && !gestureTourSeen) {
       setCoachmarkOpen(true);
     }
-  }, [state, gestureTourSeen]);
+  }, [!!state, gestureTourSeen]);
 
   const handleCoachmarkDismiss = useCallback(() => {
     setCoachmarkOpen(false);
