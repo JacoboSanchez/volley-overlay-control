@@ -1,0 +1,87 @@
+name: Cut release
+
+# Manual release: cut the CHANGELOG's [Unreleased] section into a
+# versioned section, commit + tag, create the GitHub release with those
+# notes, and chain the Docker image build.
+#
+# The image build is chained explicitly via `gh workflow run` because a
+# release created with GITHUB_TOKEN does not emit the
+# `release: published` event that docker-publish.yml normally listens
+# for (GitHub's recursive-workflow guard); workflow_dispatch via the
+# API is the documented exception.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (plain semver, e.g. 5.6.0 — the tag becomes v5.6.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Validate and print the release notes without committing, tagging or releasing'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    name: Cut changelog, tag and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit the changelog cut, push the tag, create the release
+      actions: write    # chain docker-publish.yml via workflow_dispatch
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Cut the changelog
+        id: cut
+        run: |
+          set -euo pipefail
+          version='${{ inputs.version }}'
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python scripts/release/cut_changelog.py "$version" --dry-run > release_notes.md
+          else
+            python scripts/release/cut_changelog.py "$version" > release_notes.md
+          fi
+          echo "Release notes:"
+          cat release_notes.md
+
+      - name: Commit, tag and push
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          set -euo pipefail
+          version='${{ inputs.version }}'
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "Release v${version}"
+          git tag "v${version}"
+          git push origin main "v${version}"
+
+      - name: Create GitHub release
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "v${{ inputs.version }}" \
+            --title "v${{ inputs.version }}" \
+            --notes-file release_notes.md
+
+      - name: Chain the Docker image build
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run docker-publish.yml \
+            -f tag="v${{ inputs.version }}" \
+            -f also_latest=true

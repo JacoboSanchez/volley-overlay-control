@@ -8,6 +8,17 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **One-click release workflow.** A new manual **Cut release** GitHub
+  Actions workflow (`.github/workflows/release.yml`) renames the
+  changelog's `[Unreleased]` section to the new version, commits and
+  tags `vX.Y.Z`, creates the GitHub release with the cut section as
+  notes, and chains the Docker image build. A `dry_run` input previews
+  the notes without committing. The changelog transform lives in
+  `scripts/release/cut_changelog.py` (unit-tested) and the procedure
+  is documented in `CONTRIBUTING.md`.
+
 ### Changed
 
 - **Backend module decomposition; complexity lint gate now applies
