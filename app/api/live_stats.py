@@ -1,7 +1,7 @@
 """Compute live match statistics from the per-OID audit log.
 
 The :func:`compute_live_stats` helper here is a thin wrapper around the
-post-match :func:`app.match_report._compute_stats` analyzer plus a few
+post-match :func:`app.match_report_stats._compute_stats` analyzer plus a few
 "running" fields (current streak, recent point timeline) that only make
 sense while a match is still in progress. Keeping both flavours backed
 by the same audit log guarantees the live numbers reconcile with the
@@ -14,7 +14,7 @@ import threading
 from typing import Any
 
 from app.api import action_log
-from app.match_report import (
+from app.match_report_stats import (
     _compute_stats,
     _result_set,
     _running_score_pair,
@@ -33,7 +33,7 @@ def _is_undo_record(record: dict[str, Any]) -> bool:
     all.
 
     Either way, every aggregator in this module wants the same
-    visible-history semantic as :func:`app.match_report._collapse_undos`:
+    visible-history semantic as :func:`app.match_report_stats._collapse_undos`:
     skip undo records so the stats reflect "what actually counted".
     Centralising the predicate here is the single source of truth for
     that filter — match the existing helper rather than re-implementing

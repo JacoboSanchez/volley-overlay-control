@@ -10,6 +10,23 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Backend module decomposition; complexity lint gate now applies
+  everywhere.** ``app/match_report.py`` (2,094 lines) is split into
+  sibling modules — ``match_report_access.py`` (auth ladder),
+  ``match_report_stats.py`` (pure audit-log reducers, now also the
+  import home for ``app/api/live_stats.py``) and
+  ``match_report_render.py`` (HTML/SVG builders) — leaving only the
+  three routes in the original module. ``app/overlay/routes.py``
+  likewise sheds its auth dependency (``app/overlay/auth.py``, still
+  re-exported), locale resolution (``app/overlay/locale.py``) and
+  Pydantic models (``app/overlay/models.py``), and registers routes
+  through two helper functions. The over-complex functions
+  (``_compute_stats``, ``_render_highlights``, ``_render_score_chart``,
+  ``create_overlay_router``) were decomposed below the mccabe cap, so
+  the two long-standing per-file ``C901`` suppressions in
+  ``pyproject.toml`` are gone. No route paths, operation IDs or
+  behaviour changed (OpenAPI snapshot is byte-identical).
+
 - **Environment variable docs synced with the code.** Documented
   previously missing tunables across `README.md`, `.env.example` and
   `docker-compose.yml`: `METRICS_REQUIRE_ADMIN`, `STRICT_OID_ACCESS`,
