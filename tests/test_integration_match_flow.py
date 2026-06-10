@@ -118,17 +118,20 @@ def test_full_match_lifecycle(client, dispatcher):
 
         # --- webhooks ------------------------------------------------------
         _drain(dispatcher)
-        events = []
+        bodies = []
         for call in post.call_args_list:
             body = json.loads(call.kwargs["data"])
-            events.append(body["event"])
+            bodies.append(body)
             assert body["oid"] == OID
             sig = call.kwargs["headers"]["X-Webhook-Signature"]
             assert sig.startswith("sha256=")
+        events = [b["event"] for b in bodies]
         assert events.count("set_end") == 3
         assert events.count("match_end") == 1
-        match_end_body = json.loads(post.call_args_list[-1].kwargs["data"])
-        assert match_end_body["event"] == "match_end"
+        # Deliveries fan out across the dispatcher's worker threads, so
+        # call order is not guaranteed — locate match_end by event, not
+        # by position.
+        match_end_body = next(b for b in bodies if b["event"] == "match_end")
         assert match_end_body["state"]["match_finished"] is True
 
         # --- archive -------------------------------------------------------
