@@ -463,3 +463,51 @@ def test_api_schema_accepts_custom_overlay_oid():
     assert req.oid == "C-mybroadcast"
     req2 = InitRequest(oid="C-mybroadcast/line")
     assert req2.oid == "C-mybroadcast/line"
+
+
+# --- _build_overlay_payload: set summary fields ---
+
+class TestBuildOverlayPayloadSetSummary:
+    """The recap overlay flags emitted in ``match_info``.
+
+    ``show_set_summary`` / ``set_summary_style`` come from the
+    session-bound rule-overrides getter; without one (or on bad
+    override values) the payload must fall back to the defaults.
+    """
+
+    def _payload(self, backend):
+        from app.customization import Customization
+        return backend._build_overlay_payload(
+            {}, customization_state=dict(Customization.reset_state)
+        )
+
+    def test_defaults_without_rule_overrides_getter(self, backend):
+        info = self._payload(backend)["match_info"]
+        assert info["show_set_summary"] is False
+        assert info["set_summary_style"] == "brand_ledger"
+
+    def test_overrides_propagate_flag_and_style(self, backend):
+        backend.set_rule_overrides_getter(
+            lambda: {"set_summary": True, "set_summary_style": "glass"}
+        )
+        info = self._payload(backend)["match_info"]
+        assert info["show_set_summary"] is True
+        assert info["set_summary_style"] == "glass"
+
+    @pytest.mark.parametrize("bad_style", ["", None, 42])
+    def test_invalid_style_override_keeps_default(self, backend, bad_style):
+        backend.set_rule_overrides_getter(
+            lambda: {"set_summary": True, "set_summary_style": bad_style}
+        )
+        info = self._payload(backend)["match_info"]
+        assert info["show_set_summary"] is True
+        assert info["set_summary_style"] == "brand_ledger"
+
+    def test_raising_getter_falls_back_to_defaults(self, backend):
+        def boom():
+            raise RuntimeError("session gone")
+
+        backend.set_rule_overrides_getter(boom)
+        info = self._payload(backend)["match_info"]
+        assert info["show_set_summary"] is False
+        assert info["set_summary_style"] == "brand_ledger"
