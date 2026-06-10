@@ -20,6 +20,11 @@ const SET_SUMMARY_SRC = readFileSync(
   resolve(process.cwd(), '../overlay_static/js/set_summary.js'),
   'utf8',
 );
+// Shared label bundle — base.html loads it before set_summary.js.
+const I18N_LABELS_SRC = readFileSync(
+  resolve(process.cwd(), '../overlay_static/js/i18n_labels.js'),
+  'utf8',
+);
 
 type AnyState = Record<string, any>;
 
@@ -96,8 +101,10 @@ describe('set_summary.js overlay renderer', () => {
       cb(0);
       return 0;
     };
-    // Evaluate the IIFE fresh per test so module state (live-tick
-    // interval, clock skew) can't leak between cases.
+    // Evaluate the scripts fresh per test (in template load order) so
+    // module state (live-tick interval, clock skew) can't leak
+    // between cases.
+    new Function(I18N_LABELS_SRC)();
     new Function(SET_SUMMARY_SRC)();
   });
 
@@ -106,6 +113,7 @@ describe('set_summary.js overlay renderer', () => {
     vi.clearAllTimers();
     vi.useRealTimers();
     delete (window as any).SetSummary;
+    delete (window as any).OVERLAY_LABELS;
   });
 
   it('exposes only render/hide on window.SetSummary', () => {
@@ -181,6 +189,20 @@ describe('set_summary.js overlay renderer', () => {
         match_info: { summary_set_num: 2, current_set: 3 },
       });
       expect(stage.querySelector('.ss-set-number')!.textContent).toBe('2');
+    });
+
+    it('resolves shared bundle labels per locale', () => {
+      // "set" lives in the shared window.OVERLAY_LABELS bundle, not
+      // in the renderer's local dictionary.
+      (window as any).OVERLAY_LOCALE = 'de';
+      const stage = renderState();
+      expect(stage.querySelector('.ss-set-label')!.textContent).toBe('Satz');
+    });
+
+    it('degrades to the raw key when the shared bundle is missing', () => {
+      delete (window as any).OVERLAY_LABELS;
+      const stage = renderState();
+      expect(stage.querySelector('.ss-set-label')!.textContent).toBe('set');
     });
 
     it('filters set_score edits out of the ledger', () => {
