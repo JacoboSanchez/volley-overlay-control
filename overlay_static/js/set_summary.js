@@ -431,6 +431,17 @@
       matchElapsedSec = Math.max(0, end - matchStartedAt);
     }
 
+    const bestOf = matchInfo.best_of_sets || 5;
+    // Points target of the displayed set under the active rules —
+    // 21 for beach, 15/25 for a deciding/regular indoor set. Used
+    // as the progression chart's vertical scale so short-format
+    // sets fill the chart instead of topping out at 25's height.
+    const setTarget = Number(
+      (setNum >= bestOf
+        ? matchInfo.points_limit_last_set
+        : matchInfo.points_limit) || 25,
+    );
+
     return {
       setNum,
       durationSec,
@@ -445,7 +456,8 @@
       longestSet, servicesSet, setTotalPoints, pointTypes, hasPointTypes,
       setFinished,
       matchFinished: !!matchInfo.match_finished,
-      bestOf: matchInfo.best_of_sets || 5,
+      bestOf,
+      setTarget,
       team1Sets: home.sets_won || 0,
       team2Sets: away.sets_won || 0,
     };
@@ -630,6 +642,7 @@
             matchClockNode(vm.matchElapsedSec, { class: 'ss-duration ss-match-duration' }),
           ],
         }),
+        emptyNote(vm, { inline: true }),
       ],
     });
 
@@ -824,9 +837,23 @@
     }));
   }
 
+  // Localized "no points yet" note, or null once the set has events.
+  // Variants drop it over their empty chart area (absolute overlay)
+  // or into normal flow with ``inline: true``.
+  function emptyNote(vm, opts) {
+    if (vm.setPoints.length) return null;
+    const inline = opts && opts.inline;
+    return el('div', {
+      class: inline ? 'ss-empty-note ss-empty-note--inline' : 'ss-empty-note',
+      text: t('empty'),
+    });
+  }
+
   function buildChartWrap(vm, variant) {
     const wrap = el('div', { class: 'ss-chart-wrap' });
     wrap.appendChild(buildSvgChart(vm, { width: 300, height: 380, padLeft: 6, padRight: 6 }));
+    const note = emptyNote(vm);
+    if (note) wrap.appendChild(note);
     return wrap;
   }
 
@@ -848,7 +875,7 @@
       class: 'ss-grid-faint', x1: 0, y1: 4, x2: w, y2: 4,
     }));
 
-    const maxY = Math.max(maxScoreInEvents(vm.setPoints), 25);
+    const maxY = Math.max(maxScoreInEvents(vm.setPoints), vm.setTarget || 25);
     const homePts = chartPolylinePoints(vm.setPoints, 1, {
       width: w, height: h, maxY,
       padTop: 6, padBottom: 6,
@@ -1115,6 +1142,8 @@
     });
     const box = el('div', { class: 'ss-chart-box' });
     box.appendChild(buildSvgChart(vm, { width: 480, height: 360, padTop: 8, padBottom: 6 }));
+    const glassNote = emptyNote(vm);
+    if (glassNote) box.appendChild(glassNote);
     chartTile.appendChild(box);
     stage.appendChild(chartTile);
 
@@ -1267,6 +1296,8 @@
     });
     const chartHolder = el('div', { class: 'ss-chart' });
     chartHolder.appendChild(buildSvgChart(vm, { width: 800, height: 80, padTop: 4, padBottom: 4 }));
+    const podiumNote = emptyNote(vm);
+    if (podiumNote) chartHolder.appendChild(podiumNote);
     floor.appendChild(chartHolder);
     floor.appendChild(durationNode(vm.durationSec, { class: 'ss-duration', prefix: '⏱ ' }));
     stage.appendChild(floor);

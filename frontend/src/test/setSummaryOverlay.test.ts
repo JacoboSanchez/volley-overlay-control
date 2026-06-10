@@ -225,6 +225,76 @@ describe('set_summary.js overlay renderer', () => {
       expect(homeChips[0].textContent).toBe('1');
     });
 
+    it('shows the localized empty note before the first rally (chart variants)', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'brand_columns' },
+        overlay_control: { points_by_set: {}, timeouts_by_set: {}, stats: {} },
+      });
+      const note = stage.querySelector('.ss-chart-wrap .ss-empty-note');
+      expect(note).not.toBeNull();
+      expect(note!.textContent).toBe('No points yet this set');
+    });
+
+    it('shows the inline empty note in the brand_ledger centre', () => {
+      const stage = renderState({
+        overlay_control: { points_by_set: {}, timeouts_by_set: {}, stats: {} },
+      });
+      const note = stage.querySelector('.ss-centre .ss-empty-note--inline');
+      expect(note).not.toBeNull();
+    });
+
+    it('omits the empty note once the set has points', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'brand_columns' },
+      });
+      expect(stage.querySelector('.ss-empty-note')).toBeNull();
+    });
+
+    it('scales the progression chart to the active rules set target', () => {
+      // Deciding set of a best-of-5 with a 15-point target: a
+      // 15-point score must hit the top of the chart (y = padTop)
+      // instead of 15/25ths of the old fixed 25-point scale.
+      const stage = renderState({
+        match_info: {
+          set_summary_style: 'brand_columns',
+          best_of_sets: 5,
+          current_set: 5,
+          points_limit: 25,
+          points_limit_last_set: 15,
+        },
+        overlay_control: {
+          points_by_set: { 5: [{ team: 1, score: [15, 10], ts: 1000 }] },
+          timeouts_by_set: {},
+          stats: {},
+        },
+      });
+      const points = stage
+        .querySelector('.ss-line-home')!
+        .getAttribute('points')!;
+      const lastY = Number(points.split(' ').pop()!.split(',')[1]);
+      expect(lastY).toBe(6); // chart padTop — full height
+    });
+
+    it('keeps the 25-point scale for regular indoor sets', () => {
+      const stage = renderState({
+        match_info: {
+          set_summary_style: 'brand_columns',
+          points_limit: 25,
+          points_limit_last_set: 15,
+        },
+        overlay_control: {
+          points_by_set: { 1: [{ team: 1, score: [15, 10], ts: 1000 }] },
+          timeouts_by_set: {},
+          stats: {},
+        },
+      });
+      const points = stage
+        .querySelector('.ss-line-home')!
+        .getAttribute('points')!;
+      const lastY = Number(points.split(' ').pop()!.split(',')[1]);
+      expect(lastY).toBeCloseTo(380 - 6 - (15 / 25) * 368, 1);
+    });
+
     it('renders timeout markers in the ledger', () => {
       const stage = renderState({
         overlay_control: {

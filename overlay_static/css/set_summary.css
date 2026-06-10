@@ -106,6 +106,19 @@ body.set-summary-mode #player-stats-container {
   /* Default extras zone is invisible/zero-height. Each variant's
      CSS sets a width + visible markup on demand. */
 }
+/* Entrance motion: the stage/extras rest a notch below their slot
+   and rise into place while the panel cross-fades in (and settle
+   back down on the way out). ``body.set-summary-mode`` is toggled
+   by app.js together with the recap visibility. */
+.set-summary-panel .ss-stage,
+.set-summary-panel .ss-extras {
+  transform: translateY(12px);
+  transition: transform 0.45s ease;
+}
+body.set-summary-mode .set-summary-panel .ss-stage,
+body.set-summary-mode .set-summary-panel .ss-extras {
+  transform: none;
+}
 .set-summary-panel .ss-extras:empty { display: none; }
 
 .ss-stage {
@@ -187,6 +200,46 @@ body.set-summary-mode #player-stats-container {
   stroke: rgba(255, 255, 255, 0.3);
   stroke-width: 1;
   stroke-dasharray: 3 4;
+}
+
+/* Empty state: shown centred over the (otherwise blank) chart area
+   when the recap is opened before the first rally of the set. The
+   ``--inline`` flavour flows in normal layout instead (used by the
+   chart-less brand_ledger centre column). */
+.ss-stage .ss-empty-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--ss-sz-md);
+  font: 600 var(--ss-fs-label)/1.4 -apple-system, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--ss-text-dim);
+  pointer-events: none;
+}
+.ss-stage .ss-empty-note--inline {
+  position: static;
+  display: block;
+}
+
+/* Very long club names: cap every variant's team name at two lines
+   so an unusually long name can never blow the fixed 16:9 stage
+   (podium pillar / bumper core were the worst offenders). The
+   pre-existing ``overflow-wrap: anywhere`` on each rule still
+   handles the in-line breaking. */
+.ss-stage[data-style="brand_ledger"] .ss-team-name,
+.ss-stage[data-style="brand_columns"] .ss-team-name,
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-name,
+.ss-stage[data-style="glass"] .ss-team-row .ss-name strong,
+.ss-stage[data-style="podium"] .ss-pillar .ss-team-name,
+.ss-stage[data-style="bumper"] .ss-team-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Timeout marker chip ("T") — identical treatment in every ledger.
@@ -449,6 +502,11 @@ body.set-summary-mode #player-stats-container {
   .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-final {
     animation: none;
   }
+  .set-summary-panel .ss-stage,
+  .set-summary-panel .ss-extras {
+    transform: none;
+    transition: none;
+  }
 }
 /* Colours/weight come from the shared timeout-chip rule above —
    only the strip-width-bound font size is variant-specific. */
@@ -584,6 +642,8 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_columns"] .ss-chart-wrap {
   display: flex; flex-direction: column; justify-content: center;
+  /* Anchor for the absolutely-positioned .ss-empty-note. */
+  position: relative;
   padding: 8px 0;
   min-height: 0; min-width: 0;
   overflow: hidden;
@@ -1273,7 +1333,11 @@ body.set-summary-mode #player-stats-container {
   letter-spacing: 0.22em; text-transform: uppercase;
   white-space: nowrap;
 }
-.ss-stage[data-style="podium"] .ss-floor .ss-chart { height: clamp(24px, 9cqw, 80px); }
+.ss-stage[data-style="podium"] .ss-floor .ss-chart {
+  height: clamp(24px, 9cqw, 80px);
+  /* Anchor for the absolutely-positioned .ss-empty-note. */
+  position: relative;
+}
 .ss-stage[data-style="podium"] .ss-floor .ss-chart svg { width: 100%; height: 100%; display: block; }
 .ss-stage[data-style="podium"] .ss-floor .ss-line-home,
 .ss-stage[data-style="podium"] .ss-floor .ss-line-away { stroke-width: 2.5; }
