@@ -157,9 +157,7 @@ describe('set_summary.js overlay renderer', () => {
       });
       expect(stage.dataset.style).toBe('glass');
       expect(stage.querySelector('.ss-pillar')).toBeNull();
-      expect(
-        document.querySelectorAll('#set-summary-panel'),
-      ).toHaveLength(1);
+      expect(document.querySelectorAll('#set-summary-panel')).toHaveLength(1);
     });
   });
 
@@ -208,9 +206,7 @@ describe('set_summary.js overlay renderer', () => {
           stats: {},
         },
       });
-      const homeChips = stage.querySelectorAll(
-        '.ss-ledger-col-home .ss-point:not(.ss-empty)',
-      );
+      const homeChips = stage.querySelectorAll('.ss-ledger-col-home .ss-point:not(.ss-empty)');
       expect(homeChips).toHaveLength(1);
       expect(homeChips[0]!.textContent).toBe('1');
     });
@@ -258,9 +254,7 @@ describe('set_summary.js overlay renderer', () => {
           stats: {},
         },
       });
-      const points = stage
-        .querySelector('.ss-line-home')!
-        .getAttribute('points')!;
+      const points = stage.querySelector('.ss-line-home')!.getAttribute('points')!;
       const lastY = Number(points.split(' ').pop()!.split(',')[1]);
       expect(lastY).toBe(6); // chart padTop — full height
     });
@@ -278,9 +272,7 @@ describe('set_summary.js overlay renderer', () => {
           stats: {},
         },
       });
-      const points = stage
-        .querySelector('.ss-line-home')!
-        .getAttribute('points')!;
+      const points = stage.querySelector('.ss-line-home')!.getAttribute('points')!;
       const lastY = Number(points.split(' ').pop()!.split(',')[1]);
       expect(lastY).toBeCloseTo(380 - 6 - (15 / 25) * 368, 1);
     });
@@ -365,8 +357,7 @@ describe('set_summary.js overlay renderer', () => {
   });
 
   describe('team colour resolution', () => {
-    const homeVar = (stage: HTMLElement) =>
-      stage.style.getPropertyValue('--ss-home');
+    const homeVar = (stage: HTMLElement) => stage.style.getPropertyValue('--ss-home');
 
     it('passes a normal primary colour through', () => {
       const stage = renderState({
