@@ -10,168 +10,42 @@ import logging
 import os
 import re
 import time
-from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, ConfigDict
 from starlette.concurrency import run_in_threadpool
 
-from app.auth_utils import get_hashed_or_plaintext_env, require_admin
-from app.match_report_i18n import (
-    SUPPORTED_LOCALES,
+from app.auth_utils import require_admin
+from app.overlay.auth import (
+    _get_overlay_server_credential,  # noqa: F401  (re-export; see AUTHENTICATION.md §5)
+    require_overlay_server_token,
 )
-from app.match_report_i18n import (
-    resolve_locale as _resolve_accept_language,
-)
+from app.overlay.locale import _resolve_overlay_locale
+from app.overlay.models import OverlayStateUpdate, RawConfigPayload
 from app.overlay.state_store import OverlayStateStore
 from app.overlay.themes import PRESET_THEMES, get_theme_names
-from app.password_hash import verify_password
 
 logger = logging.getLogger(__name__)
-
-
-def _normalise_locale(raw: str | None) -> str | None:
-    if not raw or not isinstance(raw, str):
-        return None
-    candidate = raw.strip().lower()[:2]
-    return candidate if candidate in SUPPORTED_LOCALES else None
-
-
-def _resolve_overlay_locale(
-    query_lang: str | None,
-    request: Request,
-    persisted_locale: str | None = None,
-) -> str:
-    """Pick the locale tag the overlay templates / JS will use.
-
-    Resolution order: ``?lang=<code>`` query param (operator override
-    when embedding the overlay in OBS) → ``raw_remote_customization.locale``
-    persisted with the overlay (operator's UI language, pushed live by
-    the control app so OBS browser sources whose URL is fixed in the
-    streaming app still follow language changes) → ``OVERLAY_LOCALE``
-    env var → ``Accept-Language`` (q-weighted via
-    :func:`app.match_report_i18n.resolve_locale`) → ``"en"``.
-    """
-    for candidate in (query_lang, persisted_locale, os.environ.get("OVERLAY_LOCALE")):
-        normalised = _normalise_locale(candidate)
-        if normalised is not None:
-            return normalised
-    return _resolve_accept_language(request.headers.get("accept-language"))
-
-
-def _get_overlay_server_credential() -> str | None:
-    """Return the configured overlay-server credential, hash-preferred.
-
-    ``OVERLAY_SERVER_TOKEN_HASH`` (a scrypt record from
-    :mod:`app.password_hash`) wins over the legacy plaintext
-    ``OVERLAY_SERVER_TOKEN`` when both are set, so an operator
-    migrating to hashed credentials does not have to delete the
-    plaintext to switch over. Returns ``None`` when neither is set.
-    """
-    return get_hashed_or_plaintext_env(
-        "OVERLAY_SERVER_TOKEN_HASH",
-        "OVERLAY_SERVER_TOKEN",
-    )
-
-
-def require_overlay_server_token(authorization: str = Header(None)) -> None:
-    """Gate overlay-server mutation / leaky read endpoints.
-
-    ``OVERLAY_SERVER_TOKEN`` is normally populated at startup by
-    :func:`app.security_bootstrap.ensure_overlay_server_token` (auto-
-    generated on first run, persisted to ``data/.overlay_server_token``).
-    Operators who prefer hash-only configuration can set
-    ``OVERLAY_SERVER_TOKEN_HASH`` instead — the bootstrap detects
-    that and skips auto-generation.
-
-    When either credential is set the request must include
-    ``Authorization: Bearer <token>``; verification goes through
-    :func:`app.password_hash.verify_password` which accepts plaintext
-    or hash records (constant-time in either branch). The dependency
-    stays a no-op only when the operator explicitly opted into legacy
-    fail-open via ``OVERLAY_SERVER_TOKEN_DISABLED=true`` — see
-    ``AUTHENTICATION.md`` §5 for the migration notes.
-    """
-    expected = _get_overlay_server_credential()
-    if expected is None:
-        return
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing overlay server token. Use 'Authorization: Bearer <token>'.",
-            # RFC 7235 §4.1: 401 responses must advertise the auth
-            # scheme. ``realm="overlay-server"`` distinguishes this
-            # ladder from the scoreboard and admin ones in client
-            # / proxy logs.
-            headers={"WWW-Authenticate": 'Bearer realm="overlay-server"'},
-        )
-    provided = authorization.removeprefix("Bearer ").strip()
-    if not verify_password(provided, expected):
-        raise HTTPException(status_code=403, detail="Invalid overlay server token.")
-
-
-# ---------------------------------------------------------------------------
-# Pydantic models (same contract as the original overlay server)
-# ---------------------------------------------------------------------------
-
-
-class TeamStateModel(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    name: str | None = None
-    short_name: str | None = None
-    color_primary: str | None = None
-    color_secondary: str | None = None
-    logo_url: str | None = None
-    sets_won: int | None = None
-    points: int | None = None
-    serving: bool | None = None
-    timeouts_taken: int | None = None
-    set_history: dict[str, int] | None = None
-
-
-class MatchInfoModel(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    tournament: str | None = None
-    phase: str | None = None
-    best_of_sets: int | None = None
-    current_set: int | None = None
-    show_only_current_set: bool | None = None
-
-
-class OverlayControlModel(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    show_main_scoreboard: bool | None = None
-    show_bottom_ticker: bool | None = None
-    ticker_message: str | None = None
-    show_player_stats: bool | None = None
-    player_stats_data: Any | None = None
-    geometry: dict[str, Any] | None = None
-    colors: dict[str, str] | None = None
-    preferredStyle: str | None = None
-
-
-class OverlayStateUpdate(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    match_info: MatchInfoModel | None = None
-    team_home: TeamStateModel | None = None
-    team_away: TeamStateModel | None = None
-    overlay_control: OverlayControlModel | None = None
-    raw_remote_model: Any | None = None
-    raw_remote_customization: Any | None = None
-
-
-class RawConfigPayload(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    model: Any | None = None
-    customization: Any | None = None
 
 
 # ---------------------------------------------------------------------------
 # Router factory
 # ---------------------------------------------------------------------------
+
+
+def _deterministic_operation_id(route: APIRoute) -> str:
+    """Sort ``route.methods`` so multi-method routes get a stable id.
+
+    FastAPI's default generator does ``list(route.methods)[0]`` on a set,
+    which yields different results across Python processes and makes the
+    OpenAPI snapshot flap between runs.
+    """
+    methods = sorted(route.methods or [])
+    method_suffix = "_".join(m.lower() for m in methods)
+    name = re.sub(r"\W", "_", f"{route.name}{route.path_format}")
+    return f"{name}_{method_suffix}" if method_suffix else name
 
 
 def create_overlay_router(
@@ -180,23 +54,22 @@ def create_overlay_router(
     templates: Jinja2Templates,
 ) -> APIRouter:
     """Create and return the overlay router with injected dependencies."""
-
-    def _deterministic_operation_id(route: APIRoute) -> str:
-        """Sort ``route.methods`` so multi-method routes get a stable id.
-
-        FastAPI's default generator does ``list(route.methods)[0]`` on a set,
-        which yields different results across Python processes and makes the
-        OpenAPI snapshot flap between runs.
-        """
-        methods = sorted(route.methods or [])
-        method_suffix = "_".join(m.lower() for m in methods)
-        name = re.sub(r"\W", "_", f"{route.name}{route.path_format}")
-        return f"{name}_{method_suffix}" if method_suffix else name
-
     router = APIRouter(
         tags=["Overlay"],
         generate_unique_id_function=_deterministic_operation_id,
     )
+    _register_page_routes(router, store, broadcast, templates)
+    _register_api_routes(router, store, broadcast)
+    return router
+
+
+def _register_page_routes(
+    router: APIRouter,
+    store: OverlayStateStore,
+    broadcast,
+    templates: Jinja2Templates,
+) -> None:
+    """HTML pages + the OBS browser-source WebSocket."""
 
     # -- Favicon -----------------------------------------------------------
 
@@ -312,6 +185,14 @@ def create_overlay_router(
             pass
         finally:
             broadcast.remove_client(overlay_id, websocket)
+
+
+def _register_api_routes(
+    router: APIRouter,
+    store: OverlayStateStore,
+    broadcast,
+) -> None:
+    """JSON API: state push, CRUD, raw config, output config, themes."""
 
     # -- State update (HTTP) -----------------------------------------------
 
@@ -443,5 +324,3 @@ def create_overlay_router(
             "theme": theme_name,
             "overlay_id": overlay_id,
         }
-
-    return router

@@ -223,6 +223,15 @@ Configure the application using the following environment variables:
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
 | `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
 | `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
+| `CUSTOMIZATION_CACHE_TTL_SECONDS` | Single knob overriding the TTL (seconds) of both customization caches. When unset, the GameService cache defaults to `5` and the Backend cache to `60`. | *(per-cache defaults)* |
+| `METRICS_REQUIRE_ADMIN` | If `true`, `GET /metrics` requires the same admin Bearer token as `/api/v1/admin/*`. Default: the Prometheus exposition is unauthenticated (aggregates only — no payloads, no per-OID labels). | `false` |
+| `STRICT_OID_ACCESS` | Opt-in hardening: a user configured in `SCOREBOARD_USERS` without an explicit `control` field is denied access to every OID rather than allowed everywhere. | `false` |
+| `APP_DEFAULT_LOGO` | URL of the fallback team logo used when a team has none configured. | *(flaticon volleyball icon)* |
+| `DEFAULT_TEAM_LOGO` | Logo path baked into a blank in-process overlay state (used by the built-in overlay server when an overlay is created). | `/static/images/default_volleyball.svg` |
+| `SET_SUMMARY_DEFAULT_STYLE` | Default style of the between-sets summary panel. | `brand_ledger` |
+| `OVERLAY_LOCALE` | Fallback locale for overlay rendering when neither the `?lang=` query parameter nor a persisted overlay locale is present. | *(browser/`en`)* |
+| `UNO_OVERLAY_ID` | Internal instance identifier sent to overlays.uno. Rarely needs changing. | *(fixed UUID)* |
+| `APP_RELOAD` | Development only: if `true`, runs uvicorn with auto-reload. | `false` |
 | `UNO_OVERLAY_OUTPUT` | Custom output URL override for the overlay display link. | |
 | `WEBHOOKS_URL` | *(Optional)* Single outbound webhook endpoint. POSTed JSON `{event, oid, ts, state, details}` on `set_end`, `match_end`, `timeout`, `serve_change`. | |
 | `WEBHOOKS_SECRET` | *(Optional)* Shared secret for HMAC-SHA256 signing of single-URL webhook bodies. Sent as `X-Webhook-Signature: sha256=<hex>`. | |

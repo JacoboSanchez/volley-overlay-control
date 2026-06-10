@@ -164,10 +164,10 @@ export default defineConfig(async () => ({
       // and a recovery pass can ratchet them upward. Bump these whenever
       // you raise coverage; do not lower them to make CI green.
       thresholds: {
-        lines: 72,
-        statements: 70,
-        functions: 57,
-        branches: 60,
+        lines: 82,
+        statements: 80,
+        functions: 69,
+        branches: 71,
       },
     },
   },

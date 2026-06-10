@@ -19,6 +19,9 @@ services:
       - ENABLE_MULTITHREAD=${ENABLE_MULTITHREAD:-true}
       - SINGLE_OVERLAY_MODE=${SINGLE_OVERLAY_MODE:-true}
       - ORDERED_TEAMS=${ORDERED_TEAMS:-true}
+      - MINIMIZE_BACKEND_USAGE=${MINIMIZE_BACKEND_USAGE:-true} #Optional: cache customization responses to reduce overlay round-trips
+      - CUSTOMIZATION_CACHE_TTL_SECONDS=${CUSTOMIZATION_CACHE_TTL_SECONDS:-} #Optional: single TTL override for both customization caches
+      - REMOTE_CONFIG_URL=${REMOTE_CONFIG_URL:-} #Optional: remote JSON config fetched on startup
       - LOGGING_LEVEL=${LOGGING_LEVEL:-warning}
       - LOG_FORMAT=${LOG_FORMAT:-text} #Optional: text|json
       - LOG_FILE=${LOG_FILE:-} #Optional: when set, also write JSON logs to this path
@@ -48,12 +51,17 @@ services:
       - TRUSTED_HOSTS=${TRUSTED_HOSTS:-} #Optional: comma-separated allow-list of Host header values (wildcards OK)
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-} #Optional: comma-separated allow-list of cross-origin SPA hosts (no wildcards)
       - MATCH_REPORT_PUBLIC=${MATCH_REPORT_PUBLIC:-false} #Optional: open match-report routes to anonymous reads
+      - MATCH_REPORT_PUBLIC_DELETE=${MATCH_REPORT_PUBLIC_DELETE:-false} #Optional: allow DELETE /matches/{id} without the admin token
+      - METRICS_REQUIRE_ADMIN=${METRICS_REQUIRE_ADMIN:-false} #Optional: gate GET /metrics behind the admin Bearer token
+      - STRICT_OID_ACCESS=${STRICT_OID_ACCESS:-false} #Optional: deny users without an explicit control field access to every OID
       - SCOREBOARD_USERS=${SCOREBOARD_USERS:-}
       - REST_USER_AGENT=${REST_USER_AGENT:-}
       - APP_THEMES=${APP_THEMES:-}
       - WEBHOOKS_URL=${WEBHOOKS_URL:-} #Optional: single outbound webhook endpoint
       - WEBHOOKS_SECRET=${WEBHOOKS_SECRET:-} #Optional: HMAC-SHA256 secret for the single endpoint
       - WEBHOOKS_JSON=${WEBHOOKS_JSON:-} #Optional: multi-target webhook config as JSON
+      - WEBHOOKS_EVENTS=${WEBHOOKS_EVENTS:-} #Optional: CSV subset of events for the single-URL webhook
+      - WEBHOOKS_TIMEOUT_S=${WEBHOOKS_TIMEOUT_S:-5} #Optional: per-target POST timeout in seconds
       - WEBHOOKS_ALLOW_PRIVATE_IPS=${WEBHOOKS_ALLOW_PRIVATE_IPS:-} #Optional: allow webhook targets on private/loopback IPs (SSRF opt-out)
       - PERF_GET_STATE_WARN_MS=${PERF_GET_STATE_WARN_MS:-50} #Optional: slow-path threshold for GET /api/v1/state
     healthcheck:

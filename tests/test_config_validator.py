@@ -56,23 +56,8 @@ def test_out_of_range_port(clean_env, caplog):
     assert os.environ['APP_PORT'] == '8080'
     assert any("Invalid APP_PORT" in r.message for r in caplog.records)
 
-def test_valid_hide_timeout(clean_env, caplog):
-    os.environ['DEFAULT_HIDE_TIMEOUT'] = '10'
-    validate_config()
-    assert os.environ['DEFAULT_HIDE_TIMEOUT'] == '10'
-    assert not any("Invalid DEFAULT_HIDE_TIMEOUT" in r.message for r in caplog.records)
-
-def test_invalid_hide_timeout(clean_env, caplog):
-    os.environ['DEFAULT_HIDE_TIMEOUT'] = 'never'
-    validate_config()
-    assert os.environ['DEFAULT_HIDE_TIMEOUT'] == '5'
-    assert any("Invalid DEFAULT_HIDE_TIMEOUT" in r.message for r in caplog.records)
-
 def test_invalid_enum_vars(clean_env, caplog):
-    os.environ['APP_DARK_MODE'] = 'invalid'
     os.environ['LOGGING_LEVEL'] = 'superdebug'
     validate_config()
-    assert os.environ['APP_DARK_MODE'] == 'auto'
     assert os.environ['LOGGING_LEVEL'] == 'info'
-    assert any("Invalid APP_DARK_MODE" in r.message for r in caplog.records)
     assert any("Invalid LOGGING_LEVEL" in r.message for r in caplog.records)

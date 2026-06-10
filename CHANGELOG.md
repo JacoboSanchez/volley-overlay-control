@@ -8,6 +8,64 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **One-click release workflow.** A new manual **Cut release** GitHub
+  Actions workflow (`.github/workflows/release.yml`) renames the
+  changelog's `[Unreleased]` section to the new version, commits and
+  tags `vX.Y.Z`, creates the GitHub release with the cut section as
+  notes, and chains the Docker image build. A `dry_run` input previews
+  the notes without committing. The changelog transform lives in
+  `scripts/release/cut_changelog.py` (unit-tested) and the procedure
+  is documented in `CONTRIBUTING.md`.
+
+### Changed
+
+- **Frontend coverage gate raised.** 13 new test files (94 tests)
+  cover the previously untested components (`Dialog`, `AppDialogs`,
+  `InitScreen`, `FontSelector`, `ConfigSkeleton`,
+  `SetSummaryActiveNotice`, `SetSummaryStylePicker`, `ShortcutsHelp`,
+  `TeamCard`) and hooks (`useAsyncAction`, `useHudVisibility`,
+  `useStaleSetPrompt`, `useShareLinks`). The vitest coverage
+  thresholds ratchet accordingly: lines 72→82, statements 70→80,
+  functions 57→69, branches 60→71.
+- **Backend module decomposition; complexity lint gate now applies
+  everywhere.** ``app/match_report.py`` (2,094 lines) is split into
+  sibling modules — ``match_report_access.py`` (auth ladder),
+  ``match_report_stats.py`` (pure audit-log reducers, now also the
+  import home for ``app/api/live_stats.py``) and
+  ``match_report_render.py`` (HTML/SVG builders) — leaving only the
+  three routes in the original module. ``app/overlay/routes.py``
+  likewise sheds its auth dependency (``app/overlay/auth.py``, still
+  re-exported), locale resolution (``app/overlay/locale.py``) and
+  Pydantic models (``app/overlay/models.py``), and registers routes
+  through two helper functions. The over-complex functions
+  (``_compute_stats``, ``_render_highlights``, ``_render_score_chart``,
+  ``create_overlay_router``) were decomposed below the mccabe cap, so
+  the two long-standing per-file ``C901`` suppressions in
+  ``pyproject.toml`` are gone. No route paths, operation IDs or
+  behaviour changed (OpenAPI snapshot is byte-identical).
+
+- **Environment variable docs synced with the code.** Documented
+  previously missing tunables across `README.md`, `.env.example` and
+  `docker-compose.yml`: `METRICS_REQUIRE_ADMIN`, `STRICT_OID_ACCESS`,
+  `CUSTOMIZATION_CACHE_TTL_SECONDS`, `MATCH_REPORT_PUBLIC_DELETE`,
+  `MINIMIZE_BACKEND_USAGE`, `REMOTE_CONFIG_URL`, `WEBHOOKS_EVENTS`,
+  `WEBHOOKS_TIMEOUT_S`, `WEBHOOKS_ALLOW_PRIVATE_IPS`, `APP_DEFAULT_LOGO`,
+  `DEFAULT_TEAM_LOGO`, `OVERLAY_LOCALE`, `SET_SUMMARY_DEFAULT_STYLE`,
+  `UNO_OVERLAY_ID` and `APP_RELOAD`. A new test
+  (`tests/test_env_docs.py`) now fails CI whenever a backend env-var
+  read is missing from the operator docs, so the lists can no longer
+  drift.
+
+### Removed
+
+- **Dead `DEFAULT_HIDE_TIMEOUT` / `APP_DARK_MODE` startup validation.**
+  Both env vars were validated and normalised at startup but never read
+  anywhere else in the codebase (NiceGUI-era leftovers); the validator
+  blocks and their tests are gone. Setting either variable was — and
+  remains — a no-op.
+
 ## [5.5.0] - 2026-05-31
 
 ### Added

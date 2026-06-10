@@ -93,6 +93,33 @@ that walks you through the checklist. Issue templates live in
 
 ---
 
+## Releases
+
+Releases are cut with the **Cut release** workflow
+([`.github/workflows/release.yml`](./.github/workflows/release.yml)):
+
+1. Make sure `## [Unreleased]` in `CHANGELOG.md` reflects everything
+   that should ship (the workflow refuses to cut an empty section).
+2. Run the workflow from the Actions tab with the plain semver version
+   (e.g. `5.6.0`). Use the `dry_run` input first to preview the
+   release notes without committing anything.
+3. The workflow renames `[Unreleased]` to `[X.Y.Z] - <date>`, commits
+   `Release vX.Y.Z` to `main`, pushes the `vX.Y.Z` tag, creates the
+   GitHub release with the cut section as notes, and chains the
+   Docker image build (`docker-publish.yml`) explicitly — a release
+   created with `GITHUB_TOKEN` does not fire the `release: published`
+   event on its own.
+
+Because `main` is protected, the repository's branch-protection rules
+must allow GitHub Actions to push (e.g. an "allow specified actors to
+bypass" entry for the Actions app), or the workflow's push step will
+be rejected. The changelog transform itself lives in
+[`scripts/release/cut_changelog.py`](./scripts/release/cut_changelog.py)
+and is unit-tested in `tests/test_release_script.py`, so it can also
+be run locally for a manual release.
+
+---
+
 ## Coding conventions
 
 - **Backend:** see `pyproject.toml` for the active `ruff` rule set and

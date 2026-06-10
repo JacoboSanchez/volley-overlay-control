@@ -48,21 +48,7 @@ def validate_config():
         logger.warning("Invalid APP_PORT '%s': must be an integer between 1 and 65535. Defaulting to 8080.", port_val)
         os.environ['APP_PORT'] = '8080'
 
-    timeout_val = os.environ.get('DEFAULT_HIDE_TIMEOUT', '5')
-    try:
-        timeout_int = int(timeout_val)
-        if timeout_int <= 0:
-            raise ValueError("Must be a positive integer")
-    except ValueError:
-        logger.warning("Invalid DEFAULT_HIDE_TIMEOUT '%s': must be a positive integer. Defaulting to 5.", timeout_val)
-        os.environ['DEFAULT_HIDE_TIMEOUT'] = '5'
-
     # Enums validation
-    dark_mode = os.environ.get('APP_DARK_MODE', 'auto').lower()
-    if dark_mode not in ['on', 'off', 'auto']:
-        logger.warning("Invalid APP_DARK_MODE '%s'. Must be 'on', 'off', or 'auto'. Defaulting to 'auto'.", dark_mode)
-        os.environ['APP_DARK_MODE'] = 'auto'
-
     log_level = os.environ.get('LOGGING_LEVEL', 'info').lower()
     if log_level not in ['debug', 'info', 'warning', 'error']:
         logger.warning("Invalid LOGGING_LEVEL '%s'. Must be 'debug', 'info', 'warning', or 'error'. Defaulting to 'info'.", log_level)

@@ -86,12 +86,6 @@ extend-immutable-calls = [
 # ``pytest.raises(Exception)`` is used in a websocket-close smoke test where
 # the exact Starlette exception is an implementation detail.
 "tests/test_api_routes.py" = ["B017"]
-# Two pre-existing god-functions exceed the mccabe cap. They are tracked
-# for a structural refactor (``match_report.py`` split, overlay router
-# decomposition); ignore C901 here so the rule still gates the rest of
-# the codebase.
-"app/match_report.py" = ["C901"]
-"app/overlay/routes.py" = ["C901"]
 
 [tool.mypy]
 # The entire backend package is type-checked. Coverage was previously
