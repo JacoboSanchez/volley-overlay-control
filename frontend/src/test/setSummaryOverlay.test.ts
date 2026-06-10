@@ -10,21 +10,11 @@
  * surface a real OBS browser source exercises.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-// Vitest runs with cwd = frontend/; the overlay scripts live at the
-// repo root (import.meta.url is an http: URL under jsdom, so resolve
-// from cwd instead).
-const SET_SUMMARY_SRC = readFileSync(
-  resolve(process.cwd(), '../overlay_static/js/set_summary.js'),
-  'utf8',
-);
-// Shared label bundle — base.html loads it before set_summary.js.
-const I18N_LABELS_SRC = readFileSync(
-  resolve(process.cwd(), '../overlay_static/js/i18n_labels.js'),
-  'utf8',
-);
+// Vite's ``?raw`` suffix loads the scripts as strings (see
+// raw-modules.d.ts). The shared label bundle is listed first to
+// mirror the template load order in overlay_templates/base.html.
+import I18N_LABELS_SRC from '../../../overlay_static/js/i18n_labels.js?raw';
+import SET_SUMMARY_SRC from '../../../overlay_static/js/set_summary.js?raw';
 
 type AnyState = Record<string, any>;
 
@@ -180,8 +170,8 @@ describe('set_summary.js overlay renderer', () => {
         team_away: { points: 5, set_history: { set_1: 20 } },
       });
       const scores = stage.querySelectorAll('.ss-team-score');
-      expect(scores[0].textContent).toBe('25');
-      expect(scores[1].textContent).toBe('20');
+      expect(scores[0]!.textContent).toBe('25');
+      expect(scores[1]!.textContent).toBe('20');
     });
 
     it('prefers summary_set_num over current_set', () => {
@@ -222,7 +212,7 @@ describe('set_summary.js overlay renderer', () => {
         '.ss-ledger-col-home .ss-point:not(.ss-empty)',
       );
       expect(homeChips).toHaveLength(1);
-      expect(homeChips[0].textContent).toBe('1');
+      expect(homeChips[0]!.textContent).toBe('1');
     });
 
     it('shows the localized empty note before the first rally (chart variants)', () => {
