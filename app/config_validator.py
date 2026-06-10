@@ -53,4 +53,3 @@ def validate_config():
     if log_level not in ['debug', 'info', 'warning', 'error']:
         logger.warning("Invalid LOGGING_LEVEL '%s'. Must be 'debug', 'info', 'warning', or 'error'. Defaulting to 'info'.", log_level)
         os.environ['LOGGING_LEVEL'] = 'info'
-        os.environ['LOGGING_LEVEL'] = 'info'

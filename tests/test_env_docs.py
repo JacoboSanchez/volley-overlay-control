@@ -45,7 +45,8 @@ def test_every_env_var_is_documented():
     undocumented = {
         name
         for name in _env_vars_read_by_app()
-        if name not in ALLOWLIST and not re.search(r"\\b" + re.escape(name) + r"\\b", documented)
+        if name not in ALLOWLIST
+        and not re.search(r"\b" + re.escape(name) + r"\b", documented)
     }
     assert not undocumented, (
         "Environment variables read by the backend but missing from "

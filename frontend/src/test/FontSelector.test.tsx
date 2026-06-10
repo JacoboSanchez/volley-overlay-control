@@ -41,9 +41,9 @@ describe('FontSelector', () => {
     const onChange = vi.fn();
     render(<FontSelector value="Default" onChange={onChange} />);
     fireEvent.click(screen.getByRole('button', { name: /Default/ }));
-    const option = Array.from(
-      document.querySelectorAll<HTMLElement>('.font-selector-option'),
-    ).find((el) => el.textContent?.includes('Aluminum'))!;
+    const option = Array.from(document.querySelectorAll<HTMLElement>('.font-selector-option')).find(
+      (el) => el.textContent?.includes('Aluminum'),
+    )!;
     fireEvent.click(option);
     expect(onChange).toHaveBeenCalledWith('Aluminum');
     expect(document.querySelector('.font-selector-dropdown')).toBeNull();

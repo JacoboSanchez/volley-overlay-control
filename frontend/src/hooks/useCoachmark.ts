@@ -31,11 +31,15 @@ export function useCoachmark({
   // re-firing once dismissal flips ``gestureTourSeen`` to ``true``
   // — on the next dep change the effect runs, the guard fails, and
   // the open state stays as the operator left it.
+  // Depend on state's *presence*, not its identity — the WS swaps the
+  // object on every push but the guard only cares whether the first
+  // authoritative state has landed.
+  const hasState = !!state;
   useEffect(() => {
-    if (state && !gestureTourSeen) {
+    if (hasState && !gestureTourSeen) {
       setCoachmarkOpen(true);
     }
-  }, [!!state, gestureTourSeen]);
+  }, [hasState, gestureTourSeen]);
 
   const handleCoachmarkDismiss = useCallback(() => {
     setCoachmarkOpen(false);

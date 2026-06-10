@@ -48,6 +48,11 @@ export function useHudVisibility({
     }
   }, [matchStartedAt, setShowControls]);
 
+  // Depend on the two state fields the effect actually reads, not the
+  // ``state`` object itself — its identity changes on every WebSocket
+  // push and would re-arm the effect on every scored point. Operator
+  // taps still reset the countdown via the pointerdown listener.
+  const setSummaryActive = state?.set_summary ?? false;
   useEffect(() => {
     // On tablets/desktops the control bar fits without covering scoreboard
     // elements, so skip the inactivity timer entirely.
@@ -55,10 +60,10 @@ export function useHudVisibility({
     // Keep the bar visible while the match is pending — only arm the
     // inactivity timer once ``match_started_at`` is stamped. Also covers
     // the pre-init case where ``state`` itself is still null.
-    if (state?.match_started_at == null) return;
+    if (matchStartedAt == null) return;
     // When the set-summary recap is live, the operator must be able to
     // turn it off in one tap — never auto-hide the HUD.
-    if (state?.set_summary) {
+    if (setSummaryActive) {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       setShowControls(true);
       return;
@@ -71,7 +76,14 @@ export function useHudVisibility({
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       window.removeEventListener('pointerdown', resetHideTimer);
     };
-  }, [showControls, activeTab, state, resetHideTimer, hasRoomForPersistentControls]);
+  }, [
+    showControls,
+    activeTab,
+    matchStartedAt,
+    setSummaryActive,
+    resetHideTimer,
+    hasRoomForPersistentControls,
+  ]);
 
   return { showControls, setShowControls };
 }

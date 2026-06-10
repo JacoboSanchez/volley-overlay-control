@@ -17,10 +17,7 @@ describe('SetSummaryStylePicker', () => {
 
   it('marks only the current value as checked', () => {
     renderWithI18n(<SetSummaryStylePicker value="podium" onChange={() => {}} />);
-    expect(screen.getByTestId('set-summary-style-podium')).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    expect(screen.getByTestId('set-summary-style-podium')).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('set-summary-style-podium').className).toContain('selected');
     const checked = screen
       .getAllByRole('radio')
