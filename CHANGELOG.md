@@ -21,6 +21,14 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Frontend coverage gate raised.** 13 new test files (94 tests)
+  cover the previously untested components (`Dialog`, `AppDialogs`,
+  `InitScreen`, `FontSelector`, `ConfigSkeleton`,
+  `SetSummaryActiveNotice`, `SetSummaryStylePicker`, `ShortcutsHelp`,
+  `TeamCard`) and hooks (`useAsyncAction`, `useHudVisibility`,
+  `useStaleSetPrompt`, `useShareLinks`). The vitest coverage
+  thresholds ratchet accordingly: lines 72→82, statements 70→80,
+  functions 57→69, branches 60→71.
 - **Backend module decomposition; complexity lint gate now applies
   everywhere.** ``app/match_report.py`` (2,094 lines) is split into
   sibling modules — ``match_report_access.py`` (auth ladder),
