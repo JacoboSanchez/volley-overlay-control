@@ -32,8 +32,9 @@ once a first tagged release ships.
   gym-scoreboard homage — black bezel cabinet, dot-matrix texture,
   glowing amber LED points (rendered with the repo's own "LED board"
   font), red set counters, green serve lamp and amber timeout lamps;
-  its LED palette is the style's identity, so it ignores the theme
-  toggle like glass. `pylons` docks one slim panel per team to the
+  its LED palette is the style's identity; the theme toggle swaps the
+  cabinet between the dark default and a light aluminium face while
+  the recessed digit windows keep their dark glass and glow. `pylons` docks one slim panel per team to the
   left/right screen edges (rotated name, points, set pips, timeouts,
   serve lamp), keeping the whole top and bottom of the frame clean —
   placement is the design, so it opts out of operator geometry via

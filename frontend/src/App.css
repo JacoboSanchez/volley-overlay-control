@@ -3442,6 +3442,24 @@ body {
 .swap-sides-button .material-icons {
   font-size: 20px;
 }
+/* Operator-UI light mode: the white-alpha treatment above vanishes
+   on a pale background — flip to ink-alpha. */
+:root.light .swap-sides-button {
+  border-color: rgba(0, 0, 0, 0.30);
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(20, 24, 29, 0.80);
+}
+:root.light .swap-sides-button:hover {
+  background: rgba(0, 0, 0, 0.16);
+  color: #14181d;
+}
+:root.light .swap-sides-button[aria-pressed='true'] {
+  color: #9a6c00;
+  border-color: rgba(154, 108, 0, 0.55);
+}
+:root.light .config-hint {
+  color: rgba(20, 24, 29, 0.60);
+}
 
 /* Hint line under config toggles (e.g. auto swap sides). */
 .config-hint {
