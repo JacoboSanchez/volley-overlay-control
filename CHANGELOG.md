@@ -10,6 +10,13 @@ once a first tagged release ships.
 
 ### Added
 
+- **Set-summary empty state.** Opening the between-set recap before
+  the first rally of a set used to show blank chart axes (or bare
+  placeholder chips). The chart variants (`brand_columns`, `glass`,
+  `podium`) now overlay a localized "No points yet this set" note on
+  the chart area, and `brand_ledger` shows it inline in its centre
+  column. The string already shipped in all six locales but was never
+  rendered.
 - **One-click release workflow.** A new manual **Cut release** GitHub
   Actions workflow (`.github/workflows/release.yml`) renames the
   changelog's `[Unreleased]` section to the new version, commits and
@@ -21,6 +28,14 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Set-summary recap polish.** The recap stage now rises subtly into
+  place alongside the existing cross-fade (disabled under
+  `prefers-reduced-motion`); very long club names are capped at two
+  lines in every variant so they can no longer overflow the fixed
+  16:9 stage; and the point-progression chart scales its vertical
+  axis to the active rules' set target (21 for beach, 15 for a
+  deciding set) instead of a fixed 25, so short-format sets fill the
+  chart height.
 - **Frontend coverage gate raised.** 13 new test files (94 tests)
   cover the previously untested components (`Dialog`, `AppDialogs`,
   `InitScreen`, `FontSelector`, `ConfigSkeleton`,

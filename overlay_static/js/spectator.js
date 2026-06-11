@@ -24,8 +24,6 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
-            'board.setTime': 'Set',
-            'board.matchTime': 'Match',
             'rules.mode.indoor': 'Indoor',
             'rules.mode.beach': 'Beach',
             'rules.bestOf': 'Best of {n}',
@@ -43,7 +41,6 @@
             'chart.nav.setLive': 'Set {set} · live',
             'chart.timeoutBadge': 'T',
             'history.team': 'Team',
-            'stats.totals': 'Total points',
             'stats.services.label': 'Services won',
             'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Streak',
@@ -57,8 +54,6 @@
             'stats.blocks.label': 'Blocks',
             'stats.oppErrors.label': 'Opponent errors',
             'pointType.ace': 'Ace',
-            'pointType.kill': 'Kill',
-            'pointType.block': 'Block',
             'pointType.opp_error': 'Opponent error',
             'errorType.serve_error': 'Serve error',
             'errorType.attack_error': 'Attack error',
@@ -78,8 +73,6 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
-            'board.setTime': 'Set',
-            'board.matchTime': 'Partido',
             'rules.mode.indoor': 'Pista',
             'rules.mode.beach': 'Playa',
             'rules.bestOf': 'Al mejor de {n}',
@@ -97,7 +90,6 @@
             'chart.nav.setLive': 'Set {set} · en juego',
             'chart.timeoutBadge': 'TM',
             'history.team': 'Equipo',
-            'stats.totals': 'Puntos totales',
             'stats.services.label': 'Saques ganados',
             'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Racha',
@@ -111,8 +103,6 @@
             'stats.blocks.label': 'Bloqueos',
             'stats.oppErrors.label': 'Errores rival',
             'pointType.ace': 'Saque directo',
-            'pointType.kill': 'Ataque',
-            'pointType.block': 'Bloqueo',
             'pointType.opp_error': 'Error rival',
             'errorType.serve_error': 'Error de saque',
             'errorType.attack_error': 'Error de ataque',
@@ -132,8 +122,6 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
-            'board.setTime': 'Set',
-            'board.matchTime': 'Partida',
             'rules.mode.indoor': 'Indoor',
             'rules.mode.beach': 'Praia',
             'rules.bestOf': 'À melhor de {n}',
@@ -151,7 +139,6 @@
             'chart.nav.setLive': 'Set {set} · ao vivo',
             'chart.timeoutBadge': 'TM',
             'history.team': 'Equipa',
-            'stats.totals': 'Pontos totais',
             'stats.services.label': 'Serviços ganhos',
             'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Sequência',
@@ -165,8 +152,6 @@
             'stats.blocks.label': 'Blocos',
             'stats.oppErrors.label': 'Erros adversário',
             'pointType.ace': 'Ace',
-            'pointType.kill': 'Ataque',
-            'pointType.block': 'Bloco',
             'pointType.opp_error': 'Erro do adversário',
             'errorType.serve_error': 'Erro de serviço',
             'errorType.attack_error': 'Erro de ataque',
@@ -186,8 +171,6 @@
             'board.sets': 'Set',
             'board.timeouts': 'T/O',
             'board.setLabel': 'Set {set}',
-            'board.setTime': 'Set',
-            'board.matchTime': 'Partita',
             'rules.mode.indoor': 'Indoor',
             'rules.mode.beach': 'Beach',
             'rules.bestOf': 'Al meglio dei {n}',
@@ -205,7 +188,6 @@
             'chart.nav.setLive': 'Set {set} · in corso',
             'chart.timeoutBadge': 'TO',
             'history.team': 'Squadra',
-            'stats.totals': 'Punti totali',
             'stats.services.label': 'Servizi vinti',
             'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Serie',
@@ -219,8 +201,6 @@
             'stats.blocks.label': 'Muri',
             'stats.oppErrors.label': 'Errori avversari',
             'pointType.ace': 'Ace',
-            'pointType.kill': 'Attacco',
-            'pointType.block': 'Muro',
             'pointType.opp_error': 'Errore avversario',
             'errorType.serve_error': 'Errore di battuta',
             'errorType.attack_error': 'Errore di attacco',
@@ -240,8 +220,6 @@
             'board.sets': 'Sets',
             'board.timeouts': 'T/M',
             'board.setLabel': 'Set {set}',
-            'board.setTime': 'Set',
-            'board.matchTime': 'Match',
             'rules.mode.indoor': 'Salle',
             'rules.mode.beach': 'Plage',
             'rules.bestOf': 'Au meilleur des {n}',
@@ -259,7 +237,6 @@
             'chart.nav.setLive': 'Set {set} · en jeu',
             'chart.timeoutBadge': 'TM',
             'history.team': 'Équipe',
-            'stats.totals': 'Points totaux',
             'stats.services.label': 'Services gagnés',
             'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Série',
@@ -273,8 +250,6 @@
             'stats.blocks.label': 'Contres',
             'stats.oppErrors.label': 'Fautes adverses',
             'pointType.ace': 'Ace',
-            'pointType.kill': 'Attaque',
-            'pointType.block': 'Contre',
             'pointType.opp_error': 'Faute adverse',
             'errorType.serve_error': 'Faute au service',
             'errorType.attack_error': "Faute d'attaque",
@@ -294,8 +269,6 @@
             'board.sets': 'Sätze',
             'board.timeouts': 'A/Z',
             'board.setLabel': 'Satz {set}',
-            'board.setTime': 'Satz',
-            'board.matchTime': 'Spiel',
             'rules.mode.indoor': 'Halle',
             'rules.mode.beach': 'Beach',
             'rules.bestOf': 'Best of {n}',
@@ -313,7 +286,6 @@
             'chart.nav.setLive': 'Satz {set} · live',
             'chart.timeoutBadge': 'AZ',
             'history.team': 'Team',
-            'stats.totals': 'Punkte gesamt',
             'stats.services.label': 'Aufschläge gewonnen',
             'stats.services.cell': '{won}/{total}',
             'stats.streak.label': 'Serie',
@@ -327,8 +299,6 @@
             'stats.blocks.label': 'Blocks',
             'stats.oppErrors.label': 'Gegnerfehler',
             'pointType.ace': 'Ass',
-            'pointType.kill': 'Angriff',
-            'pointType.block': 'Block',
             'pointType.opp_error': 'Gegnerfehler',
             'errorType.serve_error': 'Aufschlagfehler',
             'errorType.attack_error': 'Angriffsfehler',
@@ -360,9 +330,34 @@
             || document.title;
     } catch (_e) { /* ignore */ }
 
+    // Dotted local key → key in the shared ``window.OVERLAY_LABELS``
+    // bundle (overlay_static/js/i18n_labels.js, loaded before this
+    // script by overlay_templates/_spectator.html). Labels listed
+    // here are byte-identical to the set-summary overlay's and live
+    // in the shared bundle instead of TRANSLATIONS.
+    const SHARED_KEY_ALIASES = {
+        'board.setTime': 'set',
+        'board.matchTime': 'match',
+        'stats.totals': 'totalPoints',
+        'pointType.kill': 'kill',
+        'pointType.block': 'block',
+    };
+
+    function sharedLabel(key) {
+        // Defensive lookup: a cached page that missed i18n_labels.js
+        // degrades to English / the raw key instead of crashing.
+        const sharedKey = SHARED_KEY_ALIASES[key];
+        if (!sharedKey) return null;
+        const shared = window.OVERLAY_LABELS || {};
+        const bundle = shared[LANG] || shared.en || {};
+        if (bundle[sharedKey] != null) return bundle[sharedKey];
+        if (shared.en && shared.en[sharedKey] != null) return shared.en[sharedKey];
+        return null;
+    }
+
     function t(key, args) {
         const bundle = TRANSLATIONS[LANG] || TRANSLATIONS.en;
-        let str = bundle[key] || TRANSLATIONS.en[key] || key;
+        let str = bundle[key] || TRANSLATIONS.en[key] || sharedLabel(key) || key;
         if (args) {
             for (const k in args) {
                 // ``split/join`` treats the replacement as a literal,

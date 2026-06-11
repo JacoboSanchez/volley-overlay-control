@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────────────────
-   Set summary overlay — port of docs/mockups/set-summary/*.html.
+   Set summary overlay — between-set recap panel.
 
    Activated by ``body.set-summary-mode`` (toggled from app.js when
    match_info.show_set_summary is true). The variant
@@ -48,6 +48,37 @@ body.set-summary-mode #player-stats-container {
 /* ── Common: centred stage that fills ~2/3 of the viewport ──── */
 
 .set-summary-panel {
+  /* ── Shared design tokens ─────────────────────────────────────
+     Declared on the panel so both the 16:9 stage and the
+     break-out ``.ss-extras`` zone inherit them.
+
+     ``--ss-home`` / ``--ss-away`` are the *fallback* accents only:
+     ``applyTeamColours()`` in set_summary.js overwrites both with
+     the contrast-resolved team colours (inline, on stage + extras)
+     on every render. Keep these in sync with FALLBACK_HOME /
+     FALLBACK_AWAY in set_summary.js. */
+  --ss-home: #d4314c;
+  --ss-away: #f0a020;
+  /* White-on-dark text tiers (bright → dim). */
+  --ss-text-bright: rgba(255, 255, 255, 0.7);
+  --ss-text-mid: rgba(255, 255, 255, 0.65);
+  --ss-text-dim: rgba(255, 255, 255, 0.55);
+  /* Translucent white tones for hairlines, borders and fills. */
+  --ss-white-08: rgba(255, 255, 255, 0.08);
+  --ss-white-12: rgba(255, 255, 255, 0.12);
+  --ss-white-18: rgba(255, 255, 255, 0.18);
+  /* Timeout chip ("T" marker) colours, shared by every ledger. */
+  --ss-timeout-bg: rgba(245, 197, 66, 0.32);
+  --ss-timeout-fg: #ffe48a;
+  /* Container-scaled size scale shared across variants (gaps,
+     paddings, radii) plus the two most repeated fixed roles. */
+  --ss-sz-xs: clamp(4px, 1.5cqw, 14px);
+  --ss-sz-sm: clamp(5px, 1.5cqw, 16px);
+  --ss-sz-md: clamp(5px, 1.8cqw, 18px);
+  --ss-sz-lg: clamp(6px, 2.1cqw, 22px);
+  --ss-logo-size: clamp(17px, 4.2cqw, 48px);
+  --ss-fs-label: clamp(5px, 1.425cqw, 14px);
+
   position: fixed;
   inset: 0;
   display: grid;
@@ -58,7 +89,7 @@ body.set-summary-mode #player-stats-container {
      collapses to zero height. */
   grid-template-rows: 1fr auto;
   justify-items: center;
-  row-gap: clamp(5px, 1.8cqw, 18px);
+  row-gap: var(--ss-sz-md);
   z-index: 100;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -74,6 +105,19 @@ body.set-summary-mode #player-stats-container {
   pointer-events: auto;
   /* Default extras zone is invisible/zero-height. Each variant's
      CSS sets a width + visible markup on demand. */
+}
+/* Entrance motion: the stage/extras rest a notch below their slot
+   and rise into place while the panel cross-fades in (and settle
+   back down on the way out). ``body.set-summary-mode`` is toggled
+   by app.js together with the recap visibility. */
+.set-summary-panel .ss-stage,
+.set-summary-panel .ss-extras {
+  transform: translateY(12px);
+  transition: transform 0.45s ease;
+}
+body.set-summary-mode .set-summary-panel .ss-stage,
+body.set-summary-mode .set-summary-panel .ss-extras {
+  transform: none;
 }
 .set-summary-panel .ss-extras:empty { display: none; }
 
@@ -124,7 +168,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage .ss-clocks {
   display: inline-flex;
   align-items: baseline;
-  gap: clamp(6px, 2.1cqw, 22px);
+  gap: var(--ss-sz-lg);
 }
 .ss-stage .ss-clock-block {
   display: inline-flex;
@@ -132,17 +176,17 @@ body.set-summary-mode #player-stats-container {
   gap: 8px;
 }
 .ss-stage .ss-clock-label {
-  font: 700 clamp(5px, 1.425cqw, 14px)/1 -apple-system, sans-serif;
+  font: 700 var(--ss-fs-label)/1 -apple-system, sans-serif;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ss-text-bright);
 }
 .ss-stage .ss-match-duration {
   opacity: 0.8;
 }
 
-.ss-stage .ss-line-home { stroke: var(--ss-home, #d4314c); stroke-width: 3; fill: none; }
-.ss-stage .ss-line-away { stroke: var(--ss-away, #f0a020); stroke-width: 3; fill: none; }
+.ss-stage .ss-line-home { stroke: var(--ss-home); stroke-width: 3; fill: none; }
+.ss-stage .ss-line-away { stroke: var(--ss-away); stroke-width: 3; fill: none; }
 /* Tagged by the JS chart builder when home and away primaries are
    perceptually close — dashes keep the two polylines distinguishable
    even when the strokes share the same hue. */
@@ -150,12 +194,63 @@ body.set-summary-mode #player-stats-container {
   stroke-dasharray: 8 5;
   stroke-linecap: round;
 }
-.ss-stage .ss-grid-faint { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1; stroke-dasharray: 2 3; }
-.ss-stage .ss-grid-main  { stroke: rgba(255, 255, 255, 0.18); stroke-width: 1; }
+.ss-stage .ss-grid-faint { stroke: var(--ss-white-08); stroke-width: 1; stroke-dasharray: 2 3; }
+.ss-stage .ss-grid-main  { stroke: var(--ss-white-18); stroke-width: 1; }
 .ss-stage .ss-timeout-line {
   stroke: rgba(255, 255, 255, 0.3);
   stroke-width: 1;
   stroke-dasharray: 3 4;
+}
+
+/* Empty state: shown centred over the (otherwise blank) chart area
+   when the recap is opened before the first rally of the set. The
+   ``--inline`` flavour flows in normal layout instead (used by the
+   chart-less brand_ledger centre column). */
+.ss-stage .ss-empty-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--ss-sz-md);
+  font: 600 var(--ss-fs-label)/1.4 -apple-system, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--ss-text-dim);
+  pointer-events: none;
+}
+.ss-stage .ss-empty-note--inline {
+  position: static;
+  display: block;
+}
+
+/* Very long club names: cap every variant's team name at two lines
+   so an unusually long name can never blow the fixed 16:9 stage
+   (podium pillar / bumper core were the worst offenders). The
+   pre-existing ``overflow-wrap: anywhere`` on each rule still
+   handles the in-line breaking. */
+.ss-stage[data-style="brand_ledger"] .ss-team-name,
+.ss-stage[data-style="brand_columns"] .ss-team-name,
+.ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-name,
+.ss-stage[data-style="glass"] .ss-team-row .ss-name strong,
+.ss-stage[data-style="podium"] .ss-pillar .ss-team-name,
+.ss-stage[data-style="bumper"] .ss-team-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Timeout marker chip ("T") — identical treatment in every ledger.
+   The variant-specific selectors are kept (rather than a generic
+   ``.ss-timeout``) so each keeps out-ranking its base chip rule. */
+.ss-stage[data-style="brand_ledger"] .ss-point.ss-timeout,
+.ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-timeout,
+.ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-timeout {
+  background: var(--ss-timeout-bg);
+  color: var(--ss-timeout-fg);
+  font-weight: 800;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -188,13 +283,13 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-home {
   background:
-    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
-    linear-gradient(135deg, var(--ss-home, #d4314c) 0%, rgba(0,0,0,0.55) 100%);
+    radial-gradient(circle at 20% 80%, var(--ss-white-08) 0%, transparent 60%),
+    linear-gradient(135deg, var(--ss-home) 0%, rgba(0,0,0,0.55) 100%);
 }
 .ss-stage[data-style="brand_ledger"] .ss-team-away {
   background:
-    radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
-    linear-gradient(225deg, var(--ss-away, #f0a020) 0%, rgba(0,0,0,0.55) 100%);
+    radial-gradient(circle at 80% 80%, var(--ss-white-08) 0%, transparent 60%),
+    linear-gradient(225deg, var(--ss-away) 0%, rgba(0,0,0,0.55) 100%);
   text-align: right;
 }
 .ss-stage[data-style="brand_ledger"] .ss-team::after {
@@ -215,7 +310,7 @@ body.set-summary-mode #player-stats-container {
   width: clamp(24px, 6.75cqw, 88px);
   height: clamp(24px, 6.75cqw, 88px);
   border-radius: 16px;
-  background: rgba(255,255,255,0.18);
+  background: var(--ss-white-18);
   border: 2px solid rgba(255,255,255,0.45);
   display: grid; place-items: center;
   font-weight: 800; font-size: clamp(9px, 2.85cqw, 36px);
@@ -234,7 +329,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-team-tag {
   font-weight: 600;
   font-size: clamp(5px, 1.125cqw, 13px);
-  color: rgba(255,255,255,0.7);
+  color: var(--ss-text-bright);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   margin-top: 6px;
@@ -256,7 +351,7 @@ body.set-summary-mode #player-stats-container {
   display: block;
   font-weight: 600;
   font-size: clamp(4px, 0.975cqw, 11px);
-  color: rgba(255,255,255,0.7);
+  color: var(--ss-text-bright);
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
@@ -274,7 +369,7 @@ body.set-summary-mode #player-stats-container {
   background: rgba(15, 20, 30, 0.62);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
-  padding: clamp(10px, 3cqw, 32px) clamp(4px, 1.5cqw, 14px);
+  padding: clamp(10px, 3cqw, 32px) var(--ss-sz-xs);
   display: flex; flex-direction: column;
   align-items: center;
   /* SET label + number anchored to the top edge; duration block
@@ -292,8 +387,8 @@ body.set-summary-mode #player-stats-container {
   gap: 6px;
 }
 .ss-stage[data-style="brand_ledger"] .ss-set-label {
-  font-weight: 700; font-size: clamp(5px, 1.425cqw, 14px);
-  color: rgba(255,255,255,0.7);
+  font-weight: 700; font-size: var(--ss-fs-label);
+  color: var(--ss-text-bright);
   letter-spacing: 0.3em; text-transform: uppercase;
 }
 .ss-stage[data-style="brand_ledger"] .ss-set-number {
@@ -307,7 +402,7 @@ body.set-summary-mode #player-stats-container {
   display: block;
   font-weight: 600;
   font-size: clamp(4px, 1.125cqw, 11px);
-  color: rgba(255,255,255,0.7);
+  color: var(--ss-text-bright);
   letter-spacing: 0.24em; text-transform: uppercase;
 }
 .ss-stage[data-style="brand_ledger"] .ss-duration {
@@ -334,10 +429,10 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col {
   display: grid;
   width: 100%;
-  padding: clamp(6px, 2.1cqw, 22px) 4px;
+  padding: var(--ss-sz-lg) 4px;
   background: rgba(0, 0, 0, 0.25);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid var(--ss-white-08);
+  border-right: 1px solid var(--ss-white-08);
   min-height: 0;
   overflow: hidden;
 }
@@ -352,13 +447,13 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point {
   color: #fff;
-  background: color-mix(in srgb, var(--ss-home, #d4314c) 70%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-home, #d4314c) 35%, transparent);
+  background: color-mix(in srgb, var(--ss-home) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-home) 35%, transparent);
 }
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col-away .ss-point {
   color: #fff;
-  background: color-mix(in srgb, var(--ss-away, #f0a020) 70%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-away, #f0a020) 35%, transparent);
+  background: color-mix(in srgb, var(--ss-away) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ss-away) 35%, transparent);
 }
 .ss-stage[data-style="brand_ledger"] .ss-point.ss-empty { visibility: hidden; }
 /* Final scoring chip — same brand colour as a regular chip so the
@@ -366,13 +461,13 @@ body.set-summary-mode #player-stats-container {
    breathing glow so the operator's eye locks onto the set-winning
    point at a glance. */
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col-home .ss-point.ss-final {
-  background: color-mix(in srgb, var(--ss-home, #d4314c) 92%, transparent);
+  background: color-mix(in srgb, var(--ss-home) 92%, transparent);
   color: #fff;
   font-weight: 900;
   animation: ss-final-breathe-home 2.4s ease-in-out infinite;
 }
 .ss-stage[data-style="brand_ledger"] .ss-ledger-col-away .ss-point.ss-final {
-  background: color-mix(in srgb, var(--ss-away, #f0a020) 92%, transparent);
+  background: color-mix(in srgb, var(--ss-away) 92%, transparent);
   color: #fff;
   font-weight: 900;
   animation: ss-final-breathe-away 2.4s ease-in-out infinite;
@@ -380,25 +475,25 @@ body.set-summary-mode #player-stats-container {
 @keyframes ss-final-breathe-home {
   0%, 100% {
     box-shadow:
-      0 0 0 0 color-mix(in srgb, var(--ss-home, #d4314c) 55%, transparent),
-      0 0 6px 0 color-mix(in srgb, var(--ss-home, #d4314c) 45%, transparent);
+      0 0 0 0 color-mix(in srgb, var(--ss-home) 55%, transparent),
+      0 0 6px 0 color-mix(in srgb, var(--ss-home) 45%, transparent);
   }
   50% {
     box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--ss-home, #d4314c) 10%, transparent),
-      0 0 18px 4px color-mix(in srgb, var(--ss-home, #d4314c) 75%, transparent);
+      0 0 0 4px color-mix(in srgb, var(--ss-home) 10%, transparent),
+      0 0 18px 4px color-mix(in srgb, var(--ss-home) 75%, transparent);
   }
 }
 @keyframes ss-final-breathe-away {
   0%, 100% {
     box-shadow:
-      0 0 0 0 color-mix(in srgb, var(--ss-away, #f0a020) 55%, transparent),
-      0 0 6px 0 color-mix(in srgb, var(--ss-away, #f0a020) 45%, transparent);
+      0 0 0 0 color-mix(in srgb, var(--ss-away) 55%, transparent),
+      0 0 6px 0 color-mix(in srgb, var(--ss-away) 45%, transparent);
   }
   50% {
     box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--ss-away, #f0a020) 10%, transparent),
-      0 0 18px 4px color-mix(in srgb, var(--ss-away, #f0a020) 75%, transparent);
+      0 0 0 4px color-mix(in srgb, var(--ss-away) 10%, transparent),
+      0 0 18px 4px color-mix(in srgb, var(--ss-away) 75%, transparent);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -407,17 +502,20 @@ body.set-summary-mode #player-stats-container {
   .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-final {
     animation: none;
   }
+  .set-summary-panel .ss-stage,
+  .set-summary-panel .ss-extras {
+    transform: none;
+    transition: none;
+  }
 }
+/* Colours/weight come from the shared timeout-chip rule above —
+   only the strip-width-bound font size is variant-specific. */
 .ss-stage[data-style="brand_ledger"] .ss-point.ss-timeout {
-  background: rgba(245, 197, 66, 0.32);
-  color: #ffe48a;
-  font-weight: 800;
   font-size: clamp(5px, 1.35cqw, 12px);
 }
 
 /* ─────────────────────────────────────────────────────────────
    Variant: brand_columns
-   Mirrors docs/mockups/set-summary/brand-columns.html.
    Three columns with brand-tinted side panels and a centre chart.
    ───────────────────────────────────────────────────────────── */
 
@@ -435,13 +533,13 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_columns"] .ss-team-home {
   background:
-    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
-    linear-gradient(135deg, var(--ss-home, #d4314c) 0%, rgba(0,0,0,0.62) 100%);
+    radial-gradient(circle at 20% 80%, var(--ss-white-08) 0%, transparent 60%),
+    linear-gradient(135deg, var(--ss-home) 0%, rgba(0,0,0,0.62) 100%);
 }
 .ss-stage[data-style="brand_columns"] .ss-team-away {
   background:
-    radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08) 0%, transparent 60%),
-    linear-gradient(225deg, var(--ss-away, #f0a020) 0%, rgba(0,0,0,0.62) 100%);
+    radial-gradient(circle at 80% 80%, var(--ss-white-08) 0%, transparent 60%),
+    linear-gradient(225deg, var(--ss-away) 0%, rgba(0,0,0,0.62) 100%);
   text-align: right;
 }
 .ss-stage[data-style="brand_columns"] .ss-team::after {
@@ -458,7 +556,7 @@ body.set-summary-mode #player-stats-container {
   width: clamp(27px, 7.2cqw, 88px);
   height: clamp(27px, 7.2cqw, 88px);
   border-radius: 16px;
-  background: rgba(255,255,255,0.18);
+  background: var(--ss-white-18);
   border: 2px solid rgba(255,255,255,0.45);
   display: grid; place-items: center;
   font-weight: 800; font-size: clamp(10px, 3cqw, 36px);
@@ -472,7 +570,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_columns"] .ss-team-tag {
   font-weight: 600; font-size: clamp(5px, 1.2cqw, 14px);
-  color: rgba(255,255,255,0.7);
+  color: var(--ss-text-bright);
   letter-spacing: 0.22em; text-transform: uppercase;
   margin-top: 6px;
 }
@@ -491,7 +589,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="brand_columns"] .ss-team-stat { display: flex; flex-direction: column; gap: 2px; }
 .ss-stage[data-style="brand_columns"] .ss-team-stat .ss-label {
   font-weight: 600; font-size: clamp(5px, 1.05cqw, 11px);
-  color: rgba(255,255,255,0.7);
+  color: var(--ss-text-bright);
   letter-spacing: 0.2em; text-transform: uppercase;
 }
 .ss-stage[data-style="brand_columns"] .ss-team-stat .ss-value {
@@ -509,8 +607,8 @@ body.set-summary-mode #player-stats-container {
   grid-template-rows: auto 1fr auto auto;
   row-gap: 16px;
   text-align: center;
-  border-left: 1px solid rgba(255,255,255,0.12);
-  border-right: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid var(--ss-white-12);
+  border-right: 1px solid var(--ss-white-12);
 }
 .ss-stage[data-style="brand_columns"] .ss-set-pill {
   display: inline-flex; align-items: center; gap: 10px;
@@ -544,6 +642,8 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="brand_columns"] .ss-chart-wrap {
   display: flex; flex-direction: column; justify-content: center;
+  /* Anchor for the absolutely-positioned .ss-empty-note. */
+  position: relative;
   padding: 8px 0;
   min-height: 0; min-width: 0;
   overflow: hidden;
@@ -588,7 +688,7 @@ body.set-summary-mode #player-stats-container {
   padding: clamp(9px, 3cqw, 32px);
   grid-template-columns: repeat(6, 1fr);
   grid-template-rows: auto 1fr;
-  gap: clamp(5px, 1.8cqw, 18px);
+  gap: var(--ss-sz-md);
   background: rgba(13, 17, 23, 0.55);
   backdrop-filter: blur(8px) saturate(140%);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
@@ -605,7 +705,7 @@ body.set-summary-mode #player-stats-container {
   text-shadow: 0 2px 8px rgba(0,0,0,0.65);
 }
 .ss-stage[data-style="bento"] .ss-header .ss-title small {
-  color: rgba(255,255,255,0.65); font-weight: 400;
+  color: var(--ss-text-mid); font-weight: 400;
 }
 .ss-stage[data-style="bento"] .ss-header .ss-duration {
   font: 700 clamp(9px, 2.55cqw, 26px)/1 'Menlo', 'Consolas', monospace;
@@ -619,7 +719,7 @@ body.set-summary-mode #player-stats-container {
   background: rgba(22, 27, 34, 0.62);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--ss-white-08);
   border-radius: 18px;
   padding: clamp(7px, 2.1cqw, 20px) clamp(8px, 2.4cqw, 22px);
   display: flex; flex-direction: column;
@@ -630,7 +730,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="bento"] .ss-tile .ss-label {
   font: 700 clamp(4px, 1.05cqw, 11px)/1 -apple-system, sans-serif;
   letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
+  color: var(--ss-text-dim);
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-value {
   font: 800 clamp(15px, 5.1cqw, 50px)/1 'Menlo', 'Consolas', monospace;
@@ -638,15 +738,15 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bento"] .ss-tile .ss-sub {
   font: 500 clamp(5px, 1.275cqw, 13px)/1.3 -apple-system, sans-serif;
-  color: rgba(255,255,255,0.55);
+  color: var(--ss-text-dim);
 }
 .ss-stage[data-style="bento"] .ss-tile-score {
   grid-column: 1 / span 4;
   grid-row: 2;
   background:
     linear-gradient(135deg,
-      color-mix(in srgb, var(--ss-home, #d4314c) 32%, transparent) 0%,
-      color-mix(in srgb, var(--ss-away, #f0a020) 32%, transparent) 100%),
+      color-mix(in srgb, var(--ss-home) 32%, transparent) 0%,
+      color-mix(in srgb, var(--ss-away) 32%, transparent) 100%),
     rgba(15, 20, 30, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.16);
   padding: clamp(11px, 3.3cqw, 32px);
@@ -688,14 +788,14 @@ body.set-summary-mode #player-stats-container {
   align-self: flex-end;
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team.home .ss-tag {
-  background: var(--ss-home, #ff5a73);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.18),
-    0 8px 18px color-mix(in srgb, var(--ss-home, #ff5a73) 32%, transparent);
+  background: var(--ss-home);
+  box-shadow: 0 0 0 1px var(--ss-white-18),
+    0 8px 18px color-mix(in srgb, var(--ss-home) 32%, transparent);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team.away .ss-tag {
-  background: var(--ss-away, #ffb541);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.18),
-    0 8px 18px color-mix(in srgb, var(--ss-away, #ffb541) 32%, transparent);
+  background: var(--ss-away);
+  box-shadow: 0 0 0 1px var(--ss-white-18),
+    0 8px 18px color-mix(in srgb, var(--ss-away) 32%, transparent);
 }
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-score {
   font: 900 clamp(50px, 15cqw, 200px)/0.85 'Menlo', 'Consolas', monospace;
@@ -730,7 +830,7 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(4px, 1.5cqw, 14px);
+  gap: var(--ss-sz-xs);
   padding: clamp(2px, 0.8cqw, 8px) clamp(1px, 0.6cqw, 6px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -740,9 +840,9 @@ body.set-summary-mode #player-stats-container {
   opacity: 0.65;
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-label {
-  font: 700 clamp(5px, 1.425cqw, 14px)/1 -apple-system, sans-serif;
+  font: 700 var(--ss-fs-label)/1 -apple-system, sans-serif;
   letter-spacing: 0.2em; text-transform: uppercase;
-  color: rgba(255,255,255,0.65);
+  color: var(--ss-text-mid);
 }
 /* Stat values always render in solid white. Team-colour tinting
    was traded off because dark primaries (e.g. navy #060f8a) — or
@@ -756,10 +856,10 @@ body.set-summary-mode #player-stats-container {
   white-space: nowrap;
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value .home {
-  color: color-mix(in srgb, var(--ss-home, #ff5a73) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 40%, #fff);
 }
 .ss-stage[data-style="bento"] .ss-tile-stats .ss-stat-value .away {
-  color: color-mix(in srgb, var(--ss-away, #ffb541) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 40%, #fff);
 }
 
 /* Decoupled bottom ledger — sits in the panel's ``.ss-extras``
@@ -771,10 +871,10 @@ body.set-summary-mode #player-stats-container {
   background: rgba(22, 27, 34, 0.7);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--ss-white-08);
   border-radius: 18px;
-  padding: clamp(5px, 1.5cqw, 16px) clamp(7px, 2.1cqw, 22px);
-  margin-bottom: clamp(6px, 2.1cqw, 22px);
+  padding: var(--ss-sz-sm) clamp(7px, 2.1cqw, 22px);
+  margin-bottom: var(--ss-sz-lg);
   display: grid;
   grid-template-rows: 1fr 1fr;
   row-gap: clamp(3px, 1.05cqw, 10px);
@@ -785,12 +885,12 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(4px, 1.5cqw, 14px);
+  gap: var(--ss-sz-xs);
   min-width: 0;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-row-logo {
-  width: clamp(17px, 4.2cqw, 48px);
-  height: clamp(17px, 4.2cqw, 48px);
+  width: var(--ss-logo-size);
+  height: var(--ss-logo-size);
   border-radius: 10px;
   display: grid; place-items: center;
   font-weight: 800; font-size: clamp(6px, 1.65cqw, 17px);
@@ -801,12 +901,12 @@ body.set-summary-mode #player-stats-container {
   text-shadow: 0 1px 3px rgba(0,0,0,0.45);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row.home .ss-row-logo {
-  background: color-mix(in srgb, var(--ss-home, #ff5a73) 75%, transparent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-home, #ff5a73) 35%, transparent);
+  background: color-mix(in srgb, var(--ss-home) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-home) 35%, transparent);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row.away .ss-row-logo {
-  background: color-mix(in srgb, var(--ss-away, #ffb541) 75%, transparent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away, #ffb541) 35%, transparent);
+  background: color-mix(in srgb, var(--ss-away) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away) 35%, transparent);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-row-logo img {
   width: 100%; height: 100%; object-fit: cover;
@@ -838,32 +938,26 @@ body.set-summary-mode #player-stats-container {
   white-space: nowrap;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row.home .ss-chip {
-  background: color-mix(in srgb, var(--ss-home, #ff5a73) 55%, transparent);
+  background: color-mix(in srgb, var(--ss-home) 55%, transparent);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row.away .ss-chip {
-  background: color-mix(in srgb, var(--ss-away, #ffb541) 55%, transparent);
+  background: color-mix(in srgb, var(--ss-away) 55%, transparent);
 }
 .ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-empty {
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.18);
+  color: var(--ss-white-18);
   font-weight: 600;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row.home .ss-chip.ss-final {
-  background: var(--ss-home, #ff5a73);
+  background: var(--ss-home);
   font-weight: 900;
   animation: ss-final-breathe-home 2.4s ease-in-out infinite;
 }
 .ss-extras[data-style="bento"] .ss-bumper-row.away .ss-chip.ss-final {
-  background: var(--ss-away, #ffb541);
+  background: var(--ss-away);
   font-weight: 900;
   animation: ss-final-breathe-away 2.4s ease-in-out infinite;
 }
-.ss-extras[data-style="bento"] .ss-bumper-row .ss-chip.ss-timeout {
-  background: rgba(245, 197, 66, 0.32);
-  color: #ffe48a;
-  font-weight: 800;
-}
-
 .ss-stage[data-style="bento"] .ss-tile-icon {
   position: absolute;
   top: 14px; right: 18px;
@@ -874,7 +968,6 @@ body.set-summary-mode #player-stats-container {
 /* ─────────────────────────────────────────────────────────────
    Variant: glass
    Glassmorphism: frosted tiles over coloured background blobs.
-   Mirrors docs/mockups/set-summary/glass.html.
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="glass"] {
@@ -885,7 +978,7 @@ body.set-summary-mode #player-stats-container {
      grow to its content and shove the band off-stage; the tiles get
      ``min-height: 0`` + clip so they stay within that capped row. */
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: clamp(5px, 1.8cqw, 18px);
+  gap: var(--ss-sz-md);
   position: relative; overflow: hidden;
 }
 .ss-stage[data-style="glass"] .ss-glass.ss-score-tile,
@@ -896,7 +989,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="glass"] > .ss-pt-breakdown-wide {
   grid-column: 1 / -1;
   margin: 0;
-  padding: clamp(5px, 1.5cqw, 16px) clamp(9px, 3cqw, 32px);
+  padding: var(--ss-sz-sm) clamp(9px, 3cqw, 32px);
   border-top: none;
 }
 .ss-stage[data-style="glass"] .ss-blob {
@@ -907,12 +1000,12 @@ body.set-summary-mode #player-stats-container {
   pointer-events: none;
 }
 .ss-stage[data-style="glass"] .ss-blob-1 {
-  background: var(--ss-home, #ff4d6d);
+  background: var(--ss-home);
   width: 32%; aspect-ratio: 1;
   top: -10%; left: -8%;
 }
 .ss-stage[data-style="glass"] .ss-blob-2 {
-  background: var(--ss-away, #ffc857);
+  background: var(--ss-away);
   width: 28%; aspect-ratio: 1;
   top: -8%; right: -6%;
 }
@@ -947,13 +1040,13 @@ body.set-summary-mode #player-stats-container {
   display: inline-flex; align-items: baseline; gap: 10px;
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--ss-white-08);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 .ss-stage[data-style="glass"] .ss-match-score-label {
   font: 700 clamp(5px, 1.275cqw, 12px)/1 -apple-system, sans-serif;
   letter-spacing: 0.22em; text-transform: uppercase;
-  color: rgba(255,255,255,0.65);
+  color: var(--ss-text-mid);
 }
 .ss-stage[data-style="glass"] .ss-match-score-value {
   font: 900 clamp(10px, 2.85cqw, 26px)/1 -apple-system, sans-serif;
@@ -961,10 +1054,10 @@ body.set-summary-mode #player-stats-container {
   color: #fff;
 }
 .ss-stage[data-style="glass"] .ss-match-score-value .home {
-  color: color-mix(in srgb, var(--ss-home, #ff4d6d) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 40%, #fff);
 }
 .ss-stage[data-style="glass"] .ss-match-score-value .away {
-  color: color-mix(in srgb, var(--ss-away, #ffc857) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 40%, #fff);
 }
 .ss-stage[data-style="glass"] .ss-header .ss-title {
   display: flex; align-items: center; gap: 16px;
@@ -994,7 +1087,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="glass"] .ss-meta {
   display: flex; gap: 24px;
   font: 600 clamp(6px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
-  color: rgba(255,255,255,0.65); letter-spacing: 0.04em;
+  color: var(--ss-text-mid); letter-spacing: 0.04em;
 }
 .ss-stage[data-style="glass"] .ss-meta strong { color: #fff; }
 .ss-stage[data-style="glass"] .ss-score-tile {
@@ -1011,14 +1104,14 @@ body.set-summary-mode #player-stats-container {
   align-items: center;
   gap: 18px;
   padding: clamp(5px, 1.5cqw, 12px) 0;
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+  border-bottom: 1px solid var(--ss-white-12);
 }
 .ss-stage[data-style="glass"] .ss-team-row:last-child { border-bottom: none; }
 .ss-stage[data-style="glass"] .ss-team-row .ss-logo {
   width: clamp(20px, 4.8cqw, 56px); height: clamp(20px, 4.8cqw, 56px);
   border-radius: 14px;
   display: grid; place-items: center;
-  background: rgba(255,255,255,0.12);
+  background: var(--ss-white-12);
   border: 1px solid rgba(255,255,255,0.25);
   font: 800 clamp(8px, 2.1cqw, 22px)/1 -apple-system, sans-serif;
   overflow: hidden;
@@ -1036,15 +1129,15 @@ body.set-summary-mode #player-stats-container {
   letter-spacing: 0.22em; text-transform: uppercase;
   margin-top: 4px;
 }
-.ss-stage[data-style="glass"] .ss-team-row.home .ss-name strong { color: var(--ss-home, #ff4d6d); font-weight: 800; }
-.ss-stage[data-style="glass"] .ss-team-row.away .ss-name strong { color: var(--ss-away, #ffc857); font-weight: 800; }
+.ss-stage[data-style="glass"] .ss-team-row.home .ss-name strong { color: var(--ss-home); font-weight: 800; }
+.ss-stage[data-style="glass"] .ss-team-row.away .ss-name strong { color: var(--ss-away); font-weight: 800; }
 .ss-stage[data-style="glass"] .ss-team-row .ss-pts {
   font: 900 clamp(30px, 9cqw, 100px)/0.85 -apple-system, sans-serif;
   letter-spacing: -0.05em;
   text-shadow: 0 4px 18px rgba(0,0,0,0.4);
 }
-.ss-stage[data-style="glass"] .ss-team-row.home .ss-pts { color: var(--ss-home, #ff4d6d); }
-.ss-stage[data-style="glass"] .ss-team-row.away .ss-pts { color: var(--ss-away, #ffc857); }
+.ss-stage[data-style="glass"] .ss-team-row.home .ss-pts { color: var(--ss-home); }
+.ss-stage[data-style="glass"] .ss-team-row.away .ss-pts { color: var(--ss-away); }
 .ss-stage[data-style="glass"] .ss-chart-tile {
   padding: clamp(9px, 2.7cqw, 24px) clamp(10px, 3cqw, 28px);
   display: flex; flex-direction: column; gap: 14px;
@@ -1063,7 +1156,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-label {
   font: 700 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
   letter-spacing: 0.22em; text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
+  color: var(--ss-text-dim);
 }
 .ss-stage[data-style="glass"] .ss-chart-tile .ss-head .ss-duration {
   font: 800 clamp(11px, 3.3cqw, 28px)/1 -apple-system, sans-serif;
@@ -1093,12 +1186,12 @@ body.set-summary-mode #player-stats-container {
    in one place. Uniform white values with no <small> suffix so all
    four rows render at the exact same font size. */
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block {
-  margin-top: clamp(4px, 1.5cqw, 14px);
-  padding-top: clamp(4px, 1.5cqw, 14px);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: var(--ss-sz-xs);
+  padding-top: var(--ss-sz-xs);
+  border-top: 1px solid var(--ss-white-12);
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: clamp(3px, 1.2cqw, 10px) clamp(5px, 1.8cqw, 18px);
+  gap: clamp(3px, 1.2cqw, 10px) var(--ss-sz-md);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row {
   display: flex; flex-direction: column; gap: 4px;
@@ -1107,7 +1200,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-label {
   font: 700 clamp(5px, 1.2cqw, 12px)/1 -apple-system, sans-serif;
   letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(255,255,255,0.65);
+  color: var(--ss-text-mid);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value {
   font: 800 clamp(11px, 3cqw, 30px)/1 -apple-system, sans-serif;
@@ -1115,17 +1208,16 @@ body.set-summary-mode #player-stats-container {
   color: #fff;
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value .home {
-  color: color-mix(in srgb, var(--ss-home, #ff4d6d) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 40%, #fff);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-stats-block .ss-stat-row .ss-value .away {
-  color: color-mix(in srgb, var(--ss-away, #ffc857) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 40%, #fff);
 }
 
 
 /* ─────────────────────────────────────────────────────────────
    Variant: podium
    Winner pillar tall + runner-up shorter + chart ribbon floor.
-   Mirrors docs/mockups/set-summary/podium.html.
    ───────────────────────────────────────────────────────────── */
 
 .ss-stage[data-style="podium"] {
@@ -1154,7 +1246,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="podium"] .ss-meta {
   display: flex; gap: 28px;
   font: 700 clamp(6px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
-  color: rgba(255,255,255,0.55); letter-spacing: 0.08em;
+  color: var(--ss-text-dim); letter-spacing: 0.08em;
 }
 .ss-stage[data-style="podium"] .ss-meta strong { color: #fff; }
 .ss-stage[data-style="podium"] .ss-podium {
@@ -1178,22 +1270,22 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="podium"] .ss-pillar::before {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.25) 100%);
+  background: linear-gradient(180deg, var(--ss-white-18) 0%, rgba(0,0,0,0.25) 100%);
   border-top-left-radius: inherit; border-top-right-radius: inherit;
   pointer-events: none;
 }
 .ss-stage[data-style="podium"] .ss-pillar > * { position: relative; z-index: 1; }
 .ss-stage[data-style="podium"] .ss-pillar.winner {
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--ss-winner, var(--ss-home, #d4314c)) 92%, transparent) 0%,
-    color-mix(in srgb, var(--ss-winner, var(--ss-home, #d4314c)) 58%, transparent) 100%);
+    color-mix(in srgb, var(--ss-winner, var(--ss-home)) 92%, transparent) 0%,
+    color-mix(in srgb, var(--ss-winner, var(--ss-home)) 58%, transparent) 100%);
   backdrop-filter: blur(8px);
   height: 80%;
 }
 .ss-stage[data-style="podium"] .ss-pillar.runner-up {
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--ss-loser, var(--ss-away, #f0a020)) 90%, transparent) 0%,
-    color-mix(in srgb, var(--ss-loser, var(--ss-away, #f0a020)) 48%, transparent) 100%);
+    color-mix(in srgb, var(--ss-loser, var(--ss-away)) 90%, transparent) 0%,
+    color-mix(in srgb, var(--ss-loser, var(--ss-away)) 48%, transparent) 100%);
   backdrop-filter: blur(8px);
   height: 56%;
 }
@@ -1211,7 +1303,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="podium"] .ss-pillar.runner-up .ss-score { font-size: clamp(26px, 8.1cqw, 96px); }
 .ss-stage[data-style="podium"] .ss-pillar .ss-pillar-stat {
-  font: 600 clamp(5px, 1.425cqw, 14px)/1.3 -apple-system, sans-serif;
+  font: 600 var(--ss-fs-label)/1.3 -apple-system, sans-serif;
   color: rgba(255,255,255,0.85);
   text-align: center;
   margin-top: auto;
@@ -1227,7 +1319,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="podium"] .ss-floor {
   background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid var(--ss-white-08);
   padding: 18px clamp(10px, 3.6cqw, 36px) clamp(8px, 2.7cqw, 24px);
   margin: 0 calc(-1 * clamp(17px, 5.4cqw, 56px));
   display: grid;
@@ -1237,11 +1329,15 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="podium"] .ss-floor .ss-floor-label {
   font: 700 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
-  color: rgba(255,255,255,0.55);
+  color: var(--ss-text-dim);
   letter-spacing: 0.22em; text-transform: uppercase;
   white-space: nowrap;
 }
-.ss-stage[data-style="podium"] .ss-floor .ss-chart { height: clamp(24px, 9cqw, 80px); }
+.ss-stage[data-style="podium"] .ss-floor .ss-chart {
+  height: clamp(24px, 9cqw, 80px);
+  /* Anchor for the absolutely-positioned .ss-empty-note. */
+  position: relative;
+}
 .ss-stage[data-style="podium"] .ss-floor .ss-chart svg { width: 100%; height: 100%; display: block; }
 .ss-stage[data-style="podium"] .ss-floor .ss-line-home,
 .ss-stage[data-style="podium"] .ss-floor .ss-line-away { stroke-width: 2.5; }
@@ -1271,7 +1367,7 @@ body.set-summary-mode #player-stats-container {
   box-shadow: none;
   border-radius: 0;
   grid-template-rows: 1fr auto;
-  row-gap: clamp(6px, 2.1cqw, 22px);
+  row-gap: var(--ss-sz-lg);
   padding: 0;
   overflow: visible;
   font-family: 'Helvetica Neue', -apple-system, Arial, sans-serif;
@@ -1284,8 +1380,8 @@ body.set-summary-mode #player-stats-container {
   width: min(1080px, 78%);
   position: relative;
   background:
-    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--ss-home, #ff3554) 26%, transparent) 0%, transparent 55%),
-    radial-gradient(circle at 80% 100%, color-mix(in srgb, var(--ss-away, #ffaa1f) 26%, transparent) 0%, transparent 55%),
+    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--ss-home) 26%, transparent) 0%, transparent 55%),
+    radial-gradient(circle at 80% 100%, color-mix(in srgb, var(--ss-away) 26%, transparent) 0%, transparent 55%),
     linear-gradient(160deg, rgba(20, 24, 36, 0.94), rgba(8, 12, 22, 0.94));
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
@@ -1303,7 +1399,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bumper"] .ss-bumper-core > .ss-pt-breakdown {
   margin: 0;
-  padding: clamp(5px, 1.5cqw, 16px) clamp(11px, 3.9cqw, 36px);
+  padding: var(--ss-sz-sm) clamp(11px, 3.9cqw, 36px);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -1311,13 +1407,13 @@ body.set-summary-mode #player-stats-container {
   display: flex; align-items: center; justify-content: space-between;
   padding: clamp(6px, 2.1cqw, 20px) clamp(10px, 3.9cqw, 36px);
   background: rgba(0, 0, 0, 0.28);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--ss-white-08);
 }
 .ss-stage[data-style="bumper"] .ss-set-badge {
   display: inline-flex; align-items: baseline; gap: 12px;
 }
 .ss-stage[data-style="bumper"] .ss-set-badge .ss-tagline {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ss-text-dim);
   font: 700 clamp(5px, 1.5cqw, 14px)/1 'Helvetica Neue', sans-serif;
   letter-spacing: 0.32em; text-transform: uppercase;
 }
@@ -1331,7 +1427,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="bumper"] .ss-set-badge .ss-num small {
   font-size: 0.4em;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ss-text-dim);
   letter-spacing: 0.24em;
   text-transform: uppercase;
 }
@@ -1361,7 +1457,7 @@ body.set-summary-mode #player-stats-container {
 }
 .ss-stage[data-style="bumper"] .ss-team {
   display: flex; flex-direction: column;
-  gap: clamp(4px, 1.5cqw, 14px);
+  gap: var(--ss-sz-xs);
   min-width: 0;
 }
 .ss-stage[data-style="bumper"] .ss-team.home { align-items: flex-start; }
@@ -1376,16 +1472,16 @@ body.set-summary-mode #player-stats-container {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .ss-stage[data-style="bumper"] .ss-team.home .ss-team-tag {
-  background: var(--ss-home, #ff3554);
+  background: var(--ss-home);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 10px 24px color-mix(in srgb, var(--ss-home, #ff3554) 32%, transparent);
+    0 0 0 1px var(--ss-white-18),
+    0 10px 24px color-mix(in srgb, var(--ss-home) 32%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-team.away .ss-team-tag {
-  background: var(--ss-away, #ffaa1f);
+  background: var(--ss-away);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 10px 24px color-mix(in srgb, var(--ss-away, #ffaa1f) 32%, transparent);
+    0 0 0 1px var(--ss-white-18),
+    0 10px 24px color-mix(in srgb, var(--ss-away) 32%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-team-name {
   font: 800 clamp(10px, 3cqw, 30px)/1.05 'Helvetica Neue', sans-serif;
@@ -1400,7 +1496,7 @@ body.set-summary-mode #player-stats-container {
   letter-spacing: -0.04em;
   background: linear-gradient(180deg,
     #ffffff 0%,
-    color-mix(in srgb, var(--ss-home, #ff3554) 70%, white) 100%);
+    color-mix(in srgb, var(--ss-home) 70%, white) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1411,13 +1507,13 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="bumper"] .ss-team.away .ss-team-score {
   background: linear-gradient(180deg,
     #ffffff 0%,
-    color-mix(in srgb, var(--ss-away, #ffaa1f) 70%, white) 100%);
+    color-mix(in srgb, var(--ss-away) 70%, white) 100%);
   -webkit-background-clip: text;
   background-clip: text;
 }
 .ss-stage[data-style="bumper"] .ss-sep {
   font: 900 clamp(17px, 6cqw, 64px)/1 'Helvetica Neue', sans-serif;
-  color: rgba(255, 255, 255, 0.18);
+  color: var(--ss-white-18);
   letter-spacing: -0.04em;
   align-self: center;
   user-select: none;
@@ -1431,9 +1527,9 @@ body.set-summary-mode #player-stats-container {
   align-self: stretch;
   display: grid;
   grid-template-rows: repeat(4, 1fr);
-  padding: clamp(5px, 1.8cqw, 18px) clamp(6px, 2.1cqw, 20px);
+  padding: var(--ss-sz-md) clamp(6px, 2.1cqw, 20px);
   background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--ss-white-08);
   border-radius: 12px;
   text-align: center;
   min-width: 0;
@@ -1448,7 +1544,7 @@ body.set-summary-mode #player-stats-container {
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row:last-child { border-bottom: none; }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-label {
   font: 700 clamp(4px, 1.125cqw, 11px)/1 'Helvetica Neue', sans-serif;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ss-text-dim);
   letter-spacing: 0.22em; text-transform: uppercase;
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value {
@@ -1457,10 +1553,10 @@ body.set-summary-mode #player-stats-container {
   color: #fff;
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value .home {
-  color: color-mix(in srgb, var(--ss-home, #ff3554) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-home) 40%, #fff);
 }
 .ss-stage[data-style="bumper"] .ss-hero-stats .ss-stat-row .ss-value .away {
-  color: color-mix(in srgb, var(--ss-away, #ffaa1f) 40%, #fff);
+  color: color-mix(in srgb, var(--ss-away) 40%, #fff);
 }
 
 /* ── Bottom ledger (full stage width) ─────────────────── */
@@ -1472,8 +1568,8 @@ body.set-summary-mode #player-stats-container {
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: clamp(5px, 1.5cqw, 16px);
-  padding: clamp(5px, 1.5cqw, 16px) clamp(7px, 2.1cqw, 22px);
+  border-radius: var(--ss-sz-sm);
+  padding: var(--ss-sz-sm) clamp(7px, 2.1cqw, 22px);
   display: grid;
   grid-template-rows: 1fr 1fr;
   row-gap: clamp(3px, 1.05cqw, 10px);
@@ -1484,12 +1580,12 @@ body.set-summary-mode #player-stats-container {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(4px, 1.5cqw, 14px);
+  gap: var(--ss-sz-xs);
   min-width: 0;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-logo {
-  width: clamp(17px, 4.2cqw, 48px);
-  height: clamp(17px, 4.2cqw, 48px);
+  width: var(--ss-logo-size);
+  height: var(--ss-logo-size);
   border-radius: 10px;
   display: grid; place-items: center;
   font-weight: 800; font-size: clamp(6px, 1.65cqw, 17px);
@@ -1500,12 +1596,12 @@ body.set-summary-mode #player-stats-container {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row.home .ss-row-logo {
-  background: color-mix(in srgb, var(--ss-home, #ff3554) 75%, transparent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-home, #ff3554) 35%, transparent);
+  background: color-mix(in srgb, var(--ss-home) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-home) 35%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row.away .ss-row-logo {
-  background: color-mix(in srgb, var(--ss-away, #ffaa1f) 75%, transparent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away, #ffaa1f) 35%, transparent);
+  background: color-mix(in srgb, var(--ss-away) 75%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ss-away) 35%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-row-logo img {
   width: 100%; height: 100%; object-fit: cover;
@@ -1540,32 +1636,26 @@ body.set-summary-mode #player-stats-container {
   white-space: nowrap;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row.home .ss-chip {
-  background: color-mix(in srgb, var(--ss-home, #ff3554) 60%, transparent);
+  background: color-mix(in srgb, var(--ss-home) 60%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row.away .ss-chip {
-  background: color-mix(in srgb, var(--ss-away, #ffaa1f) 60%, transparent);
+  background: color-mix(in srgb, var(--ss-away) 60%, transparent);
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-empty {
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.18);
+  color: var(--ss-white-18);
   font-weight: 600;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row.home .ss-chip.ss-final {
-  background: var(--ss-home, #ff3554);
+  background: var(--ss-home);
   font-weight: 900;
   animation: ss-final-breathe-home 2.4s ease-in-out infinite;
 }
 .ss-stage[data-style="bumper"] .ss-bumper-row.away .ss-chip.ss-final {
-  background: var(--ss-away, #ffaa1f);
+  background: var(--ss-away);
   font-weight: 900;
   animation: ss-final-breathe-away 2.4s ease-in-out infinite;
 }
-.ss-stage[data-style="bumper"] .ss-bumper-row .ss-chip.ss-timeout {
-  background: rgba(245, 197, 66, 0.32);
-  color: #ffe48a;
-  font-weight: 800;
-}
-
 
 /* ── Point-type breakdown (compact chips, shared across variants) ──
    A bounded chip strip — one chip per type (short label + count, zeros
@@ -1579,9 +1669,9 @@ body.set-summary-mode #player-stats-container {
   display: flex;
   flex-direction: column;
   gap: clamp(4px, 1.2cqw, 12px);
-  margin-top: clamp(5px, 1.5cqw, 16px);
-  padding-top: clamp(5px, 1.5cqw, 16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: var(--ss-sz-sm);
+  padding-top: var(--ss-sz-sm);
+  border-top: 1px solid var(--ss-white-12);
   min-width: 0;
 }
 .ss-pt-row {
@@ -1599,7 +1689,7 @@ body.set-summary-mode #player-stats-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--ss-white-08);
   font: 800 clamp(7px, 1.5cqw, 16px)/1 -apple-system, sans-serif;
   color: #fff;
 }
@@ -1636,6 +1726,6 @@ body.set-summary-mode #player-stats-container {
   font: 800 clamp(9px, 2.25cqw, 24px)/1 'Menlo', 'Consolas', monospace;
   color: #fff;
 }
-.ss-pt-chip-n.home { color: color-mix(in srgb, var(--ss-home, #d4314c) 45%, #fff); }
-.ss-pt-chip-n.away { color: color-mix(in srgb, var(--ss-away, #f0a020) 45%, #fff); }
+.ss-pt-chip-n.home { color: color-mix(in srgb, var(--ss-home) 45%, #fff); }
+.ss-pt-chip-n.away { color: color-mix(in srgb, var(--ss-away) 45%, #fff); }
 .ss-pt-chip.is-zero .ss-pt-chip-n { color: rgba(255, 255, 255, 0.28); }

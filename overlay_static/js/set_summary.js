@@ -7,101 +7,121 @@
    match_info.set_summary_style and calls the matching builder
    below; unknown styles fall back to "brand_ledger".
 
-   Designs are ported from docs/mockups/set-summary/*.html. The
-   wrapper centres the stage in a 16:9 box that fills roughly two
-   thirds of the viewport height (with equal margins above/below),
-   driven from CSS in set_summary.css (.ss-stage rule).
+   The wrapper centres the stage in a 16:9 box that fills roughly
+   two thirds of the viewport height (with equal margins
+   above/below), driven from CSS in set_summary.css (.ss-stage rule).
    ───────────────────────────────────────────────────────────────── */
 
 (function () {
   'use strict';
 
+  // Accent colours used when a team's palette can't be used as-is
+  // (unparseable, or near-white with no usable secondary — see
+  // ``resolveTeamColour``). Keep in sync with the ``--ss-home`` /
+  // ``--ss-away`` defaults in set_summary.css.
+  const FALLBACK_HOME = '#d4314c';
+  const FALLBACK_AWAY = '#f0a020';
+
   // ── i18n ────────────────────────────────────────────────────────
   const LABELS = {
     en: {
-      set: 'Set', final: 'Final', duration: 'Duration',
+      final: 'Final', duration: 'Duration',
       longestStreak: 'Longest streak', servicesWon: 'Services won',
-      timeoutsUsed: 'Timeouts used', totalPoints: 'Total points',
+      timeoutsUsed: 'Timeouts used',
       home: 'Home', away: 'Away',
       progression: 'Point progression', recap: 'Set recap',
       streak: 'Streak', services: 'Services', timeouts: 'Timeouts',
-      points: 'Points', match: 'Match', bestOf: 'Best of',
+      points: 'Points', bestOf: 'Best of',
       setWinner: 'Set winner', runnerUp: 'Runner-up',
       live: 'LIVE', vs: 'VS', pointsShort: 'pts',
       empty: 'No points yet this set',
-      chipAce: 'Ace', chipKill: 'Kill', chipBlock: 'Block', chipOppErr: 'Opp. err',
+      chipAce: 'Ace', chipOppErr: 'Opp. err',
     },
     es: {
-      set: 'Set', final: 'Final', duration: 'Duración',
+      final: 'Final', duration: 'Duración',
       longestStreak: 'Racha más larga', servicesWon: 'Servicios ganados',
-      timeoutsUsed: 'Tiempos muertos', totalPoints: 'Puntos totales',
+      timeoutsUsed: 'Tiempos muertos',
       home: 'Local', away: 'Visitante',
       progression: 'Progresión de puntos', recap: 'Resumen del set',
       streak: 'Racha', services: 'Servicios', timeouts: 'Tiempos',
-      points: 'Puntos', match: 'Partido', bestOf: 'Mejor de',
+      points: 'Puntos', bestOf: 'Mejor de',
       setWinner: 'Ganador del set', runnerUp: 'Segundo',
       live: 'EN VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Aún sin puntos en este set',
-      chipAce: 'Saque', chipKill: 'Ataque', chipBlock: 'Bloqueo', chipOppErr: 'Err. riv',
+      chipAce: 'Saque', chipOppErr: 'Err. riv',
     },
     pt: {
-      set: 'Set', final: 'Final', duration: 'Duração',
+      final: 'Final', duration: 'Duração',
       longestStreak: 'Maior sequência', servicesWon: 'Serviços ganhos',
-      timeoutsUsed: 'Tempos pedidos', totalPoints: 'Pontos totais',
+      timeoutsUsed: 'Tempos pedidos',
       home: 'Casa', away: 'Visitante',
       progression: 'Progressão de pontos', recap: 'Resumo do set',
       streak: 'Sequência', services: 'Serviços', timeouts: 'Tempos',
-      points: 'Pontos', match: 'Partida', bestOf: 'Melhor de',
+      points: 'Pontos', bestOf: 'Melhor de',
       setWinner: 'Vencedor do set', runnerUp: 'Segundo',
       live: 'AO VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Ainda sem pontos neste set',
-      chipAce: 'Saque', chipKill: 'Ataque', chipBlock: 'Bloco', chipOppErr: 'Err. adv',
+      chipAce: 'Saque', chipOppErr: 'Err. adv',
     },
     it: {
-      set: 'Set', final: 'Finale', duration: 'Durata',
+      final: 'Finale', duration: 'Durata',
       longestStreak: 'Striscia più lunga', servicesWon: 'Servizi vinti',
-      timeoutsUsed: 'Timeout usati', totalPoints: 'Punti totali',
+      timeoutsUsed: 'Timeout usati',
       home: 'Casa', away: 'Ospiti',
       progression: 'Progressione punti', recap: 'Riepilogo set',
       streak: 'Striscia', services: 'Servizi', timeouts: 'Timeout',
-      points: 'Punti', match: 'Partita', bestOf: 'Al meglio di',
+      points: 'Punti', bestOf: 'Al meglio di',
       setWinner: 'Vincitore del set', runnerUp: 'Secondo',
       live: 'LIVE', vs: 'VS', pointsShort: 'pti',
       empty: 'Nessun punto in questo set',
-      chipAce: 'Ace', chipKill: 'Attacco', chipBlock: 'Muro', chipOppErr: 'Err. avv',
+      chipAce: 'Ace', chipOppErr: 'Err. avv',
     },
     fr: {
-      set: 'Set', final: 'Final', duration: 'Durée',
+      final: 'Final', duration: 'Durée',
       longestStreak: 'Plus longue série', servicesWon: 'Services gagnés',
-      timeoutsUsed: 'Temps morts', totalPoints: 'Points totaux',
+      timeoutsUsed: 'Temps morts',
       home: 'Domicile', away: 'Visiteur',
       progression: 'Progression des points', recap: 'Récap. du set',
       streak: 'Série', services: 'Services', timeouts: 'Temps morts',
-      points: 'Points', match: 'Match', bestOf: 'Au meilleur de',
+      points: 'Points', bestOf: 'Au meilleur de',
       setWinner: 'Vainqueur du set', runnerUp: 'Finaliste',
       live: 'EN DIRECT', vs: 'VS', pointsShort: 'pts',
       empty: 'Pas encore de points dans ce set',
-      chipAce: 'Ace', chipKill: 'Attaque', chipBlock: 'Contre', chipOppErr: 'Faute adv',
+      chipAce: 'Ace', chipOppErr: 'Faute adv',
     },
     de: {
-      set: 'Satz', final: 'Final', duration: 'Dauer',
+      final: 'Final', duration: 'Dauer',
       longestStreak: 'Längste Serie', servicesWon: 'Aufschläge gewonnen',
-      timeoutsUsed: 'Auszeiten', totalPoints: 'Punkte gesamt',
+      timeoutsUsed: 'Auszeiten',
       home: 'Heim', away: 'Auswärts',
       progression: 'Punktverlauf', recap: 'Satzrückblick',
       streak: 'Serie', services: 'Aufschläge', timeouts: 'Auszeiten',
-      points: 'Punkte', match: 'Spiel', bestOf: 'Best of',
+      points: 'Punkte', bestOf: 'Best of',
       setWinner: 'Satzgewinner', runnerUp: 'Zweiter',
       live: 'LIVE', vs: 'VS', pointsShort: 'Pkt',
       empty: 'Noch keine Punkte in diesem Satz',
-      chipAce: 'Ass', chipKill: 'Angriff', chipBlock: 'Block', chipOppErr: 'Geg.-F.',
+      chipAce: 'Ass', chipOppErr: 'Geg.-F.',
     },
   };
+
+  // Local key → key in the shared ``window.OVERLAY_LABELS`` bundle
+  // (overlay_static/js/i18n_labels.js, loaded before this script by
+  // overlay_templates/base.html). Keys not listed here resolve under
+  // their own name; keys present in LABELS never reach the bundle.
+  const SHARED_KEY_ALIASES = { chipKill: 'kill', chipBlock: 'block' };
 
   function t(key) {
     const locale = (window.OVERLAY_LOCALE || 'en').slice(0, 2).toLowerCase();
     const dict = LABELS[locale] || LABELS.en;
-    return dict[key] || LABELS.en[key] || key;
+    if (dict[key] != null) return dict[key];
+    // Shared bundle, looked up defensively: a cached page that
+    // missed i18n_labels.js degrades to English / the raw key.
+    const shared = window.OVERLAY_LABELS || {};
+    const sharedKey = SHARED_KEY_ALIASES[key] || key;
+    const bundle = shared[locale] || shared.en || {};
+    if (bundle[sharedKey] != null) return bundle[sharedKey];
+    if (shared.en && shared.en[sharedKey] != null) return shared.en[sharedKey];
+    return LABELS.en[key] || key;
   }
 
   // ── Generic helpers ─────────────────────────────────────────────
@@ -411,6 +431,17 @@
       matchElapsedSec = Math.max(0, end - matchStartedAt);
     }
 
+    const bestOf = matchInfo.best_of_sets || 5;
+    // Points target of the displayed set under the active rules —
+    // 21 for beach, 15/25 for a deciding/regular indoor set. Used
+    // as the progression chart's vertical scale so short-format
+    // sets fill the chart instead of topping out at 25's height.
+    const setTarget = Number(
+      (setNum >= bestOf
+        ? matchInfo.points_limit_last_set
+        : matchInfo.points_limit) || 25,
+    );
+
     return {
       setNum,
       durationSec,
@@ -425,7 +456,8 @@
       longestSet, servicesSet, setTotalPoints, pointTypes, hasPointTypes,
       setFinished,
       matchFinished: !!matchInfo.match_finished,
-      bestOf: matchInfo.best_of_sets || 5,
+      bestOf,
+      setTarget,
       team1Sets: home.sets_won || 0,
       team2Sets: away.sets_won || 0,
     };
@@ -524,8 +556,8 @@
   }
 
   function applyTeamColours(stage, home, away) {
-    stage.style.setProperty('--ss-home', resolveTeamColour(home, '#d4314c'));
-    stage.style.setProperty('--ss-away', resolveTeamColour(away, '#f0a020'));
+    stage.style.setProperty('--ss-home', resolveTeamColour(home, FALLBACK_HOME));
+    stage.style.setProperty('--ss-away', resolveTeamColour(away, FALLBACK_AWAY));
   }
 
   function clear(node) {
@@ -610,6 +642,7 @@
             matchClockNode(vm.matchElapsedSec, { class: 'ss-duration ss-match-duration' }),
           ],
         }),
+        emptyNote(vm, { inline: true }),
       ],
     });
 
@@ -804,9 +837,23 @@
     }));
   }
 
+  // Localized "no points yet" note, or null once the set has events.
+  // Variants drop it over their empty chart area (absolute overlay)
+  // or into normal flow with ``inline: true``.
+  function emptyNote(vm, opts) {
+    if (vm.setPoints.length) return null;
+    const inline = opts && opts.inline;
+    return el('div', {
+      class: inline ? 'ss-empty-note ss-empty-note--inline' : 'ss-empty-note',
+      text: t('empty'),
+    });
+  }
+
   function buildChartWrap(vm, variant) {
     const wrap = el('div', { class: 'ss-chart-wrap' });
     wrap.appendChild(buildSvgChart(vm, { width: 300, height: 380, padLeft: 6, padRight: 6 }));
+    const note = emptyNote(vm);
+    if (note) wrap.appendChild(note);
     return wrap;
   }
 
@@ -828,7 +875,7 @@
       class: 'ss-grid-faint', x1: 0, y1: 4, x2: w, y2: 4,
     }));
 
-    const maxY = Math.max(maxScoreInEvents(vm.setPoints), 25);
+    const maxY = Math.max(maxScoreInEvents(vm.setPoints), vm.setTarget || 25);
     const homePts = chartPolylinePoints(vm.setPoints, 1, {
       width: w, height: h, maxY,
       padTop: 6, padBottom: 6,
@@ -844,8 +891,8 @@
     // would overlap into a single confused trace. Tag the away line
     // so CSS can render it dashed — preserving the colour intent
     // while keeping the two series distinguishable.
-    const homeCol = resolveTeamColour(vm.home, '#d4314c');
-    const awayCol = resolveTeamColour(vm.away, '#f0a020');
+    const homeCol = resolveTeamColour(vm.home, FALLBACK_HOME);
+    const awayCol = resolveTeamColour(vm.away, FALLBACK_AWAY);
     const awayClass = colorsAreSimilar(homeCol, awayCol)
       ? 'ss-line-away ss-line-away--dashed'
       : 'ss-line-away';
@@ -1095,6 +1142,8 @@
     });
     const box = el('div', { class: 'ss-chart-box' });
     box.appendChild(buildSvgChart(vm, { width: 480, height: 360, padTop: 8, padBottom: 6 }));
+    const glassNote = emptyNote(vm);
+    if (glassNote) box.appendChild(glassNote);
     chartTile.appendChild(box);
     stage.appendChild(chartTile);
 
@@ -1167,9 +1216,9 @@
     // contrast-aware resolver so a near-white team palette doesn't
     // turn the pillar into a white-on-white block.
     stage.style.setProperty('--ss-winner',
-      homeWins ? resolveTeamColour(vm.home, '#d4314c') : resolveTeamColour(vm.away, '#f0a020'));
+      homeWins ? resolveTeamColour(vm.home, FALLBACK_HOME) : resolveTeamColour(vm.away, FALLBACK_AWAY));
     stage.style.setProperty('--ss-loser',
-      homeWins ? resolveTeamColour(vm.away, '#f0a020') : resolveTeamColour(vm.home, '#d4314c'));
+      homeWins ? resolveTeamColour(vm.away, FALLBACK_AWAY) : resolveTeamColour(vm.home, FALLBACK_HOME));
 
     const winnerStreak = vm.longestSet[homeWins ? 1 : 2] || 0;
     const loserStreak = vm.longestSet[homeWins ? 2 : 1] || 0;
@@ -1247,6 +1296,8 @@
     });
     const chartHolder = el('div', { class: 'ss-chart' });
     chartHolder.appendChild(buildSvgChart(vm, { width: 800, height: 80, padTop: 4, padBottom: 4 }));
+    const podiumNote = emptyNote(vm);
+    if (podiumNote) chartHolder.appendChild(podiumNote);
     floor.appendChild(chartHolder);
     floor.appendChild(durationNode(vm.durationSec, { class: 'ss-duration', prefix: '⏱ ' }));
     stage.appendChild(floor);

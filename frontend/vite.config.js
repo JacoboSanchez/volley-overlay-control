@@ -135,6 +135,10 @@ export default defineConfig(async () => ({
   ],
   server: {
     port: 3000,
+    // Let the dev server / vitest read one level above the frontend
+    // root: the overlay-renderer tests import the plain scripts under
+    // ../overlay_static/ via ``?raw``.
+    fs: { allow: ['..'] },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
