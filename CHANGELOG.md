@@ -14,7 +14,11 @@ once a first tagged release ships.
   three-state appearance setting (default / dark / light) in the
   overlay config flips the card surface on styles that define the
   matching palette — `neon` and `baseline` gain a light variant,
-  `broadcast` a dark one; "default" keeps every style's native look.
+  `broadcast` and the light-native jersey family (`neo_jersey`,
+  `clear_jersey`, `split_jersey`) dark ones; "default" keeps every
+  style's native look. Styles whose card surface is the team colour
+  itself (e.g. `glass`) intentionally ignore the toggle, and the
+  jersey kit icons keep their raw team colours on either surface.
   The theme rides the customization (`overlayTheme`), is included in
   style presets, and can be pinned per browser source with a
   `?theme=` URL parameter (the mosaic forwards it to every preview).

@@ -427,3 +427,33 @@ body {
 
 .player-stats-label { color: var(--nm-text-dim); }
 .player-stats-value { color: var(--nm-text); }
+
+/* ── Dark theme (operator overlayTheme=dark / ?theme=dark) ──
+   The shared neumorphic tokens flip in jersey_shared.css; the rules
+   below cover this style's hardcoded light surfaces. Jersey icons
+   keep the raw team colours (kit identity). */
+body.overlay-theme-dark .jersey-group { border-left-color: rgba(255, 255, 255, 0.12); }
+body.overlay-theme-dark .timeout-dot { background: rgba(255, 255, 255, 0.14); }
+body.overlay-theme-dark .set-score {
+    color: rgba(154, 161, 190, 0.65);
+    background: rgba(255, 255, 255, 0.07);
+}
+body.overlay-theme-dark .set-score.set-won { background: rgba(255, 255, 255, 0.18); }
+body.overlay-theme-dark .set-score.set-lost { color: rgba(190, 196, 214, 0.85); }
+body.overlay-theme-dark .score-section {
+    background: #1b1f2b;
+    border-left-color: rgba(255, 255, 255, 0.12);
+}
+/* Serve tint over the dark score block (plain fallback first for
+   CEF builds without color-mix). */
+body.overlay-theme-dark .team-home .serving-indicator.active ~ .score-section {
+    background: #1b1f2b;
+    background: linear-gradient(90deg, #1b1f2b 30%,
+        color-mix(in srgb, var(--home-gradient, var(--home-primary)) 35%, #1b1f2b));
+}
+body.overlay-theme-dark .team-away .serving-indicator.active ~ .score-section {
+    background: #1b1f2b;
+    background: linear-gradient(90deg, #1b1f2b 30%,
+        color-mix(in srgb, var(--away-gradient, var(--away-primary)) 35%, #1b1f2b));
+}
+body.overlay-theme-dark .player-stats-title { border-bottom-color: rgba(255, 255, 255, 0.14); }

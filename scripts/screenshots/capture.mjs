@@ -780,12 +780,14 @@ async function main() {
     // simple mode toggled on so the "show only current set" treatment
     // is visible across every style.
     await setSimpleMode(false);
-    await captureOverlayMosaic(page, '06-overlay-mosaic-full.png');
+    // The two mosaics double as the overlayTheme demo: full data is
+    // captured with the forced light theme, simple mode with the
+    // forced dark one, so every theme-aware style shows both
+    // variants across the pair (styles without the matching palette
+    // keep their native look).
+    await captureOverlayMosaic(page, '06-overlay-mosaic-full.png', 'theme=light');
     await setSimpleMode(true);
-    // The simple-mode mosaic doubles as the theme demo: forced light
-    // so the catalogue shows the overlayTheme treatment (styles
-    // without a light palette keep their native look).
-    await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png', 'theme=light');
+    await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png', 'theme=dark');
     await setSimpleMode(false);
     await captureSetSummary(page, '10-overlay-set-summary.png');
     await captureMatchReport(page, reportMatchId);
