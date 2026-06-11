@@ -20,6 +20,15 @@
     font-family: 'LED Board';
     src: url('/fonts/LED board.ttf') format('truetype');
     font-display: swap;
+    /* The TTF ships inconsistent hhea/OS-2 vertical metrics, so the
+       digits land at different heights per platform (headless
+       Chromium vs Android). Override them: the digit glyphs span
+       baseline..0.94em with no descenders, so a 97/3 split centres
+       the visible glyph inside a line-height:1 box everywhere that
+       supports metric overrides. */
+    ascent-override: 97%;
+    descent-override: 3%;
+    line-gap-override: 0%;
 }
 
 :root {
@@ -166,6 +175,7 @@ body {
 .sets {
     font-family: 'LED Board', 'DejaVu Sans Mono', monospace;
     font-size: 26px;
+    line-height: 1;
     color: var(--led-red);
     text-shadow: 0 0 12px rgba(255, 91, 73, 0.75);
     width: 28px;
@@ -186,10 +196,7 @@ body {
 }
 .points {
     position: absolute;
-    /* The LED Board glyphs sit high in their em box — bias the
-       window padding downward so ascenders don't clip against the
-       recessed window's overflow:hidden. */
-    inset: 7px 10px 1px 0;
+    inset: 0 10px 0 0;
     display: flex;
     align-items: center;
     justify-content: flex-end;
