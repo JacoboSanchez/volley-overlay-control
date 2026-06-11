@@ -1,0 +1,234 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "LED" overlay — retro gym-scoreboard homage.
+
+   Black bezel cabinet with a dot-matrix texture, glowing amber LED
+   points in recessed digit windows, red LED set counters, a green
+   serve lamp, and per-set history in the footer. The digit font is
+   the repo's own "LED board" (served at /fonts/, same as the
+   control UI's scoreboard fonts) with a monospace fallback.
+
+   The LED palette (amber points / red sets / green serve) is the
+   style's identity — fixed regardless of team colours, which appear
+   only on the logo chips. The cabinet is identity-dark, so this
+   style deliberately ignores the overlayTheme toggle (like glass).
+   ───────────────────────────────────────────────────────────────── */
+
+@font-face {
+    font-family: 'LED Board';
+    src: url('/fonts/LED board.ttf') format('truetype');
+    font-display: swap;
+}
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    /* LED lamp colours — style identity, not team-driven. */
+    --led-amber: #ffb320;
+    --led-red: #ff5b49;
+    --led-green: #43ff7a;
+    --led-gold: #ffd23e;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+#scoreboard-container {
+    position: absolute;
+    left: 64px;
+    top: 64px;
+    width: 470px;
+    background: linear-gradient(180deg, #15171b 0%, #0b0c0f 100%);
+    border-radius: 14px;
+    border: 3px solid #23262d;
+    box-shadow: inset 0 0 0 2px #000, 0 16px 40px rgba(0, 0, 0, 0.6);
+    color: #e8e9ee;
+    padding: 12px 18px 14px;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* Dot-matrix texture over the cabinet. */
+#scoreboard-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 11px;
+    pointer-events: none;
+    background: radial-gradient(rgba(0, 0, 0, 0.35) 1px, transparent 1px);
+    background-size: 4px 4px;
+}
+
+/* ── Header ── */
+.led-head {
+    display: flex;
+    justify-content: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+.led-set {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.30em;
+    color: var(--led-gold);
+    text-shadow: 0 0 10px rgba(255, 210, 62, 0.8);
+}
+
+/* ── Team rows ── */
+.team {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+}
+
+.team-id {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.logo-container {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+}
+.team-logo {
+    max-width: 26px;
+    max-height: 26px;
+    object-fit: contain;
+}
+
+.team-name {
+    font-weight: 800;
+    font-size: 17px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Serve lamp — green LED beside the serving team's name. */
+.serving-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 2px #000;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.serving-indicator.active {
+    background: var(--led-green);
+    box-shadow: 0 0 9px rgba(67, 255, 122, 0.9);
+}
+
+/* Timeout lamps — unlit windows that glow amber once used. */
+.timeout-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.timeout-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 2px #000;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.timeout-dot.active {
+    background: var(--led-amber);
+    box-shadow: 0 0 6px rgba(255, 179, 32, 0.8);
+}
+
+/* Sets — red LED counter. */
+.sets {
+    font-family: 'LED Board', 'DejaVu Sans Mono', monospace;
+    font-size: 26px;
+    color: var(--led-red);
+    text-shadow: 0 0 12px rgba(255, 91, 73, 0.75);
+    width: 28px;
+    text-align: center;
+}
+
+/* Points — amber LED digits in a recessed window. ``.points`` is
+   absolute inside the container so the app.js slide animation
+   stacks old/new digits in the same window. */
+.points-container {
+    position: relative;
+    width: 96px;
+    height: 54px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 8px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 2px 8px #000;
+    overflow: hidden;
+}
+.points {
+    position: absolute;
+    inset: 0 10px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-family: 'LED Board', 'DejaVu Sans Mono', monospace;
+    font-size: 42px;
+    line-height: 1;
+    color: var(--led-amber);
+    text-shadow: 0 0 16px rgba(255, 179, 32, 0.85), 0 0 2px rgba(255, 179, 32, 1);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Footer: per-set history chips ── */
+.led-foot {
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    min-height: 16px;
+}
+.set-history-container {
+    display: flex;
+    gap: 3px;
+    --cell-w: 24px;
+}
+.set-history-container .set-score {
+    font-family: 'DejaVu Sans Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    overflow: hidden;
+    color: #687083;
+    font-variant-numeric: tabular-nums;
+}
+.set-history-container .set-score.set-won { color: #aeb6c8; }
+.history-sep {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+}
+.led-foot:has(.set-history-container:empty) .history-sep { display: none; }
+
+/* Compact mode (operator's "only current set" toggle): drop the
+   footer history strip. */
+.compact-mode .led-foot { display: none; }

@@ -158,6 +158,10 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     'Logos', 'Gradient',
     'Height', 'Width', 'Left-Right', 'Up-Down',
     'preferredStyle',
+    # Overlay surface theme: '' (per-style default), 'dark' or 'light'.
+    # Applied by app.js as a body class on styles that define the
+    # matching palette; a ``?theme=`` URL override takes precedence.
+    'overlayTheme',
     # Operator UI locale, broadcast to OBS-embedded overlays (whose URL
     # is fixed in the streaming app and cannot carry ``?lang=``).
     'locale',

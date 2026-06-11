@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Broadcast" overlay — TV-network score bug.
+
+   The international-broadcast convention: a compact white card with
+   a colour spine per team, *set pips* (one dot per set needed to win
+   the match, filled per set won) instead of a numeric set count, a
+   serve ring, timeout ticks beside the name, and a footer carrying
+   the localized current-set label. Set pips are rendered by
+   ``renderSetPips`` in app.js into #home-set-pips / #away-set-pips.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+#scoreboard-container {
+    /* Contrast-safe team accents for the active surface (computed by
+       app.js — the raw team colour nudged toward black until it
+       clears 3:1 on the white card). The dark-theme block below
+       re-points these at the white-leaning variants. */
+    --accent-home: var(--home-accent-light, var(--home-primary));
+    --accent-away: var(--away-accent-light, var(--away-primary));
+    position: absolute;
+    left: 64px;
+    top: 64px;
+    min-width: 430px;
+    background: #fdfdfd;
+    border-radius: 12px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+.team {
+    display: flex;
+    align-items: center;
+    height: 62px;
+    column-gap: 12px;
+}
+.team-away { border-top: 1px solid #e4e7ec; }
+
+.spine {
+    width: 8px;
+    flex: none;
+    align-self: stretch;
+}
+.team-home .spine { background: var(--accent-home); }
+.team-away .spine { background: var(--accent-away); }
+
+.logo-container {
+    width: 36px;
+    height: 36px;
+    margin-left: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-logo {
+    max-width: 36px;
+    max-height: 36px;
+    object-fit: contain;
+}
+
+.team-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 800;
+    font-size: 21px;
+    color: #16181d;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 8px;
+}
+
+/* Timeout ticks — small squares that dim once the timeout is used. */
+.timeout-container {
+    display: flex;
+    gap: 3px;
+    padding: 0 2px;
+}
+.timeout-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: #d2d7df;
+}
+.timeout-dot.active {
+    background: #aab1bc;
+    opacity: 0.35;
+}
+
+/* Set pips — filled per set won, hollow otherwise. */
+.set-pips {
+    display: flex;
+    gap: 6px;
+    padding: 0 4px;
+}
+.set-pip {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 2px solid #c9ced6;
+    background: transparent;
+}
+.team-home .set-pip.won {
+    background: var(--accent-home);
+    border-color: var(--accent-home);
+}
+.team-away .set-pip.won {
+    background: var(--accent-away);
+    border-color: var(--accent-away);
+}
+
+/* Serve ring — visible only on the serving team's row. */
+.serving-indicator {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    margin-right: 4px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.serving-indicator.active { opacity: 1; }
+.team-home .serving-indicator {
+    border: 4px solid var(--accent-home);
+}
+.team-away .serving-indicator {
+    border: 4px solid var(--accent-away);
+}
+
+/* The dark score box. ``.points`` sits absolutely inside so the
+   slide-in/out animation in app.js (which appends a sibling
+   ``.points`` element) stacks both digits in the same box. */
+.points-container {
+    position: relative;
+    align-self: stretch;
+    width: 76px;
+    flex: none;
+    background: #181c24;
+    overflow: hidden;
+}
+.team-away .points-container { background: #232936; }
+.points {
+    position: absolute;
+    inset: 0;
+    color: #fff;
+    font-size: 33px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.footer {
+    background: #eef1f5;
+    color: #5a6372;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 7px 16px;
+}
+
+/* ── Dark theme (operator overlayTheme=dark / ?theme=dark) ──
+   Same layout on a dark card; team accents switch to the
+   white-leaning variants so they stay legible. */
+body.overlay-theme-dark #scoreboard-container {
+    --accent-home: var(--home-accent-dark, var(--home-primary));
+    --accent-away: var(--away-accent-dark, var(--away-primary));
+    background: #14181f;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+body.overlay-theme-dark .team-away { border-top-color: rgba(255, 255, 255, 0.10); }
+body.overlay-theme-dark .team-name { color: #f2f4f8; }
+body.overlay-theme-dark .timeout-dot { background: rgba(255, 255, 255, 0.30); }
+body.overlay-theme-dark .timeout-dot.active { background: rgba(255, 255, 255, 0.45); }
+body.overlay-theme-dark .set-pip { border-color: rgba(255, 255, 255, 0.30); }
+body.overlay-theme-dark .points-container { background: #060810; }
+body.overlay-theme-dark .team-away .points-container { background: #0c1019; }
+body.overlay-theme-dark .footer {
+    background: #1c212b;
+    color: #9aa3b2;
+}
+
+/* Compact mode (operator's "only current set" toggle): the pips are
+   the set context, so hide just the footer strip. */
+.compact-mode .footer { display: none; }

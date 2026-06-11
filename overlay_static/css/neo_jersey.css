@@ -500,3 +500,33 @@ body {
 
 .player-stats-label { color: var(--nm-text-dim); }
 .player-stats-value { color: var(--nm-text); }
+
+/* ── Dark theme (operator overlayTheme=dark / ?theme=dark) ──
+   The shared neumorphic tokens flip in jersey_shared.css; the rules
+   below cover this style's hardcoded light surfaces. Jersey icons
+   keep the raw team colours (kit identity). */
+body.overlay-theme-dark .team-home { border-bottom-color: rgba(255, 255, 255, 0.10); }
+body.overlay-theme-dark .team-logo { background: rgba(255, 255, 255, 0.08); }
+body.overlay-theme-dark .timeout-dot { background: rgba(255, 255, 255, 0.14); }
+body.overlay-theme-dark .score-section {
+    background: #1b1f2b;
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.45);
+}
+body.overlay-theme-dark .sets {
+    color: #aab1cb;
+    background: #20242f;
+    border-right-color: rgba(255, 255, 255, 0.06);
+}
+body.overlay-theme-dark .points-container { background: #171b26; }
+body.overlay-theme-dark .points { color: #f2f4fa; }
+body.overlay-theme-dark .history-strip { background: rgba(255, 255, 255, 0.05); }
+body.overlay-theme-dark .history-divider { background: rgba(255, 255, 255, 0.18); }
+body.overlay-theme-dark .set-score {
+    color: rgba(154, 161, 190, 0.75);
+    background: rgba(255, 255, 255, 0.07);
+}
+body.overlay-theme-dark #home-history .set-score.set-won,
+body.overlay-theme-dark #away-history .set-score.set-won {
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18);
+}
+body.overlay-theme-dark .player-stats-title { border-bottom-color: rgba(255, 255, 255, 0.14); }

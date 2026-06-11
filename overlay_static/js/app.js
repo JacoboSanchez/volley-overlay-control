@@ -97,6 +97,7 @@ function applyStateLocale(state) {
 
 function processStateUpdate(newState) {
     applyStateLocale(newState);
+    applyOverlayTheme(newState);
     if (!previousState) {
         // Initial render
         renderFullState(newState);
@@ -105,6 +106,67 @@ function processStateUpdate(newState) {
         updateStateDiff(previousState, newState);
     }
     previousState = structuredClone(newState);
+}
+
+// Localized label lookup against the shared bundle loaded ahead of
+// this script by base.html (overlay_static/js/i18n_labels.js).
+// Scoreboard templates are otherwise text-free — the current-set
+// label is the one translatable string they can show — so a stale
+// cached page that missed the bundle degrades to the English
+// fallback instead of crashing.
+function sharedLabel(key, fallback) {
+    const shared = window.OVERLAY_LABELS || {};
+    const locale = (window.OVERLAY_LOCALE || 'en').slice(0, 2).toLowerCase();
+    const bundle = shared[locale] || shared.en || {};
+    if (bundle[key] != null) return bundle[key];
+    if (shared.en && shared.en[key] != null) return shared.en[key];
+    return fallback;
+}
+
+function setLabelText(currentSet) {
+    return (sharedLabel('set', 'Set') + ' ' + currentSet).toUpperCase();
+}
+
+// Broadcast-style "race to N sets" pips. Templates opt in by shipping
+// #home-set-pips / #away-set-pips containers: one pip per set needed
+// to take the match (ceil(bestOf / 2)), filled for each set won.
+function renderSetPips(state) {
+    const bestOf = state.match_info.best_of_sets || 5;
+    const target = Math.ceil(bestOf / 2);
+    [['home-set-pips', state.team_home.sets_won],
+     ['away-set-pips', state.team_away.sets_won]].forEach(([id, won]) => {
+        withEl(id, el => {
+            while (el.children.length > target) el.removeChild(el.lastElementChild);
+            while (el.children.length < target) {
+                const pip = document.createElement('i');
+                pip.className = 'set-pip';
+                el.appendChild(pip);
+            }
+            Array.from(el.children).forEach((pip, idx) => {
+                pip.classList.toggle('won', idx < (won || 0));
+            });
+        });
+    });
+}
+
+// Per-team progress toward the current set's point target (21 beach,
+// 15/25 deciding/regular indoor — the live limits ride in match_info).
+// Templates opt in with #home-set-progress / #away-set-progress
+// containers, each holding a single <i> fill element.
+function renderSetProgress(state) {
+    const info = state.match_info;
+    const target = (info.current_set >= (info.best_of_sets || 5)
+        ? info.points_limit_last_set
+        : info.points_limit) || 25;
+    [['home-set-progress', state.team_home.points],
+     ['away-set-progress', state.team_away.points]].forEach(([id, points]) => {
+        withEl(id, el => {
+            const fill = el.querySelector('i');
+            if (!fill) return;
+            const pct = Math.max(0, Math.min(100, ((points || 0) / target) * 100));
+            fill.style.width = pct.toFixed(1) + '%';
+        });
+    });
 }
 
 /* Return true when a hex colour is white or very close to white. */
@@ -120,6 +182,94 @@ function isNearWhite(hex) {
     // Perceived luminance (rec-709) — threshold tuned so only very
     // light colours (e.g. #F0F0F0+) are considered "near white".
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 230;
+}
+
+// ── Contrast-safe team accents ───────────────────────────────────────
+//
+// A team colour is operator-picked and routinely lands with terrible
+// contrast against a style's card surface (navy digits on the dark
+// neon card, pale yellow pips on the white broadcast card). Rather
+// than asking the operator to fix it, derive per-surface *accent*
+// variants: the team colour nudged toward white (dark surfaces) or
+// black (light surfaces) just until it clears a non-text contrast
+// ratio (WCAG 1.4.11's 3:1). Styles consume the accents for digits,
+// glows, pips and bars while keeping the raw colour where contrast
+// doesn't matter (e.g. colour spines on a bordered card).
+
+function parseHexColor(hex) {
+    if (!hex || typeof hex !== 'string') return null;
+    let h = hex.trim().replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    return [
+        parseInt(h.substring(0, 2), 16),
+        parseInt(h.substring(2, 4), 16),
+        parseInt(h.substring(4, 6), 16),
+    ];
+}
+
+/* WCAG relative luminance (0..1). */
+function relativeLuminance(rgb) {
+    const transform = (c) => {
+        const v = c / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * transform(rgb[0]) + 0.7152 * transform(rgb[1]) + 0.0722 * transform(rgb[2]);
+}
+
+function contrastRatio(l1, l2) {
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+// Mix ``rgb`` toward ``target`` in 5% steps until the result clears
+// 3:1 against the reference surface luminance. Returns a hex string.
+function contrastAccent(hex, surfaceIsDark) {
+    const rgb = parseHexColor(hex);
+    if (!rgb) return hex;
+    // Reference card surfaces: the dark cards sit around #0b101a,
+    // the light ones around #f4f5f7.
+    const surfaceLum = surfaceIsDark ? 0.012 : 0.92;
+    const target = surfaceIsDark ? [255, 255, 255] : [0, 0, 0];
+    let mixed = rgb;
+    for (let t = 0; t <= 1; t += 0.05) {
+        mixed = [
+            Math.round(rgb[0] + (target[0] - rgb[0]) * t),
+            Math.round(rgb[1] + (target[1] - rgb[1]) * t),
+            Math.round(rgb[2] + (target[2] - rgb[2]) * t),
+        ];
+        if (contrastRatio(relativeLuminance(mixed), surfaceLum) >= 3) break;
+    }
+    return '#' + mixed.map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Overlay theme (default / dark / light) ──────────────────────────
+//
+// ``overlayTheme`` rides in the operator customization. "default"
+// (empty/absent) keeps every style's native palette; "dark"/"light"
+// flip the card surface on styles that define the matching override
+// block (body.overlay-theme-*). A ``?theme=`` URL parameter takes
+// precedence so a fixed OBS browser-source URL (or the mosaic
+// preview) can pin a theme regardless of the live customization.
+const THEME_URL_OVERRIDE = (() => {
+    try {
+        const v = (new URLSearchParams(window.location.search).get('theme') || '').toLowerCase();
+        return v === 'dark' || v === 'light' ? v : null;
+    } catch (_e) {
+        return null;
+    }
+})();
+
+function applyOverlayTheme(state) {
+    let theme = THEME_URL_OVERRIDE;
+    if (!theme) {
+        const cust = state && state.raw_remote_customization;
+        const v = cust && typeof cust.overlayTheme === 'string'
+            ? cust.overlayTheme.toLowerCase()
+            : '';
+        theme = v === 'dark' || v === 'light' ? v : null;
+    }
+    document.body.classList.toggle('overlay-theme-dark', theme === 'dark');
+    document.body.classList.toggle('overlay-theme-light', theme === 'light');
 }
 
 function updateCSSVariables(teamHome, teamAway, colors = null) {
@@ -139,6 +289,14 @@ function updateCSSVariables(teamHome, teamAway, colors = null) {
     root.style.setProperty('--away-gradient',
         isNearWhite(teamAway.color_primary) ? (teamAway.color_secondary || teamAway.color_primary) : teamAway.color_primary);
 
+    // Contrast-safe accents (see contrastAccent above): the team
+    // colour nudged just far enough toward white/black to stay
+    // legible on a dark/light card surface respectively.
+    root.style.setProperty('--home-accent-dark', contrastAccent(teamHome.color_primary, true));
+    root.style.setProperty('--away-accent-dark', contrastAccent(teamAway.color_primary, true));
+    root.style.setProperty('--home-accent-light', contrastAccent(teamHome.color_primary, false));
+    root.style.setProperty('--away-accent-light', contrastAccent(teamAway.color_primary, false));
+
     if (colors) {
         if (colors.set_bg) root.style.setProperty('--set-bg', colors.set_bg);
         if (colors.set_text) root.style.setProperty('--set-text', colors.set_text);
@@ -150,6 +308,12 @@ function updateCSSVariables(teamHome, teamAway, colors = null) {
 function updateGeometry(geometry) {
     const container = document.getElementById("pill-wrapper") || document.getElementById("scoreboard-container");
     if (!container || !geometry) return;
+
+    // Styles whose placement IS their design (e.g. pylons, pinned to
+    // the screen edges) opt out of operator geometry entirely via a
+    // data-fixed-geometry attribute on the container — shifting or
+    // scaling a full-frame layout would break the edge pinning.
+    if (container.dataset.fixedGeometry !== undefined) return;
 
     // Use a reference width. The overlay is designed at 1920x1080.
     // The "width" from customization is typically a percentage (e.g., 30 for 30%)
@@ -324,8 +488,12 @@ function renderFullState(state) {
     updateTimeouts('away', state.team_away.timeouts_taken);
     renderSetHistory(state, true);
 
-    // 7b. Current Set Label
-    withEl("current-set-label", el => { el.textContent = "SET " + state.match_info.current_set; });
+    // 7b. Current Set Label (localized via the shared bundle)
+    withEl("current-set-label", el => { el.textContent = setLabelText(state.match_info.current_set); });
+
+    // 7c. Set pips + set-progress (opt-in templates; no-ops elsewhere)
+    renderSetPips(state);
+    renderSetProgress(state);
 
     // 8. Bottom Ticker
     withEl("ticker-message", el => { el.textContent = state.overlay_control.ticker_message || ""; });
@@ -484,10 +652,14 @@ function updateStateDiff(oldState, newState) {
         renderSetHistory(newState, false);
     }
 
-    // Current Set Label
-    if (oldState.match_info.current_set !== newState.match_info.current_set) {
-        withEl("current-set-label", el => { el.textContent = "SET " + newState.match_info.current_set; });
-    }
+    // Current Set Label — refreshed on every push (not just set
+    // changes) so an operator locale switch re-localizes it too.
+    withEl("current-set-label", el => { el.textContent = setLabelText(newState.match_info.current_set); });
+
+    // Set pips + set-progress (opt-in templates; no-ops elsewhere).
+    // Idempotent and cheap, so they simply track every push.
+    renderSetPips(newState);
+    renderSetProgress(newState);
 
     // Compact mode toggle
     if (oldState.match_info.show_only_current_set !== newState.match_info.show_only_current_set) {

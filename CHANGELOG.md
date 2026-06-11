@@ -10,6 +10,54 @@ once a first tagged release ships.
 
 ### Added
 
+- **Three more scoreboard overlay styles.** `led` is a retro
+  gym-scoreboard homage — black bezel cabinet, dot-matrix texture,
+  glowing amber LED points (rendered with the repo's own "LED board"
+  font), red set counters, green serve lamp and amber timeout lamps;
+  its LED palette is the style's identity, so it ignores the theme
+  toggle like glass. `pylons` docks one slim panel per team to the
+  left/right screen edges (rotated name, points, set pips, timeouts,
+  serve lamp), keeping the whole top and bottom of the frame clean —
+  placement is the design, so it opts out of operator geometry via
+  the new data-fixed-geometry container attribute. `micro` is the
+  smallest footprint in the catalogue: a logo+points capsule with a
+  serve ring around the serving team's logo and a detached pill with
+  the set pips and localized set label. pylons and micro ship light
+  themes and use the contrast-safe accents.
+
+- **Overlay dark/light theme + contrast-safe team accents.** A new
+  three-state appearance setting (default / dark / light) in the
+  overlay config flips the card surface on styles that define the
+  matching palette — `neon` and `baseline` gain a light variant,
+  `broadcast` and the light-native jersey family (`neo_jersey`,
+  `clear_jersey`, `split_jersey`) dark ones; "default" keeps every
+  style's native look. Styles whose card surface is the team colour
+  itself (e.g. `glass`) intentionally ignore the toggle, and the
+  jersey kit icons keep their raw team colours on either surface.
+  The theme rides the customization (`overlayTheme`), is included in
+  style presets, and can be pinned per browser source with a
+  `?theme=` URL parameter (the mosaic forwards it to every preview).
+  Independently of the theme, the engine now derives contrast-safe
+  per-team accents — the team colour nudged toward white (dark
+  surfaces) or black (light surfaces) until it clears WCAG's 3:1
+  non-text ratio — so a navy team colour stays legible on the dark
+  neon/baseline cards and a pale yellow on the white broadcast card,
+  with no operator action needed.
+
+- **Three new scoreboard overlay styles.** `broadcast` is a TV-network
+  score bug with per-team colour spines and set *pips* (one dot per
+  set needed to win, filled per set won) instead of a numeric set
+  count; `baseline` is a bottom-centre lower third with mirrored team
+  wings, per-set history chips and a per-team progress bar toward the
+  current set's point target (rule-aware: 21 beach / 15 deciding set);
+  `neon` is a dark smoked-glass card with team-colour glow underlines
+  and glowing monospace digits. All three are deliberately text-free
+  apart from the current-set label, which is now localized through the
+  shared overlay label bundle (en/es/pt/it/fr/de) — previously the
+  dormant `current-set-label` hook in app.js hardcoded English "SET".
+  The new set-pip and set-progress renderers in app.js are opt-in by
+  element ID, so existing styles are untouched.
+
 - **Set-summary empty state.** Opening the between-set recap before
   the first rally of a set used to show blank chart axes (or bare
   placeholder chips). The chart variants (`brand_columns`, `glass`,

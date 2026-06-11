@@ -1,0 +1,324 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800&family=JetBrains+Mono:wght@700;800&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Neon" overlay — dark glass with team-colour glow.
+
+   Smoked-glass card, faint scanlines, monospace glowing digits and
+   a team-colour glow underline per row. Text-free apart from the
+   localized current-set label in the header; the header's right
+   side carries the per-set history chips (numbers only).
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --home-gradient: #E21836;
+    --away-gradient: #0047AB;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+#scoreboard-container {
+    /* Contrast-safe team accents for the active surface (computed by
+       app.js — the raw team colour nudged toward white until it
+       clears 3:1 on the dark card). The light-theme block below
+       re-points these at the dark-leaning variants. */
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
+    position: absolute;
+    left: 64px;
+    top: 64px;
+    width: 470px;
+    background: rgba(8, 11, 18, 0.94);
+    border-radius: 14px;
+    /* Plain fallbacks first: older OBS browser sources (CEF without
+       color-mix support) drop any declaration containing it, which
+       would erase the border / glow / digit colours below. Each
+       color-mix declaration is therefore preceded by a fallback. */
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 1px solid color-mix(in srgb, var(--accent-home) 40%, transparent);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 16px 44px rgba(0, 0, 0, 0.55);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 0 26px color-mix(in srgb, var(--accent-home) 30%, transparent),
+        0 16px 44px rgba(0, 0, 0, 0.55);
+    color: #eef1ff;
+    overflow: hidden;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* Faint scanlines over the whole card. */
+#scoreboard-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(0deg,
+        rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px);
+}
+
+/* ── Header ── */
+.head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 18px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.30em;
+    text-transform: uppercase;
+    color: rgba(238, 241, 255, 0.55);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    min-height: 18px;
+}
+.head-history {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.set-history-container {
+    display: flex;
+    gap: 2px;
+    --cell-w: 20px;
+}
+.set-history-container .set-score {
+    font-family: 'JetBrains Mono', 'DejaVu Sans Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-align: center;
+    overflow: hidden;
+    color: rgba(238, 241, 255, 0.6);
+    font-variant-numeric: tabular-nums;
+}
+.set-history-container .set-score.set-won { color: rgba(238, 241, 255, 0.95); }
+.history-sep {
+    width: 1px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.18);
+}
+/* Collapse the separator while no set has finished. */
+.head-history:has(.set-history-container:empty) .history-sep { display: none; }
+
+/* ── Team rows ── */
+.team {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 15px 18px 13px;
+    position: relative;
+}
+.team-away { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+
+/* Team-colour glow underline. */
+.team::after {
+    content: '';
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 6px;
+    height: 2px;
+    border-radius: 2px;
+}
+.team-home::after {
+    background: var(--accent-home);
+    box-shadow: 0 0 12px var(--accent-home);
+}
+.team-away::after {
+    background: var(--accent-away);
+    box-shadow: 0 0 12px var(--accent-away);
+}
+
+.team-id {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.logo-container {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-home .logo-container {
+    background: rgba(255, 255, 255, 0.06);
+    background: color-mix(in srgb, var(--accent-home) 16%, transparent);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-home) 55%, transparent);
+}
+.team-away .logo-container {
+    background: rgba(255, 255, 255, 0.06);
+    background: color-mix(in srgb, var(--accent-away) 16%, transparent);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-away) 55%, transparent);
+}
+.team-logo {
+    max-width: 26px;
+    max-height: 26px;
+    object-fit: contain;
+}
+
+.team-name {
+    font-weight: 800;
+    font-size: 19px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Serve dot — glows in the serving team's colour. */
+.serving-indicator {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.serving-indicator.active { opacity: 1; }
+.team-home .serving-indicator {
+    background: var(--accent-home);
+    box-shadow: 0 0 9px var(--accent-home);
+}
+.team-away .serving-indicator {
+    background: var(--accent-away);
+    box-shadow: 0 0 9px var(--accent-away);
+}
+
+/* Timeout dots — hollow until used. */
+.timeout-container { display: flex; gap: 4px; }
+.timeout-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(238, 241, 255, 0.35);
+}
+.timeout-dot.active {
+    background: rgba(238, 241, 255, 0.35);
+    opacity: 0.5;
+}
+
+/* Sets won — small mono chip. */
+.sets {
+    font-family: 'JetBrains Mono', 'DejaVu Sans Mono', monospace;
+    font-size: 17px;
+    font-weight: 800;
+    color: rgba(238, 241, 255, 0.5);
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    flex: none;
+}
+
+/* Points — glowing mono digits. ``.points`` is absolute inside the
+   container so the app.js slide animation stacks old/new digits. */
+.points-container {
+    position: relative;
+    width: 66px;
+    height: 39px;
+    flex: none;
+    overflow: hidden;
+}
+.points {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-family: 'JetBrains Mono', 'DejaVu Sans Mono', monospace;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.team-home .points {
+    color: #fff;
+    color: color-mix(in srgb, var(--accent-home) 55%, #fff);
+    text-shadow: 0 0 16px var(--accent-home);
+    text-shadow: 0 0 16px color-mix(in srgb, var(--accent-home) 75%, transparent);
+}
+.team-away .points {
+    color: #fff;
+    color: color-mix(in srgb, var(--accent-away) 55%, #fff);
+    text-shadow: 0 0 16px var(--accent-away);
+    text-shadow: 0 0 16px color-mix(in srgb, var(--accent-away) 75%, transparent);
+}
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ──
+   Same layout, light card surface; team accents switch to the
+   dark-leaning variants so they stay legible on the pale card. */
+body.overlay-theme-light #scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+    background: rgba(246, 247, 250, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border: 1px solid color-mix(in srgb, var(--accent-home) 35%, transparent);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.10),
+        0 16px 44px rgba(0, 0, 0, 0.30);
+    color: #14181d;
+}
+body.overlay-theme-light #scoreboard-container::after {
+    background: repeating-linear-gradient(0deg,
+        rgba(0, 0, 0, 0.02) 0 1px, transparent 1px 4px);
+}
+body.overlay-theme-light .head {
+    color: rgba(20, 24, 29, 0.55);
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+body.overlay-theme-light .set-history-container .set-score { color: rgba(20, 24, 29, 0.55); }
+body.overlay-theme-light .set-history-container .set-score.set-won { color: rgba(20, 24, 29, 0.95); }
+body.overlay-theme-light .history-sep { background: rgba(0, 0, 0, 0.18); }
+body.overlay-theme-light .team-away { border-top-color: rgba(0, 0, 0, 0.07); }
+body.overlay-theme-light .team-home .logo-container,
+body.overlay-theme-light .team-away .logo-container {
+    background: rgba(0, 0, 0, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+body.overlay-theme-light .team-home .logo-container {
+    background: color-mix(in srgb, var(--accent-home) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-home) 50%, transparent);
+}
+body.overlay-theme-light .team-away .logo-container {
+    background: color-mix(in srgb, var(--accent-away) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-away) 50%, transparent);
+}
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.35); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.35); }
+body.overlay-theme-light .sets {
+    color: rgba(20, 24, 29, 0.55);
+    background: rgba(0, 0, 0, 0.05);
+}
+body.overlay-theme-light .team-home .points {
+    color: var(--accent-home);
+    text-shadow: none;
+}
+body.overlay-theme-light .team-away .points {
+    color: var(--accent-away);
+    text-shadow: none;
+}
+
+/* Compact mode (operator's "only current set" toggle): drop the
+   header history chips. */
+.compact-mode .head-history { display: none; }

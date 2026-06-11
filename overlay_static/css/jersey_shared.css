@@ -9,6 +9,21 @@
     --nm-inset-lite:  rgba(255, 255, 255, 0.80);
     --nm-text:        #31344b;
     --nm-text-dim:    #777b96;
+}
+
+/* Dark variant of the neumorphic tokens (operator overlayTheme=dark
+   or ?theme=dark). Consumed by neo_jersey / clear_jersey /
+   split_jersey; the jersey icons themselves keep the raw team
+   colours — they depict the kit, like a logo, so the theme never
+   recolours them. */
+body.overlay-theme-dark {
+    --nm-bg:          #262a38;
+    --nm-shadow-dark: rgba(8, 10, 16, 0.70);
+    --nm-shadow-lite: rgba(64, 72, 98, 0.45);
+    --nm-inset-dark:  rgba(8, 10, 16, 0.60);
+    --nm-inset-lite:  rgba(64, 72, 98, 0.40);
+    --nm-text:        #e4e7f2;
+    --nm-text-dim:    #9aa1be;
     --collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
