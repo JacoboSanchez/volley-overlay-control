@@ -92,7 +92,7 @@ Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no 
 For the full endpoint reference, request/response schemas, and WebSocket protocol, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
 
 ### Built-In Overlay Engine
-*   **14 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `clear_jersey`, `compact`, `diagonal`, `esports`, `glass`, `neo_jersey`, `original`, `pill`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{id}?style=mosaic`.
+*   **19 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `baseline`, `beach`, `beach_twoline`, `broadcast`, `clear_jersey`, `compact`, `diagonal`, `esports`, `glass`, `neo_jersey`, `neon`, `original`, `pill`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{id}?style=mosaic`.
 *   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{overlay_id}`) and receive 50ms-debounced state pushes — no polling needed.
 *   **Manage Overlays in One Place**: Create, copy and delete overlays from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`). Overlay IDs created there can be used directly as OIDs in the control UI; state is persisted to disk and served immediately.
 *   **Preset Themes**: Apply dark, light, esports, neo_jersey, split_jersey, or clear_jersey themes with one click.

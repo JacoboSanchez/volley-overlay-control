@@ -10,6 +10,20 @@ once a first tagged release ships.
 
 ### Added
 
+- **Three new scoreboard overlay styles.** `broadcast` is a TV-network
+  score bug with per-team colour spines and set *pips* (one dot per
+  set needed to win, filled per set won) instead of a numeric set
+  count; `baseline` is a bottom-centre lower third with mirrored team
+  wings, per-set history chips and a per-team progress bar toward the
+  current set's point target (rule-aware: 21 beach / 15 deciding set);
+  `neon` is a dark smoked-glass card with team-colour glow underlines
+  and glowing monospace digits. All three are deliberately text-free
+  apart from the current-set label, which is now localized through the
+  shared overlay label bundle (en/es/pt/it/fr/de) — previously the
+  dormant `current-set-label` hook in app.js hardcoded English "SET".
+  The new set-pip and set-progress renderers in app.js are opt-in by
+  element ID, so existing styles are untouched.
+
 - **Set-summary empty state.** Opening the between-set recap before
   the first rally of a set used to show blank chart axes (or bare
   placeholder chips). The chart variants (`brand_columns`, `glass`,

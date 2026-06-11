@@ -1,0 +1,241 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Baseline" overlay — bottom-centre lower third.
+
+   A wide mirrored bar meant to sit centred above the bottom edge:
+   team wings outside, big points inside, the localized current-set
+   label + sets won in the middle, and a per-team progress bar
+   toward the current set's point target underneath (rule-aware:
+   21 beach / 15 deciding set — filled by ``renderSetProgress`` in
+   app.js). Per-set history chips ride under each team name. The
+   only text beyond live data is the localized set label.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --home-gradient: #E21836;
+    --away-gradient: #0047AB;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+#scoreboard-container {
+    position: absolute;
+    left: 320px;            /* centred default: (1920 - 1280) / 2 */
+    top: 924px;
+    width: 1280px;
+    background: rgba(11, 16, 26, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 16px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    color: #fff;
+    display: grid;
+    grid-template-columns: 1fr 120px 190px 120px 1fr;
+    align-items: center;
+    padding: 18px 26px 22px;
+    column-gap: 18px;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+/* ── Team wings ── */
+.team {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+.team-away {
+    flex-direction: row-reverse;
+    text-align: right;
+}
+
+.logo-container {
+    width: 52px;
+    height: 52px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-logo {
+    max-width: 52px;
+    max-height: 52px;
+    object-fit: contain;
+}
+
+.team-info { min-width: 0; }
+.team-name {
+    font-weight: 800;
+    font-size: 23px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.team-meta {
+    margin-top: 6px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-height: 16px;
+}
+.team-away .team-meta { justify-content: flex-end; }
+
+/* Per-set history chips (numbers only — built by app.js, which
+   animates each chip to the width in --cell-w). */
+.set-history-container {
+    display: flex;
+    gap: 2px;
+    --cell-w: 26px;
+}
+.set-history-container .set-score {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.09);
+    border-radius: 4px;
+    padding: 2px 0;
+    text-align: center;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+.set-history-container .set-score.set-won {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* Timeout dots — hollow until used. */
+.timeout-container { display: flex; gap: 4px; }
+.timeout-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.45);
+}
+.timeout-dot.active {
+    background: rgba(255, 255, 255, 0.45);
+    opacity: 0.4;
+}
+
+/* ── Points ── */
+.points-block {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+.points-container {
+    position: relative;
+    width: 100%;
+    height: 64px;
+    overflow: hidden;
+}
+.points {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Serve dot beside the serving team's points. */
+.serving-indicator {
+    position: absolute;
+    top: 6px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.serving-indicator.active { opacity: 1; }
+.points-block.home .serving-indicator {
+    left: -6px;
+    background: var(--home-gradient);
+    box-shadow: 0 0 10px var(--home-gradient);
+}
+.points-block.away .serving-indicator {
+    right: -6px;
+    background: var(--away-gradient);
+    box-shadow: 0 0 10px var(--away-gradient);
+}
+
+/* ── Centre ── */
+.centre { text-align: center; }
+.set-label {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.26em;
+    color: rgba(255, 255, 255, 0.85);
+    text-transform: uppercase;
+}
+.sets-row {
+    margin-top: 7px;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.sets.home { color: var(--home-gradient); }
+.sets.away { color: var(--away-gradient); }
+.sets-sep { color: rgba(255, 255, 255, 0.5); padding: 0 6px; }
+
+/* ── Set progress bars (race to the set's point target) ── */
+.progress-row {
+    grid-column: 1 / -1;
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 190px 1fr;
+    align-items: center;
+    column-gap: 18px;
+}
+.set-progress {
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    position: relative;
+    overflow: hidden;
+}
+.set-progress i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 3px;
+    width: 0;
+    transition: width 0.5s ease;
+}
+.set-progress.home i {
+    left: 0;
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--home-gradient) 70%, #000) 0%,
+        var(--home-gradient) 100%);
+}
+.set-progress.away i {
+    right: 0;
+    background: linear-gradient(270deg,
+        color-mix(in srgb, var(--away-gradient) 70%, #000) 0%,
+        var(--away-gradient) 100%);
+}
+
+/* Compact mode (operator's "only current set" toggle): drop the
+   per-set history chips; the rest of the bar is already current-set
+   focused. */
+.compact-mode .set-history-container { display: none; }

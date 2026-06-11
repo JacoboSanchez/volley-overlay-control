@@ -107,6 +107,67 @@ function processStateUpdate(newState) {
     previousState = structuredClone(newState);
 }
 
+// Localized label lookup against the shared bundle loaded ahead of
+// this script by base.html (overlay_static/js/i18n_labels.js).
+// Scoreboard templates are otherwise text-free — the current-set
+// label is the one translatable string they can show — so a stale
+// cached page that missed the bundle degrades to the English
+// fallback instead of crashing.
+function sharedLabel(key, fallback) {
+    const shared = window.OVERLAY_LABELS || {};
+    const locale = (window.OVERLAY_LOCALE || 'en').slice(0, 2).toLowerCase();
+    const bundle = shared[locale] || shared.en || {};
+    if (bundle[key] != null) return bundle[key];
+    if (shared.en && shared.en[key] != null) return shared.en[key];
+    return fallback;
+}
+
+function setLabelText(currentSet) {
+    return (sharedLabel('set', 'Set') + ' ' + currentSet).toUpperCase();
+}
+
+// Broadcast-style "race to N sets" pips. Templates opt in by shipping
+// #home-set-pips / #away-set-pips containers: one pip per set needed
+// to take the match (ceil(bestOf / 2)), filled for each set won.
+function renderSetPips(state) {
+    const bestOf = state.match_info.best_of_sets || 5;
+    const target = Math.ceil(bestOf / 2);
+    [['home-set-pips', state.team_home.sets_won],
+     ['away-set-pips', state.team_away.sets_won]].forEach(([id, won]) => {
+        withEl(id, el => {
+            while (el.children.length > target) el.removeChild(el.lastChild);
+            while (el.children.length < target) {
+                const pip = document.createElement('i');
+                pip.className = 'set-pip';
+                el.appendChild(pip);
+            }
+            Array.from(el.children).forEach((pip, idx) => {
+                pip.classList.toggle('won', idx < (won || 0));
+            });
+        });
+    });
+}
+
+// Per-team progress toward the current set's point target (21 beach,
+// 15/25 deciding/regular indoor — the live limits ride in match_info).
+// Templates opt in with #home-set-progress / #away-set-progress
+// containers, each holding a single <i> fill element.
+function renderSetProgress(state) {
+    const info = state.match_info;
+    const target = (info.current_set >= (info.best_of_sets || 5)
+        ? info.points_limit_last_set
+        : info.points_limit) || 25;
+    [['home-set-progress', state.team_home.points],
+     ['away-set-progress', state.team_away.points]].forEach(([id, points]) => {
+        withEl(id, el => {
+            const fill = el.querySelector('i');
+            if (!fill) return;
+            const pct = Math.max(0, Math.min(100, ((points || 0) / target) * 100));
+            fill.style.width = pct.toFixed(1) + '%';
+        });
+    });
+}
+
 /* Return true when a hex colour is white or very close to white. */
 function isNearWhite(hex) {
     if (!hex || typeof hex !== 'string') return false;
@@ -324,8 +385,12 @@ function renderFullState(state) {
     updateTimeouts('away', state.team_away.timeouts_taken);
     renderSetHistory(state, true);
 
-    // 7b. Current Set Label
-    withEl("current-set-label", el => { el.textContent = "SET " + state.match_info.current_set; });
+    // 7b. Current Set Label (localized via the shared bundle)
+    withEl("current-set-label", el => { el.textContent = setLabelText(state.match_info.current_set); });
+
+    // 7c. Set pips + set-progress (opt-in templates; no-ops elsewhere)
+    renderSetPips(state);
+    renderSetProgress(state);
 
     // 8. Bottom Ticker
     withEl("ticker-message", el => { el.textContent = state.overlay_control.ticker_message || ""; });
@@ -484,10 +549,14 @@ function updateStateDiff(oldState, newState) {
         renderSetHistory(newState, false);
     }
 
-    // Current Set Label
-    if (oldState.match_info.current_set !== newState.match_info.current_set) {
-        withEl("current-set-label", el => { el.textContent = "SET " + newState.match_info.current_set; });
-    }
+    // Current Set Label — refreshed on every push (not just set
+    // changes) so an operator locale switch re-localizes it too.
+    withEl("current-set-label", el => { el.textContent = setLabelText(newState.match_info.current_set); });
+
+    // Set pips + set-progress (opt-in templates; no-ops elsewhere).
+    // Idempotent and cheap, so they simply track every push.
+    renderSetPips(newState);
+    renderSetProgress(newState);
 
     // Compact mode toggle
     if (oldState.match_info.show_only_current_set !== newState.match_info.show_only_current_set) {
