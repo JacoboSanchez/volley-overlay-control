@@ -136,7 +136,7 @@ function renderSetPips(state) {
     [['home-set-pips', state.team_home.sets_won],
      ['away-set-pips', state.team_away.sets_won]].forEach(([id, won]) => {
         withEl(id, el => {
-            while (el.children.length > target) el.removeChild(el.lastChild);
+            while (el.children.length > target) el.removeChild(el.lastElementChild);
             while (el.children.length < target) {
                 const pip = document.createElement('i');
                 pip.className = 'set-pip';
