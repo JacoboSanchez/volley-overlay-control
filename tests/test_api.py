@@ -164,6 +164,37 @@ class TestGameService:
         assert result.success is True
         assert result.state.simple_mode is True
 
+    def test_set_sides_swapped_manual(self, session):
+        result = GameService.set_sides_swapped(session, swapped=True)
+        assert result.success is True
+        assert result.state.sides_swapped is True
+        result = GameService.set_sides_swapped(session, swapped=False)
+        assert result.state.sides_swapped is False
+
+    def test_auto_swap_sides_keeps_current_orientation_on_toggle(self, session):
+        # Enabling auto must not visually jump: the manual base absorbs
+        # the auto component at the moment of the toggle.
+        before = GameService.get_state(session).sides_swapped
+        result = GameService.set_auto_swap_sides(session, enabled=True)
+        assert result.success is True
+        assert result.state.auto_swap_sides is True
+        assert result.state.sides_swapped == before
+        result = GameService.set_auto_swap_sides(session, enabled=False)
+        assert result.state.auto_swap_sides is False
+        assert result.state.sides_swapped == before
+
+    def test_auto_swap_flips_with_set_changes(self, session):
+        GameService.set_auto_swap_sides(session, enabled=True)
+        assert GameService.get_state(session).sides_swapped is False
+        # Win a set for team 1 -> orientation flips.
+        GameService.add_set(session, team=1)
+        assert GameService.get_state(session).sides_swapped is True
+        # Manual correction in auto mode still works (XOR base).
+        GameService.set_sides_swapped(session, swapped=False)
+        state = GameService.get_state(session)
+        assert state.sides_swapped is False
+        assert state.auto_swap_sides is True
+
     def test_set_set_summary_mode_toggles(self, session):
         result = GameService.set_set_summary_mode(session, enabled=True)
         assert result.success is True

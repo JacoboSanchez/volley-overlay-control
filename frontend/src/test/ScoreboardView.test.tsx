@@ -51,6 +51,8 @@ const baseProps = {
   onOpenConfig: vi.fn(),
   onOpenShare: vi.fn(),
   onOpenHistory: vi.fn(),
+  sidesSwapped: false,
+  onSwapSides: vi.fn(),
 };
 
 describe('ScoreboardView top-right corner stack', () => {

@@ -107,6 +107,8 @@ export interface ConfigPanelProps {
    * connecting.
    */
   gameConfig?: Record<string, unknown> | null;
+  /** Live ``state.auto_swap_sides`` — drives the rules-section toggle. */
+  autoSwapSides?: boolean | null;
   onBack: () => void;
   onLogout: () => void;
   onCustomizationSaved?: () => void | Promise<void>;
@@ -138,6 +140,7 @@ export default function ConfigPanel({
   oid,
   customization,
   gameConfig,
+  autoSwapSides = null,
   onBack,
   onLogout,
   onCustomizationSaved,
@@ -354,6 +357,7 @@ export default function ConfigPanel({
         return (
           <MatchRulesSection
             oid={oid}
+            autoSwapSides={autoSwapSides}
             mode={(gameConfig?.mode as api.MatchMode | undefined) ?? null}
             pointsLimit={(gameConfig?.points_limit as number | undefined) ?? null}
             pointsLimitLastSet={(gameConfig?.points_limit_last_set as number | undefined) ?? null}

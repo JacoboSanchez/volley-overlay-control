@@ -3413,3 +3413,43 @@ body {
   opacity: 0.5;
   cursor: default;
 }
+
+/* ── Swap-sides button (centre column, alerts row) ───────────── */
+.swap-sides-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+  flex: none;
+}
+.swap-sides-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.swap-sides-button[aria-pressed='true'] {
+  color: #ffd54f;
+  border-color: rgba(255, 213, 79, 0.45);
+}
+.swap-sides-button .material-icons {
+  font-size: 20px;
+}
+
+/* Hint line under config toggles (e.g. auto swap sides). */
+.config-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+}
+.config-auto-swap-row {
+  margin-top: 10px;
+}

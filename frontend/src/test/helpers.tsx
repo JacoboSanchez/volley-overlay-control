@@ -38,6 +38,8 @@ export const mockGameState: GameState = {
   set_summary: false,
   set_summary_set_num: null,
   set_summary_style: 'brand_ledger',
+  sides_swapped: false,
+  auto_swap_sides: false,
 };
 
 export const mockCustomization = {

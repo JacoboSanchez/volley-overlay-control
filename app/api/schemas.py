@@ -127,6 +127,15 @@ class SetSummaryRequest(BaseModel):
     enabled: bool
 
 
+class SwapSidesRequest(BaseModel):
+    """Set the *effective* display orientation (True = team 2 left)."""
+    swapped: bool
+
+
+class AutoSwapSidesRequest(BaseModel):
+    enabled: bool
+
+
 class SetSummaryStyleRequest(BaseModel):
     style: SetSummaryStyle
 
@@ -262,6 +271,12 @@ class GameStateResponse(BaseModel):
     config: dict  # points_limit, sets_limit, mode, etc.
     beach_side_switch: BeachSideSwitch | None = None
     match_point_info: MatchPointInfo | None = None
+    # Display-side swap: the orientation every live view should render
+    # right now (True = team 2 on the left), plus the auto-swap
+    # setting so the config UI can show its toggle state. Presentation
+    # only — team_1/team_2 identity in this response never changes.
+    sides_swapped: bool = False
+    auto_swap_sides: bool = False
     # True when the audit log has at least one pending undoable
     # forward record (any of add_point/add_set/add_timeout). Lets
     # frontends drive the global Undo button from the server-side

@@ -1487,9 +1487,70 @@
         renderSetChart(broadcast);
     }
 
+    // ── Display-side swap ──────────────────────────────────────────
+    // ``match_info.sides_swapped`` mirrors the page so the columns
+    // match the physical court (and the OBS overlay). Presentation
+    // only: the swap rewrites the broadcast *view* — team objects,
+    // event team numbers + running-score pairs, the match-wide
+    // service stats, the last-point team and the per-team alert
+    // flags — so every renderer below follows without changes.
+    function applySideSwap(broadcast) {
+        if (!(broadcast.match_info && broadcast.match_info.sides_swapped)) {
+            return broadcast;
+        }
+        let view;
+        try {
+            view = structuredClone(broadcast);
+        } catch (_e) {
+            return broadcast;
+        }
+        const th = view.team_home;
+        view.team_home = view.team_away;
+        view.team_away = th;
+
+        const oc = view.overlay_control || {};
+        const swapEvents = (events) => (events || []).forEach((ev) => {
+            if (!ev) return;
+            if (ev.team === 1) ev.team = 2;
+            else if (ev.team === 2) ev.team = 1;
+            if (Array.isArray(ev.score) && ev.score.length === 2) {
+                ev.score = [ev.score[1], ev.score[0]];
+            }
+        });
+        const bySet = oc.points_by_set || {};
+        Object.keys(bySet).forEach((k) => swapEvents(bySet[k]));
+        const toBySet = oc.timeouts_by_set || {};
+        Object.keys(toBySet).forEach((k) => swapEvents(toBySet[k]));
+
+        const stats = oc.stats || {};
+        const services = stats.services;
+        if (services) {
+            const one = services['1'] !== undefined ? services['1'] : services[1];
+            const two = services['2'] !== undefined ? services['2'] : services[2];
+            delete services[1];
+            delete services[2];
+            if (two !== undefined) services['1'] = two;
+            if (one !== undefined) services['2'] = one;
+        }
+        const lp = stats.last_point;
+        if (lp && (lp.team === 1 || lp.team === 2)) {
+            lp.team = lp.team === 1 ? 2 : 1;
+        }
+        const mpi = oc.match_point_info;
+        if (mpi) {
+            [['team_1_set_point', 'team_2_set_point'],
+             ['team_1_match_point', 'team_2_match_point']].forEach(([a, b]) => {
+                const tmp = mpi[a];
+                mpi[a] = mpi[b];
+                mpi[b] = tmp;
+            });
+        }
+        return view;
+    }
+
     function render(broadcast) {
         if (!broadcast || typeof broadcast !== 'object') return;
-        state.lastBroadcast = broadcast;
+        state.lastBroadcast = applySideSwap(broadcast);
         // While in "live" mode the viewed set tracks the current set.
         if (state.viewMode === 'live') {
             state.viewedSet = (broadcast.match_info || {}).current_set || 1;

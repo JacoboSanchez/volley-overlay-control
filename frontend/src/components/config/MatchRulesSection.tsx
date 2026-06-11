@@ -15,6 +15,8 @@ export interface MatchRulesSectionProps {
   pointsLimit: number | null;
   pointsLimitLastSet: number | null;
   setsLimit: number | null;
+  /** Live ``state.auto_swap_sides``; ``null`` while loading. */
+  autoSwapSides?: boolean | null;
   /** Called after a successful update so the parent refreshes state. */
   onChanged?: () => void;
 }
@@ -39,6 +41,7 @@ export default function MatchRulesSection({
   pointsLimit,
   pointsLimitLastSet,
   setsLimit,
+  autoSwapSides = null,
   onChanged,
 }: MatchRulesSectionProps) {
   const { t } = useI18n();
@@ -129,6 +132,27 @@ export default function MatchRulesSection({
           </button>
         ))}
       </div>
+
+      <label className="config-switch-label config-auto-swap-row">
+        <input
+          type="checkbox"
+          checked={autoSwapSides ?? false}
+          disabled={autoSwapSides === null || pending}
+          onChange={(e) => {
+            void (async () => {
+              try {
+                await api.setAutoSwapSides(oid, e.target.checked);
+                onChanged?.();
+              } catch {
+                /* surfaced by the next state poll */
+              }
+            })();
+          }}
+          data-testid="rules-auto-swap-sides"
+        />
+        {t('rules.autoSwapSides')}
+      </label>
+      <p className="config-hint">{t('rules.autoSwapSidesHint')}</p>
 
       <div className="config-separator" />
 

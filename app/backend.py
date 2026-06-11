@@ -245,6 +245,8 @@ class Backend:
         match_finished_at: float | None = None
         set_summary_flag = False
         set_summary_style = "brand_ledger"
+        sides_swapped_manual = False
+        auto_swap_sides = False
         getter = self._rule_overrides_getter
         if callable(getter):
             try:
@@ -272,6 +274,10 @@ class Backend:
             raw_style = overrides.get("set_summary_style")
             if isinstance(raw_style, str) and raw_style:
                 set_summary_style = raw_style
+            sides_swapped_manual = bool(
+                overrides.get("sides_swapped_manual", False)
+            )
+            auto_swap_sides = bool(overrides.get("auto_swap_sides", False))
 
         payload = {
             "match_info": {
@@ -317,6 +323,11 @@ class Backend:
                 # live stats are available.
                 "show_set_summary": set_summary_flag,
                 "set_summary_style": set_summary_style,
+                # Display-side swap (True = team 2 rendered on the
+                # left). Starts at the operator's manual base and is
+                # XOR-ed with the auto-derived component below once
+                # the live scores are available.
+                "sides_swapped": sides_swapped_manual,
             },
             "team_home": {
                 "name": cust.get_team_name(1),
@@ -414,6 +425,7 @@ class Backend:
             from app.api.match_rules import (
                 compute_match_point_info,
                 compute_side_switch,
+                compute_sides_swapped_auto,
             )
             team1_score = int(
                 current_model.get(f'Team 1 Game {current_set} Score', 0)
@@ -448,6 +460,26 @@ class Backend:
             if beach_side_switch is not None:
                 payload["overlay_control"]["beach_side_switch"] = (
                     beach_side_switch
+                )
+            if auto_swap_sides:
+                completed = [
+                    (
+                        int(current_model.get(f'Team 1 Game {i} Score', 0)),
+                        int(current_model.get(f'Team 2 Game {i} Score', 0)),
+                    )
+                    for i in range(1, current_set)
+                ]
+                payload["match_info"]["sides_swapped"] = (
+                    sides_swapped_manual ^ compute_sides_swapped_auto(
+                        mode=mode,
+                        current_set=current_set,
+                        sets_limit=sets_limit,
+                        team1_score=team1_score,
+                        team2_score=team2_score,
+                        points_limit=points_limit,
+                        points_limit_last_set=points_limit_last_set,
+                        completed_set_scores=completed,
+                    )
                 )
         except Exception:  # pragma: no cover - defensive
             Backend.logger.exception(

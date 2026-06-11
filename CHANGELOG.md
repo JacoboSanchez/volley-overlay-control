@@ -10,6 +10,24 @@ once a first tagged release ships.
 
 ### Added
 
+- **Side switching across every live view.** A swap button in the
+  scoreboard centre column flips which team renders left/right on
+  the operator UI, on all 22 OBS overlay styles (behind a quick
+  horizontal fold transition) and on the public spectator page —
+  presentation only, so team identity in the API, stats and audit
+  log never changes. An optional **auto switch sides** setting in
+  the Match Rules section follows the physical court: one switch per
+  set change, every 7 combined points in beach mode (5 in short
+  sets), and at the deciding-set midpoint (8 of 15) indoors —
+  including the mid-set switches of already-completed beach sets, so
+  the orientation always matches where the teams actually stand. The
+  orientation is a pure function of the live score, so undo rewinds
+  it; the manual button stays usable as a correction in auto mode,
+  and toggling auto never visually jumps the current picture. New
+  endpoints: ``POST /api/v1/display/swap-sides`` and
+  ``POST /api/v1/display/auto-swap-sides``; the effective orientation
+  ships as ``sides_swapped`` in the game state and the broadcast.
+
 - **Three more scoreboard overlay styles.** `led` is a retro
   gym-scoreboard homage — black bezel cabinet, dot-matrix texture,
   glowing amber LED points (rendered with the repo's own "LED board"

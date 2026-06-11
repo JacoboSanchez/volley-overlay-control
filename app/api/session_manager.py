@@ -45,6 +45,14 @@ class GameSession:
         self.set_summary_style: str = getattr(
             conf, "set_summary_default_style", "brand_ledger"
         )
+        # Display-side swap (team 2 rendered on the left). Presentation
+        # only — team identity in the audit log / API never changes.
+        # ``sides_swapped_manual`` is the operator's base orientation;
+        # when ``auto_swap_sides`` is on, the effective orientation is
+        # ``manual XOR compute_sides_swapped_auto(...)`` so the manual
+        # button stays usable as a correction. Both persisted.
+        self.sides_swapped_manual: bool = False
+        self.auto_swap_sides: bool = False
         self.current_set = 1
         self.undo = False
         # Wall-clock seconds at which the current match started, or
@@ -135,6 +143,8 @@ class GameSession:
             ),
             "set_summary": bool(self.set_summary),
             "set_summary_style": str(self.set_summary_style),
+            "sides_swapped_manual": bool(self.sides_swapped_manual),
+            "auto_swap_sides": bool(self.auto_swap_sides),
         }
 
     def touch(self):
@@ -153,6 +163,8 @@ class GameSession:
             "simple": bool(self.simple),
             "set_summary": bool(self.set_summary),
             "set_summary_style": str(self.set_summary_style),
+            "sides_swapped_manual": bool(self.sides_swapped_manual),
+            "auto_swap_sides": bool(self.auto_swap_sides),
             "points_limit": int(self.points_limit),
             "points_limit_last_set": int(self.points_limit_last_set),
             "sets_limit": int(self.sets_limit),
@@ -184,6 +196,10 @@ class GameSession:
             candidate = meta["set_summary_style"]
             if isinstance(candidate, str) and candidate in SET_SUMMARY_STYLE_CHOICES:
                 self.set_summary_style = candidate
+        if "sides_swapped_manual" in meta:
+            self.sides_swapped_manual = bool(meta["sides_swapped_manual"])
+        if "auto_swap_sides" in meta:
+            self.auto_swap_sides = bool(meta["auto_swap_sides"])
         for key in ("points_limit", "points_limit_last_set", "sets_limit"):
             value = meta.get(key)
             if value is None:
