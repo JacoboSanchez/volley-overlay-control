@@ -32,6 +32,10 @@ body {
 }
 
 #scoreboard-container {
+    /* Contrast-safe team accents for the active surface (computed by
+       app.js). The light-theme block below re-points these. */
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
     position: absolute;
     left: 320px;            /* centred default: (1920 - 1280) / 2 */
     top: 924px;
@@ -169,13 +173,13 @@ body {
 .serving-indicator.active { opacity: 1; }
 .points-block.home .serving-indicator {
     left: -6px;
-    background: var(--home-gradient);
-    box-shadow: 0 0 10px var(--home-gradient);
+    background: var(--accent-home);
+    box-shadow: 0 0 10px var(--accent-home);
 }
 .points-block.away .serving-indicator {
     right: -6px;
-    background: var(--away-gradient);
-    box-shadow: 0 0 10px var(--away-gradient);
+    background: var(--accent-away);
+    box-shadow: 0 0 10px var(--accent-away);
 }
 
 /* ── Centre ── */
@@ -194,8 +198,8 @@ body {
     line-height: 1;
     font-variant-numeric: tabular-nums;
 }
-.sets.home { color: var(--home-gradient); }
-.sets.away { color: var(--away-gradient); }
+.sets.home { color: var(--accent-home); }
+.sets.away { color: var(--accent-away); }
 .sets-sep { color: rgba(255, 255, 255, 0.5); padding: 0 6px; }
 
 /* ── Set progress bars (race to the set's point target) ── */
@@ -227,18 +231,43 @@ body {
     /* Plain-colour fallback first: older OBS browser sources (CEF
        without color-mix support) drop the gradient declaration
        entirely, which would leave the fill invisible. */
-    background: var(--home-gradient);
+    background: var(--accent-home);
     background: linear-gradient(90deg,
-        color-mix(in srgb, var(--home-gradient) 70%, #000) 0%,
-        var(--home-gradient) 100%);
+        color-mix(in srgb, var(--accent-home) 70%, #000) 0%,
+        var(--accent-home) 100%);
 }
 .set-progress.away i {
     right: 0;
-    background: var(--away-gradient);
+    background: var(--accent-away);
     background: linear-gradient(270deg,
-        color-mix(in srgb, var(--away-gradient) 70%, #000) 0%,
-        var(--away-gradient) 100%);
+        color-mix(in srgb, var(--accent-away) 70%, #000) 0%,
+        var(--accent-away) 100%);
 }
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
+body.overlay-theme-light #scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+    background: rgba(246, 247, 250, 0.94);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    color: #14181d;
+}
+body.overlay-theme-light .set-history-container .set-score {
+    color: rgba(20, 24, 29, 0.65);
+    background: rgba(0, 0, 0, 0.06);
+}
+body.overlay-theme-light .set-history-container .set-score.set-won {
+    color: #14181d;
+    background: rgba(0, 0, 0, 0.14);
+}
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .set-label { color: rgba(20, 24, 29, 0.80); }
+body.overlay-theme-light .sets-sep { color: rgba(20, 24, 29, 0.45); }
+body.overlay-theme-light .set-progress { background: rgba(0, 0, 0, 0.10); }
+/* The fill gradients darken via the light accents, which already
+   carry the contrast guarantee against the pale track. */
 
 /* Compact mode (operator's "only current set" toggle): drop the
    per-set history chips; the rest of the bar is already current-set

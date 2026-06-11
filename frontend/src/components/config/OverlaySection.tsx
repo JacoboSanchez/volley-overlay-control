@@ -81,6 +81,19 @@ export default function OverlaySection({
               ))}
             </select>
           </div>
+          <div className="config-field-group">
+            <label className="config-field-group-label">{t('overlay.themeLabel')}</label>
+            <select
+              className="config-select"
+              value={asString(model['overlayTheme'], '')}
+              onChange={(e) => updateField('overlayTheme', e.target.value)}
+              data-testid="overlay-theme-selector"
+            >
+              <option value="">{t('overlay.themeDefault')}</option>
+              <option value="dark">{t('overlay.themeDark')}</option>
+              <option value="light">{t('overlay.themeLight')}</option>
+            </select>
+          </div>
         </div>
       )}
     </div>

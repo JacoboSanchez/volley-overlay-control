@@ -29,6 +29,12 @@ body {
 }
 
 #scoreboard-container {
+    /* Contrast-safe team accents for the active surface (computed by
+       app.js — the raw team colour nudged toward white until it
+       clears 3:1 on the dark card). The light-theme block below
+       re-points these at the dark-leaning variants. */
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
     position: absolute;
     left: 64px;
     top: 64px;
@@ -40,13 +46,13 @@ body {
        would erase the border / glow / digit colours below. Each
        color-mix declaration is therefore preceded by a fallback. */
     border: 1px solid rgba(255, 255, 255, 0.18);
-    border: 1px solid color-mix(in srgb, var(--home-gradient) 40%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-home) 40%, transparent);
     box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.6),
         0 16px 44px rgba(0, 0, 0, 0.55);
     box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.6),
-        0 0 26px color-mix(in srgb, var(--home-gradient) 30%, transparent),
+        0 0 26px color-mix(in srgb, var(--accent-home) 30%, transparent),
         0 16px 44px rgba(0, 0, 0, 0.55);
     color: #eef1ff;
     overflow: hidden;
@@ -128,12 +134,12 @@ body {
     border-radius: 2px;
 }
 .team-home::after {
-    background: var(--home-gradient);
-    box-shadow: 0 0 12px var(--home-gradient);
+    background: var(--accent-home);
+    box-shadow: 0 0 12px var(--accent-home);
 }
 .team-away::after {
-    background: var(--away-gradient);
-    box-shadow: 0 0 12px var(--away-gradient);
+    background: var(--accent-away);
+    box-shadow: 0 0 12px var(--accent-away);
 }
 
 .team-id {
@@ -155,15 +161,15 @@ body {
 }
 .team-home .logo-container {
     background: rgba(255, 255, 255, 0.06);
-    background: color-mix(in srgb, var(--home-gradient) 16%, transparent);
+    background: color-mix(in srgb, var(--accent-home) 16%, transparent);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--home-gradient) 55%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-home) 55%, transparent);
 }
 .team-away .logo-container {
     background: rgba(255, 255, 255, 0.06);
-    background: color-mix(in srgb, var(--away-gradient) 16%, transparent);
+    background: color-mix(in srgb, var(--accent-away) 16%, transparent);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--away-gradient) 55%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-away) 55%, transparent);
 }
 .team-logo {
     max-width: 26px;
@@ -192,12 +198,12 @@ body {
 }
 .serving-indicator.active { opacity: 1; }
 .team-home .serving-indicator {
-    background: var(--home-gradient);
-    box-shadow: 0 0 9px var(--home-gradient);
+    background: var(--accent-home);
+    box-shadow: 0 0 9px var(--accent-home);
 }
 .team-away .serving-indicator {
-    background: var(--away-gradient);
-    box-shadow: 0 0 9px var(--away-gradient);
+    background: var(--accent-away);
+    box-shadow: 0 0 9px var(--accent-away);
 }
 
 /* Timeout dots — hollow until used. */
@@ -248,15 +254,69 @@ body {
 }
 .team-home .points {
     color: #fff;
-    color: color-mix(in srgb, var(--home-gradient) 55%, #fff);
-    text-shadow: 0 0 16px var(--home-gradient);
-    text-shadow: 0 0 16px color-mix(in srgb, var(--home-gradient) 75%, transparent);
+    color: color-mix(in srgb, var(--accent-home) 55%, #fff);
+    text-shadow: 0 0 16px var(--accent-home);
+    text-shadow: 0 0 16px color-mix(in srgb, var(--accent-home) 75%, transparent);
 }
 .team-away .points {
     color: #fff;
-    color: color-mix(in srgb, var(--away-gradient) 55%, #fff);
-    text-shadow: 0 0 16px var(--away-gradient);
-    text-shadow: 0 0 16px color-mix(in srgb, var(--away-gradient) 75%, transparent);
+    color: color-mix(in srgb, var(--accent-away) 55%, #fff);
+    text-shadow: 0 0 16px var(--accent-away);
+    text-shadow: 0 0 16px color-mix(in srgb, var(--accent-away) 75%, transparent);
+}
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ──
+   Same layout, light card surface; team accents switch to the
+   dark-leaning variants so they stay legible on the pale card. */
+body.overlay-theme-light #scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+    background: rgba(246, 247, 250, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border: 1px solid color-mix(in srgb, var(--accent-home) 35%, transparent);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.10),
+        0 16px 44px rgba(0, 0, 0, 0.30);
+    color: #14181d;
+}
+body.overlay-theme-light #scoreboard-container::after {
+    background: repeating-linear-gradient(0deg,
+        rgba(0, 0, 0, 0.02) 0 1px, transparent 1px 4px);
+}
+body.overlay-theme-light .head {
+    color: rgba(20, 24, 29, 0.55);
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+body.overlay-theme-light .set-history-container .set-score { color: rgba(20, 24, 29, 0.55); }
+body.overlay-theme-light .set-history-container .set-score.set-won { color: rgba(20, 24, 29, 0.95); }
+body.overlay-theme-light .history-sep { background: rgba(0, 0, 0, 0.18); }
+body.overlay-theme-light .team-away { border-top-color: rgba(0, 0, 0, 0.07); }
+body.overlay-theme-light .team-home .logo-container,
+body.overlay-theme-light .team-away .logo-container {
+    background: rgba(0, 0, 0, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+body.overlay-theme-light .team-home .logo-container {
+    background: color-mix(in srgb, var(--accent-home) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-home) 50%, transparent);
+}
+body.overlay-theme-light .team-away .logo-container {
+    background: color-mix(in srgb, var(--accent-away) 12%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-away) 50%, transparent);
+}
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.35); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.35); }
+body.overlay-theme-light .sets {
+    color: rgba(20, 24, 29, 0.55);
+    background: rgba(0, 0, 0, 0.05);
+}
+body.overlay-theme-light .team-home .points {
+    color: var(--accent-home);
+    text-shadow: none;
+}
+body.overlay-theme-light .team-away .points {
+    color: var(--accent-away);
+    text-shadow: none;
 }
 
 /* Compact mode (operator's "only current set" toggle): drop the

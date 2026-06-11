@@ -97,6 +97,7 @@ function applyStateLocale(state) {
 
 function processStateUpdate(newState) {
     applyStateLocale(newState);
+    applyOverlayTheme(newState);
     if (!previousState) {
         // Initial render
         renderFullState(newState);
@@ -183,6 +184,94 @@ function isNearWhite(hex) {
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 230;
 }
 
+// ── Contrast-safe team accents ───────────────────────────────────────
+//
+// A team colour is operator-picked and routinely lands with terrible
+// contrast against a style's card surface (navy digits on the dark
+// neon card, pale yellow pips on the white broadcast card). Rather
+// than asking the operator to fix it, derive per-surface *accent*
+// variants: the team colour nudged toward white (dark surfaces) or
+// black (light surfaces) just until it clears a non-text contrast
+// ratio (WCAG 1.4.11's 3:1). Styles consume the accents for digits,
+// glows, pips and bars while keeping the raw colour where contrast
+// doesn't matter (e.g. colour spines on a bordered card).
+
+function parseHexColor(hex) {
+    if (!hex || typeof hex !== 'string') return null;
+    let h = hex.trim().replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    return [
+        parseInt(h.substring(0, 2), 16),
+        parseInt(h.substring(2, 4), 16),
+        parseInt(h.substring(4, 6), 16),
+    ];
+}
+
+/* WCAG relative luminance (0..1). */
+function relativeLuminance(rgb) {
+    const transform = (c) => {
+        const v = c / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * transform(rgb[0]) + 0.7152 * transform(rgb[1]) + 0.0722 * transform(rgb[2]);
+}
+
+function contrastRatio(l1, l2) {
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+// Mix ``rgb`` toward ``target`` in 5% steps until the result clears
+// 3:1 against the reference surface luminance. Returns a hex string.
+function contrastAccent(hex, surfaceIsDark) {
+    const rgb = parseHexColor(hex);
+    if (!rgb) return hex;
+    // Reference card surfaces: the dark cards sit around #0b101a,
+    // the light ones around #f4f5f7.
+    const surfaceLum = surfaceIsDark ? 0.012 : 0.92;
+    const target = surfaceIsDark ? [255, 255, 255] : [0, 0, 0];
+    let mixed = rgb;
+    for (let t = 0; t <= 1; t += 0.05) {
+        mixed = [
+            Math.round(rgb[0] + (target[0] - rgb[0]) * t),
+            Math.round(rgb[1] + (target[1] - rgb[1]) * t),
+            Math.round(rgb[2] + (target[2] - rgb[2]) * t),
+        ];
+        if (contrastRatio(relativeLuminance(mixed), surfaceLum) >= 3) break;
+    }
+    return '#' + mixed.map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Overlay theme (default / dark / light) ──────────────────────────
+//
+// ``overlayTheme`` rides in the operator customization. "default"
+// (empty/absent) keeps every style's native palette; "dark"/"light"
+// flip the card surface on styles that define the matching override
+// block (body.overlay-theme-*). A ``?theme=`` URL parameter takes
+// precedence so a fixed OBS browser-source URL (or the mosaic
+// preview) can pin a theme regardless of the live customization.
+const THEME_URL_OVERRIDE = (() => {
+    try {
+        const v = (new URLSearchParams(window.location.search).get('theme') || '').toLowerCase();
+        return v === 'dark' || v === 'light' ? v : null;
+    } catch (_e) {
+        return null;
+    }
+})();
+
+function applyOverlayTheme(state) {
+    let theme = THEME_URL_OVERRIDE;
+    if (!theme) {
+        const cust = state && state.raw_remote_customization;
+        const v = cust && typeof cust.overlayTheme === 'string'
+            ? cust.overlayTheme.toLowerCase()
+            : '';
+        theme = v === 'dark' || v === 'light' ? v : null;
+    }
+    document.body.classList.toggle('overlay-theme-dark', theme === 'dark');
+    document.body.classList.toggle('overlay-theme-light', theme === 'light');
+}
+
 function updateCSSVariables(teamHome, teamAway, colors = null) {
     const root = document.documentElement;
     root.style.setProperty('--home-primary', teamHome.color_primary);
@@ -199,6 +288,14 @@ function updateCSSVariables(teamHome, teamAway, colors = null) {
         isNearWhite(teamHome.color_primary) ? (teamHome.color_secondary || teamHome.color_primary) : teamHome.color_primary);
     root.style.setProperty('--away-gradient',
         isNearWhite(teamAway.color_primary) ? (teamAway.color_secondary || teamAway.color_primary) : teamAway.color_primary);
+
+    // Contrast-safe accents (see contrastAccent above): the team
+    // colour nudged just far enough toward white/black to stay
+    // legible on a dark/light card surface respectively.
+    root.style.setProperty('--home-accent-dark', contrastAccent(teamHome.color_primary, true));
+    root.style.setProperty('--away-accent-dark', contrastAccent(teamAway.color_primary, true));
+    root.style.setProperty('--home-accent-light', contrastAccent(teamHome.color_primary, false));
+    root.style.setProperty('--away-accent-light', contrastAccent(teamAway.color_primary, false));
 
     if (colors) {
         if (colors.set_bg) root.style.setProperty('--set-bg', colors.set_bg);

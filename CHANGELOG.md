@@ -10,6 +10,21 @@ once a first tagged release ships.
 
 ### Added
 
+- **Overlay dark/light theme + contrast-safe team accents.** A new
+  three-state appearance setting (default / dark / light) in the
+  overlay config flips the card surface on styles that define the
+  matching palette — `neon` and `baseline` gain a light variant,
+  `broadcast` a dark one; "default" keeps every style's native look.
+  The theme rides the customization (`overlayTheme`), is included in
+  style presets, and can be pinned per browser source with a
+  `?theme=` URL parameter (the mosaic forwards it to every preview).
+  Independently of the theme, the engine now derives contrast-safe
+  per-team accents — the team colour nudged toward white (dark
+  surfaces) or black (light surfaces) until it clears WCAG's 3:1
+  non-text ratio — so a navy team colour stays legible on the dark
+  neon/baseline cards and a pale yellow on the white broadcast card,
+  with no operator action needed.
+
 - **Three new scoreboard overlay styles.** `broadcast` is a TV-network
   score bug with per-team colour spines and set *pips* (one dot per
   set needed to win, filled per set won) instead of a numeric set

@@ -70,6 +70,15 @@
             const grid = document.getElementById("mosaic-grid");
             grid.innerHTML = "";
 
+            // Forward a ?theme= override to every style preview so the
+            // mosaic can show the whole catalogue in a forced
+            // dark/light theme (styles without that theme keep their
+            // native look — the override is opt-in per style).
+            const themeParam = (() => {
+                const v = (new URLSearchParams(window.location.search).get('theme') || '').toLowerCase();
+                return v === 'dark' || v === 'light' ? `&theme=${v}` : '';
+            })();
+
             styles.forEach(style => {
                 const cell = document.createElement("div");
                 cell.className = "mosaic-cell";
@@ -82,7 +91,7 @@
                 wrapper.className = "mosaic-iframe-wrapper";
 
                 const iframe = document.createElement("iframe");
-                iframe.src = `/overlay/${OVERLAY_ID}?style=${style}`;
+                iframe.src = `/overlay/${OVERLAY_ID}?style=${style}${themeParam}`;
                 iframe.loading = "lazy";
                 iframe.dataset.style = style;
                 iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");

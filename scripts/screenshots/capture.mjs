@@ -679,14 +679,15 @@ async function captureSetSummary(page, filename) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
-async function captureOverlayMosaic(page, filename) {
+async function captureOverlayMosaic(page, filename, extraQuery = '') {
   // Mosaic is a full-page grid of every selectable style; needs a wider
   // viewport and enough vertical room to fit every cell, plus extra
   // wait time so each iframe finishes its postMessage handshake and
   // shrinks to its overlay-only bounds.
   const MOSAIC_VIEWPORT = { width: 1600, height: 1800 };
   await page.setViewportSize(MOSAIC_VIEWPORT);
-  await page.goto(`${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?style=mosaic`, {
+  const extra = extraQuery ? `&${extraQuery}` : '';
+  await page.goto(`${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?style=mosaic${extra}`, {
     waitUntil: 'networkidle',
   });
   // Each iframe asynchronously reports its render bounds; give the grid
@@ -781,7 +782,10 @@ async function main() {
     await setSimpleMode(false);
     await captureOverlayMosaic(page, '06-overlay-mosaic-full.png');
     await setSimpleMode(true);
-    await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png');
+    // The simple-mode mosaic doubles as the theme demo: forced light
+    // so the catalogue shows the overlayTheme treatment (styles
+    // without a light palette keep their native look).
+    await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png', 'theme=light');
     await setSimpleMode(false);
     await captureSetSummary(page, '10-overlay-set-summary.png');
     await captureMatchReport(page, reportMatchId);

@@ -43,6 +43,7 @@ const KEYS_BY_CATEGORY: Record<CategoryId, readonly string[]> = {
   position: ['Height', 'Width', 'Left-Right', 'Up-Down'],
   style: [
     'preferredStyle',
+    'overlayTheme',
     'Logos',
     'Gradient',
     'Color 1',
