@@ -229,6 +229,7 @@ function CenterPanel({
       ) : (
         <PointsHistoryStrip
           events={recentEvents}
+          swapped={sidesSwapped}
           team1Color={btnColorA}
           team1TextColor={btnTextA}
           team1Logo={logosById[1] || null}
