@@ -176,9 +176,6 @@ body {
     padding: 7px 16px;
 }
 
-/* Not part of this design. */
-.set-history-container { display: none; }
-
 /* Compact mode (operator's "only current set" toggle): the pips are
    the set context, so hide just the footer strip. */
 .compact-mode .footer { display: none; }

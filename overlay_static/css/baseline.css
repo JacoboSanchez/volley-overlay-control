@@ -224,12 +224,17 @@ body {
 }
 .set-progress.home i {
     left: 0;
+    /* Plain-colour fallback first: older OBS browser sources (CEF
+       without color-mix support) drop the gradient declaration
+       entirely, which would leave the fill invisible. */
+    background: var(--home-gradient);
     background: linear-gradient(90deg,
         color-mix(in srgb, var(--home-gradient) 70%, #000) 0%,
         var(--home-gradient) 100%);
 }
 .set-progress.away i {
     right: 0;
+    background: var(--away-gradient);
     background: linear-gradient(270deg,
         color-mix(in srgb, var(--away-gradient) 70%, #000) 0%,
         var(--away-gradient) 100%);

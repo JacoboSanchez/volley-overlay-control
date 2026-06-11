@@ -35,7 +35,15 @@ body {
     width: 470px;
     background: rgba(8, 11, 18, 0.94);
     border-radius: 14px;
+    /* Plain fallbacks first: older OBS browser sources (CEF without
+       color-mix support) drop any declaration containing it, which
+       would erase the border / glow / digit colours below. Each
+       color-mix declaration is therefore preceded by a fallback. */
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border: 1px solid color-mix(in srgb, var(--home-gradient) 40%, transparent);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 16px 44px rgba(0, 0, 0, 0.55);
     box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.6),
         0 0 26px color-mix(in srgb, var(--home-gradient) 30%, transparent),
@@ -146,11 +154,15 @@ body {
     justify-content: center;
 }
 .team-home .logo-container {
+    background: rgba(255, 255, 255, 0.06);
     background: color-mix(in srgb, var(--home-gradient) 16%, transparent);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--home-gradient) 55%, transparent);
 }
 .team-away .logo-container {
+    background: rgba(255, 255, 255, 0.06);
     background: color-mix(in srgb, var(--away-gradient) 16%, transparent);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--away-gradient) 55%, transparent);
 }
 .team-logo {
@@ -235,11 +247,15 @@ body {
     font-variant-numeric: tabular-nums;
 }
 .team-home .points {
+    color: #fff;
     color: color-mix(in srgb, var(--home-gradient) 55%, #fff);
+    text-shadow: 0 0 16px var(--home-gradient);
     text-shadow: 0 0 16px color-mix(in srgb, var(--home-gradient) 75%, transparent);
 }
 .team-away .points {
+    color: #fff;
     color: color-mix(in srgb, var(--away-gradient) 55%, #fff);
+    text-shadow: 0 0 16px var(--away-gradient);
     text-shadow: 0 0 16px color-mix(in srgb, var(--away-gradient) 75%, transparent);
 }
 
