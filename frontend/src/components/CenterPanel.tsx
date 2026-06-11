@@ -116,6 +116,7 @@ function CenterPanel({
     <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
       <div className="sets-row">
         <ScoreButton
+          key={`sets-${leftId}`}
           text={String(setsById[leftId])}
           color="#424242"
           textColor="#fff"
@@ -129,7 +130,7 @@ function CenterPanel({
 
         {!isPortrait && (
           <div className="logos-scores-section">
-            <div className="team-score-column">
+            <div className="team-score-column" key={`col-${leftId}`}>
               {logosById[leftId] && (
                 <img
                   src={logosById[leftId]}
@@ -148,7 +149,7 @@ function CenterPanel({
             <div className="current-set-indicator" data-testid="current-set-indicator">
               {currentSet}
             </div>
-            <div className="team-score-column">
+            <div className="team-score-column" key={`col-${rightId}`}>
               {logosById[rightId] && (
                 <img
                   src={logosById[rightId]}
@@ -174,6 +175,7 @@ function CenterPanel({
         )}
 
         <ScoreButton
+          key={`sets-${rightId}`}
           text={String(setsById[rightId])}
           color="#424242"
           textColor="#fff"

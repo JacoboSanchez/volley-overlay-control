@@ -126,6 +126,7 @@ export default function ScoreboardView({
         {(() => {
           const panel1 = (
             <TeamPanel
+              key={1}
               teamId={1}
               teamState={state.team_1}
               currentSet={currentSet}
@@ -151,6 +152,7 @@ export default function ScoreboardView({
           );
           const panel2 = (
             <TeamPanel
+              key={2}
               teamId={2}
               teamState={state.team_2}
               currentSet={currentSet}
