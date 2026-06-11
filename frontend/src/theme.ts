@@ -40,18 +40,22 @@ export interface FontScale {
 // under noUncheckedIndexedAccess).
 export const DEFAULT_FONT_SCALE: FontScale = { scale: 1.0, offset_y: 0.0 };
 
+// ``offset_y`` is 0 across the board since the @font-face metric
+// overrides in App.css centre each font's digits exactly (computed
+// from the glyph geometry); the field stays so operators with stale
+// settings and future odd fonts keep an escape hatch.
 export const FONT_SCALES: Record<string, FontScale> = {
   Default: DEFAULT_FONT_SCALE,
-  'Digital Dismay': { scale: 1.16, offset_y: 0.01 },
-  Aluminum: { scale: 1.06, offset_y: 0.02 },
-  Atlas: { scale: 0.96, offset_y: 0.01 },
+  'Digital Dismay': { scale: 1.16, offset_y: 0.0 },
+  Aluminum: { scale: 1.06, offset_y: 0.0 },
+  Atlas: { scale: 0.96, offset_y: 0.0 },
   Bypass: { scale: 0.96, offset_y: 0.0 },
-  Catch: { scale: 1.17, offset_y: 0.01 },
-  Devotee: { scale: 1.14, offset_y: 0.02 },
+  Catch: { scale: 1.17, offset_y: 0.0 },
+  Devotee: { scale: 1.14, offset_y: 0.0 },
   'Digital Readout': { scale: 1.39, offset_y: 0.0 },
-  'LED board': { scale: 0.79, offset_y: -0.01 },
-  'Open 24': { scale: 1.14, offset_y: -0.02 },
-  'Alarm Clock': { scale: 1.01, offset_y: 0.01 },
+  'LED board': { scale: 0.79, offset_y: 0.0 },
+  'Open 24': { scale: 1.14, offset_y: 0.0 },
+  'Alarm Clock': { scale: 1.01, offset_y: 0.0 },
 };
 
 // Font names available for the score button selector

@@ -8,6 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Score digits now centre vertically in every font.** The ten
+  selectable score-button fonts ship wildly inconsistent vertical
+  metrics (declared ascents from 0.58em to 1.03em), which browsers
+  resolve differently per platform — so the numbers sat visibly high
+  or low depending on the font and device, and a hand-tuned offset
+  table only papered over it on some platforms. Every score-font
+  ``@font-face`` (and the LED overlay's digit font) now carries
+  ascent/descent overrides computed from the actual digit glyph
+  geometry, which centres the digits identically on Android, desktop
+  and OBS; the manual offsets are zeroed.
+
 ### Added
 
 - **Side switching across every live view.** A swap button in the

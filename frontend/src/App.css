@@ -5,55 +5,92 @@
 
 /* ── Scoreboard fonts ───────────────────────────────────────────────── */
 
+/* Score-button fonts. Each @font-face carries ascent/descent
+   overrides computed from the font's actual digit glyph geometry
+   (fontTools bbox of 0-9), so the digits centre identically in a
+   line-height:1 box on every platform — the TTFs ship wildly
+   inconsistent hhea metrics (0.58em..1.03em ascents) that browsers
+   resolve differently, which is what used to push the numbers off
+   centre per font. */
 @font-face {
   font-family: 'Alarm Clock';
   src: url('/fonts/Alarm Clock.ttf');
   font-display: swap;
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Aluminum';
   src: url('/fonts/Aluminum.ttf');
   font-display: swap;
+  ascent-override: 84.7%;
+  descent-override: 15.3%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Atlas';
   src: url('/fonts/Atlas.ttf');
   font-display: swap;
+  ascent-override: 85.8%;
+  descent-override: 14.2%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Bypass';
   src: url('/fonts/Bypass.ttf');
   font-display: swap;
+  ascent-override: 84.4%;
+  descent-override: 15.6%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Catch';
   src: url('/fonts/Catch.ttf');
   font-display: swap;
+  ascent-override: 84.2%;
+  descent-override: 15.8%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Devotee';
   src: url('/fonts/Devotee.ttf');
   font-display: swap;
+  ascent-override: 84.3%;
+  descent-override: 15.7%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Digital Dismay';
   src: url('/fonts/Digital Dismay.otf');
   font-display: swap;
+  ascent-override: 84.2%;
+  descent-override: 15.8%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Digital Readout';
   src: url('/fonts/Digital Readout.ttf');
   font-display: swap;
+  ascent-override: 79.2%;
+  descent-override: 20.8%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'LED board';
   src: url('/fonts/LED board.ttf');
   font-display: swap;
+  ascent-override: 97%;
+  descent-override: 3%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Open 24';
   src: url('/fonts/Open 24.ttf');
   font-display: swap;
+  ascent-override: 84.9%;
+  descent-override: 15.1%;
+  line-gap-override: 0%;
 }
 
 /* Reset & base */
