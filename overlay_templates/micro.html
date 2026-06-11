@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/micro.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    <div id="scoreboard-container" class="scoreboard">
+
+        <!-- Capsule: logos + points; the serve ring wraps the
+             serving team's logo. No team names by design. -->
+        <div class="capsule">
+            <div class="logo-wrap home">
+                <div class="serving-indicator" id="home-serving"></div>
+                <div class="logo-container">
+                    <img class="team-logo" id="home-logo" alt="" onerror="this.style.display='none'">
+                </div>
+            </div>
+            <div class="points-container">
+                <div class="points" id="home-points">0</div>
+            </div>
+            <span class="vs-sep">:</span>
+            <div class="points-container">
+                <div class="points" id="away-points">0</div>
+            </div>
+            <div class="logo-wrap away">
+                <div class="serving-indicator" id="away-serving"></div>
+                <div class="logo-container">
+                    <img class="team-logo" id="away-logo" alt="" onerror="this.style.display='none'">
+                </div>
+            </div>
+        </div>
+
+        <!-- Pips pill: race-to-N set dots + localized set label -->
+        <div class="pips-pill">
+            <div class="set-pips home" id="home-set-pips"></div>
+            <span class="set-label" id="current-set-label">SET 1</span>
+            <div class="set-pips away" id="away-set-pips"></div>
+        </div>
+
+    </div>
+{% endblock %}

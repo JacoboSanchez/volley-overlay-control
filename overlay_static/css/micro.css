@@ -1,0 +1,176 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Micro" overlay — ultra-minimal floating capsule.
+
+   The smallest footprint in the catalogue: a pill with the two team
+   logos and the points, plus a detached pill underneath carrying
+   the set pips (race to N sets — ``renderSetPips`` in app.js) and
+   the localized set label. The serve indicator is a glowing ring
+   around the serving team's logo. No team names by design — the
+   logos carry identity. For streams that want graphics nearly
+   invisible.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --home-gradient: #E21836;
+    --away-gradient: #0047AB;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+#scoreboard-container {
+    /* Contrast-safe team accents for the active surface (computed by
+       app.js). The light-theme block below re-points these. */
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
+    position: absolute;
+    left: 64px;
+    top: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+.capsule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(12, 15, 22, 0.90);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 7px 14px;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+    color: #fff;
+}
+
+.logo-wrap {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    flex: none;
+}
+.logo-container {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-logo {
+    max-width: 30px;
+    max-height: 30px;
+    object-fit: contain;
+}
+
+/* Serve ring around the serving team's logo. */
+.serving-indicator {
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 2.5px solid transparent;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+.serving-indicator.active { opacity: 1; }
+.logo-wrap.home .serving-indicator {
+    border-color: var(--accent-home);
+    box-shadow: 0 0 12px var(--accent-home);
+}
+.logo-wrap.away .serving-indicator {
+    border-color: var(--accent-away);
+    box-shadow: 0 0 12px var(--accent-away);
+}
+
+/* Points. ``.points`` is absolute inside the container so the
+   app.js slide animation stacks old/new digits. */
+.points-container {
+    position: relative;
+    width: 40px;
+    height: 30px;
+    overflow: hidden;
+}
+.points {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.vs-sep {
+    color: rgba(255, 255, 255, 0.30);
+    font-size: 17px;
+    font-weight: 800;
+}
+
+/* ── Pips pill ── */
+.pips-pill {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: rgba(12, 15, 22, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    padding: 4px 12px;
+}
+.set-pips { display: flex; gap: 4px; }
+.set-pip {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+}
+.set-pips.home .set-pip.won {
+    background: var(--accent-home);
+    border-color: var(--accent-home);
+}
+.set-pips.away .set-pip.won {
+    background: var(--accent-away);
+    border-color: var(--accent-away);
+}
+.set-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.20em;
+    color: rgba(255, 255, 255, 0.50);
+    text-transform: uppercase;
+}
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
+body.overlay-theme-light #scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+}
+body.overlay-theme-light .capsule {
+    background: rgba(246, 247, 250, 0.94);
+    border-color: rgba(0, 0, 0, 0.14);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+    color: #14181d;
+}
+body.overlay-theme-light .vs-sep { color: rgba(20, 24, 29, 0.30); }
+body.overlay-theme-light .pips-pill {
+    background: rgba(246, 247, 250, 0.88);
+    border-color: rgba(0, 0, 0, 0.10);
+}
+body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.35); }
+body.overlay-theme-light .set-label { color: rgba(20, 24, 29, 0.55); }

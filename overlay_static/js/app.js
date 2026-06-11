@@ -309,6 +309,12 @@ function updateGeometry(geometry) {
     const container = document.getElementById("pill-wrapper") || document.getElementById("scoreboard-container");
     if (!container || !geometry) return;
 
+    // Styles whose placement IS their design (e.g. pylons, pinned to
+    // the screen edges) opt out of operator geometry entirely via a
+    // data-fixed-geometry attribute on the container — shifting or
+    // scaling a full-frame layout would break the edge pinning.
+    if (container.dataset.fixedGeometry !== undefined) return;
+
     // Use a reference width. The overlay is designed at 1920x1080.
     // The "width" from customization is typically a percentage (e.g., 30 for 30%)
     const targetWidth = (geometry.width / 100) * 1920;

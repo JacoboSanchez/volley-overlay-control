@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Pylons" overlay — team panels pinned to the screen edges.
+
+   One slim panel per team, docked to the left/right edge of the
+   frame and vertically centred: logo, rotated team name, points,
+   set pips (race to N sets, rendered by ``renderSetPips`` in
+   app.js), timeout dots and a serve lamp. The whole top and bottom
+   of the frame stays clean for the court — also handy for vertical
+   crops of the stream. Text-free apart from live data.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --home-gradient: #E21836;
+    --away-gradient: #0047AB;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+/* The container spans the full frame; the two pylons pin themselves
+   to its edges. Operator geometry shifts/scales both together. */
+#scoreboard-container {
+    /* Contrast-safe team accents for the active surface (computed by
+       app.js). The light-theme block below re-points these. */
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    pointer-events: none;
+    opacity: 0;
+    transform-origin: top left;
+}
+
+.pylon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 118px;
+    padding: 18px 0 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    background: rgba(12, 15, 22, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+    color: #fff;
+}
+.pylon-home {
+    left: 0;
+    border-left: none;
+    border-radius: 0 16px 16px 0;
+    border-top: 4px solid var(--accent-home);
+}
+.pylon-away {
+    right: 0;
+    border-right: none;
+    border-radius: 16px 0 0 16px;
+    border-top: 4px solid var(--accent-away);
+}
+
+.logo-container {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-logo {
+    max-width: 52px;
+    max-height: 52px;
+    object-fit: contain;
+}
+
+/* Rotated name reads bottom-to-top along the panel. */
+.team-name {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.85);
+    max-height: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Points. ``.points`` is absolute inside the container so the
+   app.js slide animation stacks old/new digits. */
+.points-container {
+    position: relative;
+    width: 100%;
+    height: 48px;
+    overflow: hidden;
+}
+.points {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 46px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.pylon-home .points { color: var(--accent-home); }
+.pylon-away .points { color: var(--accent-away); }
+
+/* Set pips — filled per set won. */
+.set-pips { display: flex; gap: 5px; }
+.set-pip {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.30);
+}
+.pylon-home .set-pip.won {
+    background: var(--accent-home);
+    border-color: var(--accent-home);
+}
+.pylon-away .set-pip.won {
+    background: var(--accent-away);
+    border-color: var(--accent-away);
+}
+
+/* Timeout dots — hollow until used. */
+.timeout-container { display: flex; gap: 4px; }
+.timeout-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.40);
+}
+.timeout-dot.active {
+    background: rgba(255, 255, 255, 0.40);
+    opacity: 0.4;
+}
+
+/* Serve lamp at the panel foot. */
+.serving-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.serving-indicator.active { opacity: 1; }
+.pylon-home .serving-indicator {
+    background: var(--accent-home);
+    box-shadow: 0 0 10px var(--accent-home);
+}
+.pylon-away .serving-indicator {
+    background: var(--accent-away);
+    box-shadow: 0 0 10px var(--accent-away);
+}
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
+body.overlay-theme-light #scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+}
+body.overlay-theme-light .pylon {
+    background: rgba(246, 247, 250, 0.94);
+    border-color: rgba(0, 0, 0, 0.12);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+    color: #14181d;
+}
+body.overlay-theme-light .team-name { color: rgba(20, 24, 29, 0.80); }
+body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.30); }
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.40); }

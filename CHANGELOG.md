@@ -10,6 +10,21 @@ once a first tagged release ships.
 
 ### Added
 
+- **Three more scoreboard overlay styles.** `led` is a retro
+  gym-scoreboard homage — black bezel cabinet, dot-matrix texture,
+  glowing amber LED points (rendered with the repo's own "LED board"
+  font), red set counters, green serve lamp and amber timeout lamps;
+  its LED palette is the style's identity, so it ignores the theme
+  toggle like glass. `pylons` docks one slim panel per team to the
+  left/right screen edges (rotated name, points, set pips, timeouts,
+  serve lamp), keeping the whole top and bottom of the frame clean —
+  placement is the design, so it opts out of operator geometry via
+  the new data-fixed-geometry container attribute. `micro` is the
+  smallest footprint in the catalogue: a logo+points capsule with a
+  serve ring around the serving team's logo and a detached pill with
+  the set pips and localized set label. pylons and micro ship light
+  themes and use the contrast-safe accents.
+
 - **Overlay dark/light theme + contrast-safe team accents.** A new
   three-state appearance setting (default / dark / light) in the
   overlay config flips the card surface on styles that define the
