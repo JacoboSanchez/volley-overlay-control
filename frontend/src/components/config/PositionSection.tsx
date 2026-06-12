@@ -48,6 +48,24 @@ const FIELDS: PositionField[] = [
     step: 0.1,
     testId: 'vpos-input',
   },
+  {
+    labelKey: 'position.scale',
+    key: 'Scale',
+    def: 100,
+    min: 10,
+    max: 300,
+    step: 1,
+    testId: 'scale-input',
+  },
+  {
+    labelKey: 'position.margin',
+    key: 'Margin',
+    def: 0,
+    min: -25,
+    max: 25,
+    step: 0.5,
+    testId: 'margin-input',
+  },
 ];
 
 export interface PositionSectionProps {

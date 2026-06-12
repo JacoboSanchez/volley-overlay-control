@@ -409,6 +409,29 @@ function updateGeometry(geometry) {
     });
 }
 
+// Output-wide zoom + outer margin, applied to the whole overlay body so
+// it affects EVERY style uniformly — including edge-pinned layouts that
+// opt out of per-element geometry via data-fixed-geometry. ``scale`` is a
+// percentage (100 = unchanged); ``margin`` is a symmetric outer inset as a
+// percentage of the canvas (positive shrinks the output toward centre,
+// leaving a uniform border; negative pushes it past the edges to fight
+// stream overscan). The two compose multiplicatively into a single
+// transform-origin:center scale on <body>.
+function updateOutputTransform(geometry) {
+    if (!geometry) return;
+    const scalePct = Number(geometry.scale);
+    const marginPct = Number(geometry.margin);
+    const scaleFactor = Number.isFinite(scalePct) ? scalePct / 100 : 1;
+    const marginFactor = Number.isFinite(marginPct) ? 1 - (2 * marginPct) / 100 : 1;
+    let factor = scaleFactor * marginFactor;
+    // Guard against a degenerate/inverted box if margin >= 50%.
+    if (!Number.isFinite(factor) || factor <= 0) factor = 0.05;
+    document.body.style.transformOrigin = "center center";
+    // Clear the transform entirely at the identity so we never leave a
+    // stale matrix on styles that don't use these knobs.
+    document.body.style.transform = factor === 1 ? "" : `scale(${factor})`;
+}
+
 function animatePoints(elementId, newPoints) {
     // Kill any in-progress animation and remove the stale intermediate element
     const existingNew = document.getElementById(elementId + "-new");
@@ -478,6 +501,7 @@ function renderFullState(state, rawState) {
     // 1. Overlay Visibility & Geometry
     if (state.overlay_control.geometry) {
         updateGeometry(state.overlay_control.geometry);
+        updateOutputTransform(state.overlay_control.geometry);
     }
 
     withEl("scoreboard-container", container => {
@@ -617,6 +641,7 @@ function updateStateDiff(oldState, newState, oldRawState, newRawState) {
     // Geometry
     if (JSON.stringify(oldState.overlay_control.geometry) !== JSON.stringify(newState.overlay_control.geometry)) {
         updateGeometry(newState.overlay_control.geometry);
+        updateOutputTransform(newState.overlay_control.geometry);
     }
 
     // Colors

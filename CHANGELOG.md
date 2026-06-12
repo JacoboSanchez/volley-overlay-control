@@ -37,6 +37,17 @@ once a first tagged release ships.
 
 ### Added
 
+- **Overlay output scale + outer margin (custom overlays).** Two new
+  per-overlay knobs in the config panel's Position section, persisted in
+  presets under the existing *position* category: **Scale** zooms the
+  whole rendered output (base 100%), and **Margin** adds or removes a
+  symmetric outer border expressed as a percentage of the canvas
+  (positive shrinks the overlay toward centre leaving a uniform border;
+  negative pushes it past the edges to compensate for stream overscan).
+  Both apply to the built-in overlay engine as a single global transform
+  on the overlay body, so they affect *every* style uniformly —
+  including edge-pinned layouts that opt out of per-element geometry.
+
 - **Documented streaming position presets in `.env.example`.** The
   `APP_THEMES` env var (already surfaced read-only under Config →
   Presets) now ships a documented example of six position-only

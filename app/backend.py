@@ -389,6 +389,8 @@ class Backend:
                     "height": cust.get_height(),
                     "xpos": cust.get_hpos(),
                     "ypos": cust.get_vpos(),
+                    "scale": cust.get_scale(),
+                    "margin": cust.get_margin(),
                 },
                 "colors": {
                     "set_bg": cust.get_set_color(),
