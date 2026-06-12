@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.6.0] - 2026-06-12
+
 ### Fixed
 
 - **Remote config (`REMOTE_CONFIG_URL`) now accepts the configurator's
