@@ -19,7 +19,11 @@ once a first tagged release ships.
   ``@font-face`` (and the LED overlay's digit font) now carries
   ascent/descent overrides computed from the actual digit glyph
   geometry, which centres the digits identically on Android, desktop
-  and OBS; the manual offsets are zeroed.
+  and OBS; the manual offsets are zeroed. Horizontal centring is
+  corrected the same way: some fonts centre the glyph *advance* but
+  not the visible ink (LED board's digits sit a uniform 0.07em left
+  of centre), so the measured imbalance is compensated per font with
+  a proportional shift of the rendered digits.
 
 ### Added
 

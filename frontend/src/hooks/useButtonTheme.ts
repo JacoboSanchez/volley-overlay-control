@@ -9,6 +9,7 @@ type Customization = Record<string, unknown>;
 interface FontScale {
   scale: number;
   offset_y: number;
+  offset_x: number;
 }
 
 export interface UseButtonThemeResult {
@@ -72,8 +73,9 @@ export function useButtonTheme({
           fontFamily: `'${settings.selectedFont}'`,
           fontScale: fontProps.scale,
           fontOffsetY: fontProps.offset_y,
+          fontOffsetX: fontProps.offset_x,
         }
-      : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0 };
+      : { fontFamily: undefined, fontScale: 1.0, fontOffsetY: 0.0, fontOffsetX: 0.0 };
   }, [settings.selectedFont]);
 
   return { btnColorA, btnTextA, btnColorB, btnTextB, iconLogoA, iconLogoB, fontStyle };
