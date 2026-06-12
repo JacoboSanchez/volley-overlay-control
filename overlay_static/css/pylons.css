@@ -30,8 +30,10 @@ body {
     font-family: 'Inter', sans-serif;
 }
 
-/* The container spans the full frame; the two pylons pin themselves
-   to its edges. Operator geometry shifts/scales both together. */
+/* The container spans the full frame; the two pylons sit in the
+   outer columns of a 3-column grid. Sharing grid row 1 makes both
+   panels stretch to the taller of the two (the longest team name),
+   so the pair always reads symmetrically. */
 #scoreboard-container {
     /* Contrast-safe team accents for the active surface (computed by
        app.js). The light-theme block below re-points these. */
@@ -42,6 +44,9 @@ body {
     top: 0;
     width: 1920px;
     height: 1080px;
+    display: grid;
+    grid-template-columns: 118px 1fr 118px;
+    align-content: center;
     pointer-events: none;
     opacity: 0;
     /* Centre origin so the side-swap fold collapses toward screen
@@ -51,9 +56,9 @@ body {
 }
 
 .pylon {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
+    grid-row: 1;
+    /* Default grid stretch equalizes both panels to the row height,
+       i.e. the taller (longest-name) panel. */
     width: 118px;
     padding: 18px 0 16px;
     display: flex;
@@ -66,13 +71,13 @@ body {
     color: #fff;
 }
 .pylon-home {
-    left: 0;
+    grid-column: 1;
     border-left: none;
     border-radius: 0 16px 16px 0;
     border-top: 4px solid var(--accent-home);
 }
 .pylon-away {
-    right: 0;
+    grid-column: 3;
     border-right: none;
     border-radius: 16px 0 0 16px;
     border-top: 4px solid var(--accent-away);
@@ -91,10 +96,16 @@ body {
     object-fit: contain;
 }
 
-/* Rotated name reads bottom-to-top along the panel. */
+/* Rotated name reads bottom-to-top along the panel. The auto
+   vertical margins absorb the height difference between the two
+   equalized panels: a shorter name centres in the same space the
+   longer one occupies, so the bottom cluster (points, pips,
+   timeouts, serve lamp) lines up across both panels. */
 .team-name {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
+    margin-top: auto;
+    margin-bottom: auto;
     font-weight: 800;
     font-size: 15px;
     letter-spacing: 0.14em;
