@@ -78,12 +78,16 @@ class EnvVarsManager:
         wrapped in a ``{"configuration": {...}}`` envelope, so unwrap that
         single key transparently; otherwise the nested config keys (e.g.
         ``APP_TEAMS``) would never be found and the app would silently fall
-        back to its defaults. Any other shape is returned unchanged.
+        back to its defaults.
+
+        Always returns a dict: a non-dict payload (a JSON list, string or
+        bool the endpoint might serve) is dropped to ``{}`` so later
+        ``cache.get(...)`` lookups can't raise ``AttributeError``.
         """
-        if (
-            isinstance(payload, dict)
-            and set(payload) == {"configuration"}
-            and isinstance(payload["configuration"], dict)
-        ):
-            return payload["configuration"]
+        if not isinstance(payload, dict):
+            return {}
+        if len(payload) == 1 and "configuration" in payload:
+            inner = payload["configuration"]
+            if isinstance(inner, dict):
+                return inner
         return payload
