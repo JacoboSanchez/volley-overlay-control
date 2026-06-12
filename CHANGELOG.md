@@ -10,6 +10,16 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Remote config (`REMOTE_CONFIG_URL`) now accepts the configurator's
+  `{"configuration": {...}}` envelope.** The
+  [volleyball-scoreboard-configurator](https://github.com/JacoboSanchez/volleyball-scoreboard-configurator/)
+  exports the config wrapped in a top-level `configuration` key, but the
+  app read the JSON as a flat env-var mapping — so every setting
+  (`APP_TEAMS`, `APP_THEMES`, `PREDEFINED_OVERLAYS`, …) was looked up at
+  the wrong level, silently fell through to defaults, and the configured
+  teams never appeared. The loader now unwraps a lone `configuration`
+  envelope transparently while still accepting a plain flat object.
+
 - **Score digits now centre vertically in every font.** The ten
   selectable score-button fonts ship wildly inconsistent vertical
   metrics (declared ascents from 0.58em to 1.03em), which browsers

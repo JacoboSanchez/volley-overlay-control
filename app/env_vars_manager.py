@@ -64,7 +64,30 @@ class EnvVarsManager:
                     response = requests.get(remote_config_url, timeout=5)
                     logger.debug("Remote config response status: %s", response.status_code)
                     response.raise_for_status()
-                    cls._remote_config_cache = response.json()
+                    cls._remote_config_cache = cls._unwrap_remote_config(response.json())
                 except (requests.exceptions.RequestException, json.JSONDecodeError):
                     logger.exception("Error loading remote configuration")
                     cls._remote_config_cache = {}
+
+    @staticmethod
+    def _unwrap_remote_config(payload):
+        """Return the flat env-var mapping from a remote config payload.
+
+        The remote config is expected to be a flat ``{KEY: value}`` object
+        whose keys are env-var names. The companion configurator exports it
+        wrapped in a ``{"configuration": {...}}`` envelope, so unwrap that
+        single key transparently; otherwise the nested config keys (e.g.
+        ``APP_TEAMS``) would never be found and the app would silently fall
+        back to its defaults.
+
+        Always returns a dict: a non-dict payload (a JSON list, string or
+        bool the endpoint might serve) is dropped to ``{}`` so later
+        ``cache.get(...)`` lookups can't raise ``AttributeError``.
+        """
+        if not isinstance(payload, dict):
+            return {}
+        if len(payload) == 1 and "configuration" in payload:
+            inner = payload["configuration"]
+            if isinstance(inner, dict):
+                return inner
+        return payload

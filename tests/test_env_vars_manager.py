@@ -55,6 +55,44 @@ class TestEnvVarsManager(unittest.TestCase):
         # Assert that the remote value is returned
         self.assertEqual(value, 'remote_value')
 
+    @patch.dict(os.environ, {"REMOTE_CONFIG_URL": "http://fake-url.com/config.json"})
+    @patch('requests.get')
+    def test_remote_config_wrapped_in_configuration_envelope(self, mock_get):
+        # The companion configurator exports a {"configuration": {...}} envelope.
+        remote_config = {'configuration': {'TEST_VAR': 'remote_value'}}
+        mock_response = Mock()
+        mock_response.json.return_value = remote_config
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        # The nested env var is resolved as if it were at the top level.
+        self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'remote_value')
+
+    @patch.dict(os.environ, {"REMOTE_CONFIG_URL": "http://fake-url.com/config.json"})
+    @patch('requests.get')
+    def test_remote_config_envelope_with_extra_keys_not_unwrapped(self, mock_get):
+        # A "configuration" key alongside other top-level keys is ambiguous,
+        # so it is treated as a literal flat config (left unwrapped).
+        remote_config = {'configuration': {'NESTED': 'x'}, 'TEST_VAR': 'flat_value'}
+        mock_response = Mock()
+        mock_response.json.return_value = remote_config
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'flat_value')
+
+    @patch.dict(os.environ, {"REMOTE_CONFIG_URL": "http://fake-url.com/config.json", "TEST_VAR": "local_value"})
+    @patch('requests.get')
+    def test_remote_config_non_dict_payload_falls_back_to_local(self, mock_get):
+        # A valid-JSON-but-non-dict payload (list/str/bool) must not crash
+        # later cache.get() lookups; it is dropped so local env is used.
+        mock_response = Mock()
+        mock_response.json.return_value = ["not", "a", "dict"]
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        self.assertEqual(EnvVarsManager.get_env_var('TEST_VAR'), 'local_value')
+
     @patch.dict(os.environ, {"REMOTE_CONFIG_URL": "http://invalid-url.com/config.json", "TEST_VAR": "local_value"})
     @patch('requests.get')
     def test_invalid_remote_url(self, mock_get):
