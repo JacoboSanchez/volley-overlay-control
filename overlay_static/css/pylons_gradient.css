@@ -32,6 +32,10 @@ body {
 }
 
 #scoreboard-container {
+    /* Contrast-safe team accents for the active surface (computed by
+       app.js). The light-theme block below re-points these. */
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
     position: absolute;
     left: 0;
     top: 0;
@@ -193,6 +197,14 @@ body {
 }
 
 /* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
+
+/* In light mode the gradient fades to near-white at the bottom, so
+   white text/indicators would vanish. Re-point the accent vars and
+   use dark colours for every non-coloured element. */
+body.overlay-theme-light #scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+}
 body.overlay-theme-light .pylon {
     border-color: rgba(0, 0, 0, 0.12);
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
@@ -211,15 +223,46 @@ body.overlay-theme-light .pylon-away {
         rgba(246, 247, 250, 0.90) 100%
     );
 }
-body.overlay-theme-light .team-name { color: rgba(255, 255, 255, 0.95); }
-body.overlay-theme-light .points {
-    color: #fff;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+/* Team name sits in the lower half where the gradient fades light — use
+   dark text so it reads against the near-white base. */
+body.overlay-theme-light .team-name { color: rgba(20, 24, 29, 0.80); text-shadow: none; }
+
+/* Points use team accent so they remain branded and readable over the
+   light grey lower panel. */
+body.overlay-theme-light .pylon-home .points {
+    color: var(--accent-home);
+    text-shadow: none;
 }
-body.overlay-theme-light .set-pip { border-color: rgba(255, 255, 255, 0.50); }
-body.overlay-theme-light .set-pip.won {
-    background: #fff;
-    border-color: #fff;
+body.overlay-theme-light .pylon-away .points {
+    color: var(--accent-away);
+    text-shadow: none;
 }
-body.overlay-theme-light .timeout-dot { border-color: rgba(255, 255, 255, 0.50); }
-body.overlay-theme-light .timeout-dot.active { background: rgba(255, 255, 255, 0.50); }
+
+/* Pips: dark empty border, team accent fill for won sets. */
+body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.30); }
+body.overlay-theme-light .pylon-home .set-pip.won {
+    background: var(--accent-home);
+    border-color: var(--accent-home);
+}
+body.overlay-theme-light .pylon-away .set-pip.won {
+    background: var(--accent-away);
+    border-color: var(--accent-away);
+}
+
+/* Timeout dots: dark border / fill. */
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .timeout-dot.active {
+    background: rgba(20, 24, 29, 0.40);
+    opacity: 0.4;
+}
+
+/* Serve lamp: team accent so it pops against the light base. */
+body.overlay-theme-light .pylon-home .serving-indicator {
+    background: var(--accent-home);
+    box-shadow: 0 0 10px var(--accent-home);
+}
+body.overlay-theme-light .pylon-away .serving-indicator {
+    background: var(--accent-away);
+    box-shadow: 0 0 10px var(--accent-away);
+}
