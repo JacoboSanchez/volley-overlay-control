@@ -109,6 +109,31 @@ def test_geometry_setters(customization):
     assert customization.get_width() == 42.7
 
 
+def test_output_transform_scale_and_margin(customization):
+    """Scale/margin default sensibly and round-trip through getters/setters."""
+    # Defaults: 100% scale, no margin.
+    assert customization.get_scale() == 100.0
+    assert customization.get_margin() == 0.0
+
+    customization.set_scale(110.0)
+    assert customization.get_scale() == 110.0
+
+    customization.set_margin(-5.0)
+    assert customization.get_margin() == -5.0
+
+    # String coercion, matching the other geometry getters.
+    customization.set_scale("90")
+    assert customization.get_scale() == 90.0
+    customization.set_margin("7.5")
+    assert customization.get_margin() == 7.5
+
+    # Empty/None fall back to the defaults rather than raising.
+    customization.set_scale("")
+    assert customization.get_scale() == 100.0
+    customization.set_margin(None)
+    assert customization.get_margin() == 0.0
+
+
 # --- Advanced Scenarios and Edge Cases ---
 
 def test_fix_icon_url(customization):

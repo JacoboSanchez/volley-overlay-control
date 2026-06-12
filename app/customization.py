@@ -24,6 +24,13 @@ class Customization:
     HPOS_FLOAT = "Left-Right"
     VPOS_FLOAT = "Up-Down"
     WIDTH_FLOAT = "Width"
+    # Output-wide knobs for the built-in (custom) overlay engine. ``Scale``
+    # is a percentage zoom of the whole rendered output (100 = unchanged);
+    # ``Margin`` is a symmetric outer inset expressed as a percentage of the
+    # canvas (positive shrinks the output toward centre, leaving a uniform
+    # border; negative pushes it past the edges to fight stream overscan).
+    SCALE_FLOAT = "Scale"
+    MARGIN_FLOAT = "Margin"
     T1_COLOR = "Team 1 Color"
     T1_TEXT_COLOR = "Team 1 Text Color"
     T1_LOGO = "Team 1 Logo"
@@ -79,7 +86,9 @@ class Customization:
         COLOR3:RESET_COLORS[COLOR3],
         TEXT_COLOR3:RESET_COLORS[TEXT_COLOR3],
         VPOS_FLOAT: -41.1,
-        WIDTH_FLOAT: 30}
+        WIDTH_FLOAT: 30,
+        SCALE_FLOAT: 100,
+        MARGIN_FLOAT: 0}
 
     predefined_teams: dict[str, dict[str, str]] = {}
     THEMES: dict[str, dict[str, str | int | float]] = {}
@@ -290,6 +299,20 @@ class Customization:
 
     def set_v_pos(self, float_val):
         self.customization_model[Customization.VPOS_FLOAT] = float_val
+
+    def get_scale(self):
+        val = self.customization_model.get(Customization.SCALE_FLOAT, 100)
+        return float(val) if val not in [None, 'None', ''] else 100.0
+
+    def set_scale(self, float_val):
+        self.customization_model[Customization.SCALE_FLOAT] = float_val
+
+    def get_margin(self):
+        val = self.customization_model.get(Customization.MARGIN_FLOAT, 0)
+        return float(val) if val not in [None, 'None', ''] else 0.0
+
+    def set_margin(self, float_val):
+        self.customization_model[Customization.MARGIN_FLOAT] = float_val
 
     @staticmethod
     def get_predefined_teams():

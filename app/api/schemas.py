@@ -166,6 +166,9 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     'Color 1', 'Color 2', 'Text Color 1', 'Text Color 2',
     'Logos', 'Gradient',
     'Height', 'Width', 'Left-Right', 'Up-Down',
+    # Output-wide zoom (%) and symmetric outer margin (% of canvas) for
+    # the built-in overlay engine. Applied as a global transform by app.js.
+    'Scale', 'Margin',
     'preferredStyle',
     # Overlay surface theme: '' (per-style default), 'dark' or 'light'.
     # Applied by app.js as a body class on styles that define the
