@@ -37,6 +37,14 @@ once a first tagged release ships.
 
 ### Added
 
+- **Documented streaming position presets in `.env.example`.** The
+  `APP_THEMES` env var (already surfaced read-only under Config →
+  Presets) now ships a documented example of six position-only
+  presets for a 1080p stream — four screen corners plus centred
+  top/bottom single-line placements — alongside an explanation of the
+  `Width` / `Height` / `Left-Right` / `Up-Down` coordinate system.
+  Config-only; no code change.
+
 - **Side switching across every live view.** A swap button in the
   scoreboard centre column flips which team renders left/right on
   the operator UI, on all 22 OBS overlay styles (behind a quick
