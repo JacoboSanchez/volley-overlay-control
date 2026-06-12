@@ -171,6 +171,14 @@ export const SET_SUMMARY_STYLES = [
 ] as const;
 export type SetSummaryStyle = (typeof SET_SUMMARY_STYLES)[number];
 
+export function setSwapSides(oid: string, swapped: boolean): Promise<ActionResponse> {
+  return request<ActionResponse>('POST', `/display/swap-sides${withOid(oid)}`, { swapped });
+}
+
+export function setAutoSwapSides(oid: string, enabled: boolean): Promise<ActionResponse> {
+  return request<ActionResponse>('POST', `/display/auto-swap-sides${withOid(oid)}`, { enabled });
+}
+
 export function setSetSummary(oid: string, enabled: boolean): Promise<ActionResponse> {
   return request<ActionResponse>('POST', `/display/set-summary${withOid(oid)}`, { enabled });
 }

@@ -461,6 +461,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/display/auto-swap-sides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Auto Swap Sides
+         * @description Toggle automatic side swapping (set changes + mid-set points).
+         */
+        post: operations["set_auto_swap_sides_api_v1_display_auto_swap_sides_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/display/set-summary": {
         parameters: {
             query?: never;
@@ -512,6 +532,26 @@ export interface paths {
         put?: never;
         /** Set Simple Mode */
         post: operations["set_simple_mode_api_v1_display_simple_mode_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/display/swap-sides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Swap Sides
+         * @description Set the effective display orientation (True = team 2 left).
+         */
+        post: operations["set_swap_sides_api_v1_display_swap_sides_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1270,6 +1310,11 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** AutoSwapSidesRequest */
+        AutoSwapSidesRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /**
          * BeachSideSwitch
          * @description Beach volleyball side-switch indicator (only set when mode='beach').
@@ -1379,6 +1424,11 @@ export interface components {
         };
         /** GameStateResponse */
         GameStateResponse: {
+            /**
+             * Auto Swap Sides
+             * @default false
+             */
+            auto_swap_sides: boolean;
             beach_side_switch?: components["schemas"]["BeachSideSwitch"] | null;
             /**
              * Can Undo
@@ -1416,6 +1466,11 @@ export interface components {
              * @default brand_ledger
              */
             set_summary_style: string;
+            /**
+             * Sides Swapped
+             * @default false
+             */
+            sides_swapped: boolean;
             /** Simple Mode */
             simple_mode: boolean;
             team_1: components["schemas"]["TeamState"];
@@ -1680,6 +1735,14 @@ export interface components {
         SimpleModeRequest: {
             /** Enabled */
             enabled: boolean;
+        };
+        /**
+         * SwapSidesRequest
+         * @description Set the *effective* display orientation (True = team 2 left).
+         */
+        SwapSidesRequest: {
+            /** Swapped */
+            swapped: boolean;
         };
         /** TeamActionRequest */
         TeamActionRequest: {
@@ -2556,6 +2619,46 @@ export interface operations {
             };
         };
     };
+    set_auto_swap_sides_api_v1_display_auto_swap_sides_post: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoSwapSidesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_set_summary_api_v1_display_set_summary_post: {
         parameters: {
             query?: {
@@ -2653,6 +2756,46 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SimpleModeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_swap_sides_api_v1_display_swap_sides_post: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwapSidesRequest"];
             };
         };
         responses: {

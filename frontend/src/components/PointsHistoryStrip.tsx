@@ -15,6 +15,12 @@ export interface PointsHistoryStripProps {
   team2TextColor: string;
   team2Logo: string | null;
   team2Name: string;
+  /**
+   * Display-side swap: renders team 2's row on top. Each row keeps
+   * its own identity bundle (events route by ``ev.team``), only the
+   * order flips — mirroring the swapped team panels around it.
+   */
+  swapped?: boolean;
 }
 
 const ICON_VIEWBOX = '0 0 24 24';
@@ -193,33 +199,40 @@ export default function PointsHistoryStrip({
   team2TextColor,
   team2Logo,
   team2Name,
+  swapped = false,
 }: PointsHistoryStripProps) {
   const surface = useSurfaceColor();
   if (events.length === 0) return null;
+  const rows = [
+    <Row
+      key={1}
+      team={1}
+      events={events}
+      color={team1Color}
+      textColor={team1TextColor}
+      logo={team1Logo}
+      name={team1Name}
+      surface={surface}
+    />,
+    <Row
+      key={2}
+      team={2}
+      events={events}
+      color={team2Color}
+      textColor={team2TextColor}
+      logo={team2Logo}
+      name={team2Name}
+      surface={surface}
+    />,
+  ];
+  if (swapped) rows.reverse();
   return (
     <div
       className="points-history-strip"
       data-testid="points-history-strip"
       aria-label="Recent actions"
     >
-      <Row
-        team={1}
-        events={events}
-        color={team1Color}
-        textColor={team1TextColor}
-        logo={team1Logo}
-        name={team1Name}
-        surface={surface}
-      />
-      <Row
-        team={2}
-        events={events}
-        color={team2Color}
-        textColor={team2TextColor}
-        logo={team2Logo}
-        name={team2Name}
-        surface={surface}
-      />
+      {rows}
     </div>
   );
 }

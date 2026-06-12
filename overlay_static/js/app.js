@@ -95,17 +95,83 @@ function applyStateLocale(state) {
     }
 }
 
+// ── Display-side swap ────────────────────────────────────────────
+//
+// ``match_info.sides_swapped`` flips which team renders in the
+// "home" (left/top) slots. Presentation only — the swap happens by
+// exchanging the two team objects before rendering, so every
+// downstream consumer (names, colours, accents, pips, history,
+// progress bars) follows for free. The set-summary recap is exempt
+// (its home/away tags are semantic, not court-mapped), so it always
+// receives the *raw* state; ``previousRawState`` tracks it for the
+// diff path.
+let previousRawState = null;
+let lastSidesSwapped = false;
+
+function sidesSwappedOf(state) {
+    return !!(state && state.match_info && state.match_info.sides_swapped);
+}
+
+function swappedTeamView(state) {
+    if (!sidesSwappedOf(state)) return state;
+    const view = Object.assign({}, state);
+    view.team_home = state.team_away;
+    view.team_away = state.team_home;
+    return view;
+}
+
+// Fold the scoreboard shut horizontally, re-render the swapped
+// orientation, and unfold — a quick "card flip" that reads as the
+// sides trading places on every template.
+const SWAP_TRANSITION_S = 0.28;
+
+function runSideSwapTransition(view, raw) {
+    const container = document.getElementById("pill-wrapper")
+        || document.getElementById("scoreboard-container");
+    if (!container || typeof gsap === 'undefined') {
+        renderFullState(view, raw);
+        return;
+    }
+    const targetScaleX = Number(gsap.getProperty(container, "scaleX")) || 1;
+    gsap.to(container, {
+        scaleX: 0,
+        duration: SWAP_TRANSITION_S,
+        ease: "power2.in",
+        onComplete: () => {
+            // renderFullState re-applies operator geometry (which
+            // resets the transform), so collapse again before the
+            // unfold half.
+            renderFullState(view, raw);
+            gsap.set(container, { scaleX: 0 });
+            gsap.to(container, {
+                scaleX: targetScaleX,
+                duration: SWAP_TRANSITION_S,
+                ease: "power2.out",
+            });
+        },
+    });
+}
+
 function processStateUpdate(newState) {
     applyStateLocale(newState);
     applyOverlayTheme(newState);
+    const swapped = sidesSwappedOf(newState);
+    const view = swappedTeamView(newState);
     if (!previousState) {
         // Initial render
-        renderFullState(newState);
+        renderFullState(view, newState);
+    } else if (swapped !== lastSidesSwapped) {
+        // Orientation changed — full re-render behind the fold
+        // transition instead of diffing (a diff would animate every
+        // score/colour individually, which reads as chaos).
+        runSideSwapTransition(view, newState);
     } else {
         // Diff and apply
-        updateStateDiff(previousState, newState);
+        updateStateDiff(previousState, view, previousRawState, newState);
     }
-    previousState = structuredClone(newState);
+    lastSidesSwapped = swapped;
+    previousState = structuredClone(view);
+    previousRawState = structuredClone(newState);
 }
 
 // Localized label lookup against the shared bundle loaded ahead of
@@ -407,7 +473,8 @@ function updateLogoVisibility(showLogos) {
     if (scoreboard) scoreboard.classList.toggle('no-logos', !showLogos);
 }
 
-function renderFullState(state) {
+function renderFullState(state, rawState) {
+    rawState = rawState || state;
     // 1. Overlay Visibility & Geometry
     if (state.overlay_control.geometry) {
         updateGeometry(state.overlay_control.geometry);
@@ -429,7 +496,7 @@ function renderFullState(state) {
     const summaryOn = !!(state.match_info && state.match_info.show_set_summary);
     document.body.classList.toggle("set-summary-mode", summaryOn);
     if (summaryOn && window.SetSummary) {
-        window.SetSummary.render(state);
+        window.SetSummary.render(rawState);
     } else if (window.SetSummary) {
         window.SetSummary.hide();
     }
@@ -520,7 +587,8 @@ function renderFullState(state) {
     renderPointsHistory(state);
 }
 
-function updateStateDiff(oldState, newState) {
+function updateStateDiff(oldState, newState, oldRawState, newRawState) {
+    newRawState = newRawState || newState;
     // Check if the overall style template changed.
     // If so, the easiest architecture is to reload the browser source to process the new CSS/HTML template.
     // Compare against the style actually loaded by this page (window.OVERLAY_STYLE) to avoid a spurious
@@ -687,14 +755,14 @@ function updateStateDiff(oldState, newState) {
     ) {
         document.body.classList.toggle("set-summary-mode", newSummary);
         if (newSummary && window.SetSummary) {
-            window.SetSummary.render(newState);
+            window.SetSummary.render(newRawState);
         } else if (window.SetSummary) {
             window.SetSummary.hide();
         }
     } else if (newSummary && window.SetSummary) {
         // Same flag/style/set, but stats may have changed (e.g. the
         // operator added a point right after activating the recap).
-        window.SetSummary.render(newState);
+        window.SetSummary.render(newRawState);
     }
 
     // 8. Ticker

@@ -8,14 +8,50 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Score digits now centre vertically in every font.** The ten
+  selectable score-button fonts ship wildly inconsistent vertical
+  metrics (declared ascents from 0.58em to 1.03em), which browsers
+  resolve differently per platform — so the numbers sat visibly high
+  or low depending on the font and device, and a hand-tuned offset
+  table only papered over it on some platforms. Every score-font
+  ``@font-face`` (and the LED overlay's digit font) now carries
+  ascent/descent overrides computed from the actual digit glyph
+  geometry, which centres the digits identically on Android, desktop
+  and OBS; the manual offsets are zeroed. Horizontal centring is
+  corrected the same way: some fonts centre the glyph *advance* but
+  not the visible ink (LED board's digits sit a uniform 0.07em left
+  of centre), so the measured imbalance is compensated per font with
+  a proportional shift of the rendered digits.
+
 ### Added
+
+- **Side switching across every live view.** A swap button in the
+  scoreboard centre column flips which team renders left/right on
+  the operator UI, on all 22 OBS overlay styles (behind a quick
+  horizontal fold transition) and on the public spectator page —
+  presentation only, so team identity in the API, stats and audit
+  log never changes. An optional **auto switch sides** setting in
+  the Match Rules section follows the physical court: one switch per
+  set change, every 7 combined points in beach mode (5 in short
+  sets), and at the deciding-set midpoint (8 of 15) indoors —
+  including the mid-set switches of already-completed beach sets, so
+  the orientation always matches where the teams actually stand. The
+  orientation is a pure function of the live score, so undo rewinds
+  it; the manual button stays usable as a correction in auto mode,
+  and toggling auto never visually jumps the current picture. New
+  endpoints: ``POST /api/v1/display/swap-sides`` and
+  ``POST /api/v1/display/auto-swap-sides``; the effective orientation
+  ships as ``sides_swapped`` in the game state and the broadcast.
 
 - **Three more scoreboard overlay styles.** `led` is a retro
   gym-scoreboard homage — black bezel cabinet, dot-matrix texture,
   glowing amber LED points (rendered with the repo's own "LED board"
   font), red set counters, green serve lamp and amber timeout lamps;
-  its LED palette is the style's identity, so it ignores the theme
-  toggle like glass. `pylons` docks one slim panel per team to the
+  its LED palette is the style's identity; the theme toggle swaps the
+  cabinet between the dark default and a light aluminium face while
+  the recessed digit windows keep their dark glass and glow. `pylons` docks one slim panel per team to the
   left/right screen edges (rotated name, points, set pips, timeouts,
   serve lamp), keeping the whole top and bottom of the frame clean —
   placement is the design, so it opts out of operator geometry via

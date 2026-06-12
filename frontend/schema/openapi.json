@@ -113,6 +113,19 @@
         "title": "AppConfigResponse",
         "type": "object"
       },
+      "AutoSwapSidesRequest": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "AutoSwapSidesRequest",
+        "type": "object"
+      },
       "BeachSideSwitch": {
         "description": "Beach volleyball side-switch indicator (only set when mode='beach').\n\nSides switch every 7 combined points in non-tiebreak sets and\nevery 5 in the tiebreak. ``is_switch_pending`` is true the moment\na point crosses a boundary \u2014 operators should swap teams now.",
         "properties": {
@@ -333,6 +346,11 @@
       },
       "GameStateResponse": {
         "properties": {
+          "auto_swap_sides": {
+            "default": false,
+            "title": "Auto Swap Sides",
+            "type": "boolean"
+          },
           "beach_side_switch": {
             "anyOf": [
               {
@@ -439,6 +457,11 @@
             "default": "brand_ledger",
             "title": "Set Summary Style",
             "type": "string"
+          },
+          "sides_swapped": {
+            "default": false,
+            "title": "Sides Swapped",
+            "type": "boolean"
           },
           "simple_mode": {
             "title": "Simple Mode",
@@ -1154,6 +1177,20 @@
           "enabled"
         ],
         "title": "SimpleModeRequest",
+        "type": "object"
+      },
+      "SwapSidesRequest": {
+        "description": "Set the *effective* display orientation (True = team 2 left).",
+        "properties": {
+          "swapped": {
+            "title": "Swapped",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "swapped"
+        ],
+        "title": "SwapSidesRequest",
         "type": "object"
       },
       "TeamActionRequest": {
@@ -2675,6 +2712,95 @@
         ]
       }
     },
+    "/api/v1/display/auto-swap-sides": {
+      "post": {
+        "description": "Toggle automatic side swapping (set changes + mid-set points).",
+        "operationId": "set_auto_swap_sides_api_v1_display_auto_swap_sides_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoSwapSidesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Auto Swap Sides",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
     "/api/v1/display/set-summary": {
       "post": {
         "description": "Toggle the set-summary overlay panel on/off.",
@@ -2936,6 +3062,95 @@
           }
         },
         "summary": "Set Simple Mode",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/display/swap-sides": {
+      "post": {
+        "description": "Set the effective display orientation (True = team 2 left).",
+        "operationId": "set_swap_sides_api_v1_display_swap_sides_post",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwapSidesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Swap Sides",
         "tags": [
           "Scoreboard API v1"
         ]

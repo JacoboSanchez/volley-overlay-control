@@ -197,6 +197,11 @@ export default function App() {
     actions.setSimpleMode(!simpleMode);
   }, [actions, simpleMode]);
 
+  const sidesSwapped = state?.sides_swapped ?? false;
+  const handleSwapSides = useCallback(() => {
+    actions.setSwapSides(!sidesSwapped);
+  }, [actions, sidesSwapped]);
+
   const setSummaryActive = state?.set_summary ?? false;
   const setSummarySetNum = state?.set_summary_set_num ?? null;
   const setSummaryStyle = (state?.set_summary_style ??
@@ -312,6 +317,8 @@ export default function App() {
           <ScoreboardView
             state={state}
             customization={customization}
+            sidesSwapped={sidesSwapped}
+            onSwapSides={handleSwapSides}
             currentSet={currentSet}
             setsLimit={setsLimit}
             isPortrait={isPortrait}
@@ -369,6 +376,7 @@ export default function App() {
             customization={customization}
             actions={actions}
             gameConfig={state?.config ?? null}
+            autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
             onCustomizationSaved={refreshCustomization}

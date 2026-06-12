@@ -28,6 +28,9 @@ export interface ScoreboardViewProps {
   compactLandscape?: boolean;
   showControls: boolean;
   setShowControls: Dispatch<SetStateAction<boolean>>;
+  /** Display-side swap: true renders team 2 on the left. */
+  sidesSwapped: boolean;
+  onSwapSides: () => void;
   canUndo: boolean;
   simpleMode: boolean;
   btnColorA: string;
@@ -77,6 +80,8 @@ export default function ScoreboardView({
   compactLandscape = false,
   showControls,
   setShowControls,
+  sidesSwapped,
+  onSwapSides,
   canUndo,
   simpleMode,
   btnColorA,
@@ -118,76 +123,95 @@ export default function ScoreboardView({
       <div
         className={`main-layout ${isPortrait ? 'main-layout-portrait' : 'main-layout-landscape'}`}
       >
-        <TeamPanel
-          teamId={1}
-          teamState={state.team_1}
-          currentSet={currentSet}
-          buttonColor={btnColorA}
-          buttonTextColor={btnTextA}
-          serveColor={TEAM_A_SERVE_ACTIVE}
-          timeoutColor={TEAM_A_LIGHT}
-          buttonSize={buttonSize}
-          isPortrait={isPortrait}
-          iconLogo={iconLogoA}
-          iconOpacity={iconOpacity}
-          fontStyle={fontStyle}
-          state={state}
-          setsLimit={setsLimit}
-          customization={customization}
-          onAddPoint={onAddPoint}
-          onAddTimeout={onAddTimeout}
-          onChangeServe={onChangeServe}
-          onDoubleTapScore={onDoubleTapScore}
-          onDoubleTapTimeout={onDoubleTapTimeout}
-          onLongPressScore={onLongPressScore}
-        />
-
-        <CenterPanel
-          state={state}
-          customization={customization}
-          currentSet={currentSet}
-          setsLimit={setsLimit}
-          isPortrait={isPortrait}
-          compactLandscape={compactLandscape}
-          previewData={showPreview ? previewData : null}
-          recentEvents={recentEvents}
-          btnColorA={btnColorA}
-          btnTextA={btnTextA}
-          btnColorB={btnColorB}
-          btnTextB={btnTextB}
-          fontStyle={fontStyle}
-          setSummaryActive={setSummaryActive}
-          setSummarySetNum={setSummarySetNum}
-          setSummaryStyle={setSummaryStyle}
-          onDeactivateSetSummary={onToggleSetSummary}
-          onChangeSetSummaryStyle={onChangeSetSummaryStyle}
-          onAddSet={onAddSet}
-          onLongPressSet={onLongPressSet}
-        />
-
-        <TeamPanel
-          teamId={2}
-          teamState={state.team_2}
-          currentSet={currentSet}
-          buttonColor={btnColorB}
-          buttonTextColor={btnTextB}
-          serveColor={TEAM_B_SERVE_ACTIVE}
-          timeoutColor={TEAM_B_LIGHT}
-          buttonSize={buttonSize}
-          isPortrait={isPortrait}
-          iconLogo={iconLogoB}
-          iconOpacity={iconOpacity}
-          fontStyle={fontStyle}
-          state={state}
-          setsLimit={setsLimit}
-          customization={customization}
-          onAddPoint={onAddPoint}
-          onAddTimeout={onAddTimeout}
-          onChangeServe={onChangeServe}
-          onDoubleTapScore={onDoubleTapScore}
-          onDoubleTapTimeout={onDoubleTapTimeout}
-          onLongPressScore={onLongPressScore}
-        />
+        {(() => {
+          const panel1 = (
+            <TeamPanel
+              key={1}
+              teamId={1}
+              teamState={state.team_1}
+              currentSet={currentSet}
+              buttonColor={btnColorA}
+              buttonTextColor={btnTextA}
+              serveColor={TEAM_A_SERVE_ACTIVE}
+              timeoutColor={TEAM_A_LIGHT}
+              buttonSize={buttonSize}
+              isPortrait={isPortrait}
+              iconLogo={iconLogoA}
+              iconOpacity={iconOpacity}
+              fontStyle={fontStyle}
+              state={state}
+              setsLimit={setsLimit}
+              customization={customization}
+              onAddPoint={onAddPoint}
+              onAddTimeout={onAddTimeout}
+              onChangeServe={onChangeServe}
+              onDoubleTapScore={onDoubleTapScore}
+              onDoubleTapTimeout={onDoubleTapTimeout}
+              onLongPressScore={onLongPressScore}
+            />
+          );
+          const panel2 = (
+            <TeamPanel
+              key={2}
+              teamId={2}
+              teamState={state.team_2}
+              currentSet={currentSet}
+              buttonColor={btnColorB}
+              buttonTextColor={btnTextB}
+              serveColor={TEAM_B_SERVE_ACTIVE}
+              timeoutColor={TEAM_B_LIGHT}
+              buttonSize={buttonSize}
+              isPortrait={isPortrait}
+              iconLogo={iconLogoB}
+              iconOpacity={iconOpacity}
+              fontStyle={fontStyle}
+              state={state}
+              setsLimit={setsLimit}
+              customization={customization}
+              onAddPoint={onAddPoint}
+              onAddTimeout={onAddTimeout}
+              onChangeServe={onChangeServe}
+              onDoubleTapScore={onDoubleTapScore}
+              onDoubleTapTimeout={onDoubleTapTimeout}
+              onLongPressScore={onLongPressScore}
+            />
+          );
+          const centre = (
+            <CenterPanel
+              state={state}
+              sidesSwapped={sidesSwapped}
+              onSwapSides={onSwapSides}
+              customization={customization}
+              currentSet={currentSet}
+              setsLimit={setsLimit}
+              isPortrait={isPortrait}
+              compactLandscape={compactLandscape}
+              previewData={showPreview ? previewData : null}
+              recentEvents={recentEvents}
+              btnColorA={btnColorA}
+              btnTextA={btnTextA}
+              btnColorB={btnColorB}
+              btnTextB={btnTextB}
+              fontStyle={fontStyle}
+              setSummaryActive={setSummaryActive}
+              setSummarySetNum={setSummarySetNum}
+              setSummaryStyle={setSummaryStyle}
+              onDeactivateSetSummary={onToggleSetSummary}
+              onChangeSetSummaryStyle={onChangeSetSummaryStyle}
+              onAddSet={onAddSet}
+              onLongPressSet={onLongPressSet}
+            />
+          );
+          // Display-side swap: presentation only — every handler stays
+          // bound to its real team id, only the render order flips.
+          return (
+            <>
+              {sidesSwapped ? panel2 : panel1}
+              {centre}
+              {sidesSwapped ? panel1 : panel2}
+            </>
+          );
+        })()}
       </div>
 
       <div className={`hud-controls ${!showControls ? 'ui-hidden' : ''}`}>

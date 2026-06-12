@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useI18n } from '../i18n';
 import ScoreButton from './ScoreButton';
 import type { ScoreButtonFontStyle } from './ScoreButton';
 import ScoreTable from './ScoreTable';
@@ -25,6 +26,9 @@ export interface PreviewData {
 
 export interface CenterPanelProps {
   state: GameState | null | undefined;
+  /** Display-side swap: true mirrors the centre columns too. */
+  sidesSwapped?: boolean;
+  onSwapSides?: () => void;
   customization: ConfigModel | null | undefined;
   currentSet: number;
   setsLimit: number;
@@ -69,6 +73,8 @@ const PREVIEW_CARD_WIDTH_COMPACT = 200;
 
 function CenterPanel({
   state,
+  sidesSwapped = false,
+  onSwapSides,
   customization,
   currentSet,
   setsLimit,
@@ -89,49 +95,75 @@ function CenterPanel({
   onAddSet,
   onLongPressSet,
 }: CenterPanelProps) {
+  const { t } = useI18n();
   // Hooks must run before any early return — the hook itself handles
   // a null/undefined state by returning ``false``.
   const indoorMidpointPending = useIndoorMidpointAlert(state, currentSet, setsLimit);
 
   if (!state) return null;
 
-  const t1Sets = state.team_1.sets;
-  const t2Sets = state.team_2.sets;
-
-  const logo1 = asString(customization?.['Team 1 Logo']);
-  const logo2 = asString(customization?.['Team 2 Logo']);
+  // Display-side swap: presentation only — the buttons stay bound to
+  // their real team ids, the columns just trade places.
+  const leftId: 1 | 2 = sidesSwapped ? 2 : 1;
+  const rightId: 1 | 2 = sidesSwapped ? 1 : 2;
+  const setsById = { 1: state.team_1.sets, 2: state.team_2.sets } as const;
+  const logosById = {
+    1: asString(customization?.['Team 1 Logo']),
+    2: asString(customization?.['Team 2 Logo']),
+  } as const;
 
   return (
     <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
       <div className="sets-row">
         <ScoreButton
-          text={String(t1Sets)}
+          key={`sets-${leftId}`}
+          text={String(setsById[leftId])}
           color="#424242"
           textColor="#fff"
           className="set-button"
           size={48}
           fontStyle={fontStyle}
-          onClick={() => onAddSet(1)}
-          onLongPress={() => onLongPressSet(1)}
-          data-testid="team-1-sets"
+          onClick={() => onAddSet(leftId)}
+          onLongPress={() => onLongPressSet(leftId)}
+          data-testid={`team-${leftId}-sets`}
         />
 
         {!isPortrait && (
           <div className="logos-scores-section">
-            <div className="team-score-column">
-              {logo1 && (
-                <img src={logo1} alt="Team 1" className="team-logo" data-testid="team-1-logo" />
+            <div className="team-score-column" key={`col-${leftId}`}>
+              {logosById[leftId] && (
+                <img
+                  src={logosById[leftId]}
+                  alt={`Team ${leftId}`}
+                  className="team-logo"
+                  data-testid={`team-${leftId}-logo`}
+                />
               )}
-              <ScoreTable state={state} setsLimit={setsLimit} currentSet={currentSet} teamId={1} />
+              <ScoreTable
+                state={state}
+                setsLimit={setsLimit}
+                currentSet={currentSet}
+                teamId={leftId}
+              />
             </div>
             <div className="current-set-indicator" data-testid="current-set-indicator">
               {currentSet}
             </div>
-            <div className="team-score-column">
-              {logo2 && (
-                <img src={logo2} alt="Team 2" className="team-logo" data-testid="team-2-logo" />
+            <div className="team-score-column" key={`col-${rightId}`}>
+              {logosById[rightId] && (
+                <img
+                  src={logosById[rightId]}
+                  alt={`Team ${rightId}`}
+                  className="team-logo"
+                  data-testid={`team-${rightId}-logo`}
+                />
               )}
-              <ScoreTable state={state} setsLimit={setsLimit} currentSet={currentSet} teamId={2} />
+              <ScoreTable
+                state={state}
+                setsLimit={setsLimit}
+                currentSet={currentSet}
+                teamId={rightId}
+              />
             </div>
           </div>
         )}
@@ -143,19 +175,33 @@ function CenterPanel({
         )}
 
         <ScoreButton
-          text={String(t2Sets)}
+          key={`sets-${rightId}`}
+          text={String(setsById[rightId])}
           color="#424242"
           textColor="#fff"
           className="set-button"
           size={48}
           fontStyle={fontStyle}
-          onClick={() => onAddSet(2)}
-          onLongPress={() => onLongPressSet(2)}
-          data-testid="team-2-sets"
+          onClick={() => onAddSet(rightId)}
+          onLongPress={() => onLongPressSet(rightId)}
+          data-testid={`team-${rightId}-sets`}
         />
       </div>
 
       <div className="match-alerts-row" data-testid="match-alerts-row">
+        {onSwapSides && (
+          <button
+            type="button"
+            className="swap-sides-button"
+            onClick={onSwapSides}
+            title={t('scoreboard.swapSides')}
+            aria-label={t('scoreboard.swapSides')}
+            aria-pressed={sidesSwapped}
+            data-testid="swap-sides-button"
+          >
+            <span className="material-icons">swap_horiz</span>
+          </button>
+        )}
         <MatchAlertIndicator state={state} isPortrait={isPortrait} />
         {!state.match_finished && (
           <SideSwitchIndicator
@@ -185,13 +231,14 @@ function CenterPanel({
       ) : (
         <PointsHistoryStrip
           events={recentEvents}
+          swapped={sidesSwapped}
           team1Color={btnColorA}
           team1TextColor={btnTextA}
-          team1Logo={logo1 || null}
+          team1Logo={logosById[1] || null}
           team1Name={asString(customization?.['Team 1 Name']) || 'Team 1'}
           team2Color={btnColorB}
           team2TextColor={btnTextB}
-          team2Logo={logo2 || null}
+          team2Logo={logosById[2] || null}
           team2Name={asString(customization?.['Team 2 Name']) || 'Team 2'}
         />
       )}

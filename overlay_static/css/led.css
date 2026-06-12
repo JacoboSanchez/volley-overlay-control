@@ -11,14 +11,24 @@
 
    The LED palette (amber points / red sets / green serve) is the
    style's identity — fixed regardless of team colours, which appear
-   only on the logo chips. The cabinet is identity-dark, so this
-   style deliberately ignores the overlayTheme toggle (like glass).
+   only on the logo chips. The overlayTheme toggle swaps the cabinet
+   (dark default / light aluminium); the recessed digit windows stay
+   dark in both so the LED glow keeps its identity.
    ───────────────────────────────────────────────────────────────── */
 
 @font-face {
     font-family: 'LED Board';
     src: url('/fonts/LED board.ttf') format('truetype');
     font-display: swap;
+    /* The TTF ships inconsistent hhea/OS-2 vertical metrics, so the
+       digits land at different heights per platform (headless
+       Chromium vs Android). Override them: the digit glyphs span
+       baseline..0.94em with no descenders, so a 97/3 split centres
+       the visible glyph inside a line-height:1 box everywhere that
+       supports metric overrides. */
+    ascent-override: 97%;
+    descent-override: 3%;
+    line-gap-override: 0%;
 }
 
 :root {
@@ -165,6 +175,7 @@ body {
 .sets {
     font-family: 'LED Board', 'DejaVu Sans Mono', monospace;
     font-size: 26px;
+    line-height: 1;
     color: var(--led-red);
     text-shadow: 0 0 12px rgba(255, 91, 73, 0.75);
     width: 28px;
@@ -190,7 +201,7 @@ body {
     align-items: center;
     justify-content: flex-end;
     font-family: 'LED Board', 'DejaVu Sans Mono', monospace;
-    font-size: 42px;
+    font-size: 36px;
     line-height: 1;
     color: var(--led-amber);
     text-shadow: 0 0 16px rgba(255, 179, 32, 0.85), 0 0 2px rgba(255, 179, 32, 1);
@@ -228,6 +239,50 @@ body {
     background: rgba(255, 255, 255, 0.18);
 }
 .led-foot:has(.set-history-container:empty) .history-sep { display: none; }
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ──
+   Light aluminium cabinet; the recessed digit windows keep their
+   dark glass (and the amber glow) untouched. Lit lamps keep their
+   LED colours — only the unlit windows restyle for the pale face. */
+body.overlay-theme-light #scoreboard-container {
+    background: linear-gradient(180deg, #e9ebf0 0%, #cdd1da 100%);
+    border-color: #a9afbb;
+    box-shadow: inset 0 0 0 2px #fff, 0 16px 40px rgba(0, 0, 0, 0.30);
+    color: #1c2027;
+}
+body.overlay-theme-light #scoreboard-container::after {
+    background: radial-gradient(rgba(0, 0, 0, 0.10) 1px, transparent 1px);
+    background-size: 4px 4px;
+}
+body.overlay-theme-light .led-head { border-bottom-color: rgba(0, 0, 0, 0.12); }
+body.overlay-theme-light .led-set {
+    color: #8a6a00;
+    text-shadow: 0 0 8px rgba(255, 210, 62, 0.55);
+}
+body.overlay-theme-light .logo-container { background: rgba(0, 0, 0, 0.06); }
+body.overlay-theme-light .serving-indicator {
+    background: rgba(0, 0, 0, 0.10);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+body.overlay-theme-light .serving-indicator.active {
+    background: var(--led-green);
+    box-shadow: 0 0 9px rgba(67, 255, 122, 0.9);
+}
+body.overlay-theme-light .timeout-dot {
+    background: rgba(0, 0, 0, 0.10);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+body.overlay-theme-light .timeout-dot.active {
+    background: var(--led-amber);
+    box-shadow: 0 0 6px rgba(255, 179, 32, 0.8);
+}
+body.overlay-theme-light .sets {
+    color: #d8341f;
+    text-shadow: 0 0 8px rgba(255, 91, 73, 0.45);
+}
+body.overlay-theme-light .set-history-container .set-score { color: #767e8e; }
+body.overlay-theme-light .set-history-container .set-score.set-won { color: #2c333f; }
+body.overlay-theme-light .history-sep { background: rgba(0, 0, 0, 0.25); }
 
 /* Compact mode (operator's "only current set" toggle): drop the
    footer history strip. */

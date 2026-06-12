@@ -87,6 +87,8 @@ class TestGameSessionMeta:
             "simple": True,
             "set_summary": False,
             "set_summary_style": "brand_ledger",
+            "sides_swapped_manual": False,
+            "auto_swap_sides": False,
             "points_limit": 21,
             "points_limit_last_set": session.points_limit_last_set,
             "sets_limit": session.sets_limit,

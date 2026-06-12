@@ -388,3 +388,99 @@ class TestSetRules:
         s.current_set = 5
         GameService.set_rules(s, sets_limit=3)
         assert s.current_set <= 3
+
+
+# ---------------------------------------------------------------------------
+# compute_sides_swapped_auto — display-side swap parity
+# ---------------------------------------------------------------------------
+
+class TestComputeSidesSwappedAuto:
+    """Parity of every side switch since the first serve."""
+
+    @staticmethod
+    def _beach(**kw):
+        from app.api.match_rules import compute_sides_swapped_auto
+        defaults = dict(
+            mode="beach", current_set=1, sets_limit=3,
+            team1_score=0, team2_score=0,
+            points_limit=21, points_limit_last_set=15,
+            completed_set_scores=[],
+        )
+        defaults.update(kw)
+        return compute_sides_swapped_auto(**defaults)
+
+    @staticmethod
+    def _indoor(**kw):
+        from app.api.match_rules import compute_sides_swapped_auto
+        defaults = dict(
+            mode="indoor", current_set=1, sets_limit=5,
+            team1_score=0, team2_score=0,
+            points_limit=25, points_limit_last_set=15,
+            completed_set_scores=[],
+        )
+        defaults.update(kw)
+        return compute_sides_swapped_auto(**defaults)
+
+    # -- indoor ---------------------------------------------------------
+
+    def test_indoor_start_not_swapped(self):
+        assert self._indoor() is False
+
+    def test_indoor_set_change_alternates(self):
+        assert self._indoor(current_set=2,
+                            completed_set_scores=[(25, 20)]) is True
+        assert self._indoor(current_set=3,
+                            completed_set_scores=[(25, 20), (20, 25)]) is False
+
+    def test_indoor_no_midset_flip_outside_deciding_set(self):
+        # 8+ points in a regular set never flips.
+        assert self._indoor(current_set=2, team1_score=12, team2_score=10,
+                            completed_set_scores=[(25, 20)]) is True
+
+    def test_indoor_deciding_set_flips_at_midpoint(self):
+        completed = [(25, 20), (20, 25), (25, 23), (23, 25)]
+        base = dict(current_set=5, completed_set_scores=completed)
+        # 4 set changes -> even parity before the midpoint.
+        assert self._indoor(team1_score=7, team2_score=7, **base) is False
+        # Leader reaches 8 of 15 -> flip.
+        assert self._indoor(team1_score=8, team2_score=5, **base) is True
+        assert self._indoor(team1_score=5, team2_score=8, **base) is True
+        # Stays flipped through the rest of the set.
+        assert self._indoor(team1_score=15, team2_score=11, **base) is True
+
+    # -- beach ----------------------------------------------------------
+
+    def test_beach_midset_every_seven(self):
+        assert self._beach(team1_score=3, team2_score=3) is False   # 6 pts
+        assert self._beach(team1_score=4, team2_score=3) is True    # 7 pts
+        assert self._beach(team1_score=7, team2_score=6) is True    # 13 pts
+        assert self._beach(team1_score=7, team2_score=7) is False   # 14 pts
+
+    def test_beach_deciding_set_every_five(self):
+        completed = [(21, 18), (19, 21)]
+        base = dict(current_set=3, sets_limit=3,
+                    completed_set_scores=completed)
+        # Completed sets: 39 pts -> 5 flips, 40 pts -> 5 flips; plus 2
+        # set changes -> 12 flips total -> even.
+        assert self._beach(team1_score=0, team2_score=0, **base) is False
+        assert self._beach(team1_score=3, team2_score=2, **base) is True
+
+    def test_beach_completed_set_midswitches_counted(self):
+        # One completed 21-18 set: 39 pts -> 5 mid-set switches + 1 set
+        # change = 6 flips -> even -> not swapped at the start of set 2.
+        assert self._beach(current_set=2,
+                           completed_set_scores=[(21, 18)]) is False
+        # 21-15 = 36 pts -> 5 mid-set + 1 set change = 6 -> even.
+        assert self._beach(current_set=2,
+                           completed_set_scores=[(21, 15)]) is False
+        # 21-20 = 41 pts -> 5 mid-set + 1 set change = 6 -> even.
+        # 28-26 deuce marathon = 54 pts -> 7 mid-set + 1 = 8 -> even.
+        assert self._beach(current_set=2,
+                           completed_set_scores=[(28, 26)]) is False
+
+    def test_pure_function_of_score_supports_undo(self):
+        # Same inputs, same answer — rewinding the score rewinds the
+        # orientation with no hidden state.
+        a = self._beach(team1_score=4, team2_score=3)
+        b = self._beach(team1_score=4, team2_score=3)
+        assert a is b is True

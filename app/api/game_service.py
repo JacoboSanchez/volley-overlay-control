@@ -143,6 +143,8 @@ class GameService:
             },
             beach_side_switch=side_switch,
             match_point_info=match_point_info,
+            sides_swapped=GameService.effective_sides_swapped(session, state),
+            auto_swap_sides=bool(session.auto_swap_sides),
             can_undo=session.undoable_forward_count > 0,
             match_started_at=session.match_started_at,
             match_finished_at=session.match_finished_at,
@@ -783,6 +785,78 @@ class GameService:
         session.simple = enabled
         if enabled:
             session.backend.reduce_games_to_one()
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def _auto_swap_component(session, state) -> bool:
+        """Auto-derived side-swap parity for the session's live state."""
+        from app.api.match_rules import compute_sides_swapped_auto
+        completed = [
+            (state.get_game(1, i), state.get_game(2, i))
+            for i in range(1, session.current_set)
+        ]
+        return compute_sides_swapped_auto(
+            mode=session.mode,
+            current_set=session.current_set,
+            sets_limit=session.sets_limit,
+            team1_score=state.get_game(1, session.current_set),
+            team2_score=state.get_game(2, session.current_set),
+            points_limit=session.points_limit,
+            points_limit_last_set=session.points_limit_last_set,
+            completed_set_scores=completed,
+        )
+
+    @staticmethod
+    def effective_sides_swapped(session, state) -> bool:
+        """The orientation every live view should render right now.
+
+        Manual base XOR the auto component (when auto-swap is on), so
+        the swap button keeps working as a correction in auto mode.
+        """
+        swapped = bool(session.sides_swapped_manual)
+        if session.auto_swap_sides:
+            swapped ^= GameService._auto_swap_component(session, state)
+        return swapped
+
+    @staticmethod
+    def set_sides_swapped(session, swapped: bool) -> ActionResponse:
+        """Set the *effective* display orientation to ``swapped``.
+
+        The stored manual base absorbs the auto component so the
+        operator's intent ("show it this way now") wins regardless of
+        the auto-swap setting.
+        """
+        state = session.game_manager.get_current_state()
+        base = bool(swapped)
+        if session.auto_swap_sides:
+            base ^= GameService._auto_swap_component(session, state)
+        session.sides_swapped_manual = base
+        session.persist_meta()
+        state_response = GameService.get_state(session)
+        GameService._save_and_broadcast(session, state_response)
+        return ActionResponse(success=True, state=state_response)
+
+    @staticmethod
+    def set_auto_swap_sides(session, enabled: bool) -> ActionResponse:
+        """Toggle automatic side swapping.
+
+        The manual base is re-anchored so the orientation visible at
+        the moment of the toggle does not jump — the setting changes
+        future behaviour, not the current picture.
+        """
+        enabled = bool(enabled)
+        if enabled != session.auto_swap_sides:
+            state = session.game_manager.get_current_state()
+            current_effective = GameService.effective_sides_swapped(
+                session, state)
+            session.auto_swap_sides = enabled
+            base = current_effective
+            if enabled:
+                base ^= GameService._auto_swap_component(session, state)
+            session.sides_swapped_manual = base
+            session.persist_meta()
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         return ActionResponse(success=True, state=state_response)

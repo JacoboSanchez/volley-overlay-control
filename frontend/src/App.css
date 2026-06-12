@@ -5,55 +5,92 @@
 
 /* ── Scoreboard fonts ───────────────────────────────────────────────── */
 
+/* Score-button fonts. Each @font-face carries ascent/descent
+   overrides computed from the font's actual digit glyph geometry
+   (fontTools bbox of 0-9), so the digits centre identically in a
+   line-height:1 box on every platform — the TTFs ship wildly
+   inconsistent hhea metrics (0.58em..1.03em ascents) that browsers
+   resolve differently, which is what used to push the numbers off
+   centre per font. */
 @font-face {
   font-family: 'Alarm Clock';
   src: url('/fonts/Alarm Clock.ttf');
   font-display: swap;
+  ascent-override: 85%;
+  descent-override: 15%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Aluminum';
   src: url('/fonts/Aluminum.ttf');
   font-display: swap;
+  ascent-override: 84.7%;
+  descent-override: 15.3%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Atlas';
   src: url('/fonts/Atlas.ttf');
   font-display: swap;
+  ascent-override: 85.8%;
+  descent-override: 14.2%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Bypass';
   src: url('/fonts/Bypass.ttf');
   font-display: swap;
+  ascent-override: 84.4%;
+  descent-override: 15.6%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Catch';
   src: url('/fonts/Catch.ttf');
   font-display: swap;
+  ascent-override: 84.2%;
+  descent-override: 15.8%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Devotee';
   src: url('/fonts/Devotee.ttf');
   font-display: swap;
+  ascent-override: 84.3%;
+  descent-override: 15.7%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Digital Dismay';
   src: url('/fonts/Digital Dismay.otf');
   font-display: swap;
+  ascent-override: 84.2%;
+  descent-override: 15.8%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Digital Readout';
   src: url('/fonts/Digital Readout.ttf');
   font-display: swap;
+  ascent-override: 79.2%;
+  descent-override: 20.8%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'LED board';
   src: url('/fonts/LED board.ttf');
   font-display: swap;
+  ascent-override: 97%;
+  descent-override: 3%;
+  line-gap-override: 0%;
 }
 @font-face {
   font-family: 'Open 24';
   src: url('/fonts/Open 24.ttf');
   font-display: swap;
+  ascent-override: 84.9%;
+  descent-override: 15.1%;
+  line-gap-override: 0%;
 }
 
 /* Reset & base */
@@ -3412,4 +3449,62 @@ body {
 .set-summary-style-option:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* ── Swap-sides button (centre column, alerts row) ───────────── */
+.swap-sides-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+  flex: none;
+}
+.swap-sides-button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.swap-sides-button[aria-pressed='true'] {
+  color: #ffd54f;
+  border-color: rgba(255, 213, 79, 0.45);
+}
+.swap-sides-button .material-icons {
+  font-size: 20px;
+}
+/* Operator-UI light mode: the white-alpha treatment above vanishes
+   on a pale background — flip to ink-alpha. */
+:root.light .swap-sides-button {
+  border-color: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(20, 24, 29, 0.8);
+}
+:root.light .swap-sides-button:hover {
+  background: rgba(0, 0, 0, 0.16);
+  color: #14181d;
+}
+:root.light .swap-sides-button[aria-pressed='true'] {
+  color: #9a6c00;
+  border-color: rgba(154, 108, 0, 0.55);
+}
+:root.light .config-hint {
+  color: rgba(20, 24, 29, 0.6);
+}
+
+/* Hint line under config toggles (e.g. auto swap sides). */
+.config-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+}
+.config-auto-swap-row {
+  margin-top: 10px;
 }

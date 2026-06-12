@@ -8,9 +8,11 @@ from app.api.dependencies import get_session, verify_api_key
 from app.api.game_service import GameService
 from app.api.schemas import (
     ActionResponse,
+    AutoSwapSidesRequest,
     SetSummaryRequest,
     SetSummaryStyleRequest,
     SimpleModeRequest,
+    SwapSidesRequest,
     VisibilityRequest,
 )
 from app.api.session_manager import GameSession
@@ -41,6 +43,32 @@ async def set_simple_mode(req: SimpleModeRequest,
     async with session.lock:
         logger.debug("Simple mode set to %s", req.enabled)
         return GameService.set_simple_mode(session, req.enabled)
+
+
+@router.post(
+    "/display/swap-sides",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def set_swap_sides(req: SwapSidesRequest,
+                         session: GameSession = Depends(get_session)):
+    """Set the effective display orientation (True = team 2 left)."""
+    async with session.lock:
+        logger.debug("Sides swapped set to %s", req.swapped)
+        return GameService.set_sides_swapped(session, req.swapped)
+
+
+@router.post(
+    "/display/auto-swap-sides",
+    response_model=ActionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def set_auto_swap_sides(req: AutoSwapSidesRequest,
+                              session: GameSession = Depends(get_session)):
+    """Toggle automatic side swapping (set changes + mid-set points)."""
+    async with session.lock:
+        logger.debug("Auto swap sides set to %s", req.enabled)
+        return GameService.set_auto_swap_sides(session, req.enabled)
 
 
 @router.post(

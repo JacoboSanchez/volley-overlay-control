@@ -50,6 +50,8 @@ export interface GameActions {
   setVisibility: (visible: boolean) => Promise<ActionResponse>;
   setSimpleMode: (enabled: boolean) => Promise<ActionResponse>;
   setSetSummary: (enabled: boolean) => Promise<ActionResponse>;
+  /** Set the effective display orientation (true = team 2 left). */
+  setSwapSides: (swapped: boolean) => Promise<ActionResponse>;
   setSetSummaryStyle: (style: api.SetSummaryStyle) => Promise<ActionResponse>;
   /**
    * Server-side LIFO undo: pops the most recent forward
@@ -263,6 +265,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
       setVisibility: (visible) => handleAction(() => api.setVisibility(oid!, visible)),
       setSimpleMode: (enabled) => handleAction(() => api.setSimpleMode(oid!, enabled)),
       setSetSummary: (enabled) => handleAction(() => api.setSetSummary(oid!, enabled)),
+      setSwapSides: (swapped) => handleAction(() => api.setSwapSides(oid!, swapped)),
       setSetSummaryStyle: (style) => handleAction(() => api.setSetSummaryStyle(oid!, style)),
       undoLast: () => handleAction(() => api.undoLast(oid!)),
       startMatch: () => handleAction(() => api.startMatch(oid!)),

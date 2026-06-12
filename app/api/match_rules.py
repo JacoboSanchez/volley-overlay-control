@@ -146,6 +146,59 @@ def compute_side_switch(
     }
 
 
+def compute_sides_swapped_auto(
+    *, mode: str, current_set: int, sets_limit: int,
+    team1_score: int, team2_score: int,
+    points_limit: int, points_limit_last_set: int,
+    completed_set_scores: list[tuple[int, int]] | None = None,
+) -> bool:
+    """Auto-derived display-side swap parity for the live match state.
+
+    Models the physical court: teams switch sides after every set;
+    within a set, beach matches switch every
+    :func:`side_switch_interval` combined points and indoor matches
+    switch once in the deciding set when the leading team first
+    reaches the midpoint (8 of a 15-point set). The result is the
+    parity of *every* switch since the first serve — including the
+    mid-set switches of already-completed sets, reconstructed from
+    ``completed_set_scores`` (final ``(team1, team2)`` per finished
+    set, in order) — so the rendered orientation tracks where the
+    teams actually stand. Being a pure function of the score, an undo
+    rewinds the orientation automatically.
+    """
+    completed = list(completed_set_scores or [])
+    # One switch between consecutive sets.
+    flips = max(0, current_set - 1)
+
+    if mode == "beach":
+        # Mid-set switches in completed sets…
+        for idx, (s1, s2) in enumerate(completed, start=1):
+            interval = side_switch_interval(
+                current_set=idx, sets_limit=sets_limit,
+                points_limit=points_limit,
+                points_limit_last_set=points_limit_last_set,
+            )
+            flips += (max(0, int(s1)) + max(0, int(s2))) // interval
+        # …and in the set currently being played.
+        interval = side_switch_interval(
+            current_set=current_set, sets_limit=sets_limit,
+            points_limit=points_limit,
+            points_limit_last_set=points_limit_last_set,
+        )
+        points_in_set = max(0, int(team1_score)) + max(0, int(team2_score))
+        flips += points_in_set // interval
+    elif current_set >= sets_limit:
+        # Indoor deciding set: one switch when the leading team first
+        # reaches the midpoint (FIVB: 8 of 15). Completed sets carry no
+        # mid-set switches in indoor mode, and a completed deciding set
+        # means the match is over — the final orientation just sticks.
+        midpoint = (points_limit_last_set // 2) + 1
+        if max(int(team1_score), int(team2_score)) >= midpoint:
+            flips += 1
+
+    return flips % 2 == 1
+
+
 # -----------------------------------------------------------------------------
 # Set-point / match-point derivation
 # -----------------------------------------------------------------------------

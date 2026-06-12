@@ -4,6 +4,8 @@ import { useDoubleTap } from '../hooks/useDoubleTap';
 export interface ScoreButtonFontStyle {
   fontScale?: number;
   fontOffsetY?: number;
+  /** Horizontal ink compensation in em — see FontScale.offset_x. */
+  fontOffsetX?: number;
   fontFamily?: string;
 }
 
@@ -46,9 +48,13 @@ function ScoreButton({
 
   const scale = fontStyle?.fontScale ?? 1.0;
   const offsetY = fontStyle?.fontOffsetY ?? 0.0;
+  const offsetX = fontStyle?.fontOffsetX ?? 0.0;
   const baseFontSize = size ? size / 2 : 56;
   const scaledFontSize = baseFontSize * scale;
   const offsetPx = size ? size * offsetY * 2.0 : 0;
+  // Horizontal ink compensation (see FontScale.offset_x) — shifts
+  // the rendered digits so their visible ink centres in the button.
+  const offsetXPx = scaledFontSize * offsetX;
 
   const btnStyle: CSSProperties = {
     backgroundColor: color,
@@ -73,7 +79,18 @@ function ScoreButton({
       aria-describedby={ariaDescribedBy}
       data-testid={testId}
     >
-      {text}
+      {offsetXPx !== 0 ? (
+        <span
+          style={{
+            display: 'inline-block',
+            transform: `translateX(${offsetXPx.toFixed(2)}px)`,
+          }}
+        >
+          {text}
+        </span>
+      ) : (
+        text
+      )}
     </button>
   );
 }

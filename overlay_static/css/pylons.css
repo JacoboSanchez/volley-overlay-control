@@ -44,7 +44,10 @@ body {
     height: 1080px;
     pointer-events: none;
     opacity: 0;
-    transform-origin: top left;
+    /* Centre origin so the side-swap fold collapses toward screen
+       centre (this style opts out of operator geometry, which is
+       what normally requires the top-left origin). */
+    transform-origin: 50% 50%;
 }
 
 .pylon {
