@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.6.1] - 2026-06-12
+
 ### Added
 
 - **New `pylons_gradient` overlay style.** Team-colored glass panels pinned to
