@@ -1,14 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap');
 
 /* ─────────────────────────────────────────────────────────────────
-   "Pylons" overlay — team panels pinned to the screen edges.
+   "Pylons Gradient" overlay — team-colored glass panels pinned to
+   the screen edges.
 
-   One slim panel per team, docked to the left/right edge of the
-   frame and vertically centred: logo, rotated team name, points,
-   set pips (race to N sets, rendered by ``renderSetPips`` in
-   app.js), timeout dots and a serve lamp. The whole top and bottom
-   of the frame stays clean for the court — also handy for vertical
-   crops of the stream. Text-free apart from live data.
+   Builds on the standard pylons layout (logo → rotated name →
+   score → set pips → timeouts → serve lamp) but replaces the
+   neutral dark panel with a top-to-bottom gradient that fades from
+   each team's primary colour into a dark translucent base. The
+   points and pips stay white for contrast against the coloured
+   glass. Backdrop-filter blur lets the court bleed through subtly.
    ───────────────────────────────────────────────────────────────── */
 
 :root {
@@ -30,58 +31,54 @@ body {
     font-family: 'Inter', sans-serif;
 }
 
-/* The container spans the full frame; the two pylons sit in the
-   outer columns of a 3-column grid. Sharing grid row 1 makes both
-   panels stretch to the taller of the two (the longest team name),
-   so the pair always reads symmetrically. */
 #scoreboard-container {
-    /* Contrast-safe team accents for the active surface (computed by
-       app.js). The light-theme block below re-points these. */
-    --accent-home: var(--home-accent-dark, var(--home-gradient));
-    --accent-away: var(--away-accent-dark, var(--away-gradient));
     position: absolute;
     left: 0;
     top: 0;
     width: 1920px;
     height: 1080px;
     display: grid;
-    grid-template-columns: 118px 1fr 118px;
+    grid-template-columns: 120px 1fr 120px;
     align-content: center;
     pointer-events: none;
     opacity: 0;
-    /* Centre origin so the side-swap fold collapses toward screen
-       centre (this style opts out of operator geometry, which is
-       what normally requires the top-left origin). */
     transform-origin: 50% 50%;
 }
 
 .pylon {
     grid-row: 1;
-    /* Default grid stretch equalizes both panels to the row height,
-       i.e. the taller (longest-name) panel. */
-    width: 118px;
-    padding: 18px 0 16px;
+    width: 120px;
+    padding: 20px 0 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    background: rgba(12, 15, 22, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
     color: #fff;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     transition: padding 0.4s ease, gap 0.4s ease;
 }
 .pylon-home {
     grid-column: 1;
     border-left: none;
-    border-radius: 0 16px 16px 0;
-    border-top: 4px solid var(--accent-home);
+    border-radius: 0 20px 20px 0;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--home-gradient) 75%, transparent) 0%,
+        rgba(12, 15, 22, 0.88) 100%
+    );
 }
 .pylon-away {
     grid-column: 3;
     border-right: none;
-    border-radius: 16px 0 0 16px;
-    border-top: 4px solid var(--accent-away);
+    border-radius: 20px 0 0 20px;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--away-gradient) 75%, transparent) 0%,
+        rgba(12, 15, 22, 0.88) 100%
+    );
 }
 
 .logo-container {
@@ -95,13 +92,9 @@ body {
     max-width: 52px;
     max-height: 52px;
     object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* Rotated name reads bottom-to-top along the panel. The auto
-   vertical margins absorb the height difference between the two
-   equalized panels: a shorter name centres in the same space the
-   longer one occupies, so the bottom cluster (points, pips,
-   timeouts, serve lamp) lines up across both panels. */
 .team-name {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
@@ -111,7 +104,8 @@ body {
     font-size: 15px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.90);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     max-height: 190px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -120,8 +114,6 @@ body {
                 margin 0.4s ease;
 }
 
-/* Points. ``.points`` is absolute inside the container so the
-   app.js slide animation stacks old/new digits. */
 .points-container {
     position: relative;
     width: 100%;
@@ -137,26 +129,22 @@ body {
     font-size: 46px;
     font-weight: 800;
     line-height: 1;
+    color: #fff;
     font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
-.pylon-home .points { color: var(--accent-home); }
-.pylon-away .points { color: var(--accent-away); }
 
-/* Set pips — filled per set won. */
+/* Set pips — filled per set won. White on the gradient panels. */
 .set-pips { display: flex; gap: 5px; }
 .set-pip {
-    width: 9px;
-    height: 9px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.30);
+    border: 2px solid rgba(255, 255, 255, 0.40);
 }
-.pylon-home .set-pip.won {
-    background: var(--accent-home);
-    border-color: var(--accent-home);
-}
-.pylon-away .set-pip.won {
-    background: var(--accent-away);
-    border-color: var(--accent-away);
+.set-pip.won {
+    background: #fff;
+    border-color: #fff;
 }
 
 /* Timeout dots — hollow until used. */
@@ -181,13 +169,9 @@ body {
     transition: opacity 0.3s ease;
 }
 .serving-indicator.active { opacity: 1; }
-.pylon-home .serving-indicator {
-    background: var(--accent-home);
-    box-shadow: 0 0 10px var(--accent-home);
-}
-.pylon-away .serving-indicator {
-    background: var(--accent-away);
-    box-shadow: 0 0 10px var(--accent-away);
+.serving-indicator {
+    background: #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
 }
 
 /* ── Compact mode (simple mode / show only current set) ──────────
@@ -209,17 +193,33 @@ body {
 }
 
 /* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
-body.overlay-theme-light #scoreboard-container {
-    --accent-home: var(--home-accent-light, var(--home-gradient));
-    --accent-away: var(--away-accent-light, var(--away-gradient));
-}
 body.overlay-theme-light .pylon {
-    background: rgba(246, 247, 250, 0.94);
     border-color: rgba(0, 0, 0, 0.12);
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
-    color: #14181d;
 }
-body.overlay-theme-light .team-name { color: rgba(20, 24, 29, 0.80); }
-body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.30); }
-body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
-body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .pylon-home {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--home-gradient) 65%, transparent) 0%,
+        rgba(246, 247, 250, 0.90) 100%
+    );
+}
+body.overlay-theme-light .pylon-away {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--away-gradient) 65%, transparent) 0%,
+        rgba(246, 247, 250, 0.90) 100%
+    );
+}
+body.overlay-theme-light .team-name { color: rgba(255, 255, 255, 0.95); }
+body.overlay-theme-light .points {
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+body.overlay-theme-light .set-pip { border-color: rgba(255, 255, 255, 0.50); }
+body.overlay-theme-light .set-pip.won {
+    background: #fff;
+    border-color: #fff;
+}
+body.overlay-theme-light .timeout-dot { border-color: rgba(255, 255, 255, 0.50); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(255, 255, 255, 0.50); }
