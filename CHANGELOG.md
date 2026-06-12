@@ -143,6 +143,14 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Pylons panels are now always the same height.** The two
+  edge-docked panels of the *pylons* overlay used to size
+  independently from their own team name, so a long name on one
+  side made that panel visibly taller than the other. Both panels
+  now stretch to the height of the longer name and the shorter name
+  centres in the freed space, so the pair reads symmetrically and
+  the bottom cluster (points, set pips, timeouts, serve lamp) lines
+  up across both sides.
 - **Set-summary recap polish.** The recap stage now rises subtly into
   place alongside the existing cross-fade (disabled under
   `prefers-reduced-motion`); very long club names are capped at two
