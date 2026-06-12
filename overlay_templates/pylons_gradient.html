@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/pylons_gradient.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    <div id="scoreboard-container" class="scoreboard" data-fixed-geometry>
+
+        <!-- Team Home (left screen edge) -->
+        <div class="pylon pylon-home">
+            <div class="logo-container">
+                <img class="team-logo" id="home-logo" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="team-name" id="home-name">HOME</div>
+            <div class="points-container">
+                <div class="points" id="home-points">0</div>
+            </div>
+            <div class="set-pips" id="home-set-pips"></div>
+            <div class="timeout-container" id="home-timeouts">
+                <div class="timeout-dot"></div>
+                <div class="timeout-dot"></div>
+            </div>
+            <div class="serving-indicator" id="home-serving"></div>
+        </div>
+
+        <!-- Team Away (right screen edge) -->
+        <div class="pylon pylon-away">
+            <div class="logo-container">
+                <img class="team-logo" id="away-logo" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="team-name" id="away-name">AWAY</div>
+            <div class="points-container">
+                <div class="points" id="away-points">0</div>
+            </div>
+            <div class="set-pips" id="away-set-pips"></div>
+            <div class="timeout-container" id="away-timeouts">
+                <div class="timeout-dot"></div>
+                <div class="timeout-dot"></div>
+            </div>
+            <div class="serving-indicator" id="away-serving"></div>
+        </div>
+
+    </div>
+{% endblock %}

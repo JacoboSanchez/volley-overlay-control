@@ -8,6 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **New `pylons_gradient` overlay style.** Team-colored glass panels pinned to
+  the screen edges — the team's primary colour fades from the top into a dark
+  translucent base with backdrop-filter blur. Points and pips stay white for
+  contrast. Supports dark/light themes and compact mode.
+
+- **Compact mode (simple mode) for `pylons` and `pylons_gradient`.** When the
+  operator enables "show only current set", both pylons styles now hide team
+  names and tighten the panel — collapsing to a minimal strip (logo, score,
+  set pips, serve lamp) similar to the `micro` overlay aesthetic. The
+  transition animates smoothly.
+
 ## [5.6.0] - 2026-06-12
 
 ### Fixed
