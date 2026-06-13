@@ -44,6 +44,7 @@ const KEYS_BY_CATEGORY: Record<CategoryId, readonly string[]> = {
   style: [
     'preferredStyle',
     'overlayTheme',
+    'verticalAnchor',
     'Logos',
     'Gradient',
     'Color 1',
