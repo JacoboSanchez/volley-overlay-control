@@ -30,6 +30,13 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Pylons hide animation now collapses each panel to its own screen edge.**
+  Hiding the scoreboard slid the whole frame sideways, which read wrong for the
+  edge-pinned `pylons` / `pylons_gradient` styles (the two panels drifted off in
+  the same direction). They now exit symmetrically — the home panel collapses to
+  the left edge, the away panel to the right — while other styles keep the
+  existing slide-and-fade.
+
 - **Vertical-anchor selection is now persisted.** `verticalAnchor` was missing
   from the `ALLOWED_CUSTOMIZATION_KEYS` allow-list, so `PUT /customization`
   silently dropped it — the operator could pick top/center/bottom and save, but

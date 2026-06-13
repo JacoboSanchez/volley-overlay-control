@@ -530,6 +530,38 @@ function updateLogoVisibility(showLogos) {
     if (scoreboard) scoreboard.classList.toggle('no-logos', !showLogos);
 }
 
+// Show/hide the scoreboard with a style-appropriate transition.
+//
+// Most styles are a single block, so they slide sideways off-frame and
+// fade. Edge-pinned styles (pylons) are a full-frame pair docked to the
+// left/right edges via ``data-fixed-geometry`` — sliding the whole frame
+// sideways reads wrong, so instead each panel collapses to ITS OWN edge:
+// the home panel exits left, the away panel exits right. The container
+// itself stays put and opaque (pylons.css starts it at opacity:0, which
+// the visible branch raises here just like the generic path does).
+function applyScoreboardVisibility(container, show) {
+    if (container.dataset.fixedGeometry !== undefined) {
+        gsap.set(container, { x: 0, opacity: 1 });
+        const home = container.querySelector('.pylon-home');
+        const away = container.querySelector('.pylon-away');
+        if (show) {
+            const panels = [home, away].filter(Boolean);
+            if (panels.length) {
+                gsap.to(panels, { xPercent: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+            }
+        } else {
+            if (home) gsap.to(home, { xPercent: -120, opacity: 0, duration: 0.5, ease: "power2.in" });
+            if (away) gsap.to(away, { xPercent: 120, opacity: 0, duration: 0.5, ease: "power2.in" });
+        }
+        return;
+    }
+    if (show) {
+        gsap.to(container, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+    } else {
+        gsap.to(container, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
+    }
+}
+
 function renderFullState(state, rawState) {
     rawState = rawState || state;
     // 1. Overlay Visibility & Geometry
@@ -539,11 +571,7 @@ function renderFullState(state, rawState) {
     }
 
     withEl("scoreboard-container", container => {
-        if (state.overlay_control.show_main_scoreboard) {
-            gsap.to(container, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-        } else {
-            gsap.to(container, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
-        }
+        applyScoreboardVisibility(container, state.overlay_control.show_main_scoreboard);
         // Compact mode toggle (used by compact overlay to hide name/history)
         container.classList.toggle("compact-mode", !!state.match_info.show_only_current_set);
     });
@@ -664,11 +692,7 @@ function updateStateDiff(oldState, newState, oldRawState, newRawState) {
     // Visibility
     if (oldState.overlay_control.show_main_scoreboard !== newState.overlay_control.show_main_scoreboard) {
         withEl("scoreboard-container", container => {
-            if (newState.overlay_control.show_main_scoreboard) {
-                gsap.to(container, { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
-            } else {
-                gsap.to(container, { x: -100, opacity: 0, duration: 0.5, ease: "power2.in" });
-            }
+            applyScoreboardVisibility(container, newState.overlay_control.show_main_scoreboard);
         });
     }
 
