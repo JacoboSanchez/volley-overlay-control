@@ -55,6 +55,13 @@ body {
     transform-origin: 50% 50%;
 }
 
+/* Operator vertical-anchor knob (set by app.js as data-vertical-anchor).
+   Pylons opt out of free x/y geometry, so this is the only placement
+   control they expose: dock the pair to the top, centre or bottom of the
+   frame. ``center`` is the default already set above. */
+#scoreboard-container[data-vertical-anchor="top"] { align-content: start; }
+#scoreboard-container[data-vertical-anchor="bottom"] { align-content: end; }
+
 .pylon {
     grid-row: 1;
     /* Default grid stretch equalizes both panels to the row height,

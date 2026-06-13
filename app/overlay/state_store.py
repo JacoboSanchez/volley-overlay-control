@@ -170,6 +170,18 @@ _HASHED_FILENAME_PATTERN = re.compile(
 )
 _LEGACY_FILENAME_PATTERN = re.compile(r"^overlay_state_(.+)\.json$")
 
+# Bundled overlay static CSS directory, resolved relative to this module
+# (app/overlay/) so style-capability scanning finds the shipped stylesheets
+# regardless of the ``templates_dir`` the store was constructed with — the
+# templates dir is overridable (e.g. in tests) but the CSS lives with the
+# package, mirroring how ``app/overlay/__init__.py`` derives its paths.
+_BUNDLED_CSS_DIR = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "..", "overlay_static", "css",
+    )
+)
+
 
 class OverlayStateStore:
     """Manages overlay state with in-memory cache and JSON file persistence.
@@ -189,6 +201,7 @@ class OverlayStateStore:
         self._broadcast_callback: Callable | None = None
         self._available_styles: list | None = None
         self._renderable_styles: list | None = None
+        self._style_capabilities: dict[str, dict[str, bool]] | None = None
         # Maps any accepted URL token (output_key or raw overlay_id) to the
         # real overlay id. Populated lazily by resolve_overlay_id and kept
         # in sync by create/copy/delete.
@@ -481,6 +494,73 @@ class OverlayStateStore:
                     styles.append(meta)
             self._renderable_styles = styles
             return self._renderable_styles
+
+    # -- Style capabilities ------------------------------------------------
+
+    # Pulls the linked stylesheet name(s) out of a template's
+    # ``<link href="/static/css/NAME.css">`` tags and any one-level
+    # ``@import url('NAME.css')`` inside them (e.g. the shared jersey base).
+    _CSS_HREF_RE = re.compile(r"/static/css/([\w-]+)\.css")
+    _CSS_IMPORT_RE = re.compile(r"@import\s+url\(['\"]?([\w-]+)\.css")
+
+    @staticmethod
+    def _read_text(path: str) -> str:
+        """Return the file contents at *path*, or ``""`` if unreadable."""
+        try:
+            with open(path, encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            return ""
+
+    def _template_supports_theme(self, html: str, css_dir: str) -> bool:
+        """Whether the template's stylesheets define a light/dark override.
+
+        A style only earns the theme selector when one of the CSS files it
+        links (or imports, one level deep — e.g. ``jersey_shared.css``)
+        contains a ``body.overlay-theme-{dark,light}`` block, matched here by
+        the ``overlay-theme`` substring.
+        """
+        seen: set[str] = set()
+        queue = list(self._CSS_HREF_RE.findall(html))
+        while queue:
+            name = queue.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+            css = self._read_text(os.path.join(css_dir, f"{name}.css"))
+            if "overlay-theme" in css:
+                return True
+            queue.extend(self._CSS_IMPORT_RE.findall(css))
+        return False
+
+    def get_style_capabilities(self) -> dict[str, dict[str, bool]]:
+        """Per-style UI capability flags, scanned from templates/CSS (cached).
+
+        - ``verticalAnchor``: the style is edge-pinned — it opts out of
+          operator geometry via ``data-fixed-geometry``, so only its
+          vertical placement is meaningful and it gets a top/center/bottom
+          control instead of the free x/y/scale knobs.
+        - ``theme``: the style ships a ``body.overlay-theme-{dark,light}``
+          override block, so the dark/light theme selector changes something.
+
+        Both are derived from the on-disk templates/CSS so the control UI
+        only offers a knob where it has a visible effect. Cached after the
+        first scan — templates are static at runtime.
+        """
+        with self._lock:
+            if self._style_capabilities is not None:
+                return self._style_capabilities
+            css_dir = _BUNDLED_CSS_DIR
+            caps: dict[str, dict[str, bool]] = {}
+            for style in self.get_available_styles_list():
+                template = "index.html" if style == "default" else f"{style}.html"
+                html = self._read_text(os.path.join(self._templates_dir, template))
+                caps[style] = {
+                    "verticalAnchor": "data-fixed-geometry" in html,
+                    "theme": self._template_supports_theme(html, css_dir),
+                }
+            self._style_capabilities = caps
+            return caps
 
     # -- CRUD --------------------------------------------------------------
 

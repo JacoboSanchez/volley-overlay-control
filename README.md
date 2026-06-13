@@ -70,6 +70,7 @@ It includes 22 overlay style templates served directly to OBS browser sources â€
 ### Advanced Customization
 *   **Team Identity**: Customize team names, logos, and colors.
 *   **Scoreboard Layout**: Adjust dimensions (height, width) and position (horizontal, vertical).
+*   **Style-aware overlay knobs**: The Overlay section only surfaces a control where it actually changes the selected style â€” the **dark/light theme** selector appears for styles that ship a light/dark palette, and a **top / center / bottom** vertical-anchor selector appears for edge-pinned styles (`pylons`, `pylons_gradient`) that dock to the screen edges instead of following the free x/y geometry.
 *   **Visual Effects**: Apply glossy/gradient effects.
 *   **Themes**: Create, save, and load custom themes.
 

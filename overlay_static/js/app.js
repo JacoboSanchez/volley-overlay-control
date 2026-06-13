@@ -155,6 +155,7 @@ function runSideSwapTransition(view, raw) {
 function processStateUpdate(newState) {
     applyStateLocale(newState);
     applyOverlayTheme(newState);
+    applyVerticalAnchor(newState);
     const swapped = sidesSwappedOf(newState);
     const view = swappedTeamView(newState);
     if (!previousState) {
@@ -336,6 +337,39 @@ function applyOverlayTheme(state) {
     }
     document.body.classList.toggle('overlay-theme-dark', theme === 'dark');
     document.body.classList.toggle('overlay-theme-light', theme === 'light');
+}
+
+// ── Vertical anchor (top / center / bottom) ─────────────────────────
+//
+// Edge-pinned styles (e.g. pylons) opt out of operator x/y geometry —
+// only their vertical placement is meaningful. ``verticalAnchor`` rides
+// in the operator customization alongside ``overlayTheme`` and is applied
+// as a ``data-vertical-anchor`` attribute on the scoreboard container;
+// the style's own CSS turns that into ``align-content: start/center/end``.
+// Styles that honour operator geometry ignore the attribute entirely.
+// A ``?anchor=`` URL parameter wins so a fixed OBS browser-source URL
+// (or the mosaic preview) can pin the placement.
+const ANCHOR_URL_OVERRIDE = (() => {
+    try {
+        const v = (new URLSearchParams(window.location.search).get('anchor') || '').toLowerCase();
+        return v === 'top' || v === 'center' || v === 'bottom' ? v : null;
+    } catch (_e) {
+        return null;
+    }
+})();
+
+function applyVerticalAnchor(state) {
+    const container = document.getElementById("scoreboard-container");
+    if (!container) return;
+    let anchor = ANCHOR_URL_OVERRIDE;
+    if (!anchor) {
+        const cust = state && state.raw_remote_customization;
+        const v = cust && typeof cust.verticalAnchor === 'string'
+            ? cust.verticalAnchor.toLowerCase()
+            : '';
+        anchor = v === 'top' || v === 'bottom' ? v : 'center';
+    }
+    container.setAttribute('data-vertical-anchor', anchor);
 }
 
 function updateCSSVariables(teamHome, teamAway, colors = null) {

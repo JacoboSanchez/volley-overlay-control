@@ -190,3 +190,14 @@ def _latest_match_id_for(oid: str):
 async def get_styles(session: GameSession = Depends(get_session)):
     """Return available overlay styles."""
     return await run_in_threadpool(session.backend.get_available_styles)
+
+
+@router.get("/style-capabilities", dependencies=[Depends(verify_api_key)])
+async def get_style_capabilities(session: GameSession = Depends(get_session)):
+    """Per-style UI capability flags (theme / vertical-anchor support).
+
+    The control UI uses this to only surface the dark/light theme selector
+    and the top/center/bottom vertical-anchor control for styles where they
+    actually change something.
+    """
+    return await run_in_threadpool(session.backend.get_style_capabilities)

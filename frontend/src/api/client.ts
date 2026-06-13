@@ -267,6 +267,18 @@ export function getStyles(oid: string): Promise<string[]> {
   return request<string[]>('GET', `/styles${withOid(oid)}`);
 }
 
+/** Per-style UI capability flags reported by the backend. */
+export interface StyleCapabilities {
+  /** Style ships a dark/light override block — show the theme selector. */
+  theme: boolean;
+  /** Style is edge-pinned — show the top/center/bottom vertical-anchor control. */
+  verticalAnchor: boolean;
+}
+
+export function getStyleCapabilities(oid: string): Promise<Record<string, StyleCapabilities>> {
+  return request<Record<string, StyleCapabilities>>('GET', `/style-capabilities${withOid(oid)}`);
+}
+
 export function getOverlays(): Promise<OverlayPayload[]> {
   return request<OverlayPayload[]>('GET', '/overlays');
 }

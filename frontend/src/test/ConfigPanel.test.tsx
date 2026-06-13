@@ -10,6 +10,7 @@ vi.mock('../api/client', () => ({
     .fn()
     .mockResolvedValue({ Home: { icon: '', color: '#0000ff', text_color: '#ffffff' } }),
   getStyles: vi.fn().mockResolvedValue([]),
+  getStyleCapabilities: vi.fn().mockResolvedValue({}),
   getLinks: vi.fn().mockResolvedValue({ control: '', overlay: '', preview: '' }),
   getCustomization: vi.fn().mockResolvedValue({}),
   updateCustomization: vi.fn().mockResolvedValue({}),

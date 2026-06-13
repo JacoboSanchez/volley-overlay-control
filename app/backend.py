@@ -688,6 +688,11 @@ class Backend:
         self._ensure_overlay_backend(check_oid)
         return self._overlay.get_available_styles(check_oid)
 
+    def get_style_capabilities(self, oid: str = None) -> dict:
+        check_oid = self._oid_or_default(oid)
+        self._ensure_overlay_backend(check_oid)
+        return self._overlay.get_style_capabilities(check_oid)
+
     # -- OID validation / output token -------------------------------------
 
     def validate_and_store_model_for_oid(self, oid: str):
