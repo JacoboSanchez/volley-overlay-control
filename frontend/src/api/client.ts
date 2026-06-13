@@ -275,13 +275,8 @@ export interface StyleCapabilities {
   verticalAnchor: boolean;
 }
 
-export function getStyleCapabilities(
-  oid: string,
-): Promise<Record<string, StyleCapabilities>> {
-  return request<Record<string, StyleCapabilities>>(
-    'GET',
-    `/style-capabilities${withOid(oid)}`,
-  );
+export function getStyleCapabilities(oid: string): Promise<Record<string, StyleCapabilities>> {
+  return request<Record<string, StyleCapabilities>>('GET', `/style-capabilities${withOid(oid)}`);
 }
 
 export function getOverlays(): Promise<OverlayPayload[]> {

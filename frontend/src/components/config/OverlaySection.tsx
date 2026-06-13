@@ -110,9 +110,7 @@ export default function OverlaySection({
           )}
           {showAnchor && (
             <div className="config-field-group">
-              <label className="config-field-group-label">
-                {t('overlay.verticalAnchorLabel')}
-              </label>
+              <label className="config-field-group-label">{t('overlay.verticalAnchorLabel')}</label>
               <select
                 className="config-select"
                 value={asString(model['verticalAnchor'], '')}
