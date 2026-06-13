@@ -99,6 +99,9 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
     def get_available_styles(self, oid: str = None) -> list:
         return self._store().get_available_styles_list()
 
+    def get_style_capabilities(self, oid: str = None) -> dict:
+        return self._store().get_style_capabilities()
+
     def fetch_output_token(self, oid: str = None) -> str | None:
         from app.overlay.state_store import OverlayStateStore
         custom_id = self._custom_id(oid)

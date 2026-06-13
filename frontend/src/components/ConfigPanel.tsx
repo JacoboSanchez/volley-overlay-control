@@ -178,6 +178,7 @@ export default function ConfigPanel({
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [styles, setStyles] = useState<string[]>([]);
+  const [styleCaps, setStyleCaps] = useState<Record<string, api.StyleCapabilities>>({});
   const [links, setLinks] = useState<LinksData>(null);
   const [activeSection, setActiveSection] = useState<Section | null>('teams');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -200,6 +201,12 @@ export default function ConfigPanel({
       .getStyles(oid)
       .then((d) => {
         if (!cancelled) setStyles(d);
+      })
+      .catch(console.warn);
+    api
+      .getStyleCapabilities(oid)
+      .then((d) => {
+        if (!cancelled) setStyleCaps(d);
       })
       .catch(console.warn);
     return () => {
@@ -310,6 +317,7 @@ export default function ConfigPanel({
             model={model}
             updateField={updateField}
             styles={styles}
+            capabilities={styleCaps}
             isCustomOverlay={isCustomOverlay}
           />
         );

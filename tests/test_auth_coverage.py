@@ -116,6 +116,7 @@ SCOREBOARD_SAMPLE_ROUTES = [
     ("GET", "/api/v1/overlays"),
     ("GET", "/api/v1/links?oid=anything"),
     ("GET", "/api/v1/styles?oid=anything"),
+    ("GET", "/api/v1/style-capabilities?oid=anything"),
     ("POST", "/api/v1/session/init"),
     ("POST", "/api/v1/game/add-point?oid=anything"),
     ("POST", "/api/v1/game/add-set?oid=anything"),

@@ -65,6 +65,15 @@ class OverlayBackend(ABC):
     def get_available_styles(self, oid: str = None) -> list:
         """Return list of available overlay styles."""
 
+    def get_style_capabilities(self, oid: str = None) -> dict:
+        """Per-style UI capability flags (theme / vertical-anchor support).
+
+        Concrete (not abstract): backends without local templates — e.g.
+        the overlays.uno cloud backend — inherit the empty default, so the
+        control UI simply offers no style-specific knobs for them.
+        """
+        return {}
+
     @abstractmethod
     def fetch_output_token(self, oid: str = None) -> str | None:
         """Fetch the output URL or token for this overlay."""

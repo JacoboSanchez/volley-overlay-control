@@ -4551,6 +4551,83 @@
         ]
       }
     },
+    "/api/v1/style-capabilities": {
+      "get": {
+        "description": "Per-style UI capability flags (theme / vertical-anchor support).\n\nThe control UI uses this to only surface the dark/light theme selector\nand the top/center/bottom vertical-anchor control for styles where they\nactually change something.",
+        "operationId": "get_style_capabilities_api_v1_style_capabilities_get",
+        "parameters": [
+          {
+            "description": "Overlay ID",
+            "in": "query",
+            "name": "oid",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Overlay ID",
+              "title": "Oid"
+            }
+          },
+          {
+            "description": "Alias of `oid` for backward compatibility",
+            "in": "query",
+            "name": "control",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of `oid` for backward compatibility",
+              "title": "Control"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Style Capabilities",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
     "/api/v1/styles": {
       "get": {
         "description": "Return available overlay styles.",

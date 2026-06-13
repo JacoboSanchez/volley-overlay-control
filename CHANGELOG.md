@@ -8,6 +8,26 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Vertical-anchor control for edge-pinned overlays.** The `pylons` and
+  `pylons_gradient` styles dock to the screen edges and ignore the free
+  x/y/scale geometry knobs, so only their vertical placement is meaningful.
+  The Overlay config section now offers a **top / center / bottom** selector
+  (persisted as `verticalAnchor`) that docks the panels to the chosen edge of
+  the frame. A `?anchor=top|center|bottom` URL parameter overrides it for a
+  fixed OBS browser-source URL. Localised in all six UI languages.
+
+### Changed
+
+- **Style-specific overlay knobs only appear where they have an effect.** A new
+  `GET /api/v1/style-capabilities` endpoint reports, per style, whether the
+  dark/light **theme** selector and the vertical-anchor control change anything
+  (scanned from the on-disk templates/CSS). The control UI now hides the theme
+  selector for styles without a `body.overlay-theme-*` override and only shows
+  the vertical-anchor control for edge-pinned styles, instead of showing the
+  theme selector for every custom overlay with more than one style.
+
 ## [5.6.1] - 2026-06-12
 
 ### Added

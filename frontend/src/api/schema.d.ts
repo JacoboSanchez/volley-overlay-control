@@ -930,6 +930,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/style-capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Style Capabilities
+         * @description Per-style UI capability flags (theme / vertical-anchor support).
+         *
+         *     The control UI uses this to only surface the dark/light theme selector
+         *     and the top/center/bottom vertical-anchor control for styles where they
+         *     actually change something.
+         */
+        get: operations["get_style_capabilities_api_v1_style_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/styles": {
         parameters: {
             query?: never;
@@ -3477,6 +3501,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GameStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_style_capabilities_api_v1_style_capabilities_get: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
