@@ -265,6 +265,13 @@ class TestGameService:
         result = GameService.update_customization(session, new_data)
         assert result.success is True
 
+    def test_update_customization_persists_vertical_anchor(self, session):
+        # Regression: ``verticalAnchor`` (edge-pinned pylons placement) must
+        # survive the allow-list filter so the overlay actually receives it.
+        result = GameService.update_customization(session, {"verticalAnchor": "top"})
+        assert result.success is True
+        assert session.customization.get_model().get("verticalAnchor") == "top"
+
     def test_update_customization_accepts_supported_locale(self, session):
         result = GameService.update_customization(session, {"locale": "es"})
         assert result.success is True

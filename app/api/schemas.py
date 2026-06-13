@@ -174,6 +174,10 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     # Applied by app.js as a body class on styles that define the
     # matching palette; a ``?theme=`` URL override takes precedence.
     'overlayTheme',
+    # Vertical anchor for edge-pinned styles (pylons): '' (center),
+    # 'top' or 'bottom'. Applied by app.js as a ``data-vertical-anchor``
+    # attribute; an ``?anchor=`` URL override takes precedence.
+    'verticalAnchor',
     # Operator UI locale, broadcast to OBS-embedded overlays (whose URL
     # is fixed in the streaming app and cannot carry ``?lang=``).
     'locale',

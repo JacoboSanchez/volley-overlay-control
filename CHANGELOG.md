@@ -28,6 +28,14 @@ once a first tagged release ships.
   the vertical-anchor control for edge-pinned styles, instead of showing the
   theme selector for every custom overlay with more than one style.
 
+### Fixed
+
+- **Vertical-anchor selection is now persisted.** `verticalAnchor` was missing
+  from the `ALLOWED_CUSTOMIZATION_KEYS` allow-list, so `PUT /customization`
+  silently dropped it — the operator could pick top/center/bottom and save, but
+  the overlay never moved. Added it to the allow-list (and the `style` preset
+  category) so the choice round-trips to the overlay and into saved presets.
+
 ## [5.6.1] - 2026-06-12
 
 ### Added
