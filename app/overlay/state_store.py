@@ -170,6 +170,18 @@ _HASHED_FILENAME_PATTERN = re.compile(
 )
 _LEGACY_FILENAME_PATTERN = re.compile(r"^overlay_state_(.+)\.json$")
 
+# Bundled overlay static CSS directory, resolved relative to this module
+# (app/overlay/) so style-capability scanning finds the shipped stylesheets
+# regardless of the ``templates_dir`` the store was constructed with — the
+# templates dir is overridable (e.g. in tests) but the CSS lives with the
+# package, mirroring how ``app/overlay/__init__.py`` derives its paths.
+_BUNDLED_CSS_DIR = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "..", "overlay_static", "css",
+    )
+)
+
 
 class OverlayStateStore:
     """Manages overlay state with in-memory cache and JSON file persistence.
@@ -538,10 +550,7 @@ class OverlayStateStore:
         with self._lock:
             if self._style_capabilities is not None:
                 return self._style_capabilities
-            css_dir = os.path.join(
-                os.path.dirname(os.path.normpath(self._templates_dir)),
-                "overlay_static", "css",
-            )
+            css_dir = _BUNDLED_CSS_DIR
             caps: dict[str, dict[str, bool]] = {}
             for style in self.get_available_styles_list():
                 template = "index.html" if style == "default" else f"{style}.html"
