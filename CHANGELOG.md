@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.7.0] - 2026-06-14
+
 ### Added
 
 - **Vertical-anchor control for edge-pinned overlays.** The `pylons` and
