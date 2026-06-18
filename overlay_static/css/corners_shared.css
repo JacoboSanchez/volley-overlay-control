@@ -183,7 +183,10 @@ body.overlay-theme-light #scoreboard-container {
     white-space: normal;
     word-break: break-word;
 }
-.corner-chip.pylon-away .team-name { text-align: right; }
+/* equalizeNamePanels makes .team-info a grid with justify-items:start, so
+   the away name would left-align (gap toward the logo) and text-align:right
+   wouldn't bite. Pull the away name to the end of its cell for symmetry. */
+.corner-chip.pylon-away .team-name { justify-self: end; text-align: right; }
 
 /* ── INTERIOR cluster: set pips (circles) + points ─────────────── */
 .chip-int {
