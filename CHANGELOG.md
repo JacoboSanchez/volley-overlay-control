@@ -28,6 +28,24 @@ once a first tagged release ships.
   selectable styles (also restores the previously undocumented `pylons_gradient`
   to the README list).
 
+### Changed
+
+- **Edge-pinned overlays fold to the screen edges when swapping sides.**
+  Swapping the home/away sides while a `pylons`- or `corners`-family overlay
+  is on screen used to collapse the whole frame toward the centre and snap
+  back, which read as an abrupt vanish-and-return. Each panel now folds to
+  its own screen edge and unfolds again on the swapped side, reusing the
+  same choreography as the show/hide animation. Other styles keep the quick
+  horizontal card-flip.
+
+### Fixed
+
+- **Swapping sides no longer flashes a hidden scoreboard on screen.** When
+  the main scoreboard was hidden, a side swap briefly animated the panels
+  into view before hiding them again (most visible on the edge-pinned
+  `pylons` / `corners` families). The swap now re-renders silently while
+  hidden, so the scoreboard stays off screen.
+
 ### Dependencies
 
 - Bump ``starlette`` from ``1.0.1`` to ``1.3.1`` to clear

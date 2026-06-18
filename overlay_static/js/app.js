@@ -120,20 +120,62 @@ function swappedTeamView(state) {
     return view;
 }
 
-// Fold the scoreboard shut horizontally, re-render the swapped
-// orientation, and unfold — a quick "card flip" that reads as the
-// sides trading places on every template.
+// Re-render with the two sides traded. The choreography depends on
+// whether the scoreboard is currently on screen and on the style:
+//
+//   * Hidden — never animate anything into view. Just re-render the
+//     swapped orientation so it stays hidden; otherwise the panels
+//     flash in and then hide again the moment the swap lands.
+//   * Edge-pinned (pylons / corners) — a docked pair where each panel
+//     lives at an opposite screen edge. Fold each panel to ITS OWN edge
+//     and unfold it back swapped, reusing the hide/show choreography.
+//     The whole-frame "card flip" collapses both panels toward the
+//     centre, which reads as an abrupt vanish-and-return for a docked
+//     pair.
+//   * Everything else — a quick horizontal "card flip".
 const SWAP_TRANSITION_S = 0.28;
 
 function runSideSwapTransition(view, raw) {
-    const container = document.getElementById("pill-wrapper")
-        || document.getElementById("scoreboard-container");
-    if (!container || typeof gsap === 'undefined') {
+    const scoreboard = document.getElementById("scoreboard-container");
+    const show = !!(view.overlay_control
+        && view.overlay_control.show_main_scoreboard);
+
+    // A swap while hidden must not reveal anything — re-render silently.
+    if (!show || typeof gsap === 'undefined') {
         renderFullState(view, raw);
         return;
     }
-    const targetScaleX = Number(gsap.getProperty(container, "scaleX")) || 1;
-    gsap.to(container, {
+
+    // Edge-pinned styles: collapse both panels to their own edges, swap
+    // the content while they are folded away (invisible), then let
+    // renderFullState's visibility pass unfold them back in — now on the
+    // swapped sides.
+    if (scoreboard && scoreboard.dataset.fixedGeometry !== undefined) {
+        const panels = [
+            scoreboard.querySelector('.pylon-home'),
+            scoreboard.querySelector('.pylon-away'),
+        ].filter(Boolean);
+        if (panels.length) {
+            gsap.to(panels, {
+                xPercent: (i, el) =>
+                    (el.classList.contains('pylon-away') ? 120 : -120),
+                opacity: 0,
+                duration: SWAP_TRANSITION_S,
+                ease: "power2.in",
+                onComplete: () => renderFullState(view, raw),
+            });
+            return;
+        }
+    }
+
+    // Generic single-block styles: fold shut horizontally and unfold.
+    const wrapper = document.getElementById("pill-wrapper") || scoreboard;
+    if (!wrapper) {
+        renderFullState(view, raw);
+        return;
+    }
+    const targetScaleX = Number(gsap.getProperty(wrapper, "scaleX")) || 1;
+    gsap.to(wrapper, {
         scaleX: 0,
         duration: SWAP_TRANSITION_S,
         ease: "power2.in",
@@ -142,8 +184,8 @@ function runSideSwapTransition(view, raw) {
             // resets the transform), so collapse again before the
             // unfold half.
             renderFullState(view, raw);
-            gsap.set(container, { scaleX: 0 });
-            gsap.to(container, {
+            gsap.set(wrapper, { scaleX: 0 });
+            gsap.to(wrapper, {
                 scaleX: targetScaleX,
                 duration: SWAP_TRANSITION_S,
                 ease: "power2.out",
