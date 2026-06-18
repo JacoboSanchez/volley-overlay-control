@@ -45,6 +45,12 @@ once a first tagged release ships.
   into view before hiding them again (most visible on the edge-pinned
   `pylons` / `corners` families). The swap now re-renders silently while
   hidden, so the scoreboard stays off screen.
+- **Edge-pinned overlays no longer flash for a frame when they render while
+  hidden.** The `pylons` and `corners` panels had no resting hidden state in
+  CSS, so a scoreboard configured hidden — or shown in the in-app preview
+  while hidden — painted the panels at full opacity for a frame before the
+  hide animation ran. They now default to `opacity: 0` until the reveal
+  animation raises them.
 
 ### Dependencies
 

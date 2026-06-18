@@ -77,6 +77,10 @@ body {
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
     color: #fff;
     transition: padding 0.4s ease, gap 0.4s ease;
+    /* Resting hidden state — see the matching note in corners_shared.css.
+       Prevents a one-frame flash when the scoreboard renders while hidden;
+       GSAP sets the inline opacity once it takes over. */
+    opacity: 0;
 }
 .pylon-home {
     grid-column: 1;

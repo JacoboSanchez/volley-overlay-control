@@ -93,6 +93,15 @@ body.overlay-theme-light #scoreboard-container {
     padding: 12px 18px;
     border-radius: 14px;
     color: #fff;
+    /* Resting hidden state. ``applyScoreboardVisibility`` raises the
+       container to opacity:1 and *then* animates the chips, so without an
+       initial opacity:0 a scoreboard that renders while hidden (e.g. an
+       overlay configured hidden, or the in-app preview) shows the chips
+       for a frame before the hide tween runs. app.js (GSAP) sets the
+       inline opacity the moment it takes over, so the visible state is
+       unaffected. Opacity only — a CSS translate here would fight GSAP's
+       ``xPercent`` and strand the chip off-screen on show. */
+    opacity: 0;
 }
 .corner-chip.pylon-home { grid-column: 1; }
 /* Away mirrors the running order so the icon stays on the screen edge
