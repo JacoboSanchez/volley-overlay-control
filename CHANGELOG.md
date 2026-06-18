@@ -28,6 +28,19 @@ once a first tagged release ships.
   selectable styles (also restores the previously undocumented `pylons_gradient`
   to the README list).
 
+### Dependencies
+
+- Bump ``starlette`` from ``1.0.1`` to ``1.3.1`` to clear
+  ``CVE-2026-48817``, ``CVE-2026-48818``, ``CVE-2026-54282`` and
+  ``CVE-2026-54283`` (flagged by ``pip-audit --strict`` against the
+  runtime ``requirements.lock``). ``starlette`` is a transitive
+  dependency of FastAPI, so the pin is expressed as a
+  ``starlette>=1.3.1`` security floor in ``requirements.txt``.
+  Regenerating the lock also re-synced drift left over from earlier
+  ``requirements.txt`` floor bumps — ``fastapi`` ``0.136.1`` →
+  ``0.137.2``, ``uvicorn`` ``0.47.0`` → ``0.49.0`` and ``httptools``
+  ``0.7.1`` → ``0.8.0``.
+
 ## [5.7.0] - 2026-06-14
 
 ### Added

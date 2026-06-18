@@ -135,6 +135,34 @@ def isolate_security_bootstrap(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(security_bootstrap, "_data_dir", lambda: str(seed_dir))
 
 
+@pytest.fixture(autouse=True)
+def isolate_webhook_dispatcher():
+    """Reset the process-wide webhook dispatcher around every test.
+
+    ``app.api.webhooks.webhook_dispatcher`` is a module-level singleton
+    that caches its target list on first use and lazily owns a background
+    ``ThreadPoolExecutor``. Without a reset between tests, a case that sets
+    ``WEBHOOKS_URL`` leaves those targets cached on the singleton, so a
+    later test that merely drives a game action — which fans out through
+    ``game_audit_hooks`` to the dispatcher — fires real webhook HTTP to the
+    stale URL on a background thread. Those deliveries retry with backoff
+    and land, seconds later, on whichever ``requests.post`` mock or
+    assertion happens to be active, making the suite order- and
+    timing-dependent.
+
+    Shutting the singleton down before and after each test drops the cached
+    config (so an unconfigured test dispatches to nothing) and cancels any
+    queued deliveries. Mirrors the file-local ``reset_dispatcher`` in
+    ``test_webhooks.py``, promoted here so every test gets the same
+    isolation.
+    """
+    from app.api import webhooks
+
+    webhooks.webhook_dispatcher.shutdown()
+    yield
+    webhooks.webhook_dispatcher.shutdown()
+
+
 def load_fixture(name):
     """Auxiliary function to load a JSON file from the fixtures folder."""
     path = os.path.join(os.path.dirname(__file__), 'fixtures', f'{name}.json')
