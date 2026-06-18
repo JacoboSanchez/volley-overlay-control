@@ -1,0 +1,29 @@
+@import url('corners_shared.css');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Corner Tags" — clean dark-glass corner chips with a team-color
+   spine on the outer (screen-edge) edge. The plain, broadcast-neutral
+   sibling of the corners family (the horizontal cousin of pylons).
+   ───────────────────────────────────────────────────────────────── */
+
+.corner-chip {
+    background: rgba(12, 15, 22, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+.corner-chip.pylon-home { border-left: 4px solid var(--accent-home); }
+.corner-chip.pylon-away { border-right: 4px solid var(--accent-away); }
+
+/* ── Light theme (operator overlayTheme=light / ?theme=light) ── */
+body.overlay-theme-light .corner-chip {
+    background: rgba(246, 247, 250, 0.94);
+    border-color: rgba(0, 0, 0, 0.12);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+    color: #14181d;
+}
+body.overlay-theme-light .corner-chip.pylon-home { border-left-color: var(--accent-home); }
+body.overlay-theme-light .corner-chip.pylon-away { border-right-color: var(--accent-away); }
+body.overlay-theme-light .team-name { color: rgba(20, 24, 29, 0.85); }
+body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.30); }
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.45); border-color: transparent; }

@@ -8,6 +8,26 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **"Corners" overlay family — four horizontal, corner-docked styles.**
+  `corner_tags`, `corner_gradient`, `corner_jersey` and `corner_wedge` are
+  horizontal cousins of `pylons`: one self-contained chip per team docked to a
+  corner of the frame (home → left edge, away → right edge), with horizontal
+  team names instead of the rotated pylons names. They reuse the edge-pinned
+  machinery — `data-fixed-geometry` (so they ignore the free x/y geometry and
+  expose the **top / center / bottom** vertical-anchor knob; designed for the
+  top/bottom corners) and the per-edge hide animation — and ship a light/dark
+  theme. The three live markers are split so they never read as one cluster:
+  sets-won pips sit by the score on the court side, while the serve lamp and
+  timeout bars sit by the team icon on the screen-edge side. Both chips are
+  width-equalised to the longer of the two team names (no truncation).
+  `corner_gradient` washes each chip in the team colour; `corner_jersey` leads
+  with the team-kit jersey icon; `corner_wedge` is an angular variant with a
+  live set-progress underline. This brings the built-in catalogue to 27
+  selectable styles (also restores the previously undocumented `pylons_gradient`
+  to the README list).
+
 ## [5.7.0] - 2026-06-14
 
 ### Added

@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Corners" family — shared skeleton.
+
+   Horizontal cousins of the pylons family. One self-contained chip per
+   team, docked to the two corners of the frame (home → left edge,
+   away → right edge); the operator's vertical-anchor knob picks the
+   TOP or BOTTOM corners (center renders mid-frame and is the
+   not-recommended fallback). Layout per chip, exterior → interior:
+
+     [ logo/jersey (+ serve lamp) over timeout bars ] · NAME · [ set pips · points ]
+
+   i.e. the two "edge" markers (serve, timeouts) sit next to the team
+   icon on the screen-edge side, and the sets-won pips hug the score on
+   the court side, so the three live markers never read as one cluster.
+
+   Engine integration (no JS changes — reuses the pylons hooks):
+     - ``data-fixed-geometry`` on the container opts out of operator
+       x/y geometry and enables the top/center/bottom vertical anchor.
+     - ``.pylon-home`` / ``.pylon-away`` drive the edge-collapse
+       show/hide animation (home exits left, away exits right).
+     - ``.team-home`` / ``.team-away`` + a single ``.team-info`` per
+       chip let ``equalizeNamePanels`` size BOTH name slots to the
+       longer of the two names (equal-width chips, no truncation).
+     - ``#home-set-pips`` (renderSetPips), ``#home-timeouts``
+       (updateTimeouts), ``#home-serving`` (serve), ``#home-points``
+       (animatePoints) — identical ids to the rest of the catalogue.
+
+   Skin files (@import this, then paint the surface): corner_tags,
+   corner_gradient, corner_jersey, corner_wedge.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+    --home-primary: #E21836;
+    --home-secondary: #FFFFFF;
+    --away-primary: #0047AB;
+    --away-secondary: #FFD700;
+    --home-gradient: #E21836;
+    --away-gradient: #0047AB;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Full-frame grid: home in the left column, away in the right, pushed
+   apart by the 1fr gutter. ``align-content`` (driven by the operator
+   vertical-anchor knob) slides the pair to the top / centre / bottom. */
+#scoreboard-container {
+    /* Contrast-safe team accents for a DARK surface by default; the
+       light theme (and the jersey skin, which is light by default)
+       re-point these. */
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-content: center;
+    padding: 30px 34px;
+    pointer-events: none;
+    opacity: 0;
+    transform-origin: 50% 50%;
+}
+body.overlay-theme-light #scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+}
+
+/* Vertical-anchor knob (app.js sets data-vertical-anchor). Corner chips
+   are designed for the top/bottom corners; center is the fallback. */
+#scoreboard-container[data-vertical-anchor="top"] { align-content: start; }
+#scoreboard-container[data-vertical-anchor="bottom"] { align-content: end; }
+
+/* ── Chip shell (surface painted by the skin) ──────────────────── */
+.corner-chip {
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 18px;
+    border-radius: 14px;
+    color: #fff;
+}
+.corner-chip.pylon-home { grid-column: 1; }
+/* Away mirrors the running order so the icon stays on the screen edge
+   and the score on the court side. */
+.corner-chip.pylon-away { grid-column: 3; flex-direction: row-reverse; }
+
+/* ── EXTERIOR cluster: icon (+ serve lamp) over timeout bars ───── */
+.chip-ext {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+}
+.ident {
+    position: relative;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.logo-container {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-logo { max-width: 46px; max-height: 46px; object-fit: contain; }
+
+/* Serve lamp — glowing dot pinned to the icon's outer-top corner,
+   on the screen-edge side; only the serving team shows it. */
+.serving-indicator {
+    position: absolute;
+    top: -4px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.corner-chip.pylon-home .serving-indicator {
+    left: -5px;
+    background: var(--accent-home);
+    box-shadow: 0 0 10px var(--accent-home);
+}
+.corner-chip.pylon-away .serving-indicator {
+    right: -5px;
+    background: var(--accent-away);
+    box-shadow: 0 0 10px var(--accent-away);
+}
+.serving-indicator.active { opacity: 1; }
+
+/* Timeouts — short bars (no text). updateTimeouts toggles .active. */
+.timeout-container { display: flex; gap: 4px; }
+.timeout-dot {
+    width: 16px;
+    height: 5px;
+    border-radius: 3px;
+    border: 1.5px solid rgba(255, 255, 255, 0.45);
+}
+.timeout-dot.active {
+    background: rgba(255, 255, 255, 0.55);
+    border-color: transparent;
+}
+
+/* ── CENTRE: team name (width-equalised by app.js) ─────────────── */
+.team-info { max-width: 360px; }
+.team-name {
+    font-weight: 800;
+    font-size: 21px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.05;
+    color: rgba(255, 255, 255, 0.92);
+    /* Wrap (never clip) if a name exceeds the max-width cap; within the
+       cap equalizeNamePanels sizes both slots to the longer name. */
+    white-space: normal;
+    word-break: break-word;
+}
+.corner-chip.pylon-away .team-name { text-align: right; }
+
+/* ── INTERIOR cluster: set pips (circles) + points ─────────────── */
+.chip-int {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+.corner-chip.pylon-away .chip-int { flex-direction: row-reverse; }
+
+/* Sets won — a compact column of circles next to the score. */
+.set-pips { display: flex; flex-direction: column; gap: 5px; }
+.set-pip {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.30);
+}
+.corner-chip.pylon-home .set-pip.won { background: var(--accent-home); border-color: var(--accent-home); }
+.corner-chip.pylon-away .set-pip.won { background: var(--accent-away); border-color: var(--accent-away); }
+
+/* Points — fixed-width box so single/double digits keep both chips the
+   same width; .points is absolute so animatePoints can stack digits. */
+.points-container {
+    position: relative;
+    width: 60px;
+    height: 50px;
+    overflow: hidden;
+}
+.points {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 46px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.corner-chip.pylon-home .points { color: var(--accent-home); }
+.corner-chip.pylon-away .points { color: var(--accent-away); }
+
+/* ── Compact mode (simple mode / show only current set) ────────────
+   Drop the name so each chip shrinks to icon + markers + score. The
+   !important beats equalizeNamePanels' inline display:grid. */
+.compact-mode .team-info { display: none !important; }
