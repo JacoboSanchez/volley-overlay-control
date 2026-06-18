@@ -44,8 +44,7 @@ function loadApp(gsap: unknown): OverlayApp {
 function makeGsap() {
   const tweens: Tween[] = [];
   const sets: Tween[] = [];
-  const asArray = (t: unknown): Element[] =>
-    (Array.isArray(t) ? t : [t]) as Element[];
+  const asArray = (t: unknown): Element[] => (Array.isArray(t) ? t : [t]) as Element[];
   const gsap = {
     to(targets: unknown, vars: Record<string, any>) {
       tweens.push({ targets: asArray(targets), vars });
@@ -107,9 +106,7 @@ describe('overlay side-swap transition', () => {
     ]);
     expect(collapse.vars.opacity).toBe(0);
     // Home folds to the left edge (-120%), away to the right (+120%).
-    expect(
-      collapse.targets.map((el, i) => collapse.vars.xPercent(i, el)),
-    ).toEqual([-120, 120]);
+    expect(collapse.targets.map((el, i) => collapse.vars.xPercent(i, el))).toEqual([-120, 120]);
     // The swapped content is rendered once the fold completes.
     expect(rendered).toHaveLength(1);
   });
