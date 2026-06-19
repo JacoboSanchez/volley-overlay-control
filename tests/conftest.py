@@ -136,6 +136,45 @@ def isolate_security_bootstrap(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def db_session(monkeypatch):
+    """Give every test a fresh in-memory SQLite database.
+
+    A ``StaticPool`` keeps the single in-memory connection alive for the
+    whole test so the schema and rows persist across sessions. The app's
+    global engine/``SessionLocal`` are pointed at it via ``configure_engine``,
+    and ``db_migrate.run_migrations`` is stubbed to a no-op because the
+    schema is built here with ``create_all`` (running Alembic against the
+    file DB in ``database_url()`` would target the wrong database).
+
+    Yields a live ``Session`` for tests that want to seed/inspect rows
+    directly; request handlers get their own sessions via ``get_db``.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.pool import StaticPool
+
+    from app.db import Base, configure_engine, get_sessionmaker
+    from app.db import migrate as db_migrate
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    configure_engine(engine=engine)
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(db_migrate, "run_migrations", lambda: None)
+
+    session = get_sessionmaker()()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
+
+
+@pytest.fixture(autouse=True)
 def isolate_webhook_dispatcher():
     """Reset the process-wide webhook dispatcher around every test.
 

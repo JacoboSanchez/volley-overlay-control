@@ -33,6 +33,7 @@ from app.api.middleware.security_headers import SecurityHeadersMiddleware
 from app.api.routes.metrics import router as metrics_router
 from app.app_config import get_app_title
 from app.authentication import PasswordAuthenticator
+from app.db import migrate as db_migrate
 from app.match_report import match_report_router
 from app.security_bootstrap import run_security_bootstrap
 
@@ -460,6 +461,10 @@ def create_app() -> FastAPI:
     # ``run_security_bootstrap`` mutates os.environ in place; idempotent
     # across repeated create_app calls (e.g. in tests).
     run_security_bootstrap()
+    # Bring the database schema to head before any router that depends on it
+    # is wired. Tests stub ``db_migrate.run_migrations`` and build the schema
+    # via ``create_all`` against an in-memory engine instead.
+    db_migrate.run_migrations()
     application = FastAPI(title="Volley Overlay Control", lifespan=_lifespan)
     _register_auth(application)
     _register_api_routes(application)
