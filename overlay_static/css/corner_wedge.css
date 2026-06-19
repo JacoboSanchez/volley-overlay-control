@@ -1,0 +1,49 @@
+@import url('corners_shared.css');
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Corner Wedge" — angular, motion-graphics corner chips. The inner
+   (court-facing) edge is slanted into a wedge that points toward the
+   centre, and a thin underline along the bottom is the live
+   set-progress bar (#home/away-set-progress), filling toward the
+   current set's point target. Condensed Oswald numerals. The corners
+   family's "esports" skin.
+   ───────────────────────────────────────────────────────────────── */
+
+.corner-chip {
+    position: relative;
+    background: rgba(10, 13, 20, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    /* Roomy side padding clears the slant; bottom padding clears the bar. */
+    padding: 12px 30px 16px;
+}
+.corner-chip.pylon-home { clip-path: polygon(0 0, 100% 0, calc(100% - 24px) 100%, 0 100%); }
+.corner-chip.pylon-away { clip-path: polygon(24px 0, 100% 0, 100% 100%, 0 100%); }
+
+.team-name { font-family: 'Oswald', 'Inter', sans-serif; font-weight: 600; letter-spacing: 0.06em; }
+.points { font-family: 'Oswald', 'Inter', sans-serif; font-weight: 700; letter-spacing: 0.01em; }
+
+/* Live set-progress underline (points toward the set target). The fill
+   <i>'s width is set as a % by app.js renderSetProgress; flex anchors it
+   to the outer edge so it grows inward. */
+.set-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 5px;
+    display: flex;
+    background: rgba(255, 255, 255, 0.12);
+}
+.corner-chip.pylon-away .set-progress { justify-content: flex-end; }
+.set-progress i { display: block; height: 100%; width: 0; }
+.corner-chip.pylon-home .set-progress i { background: var(--accent-home); }
+.corner-chip.pylon-away .set-progress i { background: var(--accent-away); }
+
+/* ── Light theme ── */
+body.overlay-theme-light .corner-chip { background: rgba(244, 245, 248, 0.95); border-color: rgba(0, 0, 0, 0.10); color: #14181d; }
+body.overlay-theme-light .team-name { color: rgba(20, 24, 29, 0.85); }
+body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.30); }
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.45); border-color: transparent; }
+body.overlay-theme-light .set-progress { background: rgba(20, 24, 29, 0.12); }

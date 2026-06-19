@@ -4,7 +4,9 @@ import ScoreboardView from '../components/ScoreboardView';
 import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
 
 vi.mock('../components/TeamPanel', () => ({
-  default: ({ teamId }: { teamId: number }) => <div data-testid={`team-panel-${teamId}`} />,
+  default: ({ teamId, order }: { teamId: number; order?: number }) => (
+    <div data-testid={`team-panel-${teamId}`} style={{ order }} />
+  ),
 }));
 
 vi.mock('../components/CenterPanel', () => ({
@@ -69,6 +71,32 @@ describe('ScoreboardView top-right corner stack', () => {
       stack!.querySelectorAll<HTMLButtonElement>('button[data-testid]'),
     ).map((b) => b.dataset.testid);
     expect(buttons).toEqual(['config-tab-button', 'share-button', 'history-button']);
+  });
+
+  it('keeps a fixed DOM order across a side swap, flipping only flex order', () => {
+    // Regression guard: the side swap must reorder the panels *visually*
+    // (via CSS flex ``order``) without changing their DOM positions. If
+    // the swap reordered the DOM, React would move the centre panel's
+    // node — tearing down and reloading its embedded preview iframe (a
+    // visible flash on every swap).
+    const domOrder = () =>
+      Array.from(document.querySelector('.main-layout')!.children).map(
+        (c) => (c as HTMLElement).dataset.testid,
+      );
+    const orderOf = (testid: string) =>
+      Number((screen.getByTestId(testid) as HTMLElement).style.order);
+
+    const { rerender } = renderWithI18n(<ScoreboardView {...baseProps} sidesSwapped={false} />);
+    // DOM order is always panel1 · centre · panel2.
+    expect(domOrder()).toEqual(['team-panel-1', 'center-panel', 'team-panel-2']);
+    // Not swapped: team 1 sits visually to the left of team 2.
+    expect(orderOf('team-panel-1')).toBeLessThan(orderOf('team-panel-2'));
+
+    rerender(<ScoreboardView {...baseProps} sidesSwapped={true} />);
+    // DOM order is unchanged — only the flex order flips.
+    expect(domOrder()).toEqual(['team-panel-1', 'center-panel', 'team-panel-2']);
+    // Swapped: team 2 now sits visually to the left of team 1.
+    expect(orderOf('team-panel-2')).toBeLessThan(orderOf('team-panel-1'));
   });
 
   it('invokes the matching callback when each top-right button is clicked', () => {

@@ -72,9 +72,14 @@ def test_create_app_succeeds_without_overlay_templates(missing_overlay_templates
         "Overlay templates directory not found" in rec.getMessage()
         for rec in caplog.records
     )
-    # A standard API endpoint should still be mounted.
-    api_paths = [getattr(r, "path", None) for r in app.routes]
-    assert any(p and p.startswith("/api/v1/") for p in api_paths)
+    # A standard API endpoint should still be mounted. Introspect the
+    # OpenAPI schema rather than ``app.routes``: newer FastAPI nests
+    # ``include_router`` routes under an opaque router object instead of
+    # flattening each ``/api/v1/*`` route into ``app.routes``, so the
+    # generated schema paths are the version-stable place to assert the
+    # API surface is present.
+    api_paths = app.openapi().get("paths", {})
+    assert any(p.startswith("/api/v1/") for p in api_paths)
 
 
 def test_create_app_succeeds_without_either(
@@ -83,8 +88,10 @@ def test_create_app_succeeds_without_either(
     """Neither directory present (e.g. minimal test image) → app still builds."""
     app = create_app()
     assert app is not None
-    api_paths = [getattr(r, "path", None) for r in app.routes]
-    assert any(p and p.startswith("/api/v1/") for p in api_paths)
+    # See the schema-introspection note in
+    # ``test_create_app_succeeds_without_overlay_templates``.
+    api_paths = app.openapi().get("paths", {})
+    assert any(p.startswith("/api/v1/") for p in api_paths)
 
 
 def test_split_csv_env_handles_empty_and_whitespace(monkeypatch):

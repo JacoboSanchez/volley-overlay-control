@@ -8,6 +8,76 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **"Corners" overlay family — four horizontal, corner-docked styles.**
+  `corner_tags`, `corner_gradient`, `corner_jersey` and `corner_wedge` are
+  horizontal cousins of `pylons`: one self-contained chip per team docked to a
+  corner of the frame (home → left edge, away → right edge), with horizontal
+  team names instead of the rotated pylons names. They reuse the edge-pinned
+  machinery — `data-fixed-geometry` (so they ignore the free x/y geometry and
+  expose the **top / center / bottom** vertical-anchor knob; designed for the
+  top/bottom corners) and the per-edge hide animation — and ship a light/dark
+  theme. The three live markers are split so they never read as one cluster:
+  sets-won pips sit by the score on the court side, while the serve lamp and
+  timeout bars sit by the team icon on the screen-edge side. Both chips are
+  width-equalised to the longer of the two team names (no truncation).
+  `corner_gradient` washes each chip in the team colour; `corner_jersey` leads
+  with the team-kit jersey icon; `corner_wedge` is an angular variant with a
+  live set-progress underline. This brings the built-in catalogue to 27
+  selectable styles (also restores the previously undocumented `pylons_gradient`
+  to the README list).
+
+### Changed
+
+- **Edge-pinned overlays fold to the screen edges when swapping sides.**
+  Swapping the home/away sides while a `pylons`- or `corners`-family overlay
+  is on screen used to collapse the whole frame toward the centre and snap
+  back, which read as an abrupt vanish-and-return. Each panel now folds to
+  its own screen edge and unfolds again on the swapped side, reusing the
+  same choreography as the show/hide animation. Other styles keep the quick
+  horizontal card-flip.
+
+### Fixed
+
+- **The in-app preview no longer reloads when swapping sides.** Clicking
+  "swap sides" reordered the control-UI panels in the DOM, which made React
+  move the centre panel's node — reloading its embedded preview iframe and
+  flashing the scoreboard (replaying the hide animation) on every swap. The
+  panels now keep a fixed DOM order and trade visual places via CSS flex
+  `order`, so the preview iframe is never torn down and the swap is seamless.
+  (Control UI only — the OBS browser source was unaffected.)
+- **Swapping sides no longer flashes a hidden scoreboard on screen.** When
+  the main scoreboard was hidden, a side swap briefly animated the panels
+  into view before hiding them again (most visible on the edge-pinned
+  `pylons` / `corners` families). The swap now re-renders silently while
+  hidden, so the scoreboard stays off screen.
+- **Edge-pinned overlays no longer flash for a frame when they render while
+  hidden.** The `pylons` and `corners` panels had no resting hidden state in
+  CSS, so a scoreboard configured hidden — or shown in the in-app preview
+  while hidden — painted the panels at full opacity for a frame before the
+  hide animation ran. They now default to `opacity: 0` until the reveal
+  animation raises them.
+- **Overlay pages can no longer be frozen by a proxy/CDN.** The `/overlay`
+  and `/follow` pages embed a per-render `?v=` cache-buster on their JS/CSS,
+  but if an intermediary cached the HTML itself that `?v` froze and stale
+  assets kept being served — the overlay looked stuck on old code after a
+  deploy even though the bare `/static` URLs were fresh. These dynamic pages
+  now send `Cache-Control: no-cache, no-store, must-revalidate`.
+
+### Dependencies
+
+- Bump ``starlette`` from ``1.0.1`` to ``1.3.1`` to clear
+  ``CVE-2026-48817``, ``CVE-2026-48818``, ``CVE-2026-54282`` and
+  ``CVE-2026-54283`` (flagged by ``pip-audit --strict`` against the
+  runtime ``requirements.lock``). ``starlette`` is a transitive
+  dependency of FastAPI, so the pin is expressed as a
+  ``starlette>=1.3.1`` security floor in ``requirements.txt``.
+  Regenerating the lock also re-synced drift left over from earlier
+  ``requirements.txt`` floor bumps — ``fastapi`` ``0.136.1`` →
+  ``0.137.2``, ``uvicorn`` ``0.47.0`` → ``0.49.0`` and ``httptools``
+  ``0.7.1`` → ``0.8.0``.
+
 ## [5.7.0] - 2026-06-14
 
 ### Added

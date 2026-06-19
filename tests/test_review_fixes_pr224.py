@@ -28,7 +28,11 @@ def sync_dispatcher(monkeypatch):
     d = WebhookDispatcher()
     monkeypatch.setattr(webhooks, "webhook_dispatcher", d)
     monkeypatch.setattr("app.api.game_audit_hooks.webhook_dispatcher", d)
-    return d
+    yield d
+    # Drain any background deliveries so they cannot bleed into later
+    # tests (mirrors the dispatcher fixtures in test_webhooks.py and
+    # test_integration_match_flow.py).
+    d.shutdown()
 
 
 # ---------------------------------------------------------------------------

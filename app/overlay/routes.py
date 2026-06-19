@@ -30,6 +30,16 @@ from app.overlay.themes import PRESET_THEMES, get_theme_names
 logger = logging.getLogger(__name__)
 
 
+# Overlay pages embed a per-render ``?v=`` cache-buster on their JS/CSS so a
+# new deploy is picked up on the next load. That only holds if the HTML page
+# itself is never cached — otherwise a proxy/CDN can freeze the ``?v`` and keep
+# serving the stale assets it points at (the page looks "stuck" on old code
+# even though the bare ``/static`` URLs are fresh). Mark these dynamic pages
+# no-store so intermediaries always re-fetch them.
+_NO_CACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
+
+
 # ---------------------------------------------------------------------------
 # Router factory
 # ---------------------------------------------------------------------------
@@ -132,6 +142,7 @@ def _register_page_routes(
                     lang, request, persisted_locale,
                 ),
             },
+            headers=_NO_CACHE_HEADERS,
         )
 
     # -- Public spectator (follow) page ------------------------------------
@@ -159,6 +170,7 @@ def _register_page_routes(
                 "output_key": OverlayStateStore.get_output_key(overlay_id),
                 "v": int(time.time()),
             },
+            headers=_NO_CACHE_HEADERS,
         )
 
     # -- OBS browser source WebSocket --------------------------------------

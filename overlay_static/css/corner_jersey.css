@@ -1,0 +1,48 @@
+@import url('corners_shared.css');
+@import url('jersey_shared.css');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Corner Jersey" — corner chips that lead with the team's kit. Each
+   chip carries the shared ``.jersey-icon`` shirt (from jersey_shared,
+   painted in the team's primary/secondary colours) in place of a logo,
+   on a soft neumorphic surface. Light by default; the operator dark
+   theme flips the neumorphic tokens (the shirts keep their raw kit
+   colours, like a logo). The corner cousin of neo_jersey / clear_jersey.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Neumorphic surface is LIGHT by default, so use the light-surface
+   accents; the dark theme re-points them. (Overrides the shared base.) */
+#scoreboard-container {
+    --accent-home: var(--home-accent-light, var(--home-gradient));
+    --accent-away: var(--away-accent-light, var(--away-gradient));
+}
+body.overlay-theme-dark #scoreboard-container {
+    --accent-home: var(--home-accent-dark, var(--home-gradient));
+    --accent-away: var(--away-accent-dark, var(--away-gradient));
+}
+
+.corner-chip {
+    background: var(--nm-bg);
+    border-radius: 18px;
+    box-shadow: 8px 8px 18px var(--nm-shadow-dark),
+                -8px -8px 18px var(--nm-shadow-lite);
+    color: var(--nm-text);
+}
+
+/* Kit shirt as the identity mark (jersey_shared paints/clips it). */
+.jersey-icon { width: 42px; height: 46px; }
+
+.team-name { color: var(--nm-text); font-family: 'Outfit', 'Inter', sans-serif; }
+.points { font-family: 'Outfit', 'Inter', sans-serif; }
+
+/* Markers on the light surface. */
+.set-pip { border-color: rgba(49, 52, 75, 0.30); }
+.timeout-dot { border-color: rgba(49, 52, 75, 0.45); }
+.timeout-dot.active { background: rgba(49, 52, 75, 0.55); border-color: transparent; }
+
+/* Dark theme: jersey_shared swaps --nm-* to the dark tokens (consumed
+   above); lighten the neutral marker outlines to match. */
+body.overlay-theme-dark .set-pip { border-color: rgba(228, 231, 242, 0.30); }
+body.overlay-theme-dark .timeout-dot { border-color: rgba(228, 231, 242, 0.40); }
+body.overlay-theme-dark .timeout-dot.active { background: rgba(228, 231, 242, 0.50); border-color: transparent; }

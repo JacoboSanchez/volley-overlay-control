@@ -1,0 +1,63 @@
+@import url('corners_shared.css');
+
+/* ─────────────────────────────────────────────────────────────────
+   "Corner Gradient" — team-colored glass corner chips. Each chip is
+   washed with a horizontal gradient that fades from the team's colour
+   on the outer (screen-edge) side into a dark translucent base on the
+   court side; a backdrop blur lets the court bleed through. Points,
+   pips and the serve lamp stay white for contrast on the coloured
+   glass. The horizontal cousin of pylons_gradient.
+   ───────────────────────────────────────────────────────────────── */
+
+.corner-chip {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.corner-chip.pylon-home {
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--home-gradient) 85%, transparent) 0%,
+        rgba(12, 15, 22, 0.85) 100%);
+}
+.corner-chip.pylon-away {
+    background: linear-gradient(270deg,
+        color-mix(in srgb, var(--away-gradient) 85%, transparent) 0%,
+        rgba(12, 15, 22, 0.85) 100%);
+}
+
+/* White live data over the coloured glass (selectors match the shared
+   per-team specificity; loaded after the import so these win). */
+.corner-chip.pylon-home .points,
+.corner-chip.pylon-away .points { color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+.corner-chip.pylon-home .set-pip.won,
+.corner-chip.pylon-away .set-pip.won { background: #fff; border-color: #fff; }
+.corner-chip.pylon-home .serving-indicator,
+.corner-chip.pylon-away .serving-indicator { background: #fff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.9); }
+.team-logo { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)); }
+.team-name { text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+
+/* ── Light theme ──
+   The inner half fades to near-white, so white data would vanish there.
+   Fade to a light base and re-point points/pips/serve to team accents. */
+body.overlay-theme-light .corner-chip { border-color: rgba(0, 0, 0, 0.12); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28); color: #14181d; }
+body.overlay-theme-light .corner-chip.pylon-home {
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--home-gradient) 70%, transparent) 0%,
+        rgba(246, 247, 250, 0.9) 100%);
+}
+body.overlay-theme-light .corner-chip.pylon-away {
+    background: linear-gradient(270deg,
+        color-mix(in srgb, var(--away-gradient) 70%, transparent) 0%,
+        rgba(246, 247, 250, 0.9) 100%);
+}
+body.overlay-theme-light .team-name { color: rgba(20, 24, 29, 0.85); text-shadow: none; }
+body.overlay-theme-light .corner-chip.pylon-home .points { color: var(--accent-home); text-shadow: none; }
+body.overlay-theme-light .corner-chip.pylon-away .points { color: var(--accent-away); text-shadow: none; }
+body.overlay-theme-light .corner-chip.pylon-home .set-pip.won { background: var(--accent-home); border-color: var(--accent-home); }
+body.overlay-theme-light .corner-chip.pylon-away .set-pip.won { background: var(--accent-away); border-color: var(--accent-away); }
+body.overlay-theme-light .set-pip { border-color: rgba(20, 24, 29, 0.30); }
+body.overlay-theme-light .timeout-dot { border-color: rgba(20, 24, 29, 0.40); }
+body.overlay-theme-light .timeout-dot.active { background: rgba(20, 24, 29, 0.45); border-color: transparent; }
+body.overlay-theme-light .corner-chip.pylon-home .serving-indicator { background: var(--accent-home); box-shadow: 0 0 10px var(--accent-home); }
+body.overlay-theme-light .corner-chip.pylon-away .serving-indicator { background: var(--accent-away); box-shadow: 0 0 10px var(--accent-away); }

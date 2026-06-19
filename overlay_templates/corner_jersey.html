@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Corner Jersey Overlay — {{ target_id }}{% endblock %}
+
+{% block head_fonts %}
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block head_css %}
+    <link rel="stylesheet" href="/static/css/corner_jersey.css?v={{ v }}">
+{% endblock %}
+
+{% block body_content %}
+    <div id="scoreboard-container" class="scoreboard corners corners-jersey" data-fixed-geometry>
+
+        <!-- Team Home (left corner) -->
+        <div class="corner-chip pylon-home team-home">
+            <div class="chip-ext">
+                <div class="ident">
+                    <div class="jersey-icon"></div>
+                    <div class="serving-indicator" id="home-serving"></div>
+                </div>
+                <div class="timeout-container" id="home-timeouts">
+                    <div class="timeout-dot"></div>
+                    <div class="timeout-dot"></div>
+                </div>
+            </div>
+            <div class="team-info">
+                <div class="team-name" id="home-name">HOME</div>
+            </div>
+            <div class="chip-int">
+                <div class="set-pips" id="home-set-pips"></div>
+                <div class="points-container">
+                    <div class="points" id="home-points">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Away (right corner) -->
+        <div class="corner-chip pylon-away team-away">
+            <div class="chip-ext">
+                <div class="ident">
+                    <div class="jersey-icon"></div>
+                    <div class="serving-indicator" id="away-serving"></div>
+                </div>
+                <div class="timeout-container" id="away-timeouts">
+                    <div class="timeout-dot"></div>
+                    <div class="timeout-dot"></div>
+                </div>
+            </div>
+            <div class="team-info">
+                <div class="team-name" id="away-name">AWAY</div>
+            </div>
+            <div class="chip-int">
+                <div class="set-pips" id="away-set-pips"></div>
+                <div class="points-container">
+                    <div class="points" id="away-points">0</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+{% endblock %}

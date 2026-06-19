@@ -128,6 +128,7 @@ export default function ScoreboardView({
             <TeamPanel
               key={1}
               teamId={1}
+              order={sidesSwapped ? 1 : -1}
               teamState={state.team_1}
               currentSet={currentSet}
               buttonColor={btnColorA}
@@ -154,6 +155,7 @@ export default function ScoreboardView({
             <TeamPanel
               key={2}
               teamId={2}
+              order={sidesSwapped ? -1 : 1}
               teamState={state.team_2}
               currentSet={currentSet}
               buttonColor={btnColorB}
@@ -177,7 +179,15 @@ export default function ScoreboardView({
             />
           );
           const centre = (
+            // The three children render in a FIXED DOM order
+            // (panel1 · centre · panel2) regardless of the swap; the team
+            // panels only trade *visual* places via flex ``order`` (see
+            // their ``order`` prop). This keeps the centre panel's DOM node
+            // stationary across swaps — moving it would tear down and reload
+            // its embedded OverlayPreview iframe (a visible flash). The
+            // stable key just documents that intent.
             <CenterPanel
+              key="centre"
               state={state}
               sidesSwapped={sidesSwapped}
               onSwapSides={onSwapSides}
@@ -203,12 +213,14 @@ export default function ScoreboardView({
             />
           );
           // Display-side swap: presentation only — every handler stays
-          // bound to its real team id, only the render order flips.
+          // bound to its real team id, and the DOM order never changes.
+          // The visual left/right flip is done with flex ``order`` so the
+          // centre panel (and its preview iframe) is never moved/remounted.
           return (
             <>
-              {sidesSwapped ? panel2 : panel1}
+              {panel1}
               {centre}
-              {sidesSwapped ? panel1 : panel2}
+              {panel2}
             </>
           );
         })()}

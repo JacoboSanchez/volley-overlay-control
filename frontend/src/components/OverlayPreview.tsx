@@ -139,6 +139,36 @@ export default function OverlayPreview({
     return () => window.removeEventListener('message', onMessage);
   }, [isCustomOverlay, safeOverlayUrl]);
 
+  // Memoize the custom-overlay iframe element so it stays referentially
+  // stable across re-renders (e.g. when ``customBounds`` updates after the
+  // overlay posts new render bounds). Without this, every re-render produces
+  // a fresh <iframe> element and React tears down and recreates the DOM node
+  // — which reloads the embedded overlay (a visible flash on every side
+  // swap, since a swap re-renders this component). Keyed only on inputs that
+  // genuinely change the iframe.
+  const customIframe = useMemo(() => {
+    if (!safeOverlayUrl) return null;
+    const src = getBustedUrl(safeOverlayUrl, styleOverride ? { style: styleOverride } : {});
+    return (
+      <iframe
+        src={src}
+        width={1920}
+        height={1080}
+        style={{ border: 0, background: 'transparent' }}
+        sandbox="allow-scripts allow-same-origin"
+        // Match the standard-overlay iframe below: ``allowTransparency`` is a
+        // non-standard attribute React types as boolean, but Chromium honours
+        // the string ``"true"`` more reliably, so pass it as that.
+        allowTransparency={'true' as unknown as boolean}
+        title={t('preview.title')}
+        onLoad={handleIframeLoad}
+        onError={handleIframeError}
+        data-testid="overlay-preview"
+      />
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeOverlayUrl, styleOverride, cacheBust, t, handleIframeLoad, handleIframeError]);
+
   if (!safeOverlayUrl) return null;
 
   // Shared 16:9 card geometry: both preview kinds render in the same
@@ -201,20 +231,7 @@ export default function OverlayPreview({
         className="preview-container"
         style={{ width: cardWidth, height: cardHeight, position: 'relative' }}
       >
-        <div style={wrapperStyle}>
-          <iframe
-            src={getBustedUrl(safeOverlayUrl, styleOverride ? { style: styleOverride } : {})}
-            width={iframeW}
-            height={iframeH}
-            style={{ border: 0, background: 'transparent' }}
-            sandbox="allow-scripts allow-same-origin"
-            allowTransparency
-            title={t('preview.title')}
-            onLoad={handleIframeLoad}
-            onError={handleIframeError}
-            data-testid="overlay-preview"
-          />
-        </div>
+        <div style={wrapperStyle}>{customIframe}</div>
         {fallbackOverlay}
       </div>
     );
