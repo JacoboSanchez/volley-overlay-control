@@ -115,3 +115,12 @@ def test_admin_group_published_then_user_copies_it(db_session):
     assert set(user.get("/api/v1/teams").json()) == set(APP_TEAMS)
     # Idempotent copy.
     assert user.post(f"/api/v1/team-groups/{gid}/copy-to-mine").json()["added"] == 0
+
+
+def test_add_member_to_missing_group_is_404(db_session):
+    """Regression: adding a member to a nonexistent group is 404, not a 500."""
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    tid = admin.get("/api/v1/teams/catalog").json()[0]["id"]
+    r = admin.post("/api/v1/admin/team-groups/999999/members", json={"team_id": tid})
+    assert r.status_code == 404

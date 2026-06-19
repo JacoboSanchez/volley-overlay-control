@@ -150,13 +150,18 @@ async def delete_preset(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ) -> None:
+    # Try the caller's own preset first: a user preset and a global preset may
+    # legitimately share a slug, so the 403 global guard must not shadow the
+    # user's own deletable row. delete_user_preset is scope-restricted to the
+    # owner's user-scoped rows, so it can never touch a global.
+    if presets_service.delete_user_preset(db, user.id, slug):
+        db.commit()
+        return
     if presets_service.get_global_preset(db, slug) is not None:
         raise HTTPException(
             status_code=403, detail="Global presets are managed by an administrator.",
         )
-    if not presets_service.delete_user_preset(db, user.id, slug):
-        raise HTTPException(status_code=404, detail=f"Preset '{slug}' not found.")
-    db.commit()
+    raise HTTPException(status_code=404, detail=f"Preset '{slug}' not found.")
 
 
 # ---- admin global-preset authoring ----------------------------------------

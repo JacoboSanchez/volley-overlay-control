@@ -71,6 +71,38 @@ def test_admin_cannot_delete_or_demote_last_admin(db_session):
     ).status_code == 400
 
 
+def test_cannot_deactivate_all_admins(db_session):
+    """Regression: admin_count must ignore inactive admins, else two admins
+    can be deactivated in sequence and lock everyone out."""
+    admin = _admin(db_session)
+    a = make_user(db_session, "admin2", role="admin")
+    b = make_user(db_session, "admin3", role="admin")
+
+    # Deactivate the first extra admin — fine, others remain active.
+    assert admin.patch(f"/api/v1/admin/users/{a.id}", json={"is_active": False}).status_code == 200
+    # Deactivate the root admin — fine, admin3 still active.
+    me = admin.get("/api/v1/auth/me").json()
+    assert admin.patch(f"/api/v1/admin/users/{me['id']}", json={"is_active": False}).status_code == 200
+    # Now admin3 is the last active admin; a fresh admin3 session cannot
+    # deactivate itself.
+    a3 = TestClient(create_app())
+    a3.post("/api/v1/auth/login", json={"username": "admin3", "password": "password123"})
+    assert a3.patch(f"/api/v1/admin/users/{b.id}", json={"is_active": False}).status_code == 400
+    # ...nor demote itself.
+    assert a3.patch(f"/api/v1/admin/users/{b.id}", json={"role": "user"}).status_code == 400
+
+
+def test_admin_create_user_with_empty_password_is_usable(db_session):
+    """Regression: an explicit empty-string password must mint a temp +
+    force-change, not an unrecoverable account."""
+    admin = _admin(db_session)
+    r = admin.post("/api/v1/admin/users", json={"username": "blankpw", "password": ""})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["user"]["must_change_password"] is True
+    assert body["temp_password"]
+
+
 def test_admin_toggles_registration(db_session):
     admin = _admin(db_session)
     assert admin.put(

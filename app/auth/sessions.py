@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 COOKIE_NAME = "vsession"
 _TOKEN_BYTES = 32
 _DEFAULT_TTL_HOURS = 24 * 14  # 14 days
+# Only persist a ``last_seen_at`` bump this often, so authenticated reads
+# don't turn into a DB write+commit on every request.
+_LAST_SEEN_THROTTLE = timedelta(minutes=5)
 
 
 def _now() -> datetime:
@@ -92,8 +95,13 @@ def resolve_session(db: Session, raw: str | None) -> User | None:
     user = db.get(User, row.user_id)
     if user is None or not user.is_active:
         return None
-    row.last_seen_at = _now()
-    db.commit()
+    now = _now()
+    last_seen = row.last_seen_at
+    if last_seen is not None and last_seen.tzinfo is None:
+        last_seen = last_seen.replace(tzinfo=UTC)
+    if last_seen is None or (now - last_seen) > _LAST_SEEN_THROTTLE:
+        row.last_seen_at = now
+        db.commit()
     return user
 
 

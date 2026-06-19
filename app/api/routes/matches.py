@@ -34,12 +34,13 @@ async def list_matches(
     user: User = Depends(require_user),
 ):
     """Return summaries of the caller's archived matches, newest first."""
-    if oid:
-        summaries = match_archive.list_matches(oid=make_skey(user.id, oid))
-    else:
-        summaries = [
-            s for s in match_archive.list_matches() if _owns(s.get("oid"), user)
-        ]
+    # Always enforce ownership in the route: never trust ``list_matches`` to
+    # scope by the storage key. A malformed ``oid`` makes ``make_skey`` produce
+    # an invalid key, and ``list_matches`` then fails *open* (returns the full
+    # cross-user index) — so the ``_owns`` filter is the real authorization gate.
+    raw = match_archive.list_matches(oid=make_skey(user.id, oid)) if oid \
+        else match_archive.list_matches()
+    summaries = [s for s in raw if _owns(s.get("oid"), user)]
     return {"count": len(summaries), "matches": [_present(s) for s in summaries]}
 
 

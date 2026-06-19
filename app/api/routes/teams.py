@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app import teams_service
 from app.auth.dependencies import require_admin, require_user
 from app.db.engine import get_db
-from app.db.models.team import Team
+from app.db.models.team import Team, TeamGroup
 from app.db.models.user import User
 
 router = APIRouter()
@@ -218,6 +218,8 @@ async def admin_add_group_member(
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    if db.get(TeamGroup, group_id) is None:
+        raise HTTPException(status_code=404, detail="Group not found.")
     if db.get(Team, body.team_id) is None:
         raise HTTPException(status_code=404, detail="Team not found.")
     teams_service.add_group_member(db, group_id, body.team_id)

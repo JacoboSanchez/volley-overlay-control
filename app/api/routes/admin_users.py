@@ -41,8 +41,11 @@ def create_user(
 ):
     """Create a user. With no password, a temp one is minted and returned;
     the user must change it on first login."""
+    # Treat a falsy password (None or "") uniformly: mint a temp password and
+    # force a first-login change, so an empty string can't create an account
+    # with an unknown random password and no forced-change flag.
     temp = body.password or service.generate_temp_password()
-    must_change = body.password is None
+    must_change = not body.password
     try:
         user = service.create_user(
             db, username=body.username, password=temp,
@@ -111,7 +114,7 @@ def delete_user(
     user = service.get_by_id(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found.")
-    if user.role == "admin" and service.admin_count(db) <= 1:
+    if service.is_last_active_admin(db, user):
         raise HTTPException(status_code=400, detail="Cannot delete the last administrator.")
     service.delete_user(db, user)
     db.commit()

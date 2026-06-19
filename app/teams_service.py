@@ -45,9 +45,12 @@ def global_catalog(db: Session) -> dict[str, dict[str, Any]]:
 
 
 def get_global_by_name(db: Session, name: str) -> Team | None:
+    # ``.first()`` (not ``scalar_one_or_none``) is deliberate: there is no DB
+    # uniqueness on global team name, so a concurrent double-insert must not
+    # turn every later lookup into a MultipleResultsFound 500.
     return db.execute(
         select(Team).where(Team.is_global.is_(True), Team.name == name)
-    ).scalar_one_or_none()
+    ).scalars().first()
 
 
 def upsert_global(db: Session, name: str, *, icon=None, color=None, text_color=None) -> Team:

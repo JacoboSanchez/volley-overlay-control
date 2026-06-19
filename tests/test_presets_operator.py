@@ -331,6 +331,21 @@ class TestPresetCRUDEndpoints:
         ).status_code == 403
         assert client.get("/api/v1/admin/presets/export").status_code == 403
 
+    def test_user_can_delete_own_preset_despite_global_same_slug(self, client, db_session):
+        """Regression: a global preset sharing a user's slug must not block the
+        user from deleting their own (distinct) preset."""
+        client.post(
+            "/api/v1/customization/presets",
+            json={"name": "Corner", "values": {"Height": 3}},
+        )
+        self._admin(db_session).post(
+            "/api/v1/admin/presets", json={"name": "Corner", "values": {"Width": 9}},
+        )
+        assert client.delete("/api/v1/customization/presets/corner").status_code == 204
+        slugs = {p["slug"]: p["source"]
+                 for p in client.get("/api/v1/customization/presets").json()["items"]}
+        assert slugs.get("corner") == "global"
+
     def test_user_presets_are_isolated(self, client, db_session):
         from fastapi.testclient import TestClient
 

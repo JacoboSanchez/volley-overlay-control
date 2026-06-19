@@ -174,26 +174,38 @@ def get_by_id(db: Session, user_id: int) -> User | None:
 
 
 def admin_count(db: Session) -> int:
+    """Number of *usable* administrators (admin role AND active).
+
+    Counts only active admins so the last-admin guards reflect who can
+    actually administer the instance — a deactivated admin cannot resolve a
+    session, so it must not keep the guards satisfied.
+    """
     return int(
         db.execute(
-            select(func.count()).select_from(User).where(User.role == ROLE_ADMIN)
+            select(func.count()).select_from(User).where(
+                User.role == ROLE_ADMIN, User.is_active.is_(True),
+            )
         ).scalar_one()
     )
+
+
+def is_last_active_admin(db: Session, user: User) -> bool:
+    return user.role == ROLE_ADMIN and user.is_active and admin_count(db) <= 1
 
 
 def set_role(db: Session, user: User, role: str) -> None:
     if role not in (ROLE_ADMIN, ROLE_USER):
         raise UserError("Invalid role.")
-    # Refuse to demote the last remaining admin so the instance can't be
-    # locked out of administration.
-    if user.role == ROLE_ADMIN and role != ROLE_ADMIN and admin_count(db) <= 1:
+    # Refuse to demote the last usable admin so the instance can't be locked
+    # out of administration.
+    if role != ROLE_ADMIN and is_last_active_admin(db, user):
         raise UserError("Cannot demote the last administrator.")
     user.role = role
     db.flush()
 
 
 def set_active(db: Session, user: User, active: bool) -> None:
-    if not active and user.role == ROLE_ADMIN and admin_count(db) <= 1:
+    if not active and is_last_active_admin(db, user):
         raise UserError("Cannot deactivate the last administrator.")
     user.is_active = active
     db.flush()

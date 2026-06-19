@@ -36,9 +36,23 @@ def test_alembic_upgrade_head_matches_models(tmp_path, monkeypatch):
     command.upgrade(_alembic_config(url), "head")
 
     engine = create_engine(url)
-    actual = set(inspect(engine).get_table_names())
+    insp = inspect(engine)
+    actual = set(insp.get_table_names())
     expected = set(Base.metadata.tables.keys()) | {"alembic_version"}
     assert actual == expected
+
+    # Column-level drift: every model table must have exactly the columns the
+    # ORM declares. Catches a column added to a model but forgotten in a
+    # migration (or vice versa) — which a table-name-only check would miss.
+    # Column names (not types/defaults) are compared to avoid SQLite
+    # reflection false-positives on type affinity and server defaults.
+    for table_name, table in Base.metadata.tables.items():
+        reflected = {c["name"] for c in insp.get_columns(table_name)}
+        declared = set(table.columns.keys())
+        assert reflected == declared, (
+            f"{table_name} column drift vs model: "
+            f"missing={declared - reflected}, extra={reflected - declared}"
+        )
     engine.dispose()
 
 
