@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import JsonImportExport from './JsonImportExport';
 
 export default function TeamsPage() {
   const { ctx } = useAuth();
@@ -192,6 +193,13 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
           ))}
         </tbody>
       </table>
+
+      <JsonImportExport
+        label="Team catalog"
+        exportFn={api.adminExportTeams}
+        importFn={api.adminImportTeams}
+        onImported={onChange}
+      />
     </div>
   );
 }

@@ -263,6 +263,50 @@ export function deletePreset(slug: string): Promise<void> {
   return request<void>('DELETE', `/customization/presets/${encodeURIComponent(slug)}`);
 }
 
+// Admin global-preset management.
+export function adminListGlobalPresets(): Promise<{ items: PresetSummary[] }> {
+  return request('GET', '/admin/presets');
+}
+
+export function adminCreateGlobalPreset(
+  name: string,
+  values: Record<string, unknown>,
+  isActive = true,
+): Promise<PresetSummary> {
+  return request('POST', '/admin/presets', { name, values, is_active: isActive });
+}
+
+export function adminSetPresetActive(slug: string, isActive: boolean): Promise<{ slug: string; is_active: boolean }> {
+  return request('PATCH', `/admin/presets/${encodeURIComponent(slug)}`, { is_active: isActive });
+}
+
+export function adminDeleteGlobalPreset(slug: string): Promise<void> {
+  return request<void>('DELETE', `/admin/presets/${encodeURIComponent(slug)}`);
+}
+
+export function adminExportPresets(): Promise<Record<string, Record<string, unknown>>> {
+  return request('GET', '/admin/presets/export');
+}
+
+export function adminImportPresets(
+  themes: Record<string, Record<string, unknown>>,
+  replace = false,
+): Promise<{ imported: number }> {
+  return request('POST', '/admin/presets/import', { themes, replace });
+}
+
+// Admin global-team JSON import/export (APP_TEAMS shape).
+export function adminExportTeams(): Promise<Record<string, Record<string, unknown>>> {
+  return request('GET', '/admin/teams/export');
+}
+
+export function adminImportTeams(
+  teams: Record<string, Record<string, unknown>>,
+  replace = false,
+): Promise<{ imported: number }> {
+  return request('POST', '/admin/teams/import', { teams, replace });
+}
+
 // ---- Teams: catalog, my list, groups --------------------------------------
 
 export interface TeamOut {

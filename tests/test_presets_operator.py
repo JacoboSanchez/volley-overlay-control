@@ -325,6 +325,21 @@ class TestPresetCRUDEndpoints:
         assert r.status_code == 200 and r.json()["imported"] == 2
         assert admin.get("/api/v1/admin/presets/export").json() == themes
 
+    def test_admin_list_includes_inactive_globals(self, client, db_session):
+        """The admin list shows inactive globals (the user list hides them)."""
+        admin = self._admin(db_session)
+        admin.post("/api/v1/admin/presets",
+                   json={"name": "Hidden", "values": {"Width": 9}, "is_active": False})
+        # User-facing list excludes the inactive global.
+        user_slugs = {p["slug"] for p in client.get(
+            "/api/v1/customization/presets").json()["items"]}
+        assert "hidden" not in user_slugs
+        # Admin management list includes it, with is_active False.
+        items = admin.get("/api/v1/admin/presets").json()["items"]
+        hidden = next(p for p in items if p["slug"] == "hidden")
+        assert hidden["is_active"] is False
+        assert client.get("/api/v1/admin/presets").status_code == 403  # non-admin
+
     def test_admin_presets_require_admin(self, client):
         assert client.post(
             "/api/v1/admin/presets", json={"name": "X", "values": {"Height": 1}},

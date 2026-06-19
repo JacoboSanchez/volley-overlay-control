@@ -167,6 +167,17 @@ async def delete_preset(
 # ---- admin global-preset authoring ----------------------------------------
 
 
+@router.get(
+    "/admin/presets", response_model=PresetListResponse,
+    summary="List all global presets (active and inactive) for management.",
+)
+async def admin_list_presets(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db),
+) -> PresetListResponse:
+    items = [PresetSummary.of(p) for p in presets_service.list_global_presets(db)]
+    return PresetListResponse(items=items)
+
+
 @router.post(
     "/admin/presets", response_model=PresetSummary, status_code=201,
     summary="Author a global preset.",
