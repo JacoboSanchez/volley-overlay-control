@@ -12,6 +12,13 @@ export interface TeamPanelProps {
   teamId: 1 | 2;
   teamState: TeamState | null | undefined;
   currentSet: number;
+  /**
+   * Flex ``order`` for the display-side swap. The two team panels keep a
+   * fixed DOM position (so sibling reordering never moves the centre
+   * panel's preview iframe — which would reload it) and trade visual
+   * places purely via this CSS order.
+   */
+  order?: number;
   buttonColor: string;
   buttonTextColor?: string;
   serveColor: string;
@@ -47,6 +54,7 @@ function isSafeUrl(url: string | null | undefined): url is string {
  */
 function TeamPanel({
   teamId,
+  order,
   teamState,
   currentSet,
   buttonColor,
@@ -142,7 +150,10 @@ function TeamPanel({
   const teamLogo = asString(customization?.[`Team ${teamId} Logo`]);
 
   return (
-    <div className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}>
+    <div
+      className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}
+      style={{ order }}
+    >
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
         {isPortrait && state && (
           <div className="team-history-col">

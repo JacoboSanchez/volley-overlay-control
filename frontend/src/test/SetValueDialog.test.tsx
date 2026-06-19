@@ -182,7 +182,7 @@ describe('SetValueDialog', () => {
     expect(onSubmit).toHaveBeenCalledWith(0);
   });
 
-  it('does not steal focus on parent re-render with unstable onClose', async () => {
+  it('does not steal focus on parent re-render with unstable onClose', () => {
     // Regression: the previous Dialog effect re-ran on every onClose
     // identity change, refocusing the card and clobbering whatever the
     // user was typing. With the split effects, focus is only set once
@@ -204,24 +204,19 @@ describe('SetValueDialog', () => {
     expect(document.activeElement).toBe(input);
     // Rerender with a fresh ``onClose`` reference — this is exactly the
     // scenario Gemini flagged: a parent passing an inline arrow that
-    // changes identity on every render.
-    const { I18nProvider } = await import('../i18n');
-    const { SettingsProvider } = await import('../hooks/useSettings');
+    // changes identity on every render. ``renderWithI18n`` re-applies the
+    // providers on rerender, so the element here is just the dialog.
     rerender(
-      <I18nProvider>
-        <SettingsProvider>
-          <SetValueDialog
-            open={true}
-            title="Test"
-            initialValue={0}
-            maxValue={99}
-            onSubmit={vi.fn()}
-            onClose={() => {
-              /* new closure */
-            }}
-          />
-        </SettingsProvider>
-      </I18nProvider>,
+      <SetValueDialog
+        open={true}
+        title="Test"
+        initialValue={0}
+        maxValue={99}
+        onSubmit={vi.fn()}
+        onClose={() => {
+          /* new closure */
+        }}
+      />,
     );
     expect(document.activeElement).toBe(input);
   });

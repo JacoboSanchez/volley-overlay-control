@@ -1,16 +1,19 @@
-import { ReactElement } from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import { SettingsProvider } from '../hooks/useSettings';
 import type { GameState } from '../api/client';
 
+// Use the ``wrapper`` option (rather than wrapping ``ui`` inline) so the
+// providers are re-applied by ``rerender`` too — otherwise a rerender drops
+// the I18n/Settings context and any component calling ``useI18n`` throws.
 export function renderWithI18n(ui: ReactElement, options: Omit<RenderOptions, 'wrapper'> = {}) {
-  return render(
+  const Wrapper = ({ children }: { children: ReactNode }) => (
     <I18nProvider>
-      <SettingsProvider>{ui}</SettingsProvider>
-    </I18nProvider>,
-    options,
+      <SettingsProvider>{children}</SettingsProvider>
+    </I18nProvider>
   );
+  return render(ui, { wrapper: Wrapper, ...options });
 }
 
 export const mockGameState: GameState = {

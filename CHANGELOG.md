@@ -40,6 +40,13 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **The in-app preview no longer reloads when swapping sides.** Clicking
+  "swap sides" reordered the control-UI panels in the DOM, which made React
+  move the centre panel's node — reloading its embedded preview iframe and
+  flashing the scoreboard (replaying the hide animation) on every swap. The
+  panels now keep a fixed DOM order and trade visual places via CSS flex
+  `order`, so the preview iframe is never torn down and the swap is seamless.
+  (Control UI only — the OBS browser source was unaffected.)
 - **Swapping sides no longer flashes a hidden scoreboard on screen.** When
   the main scoreboard was hidden, a side swap briefly animated the panels
   into view before hiding them again (most visible on the edge-pinned
