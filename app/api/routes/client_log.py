@@ -64,12 +64,20 @@ async def _rate_limited(key: str) -> bool:
 
 
 def _reset_rate_limiter() -> None:
-    """Test-only hook to clear the bucket.
+    """Test-only hook to clear the bucket and rebind the lock.
 
     Called from sync test fixtures; the dict clear is atomic under the GIL
     and fixtures do not race with live requests, so no lock is needed.
+
+    The module-level ``asyncio.Lock`` binds to the event loop it is first
+    awaited on. The test suite spins up a fresh loop per ``TestClient``, so
+    across tests the lock would otherwise raise "bound to a different event
+    loop"; recreating it here keeps the limiter usable in every test. In
+    production the app runs on a single loop, so this is a no-op concern.
     """
+    global _clients_lock
     _clients.clear()
+    _clients_lock = asyncio.Lock()
 
 
 class ClientLogRecord(BaseModel):

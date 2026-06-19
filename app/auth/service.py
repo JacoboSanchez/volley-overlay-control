@@ -167,3 +167,33 @@ def list_users(db: Session) -> list[User]:
     return list(
         db.execute(select(User).order_by(User.username)).scalars().all()
     )
+
+
+def get_by_id(db: Session, user_id: int) -> User | None:
+    return db.get(User, user_id)
+
+
+def admin_count(db: Session) -> int:
+    return int(
+        db.execute(
+            select(func.count()).select_from(User).where(User.role == ROLE_ADMIN)
+        ).scalar_one()
+    )
+
+
+def set_role(db: Session, user: User, role: str) -> None:
+    if role not in (ROLE_ADMIN, ROLE_USER):
+        raise UserError("Invalid role.")
+    # Refuse to demote the last remaining admin so the instance can't be
+    # locked out of administration.
+    if user.role == ROLE_ADMIN and role != ROLE_ADMIN and admin_count(db) <= 1:
+        raise UserError("Cannot demote the last administrator.")
+    user.role = role
+    db.flush()
+
+
+def set_active(db: Session, user: User, active: bool) -> None:
+    if not active and user.role == ROLE_ADMIN and admin_count(db) <= 1:
+        raise UserError("Cannot deactivate the last administrator.")
+    user.is_active = active
+    db.flush()

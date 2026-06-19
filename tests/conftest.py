@@ -136,6 +136,22 @@ def isolate_security_bootstrap(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def reset_auth_rate_limiter():
+    """Clear the per-IP auth rate-limiter between tests.
+
+    The limiter is a process-global keyed by client IP and counts 401/403
+    failures across all ``/api/v1/`` routes. Every TestClient shares the
+    ``testclient`` IP, so without a reset the many auth-failure cases in the
+    suite accumulate and trip the limiter (429) for later, unrelated tests.
+    """
+    from app.api.middleware import auth_rate_limit
+
+    auth_rate_limit._reset_for_tests()
+    yield
+    auth_rate_limit._reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
 def db_session(monkeypatch):
     """Give every test a fresh in-memory SQLite database.
 

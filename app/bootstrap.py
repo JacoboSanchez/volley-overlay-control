@@ -187,6 +187,10 @@ def _register_auth(application: FastAPI) -> None:
 def _register_api_routes(application: FastAPI) -> None:
     # Auth/account API first so /api/v1/auth/* is never shadowed.
     application.include_router(auth_router)
+    # Admin user-management (cookie + admin role). Carries its own
+    # /api/v1/admin prefix, so it is mounted alongside (not inside) api_router.
+    from app.api.routes.admin_users import router as admin_users_router
+    application.include_router(admin_users_router)
     application.include_router(api_router)
     # Overlay manager page + admin API (password-protected).
     # Registered before the SPA mount so ``/manage`` is served by FastAPI.
