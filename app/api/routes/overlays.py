@@ -29,22 +29,43 @@ class OverlayOut(BaseModel):
     oid: str = Field(..., description="Overlay identifier (unique per user)")
     display_name: str | None = Field(None, description="Friendly label")
     public_token: str = Field(..., description="Public OBS-output capability token")
-    output_url: str = Field(..., description="Public /overlay/<token> URL for OBS")
+    output_url: str = Field(..., description="OBS output URL (custom/cloud, or the local /overlay/<token>)")
+    custom_output_url: str | None = Field(None, description="Explicit override URL, if set")
+    points: int | None = Field(None, description="Default points per set")
+    points_last_set: int | None = Field(None, description="Default points in the deciding set")
+    sets: int | None = Field(None, description="Default sets in the match (best-of)")
 
 
 class CreateOverlayRequest(BaseModel):
     oid: str = Field(..., min_length=1, max_length=64)
     display_name: str | None = Field(None, max_length=120)
+    output_url: str | None = Field(None, max_length=2048)
+    points: int | None = Field(None, ge=1, le=99)
+    points_last_set: int | None = Field(None, ge=1, le=99)
+    sets: int | None = Field(None, ge=1, le=15)
+
+
+class UpdateOverlayRequest(BaseModel):
+    display_name: str | None = Field(None, max_length=120)
+    output_url: str | None = Field(None, max_length=2048)
+    points: int | None = Field(None, ge=1, le=99)
+    points_last_set: int | None = Field(None, ge=1, le=99)
+    sets: int | None = Field(None, ge=1, le=15)
 
 
 def _overlay_out(request: Request, overlay) -> OverlayOut:
     public_url = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
     base = public_url or str(request.base_url).rstrip("/")
+    local_url = f"{base}/overlay/{overlay.public_token}"
     return OverlayOut(
         oid=overlay.oid,
         display_name=overlay.display_name,
         public_token=overlay.public_token,
-        output_url=f"{base}/overlay/{overlay.public_token}",
+        output_url=overlay.output_url or local_url,
+        custom_output_url=overlay.output_url,
+        points=overlay.points,
+        points_last_set=overlay.points_last_set,
+        sets=overlay.sets,
     )
 
 
@@ -71,10 +92,35 @@ async def create_my_overlay(
     """Register a new overlay for the caller (mints a public OBS token)."""
     try:
         overlay = overlays_service.create_overlay(
-            db, user.id, body.oid, display_name=body.display_name,
+            db, user.id, body.oid,
+            display_name=body.display_name, output_url=body.output_url,
+            points=body.points, points_last_set=body.points_last_set, sets=body.sets,
         )
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    return _overlay_out(request, overlay)
+
+
+@router.patch("/overlays/{oid}", response_model=OverlayOut)
+async def update_my_overlay(
+    oid: str,
+    body: UpdateOverlayRequest,
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Edit an overlay's label, output URL, and default match rules.
+
+    Only the fields present in the request body are changed (``exclude_unset``),
+    so a partial PATCH never clobbers settings the caller didn't mention.
+    """
+    try:
+        overlay = overlays_service.update_overlay(
+            db, user.id, oid, **body.model_dump(exclude_unset=True),
+        )
+    except overlays_service.OverlayError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     db.commit()
     return _overlay_out(request, overlay)
 

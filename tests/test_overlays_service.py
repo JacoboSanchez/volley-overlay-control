@@ -81,6 +81,31 @@ def test_lookup_by_public_token_and_listing(db_session):
     _ = o2
 
 
+def test_create_and_update_overlay_settings(db_session):
+    a = _user(db_session, "alice")
+    db_session.flush()
+    o = overlays_service.create_overlay(
+        db_session, a.id, "liga",
+        output_url="https://app.overlays.uno/output/abc", sets=3, points=21,
+    )
+    db_session.commit()
+    assert o.output_url == "https://app.overlays.uno/output/abc"
+    assert o.sets == 3 and o.points == 21
+
+    # Partial update: only sets changes; output_url/points untouched.
+    overlays_service.update_overlay(db_session, a.id, "liga", sets=5)
+    db_session.commit()
+    refreshed = overlays_service.get_overlay(db_session, a.id, "liga")
+    assert refreshed.sets == 5
+    assert refreshed.points == 21
+    assert refreshed.output_url == "https://app.overlays.uno/output/abc"
+
+    # Clearing a field with an empty string nulls it.
+    overlays_service.update_overlay(db_session, a.id, "liga", output_url="")
+    db_session.commit()
+    assert overlays_service.get_overlay(db_session, a.id, "liga").output_url is None
+
+
 def test_overlays_deleted_when_user_deleted(db_session):
     from app.auth import service
 

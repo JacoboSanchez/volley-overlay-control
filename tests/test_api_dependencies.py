@@ -49,6 +49,19 @@ def test_two_users_share_an_oid_in_isolation(app_client, db_session):
     assert bob_state["team_1"]["scores"].get("set_1", 0) == 0
 
 
+def test_overlay_default_match_rules_apply_at_init(auth_client):
+    """Per-overlay rules (best-of / points) configured on the overlay are
+    applied when the board session is created."""
+    created = auth_client.post(
+        "/api/v1/overlays", json={"oid": "cup", "sets": 3, "points": 21},
+    )
+    assert created.status_code == 201, created.text
+    assert auth_client.post("/api/v1/session/init", json={"oid": "cup"}).status_code == 200
+    cfg = auth_client.get("/api/v1/config?oid=cup").json()
+    assert cfg["sets_limit"] == 3
+    assert cfg["points_limit"] == 21
+
+
 def test_matches_list_does_not_leak_other_users_with_malformed_oid(app_client, db_session):
     """Regression (IDOR): a malformed ?oid must not bypass per-user scoping
     and dump every user's archived matches."""

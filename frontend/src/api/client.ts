@@ -39,6 +39,18 @@ export interface OverlayPayload {
   display_name: string | null;
   public_token: string;
   output_url: string;
+  custom_output_url: string | null;
+  points: number | null;
+  points_last_set: number | null;
+  sets: number | null;
+}
+
+export interface OverlaySettings {
+  display_name?: string | null;
+  output_url?: string | null;
+  points?: number | null;
+  points_last_set?: number | null;
+  sets?: number | null;
 }
 export type TeamState = Schemas['TeamState'];
 
@@ -446,11 +458,19 @@ export async function getOverlays(): Promise<OverlayPayload[]> {
   return rows.map(withName);
 }
 
-export async function createOverlay(oid: string, displayName?: string): Promise<OverlayPayload> {
-  const row = await request<OverlayRow>('POST', '/overlays', {
-    oid,
-    display_name: displayName || null,
-  });
+export async function createOverlay(
+  oid: string,
+  settings: OverlaySettings = {},
+): Promise<OverlayPayload> {
+  const row = await request<OverlayRow>('POST', '/overlays', { oid, ...settings });
+  return withName(row);
+}
+
+export async function updateOverlay(
+  oid: string,
+  settings: OverlaySettings,
+): Promise<OverlayPayload> {
+  const row = await request<OverlayRow>('PATCH', `/overlays/${encodeURIComponent(oid)}`, settings);
   return withName(row);
 }
 

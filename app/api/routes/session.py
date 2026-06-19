@@ -61,7 +61,18 @@ async def init_session(
     conf.user_id = user.id
     conf.skey = skey
     conf.public_token = overlay.public_token
-    conf.output = req.output_url if req.output_url else None
+    # Output URL precedence: explicit request > the overlay's stored output URL
+    # (cloud/custom) > auto-resolved at validation time.
+    conf.output = req.output_url or overlay.output_url or None
+    # Per-overlay default match rules replace the env defaults for a fresh
+    # session; the request still wins, and once the board edits the rules they
+    # persist in the session meta and win on subsequent inits.
+    if overlay.points is not None:
+        conf.points = overlay.points
+    if overlay.points_last_set is not None:
+        conf.points_last_set = overlay.points_last_set
+    if overlay.sets is not None:
+        conf.sets = overlay.sets
     if req.points_limit is not None:
         conf.points = req.points_limit
     if req.points_limit_last_set is not None:

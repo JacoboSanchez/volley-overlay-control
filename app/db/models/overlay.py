@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -33,6 +33,17 @@ class UserOverlay(Base, TimestampMixin):
     # Opaque, globally-unique capability token for the public OBS output URL.
     public_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(120))
+    # Optional explicit OBS output URL — used for overlays.uno cloud overlays
+    # or any custom output. When empty, the local ``/overlay/<public_token>``
+    # URL is the output. (Replaces the config-provider's per-overlay ``output``.)
+    output_url: Mapped[str | None] = mapped_column(String(2048))
+    # Optional per-overlay default match rules applied at session creation, so
+    # an overlay's format (best-of-3 vs 5, points) can be configured without
+    # opening the board. ``None`` falls back to the env defaults; once the
+    # board edits the rules they persist in the session meta and win.
+    points: Mapped[int | None] = mapped_column(Integer)
+    points_last_set: Mapped[int | None] = mapped_column(Integer)
+    sets: Mapped[int | None] = mapped_column(Integer)
 
     meta: Mapped[OverlaySessionMeta | None] = relationship(
         back_populates="overlay", cascade="all, delete-orphan",
