@@ -301,6 +301,25 @@ export function copyGroupToMine(groupId: number): Promise<{ added: number }> {
   return request('POST', `/team-groups/${groupId}/copy-to-mine`, {});
 }
 
+export interface TeamFields {
+  name: string;
+  icon?: string | null;
+  color?: string | null;
+  text_color?: string | null;
+}
+
+export function adminCreateTeam(fields: TeamFields): Promise<TeamOut> {
+  return request<TeamOut>('POST', '/admin/teams', fields);
+}
+
+export function adminUpdateTeam(id: number, fields: Partial<TeamFields>): Promise<TeamOut> {
+  return request<TeamOut>('PATCH', `/admin/teams/${id}`, fields);
+}
+
+export function adminDeleteTeam(id: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/admin/teams/${id}`);
+}
+
 // ---- Match reports (per overlay) ------------------------------------------
 
 export interface MatchSummary {

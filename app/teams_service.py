@@ -68,6 +68,34 @@ def upsert_global(db: Session, name: str, *, icon=None, color=None, text_color=N
     return team
 
 
+def update_global(
+    db: Session,
+    team_id: int,
+    *,
+    name: str | None = None,
+    icon: str | None = None,
+    color: str | None = None,
+    text_color: str | None = None,
+) -> Team:
+    """Edit a global team's fields by id. Only provided fields change."""
+    team = db.get(Team, team_id)
+    if team is None or not team.is_global:
+        raise TeamError("Team not found.")
+    if name is not None:
+        name = name.strip()
+        if not name:
+            raise TeamError("Team name is required.")
+        team.name = name
+    if icon is not None:
+        team.icon_url = icon or None
+    if color is not None:
+        team.color = color or None
+    if text_color is not None:
+        team.text_color = text_color or None
+    db.flush()
+    return team
+
+
 def delete_global(db: Session, team_id: int) -> bool:
     team = db.get(Team, team_id)
     if team is None or not team.is_global:

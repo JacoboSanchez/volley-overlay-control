@@ -117,6 +117,43 @@ def test_admin_group_published_then_user_copies_it(db_session):
     assert user.post(f"/api/v1/team-groups/{gid}/copy-to-mine").json()["added"] == 0
 
 
+def test_admin_can_create_and_edit_team_with_logo_and_colors(db_session):
+    admin = _admin(db_session)
+    created = admin.post(
+        "/api/v1/admin/teams",
+        json={"name": "Lugo", "icon": "http://x/l.png", "color": "#2e7d32", "text_color": "#ffffff"},
+    )
+    assert created.status_code == 201, created.text
+    tid = created.json()["id"]
+    assert created.json()["icon"] == "http://x/l.png"
+    assert created.json()["color"] == "#2e7d32"
+
+    edited = admin.patch(
+        f"/api/v1/admin/teams/{tid}",
+        json={"color": "#000000", "icon": "http://x/new.png"},
+    )
+    assert edited.status_code == 200, edited.text
+    body = edited.json()
+    assert body["color"] == "#000000"
+    assert body["icon"] == "http://x/new.png"
+    assert body["text_color"] == "#ffffff"  # unchanged
+
+    # The catalog the user sees carries the configured logo/colours.
+    cat = {t["name"]: t for t in admin.get("/api/v1/teams/catalog").json()}
+    assert cat["Lugo"]["color"] == "#000000"
+    assert cat["Lugo"]["icon"] == "http://x/new.png"
+
+
+def test_admin_update_missing_team_is_404(db_session):
+    admin = _admin(db_session)
+    assert admin.patch("/api/v1/admin/teams/999999", json={"color": "#fff"}).status_code == 404
+
+
+def test_team_update_requires_admin(db_session):
+    user = _user(db_session)
+    assert user.patch("/api/v1/admin/teams/1", json={"color": "#fff"}).status_code == 403
+
+
 def test_add_member_to_missing_group_is_404(db_session):
     """Regression: adding a member to a nonexistent group is 404, not a 500."""
     admin = _admin(db_session)

@@ -63,6 +63,13 @@ class AdminTeamRequest(BaseModel):
     text_color: str | None = Field(default=None, max_length=32)
 
 
+class AdminTeamUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    icon: str | None = Field(default=None, max_length=2048)
+    color: str | None = Field(default=None, max_length=32)
+    text_color: str | None = Field(default=None, max_length=32)
+
+
 class ImportTeamsRequest(BaseModel):
     teams: dict[str, dict[str, Any]]
     replace: bool = False
@@ -158,6 +165,24 @@ async def admin_create_team(
         )
     except teams_service.TeamError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    return TeamOut.of(team)
+
+
+@router.patch("/admin/teams/{team_id}", response_model=TeamOut)
+async def admin_update_team(
+    team_id: int,
+    body: AdminTeamUpdateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        team = teams_service.update_global(
+            db, team_id, name=body.name, icon=body.icon,
+            color=body.color, text_color=body.text_color,
+        )
+    except teams_service.TeamError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     db.commit()
     return TeamOut.of(team)
 
