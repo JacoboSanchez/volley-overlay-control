@@ -1,72 +1,103 @@
-"""Predefined data endpoints: /overlays, /teams, /links, /styles."""
+"""User overlay management + per-session data endpoints (/overlays, /teams, /links, /styles)."""
 
-import json
 import logging
 import urllib.parse
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app import overlays_service
 from app.api import match_archive
-from app.api.dependencies import get_current_username, get_session, verify_api_key
+from app.api.dependencies import get_session, verify_api_key
 from app.api.session_manager import GameSession
-from app.authentication import PasswordAuthenticator
+from app.auth.dependencies import require_user
 from app.customization import Customization
+from app.db.engine import get_db
+from app.db.models.user import User
 from app.env_vars_manager import EnvVarsManager
-from app.oid_utils import compose_output, extract_oid
-from app.overlay.state_store import OverlayStateStore
+from app.oid_utils import compose_output
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-class OverlayPayload(BaseModel):
-    """Predefined overlay entry returned by ``GET /overlays``."""
+class OverlayOut(BaseModel):
+    """One of the caller's overlays."""
 
-    name: str = Field(..., description="Display name of the overlay")
-    oid: str = Field(..., description="Overlay identifier")
+    oid: str = Field(..., description="Overlay identifier (unique per user)")
+    display_name: str | None = Field(None, description="Friendly label")
+    public_token: str = Field(..., description="Public OBS-output capability token")
+    output_url: str = Field(..., description="Public /overlay/<token> URL for OBS")
 
 
-@router.get(
-    "/overlays",
-    response_model=list[OverlayPayload],
-    dependencies=[Depends(verify_api_key)],
-)
-async def get_overlays(authorization: str = Header(None)):
-    """Return predefined overlays available for selection.
+class CreateOverlayRequest(BaseModel):
+    oid: str = Field(..., min_length=1, max_length=64)
+    display_name: str | None = Field(None, max_length=120)
 
-    Sourced exclusively from the ``PREDEFINED_OVERLAYS`` environment
-    variable (also populated via the remote configurator). Entries are
-    filtered by ``allowed_users`` using the caller's identity when user
-    authentication is enabled.
-    """
-    overlays_json = EnvVarsManager.get_env_var('PREDEFINED_OVERLAYS', None)
-    if not overlays_json or not overlays_json.strip():
-        return []
 
-    try:
-        env_overlays = json.loads(overlays_json)
-    except json.JSONDecodeError:
-        logger.warning("PREDEFINED_OVERLAYS contains invalid JSON")
-        return []
+def _overlay_out(request: Request, overlay) -> OverlayOut:
+    public_url = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
+    base = public_url or str(request.base_url).rstrip("/")
+    return OverlayOut(
+        oid=overlay.oid,
+        display_name=overlay.display_name,
+        public_token=overlay.public_token,
+        output_url=f"{base}/overlay/{overlay.public_token}",
+    )
 
-    if not isinstance(env_overlays, dict):
-        logger.warning("PREDEFINED_OVERLAYS is not a JSON object")
-        return []
 
-    current_user = None
-    if PasswordAuthenticator.do_authenticate_users():
-        current_user = get_current_username(authorization)
-
+@router.get("/overlays", response_model=list[OverlayOut])
+async def list_my_overlays(
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Return the overlays owned by the caller."""
     return [
-        {"name": name, "oid": extract_oid(config.get('control', ''))}
-        for name, config in env_overlays.items()
-        if isinstance(config, dict)
-        and (config.get('allowed_users') is None
-             or (current_user and current_user in (config.get('allowed_users') or [])))
+        _overlay_out(request, o)
+        for o in overlays_service.list_overlays(db, user.id)
     ]
+
+
+@router.post("/overlays", response_model=OverlayOut, status_code=201)
+async def create_my_overlay(
+    body: CreateOverlayRequest,
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Register a new overlay for the caller (mints a public OBS token)."""
+    try:
+        overlay = overlays_service.create_overlay(
+            db, user.id, body.oid, display_name=body.display_name,
+        )
+    except overlays_service.OverlayError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    return _overlay_out(request, overlay)
+
+
+@router.delete("/overlays/{oid}")
+async def delete_my_overlay(
+    oid: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Delete one of the caller's overlays and its in-process session/state."""
+    from app.api.session_manager import SessionManager
+    from app.overlay import overlay_state_store
+    from app.overlay_key import make_skey
+
+    if not overlays_service.delete_overlay(db, user.id, oid):
+        raise HTTPException(status_code=404, detail="Overlay not found.")
+    db.commit()
+    skey = make_skey(user.id, oid)
+    SessionManager.remove(skey)
+    await run_in_threadpool(overlay_state_store.delete_overlay, skey)
+    return {"ok": True}
 
 
 @router.get("/teams", dependencies=[Depends(verify_api_key)])
@@ -80,7 +111,10 @@ async def get_teams():
 async def get_links(request: Request,
                     session: GameSession = Depends(get_session)):
     """Return control, overlay, and preview links for the session."""
-    oid = session.oid
+    # ``raw_oid`` for backend/cloud resolution (uno control URL needs the bare
+    # token); ``skey`` (== session.oid) for per-user archive lookups.
+    oid = session.raw_oid
+    skey = session.oid
     output = session.conf.output
     links = {}
 
@@ -139,22 +173,8 @@ async def get_links(request: Request,
         # surfaced for custom overlays where the output key resolves
         # to our own ``/follow/{key}`` route; cloud overlays
         # (overlays.uno) have no equivalent path.
-        if session.backend.is_custom_overlay(oid):
-            try:
-                custom_id, _ = session.backend.get_custom_overlay_id(oid)
-            except Exception:
-                # Defensive only: the parser is total in practice.
-                # ``logger.exception`` captures the full traceback so
-                # a regression surfaces in operator logs instead of
-                # silently degrading the follow URL.
-                logger.exception(
-                    "Failed to resolve custom overlay id for %r; "
-                    "falling back to raw oid", oid,
-                )
-                custom_id = oid
-            if custom_id:
-                output_key = OverlayStateStore.get_output_key(custom_id)
-                links["follow"] = f"{base_url}/follow/{output_key}"
+        if session.backend.is_custom_overlay(oid) and session.public_token:
+            links["follow"] = f"{base_url}/follow/{session.public_token}"
 
     # Surface the latest archived match report and a browseable
     # match-history index — but only when the report endpoint is
@@ -165,16 +185,16 @@ async def get_links(request: Request,
     # invites copy-paste leaks into chat tools.
     raw_public = EnvVarsManager.get_env_var("MATCH_REPORT_PUBLIC", "false")
     if str(raw_public).strip().lower() in ("1", "true", "t", "yes", "on"):
-        latest = await run_in_threadpool(_latest_match_id_for, oid)
+        latest = await run_in_threadpool(_latest_match_id_for, skey)
         if latest is not None:
             base_url = str(request.base_url).rstrip('/')
             links["latest_match_report"] = f"{base_url}/match/{latest}/report"
-            # The index is a per-OID listing; only emit when there
+            # The index is a per-overlay listing; only emit when there
             # *is* something to list, so the UI doesn't show a link
             # to an empty page.
             links["match_history"] = (
                 f"{base_url}/matches/index.html?oid="
-                + urllib.parse.quote(oid, safe="")
+                + urllib.parse.quote(skey, safe="")
             )
 
     return links

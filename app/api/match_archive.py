@@ -190,7 +190,11 @@ def _oid_hash(oid: str) -> str:
 
 
 def _is_valid_oid(oid: str) -> bool:
-    return isinstance(oid, str) and _OID_PATTERN.match(oid) is not None
+    from app.overlay_key import is_valid_skey
+
+    return isinstance(oid, str) and (
+        _OID_PATTERN.match(oid) is not None or is_valid_skey(oid)
+    )
 
 
 def _ts_for_now() -> str:

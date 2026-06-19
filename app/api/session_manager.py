@@ -24,7 +24,18 @@ class GameSession:
 
     def __init__(self, oid, conf, backend,
                  points_limit=None, points_limit_last_set=None, sets_limit=None):
+        # ``oid`` here is the *storage key* (``<user_id>:<oid>`` for a
+        # logged-in user, or a bare id in standalone/legacy/test paths). It
+        # is what every per-overlay persistence surface keys on — overlay
+        # state, audit log, session meta, match archive, the SessionManager
+        # registry, and the control WS hub — so two users with the same raw
+        # oid stay isolated. ``raw_oid`` keeps the un-namespaced id for the
+        # Backend (cloud/local resolution, uno API, control links).
         self.oid = oid
+        self.skey = oid
+        self.raw_oid = getattr(conf, "oid", None) or oid
+        self.user_id = getattr(conf, "user_id", None)
+        self.public_token = getattr(conf, "public_token", None)
         self.conf = conf
         self.backend = backend
         self.game_manager = GameManager(conf, backend)

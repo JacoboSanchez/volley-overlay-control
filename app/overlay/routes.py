@@ -39,6 +39,25 @@ logger = logging.getLogger(__name__)
 _NO_CACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 
+def _resolve_public_token(token: str) -> str | None:
+    """Map a public OBS-output token to its overlay storage key (skey).
+
+    The public surface (``/overlay``, ``/follow``, ``/ws``) is addressed by
+    the unguessable ``public_token`` stored on the user's overlay row, never
+    by the user-facing ``username``/``oid`` — so the OBS URL leaks neither.
+    """
+    from app import overlays_service
+    from app.db.engine import session_scope
+
+    if not token:
+        return None
+    with session_scope() as db:
+        overlay = overlays_service.get_by_public_token(db, token)
+        if overlay is None:
+            return None
+        return overlays_service.skey_for(overlay)
+
+
 
 # ---------------------------------------------------------------------------
 # Router factory
@@ -89,15 +108,15 @@ def _register_page_routes(
 
     # -- Overlay HTML rendering --------------------------------------------
 
-    @router.get("/overlay/{overlay_id}", response_class=HTMLResponse)
+    @router.get("/overlay/{public_token}", response_class=HTMLResponse)
     async def serve_overlay(
-        request: Request, overlay_id: str, style: str = None,
+        request: Request, public_token: str, style: str = None,
         lang: str = None,
     ):
-        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
-        if resolved is None:
+        skey = await run_in_threadpool(_resolve_public_token, public_token)
+        if skey is None:
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
-        overlay_id = resolved
+        overlay_id = skey
 
         available = await run_in_threadpool(store.get_available_styles_list)
         renderable = await run_in_threadpool(store.get_renderable_styles)
@@ -133,8 +152,11 @@ def _register_page_routes(
             request=request,
             name=template_name,
             context={
-                "target_id": overlay_id,
-                "output_key": OverlayStateStore.get_output_key(overlay_id),
+                # The page connects to /ws/{output_key}; both the OBS URL
+                # token and the WS subscription use the public token, which
+                # the WS route resolves back to the storage key.
+                "target_id": public_token,
+                "output_key": public_token,
                 "style": style,
                 "available_styles": available,
                 "v": int(time.time()),
@@ -147,27 +169,26 @@ def _register_page_routes(
 
     # -- Public spectator (follow) page ------------------------------------
 
-    @router.get("/follow/{overlay_id}", response_class=HTMLResponse)
-    async def serve_spectator(request: Request, overlay_id: str):
+    @router.get("/follow/{public_token}", response_class=HTMLResponse)
+    async def serve_spectator(request: Request, public_token: str):
         """Mobile-friendly read-only follow view.
 
-        Resolves the overlay id like ``/overlay/{id}`` and serves a
-        lightweight template that consumes the same ``/ws/{id}`` feed
+        Resolves the public token like ``/overlay/{token}`` and serves a
+        lightweight template that consumes the same ``/ws/{token}`` feed
         the OBS templates use. Public by design — the page exposes no
         write paths and inherits the same data exposure as the OBS
         overlay it shadows.
         """
-        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
-        if resolved is None:
+        skey = await run_in_threadpool(_resolve_public_token, public_token)
+        if skey is None:
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
-        overlay_id = resolved
 
         return templates.TemplateResponse(
             request=request,
             name="_spectator.html",
             context={
-                "target_id": overlay_id,
-                "output_key": OverlayStateStore.get_output_key(overlay_id),
+                "target_id": public_token,
+                "output_key": public_token,
                 "v": int(time.time()),
             },
             headers=_NO_CACHE_HEADERS,
@@ -175,13 +196,13 @@ def _register_page_routes(
 
     # -- OBS browser source WebSocket --------------------------------------
 
-    @router.websocket("/ws/{overlay_id}")
-    async def obs_websocket(websocket: WebSocket, overlay_id: str):
-        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
-        if resolved is None:
+    @router.websocket("/ws/{public_token}")
+    async def obs_websocket(websocket: WebSocket, public_token: str):
+        skey = await run_in_threadpool(_resolve_public_token, public_token)
+        if skey is None:
             await websocket.close(code=4004, reason="Overlay not found")
             return
-        overlay_id = resolved
+        overlay_id = skey
         await websocket.accept()
 
         broadcast.add_client(overlay_id, websocket)

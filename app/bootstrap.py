@@ -34,7 +34,6 @@ from app.api.routes.metrics import router as metrics_router
 from app.app_config import get_app_title
 from app.auth.bootstrap import ensure_admin_bootstrap
 from app.auth.routes import auth_router
-from app.authentication import PasswordAuthenticator
 from app.db import migrate as db_migrate
 from app.match_report import match_report_router
 from app.security_bootstrap import run_security_bootstrap
@@ -180,8 +179,9 @@ async def _lifespan(application: FastAPI):
 
 
 def _register_auth(application: FastAPI) -> None:
-    if PasswordAuthenticator.do_authenticate_users():
-        logger.info("User authentication enabled")
+    # User authentication is always on now (cookie sessions); the auth
+    # router is registered in _register_api_routes.
+    logger.info("Cookie-session authentication enabled")
 
 
 def _register_api_routes(application: FastAPI) -> None:

@@ -1,148 +1,49 @@
-"""Unit tests for ``app.api.dependencies``.
+"""get_session / cookie-auth dependency behaviour (Phase 3 cutover).
 
-Existing tests exercise these helpers indirectly through the routes;
-this file covers the branches the route tests skip (strict-OID mode,
-non-dict per-user config, the pure permission check independent of any
-``GameSession``).
+Replaces the old SCOREBOARD_USERS Bearer + ``check_oid_access`` tests: the
+scoreboard API is now cookie-authenticated and a session is addressed by the
+per-user storage key, so a user can only reach sessions they initialised and
+two users may drive the same ``oid`` in isolation.
 """
 
 from __future__ import annotations
 
-import json
+from fastapi.testclient import TestClient
 
-import pytest
-from fastapi import HTTPException
-
-from app.api.dependencies import (
-    _strict_oid_access_enabled,
-    check_oid_access,
-    get_current_username,
-)
-from app.authentication import PasswordAuthenticator
-
-# ---------------------------------------------------------------------------
-# _strict_oid_access_enabled
-# ---------------------------------------------------------------------------
+from tests.conftest import login_client
 
 
-@pytest.mark.parametrize("raw", ["1", "true", "True", "yes", "on", "T"])
-def test_strict_oid_access_truthy(raw, monkeypatch):
-    monkeypatch.setenv("STRICT_OID_ACCESS", raw)
-    assert _strict_oid_access_enabled() is True
+def _init(client, oid="liga"):
+    return client.post("/api/v1/session/init", json={"oid": oid})
 
 
-@pytest.mark.parametrize("raw", ["", "0", "false", "no", "off", "anything-else"])
-def test_strict_oid_access_falsy(raw, monkeypatch):
-    monkeypatch.setenv("STRICT_OID_ACCESS", raw)
-    assert _strict_oid_access_enabled() is False
+def test_unauthenticated_api_is_rejected(app_client):
+    assert app_client.post("/api/v1/session/init", json={"oid": "liga"}).status_code == 401
+    assert app_client.get("/api/v1/state?oid=liga").status_code == 401
 
 
-def test_strict_oid_access_unset_defaults_off(monkeypatch):
-    monkeypatch.delenv("STRICT_OID_ACCESS", raising=False)
-    assert _strict_oid_access_enabled() is False
+def test_init_then_state_for_owner(auth_client):
+    assert _init(auth_client).status_code == 200
+    assert auth_client.get("/api/v1/state?oid=liga").status_code == 200
 
 
-# ---------------------------------------------------------------------------
-# check_oid_access
-# ---------------------------------------------------------------------------
+def test_state_without_init_is_404(auth_client):
+    # Authenticated but no session yet for this oid.
+    assert auth_client.get("/api/v1/state?oid=neverinit").status_code == 404
 
 
-@pytest.fixture
-def configured_users(monkeypatch):
-    """Configure SCOREBOARD_USERS with one OID-bound user and one open user.
+def test_two_users_share_an_oid_in_isolation(app_client, db_session):
+    """Headline guarantee: same oid, two users, fully independent boards."""
+    alice = login_client(app_client, db_session, "alice")
+    assert _init(alice, "liga").status_code == 200
+    assert alice.post("/api/v1/game/add-point?oid=liga", json={"team": 1}).status_code == 200
 
-    The cache on ``PasswordAuthenticator`` is reset so the new env var
-    takes effect immediately.
-    """
-    monkeypatch.setenv(
-        "SCOREBOARD_USERS",
-        json.dumps({
-            "alice": {"password": "alice-pw", "control": "ovl-alice"},
-            "bob":   {"password": "bob-pw"},
-            "broken": "i-am-not-a-dict",
-        }),
-    )
-    PasswordAuthenticator._cached_users = None
-    PasswordAuthenticator._cached_users_raw = None
-    yield
-    PasswordAuthenticator._cached_users = None
-    PasswordAuthenticator._cached_users_raw = None
+    bob = login_client(TestClient(app_client.app), db_session, "bob")
+    # Bob's "liga" is a different board — no session until he inits.
+    assert bob.get("/api/v1/state?oid=liga").status_code == 404
+    assert _init(bob, "liga").status_code == 200
 
-
-def test_check_oid_access_skips_when_auth_disabled(monkeypatch):
-    """No SCOREBOARD_USERS set → check is a no-op."""
-    monkeypatch.delenv("SCOREBOARD_USERS", raising=False)
-    PasswordAuthenticator._cached_users = None
-    PasswordAuthenticator._cached_users_raw = None
-    # Whatever we pass should be accepted.
-    check_oid_access("", "any-oid")
-    check_oid_access("Bearer garbage", "any-oid")
-
-
-def test_check_oid_access_missing_header(configured_users):
-    with pytest.raises(HTTPException) as exc:
-        check_oid_access("", "ovl-alice")
-    assert exc.value.status_code == 401
-    assert exc.value.headers is not None
-    assert exc.value.headers.get("WWW-Authenticate") == 'Bearer realm="scoreboard"'
-
-
-def test_check_oid_access_invalid_token(configured_users):
-    with pytest.raises(HTTPException) as exc:
-        check_oid_access("Bearer not-a-real-token", "ovl-alice")
-    assert exc.value.status_code == 403
-
-
-def test_check_oid_access_allowed_oid(configured_users):
-    # Alice's password IS her API key in the un-hashed config flavour.
-    check_oid_access("Bearer alice-pw", "ovl-alice")
-
-
-def test_check_oid_access_rejects_mismatched_oid(configured_users):
-    with pytest.raises(HTTPException) as exc:
-        check_oid_access("Bearer alice-pw", "ovl-someone-else")
-    assert exc.value.status_code == 403
-
-
-def test_check_oid_access_no_control_lenient_mode(configured_users, monkeypatch):
-    """Bob has no ``control`` field; default mode allows any OID."""
-    monkeypatch.delenv("STRICT_OID_ACCESS", raising=False)
-    check_oid_access("Bearer bob-pw", "any-oid")
-
-
-def test_check_oid_access_no_control_strict_mode(configured_users, monkeypatch):
-    """With ``STRICT_OID_ACCESS=true``, missing ``control`` denies."""
-    monkeypatch.setenv("STRICT_OID_ACCESS", "true")
-    with pytest.raises(HTTPException) as exc:
-        check_oid_access("Bearer bob-pw", "any-oid")
-    assert exc.value.status_code == 403
-
-
-def test_check_oid_access_non_dict_user_entry(configured_users):
-    """A malformed per-user value (string instead of dict) is treated as
-    "no constraint"; the call must not crash on ``.get(...)``."""
-    # The ``broken`` user has password "i-am-not-a-dict"; that string
-    # cannot be a valid Bearer token via ``check_api_key`` so the call
-    # falls through 403 — but importantly, no AttributeError.
-    with pytest.raises(HTTPException) as exc:
-        check_oid_access("Bearer i-am-not-a-dict", "any-oid")
-    assert exc.value.status_code == 403
-
-
-# ---------------------------------------------------------------------------
-# get_current_username
-# ---------------------------------------------------------------------------
-
-
-def test_get_current_username_none_for_missing_header():
-    assert get_current_username(None) is None
-    assert get_current_username("") is None
-
-
-def test_get_current_username_returns_user(configured_users):
-    assert get_current_username("Bearer alice-pw") == "alice"
-    assert get_current_username("Bearer bob-pw") == "bob"
-
-
-def test_get_current_username_unknown_token_returns_none(configured_users):
-    assert get_current_username("Bearer not-a-key") is None
+    alice_state = alice.get("/api/v1/state?oid=liga").json()
+    bob_state = bob.get("/api/v1/state?oid=liga").json()
+    assert alice_state["team_1"]["scores"].get("set_1", 0) == 1
+    assert bob_state["team_1"]["scores"].get("set_1", 0) == 0

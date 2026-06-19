@@ -1,6 +1,5 @@
 """Tests for the custom overlay admin module."""
 
-import json
 
 import pytest
 from fastapi import FastAPI
@@ -573,22 +572,10 @@ class TestWebhookReplayEndpoint:
 # ---------------------------------------------------------------------------
 
 
-def test_public_overlays_only_from_env(client, monkeypatch):
-    monkeypatch.setenv(
-        "PREDEFINED_OVERLAYS",
-        json.dumps({"Env overlay": {"control": "ENV-TOKEN"}}),
-    )
-    # Creating a custom overlay through the admin API must NOT add it to
-    # the public predefined-overlay list — those come from env only now.
-    client.post(
-        "/api/v1/admin/custom-overlays",
-        json={"name": "mybroadcast"}, headers=_auth(),
-    )
-
-    res = client.get("/api/v1/overlays")
-    assert res.status_code == 200
-    names = {o["name"] for o in res.json()}
-    assert names == {"Env overlay"}
+# NOTE: the public predefined-overlay catalog (PREDEFINED_OVERLAYS →
+# GET /api/v1/overlays) was removed in the multi-user cutover; that endpoint
+# now lists the authenticated caller's own overlays (see test_api_routes /
+# test_overlays_service).
 
 
 # ---------------------------------------------------------------------------

@@ -210,6 +210,57 @@ def load_fixture(name):
 
 
 # ---------------------------------------------------------------------------
+# Cookie-auth helpers for the multi-user model.
+# ---------------------------------------------------------------------------
+
+
+def make_user(db_session, username="tester", *, password="password123",
+              role="user", must_change_password=False):
+    """Create and commit a user directly in the DB. Returns the User."""
+    from app.auth import service
+
+    user = service.create_user(
+        db_session, username=username, password=password, role=role,
+        must_change_password=must_change_password,
+    )
+    db_session.commit()
+    return user
+
+
+@pytest.fixture
+def app_client():
+    """A ``TestClient`` over a freshly-built app (unauthenticated)."""
+    from fastapi.testclient import TestClient
+
+    from app.bootstrap import create_app
+
+    return TestClient(create_app())
+
+
+def login_client(client, db_session, username="tester", *, password="password123",
+                 role="user"):
+    """Create a user and return *client* with its session cookie set.
+
+    The created user's id is attached as ``client.test_user_id`` so tests
+    can build the per-user storage key (``make_skey(client.test_user_id,
+    oid)``) when asserting against ``SessionManager``/stores.
+    """
+    user = make_user(db_session, username, password=password, role=role)
+    client.test_user_id = user.id
+    resp = client.post(
+        "/api/v1/auth/login", json={"username": username, "password": password},
+    )
+    assert resp.status_code == 200, resp.text
+    return client
+
+
+@pytest.fixture
+def auth_client(app_client, db_session):
+    """A ``TestClient`` already logged in as a normal user named ``tester``."""
+    return login_client(app_client, db_session)
+
+
+# ---------------------------------------------------------------------------
 # Shared API-layer fixtures (previously duplicated in test_api.py).
 # ---------------------------------------------------------------------------
 

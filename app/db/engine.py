@@ -22,8 +22,6 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api._persistence_paths import data_dir
-
 logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
@@ -40,6 +38,11 @@ def database_url() -> str:
     url = (os.environ.get("DATABASE_URL") or "").strip()
     if url:
         return url
+    # Lazy import: keeps app.db.engine free of the app.api package at module
+    # load time, which would otherwise create an import cycle
+    # (api -> auth.dependencies -> db.engine).
+    from app.api._persistence_paths import data_dir
+
     return f"sqlite:///{data_dir('app.db')}"
 
 

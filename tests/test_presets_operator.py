@@ -41,7 +41,9 @@ def _isolate_state(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def client():
+def client(db_session):
+    from tests.conftest import login_client
+
     fake = MagicMock()
     fake.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
     fake.init_ws_client.return_value = None
@@ -54,6 +56,7 @@ def client():
         patch("app.api.routes.session.Backend", return_value=fake),
         TestClient(create_app()) as c,
     ):
+        login_client(c, db_session)
         # Init a session so every later request resolves through
         # ``get_session`` without 404. The route under test doesn't
         # require a session but the rest of the suite expects one.

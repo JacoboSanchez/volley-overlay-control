@@ -32,7 +32,11 @@ def _data_dir() -> str:
 
 
 def _state_path(oid: str) -> str | None:
-    if not isinstance(oid, str) or _OID_PATTERN.match(oid) is None:
+    from app.overlay_key import is_valid_skey
+
+    if not isinstance(oid, str) or (
+        _OID_PATTERN.match(oid) is None and not is_valid_skey(oid)
+    ):
         return None
     return os.path.join(_data_dir(), hashed_filename("session_meta_", oid))
 

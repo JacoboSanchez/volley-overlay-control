@@ -17,6 +17,7 @@ from collections.abc import Callable
 
 from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
 from app.id_validation import is_valid_overlay_id, validate_overlay_id
+from app.overlay_key import is_valid_skey
 
 logger = logging.getLogger(__name__)
 
@@ -229,13 +230,14 @@ class OverlayStateStore:
     def _sanitize_id(overlay_id: str) -> str:
         """Validate *overlay_id* as a filesystem-safe identifier.
 
-        Returns *overlay_id* unchanged when it matches the strict allow-list
-        (:func:`app.id_validation.validate_overlay_id`). Raises ``ValueError`` otherwise — this is
-        the single choke point between user-provided ids and the on-disk
-        ``overlay_state_<id>.json`` paths, so rejecting here guarantees no
-        path-traversal or arbitrary-filename value reaches ``open``,
-        ``unlink``, or ``rename``.
+        Accepts either a bare overlay id (legacy/single-tenant) or a
+        per-user storage key ``<user_id>:<oid>`` (:func:`app.overlay_key`).
+        Both shapes are path-safe — no ``/`` and no ``..`` — so this stays
+        the single choke point between caller input and the on-disk
+        ``overlay_state_<hash>.json`` paths. Raises ``ValueError`` otherwise.
         """
+        if is_valid_skey(overlay_id):
+            return overlay_id
         return validate_overlay_id(overlay_id)
 
     @staticmethod
@@ -396,7 +398,7 @@ class OverlayStateStore:
                 logger.warning("Skipping unreadable state file '%s': %s", filename, exc)
                 continue
             oid = (payload or {}).get("_meta", {}).get("overlay_id")
-            if not is_valid_overlay_id(oid):
+            if not (is_valid_overlay_id(oid) or is_valid_skey(oid)):
                 logger.warning("State file '%s' missing valid _meta.overlay_id", filename)
                 continue
             yield oid, filename

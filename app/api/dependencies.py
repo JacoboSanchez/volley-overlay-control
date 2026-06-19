@@ -1,107 +1,43 @@
+"""Scoreboard API auth + session dependencies (cookie-based).
+
+The legacy ``SCOREBOARD_USERS`` Bearer ladder is gone: every ``/api/v1``
+scoreboard route now requires a logged-in user (cookie session), and a
+session is addressed by the per-user storage key ``<user_id>:<oid>`` so two
+users can drive the same ``oid`` in isolation.
+
+``verify_api_key`` is kept as a name (used as ``dependencies=[Depends(...)]``
+on the domain routers) but now simply requires an authenticated, fully
+onboarded user — it is an alias for :func:`app.auth.dependencies.require_user`.
+"""
+
 import logging
 
-from fastapi import Header, HTTPException, Query, Request
+from fastapi import Depends, HTTPException, Query
 
 from app.api.session_manager import GameSession, SessionManager
-from app.authentication import PasswordAuthenticator
-from app.env_vars_manager import EnvVarsManager
+from app.auth.dependencies import require_user
+from app.db.models.user import User
+from app.overlay_key import make_skey
 
 logger = logging.getLogger(__name__)
 
+# Route-level "must be logged in" dependency. Named for backwards
+# compatibility with the many ``dependencies=[Depends(verify_api_key)]``
+# call sites; the implementation is now the cookie-session user gate.
+verify_api_key = require_user
 
-def _strict_oid_access_enabled() -> bool:
-    """Return True when ``STRICT_OID_ACCESS`` is set to a truthy value.
-
-    Opt-in hardening: when enabled, a user configured in ``SCOREBOARD_USERS``
-    without an explicit ``control`` field is denied access to every OID
-    rather than allowed everywhere. Default off for backward compatibility.
-    """
-    raw = EnvVarsManager.get_env_var('STRICT_OID_ACCESS', 'false')
-    return str(raw).strip().lower() in ('1', 'true', 't', 'yes', 'on')
-
-# RFC 7235 mandates a ``WWW-Authenticate`` header on every 401 response so
-# clients know which scheme to retry with. We emit ``Bearer`` plus a
-# realm hint so the OpenAPI / Swagger UI prompt presents a sensible
-# label. The realm strings are deliberately surface-specific so an
-# operator can tell from the response which auth ladder the request
-# tripped (scoreboard / admin / overlay-server).
-_API_KEY_WWW_AUTH = {"WWW-Authenticate": 'Bearer realm="scoreboard"'}
-
-
-async def verify_api_key(authorization: str = Header(None)):
-    """Validate the Bearer token when user authentication is enabled.
-
-    If ``SCOREBOARD_USERS`` is not configured the check is skipped so
-    that the API remains open.
-    """
-    if not PasswordAuthenticator.do_authenticate_users():
-        return  # no auth required
-
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing API key. Use 'Authorization: Bearer <key>'.",
-            headers=_API_KEY_WWW_AUTH,
-        )
-
-    token = authorization.removeprefix("Bearer ").strip()
-    if not PasswordAuthenticator.check_api_key(token):
-        raise HTTPException(status_code=403, detail="Invalid API key.")
-
-def get_current_username(authorization: str | None) -> str | None:
-    """Return the username for a Bearer token header, or ``None``.
-
-    Does not raise: used by endpoints that want to filter by caller identity
-    without requiring authentication (e.g. ``GET /overlays``).
-    """
-    if not authorization:
-        return None
-    token = authorization.removeprefix("Bearer ").strip()
-    return PasswordAuthenticator.get_username_for_api_key(token)
-
-def check_oid_access(authorization: str, oid: str):
-    """Verify that the API key has permission for the requested OID."""
-    if not PasswordAuthenticator.do_authenticate_users():
-        return
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing API key.",
-            headers=_API_KEY_WWW_AUTH,
-        )
-
-    username = get_current_username(authorization)
-    if not username:
-        raise HTTPException(status_code=403, detail="Invalid API key.")
-
-    users = PasswordAuthenticator._get_users()
-    # ``_get_users`` already guarantees a dict-or-None at the top
-    # level, but a per-user entry may still be a non-dict shape
-    # (e.g. ``{"alice": "string"}``); skip the OID check rather
-    # than crash on ``userconf.get(...)``.
-    userconf = users.get(username) if isinstance(users, dict) else None
-    if not isinstance(userconf, dict):
-        return
-    allowed_oid = userconf.get("control")
-    if allowed_oid and allowed_oid != oid:
-        raise HTTPException(status_code=403, detail="Not authorized for this OID.")
-    if not allowed_oid and _strict_oid_access_enabled():
-        logger.warning(
-            "Strict OID access: user %s has no 'control' field; denying",
-            username,
-        )
-        raise HTTPException(status_code=403, detail="Not authorized for this OID.")
 
 async def get_session(
-    request: Request,
     oid: str | None = Query(None, description="Overlay ID"),
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
+    user: User = Depends(require_user),
 ) -> GameSession:
-    """Retrieve a previously initialised ``GameSession``.
+    """Retrieve the caller's previously-initialised ``GameSession``.
 
-    Accepts either ``?oid=`` or ``?control=`` (alias). Returns HTTP 404 if
-    no session exists for the given OID — callers should call
-    ``POST /api/v1/session/init`` first.
+    The session key embeds the authenticated user's id, so a user can only
+    ever reach a session they initialised — passing another user's ``oid``
+    simply resolves to a different key with no session. Returns 404 when no
+    session exists for ``(user, oid)`` (call ``POST /api/v1/session/init``).
     """
     resolved = oid or control
     if not resolved:
@@ -110,10 +46,7 @@ async def get_session(
             detail="Missing required query parameter: 'oid' (or alias 'control').",
         )
 
-    authorization = request.headers.get("authorization", "")
-    check_oid_access(authorization, resolved)
-
-    session = SessionManager.get(resolved)
+    session = SessionManager.get(make_skey(user.id, resolved))
     if session is None:
         raise HTTPException(
             status_code=404,

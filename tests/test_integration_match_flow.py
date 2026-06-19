@@ -56,8 +56,11 @@ def dispatcher(monkeypatch, webhook_env):
 
 
 @pytest.fixture
-def client():
+def client(db_session):
+    from tests.conftest import login_client
+
     with TestClient(create_app()) as c:
+        login_client(c, db_session)
         yield c
 
 
@@ -159,8 +162,11 @@ def test_full_match_lifecycle(client, dispatcher):
 
         # --- overlay store (in-process LocalOverlayBackend) ----------------
         from app.overlay import overlay_state_store
+        from app.overlay_key import make_skey
 
-        overlay_state = overlay_state_store.get_state(OID)
+        overlay_state = overlay_state_store.get_state(
+            make_skey(client.test_user_id, OID)
+        )
         assert overlay_state is not None
         home_sets = overlay_state["team_home"]["sets_won"]
         away_sets = overlay_state["team_away"]["sets_won"]

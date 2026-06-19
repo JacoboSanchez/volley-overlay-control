@@ -114,10 +114,13 @@ class Backend:
         """Return a fresh copy of the cached customization, or None if stale."""
         return self._customization_cache.fresh()
 
-    @staticmethod
-    def _local_overlay_exists(overlay_id: str) -> bool:
+    def _local_overlay_exists(self, overlay_id: str) -> bool:
+        # Local overlay state is keyed by the per-user storage key when one
+        # is bound to the session (``conf.skey``); fall back to the raw id
+        # for bare/standalone backends (tests, legacy paths).
         from app.overlay import overlay_state_store
-        return bool(overlay_id) and overlay_state_store.overlay_exists(overlay_id)
+        key = self.conf.skey or overlay_id
+        return bool(key) and overlay_state_store.overlay_exists(key)
 
     def _oid_or_default(self, oid):
         return oid if oid is not None else self.conf.oid

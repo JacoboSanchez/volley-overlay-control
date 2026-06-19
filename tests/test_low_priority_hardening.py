@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from unittest.mock import patch
 
@@ -81,53 +80,16 @@ def test_exception_log_includes_method_path_class_and_request_id(caplog):
 # ---------------------------------------------------------------------------
 
 
-def test_scoreboard_401_carries_bearer_challenge(monkeypatch):
-    monkeypatch.setenv(
-        "SCOREBOARD_USERS",
-        json.dumps({"alice": {"password": "alice-pw"}}),
-    )
-    # Force re-parse since other tests may have cached an older value.
-    from app.authentication import PasswordAuthenticator
-    PasswordAuthenticator._cached_users = None
-    PasswordAuthenticator._cached_users_raw = None
-
+def test_scoreboard_401_carries_cookie_challenge():
+    """An unauthenticated scoreboard request gets a 401 with a
+    ``WWW-Authenticate`` challenge (now the cookie-session scheme)."""
     app = FastAPI()
     app.include_router(api_router)
     client = TestClient(app)
 
-    # 401 — missing header.
     res = client.get("/api/v1/state?oid=test_overlay")
     assert res.status_code == 401
-    assert (
-        res.headers.get("www-authenticate")
-        == 'Bearer realm="scoreboard"'
-    )
-
-
-def test_scoreboard_401_check_oid_path_carries_challenge(monkeypatch):
-    """The second 401 site (``check_oid_access`` for missing header)
-    must also emit the WWW-Authenticate challenge.
-
-    Exercise the WebSocket route, which calls ``check_oid_access``
-    explicitly. A bare ``401`` from that path was previously
-    silent on the challenge.
-    """
-    monkeypatch.setenv(
-        "SCOREBOARD_USERS",
-        json.dumps({"alice": {"password": "alice-pw"}}),
-    )
-    from fastapi import HTTPException
-
-    from app.api.dependencies import check_oid_access
-
-    with pytest.raises(HTTPException) as excinfo:
-        check_oid_access("", "test_overlay")
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.headers is not None
-    assert (
-        excinfo.value.headers.get("WWW-Authenticate")
-        == 'Bearer realm="scoreboard"'
-    )
+    assert res.headers.get("www-authenticate") == "Cookie"
 
 
 def test_admin_401_carries_admin_realm(monkeypatch):
