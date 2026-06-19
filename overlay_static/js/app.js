@@ -156,6 +156,9 @@ function runSideSwapTransition(view, raw) {
             scoreboard.querySelector('.pylon-away'),
         ].filter(Boolean);
         if (panels.length) {
+            // Cancel any in-flight collapse/unfold first so swaps fired in
+            // rapid succession can't overlap and strand a panel mid-tween.
+            gsap.killTweensOf(panels);
             gsap.to(panels, {
                 xPercent: (i, el) =>
                     (el.classList.contains('pylon-away') ? 120 : -120),
@@ -174,6 +177,9 @@ function runSideSwapTransition(view, raw) {
         renderFullState(view, raw);
         return;
     }
+    // Cancel any in-flight flip so repeated swaps in a short window can't
+    // conflict on the same target.
+    gsap.killTweensOf(wrapper);
     const targetScaleX = Number(gsap.getProperty(wrapper, "scaleX")) || 1;
     gsap.to(wrapper, {
         scaleX: 0,
