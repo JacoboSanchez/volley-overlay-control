@@ -10,6 +10,37 @@ once a first tagged release ships.
 
 ### Added
 
+- **Multi-user application (backend).** The app now has real user accounts
+  with cookie-based sessions, replacing the env-var Bearer auth. Highlights:
+  - Registration + login/logout, self-service account management (change
+    password, edit profile, delete account), and a forced
+    password-change-on-first-login flow.
+  - A first administrator is claimed on first start with a one-time token
+    printed to the service log (e.g. visible in `docker logs`).
+  - Each user manages their own overlays by id; scoreboards are namespaced
+    per user (`user_id:oid`), so two users can drive the same `oid`
+    independently. OBS output URLs use an unguessable per-overlay
+    `public_token` instead of the username/oid.
+  - DB-backed teams: a global catalog, admin-curated team **groups** (e.g.
+    "Liga Gallega") that users copy into their own list, and admin JSON
+    import/export in the `APP_TEAMS` shape.
+  - DB-backed presets: global (admin-authored, admin-activated) and
+    per-user, with admin `APP_THEMES`-shape import/export.
+  - Admin user management: list/create/delete users, reset a password to a
+    temporary one (logging the user out everywhere), and toggle public
+    registration.
+  - New persistence layer: SQLAlchemy + Alembic, configured via
+    `DATABASE_URL` (SQLite by default, PostgreSQL supported). The schema is
+    migrated to head automatically on startup.
+
+### Changed
+
+- **No backward compatibility.** `SCOREBOARD_USERS`, `OVERLAY_MANAGER_PASSWORD`-
+  gated scoreboard access, the `PREDEFINED_OVERLAYS` catalog, and the
+  `APP_TEAMS` / `APP_THEMES` / `REMOTE_CONFIG_URL` configuration sources for
+  teams/presets are superseded by the database. The control API and control
+  WebSocket now require a logged-in session; the main page is the login page.
+
 - **New set-summary recap style "Scoresheet" (`ledger_diff`).** A
   comparative box-score — one row per stat with the home value, a bar
   tinted toward whichever side leads, and the away value — sitting above

@@ -33,6 +33,10 @@ RUN uv pip install --system --no-cache -r requirements.lock
 # silently end up inside the container unless added here.
 COPY main.py ./
 COPY app/ ./app/
+# Alembic migrations + config — required so the app can upgrade the database
+# to head on startup (and for ``alembic upgrade head`` from a shell).
+COPY alembic.ini ./
+COPY migrations/ ./migrations/
 COPY font/ ./font/
 COPY overlay_static/ ./overlay_static/
 COPY overlay_templates/ ./overlay_templates/
