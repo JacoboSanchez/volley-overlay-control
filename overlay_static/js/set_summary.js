@@ -1542,7 +1542,12 @@
 
     // Wipe previous render — every variant rebuilds the markup from
     // scratch so we never inherit attribute/class leftovers from the
-    // previous style on a hot-swap.
+    // previous style on a hot-swap. Resetting className (not just the
+    // children) drops per-variant marker classes like
+    // ``ss-has-breakdown`` so they can't linger when switching to a
+    // style that never sets them.
+    stage.className = 'ss-stage';
+    extras.className = 'ss-extras';
     clear(stage);
     clear(extras);
 

@@ -201,6 +201,21 @@ describe('set_summary.js overlay renderer', () => {
       });
       expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
     });
+
+    it('drops the flag when hot-swapping glass (with band) to another style', () => {
+      // The marker is glass-only; switching to a style that never sets
+      // it must not leave the stale class on the stage (the per-render
+      // className reset guarantees the clean slate the wipe promises).
+      renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      const stage = renderState({
+        match_info: { set_summary_style: 'brand_ledger', summary_set_num: 1 },
+      });
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
+      expect(stage.className).toBe('ss-stage');
+    });
   });
 
   describe('view model', () => {
