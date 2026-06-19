@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.8.0] - 2026-06-19
+
 ### Added
 
 - **"Corners" overlay family — four horizontal, corner-docked styles.**
