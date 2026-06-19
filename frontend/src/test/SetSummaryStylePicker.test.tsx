@@ -17,7 +17,10 @@ describe('SetSummaryStylePicker', () => {
 
   it('marks only the current value as checked', () => {
     renderWithI18n(<SetSummaryStylePicker value="ledger_diff" onChange={() => {}} />);
-    expect(screen.getByTestId('set-summary-style-ledger_diff')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('set-summary-style-ledger_diff')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     expect(screen.getByTestId('set-summary-style-ledger_diff').className).toContain('selected');
     const checked = screen
       .getAllByRole('radio')
