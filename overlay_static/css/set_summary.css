@@ -989,8 +989,31 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="glass"] > .ss-pt-breakdown-wide {
   grid-column: 1 / -1;
   margin: 0;
-  padding: var(--ss-sz-sm) clamp(9px, 3cqw, 32px);
+  /* Trimmed vertical padding + row gap: the band shares the stage's
+     fixed height with the score/chart tiles, so a fat band squeezed
+     the lower score-tile stats off-screen. */
+  padding: clamp(4px, 1.2cqw, 11px) clamp(9px, 3cqw, 32px);
   border-top: none;
+  gap: clamp(3px, 0.9cqw, 8px);
+}
+/* Horizontal, low-profile chips for the full-width glass band so the
+   two team rows stay shallow (label + count on one line) and leave the
+   score tile its room. The stacked chip layout stays the default for
+   the in-tile breakdowns (bento / bumper) where height is not as
+   tight. */
+.ss-stage[data-style="glass"] > .ss-pt-breakdown-wide .ss-pt-logo {
+  width: clamp(13px, 2.7cqw, 28px);
+  height: clamp(13px, 2.7cqw, 28px);
+}
+.ss-stage[data-style="glass"] > .ss-pt-breakdown-wide .ss-pt-chip {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: center;
+  gap: clamp(3px, 0.9cqw, 8px);
+  padding: clamp(2px, 0.7cqw, 7px) clamp(4px, 1.2cqw, 12px);
+}
+.ss-stage[data-style="glass"] > .ss-pt-breakdown-wide .ss-pt-chip-n {
+  font-size: clamp(9px, 2cqw, 20px);
 }
 .ss-stage[data-style="glass"] .ss-blob {
   position: absolute;
@@ -1094,6 +1117,56 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   padding: clamp(9px, 3cqw, 28px) clamp(13px, 4.5cqw, 40px);
   display: flex; flex-direction: column;
   justify-content: space-between; gap: clamp(6px, 1.8cqw, 14px);
+}
+/* When the full-width point-type band is present it claims part of the
+   stage's fixed height, leaving the score tile a shorter row. Tighten
+   the tile's padding, gap and hero score so all four stat rows
+   (timeouts / total points included) stay inside the tile instead of
+   being clipped. The roomy defaults above are kept for the common
+   no-band case. */
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile {
+  padding-top: clamp(7px, 2.1cqw, 18px);
+  padding-bottom: clamp(7px, 2.1cqw, 18px);
+  gap: clamp(4px, 1.2cqw, 10px);
+}
+/* Protect the stats block: it keeps its natural height (so timeouts /
+   total points are always readable) while the taller hero-score block
+   absorbs the shortfall — and, only on the most cramped stages, trims
+   a hair off its digits rather than pushing the stats off the tile. */
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile .ss-teams {
+  /* Grow into the tile's spare height (instead of ``space-between``
+     parking it between the rows and the stats) so the hero scores get
+     every available pixel before they ever clip. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  gap: clamp(3px, 0.9cqw, 9px);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile .ss-stats-block {
+  flex: 0 0 auto;
+  gap: clamp(2px, 0.9cqw, 8px) var(--ss-sz-md);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown
+  .ss-score-tile .ss-stats-block .ss-stat-row {
+  padding: clamp(1px, 0.6cqw, 4px) 0;
+}
+.ss-stage[data-style="glass"].ss-has-breakdown
+  .ss-score-tile .ss-stats-block .ss-stat-row .ss-value {
+  font-size: clamp(10px, 2.55cqw, 26px);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-team-row {
+  padding: clamp(2px, 0.6cqw, 7px) 0;
+}
+/* The hero score is the tallest element in each team row, so it sets
+   how much vertical room the two rows need. A gentler ``cqw`` slope
+   (vs the no-band 9cqw) keeps both rows — and the away score — inside
+   the shortened tile down to a 1280×720 canvas. */
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-team-row .ss-pts {
+  font-size: clamp(20px, 4.2cqw, 70px);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-team-row .ss-logo {
+  width: clamp(18px, 4cqw, 48px);
+  height: clamp(18px, 4cqw, 48px);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-teams {
   display: flex; flex-direction: column; gap: clamp(6px, 1.8cqw, 14px);

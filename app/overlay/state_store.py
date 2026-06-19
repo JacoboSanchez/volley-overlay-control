@@ -45,6 +45,14 @@ def deep_merge(base: dict, update: dict) -> dict:
 # entries from the previous match. The spectator page would then keep
 # rendering the stale chart / time history even after the operator
 # reset the scoreboard.
+#
+# The per-set buckets (``*_by_set``) are the ones that genuinely lose
+# keys between broadcasts: a set with no recorded events drops out of
+# the map entirely. ``point_types_by_set`` is the subtlest case — its
+# set keys only exist while points carry scouting tags, so a match
+# scored without per-point stats sends ``{}`` and a plain deep-merge
+# would keep the *previous* match's tagged-point breakdown visible in
+# the set-summary recap (and every other overlay) indefinitely.
 _REPLACE_SUBTREES: tuple[tuple[str, ...], ...] = (
     ("overlay_control", "points_by_set"),
     ("overlay_control", "timeouts_by_set"),
@@ -52,6 +60,7 @@ _REPLACE_SUBTREES: tuple[tuple[str, ...], ...] = (
     ("overlay_control", "stats", "services"),
     ("overlay_control", "stats", "services_by_set"),
     ("overlay_control", "stats", "longest_streak_by_set"),
+    ("overlay_control", "stats", "point_types_by_set"),
     ("overlay_control", "stats", "points_history"),
 )
 

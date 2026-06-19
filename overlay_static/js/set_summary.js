@@ -1151,6 +1151,11 @@
     // header strip. Spans the score + chart columns so the two-line
     // chip strip gets the whole width instead of cramming the tile.
     const glassBreakdown = buildPtBreakdown(vm);
+    // Flag the stage so the CSS tightens the score tile only when the
+    // band is present — it consumes a chunk of the fixed-height body
+    // row, which would otherwise clip the lower stats (timeouts / total
+    // points). Without the band the tile keeps its roomier layout.
+    stage.classList.toggle('ss-has-breakdown', !!glassBreakdown);
     if (glassBreakdown) {
       // ``ss-glass`` gives the band the same frosted-dark tile backing
       // as the score/chart tiles so its labels stay legible over any

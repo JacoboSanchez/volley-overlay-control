@@ -161,6 +161,48 @@ describe('set_summary.js overlay renderer', () => {
     });
   });
 
+  describe('glass point-type band', () => {
+    // A set that was scored with per-point scouting tags.
+    const TAGGED = {
+      1: {
+        1: { ace: 3, kill: 0, block: 0, opp_error: 0 },
+        2: { ace: 0, kill: 2, block: 1, opp_error: 1 },
+      },
+    };
+
+    it('renders the band and flags the stage when the set has tagged points', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      // The flag lets the CSS tighten the score tile so the band's
+      // extra row doesn't clip the lower stats — see set_summary.css.
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(true);
+      expect(stage.querySelector('.ss-pt-breakdown-wide')).not.toBeNull();
+    });
+
+    it('omits the band and the flag when the set has no tagged points', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: {} } },
+      });
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
+      expect(stage.querySelector('.ss-pt-breakdown-wide')).toBeNull();
+    });
+
+    it('clears the flag when hot-swapping a tagged set for an untagged one', () => {
+      renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      const stage = renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: {} } },
+      });
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
+    });
+  });
+
   describe('view model', () => {
     it('prefers the set_history final score over live points', () => {
       const stage = renderState({

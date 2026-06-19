@@ -8,6 +8,26 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stale per-point breakdown carried over between matches.** The
+  audit-derived `point_types_by_set` stats were deep-merged into the
+  persisted overlay state instead of replacing it, so a match scored
+  *without* per-point tags inherited the previous match's serve / attack
+  / block / opponent-error tallies — the set-summary recap (and any
+  other consumer of `overlay_control.stats`) kept showing e.g. "3 aces /
+  2 kills" when only one point had been played. `point_types_by_set` now
+  joins the other per-set buckets in the state store's force-replace
+  list, so an empty broadcast (no tags this match) correctly clears the
+  old breakdown.
+- **Glass set-summary recap clipped its lower stats.** When the
+  point-type breakdown band was shown, it ate into the fixed-height
+  stage and pushed the score tile's bottom rows (timeouts / total
+  points) off-screen. The band is now a compact single-line chip strip,
+  and the glass score tile tightens its hero scores only while the band
+  is present, so all four stat rows stay visible from a 1280×720 up to a
+  2560×1440 OBS canvas. The roomy no-band layout is unchanged.
+
 ## [5.8.0] - 2026-06-19
 
 ### Added

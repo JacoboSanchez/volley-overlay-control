@@ -41,6 +41,13 @@ def _seed_with_per_set_stats(store, oid):
             "stats": {
                 "set_durations": {"1": 90.0, "2": 60.0},
                 "services": {"1": {"served": 5, "won": 3}},
+                "longest_streak_by_set": {"1": {"1": 4, "2": 2}},
+                "point_types_by_set": {
+                    "1": {
+                        "1": {"ace": 3, "kill": 0, "block": 0, "opp_error": 0},
+                        "2": {"ace": 0, "kill": 2, "block": 1, "opp_error": 1},
+                    },
+                },
                 "points_history": [{"team": 1, "ts": 1.0, "score": [1, 0]}],
             },
         },
@@ -75,6 +82,8 @@ def test_reset_clears_per_set_buckets(store):
                     "1": {"served": 0, "won": 0},
                     "2": {"served": 0, "won": 0},
                 },
+                "longest_streak_by_set": {},
+                "point_types_by_set": {},
                 "points_history": [],
             },
         },
@@ -83,10 +92,47 @@ def test_reset_clears_per_set_buckets(store):
     assert cleared["overlay_control"]["points_by_set"] == {}
     assert cleared["overlay_control"]["timeouts_by_set"] == {}
     assert cleared["overlay_control"]["stats"]["set_durations"] == {}
+    # Per-set buckets keyed by set number must lose their stale keys too.
+    assert cleared["overlay_control"]["stats"]["longest_streak_by_set"] == {}
+    assert cleared["overlay_control"]["stats"]["point_types_by_set"] == {}
     # Services is replaced wholesale too — both teams reset to 0/0.
     assert cleared["overlay_control"]["stats"]["services"] == {
         "1": {"served": 0, "won": 0},
         "2": {"served": 0, "won": 0},
+    }
+
+
+def test_disabling_point_types_clears_stale_breakdown(store):
+    """A new match without per-point tags must not inherit the old
+    match's point-type breakdown.
+
+    Mirrors the reported bug: the previous match had per-point stats
+    enabled (``point_types_by_set`` populated), the next match is
+    scored without tags so the audit-derived bucket is empty ``{}``.
+    The fresh broadcast still carries a populated
+    ``longest_streak_by_set`` (one real point played), so a pre-fix
+    deep-merge would update the streak but leave the stale point-type
+    chips on screen — the exact "3 aces / 2 kills with 1 point played"
+    artefact from the screenshot.
+    """
+    oid = "disable-pt"
+    assert store.create_overlay(oid) is True
+    _seed_with_per_set_stats(store, oid)
+
+    store.update_state_sync(oid, {
+        "overlay_control": {
+            "stats": {
+                # One real point in the new match's set 1 → fresh streak.
+                "longest_streak_by_set": {"1": {"1": 1, "2": 0}},
+                # No tagged points this match → empty bucket.
+                "point_types_by_set": {},
+            },
+        },
+    })
+    state = store.get_state(oid)
+    assert state["overlay_control"]["stats"]["point_types_by_set"] == {}
+    assert state["overlay_control"]["stats"]["longest_streak_by_set"] == {
+        "1": {"1": 1, "2": 0},
     }
 
 
@@ -104,3 +150,4 @@ def test_partial_payload_does_not_touch_unrelated_subtrees(store):
     state = store.get_state(oid)
     assert state["overlay_control"]["points_by_set"] != {}
     assert state["overlay_control"]["stats"]["set_durations"] != {}
+    assert state["overlay_control"]["stats"]["point_types_by_set"] != {}
