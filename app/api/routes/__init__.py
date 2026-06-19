@@ -20,6 +20,7 @@ from app.api.routes import (
     overlays,
     session,
     state,
+    teams,
     websocket,
 )
 from app.api.routes.lifespan import router_lifespan
@@ -37,6 +38,7 @@ api_router.include_router(game.router)
 api_router.include_router(display.router)
 api_router.include_router(customization.router)
 api_router.include_router(overlays.router)
+api_router.include_router(teams.router)
 api_router.include_router(websocket.router)
 api_router.include_router(client_log.router)
 api_router.include_router(audit.router)

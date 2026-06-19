@@ -13,7 +13,6 @@ from app.api import match_archive
 from app.api.dependencies import get_session, verify_api_key
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_user
-from app.customization import Customization
 from app.db.engine import get_db
 from app.db.models.user import User
 from app.env_vars_manager import EnvVarsManager
@@ -100,11 +99,9 @@ async def delete_my_overlay(
     return {"ok": True}
 
 
-@router.get("/teams", dependencies=[Depends(verify_api_key)])
-async def get_teams():
-    """Return predefined team names with icon/color data."""
-    await run_in_threadpool(Customization.refresh)
-    return Customization.predefined_teams
+# NOTE: ``GET /api/v1/teams`` now lives in app/api/routes/teams.py and returns
+# the authenticated user's team list (DB-backed) instead of the env-driven
+# predefined catalog.
 
 
 @router.get("/links", dependencies=[Depends(verify_api_key)])
