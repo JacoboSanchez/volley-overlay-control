@@ -112,34 +112,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/custom-overlays": {
+    "/api/v1/admin/presets": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Custom Overlays
-         * @description Return every custom overlay persisted on disk.
-         *
-         *     Each entry carries the overlay id (used directly as the OID) and its
-         *     derived output key.
-         */
-        get: operations["list_custom_overlays_api_v1_admin_custom_overlays_get"];
+        /** List all global presets (active and inactive) for management. */
+        get: operations["admin_list_presets_api_v1_admin_presets_get"];
         put?: never;
-        /**
-         * Create Custom Overlay
-         * @description Create a new custom overlay, optionally cloning an existing one.
-         */
-        post: operations["create_custom_overlay_api_v1_admin_custom_overlays_post"];
+        /** Author a global preset. */
+        post: operations["admin_create_preset_api_v1_admin_presets_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/custom-overlays/{name}": {
+    "/api/v1/admin/presets/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export global presets as APP_THEMES JSON. */
+        get: operations["admin_export_presets_api_v1_admin_presets_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/presets/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import an APP_THEMES JSON map. */
+        post: operations["admin_import_presets_api_v1_admin_presets_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/presets/{slug}": {
         parameters: {
             query?: never;
             header?: never;
@@ -149,27 +174,101 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Delete Custom Overlay
-         * @description Remove a custom overlay and its persisted state.
-         */
-        delete: operations["delete_custom_overlay_api_v1_admin_custom_overlays__name__delete"];
+        /** Delete a global preset. */
+        delete: operations["admin_delete_preset_api_v1_admin_presets__slug__delete"];
         options?: never;
         head?: never;
-        /**
-         * Edit a custom overlay's theme / colors / preferred style
-         * @description Apply a preset theme and/or merge colors / preferredStyle.
-         *
-         *     Layering order matches the operator's mental model: the theme acts
-         *     as a baseline, then explicit ``colors`` and ``preferred_style`` are
-         *     merged on top. Empty patches are rejected with 400 so the operator
-         *     sees a clear error rather than a silent no-op (which would mask
-         *     accidental empty form submissions from the manager UI).
-         */
-        patch: operations["patch_custom_overlay_api_v1_admin_custom_overlays__name__patch"];
+        /** Activate/deactivate a global preset. */
+        patch: operations["admin_set_preset_active_api_v1_admin_presets__slug__patch"];
         trace?: never;
     };
-    "/api/v1/admin/custom-overlays/{name}/usage": {
+    "/api/v1/admin/registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Registration */
+        get: operations["get_registration_api_v1_admin_registration_get"];
+        /** Set Registration */
+        put: operations["set_registration_api_v1_admin_registration_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/team-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Create Group */
+        post: operations["admin_create_group_api_v1_admin_team_groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/team-groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Admin Set Group Active */
+        patch: operations["admin_set_group_active_api_v1_admin_team_groups__group_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/team-groups/{group_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Add Group Member */
+        post: operations["admin_add_group_member_api_v1_admin_team_groups__group_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Create Team */
+        post: operations["admin_create_team_api_v1_admin_teams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/teams/export": {
         parameters: {
             query?: never;
             header?: never;
@@ -177,15 +276,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Inspect how many live consumers a custom overlay has
-         * @description Report live OBS / scoreboard / session counts for *name*.
-         *
-         *     The response gives the operator enough information to decide whether
-         *     deleting (or re-theming) the overlay will disrupt an in-progress
-         *     broadcast — currently surfaced in the ``/manage`` UI as a dot next to
-         *     each row.
+         * Admin Export Teams
+         * @description Export the global catalog as an APP_TEAMS JSON map.
          */
-        get: operations["get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get"];
+        get: operations["admin_export_teams_api_v1_admin_teams_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -194,7 +288,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/login": {
+    "/api/v1/admin/teams/import": {
         parameters: {
             query?: never;
             header?: never;
@@ -204,17 +298,75 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Admin Login
-         * @description Validate the admin password. Returns ``{"ok": true}`` on success.
+         * Admin Import Teams
+         * @description Import an APP_TEAMS JSON map into the global catalog (upsert by name).
          */
-        post: operations["admin_login_api_v1_admin_login_post"];
+        post: operations["admin_import_teams_api_v1_admin_teams_import_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/match/{match_id}/sign-url": {
+    "/api/v1/admin/teams/{team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Admin Delete Team */
+        delete: operations["admin_delete_team_api_v1_admin_teams__team_id__delete"];
+        options?: never;
+        head?: never;
+        /** Admin Update Team */
+        patch: operations["admin_update_team_api_v1_admin_teams__team_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Users */
+        get: operations["list_users_api_v1_admin_users_get"];
+        put?: never;
+        /**
+         * Create User
+         * @description Create a user. With no password, a temp one is minted and returned;
+         *     the user must change it on first login.
+         */
+        post: operations["create_user_api_v1_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete User */
+        delete: operations["delete_user_api_v1_admin_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update User */
+        patch: operations["update_user_api_v1_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/reset-password": {
         parameters: {
             query?: never;
             header?: never;
@@ -224,48 +376,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Mint a short-lived signed URL for a match report
-         * @description Return a capability URL the operator can paste into chat tools.
-         *
-         *     The legacy share flow (``/match/{id}/report?token=<password>``)
-         *     embeds the actual ``OVERLAY_MANAGER_PASSWORD`` in the URL —
-         *     every browser bookmark, server log, or HTTP ``Referer`` that
-         *     touches the link leaks the credential. This endpoint replaces
-         *     that flow with an HMAC-signed URL of the form
-         *     ``/match/{id}/report?exp=<ts>&sig=<hex>``: the password stays
-         *     on the server and the URL expires automatically.
-         *
-         *     Rotating the admin password invalidates every outstanding
-         *     signed URL — that's the desired behaviour, since rotations are
-         *     typically motivated by suspected leaks.
-         *
-         *     The endpoint deliberately does *not* check whether the
-         *     ``match_id`` exists: a 404 here would be a free oracle for
-         *     enumerating archived matches by anyone holding the admin
-         *     password (who could already do far worse anyway). Signing a
-         *     bogus match id just produces a URL that 404s on use.
+         * Reset Password
+         * @description Reset a user to a temporary password (forced change on next login)
+         *     and log out all their existing sessions.
          */
-        post: operations["sign_match_report_url_api_v1_admin_match__match_id__sign_url_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Admin Status
-         * @description Report whether overlay management is enabled on this server.
-         */
-        get: operations["admin_status_api_v1_admin_status_get"];
-        put?: never;
-        post?: never;
+        post: operations["reset_password_api_v1_admin_users__user_id__reset_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -283,31 +398,10 @@ export interface paths {
         put?: never;
         /**
          * Re-deliver dead-lettered webhook records
-         * @description Replay (a slice of) the webhook dead-letter file.
+         * @description Replay a slice of the webhook dead-letter file (oldest first).
          *
-         *     Each record is matched to a configured ``WebhookTarget`` by URL,
-         *     re-signed with the *current* HMAC secret (so rotating
-         *     ``WEBHOOKS_SECRET`` doesn't strand legacy records with stale
-         *     signatures), and re-attempted with the standard retry policy.
-         *
-         *     * Successful redeliveries are removed from the file.
-         *     * Records whose URL no longer matches any configured target are
-         *       kept on disk so the operator can fix the config and retry.
-         *     * Records that fail again are kept with their ``attempts``
-         *       counter bumped and the latest ``last_error`` recorded.
-         *
-         *     Selection order: oldest records (lowest ``ts``) within the
-         *     eligible window go first, so iterative calls drain the file
-         *     front-to-back. The blocking work runs on the FastAPI threadpool
-         *     via ``run_in_threadpool`` so the event loop stays free for other
-         *     handlers while a long replay is in flight.
-         *
-         *     Returns counts only — the bodies are never echoed back so the
-         *     admin surface cannot leak match payloads. ``remaining_in_dl``
-         *     is the count of records still on disk after the call (ones held
-         *     back by ``since`` / ``max_records`` plus the ``still_failing``
-         *     bucket that just got re-written) so the operator knows whether
-         *     to call again.
+         *     Successful redeliveries are removed; unknown-URL and still-failing records
+         *     are kept. Returns counts only — bodies are never echoed back.
          */
         post: operations["replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post"];
         delete?: never;
@@ -376,6 +470,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Password */
+        post: operations["change_password_api_v1_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/claim-admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Admin */
+        post: operations["claim_admin_api_v1_auth_claim_admin_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Context
+         * @description Public boot payload used by the SPA to decide where to route.
+         */
+        get: operations["get_context_api_v1_auth_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Me */
+        get: operations["get_me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        /** Delete Me */
+        delete: operations["delete_me_api_v1_auth_me_delete"];
+        options?: never;
+        head?: never;
+        /** Update Me */
+        patch: operations["update_me_api_v1_auth_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register */
+        post: operations["register_api_v1_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/config": {
         parameters: {
             query?: never;
@@ -418,24 +636,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List operator-saved and system presets.
-         * @description Return every preset, ordered system-first then by name.
-         *
-         *     System entries are derived from ``APP_THEMES`` at request time and
-         *     are not persisted; user entries come from disk. Both share the same
-         *     ``PresetSummary`` shape so the React picker can render them in a
-         *     single list.
-         */
+        /** List active global presets plus the caller's own. */
         get: operations["list_presets_api_v1_customization_presets_get"];
         put?: never;
         /**
-         * Save the current configuration (or a subset) as a named preset.
-         * @description Persist *payload.values* under a slugified version of *name*.
-         *
-         *     The React panel sends the values directly — it already has the
-         *     operator's flat customization in memory, so the server doesn't
-         *     need to round-trip through ``GameService.refresh_customization``.
+         * Save a subset of the current configuration as a personal preset.
+         * @description Create a per-user preset (usable across all the caller's scoreboards).
          */
         post: operations["create_preset_api_v1_customization_presets_post"];
         delete?: never;
@@ -454,7 +660,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete an operator-saved preset. */
+        /** Delete one of the caller's own presets. */
         delete: operations["delete_preset_api_v1_customization_presets__slug__delete"];
         options?: never;
         head?: never;
@@ -768,13 +974,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List archived matches
-         * @description Return summaries of archived matches, newest first.
-         *
-         *     Each entry is enough to render a list view: ``match_id``, ``oid``,
-         *     ``ended_at``, ``duration_s``, ``winning_team``, plus the team-level
-         *     sets-won and ``current_set``. Use ``GET /matches/{match_id}`` for
-         *     the full snapshot including the audit log and customization.
+         * List the caller's archived matches
+         * @description Return summaries of the caller's archived matches, newest first.
          */
         get: operations["list_matches_api_v1_matches_get"];
         put?: never;
@@ -835,6 +1036,31 @@ export interface paths {
         get: operations["get_match_api_v1_matches__match_id__get"];
         put?: never;
         post?: never;
+        /** Delete one of the caller's matches */
+        delete: operations["delete_match_api_v1_matches__match_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{match_id}/sign-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a shareable signed report URL
+         * @description Return a short-lived capability URL for the caller's own match report.
+         *
+         *     The URL embeds an HMAC signature (key: SESSION_SECRET), so it can be
+         *     shared without the recipient signing in — and without leaking any
+         *     credential. Only the report's owner may mint one.
+         */
+        post: operations["sign_match_url_api_v1_matches__match_id__sign_url_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -849,21 +1075,47 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Overlays
-         * @description Return predefined overlays available for selection.
-         *
-         *     Sourced exclusively from the ``PREDEFINED_OVERLAYS`` environment
-         *     variable (also populated via the remote configurator). Entries are
-         *     filtered by ``allowed_users`` using the caller's identity when user
-         *     authentication is enabled.
+         * List My Overlays
+         * @description Return the overlays owned by the caller.
          */
-        get: operations["get_overlays_api_v1_overlays_get"];
+        get: operations["list_my_overlays_api_v1_overlays_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create My Overlay
+         * @description Register a new overlay for the caller (mints a public OBS token).
+         */
+        post: operations["create_my_overlay_api_v1_overlays_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/overlays/{oid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete My Overlay
+         * @description Delete one of the caller's overlays and its in-process session/state.
+         */
+        delete: operations["delete_my_overlay_api_v1_overlays__oid__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update My Overlay
+         * @description Edit an overlay's label, output URL, and default match rules.
+         *
+         *     Only the fields present in the request body are changed (``exclude_unset``),
+         *     so a partial PATCH never clobbers settings the caller didn't mention.
+         */
+        patch: operations["update_my_overlay_api_v1_overlays__oid__patch"];
         trace?: never;
     };
     "/api/v1/session/init": {
@@ -877,7 +1129,7 @@ export interface paths {
         put?: never;
         /**
          * Init Session
-         * @description Initialise (or re-use) a game session for the given overlay ID.
+         * @description Initialise (or re-use) a game session for the caller's overlay ID.
          */
         post: operations["init_session_api_v1_session_init_post"];
         delete?: never;
@@ -974,6 +1226,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/team-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Groups */
+        get: operations["list_groups_api_v1_team_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team-groups/{group_id}/copy-to-mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy Group */
+        post: operations["copy_group_api_v1_team_groups__group_id__copy_to_mine_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams": {
         parameters: {
             query?: never;
@@ -982,13 +1268,64 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Teams
-         * @description Return predefined team names with icon/color data.
+         * My Teams
+         * @description The caller's team list, in the APP_TEAMS map shape.
          */
-        get: operations["get_teams_api_v1_teams_get"];
+        get: operations["my_teams_api_v1_teams_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["catalog_api_v1_teams_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add To My Teams */
+        post: operations["add_to_my_teams_api_v1_teams_mine_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/mine/{team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove From My Teams */
+        delete: operations["remove_from_my_teams_api_v1_teams_mine__team_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1031,7 +1368,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/follow/{overlay_id}": {
+    "/follow/{public_token}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1042,13 +1379,13 @@ export interface paths {
          * Serve Spectator
          * @description Mobile-friendly read-only follow view.
          *
-         *     Resolves the overlay id like ``/overlay/{id}`` and serves a
-         *     lightweight template that consumes the same ``/ws/{id}`` feed
+         *     Resolves the public token like ``/overlay/{token}`` and serves a
+         *     lightweight template that consumes the same ``/ws/{token}`` feed
          *     the OBS templates use. Public by design — the page exposes no
          *     write paths and inherits the same data exposure as the OBS
          *     overlay it shadows.
          */
-        get: operations["serve_spectator_follow__overlay_id__get"];
+        get: operations["serve_spectator_follow__public_token__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1098,30 +1435,6 @@ export interface paths {
          *     to whoever can reach the endpoint.
          */
         get: operations["readiness_check_health_ready_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/list/overlay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Overlays
-         * @description Return every overlay id plus its output key.
-         *
-         *     Gated behind ``OVERLAY_MANAGER_PASSWORD`` because the response
-         *     defeats the capability-URL design of ``/overlay/{output_key}``.
-         *     See ``AUTHENTICATION.md`` (F-4).
-         */
-        get: operations["list_overlays_list_overlay_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1181,51 +1494,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/matches/index.html": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Browseable HTML list of archived matches for an OID */
-        get: operations["matches_index_matches_index_html_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/matches/{match_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete an archived match snapshot
-         * @description Delete a single archived match by id.
-         *
-         *     Requires a valid admin token unless ``MATCH_REPORT_PUBLIC_DELETE``
-         *     is set — that flag is independent from ``MATCH_REPORT_PUBLIC``
-         *     (public read does *not* imply public delete) and lets operators
-         *     expose the per-row Delete button on the matches index without
-         *     sharing the admin password. Returns 204 on success, 404 when the
-         *     match does not exist, and 401/403/503 for the various
-         *     authentication failure modes when the flag is off.
-         */
-        delete: operations["delete_archived_match_matches__match_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -1237,11 +1505,11 @@ export interface paths {
          * Prometheus exposition
          * @description Return the registry's current exposition in Prometheus text format.
          *
-         *     ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth at the same
-         *     ladder as ``/api/v1/admin/*``. The check fires *before* the
-         *     library-availability check so an unauthenticated probe cannot use
-         *     the 503-vs-200 difference to fingerprint whether the metrics
-         *     backend is loaded.
+         *     ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth against the
+         *     machine-to-machine ``OVERLAY_SERVER_TOKEN`` (Prometheus scrapers can't
+         *     carry a session cookie). The check fires *before* the library-availability
+         *     check so an unauthenticated probe cannot use the 503-vs-200 difference to
+         *     fingerprint whether the metrics backend is loaded.
          */
         get: operations["metrics_endpoint_metrics_get"];
         put?: never;
@@ -1252,7 +1520,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/overlay/{overlay_id}": {
+    "/overlay/{public_token}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1260,7 +1528,7 @@ export interface paths {
             cookie?: never;
         };
         /** Serve Overlay */
-        get: operations["serve_overlay_overlay__overlay_id__get"];
+        get: operations["serve_overlay_overlay__public_token__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1324,6 +1592,77 @@ export interface components {
              */
             undo: boolean;
         };
+        /** AddTeamsRequest */
+        AddTeamsRequest: {
+            /** Team Ids */
+            team_ids?: number[];
+        };
+        /** AdminCreateUserRequest */
+        AdminCreateUserRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Password */
+            password?: string | null;
+            /**
+             * Role
+             * @default user
+             */
+            role: string;
+            /** Username */
+            username: string;
+        };
+        /** AdminPresetCreateRequest */
+        AdminPresetCreateRequest: {
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Values
+             * @description Subset of the caller's flat customization model to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped; an empty result is rejected with 400.
+             */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /** AdminTeamRequest */
+        AdminTeamRequest: {
+            /** Color */
+            color?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Name */
+            name: string;
+            /** Text Color */
+            text_color?: string | null;
+        };
+        /** AdminTeamUpdateRequest */
+        AdminTeamUpdateRequest: {
+            /** Color */
+            color?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Text Color */
+            text_color?: string | null;
+        };
+        /** AdminUpdateUserRequest */
+        AdminUpdateUserRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Role */
+            role?: string | null;
+        };
         /** AppConfigResponse */
         AppConfigResponse: {
             /**
@@ -1333,6 +1672,19 @@ export interface components {
             stale_set_threshold_minutes: number;
             /** Title */
             title: string;
+        };
+        /**
+         * AuthContext
+         * @description Public boot payload for the SPA guard — never requires auth.
+         */
+        AuthContext: {
+            /** Authenticated */
+            authenticated: boolean;
+            /** Needs Admin Bootstrap */
+            needs_admin_bootstrap: boolean;
+            /** Registration Open */
+            registration_open: boolean;
+            user?: components["schemas"]["UserOut"] | null;
         };
         /** AutoSwapSidesRequest */
         AutoSwapSidesRequest: {
@@ -1359,6 +1711,26 @@ export interface components {
             /** Points Until Switch */
             points_until_switch: number;
         };
+        /** ChangePasswordRequest */
+        ChangePasswordRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** ClaimAdminRequest */
+        ClaimAdminRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Password */
+            password: string;
+            /** Token */
+            token: string;
+            /** Username */
+            username: string;
+        };
         /** ClientLogRecord */
         ClientLogRecord: {
             /** Href */
@@ -1378,73 +1750,25 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
         };
-        /** CustomOverlayCreate */
-        CustomOverlayCreate: {
-            /**
-             * Copy From
-             * @description Optional existing overlay id to clone configuration from
-             */
-            copy_from?: string | null;
-            /**
-             * Name
-             * @description Overlay id used as OID
-             */
+        /** CreateGroupRequest */
+        CreateGroupRequest: {
+            /** Name */
             name: string;
         };
-        /**
-         * CustomOverlayPatch
-         * @description Partial update for a custom overlay's appearance.
-         *
-         *     Every field is optional — the patch is a thin admin-side wrapper around
-         *     ``OverlayStateStore.update_state``. When ``theme`` is set, the matching
-         *     preset from ``app.overlay.themes`` is applied first; ``colors`` and
-         *     ``preferred_style`` are then merged on top so explicit overrides win
-         *     over the theme defaults.
-         */
-        CustomOverlayPatch: {
-            /**
-             * Colors
-             * @description Color overrides merged into overlay_control.colors. Common keys: set_bg, set_text, game_bg, game_text.
-             */
-            colors?: {
-                [key: string]: string;
-            } | null;
-            /**
-             * Preferred Style
-             * @description Switch the Jinja template served at /overlay/{output_key}. Must match an entry in GET /api/config/{id}.availableStyles.
-             */
-            preferred_style?: string | null;
-            /**
-             * Theme
-             * @description Apply a preset theme (e.g. 'dark', 'esports'). Available themes are listed by GET /api/themes.
-             */
-            theme?: string | null;
-        };
-        /**
-         * CustomOverlayUsage
-         * @description Snapshot of how many live consumers a custom overlay has.
-         */
-        CustomOverlayUsage: {
-            /**
-             * Frontend Ws Clients
-             * @description Connected scoreboard control tabs (frontend WebSocket subscribers).
-             */
-            frontend_ws_clients: number;
-            /**
-             * Has Active Session
-             * @description True when SessionManager has a live GameSession.
-             */
-            has_active_session: boolean;
-            /**
-             * Obs Clients
-             * @description Connected OBS / browser-source viewers.
-             */
-            obs_clients: number;
-            /**
-             * Seconds Since Last Activity
-             * @description Seconds elapsed since the session was last touched; null when no session is active.
-             */
-            seconds_since_last_activity?: number | null;
+        /** CreateOverlayRequest */
+        CreateOverlayRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Oid */
+            oid: string;
+            /** Output Url */
+            output_url?: string | null;
+            /** Points */
+            points?: number | null;
+            /** Points Last Set */
+            points_last_set?: number | null;
+            /** Sets */
+            sets?: number | null;
         };
         /** GameStateResponse */
         GameStateResponse: {
@@ -1502,10 +1826,43 @@ export interface components {
             /** Visible */
             visible: boolean;
         };
+        /** GroupMemberRequest */
+        GroupMemberRequest: {
+            /** Team Id */
+            team_id: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImportTeamsRequest */
+        ImportTeamsRequest: {
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+            /** Teams */
+            teams: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        /** ImportThemesRequest */
+        ImportThemesRequest: {
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+            /** Themes */
+            themes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
         };
         /** InitRequest */
         InitRequest: {
@@ -1519,6 +1876,19 @@ export interface components {
             points_limit_last_set?: number | null;
             /** Sets Limit */
             sets_limit?: number | null;
+        };
+        /** LoginRequest */
+        LoginRequest: {
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /** LoginResponse */
+        LoginResponse: {
+            /** Must Change Password */
+            must_change_password: boolean;
+            user: components["schemas"]["UserOut"];
         };
         /** MatchInfoModel */
         MatchInfoModel: {
@@ -1554,32 +1924,6 @@ export interface components {
             /** Team 2 Set Point */
             team_2_set_point: boolean;
         };
-        /** MatchSignUrlRequest */
-        MatchSignUrlRequest: {
-            /**
-             * Ttl Seconds
-             * @description URL lifetime in seconds. Bounded to [60, 2592000]; defaults to 86400.
-             */
-            ttl_seconds?: number | null;
-        };
-        /** MatchSignUrlResponse */
-        MatchSignUrlResponse: {
-            /**
-             * Expires At
-             * @description Unix-seconds expiry the URL was signed for.
-             */
-            expires_at: number;
-            /**
-             * Expires In
-             * @description Seconds remaining until expiry, at mint time.
-             */
-            expires_in: number;
-            /**
-             * Url
-             * @description Absolute capability URL — anyone holding it can read the report until ``expires_at``.
-             */
-            url: string;
-        };
         /** OverlayControlModel */
         OverlayControlModel: {
             /** Colors */
@@ -1606,20 +1950,50 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * OverlayPayload
-         * @description Predefined overlay entry returned by ``GET /overlays``.
+         * OverlayOut
+         * @description One of the caller's overlays.
          */
-        OverlayPayload: {
+        OverlayOut: {
             /**
-             * Name
-             * @description Display name of the overlay
+             * Custom Output Url
+             * @description Explicit override URL, if set
              */
-            name: string;
+            custom_output_url?: string | null;
+            /**
+             * Display Name
+             * @description Friendly label
+             */
+            display_name?: string | null;
             /**
              * Oid
-             * @description Overlay identifier
+             * @description Overlay identifier (unique per user)
              */
             oid: string;
+            /**
+             * Output Url
+             * @description OBS output URL (custom/cloud, or the local /overlay/<token>)
+             */
+            output_url: string;
+            /**
+             * Points
+             * @description Default points per set
+             */
+            points?: number | null;
+            /**
+             * Points Last Set
+             * @description Default points in the deciding set
+             */
+            points_last_set?: number | null;
+            /**
+             * Public Token
+             * @description Public OBS-output capability token
+             */
+            public_token: string;
+            /**
+             * Sets
+             * @description Default sets in the match (best-of)
+             */
+            sets?: number | null;
         };
         /** OverlayStateUpdate */
         OverlayStateUpdate: {
@@ -1640,7 +2014,7 @@ export interface components {
             name: string;
             /**
              * Values
-             * @description Subset of the operator's flat customization model to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped server-side; an empty result is rejected with 400.
+             * @description Subset of the caller's flat customization model to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped; an empty result is rejected with 400.
              */
             values: {
                 [key: string]: unknown;
@@ -1653,29 +2027,26 @@ export interface components {
         };
         /** PresetSummary */
         PresetSummary: {
+            /** Categories */
+            categories?: string[];
             /**
-             * Categories
-             * @description Category ids covered by the preset's values (``team1_name``, ``team1_color``, ``team2_name``, ``team2_color``, ``position``, ``style``).
+             * Is Active
+             * @default true
              */
-            categories: string[];
-            /** Created At */
-            created_at: number;
+            is_active: boolean;
             /** Name */
             name: string;
             /** Slug */
             slug: string;
             /**
              * Source
-             * @description ``user`` for operator-saved records on disk; ``system`` for read-only entries derived from ``APP_THEMES``. System presets cannot be deleted.
+             * @description ``user`` for the caller's own presets; ``global`` for admin-authored, admin-activated presets shared with everyone. Only the owner may delete a ``user`` preset; globals are admin-only.
              * @default user
              * @enum {string}
              */
-            source: "user" | "system";
-            /**
-             * Values
-             * @description Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React panel deep-merges into its edit model. Unknown keys from older records are filtered out at read time.
-             */
-            values: {
+            source: "user" | "global";
+            /** Values */
+            values?: {
                 [key: string]: unknown;
             };
         };
@@ -1688,6 +2059,22 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** RegisterRequest */
+        RegisterRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /** RegistrationSetting */
+        RegistrationSetting: {
+            /** Registration Open */
+            registration_open: boolean;
+        };
         /** ServeRequest */
         ServeRequest: {
             /**
@@ -1695,6 +2082,11 @@ export interface components {
              * @enum {integer}
              */
             team: 1 | 2;
+        };
+        /** SetActiveRequest */
+        SetActiveRequest: {
+            /** Is Active */
+            is_active: boolean;
         };
         /**
          * SetRulesRequest
@@ -1781,6 +2173,32 @@ export interface components {
              */
             undo: boolean;
         };
+        /** TeamGroupOut */
+        TeamGroupOut: {
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Name */
+            name: string;
+            /** Teams */
+            teams: components["schemas"]["TeamOut"][];
+        };
+        /** TeamOut */
+        TeamOut: {
+            /** Color */
+            color?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Id */
+            id: number;
+            /** Is Global */
+            is_global: boolean;
+            /** Name */
+            name: string;
+            /** Text Color */
+            text_color?: string | null;
+        };
         /** TeamState */
         TeamState: {
             /** Scores */
@@ -1827,6 +2245,49 @@ export interface components {
             timeouts_taken?: number | null;
         } & {
             [key: string]: unknown;
+        };
+        /** TempPasswordResponse */
+        TempPasswordResponse: {
+            /** Temp Password */
+            temp_password: string;
+            user: components["schemas"]["UserOut"];
+        };
+        /** UpdateOverlayRequest */
+        UpdateOverlayRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Output Url */
+            output_url?: string | null;
+            /** Points */
+            points?: number | null;
+            /** Points Last Set */
+            points_last_set?: number | null;
+            /** Sets */
+            sets?: number | null;
+        };
+        /** UpdateProfileRequest */
+        UpdateProfileRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Email */
+            email?: string | null;
+        };
+        /** UserOut */
+        UserOut: {
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string | null;
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Must Change Password */
+            must_change_password: boolean;
+            /** Role */
+            role: string;
+            /** Username */
+            username: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2080,249 +2541,80 @@ export interface operations {
             };
         };
     };
-    list_custom_overlays_api_v1_admin_custom_overlays_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_custom_overlay_api_v1_admin_custom_overlays_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomOverlayCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_custom_overlay_api_v1_admin_custom_overlays__name__delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patch_custom_overlay_api_v1_admin_custom_overlays__name__patch: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomOverlayPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomOverlayUsage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_login_api_v1_admin_login_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sign_match_report_url_api_v1_admin_match__match_id__sign_url_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                match_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MatchSignUrlRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MatchSignUrlResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_status_api_v1_admin_status_get: {
+    admin_list_presets_api_v1_admin_presets_get: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_preset_api_v1_admin_presets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPresetCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_export_presets_api_v1_admin_presets_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -2333,6 +2625,633 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_import_presets_api_v1_admin_presets_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportThemesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_delete_preset_api_v1_admin_presets__slug__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_set_preset_active_api_v1_admin_presets__slug__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_registration_api_v1_admin_registration_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationSetting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_registration_api_v1_admin_registration_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrationSetting"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationSetting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_group_api_v1_admin_team_groups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamGroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_set_group_active_api_v1_admin_team_groups__group_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_add_group_member_api_v1_admin_team_groups__group_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_team_api_v1_admin_teams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_export_teams_api_v1_admin_teams_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_import_teams_api_v1_admin_teams_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportTeamsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_delete_team_api_v1_admin_teams__team_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_update_team_api_v1_admin_teams__team_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminTeamUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_admin_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TempPasswordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_v1_admin_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUpdateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_admin_users__user_id__reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TempPasswordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2340,16 +3259,16 @@ export interface operations {
     replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post: {
         parameters: {
             query?: {
-                /** @description Only replay records whose ``ts`` is >= this Unix-seconds value. Useful for restricting replay to entries that landed after the receiving service came back online. */
+                /** @description Only replay records whose ts is >= this Unix-seconds value. */
                 since?: number | null;
-                /** @description Cap the number of records redelivered in this call. ``replay_records`` blocks on per-record retries with exponential backoff (~25 s worst case per record), so a fully-loaded dead-letter would otherwise pin the handler for tens of minutes. Use the ``remaining_in_dl`` field in the response to decide whether to call again. */
+                /** @description Cap the records redelivered in this call. */
                 max_records?: number;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -2404,11 +3323,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -2432,6 +3351,303 @@ export interface operations {
             };
         };
     };
+    change_password_api_v1_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_admin_api_v1_auth_claim_admin_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimAdminRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_context_api_v1_auth_context_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_me_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_me_api_v1_auth_me_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_me_api_v1_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_api_v1_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_config_api_v1_config_get: {
         parameters: {
             query?: {
@@ -2440,11 +3656,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -2476,11 +3692,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -2512,11 +3728,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2549,11 +3765,11 @@ export interface operations {
     list_presets_api_v1_customization_presets_get: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -2580,11 +3796,11 @@ export interface operations {
     create_preset_api_v1_customization_presets_post: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2615,13 +3831,13 @@ export interface operations {
     delete_preset_api_v1_customization_presets__slug__delete: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path: {
                 slug: string;
             };
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -2651,11 +3867,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2691,11 +3907,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2731,11 +3947,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2771,11 +3987,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2811,11 +4027,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2851,11 +4067,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2891,11 +4107,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2931,11 +4147,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -2971,11 +4187,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3011,11 +4227,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3051,11 +4267,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3087,11 +4303,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3127,11 +4343,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3167,11 +4383,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3203,11 +4419,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3239,11 +4455,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3270,14 +4486,14 @@ export interface operations {
     list_matches_api_v1_matches_get: {
         parameters: {
             query?: {
-                /** @description Filter to a single OID */
+                /** @description Filter to a single overlay id */
                 oid?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3311,11 +4527,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3342,13 +4558,13 @@ export interface operations {
     get_match_api_v1_matches__match_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path: {
                 match_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3372,14 +4588,50 @@ export interface operations {
             };
         };
     };
-    get_overlays_api_v1_overlays_get: {
+    delete_match_api_v1_matches__match_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
+            header?: never;
+            path: {
+                match_id: string;
             };
-            path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_match_url_api_v1_matches__match_id__sign_url_post: {
+        parameters: {
+            query?: {
+                /** @description URL lifetime in seconds. */
+                ttl_seconds?: number | null;
+            };
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3389,7 +4641,143 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OverlayPayload"][];
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_overlays_api_v1_overlays_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_my_overlay_api_v1_overlays_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOverlayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_overlay_api_v1_overlays__oid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_my_overlay_api_v1_overlays__oid__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOverlayRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayOut"];
                 };
             };
             /** @description Validation Error */
@@ -3406,11 +4794,11 @@ export interface operations {
     init_session_api_v1_session_init_post: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3446,11 +4834,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3486,11 +4874,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3522,11 +4910,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3558,11 +4946,11 @@ export interface operations {
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3586,14 +4974,14 @@ export interface operations {
             };
         };
     };
-    get_teams_api_v1_teams_get: {
+    list_groups_api_v1_team_groups_get: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3603,7 +4991,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TeamGroupOut"][];
                 };
             };
             /** @description Validation Error */
@@ -3617,177 +5005,340 @@ export interface operations {
             };
         };
     };
-    create_overlay_create_overlay__overlay_id__get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_overlay_create_overlay__overlay_id__get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    serve_spectator_follow__overlay_id__get: {
+    copy_group_api_v1_team_groups__group_id__copy_to_mine_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                group_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_teams_api_v1_teams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalog_api_v1_teams_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_to_my_teams_api_v1_teams_mine_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddTeamsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_from_my_teams_api_v1_teams_mine__team_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_overlay_create_overlay__overlay_id__get_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
                 overlay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_overlay_create_overlay__overlay_id__get_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                overlay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                overlay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                overlay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                overlay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    serve_spectator_follow__public_token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_token: string;
             };
             cookie?: never;
         };
@@ -3853,37 +5404,6 @@ export interface operations {
             };
         };
     };
-    list_overlays_list_overlay_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     serve_manifest_manifest_json_get: {
         parameters: {
             query?: never;
@@ -3927,8 +5447,6 @@ export interface operations {
     match_report_match__match_id__report_get: {
         parameters: {
             query?: {
-                /** @description OVERLAY_MANAGER_PASSWORD; alternative to Bearer header. */
-                token?: string | null;
                 /** @description Signed-URL expiry (unix seconds). */
                 exp?: string | null;
                 /** @description Signed-URL HMAC-SHA256 hex digest. */
@@ -3937,7 +5455,6 @@ export interface operations {
                 lang?: string | null;
             };
             header?: {
-                authorization?: string | null;
                 "accept-language"?: string | null;
             };
             path: {
@@ -3955,76 +5472,6 @@ export interface operations {
                 content: {
                     "text/html": string;
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    matches_index_matches_index_html_get: {
-        parameters: {
-            query: {
-                /** @description Overlay ID to list matches for. */
-                oid: string;
-                /** @description OVERLAY_MANAGER_PASSWORD; alternative to Bearer header. */
-                token?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_archived_match_matches__match_id__delete: {
-        parameters: {
-            query?: {
-                /** @description OVERLAY_MANAGER_PASSWORD; alternative to Bearer header. */
-                token?: string | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                match_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -4066,7 +5513,7 @@ export interface operations {
             };
         };
     };
-    serve_overlay_overlay__overlay_id__get: {
+    serve_overlay_overlay__public_token__get: {
         parameters: {
             query?: {
                 style?: string;
@@ -4074,7 +5521,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                overlay_id: string;
+                public_token: string;
             };
             cookie?: never;
         };

@@ -222,13 +222,12 @@ async def get_links(request: Request,
         if session.backend.is_custom_overlay(oid) and session.public_token:
             links["follow"] = f"{base_url}/follow/{session.public_token}"
 
-    # Surface the latest archived match report and a browseable
-    # match-history index — but only when the report endpoint is
-    # publicly accessible. When the operator gates the routes
-    # behind ``OVERLAY_MANAGER_PASSWORD`` we deliberately do NOT
-    # embed the token in the URL: the control UI does not have
-    # access to that secret, and surfacing a token-bearing URL
-    # invites copy-paste leaks into chat tools.
+    # Surface the latest archived match report — but only when the
+    # report endpoint is publicly readable. When reports are gated to
+    # the owner (cookie) / signed URLs, we deliberately do NOT embed a
+    # link here: the spectator-facing ``/links`` payload has no
+    # credential to offer, and the owner reaches reports from their
+    # account screen instead.
     raw_public = EnvVarsManager.get_env_var("MATCH_REPORT_PUBLIC", "false")
     if str(raw_public).strip().lower() in ("1", "true", "t", "yes", "on"):
         latest = await run_in_threadpool(_latest_match_id_for, skey)

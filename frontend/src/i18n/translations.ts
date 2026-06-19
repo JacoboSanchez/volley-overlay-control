@@ -100,7 +100,7 @@ export const translations: Record<string, TranslationDict> = {
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Back to scoreboard',
-    'config.openManage': 'Open Custom Overlay Manager',
+    'config.openManage': 'My overlays',
     'config.save': 'Save',
     'config.saveCustomization': 'Save customization',
     'config.failedToSave': 'Failed to save customization',

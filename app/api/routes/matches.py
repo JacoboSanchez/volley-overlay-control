@@ -5,11 +5,14 @@ scope every listing/lookup to the authenticated user and present the
 human-facing ``oid`` (never the internal storage key) in responses.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import time
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api import match_archive
 from app.auth.dependencies import require_user
 from app.db.models.user import User
+from app.match_report_signing import make_signed_query
 from app.overlay_key import is_valid_skey, make_skey, split_skey
 
 router = APIRouter()
@@ -50,3 +53,38 @@ async def get_match(match_id: str, user: User = Depends(require_user)):
     if payload is None or not _owns(payload.get("oid"), user):
         raise HTTPException(status_code=404, detail="Match not found.")
     return _present(payload)
+
+
+@router.delete("/matches/{match_id}", status_code=204, summary="Delete one of the caller's matches")
+async def delete_match(match_id: str, user: User = Depends(require_user)):
+    payload = match_archive.load_match(match_id)
+    if payload is None or not _owns(payload.get("oid"), user):
+        raise HTTPException(status_code=404, detail="Match not found.")
+    match_archive.delete_match(match_id)
+
+
+@router.post("/matches/{match_id}/sign-url", summary="Mint a shareable signed report URL")
+async def sign_match_url(
+    match_id: str,
+    request: Request,
+    ttl_seconds: int | None = Query(None, description="URL lifetime in seconds."),
+    user: User = Depends(require_user),
+):
+    """Return a short-lived capability URL for the caller's own match report.
+
+    The URL embeds an HMAC signature (key: SESSION_SECRET), so it can be
+    shared without the recipient signing in — and without leaking any
+    credential. Only the report's owner may mint one.
+    """
+    payload = match_archive.load_match(match_id)
+    if payload is None or not _owns(payload.get("oid"), user):
+        raise HTTPException(status_code=404, detail="Match not found.")
+    signed = make_signed_query(match_id, ttl_seconds)
+    if signed is None:  # pragma: no cover - SESSION_SECRET is always set
+        raise HTTPException(status_code=503, detail="Report signing is unavailable.")
+    base = str(request.base_url).rstrip("/")
+    return {
+        "url": f"{base}/match/{match_id}/report?exp={signed['exp']}&sig={signed['sig']}",
+        "expires_at": signed["expires_at"],
+        "expires_in": max(0, signed["expires_at"] - int(time.time())),
+    }

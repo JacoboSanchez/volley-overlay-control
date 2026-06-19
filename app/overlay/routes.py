@@ -17,7 +17,6 @@ from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
-from app.auth_utils import require_admin
 from app.overlay.auth import (
     _get_overlay_server_credential,  # noqa: F401  (re-export; see AUTHENTICATION.md §5)
     require_overlay_server_token,
@@ -264,16 +263,6 @@ def _register_api_routes(
         if existed:
             return {"status": "deleted", "overlay_id": overlay_id}
         raise HTTPException(status_code=404, detail="Overlay not found")
-
-    @router.get("/list/overlay", dependencies=[Depends(require_admin)])
-    async def list_overlays():
-        """Return every overlay id plus its output key.
-
-        Gated behind ``OVERLAY_MANAGER_PASSWORD`` because the response
-        defeats the capability-URL design of ``/overlay/{output_key}``.
-        See ``AUTHENTICATION.md`` (F-4).
-        """
-        return {"overlays": store.list_overlays()}
 
     # -- Raw config --------------------------------------------------------
 

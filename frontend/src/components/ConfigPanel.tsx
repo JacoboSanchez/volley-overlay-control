@@ -393,7 +393,7 @@ export default function ConfigPanel({
         <span className="config-top-title">{t('config.title')}</span>
         <a
           className="config-top-btn"
-          href="/manage"
+          href="/overlays"
           title={t('config.openManage')}
           aria-label={t('config.openManage')}
           data-testid="manage-link-button"

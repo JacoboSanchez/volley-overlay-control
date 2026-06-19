@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException, Response
 
-from app.auth_utils import require_admin_token
 from app.env_vars_manager import EnvVarsManager
 from app.metrics import (
     CONTENT_TYPE_LATEST,
@@ -28,11 +27,12 @@ from app.metrics import (
     REGISTRY,
     generate_latest,
 )
+from app.overlay.auth import require_overlay_server_token
 
 router = APIRouter()
 
 
-def _require_admin_when_configured() -> bool:
+def _require_token_when_configured() -> bool:
     return EnvVarsManager.get_bool_env("METRICS_REQUIRE_ADMIN")
 
 
@@ -44,24 +44,14 @@ def _require_admin_when_configured() -> bool:
 def metrics_endpoint(authorization: str = Header(None)):
     """Return the registry's current exposition in Prometheus text format.
 
-    ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth at the same
-    ladder as ``/api/v1/admin/*``. The check fires *before* the
-    library-availability check so an unauthenticated probe cannot use
-    the 503-vs-200 difference to fingerprint whether the metrics
-    backend is loaded.
+    ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth against the
+    machine-to-machine ``OVERLAY_SERVER_TOKEN`` (Prometheus scrapers can't
+    carry a session cookie). The check fires *before* the library-availability
+    check so an unauthenticated probe cannot use the 503-vs-200 difference to
+    fingerprint whether the metrics backend is loaded.
     """
-    if _require_admin_when_configured():
-        require_admin_token(
-            authorization,
-            token=None,
-            missing_password_detail=(  # nosec B106
-                "Metrics auth requested but OVERLAY_MANAGER_PASSWORD is unset."
-            ),
-            missing_token_detail=(  # nosec B106
-                "Missing admin password. Use 'Authorization: Bearer <password>'."
-            ),
-            invalid_token_detail="Invalid admin password.",  # nosec B106
-        )
+    if _require_token_when_configured():
+        require_overlay_server_token(authorization)
     if not PROMETHEUS_AVAILABLE:
         raise HTTPException(
             status_code=503,

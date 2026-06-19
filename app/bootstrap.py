@@ -23,7 +23,6 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.admin import admin_page_router, admin_router
 from app.api import api_router
 from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
 from app.api.middleware.errors import ExceptionLoggingMiddleware
@@ -192,10 +191,6 @@ def _register_api_routes(application: FastAPI) -> None:
     from app.api.routes.admin_users import router as admin_users_router
     application.include_router(admin_users_router)
     application.include_router(api_router)
-    # Overlay manager page + admin API (password-protected).
-    # Registered before the SPA mount so ``/manage`` is served by FastAPI.
-    application.include_router(admin_page_router)
-    application.include_router(admin_router)
     # Print-friendly per-match HTML report. Mounted before the SPA
     # catch-all so /match/{id}/report is served by FastAPI.
     application.include_router(match_report_router)

@@ -9,26 +9,21 @@ Authentication
 
 By default the route is **gated**: the snapshot bundles the audit log
 and full team customization (logos, names, colors) and is strictly
-more sensitive than live overlay state. Access requires either:
+more sensitive than live overlay state. ``app.match_report_access``
+admits a reader if any of:
 
-* ``Authorization: Bearer <OVERLAY_MANAGER_PASSWORD>`` — same admin
-  token used by ``/api/v1/admin/*`` and ``/manage``;
-* a ``token=<OVERLAY_MANAGER_PASSWORD>`` query parameter — necessary
-  when opening the URL in a plain browser tab (no header API);
-* setting ``MATCH_REPORT_PUBLIC=true``, in which case any caller with
-  the (non-guessable, hash-prefixed) ``match_id`` can read the
-  report. This matches the ``/overlay/{output_key}`` model and is
+* the request carries the **owner's** session cookie (the user whose
+  overlay produced the match);
+* the URL carries a valid HMAC capability (``?exp=…&sig=…``), minted
+  by the owner via ``POST /api/v1/matches/{id}/sign-url`` and signed
+  with ``SESSION_SECRET`` — no credential travels in the URL;
+* ``MATCH_REPORT_PUBLIC=true``, in which case any caller with the
+  (non-guessable, hash-prefixed) ``match_id`` can read the report.
+  This matches the ``/overlay/{public_token}`` model and is
   appropriate for deployments that already share output URLs widely.
 
-When ``OVERLAY_MANAGER_PASSWORD`` is unset and ``MATCH_REPORT_PUBLIC``
-is not enabled, the route returns 503 — operators must explicitly
-opt in to one mode or the other.
-
-Destructive actions (``DELETE /matches/{match_id}``) keep their own
-flag, ``MATCH_REPORT_PUBLIC_DELETE``: when ``true`` the delete route
-no longer requires the admin token. This is intentionally separate
-from ``MATCH_REPORT_PUBLIC`` so that public *read* doesn't silently
-unlock public *delete* — the operator has to opt in to each.
+Otherwise the route returns 401. Deleting a match is owner-only and
+lives on the account API (``DELETE /api/v1/matches/{match_id}``).
 """
 
 from __future__ import annotations
@@ -37,20 +32,14 @@ import html
 import logging
 import time
 
-from fastapi import APIRouter, Header, HTTPException, Query, Response
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
 from app.api import match_archive
-from app.match_report_access import (
-    _check_access,
-    _check_admin_access,
-    _public_delete_enabled,
-)
+from app.match_report_access import check_read_access
 from app.match_report_i18n import SUPPORTED_LOCALES, resolve_locale
 from app.match_report_i18n import t as _t
 from app.match_report_render import (
-    _INDEX_SCRIPT,
-    _INDEX_TEMPLATE,
     _chart_color,
     _ensure_distinct_chart_colors,
     _fmt_seconds,
@@ -58,7 +47,6 @@ from app.match_report_render import (
     _render_charts,
     _render_highlights,
     _render_logo,
-    _render_match_row,
     _render_set_durations_row,
     _render_timeline,
     _team_color,
@@ -100,10 +88,7 @@ match_report_router = APIRouter()
 )
 async def match_report(
     match_id: str,
-    authorization: str | None = Header(default=None),
-    token: str | None = Query(default=None,
-                                 description="OVERLAY_MANAGER_PASSWORD; "
-                                             "alternative to Bearer header."),
+    request: Request,
     exp: str | None = Query(default=None,
                                description="Signed-URL expiry (unix seconds)."),
     sig: str | None = Query(default=None,
@@ -122,9 +107,7 @@ async def match_report(
     ),
     accept_language: str | None = Header(default=None),
 ):
-    _check_access(
-        authorization, token, match_id=match_id, exp=exp, sig=sig,
-    )
+    check_read_access(request, match_id, exp=exp, sig=sig)
     payload = match_archive.load_match(match_id)
     if payload is None:
         raise HTTPException(status_code=404, detail="Match not found.")
@@ -323,101 +306,3 @@ async def match_report(
         permalink=html.escape(permalink, quote=True),
     )
     return HTMLResponse(content=rendered)
-
-
-# ---------------------------------------------------------------------------
-# Matches index — browseable list of every archived match for an OID
-# ---------------------------------------------------------------------------
-
-@match_report_router.get(
-    "/matches/index.html",
-    response_class=HTMLResponse,
-    summary="Browseable HTML list of archived matches for an OID",
-)
-async def matches_index(
-    oid: str = Query(..., description="Overlay ID to list matches for."),
-    authorization: str | None = Header(default=None),
-    token: str | None = Query(default=None,
-                                 description="OVERLAY_MANAGER_PASSWORD; "
-                                             "alternative to Bearer header."),
-):
-    # Signed-URL auth deliberately not honoured on the index — a
-    # signature pins one specific match_id; the index would need a
-    # separate "list-all" capability that's a different feature
-    # (and intentionally not provided yet, since the index gives
-    # destructive access via per-row Delete).
-    _check_access(authorization, token)
-    summaries = match_archive.list_matches(oid=oid)
-
-    # Forward the same token to the per-match report links so the
-    # operator can click through without re-entering it. Bearer
-    # users will need to attach the header on each navigation —
-    # acceptable since they're already using a header-aware client.
-    token_qs = f"?token={html.escape(token)}" if token else ""
-
-    if summaries:
-        rows = "\n".join(
-            _render_match_row(s, token_qs=token_qs) for s in summaries
-        )
-        toolbar_html = (
-            '<div class="toolbar">'
-            '<button type="button" id="delete-selected" class="danger" disabled>'
-            'Delete selected (<span id="selected-count">0</span>)'
-            '</button>'
-            '<span>Tip: tick the boxes to select rows, then use this button '
-            'or the per-row Delete to remove them.</span>'
-            '</div>'
-        )
-        table_html = (
-            "<table>"
-            "<thead><tr>"
-            '<th class="checkbox-col">'
-            '<input type="checkbox" id="select-all" '
-            'aria-label="Select all matches"></th>'
-            "<th>Ended</th><th>Sets</th><th>Duration</th>"
-            "<th>Report</th><th>Actions</th>"
-            "</tr></thead>"
-            f"<tbody>{rows}</tbody>"
-            "</table>"
-        )
-        body_html = toolbar_html + table_html + _INDEX_SCRIPT
-    else:
-        body_html = '<div class="empty">No matches archived yet for this OID.</div>'
-
-    plural = "" if len(summaries) == 1 else "es"
-    rendered = _INDEX_TEMPLATE.format(
-        oid_label=html.escape(oid),
-        count=len(summaries),
-        plural=plural,
-        body_html=body_html,
-    )
-    return HTMLResponse(content=rendered)
-
-
-@match_report_router.delete(
-    "/matches/{match_id}",
-    summary="Delete an archived match snapshot",
-    status_code=204,
-)
-async def delete_archived_match(
-    match_id: str,
-    authorization: str | None = Header(default=None),
-    token: str | None = Query(default=None,
-                                 description="OVERLAY_MANAGER_PASSWORD; "
-                                             "alternative to Bearer header."),
-):
-    """Delete a single archived match by id.
-
-    Requires a valid admin token unless ``MATCH_REPORT_PUBLIC_DELETE``
-    is set — that flag is independent from ``MATCH_REPORT_PUBLIC``
-    (public read does *not* imply public delete) and lets operators
-    expose the per-row Delete button on the matches index without
-    sharing the admin password. Returns 204 on success, 404 when the
-    match does not exist, and 401/403/503 for the various
-    authentication failure modes when the flag is off.
-    """
-    if not _public_delete_enabled():
-        _check_admin_access(authorization, token)
-    if not match_archive.delete_match(match_id):
-        raise HTTPException(status_code=404, detail="Match not found.")
-    return Response(status_code=204)

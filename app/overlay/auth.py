@@ -9,10 +9,18 @@ import logging
 
 from fastapi import Header, HTTPException
 
-from app.auth_utils import get_hashed_or_plaintext_env
+from app.env_vars_manager import EnvVarsManager
 from app.password_hash import verify_password
 
 logger = logging.getLogger(__name__)
+
+
+def _stripped_env(key: str) -> str | None:
+    raw = EnvVarsManager.get_env_var(key, None)
+    if raw is None:
+        return None
+    raw = str(raw).strip()
+    return raw or None
 
 
 def _get_overlay_server_credential() -> str | None:
@@ -24,10 +32,7 @@ def _get_overlay_server_credential() -> str | None:
     migrating to hashed credentials does not have to delete the
     plaintext to switch over. Returns ``None`` when neither is set.
     """
-    return get_hashed_or_plaintext_env(
-        "OVERLAY_SERVER_TOKEN_HASH",
-        "OVERLAY_SERVER_TOKEN",
-    )
+    return _stripped_env("OVERLAY_SERVER_TOKEN_HASH") or _stripped_env("OVERLAY_SERVER_TOKEN")
 
 
 def require_overlay_server_token(authorization: str = Header(None)) -> None:

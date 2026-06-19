@@ -38,8 +38,9 @@ CLI
 ---
 
 ``python -m app.password_hash`` prompts for a password (no echo) and
-prints the hash string. Operators paste that into ``SCOREBOARD_USERS``,
-``OVERLAY_MANAGER_PASSWORD_HASH``, or ``OVERLAY_SERVER_TOKEN_HASH``.
+prints the hash string. Operators paste that into
+``OVERLAY_SERVER_TOKEN_HASH``. (User account passwords use the same
+scrypt records, but those are stored hashed in the database.)
 """
 
 from __future__ import annotations
@@ -201,8 +202,7 @@ def _cli(argv: list[str]) -> int:
         python -m app.password_hash --n 32768     # heavier hash
         echo -n 'pw' | python -m app.password_hash --stdin
 
-    Operators paste the printed line into ``SCOREBOARD_USERS``,
-    ``OVERLAY_MANAGER_PASSWORD_HASH``, or ``OVERLAY_SERVER_TOKEN_HASH``.
+    Operators paste the printed line into ``OVERLAY_SERVER_TOKEN_HASH``.
     """
     import argparse
 

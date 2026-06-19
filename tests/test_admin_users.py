@@ -115,3 +115,27 @@ def test_admin_toggles_registration(db_session):
     assert pub.post(
         "/api/v1/auth/register", json={"username": "late", "password": "password123"},
     ).status_code == 403
+
+
+def test_webhook_replay_requires_admin(db_session):
+    user = login_client(TestClient(create_app()), db_session, "alice")
+    assert user.post("/api/v1/admin/webhooks/replay").status_code == 403
+
+
+def test_webhook_replay_reports_counts(db_session):
+    from app.api import webhook_dead_letter
+
+    webhook_dead_letter.clear()
+    webhook_dead_letter.append(
+        {"url": "https://no-such-target.invalid/hook", "body": "", "ts": 1.0},
+    )
+    admin = _admin(db_session)
+    resp = admin.post("/api/v1/admin/webhooks/replay")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # The configured-targets set is empty, so the record is skipped (kept).
+    assert body["considered"] == 1
+    assert body["succeeded"] == 0
+    assert body["skipped_unknown_url"] == 1
+    assert body["remaining_in_dl"] == 1
+    webhook_dead_letter.clear()

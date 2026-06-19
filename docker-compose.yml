@@ -42,8 +42,6 @@ services:
       - STALE_SET_THRESHOLD_MINUTES=${STALE_SET_THRESHOLD_MINUTES:-60} #Optional: minutes a single set may run before the control-UI "abandoned match" prompt fires; 0 disables
       - PREDEFINED_OVERLAYS=${PREDEFINED_OVERLAYS:-}
       - HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED=${HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED:-}
-      - OVERLAY_MANAGER_PASSWORD=${OVERLAY_MANAGER_PASSWORD:-} #Optional: unlocks the /manage admin page
-      - OVERLAY_MANAGER_PASSWORD_HASH=${OVERLAY_MANAGER_PASSWORD_HASH:-} #Optional: scrypt-hashed alternative (mint via `python -m app.password_hash`)
       # OVERLAY_SERVER_TOKEN is auto-generated and persisted to data/.overlay_server_token
       # on first start. Set it explicitly here to override (e.g. when an external
       # CustomOverlayBackend peer must use the same value), or set

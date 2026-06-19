@@ -18,7 +18,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.admin import admin_router
 from app.api import api_router
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
@@ -92,17 +91,10 @@ def test_scoreboard_401_carries_cookie_challenge():
     assert res.headers.get("www-authenticate") == "Cookie"
 
 
-def test_admin_401_carries_admin_realm(monkeypatch):
-    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "admin-pw")
-    app = FastAPI()
-    app.include_router(admin_router)
-    client = TestClient(app)
-    res = client.post("/api/v1/admin/login")
-    assert res.status_code == 401
-    assert (
-        res.headers.get("www-authenticate")
-        == 'Bearer realm="admin"'
-    )
+# NOTE: the legacy OVERLAY_MANAGER_PASSWORD admin Bearer realm was removed
+# in the multi-user refactor — admin access is now cookie + role gated (403),
+# not a Bearer 401. The overlay-server realm below is the only remaining
+# Bearer ladder.
 
 
 def test_overlay_server_401_carries_overlay_realm(monkeypatch, tmp_path):

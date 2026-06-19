@@ -95,6 +95,260 @@
         "title": "AddPointRequest",
         "type": "object"
       },
+      "AddTeamsRequest": {
+        "properties": {
+          "team_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Team Ids",
+            "type": "array"
+          }
+        },
+        "title": "AddTeamsRequest",
+        "type": "object"
+      },
+      "AdminCreateUserRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "role": {
+            "default": "user",
+            "title": "Role",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "AdminCreateUserRequest",
+        "type": "object"
+      },
+      "AdminPresetCreateRequest": {
+        "properties": {
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": true,
+            "description": "Subset of the caller's flat customization model to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped; an empty result is rejected with 400.",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "values"
+        ],
+        "title": "AdminPresetCreateRequest",
+        "type": "object"
+      },
+      "AdminTeamRequest": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "text_color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Color"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AdminTeamRequest",
+        "type": "object"
+      },
+      "AdminTeamUpdateRequest": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "text_color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Color"
+          }
+        },
+        "title": "AdminTeamUpdateRequest",
+        "type": "object"
+      },
+      "AdminUpdateUserRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "title": "AdminUpdateUserRequest",
+        "type": "object"
+      },
       "AppConfigResponse": {
         "properties": {
           "stale_set_threshold_minutes": {
@@ -111,6 +365,40 @@
           "title"
         ],
         "title": "AppConfigResponse",
+        "type": "object"
+      },
+      "AuthContext": {
+        "description": "Public boot payload for the SPA guard \u2014 never requires auth.",
+        "properties": {
+          "authenticated": {
+            "title": "Authenticated",
+            "type": "boolean"
+          },
+          "needs_admin_bootstrap": {
+            "title": "Needs Admin Bootstrap",
+            "type": "boolean"
+          },
+          "registration_open": {
+            "title": "Registration Open",
+            "type": "boolean"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "authenticated",
+          "registration_open",
+          "needs_admin_bootstrap"
+        ],
+        "title": "AuthContext",
         "type": "object"
       },
       "AutoSwapSidesRequest": {
@@ -158,6 +446,81 @@
           "is_switch_pending"
         ],
         "title": "BeachSideSwitch",
+        "type": "object"
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest",
+        "type": "object"
+      },
+      "ClaimAdminRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "username",
+          "password"
+        ],
+        "title": "ClaimAdminRequest",
         "type": "object"
       },
       "ClientLogRecord": {
@@ -232,22 +595,10 @@
         "title": "ClientLogRecord",
         "type": "object"
       },
-      "CustomOverlayCreate": {
+      "CreateGroupRequest": {
         "properties": {
-          "copy_from": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Optional existing overlay id to clone configuration from",
-            "title": "Copy From"
-          },
           "name": {
-            "description": "Overlay id used as OID",
+            "maxLength": 120,
             "minLength": 1,
             "title": "Name",
             "type": "string"
@@ -256,92 +607,85 @@
         "required": [
           "name"
         ],
-        "title": "CustomOverlayCreate",
+        "title": "CreateGroupRequest",
         "type": "object"
       },
-      "CustomOverlayPatch": {
-        "description": "Partial update for a custom overlay's appearance.\n\nEvery field is optional \u2014 the patch is a thin admin-side wrapper around\n``OverlayStateStore.update_state``. When ``theme`` is set, the matching\npreset from ``app.overlay.themes`` is applied first; ``colors`` and\n``preferred_style`` are then merged on top so explicit overrides win\nover the theme defaults.",
+      "CreateOverlayRequest": {
         "properties": {
-          "colors": {
+          "display_name": {
             "anyOf": [
               {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Color overrides merged into overlay_control.colors. Common keys: set_bg, set_text, game_bg, game_text.",
-            "title": "Colors"
-          },
-          "preferred_style": {
-            "anyOf": [
-              {
+                "maxLength": 120,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Switch the Jinja template served at /overlay/{output_key}. Must match an entry in GET /api/config/{id}.availableStyles.",
-            "title": "Preferred Style"
+            "title": "Display Name"
           },
-          "theme": {
+          "oid": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Oid",
+            "type": "string"
+          },
+          "output_url": {
             "anyOf": [
               {
+                "maxLength": 2048,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Apply a preset theme (e.g. 'dark', 'esports'). Available themes are listed by GET /api/themes.",
-            "title": "Theme"
-          }
-        },
-        "title": "CustomOverlayPatch",
-        "type": "object"
-      },
-      "CustomOverlayUsage": {
-        "description": "Snapshot of how many live consumers a custom overlay has.",
-        "properties": {
-          "frontend_ws_clients": {
-            "description": "Connected scoreboard control tabs (frontend WebSocket subscribers).",
-            "title": "Frontend Ws Clients",
-            "type": "integer"
+            "title": "Output Url"
           },
-          "has_active_session": {
-            "description": "True when SessionManager has a live GameSession.",
-            "title": "Has Active Session",
-            "type": "boolean"
-          },
-          "obs_clients": {
-            "description": "Connected OBS / browser-source viewers.",
-            "title": "Obs Clients",
-            "type": "integer"
-          },
-          "seconds_since_last_activity": {
+          "points": {
             "anyOf": [
               {
+                "maximum": 99.0,
+                "minimum": 1.0,
                 "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Seconds elapsed since the session was last touched; null when no session is active.",
-            "title": "Seconds Since Last Activity"
+            "title": "Points"
+          },
+          "points_last_set": {
+            "anyOf": [
+              {
+                "maximum": 99.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Last Set"
+          },
+          "sets": {
+            "anyOf": [
+              {
+                "maximum": 15.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sets"
           }
         },
         "required": [
-          "obs_clients",
-          "frontend_ws_clients",
-          "has_active_session"
+          "oid"
         ],
-        "title": "CustomOverlayUsage",
+        "title": "CreateOverlayRequest",
         "type": "object"
       },
       "GameStateResponse": {
@@ -491,6 +835,19 @@
         "title": "GameStateResponse",
         "type": "object"
       },
+      "GroupMemberRequest": {
+        "properties": {
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team_id"
+        ],
+        "title": "GroupMemberRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -502,6 +859,50 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImportTeamsRequest": {
+        "properties": {
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          },
+          "teams": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Teams",
+            "type": "object"
+          }
+        },
+        "required": [
+          "teams"
+        ],
+        "title": "ImportTeamsRequest",
+        "type": "object"
+      },
+      "ImportThemesRequest": {
+        "properties": {
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          },
+          "themes": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Themes",
+            "type": "object"
+          }
+        },
+        "required": [
+          "themes"
+        ],
+        "title": "ImportThemesRequest",
         "type": "object"
       },
       "InitRequest": {
@@ -561,6 +962,45 @@
           "oid"
         ],
         "title": "InitRequest",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "properties": {
+          "must_change_password": {
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "required": [
+          "user",
+          "must_change_password"
+        ],
+        "title": "LoginResponse",
         "type": "object"
       },
       "MatchInfoModel": {
@@ -652,52 +1092,6 @@
           "team_2_match_point"
         ],
         "title": "MatchPointInfo",
-        "type": "object"
-      },
-      "MatchSignUrlRequest": {
-        "properties": {
-          "ttl_seconds": {
-            "anyOf": [
-              {
-                "maximum": 2592000.0,
-                "minimum": 60.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "URL lifetime in seconds. Bounded to [60, 2592000]; defaults to 86400.",
-            "title": "Ttl Seconds"
-          }
-        },
-        "title": "MatchSignUrlRequest",
-        "type": "object"
-      },
-      "MatchSignUrlResponse": {
-        "properties": {
-          "expires_at": {
-            "description": "Unix-seconds expiry the URL was signed for.",
-            "title": "Expires At",
-            "type": "integer"
-          },
-          "expires_in": {
-            "description": "Seconds remaining until expiry, at mint time.",
-            "title": "Expires In",
-            "type": "integer"
-          },
-          "url": {
-            "description": "Absolute capability URL \u2014 anyone holding it can read the report until ``expires_at``.",
-            "title": "Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "url",
-          "expires_at",
-          "expires_in"
-        ],
-        "title": "MatchSignUrlResponse",
         "type": "object"
       },
       "OverlayControlModel": {
@@ -797,25 +1191,91 @@
         "title": "OverlayControlModel",
         "type": "object"
       },
-      "OverlayPayload": {
-        "description": "Predefined overlay entry returned by ``GET /overlays``.",
+      "OverlayOut": {
+        "description": "One of the caller's overlays.",
         "properties": {
-          "name": {
-            "description": "Display name of the overlay",
-            "title": "Name",
-            "type": "string"
+          "custom_output_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit override URL, if set",
+            "title": "Custom Output Url"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Friendly label",
+            "title": "Display Name"
           },
           "oid": {
-            "description": "Overlay identifier",
+            "description": "Overlay identifier (unique per user)",
             "title": "Oid",
             "type": "string"
+          },
+          "output_url": {
+            "description": "OBS output URL (custom/cloud, or the local /overlay/<token>)",
+            "title": "Output Url",
+            "type": "string"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default points per set",
+            "title": "Points"
+          },
+          "points_last_set": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default points in the deciding set",
+            "title": "Points Last Set"
+          },
+          "public_token": {
+            "description": "Public OBS-output capability token",
+            "title": "Public Token",
+            "type": "string"
+          },
+          "sets": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default sets in the match (best-of)",
+            "title": "Sets"
           }
         },
         "required": [
-          "name",
-          "oid"
+          "oid",
+          "public_token",
+          "output_url"
         ],
-        "title": "OverlayPayload",
+        "title": "OverlayOut",
         "type": "object"
       },
       "OverlayStateUpdate": {
@@ -893,7 +1353,7 @@
           },
           "values": {
             "additionalProperties": true,
-            "description": "Subset of the operator's flat customization model to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped server-side; an empty result is rejected with 400.",
+            "description": "Subset of the caller's flat customization model to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped; an empty result is rejected with 400.",
             "title": "Values",
             "type": "object"
           }
@@ -924,16 +1384,16 @@
       "PresetSummary": {
         "properties": {
           "categories": {
-            "description": "Category ids covered by the preset's values (``team1_name``, ``team1_color``, ``team2_name``, ``team2_color``, ``position``, ``style``).",
             "items": {
               "type": "string"
             },
             "title": "Categories",
             "type": "array"
           },
-          "created_at": {
-            "title": "Created At",
-            "type": "number"
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
           },
           "name": {
             "title": "Name",
@@ -945,27 +1405,23 @@
           },
           "source": {
             "default": "user",
-            "description": "``user`` for operator-saved records on disk; ``system`` for read-only entries derived from ``APP_THEMES``. System presets cannot be deleted.",
+            "description": "``user`` for the caller's own presets; ``global`` for admin-authored, admin-activated presets shared with everyone. Only the owner may delete a ``user`` preset; globals are admin-only.",
             "enum": [
               "user",
-              "system"
+              "global"
             ],
             "title": "Source",
             "type": "string"
           },
           "values": {
             "additionalProperties": true,
-            "description": "Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the React panel deep-merges into its edit model. Unknown keys from older records are filtered out at read time.",
             "title": "Values",
             "type": "object"
           }
         },
         "required": [
           "slug",
-          "name",
-          "created_at",
-          "categories",
-          "values"
+          "name"
         ],
         "title": "PresetSummary",
         "type": "object"
@@ -995,6 +1451,65 @@
         "title": "RawConfigPayload",
         "type": "object"
       },
+      "RegisterRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "RegisterRequest",
+        "type": "object"
+      },
+      "RegistrationSetting": {
+        "properties": {
+          "registration_open": {
+            "title": "Registration Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "registration_open"
+        ],
+        "title": "RegistrationSetting",
+        "type": "object"
+      },
       "ServeRequest": {
         "properties": {
           "team": {
@@ -1010,6 +1525,19 @@
           "team"
         ],
         "title": "ServeRequest",
+        "type": "object"
+      },
+      "SetActiveRequest": {
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_active"
+        ],
+        "title": "SetActiveRequest",
         "type": "object"
       },
       "SetRulesRequest": {
@@ -1215,6 +1743,93 @@
         "title": "TeamActionRequest",
         "type": "object"
       },
+      "TeamGroupOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/TeamOut"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_active",
+          "teams"
+        ],
+        "title": "TeamGroupOut",
+        "type": "object"
+      },
+      "TeamOut": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_global": {
+            "title": "Is Global",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "text_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Color"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_global"
+        ],
+        "title": "TeamOut",
+        "type": "object"
+      },
       "TeamState": {
         "properties": {
           "scores": {
@@ -1368,6 +1983,179 @@
           }
         },
         "title": "TeamStateModel",
+        "type": "object"
+      },
+      "TempPasswordResponse": {
+        "properties": {
+          "temp_password": {
+            "title": "Temp Password",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "required": [
+          "user",
+          "temp_password"
+        ],
+        "title": "TempPasswordResponse",
+        "type": "object"
+      },
+      "UpdateOverlayRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "output_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Url"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "maximum": 99.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "points_last_set": {
+            "anyOf": [
+              {
+                "maximum": 99.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points Last Set"
+          },
+          "sets": {
+            "anyOf": [
+              {
+                "maximum": 15.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sets"
+          }
+        },
+        "title": "UpdateOverlayRequest",
+        "type": "object"
+      },
+      "UpdateProfileRequest": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "title": "UpdateProfileRequest",
+        "type": "object"
+      },
+      "UserOut": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "must_change_password": {
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "email",
+          "role",
+          "is_active",
+          "must_change_password"
+        ],
+        "title": "UserOut",
         "type": "object"
       },
       "ValidationError": {
@@ -1757,18 +2545,130 @@
         ]
       }
     },
-    "/api/v1/admin/custom-overlays": {
+    "/api/v1/admin/presets": {
       "get": {
-        "description": "Return every custom overlay persisted on disk.\n\nEach entry carries the overlay id (used directly as the OID) and its\nderived output key.",
-        "operationId": "list_custom_overlays_api_v1_admin_custom_overlays_get",
+        "operationId": "admin_list_presets_api_v1_admin_presets_get",
         "parameters": [
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List all global presets (active and inactive) for management.",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
+      "post": {
+        "operationId": "admin_create_preset_api_v1_admin_presets_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPresetCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Author a global preset.",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/presets/export": {
+      "get": {
+        "operationId": "admin_export_presets_api_v1_admin_presets_export_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -1792,22 +2692,30 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Custom Overlays",
+        "summary": "Export global presets as APP_THEMES JSON.",
         "tags": [
-          "Admin"
+          "Scoreboard API v1"
         ]
-      },
+      }
+    },
+    "/api/v1/admin/presets/import": {
       "post": {
-        "description": "Create a new custom overlay, optionally cloning an existing one.",
-        "operationId": "create_custom_overlay_api_v1_admin_custom_overlays_post",
+        "operationId": "admin_import_presets_api_v1_admin_presets_import_post",
         "parameters": [
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -1815,7 +2723,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CustomOverlayCreate"
+                "$ref": "#/components/schemas/ImportThemesRequest"
               }
             }
           },
@@ -1841,33 +2749,506 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Custom Overlay",
+        "summary": "Import an APP_THEMES JSON map.",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/presets/{slug}": {
+      "delete": {
+        "operationId": "admin_delete_preset_api_v1_admin_presets__slug__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "maxLength": 120,
+              "minLength": 1,
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a global preset.",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
+      "patch": {
+        "operationId": "admin_set_preset_active_api_v1_admin_presets__slug__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "maxLength": 120,
+              "minLength": 1,
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate/deactivate a global preset.",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/registration": {
+      "get": {
+        "operationId": "get_registration_api_v1_admin_registration_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationSetting"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Registration",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "put": {
+        "operationId": "set_registration_api_v1_admin_registration_put",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationSetting"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationSetting"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Registration",
         "tags": [
           "Admin"
         ]
       }
     },
-    "/api/v1/admin/custom-overlays/{name}": {
-      "delete": {
-        "description": "Remove a custom overlay and its persisted state.",
-        "operationId": "delete_custom_overlay_api_v1_admin_custom_overlays__name__delete",
+    "/api/v1/admin/team-groups": {
+      "post": {
+        "operationId": "admin_create_group_api_v1_admin_team_groups_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamGroupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Create Group",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/team-groups/{group_id}": {
+      "patch": {
+        "operationId": "admin_set_group_active_api_v1_admin_team_groups__group_id__patch",
         "parameters": [
           {
             "in": "path",
-            "name": "name",
+            "name": "group_id",
             "required": true,
             "schema": {
-              "title": "Name",
-              "type": "string"
+              "title": "Group Id",
+              "type": "integer"
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Set Group Active",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/team-groups/{group_id}/members": {
+      "post": {
+        "operationId": "admin_add_group_member_api_v1_admin_team_groups__group_id__members_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Add Group Member",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/teams": {
+      "post": {
+        "operationId": "admin_create_team_api_v1_admin_teams_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Create Team",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/teams/export": {
+      "get": {
+        "description": "Export the global catalog as an APP_TEAMS JSON map.",
+        "operationId": "admin_export_teams_api_v1_admin_teams_export_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -1891,31 +3272,384 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Delete Custom Overlay",
+        "summary": "Admin Export Teams",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/teams/import": {
+      "post": {
+        "description": "Import an APP_TEAMS JSON map into the global catalog (upsert by name).",
+        "operationId": "admin_import_teams_api_v1_admin_teams_import_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportTeamsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Import Teams",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/teams/{team_id}": {
+      "delete": {
+        "operationId": "admin_delete_team_api_v1_admin_teams__team_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Delete Team",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
+      "patch": {
+        "operationId": "admin_update_team_api_v1_admin_teams__team_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminTeamUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Update Team",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "list_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserOut"
+                  },
+                  "title": "Response List Users Api V1 Admin Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Users",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "post": {
+        "description": "Create a user. With no password, a temp one is minted and returned;\nthe user must change it on first login.",
+        "operationId": "create_user_api_v1_admin_users_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TempPasswordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create User",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "operationId": "delete_user_api_v1_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete User",
         "tags": [
           "Admin"
         ]
       },
       "patch": {
-        "description": "Apply a preset theme and/or merge colors / preferredStyle.\n\nLayering order matches the operator's mental model: the theme acts\nas a baseline, then explicit ``colors`` and ``preferred_style`` are\nmerged on top. Empty patches are rejected with 400 so the operator\nsees a clear error rather than a silent no-op (which would mask\naccidental empty form submissions from the manager UI).",
-        "operationId": "patch_custom_overlay_api_v1_admin_custom_overlays__name__patch",
+        "operationId": "update_user_api_v1_admin_users__user_id__patch",
         "parameters": [
           {
             "in": "path",
-            "name": "name",
+            "name": "user_id",
             "required": true,
             "schema": {
-              "title": "Name",
-              "type": "string"
+              "title": "User Id",
+              "type": "integer"
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -1923,160 +3657,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CustomOverlayPatch"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Edit a custom overlay's theme / colors / preferred style",
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/api/v1/admin/custom-overlays/{name}/usage": {
-      "get": {
-        "description": "Report live OBS / scoreboard / session counts for *name*.\n\nThe response gives the operator enough information to decide whether\ndeleting (or re-theming) the overlay will disrupt an in-progress\nbroadcast \u2014 currently surfaced in the ``/manage`` UI as a dot next to\neach row.",
-        "operationId": "get_custom_overlay_usage_api_v1_admin_custom_overlays__name__usage_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "title": "Name",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "title": "Authorization",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CustomOverlayUsage"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Inspect how many live consumers a custom overlay has",
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/api/v1/admin/login": {
-      "post": {
-        "description": "Validate the admin password. Returns ``{\"ok\": true}`` on success.",
-        "operationId": "admin_login_api_v1_admin_login_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "title": "Authorization",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Admin Login",
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/api/v1/admin/match/{match_id}/sign-url": {
-      "post": {
-        "description": "Return a capability URL the operator can paste into chat tools.\n\nThe legacy share flow (``/match/{id}/report?token=<password>``)\nembeds the actual ``OVERLAY_MANAGER_PASSWORD`` in the URL \u2014\nevery browser bookmark, server log, or HTTP ``Referer`` that\ntouches the link leaks the credential. This endpoint replaces\nthat flow with an HMAC-signed URL of the form\n``/match/{id}/report?exp=<ts>&sig=<hex>``: the password stays\non the server and the URL expires automatically.\n\nRotating the admin password invalidates every outstanding\nsigned URL \u2014 that's the desired behaviour, since rotations are\ntypically motivated by suspected leaks.\n\nThe endpoint deliberately does *not* check whether the\n``match_id`` exists: a 404 here would be a free oracle for\nenumerating archived matches by anyone holding the admin\npassword (who could already do far worse anyway). Signing a\nbogus match id just produces a URL that 404s on use.",
-        "operationId": "sign_match_report_url_api_v1_admin_match__match_id__sign_url_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "match_id",
-            "required": true,
-            "schema": {
-              "title": "Match Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "title": "Authorization",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MatchSignUrlRequest"
+                "$ref": "#/components/schemas/AdminUpdateUserRequest"
               }
             }
           },
@@ -2087,7 +3668,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MatchSignUrlResponse"
+                  "$ref": "#/components/schemas/UserOut"
                 }
               }
             },
@@ -2104,27 +3685,66 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Mint a short-lived signed URL for a match report",
+        "summary": "Update User",
         "tags": [
           "Admin"
         ]
       }
     },
-    "/api/v1/admin/status": {
-      "get": {
-        "description": "Report whether overlay management is enabled on this server.",
-        "operationId": "admin_status_api_v1_admin_status_get",
+    "/api/v1/admin/users/{user_id}/reset-password": {
+      "post": {
+        "description": "Reset a user to a temporary password (forced change on next login)\nand log out all their existing sessions.",
+        "operationId": "reset_password_api_v1_admin_users__user_id__reset_password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TempPasswordResponse"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
-        "summary": "Admin Status",
+        "summary": "Reset Password",
         "tags": [
           "Admin"
         ]
@@ -2132,11 +3752,11 @@
     },
     "/api/v1/admin/webhooks/replay": {
       "post": {
-        "description": "Replay (a slice of) the webhook dead-letter file.\n\nEach record is matched to a configured ``WebhookTarget`` by URL,\nre-signed with the *current* HMAC secret (so rotating\n``WEBHOOKS_SECRET`` doesn't strand legacy records with stale\nsignatures), and re-attempted with the standard retry policy.\n\n* Successful redeliveries are removed from the file.\n* Records whose URL no longer matches any configured target are\n  kept on disk so the operator can fix the config and retry.\n* Records that fail again are kept with their ``attempts``\n  counter bumped and the latest ``last_error`` recorded.\n\nSelection order: oldest records (lowest ``ts``) within the\neligible window go first, so iterative calls drain the file\nfront-to-back. The blocking work runs on the FastAPI threadpool\nvia ``run_in_threadpool`` so the event loop stays free for other\nhandlers while a long replay is in flight.\n\nReturns counts only \u2014 the bodies are never echoed back so the\nadmin surface cannot leak match payloads. ``remaining_in_dl``\nis the count of records still on disk after the call (ones held\nback by ``since`` / ``max_records`` plus the ``still_failing``\nbucket that just got re-written) so the operator knows whether\nto call again.",
+        "description": "Replay a slice of the webhook dead-letter file (oldest first).\n\nSuccessful redeliveries are removed; unknown-URL and still-failing records\nare kept. Returns counts only \u2014 bodies are never echoed back.",
         "operationId": "replay_dead_letter_webhooks_api_v1_admin_webhooks_replay_post",
         "parameters": [
           {
-            "description": "Only replay records whose ``ts`` is >= this Unix-seconds value. Useful for restricting replay to entries that landed after the receiving service came back online.",
+            "description": "Only replay records whose ts is >= this Unix-seconds value.",
             "in": "query",
             "name": "since",
             "required": false,
@@ -2149,18 +3769,18 @@
                   "type": "null"
                 }
               ],
-              "description": "Only replay records whose ``ts`` is >= this Unix-seconds value. Useful for restricting replay to entries that landed after the receiving service came back online.",
+              "description": "Only replay records whose ts is >= this Unix-seconds value.",
               "title": "Since"
             }
           },
           {
-            "description": "Cap the number of records redelivered in this call. ``replay_records`` blocks on per-record retries with exponential backoff (~25 s worst case per record), so a fully-loaded dead-letter would otherwise pin the handler for tens of minutes. Use the ``remaining_in_dl`` field in the response to decide whether to call again.",
+            "description": "Cap the records redelivered in this call.",
             "in": "query",
             "name": "max_records",
             "required": false,
             "schema": {
               "default": 50,
-              "description": "Cap the number of records redelivered in this call. ``replay_records`` blocks on per-record retries with exponential backoff (~25 s worst case per record), so a fully-loaded dead-letter would otherwise pin the handler for tens of minutes. Use the ``remaining_in_dl`` field in the response to decide whether to call again.",
+              "description": "Cap the records redelivered in this call.",
               "maximum": 500,
               "minimum": 1,
               "title": "Max Records",
@@ -2168,12 +3788,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2297,12 +3924,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2329,6 +3963,448 @@
         "summary": "Recent action audit log (cursor-paginated)",
         "tags": [
           "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "operationId": "change_password_api_v1_auth_change_password_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/claim-admin": {
+      "post": {
+        "operationId": "claim_admin_api_v1_auth_claim_admin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimAdminRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim Admin",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/context": {
+      "get": {
+        "description": "Public boot payload used by the SPA to decide where to route.",
+        "operationId": "get_context_api_v1_auth_context_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Context",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_api_v1_auth_logout_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Logout Api V1 Auth Logout Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "delete": {
+        "operationId": "delete_me_api_v1_auth_me_delete",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete Me Api V1 Auth Me Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Me",
+        "tags": [
+          "Auth"
+        ]
+      },
+      "get": {
+        "operationId": "get_me_api_v1_auth_me_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Me",
+        "tags": [
+          "Auth"
+        ]
+      },
+      "patch": {
+        "operationId": "update_me_api_v1_auth_me_patch",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Me",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "Auth"
         ]
       }
     },
@@ -2373,12 +4449,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2449,12 +4532,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2523,12 +4613,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2574,16 +4671,22 @@
     },
     "/api/v1/customization/presets": {
       "get": {
-        "description": "Return every preset, ordered system-first then by name.\n\nSystem entries are derived from ``APP_THEMES`` at request time and\nare not persisted; user entries come from disk. Both share the same\n``PresetSummary`` shape so the React picker can render them in a\nsingle list.",
         "operationId": "list_presets_api_v1_customization_presets_get",
         "parameters": [
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2609,22 +4712,29 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List operator-saved and system presets.",
+        "summary": "List active global presets plus the caller's own.",
         "tags": [
           "Scoreboard API v1"
         ]
       },
       "post": {
-        "description": "Persist *payload.values* under a slugified version of *name*.\n\nThe React panel sends the values directly \u2014 it already has the\noperator's flat customization in memory, so the server doesn't\nneed to round-trip through ``GameService.refresh_customization``.",
+        "description": "Create a per-user preset (usable across all the caller's scoreboards).",
         "operationId": "create_preset_api_v1_customization_presets_post",
         "parameters": [
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2660,7 +4770,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Save the current configuration (or a subset) as a named preset.",
+        "summary": "Save a subset of the current configuration as a personal preset.",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -2682,12 +4792,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2706,7 +4823,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Delete an operator-saved preset.",
+        "summary": "Delete one of the caller's own presets.",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -2754,12 +4871,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2843,12 +4967,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -2932,12 +5063,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3020,12 +5158,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3109,12 +5254,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3197,12 +5349,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3285,12 +5444,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3373,12 +5539,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3461,12 +5634,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3549,12 +5729,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3637,12 +5824,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3715,12 +5909,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3803,12 +6004,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3892,12 +6100,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -3971,12 +6186,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4050,12 +6272,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4087,11 +6316,11 @@
     },
     "/api/v1/matches": {
       "get": {
-        "description": "Return summaries of archived matches, newest first.\n\nEach entry is enough to render a list view: ``match_id``, ``oid``,\n``ended_at``, ``duration_s``, ``winning_team``, plus the team-level\nsets-won and ``current_set``. Use ``GET /matches/{match_id}`` for\nthe full snapshot including the audit log and customization.",
+        "description": "Return summaries of the caller's archived matches, newest first.",
         "operationId": "list_matches_api_v1_matches_get",
         "parameters": [
           {
-            "description": "Filter to a single OID",
+            "description": "Filter to a single overlay id",
             "in": "query",
             "name": "oid",
             "required": false,
@@ -4104,17 +6333,24 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter to a single OID",
+              "description": "Filter to a single overlay id",
               "title": "Oid"
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4138,7 +6374,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List archived matches",
+        "summary": "List the caller's archived matches",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -4200,12 +6436,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4236,6 +6479,55 @@
       }
     },
     "/api/v1/matches/{match_id}": {
+      "delete": {
+        "operationId": "delete_match_api_v1_matches__match_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete one of the caller's matches",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
       "get": {
         "operationId": "get_match_api_v1_matches__match_id__get",
         "parameters": [
@@ -4249,12 +6541,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4284,18 +6583,100 @@
         ]
       }
     },
-    "/api/v1/overlays": {
-      "get": {
-        "description": "Return predefined overlays available for selection.\n\nSourced exclusively from the ``PREDEFINED_OVERLAYS`` environment\nvariable (also populated via the remote configurator). Entries are\nfiltered by ``allowed_users`` using the caller's identity when user\nauthentication is enabled.",
-        "operationId": "get_overlays_api_v1_overlays_get",
+    "/api/v1/matches/{match_id}/sign-url": {
+      "post": {
+        "description": "Return a short-lived capability URL for the caller's own match report.\n\nThe URL embeds an HMAC signature (key: SESSION_SECRET), so it can be\nshared without the recipient signing in \u2014 and without leaking any\ncredential. Only the report's owner may mint one.",
+        "operationId": "sign_match_url_api_v1_matches__match_id__sign_url_post",
         "parameters": [
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "URL lifetime in seconds.",
+            "in": "query",
+            "name": "ttl_seconds",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "URL lifetime in seconds.",
+              "title": "Ttl Seconds"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mint a shareable signed report URL",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/overlays": {
+      "get": {
+        "description": "Return the overlays owned by the caller.",
+        "operationId": "list_my_overlays_api_v1_overlays_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4305,9 +6686,9 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/OverlayPayload"
+                    "$ref": "#/components/schemas/OverlayOut"
                   },
-                  "title": "Response Get Overlays Api V1 Overlays Get",
+                  "title": "Response List My Overlays Api V1 Overlays Get",
                   "type": "array"
                 }
               }
@@ -4325,7 +6706,189 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Overlays",
+        "summary": "List My Overlays",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
+      "post": {
+        "description": "Register a new overlay for the caller (mints a public OBS token).",
+        "operationId": "create_my_overlay_api_v1_overlays_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOverlayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create My Overlay",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/overlays/{oid}": {
+      "delete": {
+        "description": "Delete one of the caller's overlays and its in-process session/state.",
+        "operationId": "delete_my_overlay_api_v1_overlays__oid__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete My Overlay",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
+      "patch": {
+        "description": "Edit an overlay's label, output URL, and default match rules.\n\nOnly the fields present in the request body are changed (``exclude_unset``),\nso a partial PATCH never clobbers settings the caller didn't mention.",
+        "operationId": "update_my_overlay_api_v1_overlays__oid__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "oid",
+            "required": true,
+            "schema": {
+              "title": "Oid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOverlayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update My Overlay",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -4333,16 +6896,23 @@
     },
     "/api/v1/session/init": {
       "post": {
-        "description": "Initialise (or re-use) a game session for the given overlay ID.",
+        "description": "Initialise (or re-use) a game session for the caller's overlay ID.",
         "operationId": "init_session_api_v1_session_init_post",
         "parameters": [
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4426,12 +6996,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4514,12 +7091,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4593,12 +7177,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4670,12 +7261,19 @@
             }
           },
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4705,18 +7303,86 @@
         ]
       }
     },
-    "/api/v1/teams": {
+    "/api/v1/team-groups": {
       "get": {
-        "description": "Return predefined team names with icon/color data.",
-        "operationId": "get_teams_api_v1_teams_get",
+        "operationId": "list_groups_api_v1_team_groups_get",
         "parameters": [
           {
-            "in": "header",
-            "name": "authorization",
+            "in": "cookie",
+            "name": "vsession",
             "required": false,
             "schema": {
-              "title": "Authorization",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamGroupOut"
+                  },
+                  "title": "Response List Groups Api V1 Team Groups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Groups",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/team-groups/{group_id}/copy-to-mine": {
+      "post": {
+        "operationId": "copy_group_api_v1_team_groups__group_id__copy_to_mine_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
             }
           }
         ],
@@ -4740,7 +7406,221 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Teams",
+        "summary": "Copy Group",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "description": "The caller's team list, in the APP_TEAMS map shape.",
+        "operationId": "my_teams_api_v1_teams_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Teams",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/teams/catalog": {
+      "get": {
+        "operationId": "catalog_api_v1_teams_catalog_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamOut"
+                  },
+                  "title": "Response Catalog Api V1 Teams Catalog Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Catalog",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/teams/mine": {
+      "post": {
+        "operationId": "add_to_my_teams_api_v1_teams_mine_post",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTeamsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add To My Teams",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/teams/mine/{team_id}": {
+      "delete": {
+        "operationId": "remove_from_my_teams_api_v1_teams_mine__team_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove From My Teams",
         "tags": [
           "Scoreboard API v1"
         ]
@@ -4985,17 +7865,17 @@
         ]
       }
     },
-    "/follow/{overlay_id}": {
+    "/follow/{public_token}": {
       "get": {
-        "description": "Mobile-friendly read-only follow view.\n\nResolves the overlay id like ``/overlay/{id}`` and serves a\nlightweight template that consumes the same ``/ws/{id}`` feed\nthe OBS templates use. Public by design \u2014 the page exposes no\nwrite paths and inherits the same data exposure as the OBS\noverlay it shadows.",
-        "operationId": "serve_spectator_follow__overlay_id__get",
+        "description": "Mobile-friendly read-only follow view.\n\nResolves the public token like ``/overlay/{token}`` and serves a\nlightweight template that consumes the same ``/ws/{token}`` feed\nthe OBS templates use. Public by design \u2014 the page exposes no\nwrite paths and inherits the same data exposure as the OBS\noverlay it shadows.",
+        "operationId": "serve_spectator_follow__public_token__get",
         "parameters": [
           {
             "in": "path",
-            "name": "overlay_id",
+            "name": "public_token",
             "required": true,
             "schema": {
-              "title": "Overlay Id",
+              "title": "Public Token",
               "type": "string"
             }
           }
@@ -5061,47 +7941,6 @@
         "summary": "Readiness Check"
       }
     },
-    "/list/overlay": {
-      "get": {
-        "description": "Return every overlay id plus its output key.\n\nGated behind ``OVERLAY_MANAGER_PASSWORD`` because the response\ndefeats the capability-URL design of ``/overlay/{output_key}``.\nSee ``AUTHENTICATION.md`` (F-4).",
-        "operationId": "list_overlays_list_overlay_get",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "title": "Authorization",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Overlays",
-        "tags": [
-          "Overlay"
-        ]
-      }
-    },
     "/manifest.json": {
       "get": {
         "operationId": "serve_manifest_manifest_json_get",
@@ -5145,24 +7984,6 @@
             "schema": {
               "title": "Match Id",
               "type": "string"
-            }
-          },
-          {
-            "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
-            "in": "query",
-            "name": "token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
-              "title": "Token"
             }
           },
           {
@@ -5221,22 +8042,6 @@
           },
           {
             "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "in": "header",
             "name": "accept-language",
             "required": false,
             "schema": {
@@ -5277,151 +8082,9 @@
         "summary": "Print-friendly HTML report for an archived match"
       }
     },
-    "/matches/index.html": {
-      "get": {
-        "operationId": "matches_index_matches_index_html_get",
-        "parameters": [
-          {
-            "description": "Overlay ID to list matches for.",
-            "in": "query",
-            "name": "oid",
-            "required": true,
-            "schema": {
-              "description": "Overlay ID to list matches for.",
-              "title": "Oid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
-            "in": "query",
-            "name": "token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
-              "title": "Token"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Browseable HTML list of archived matches for an OID"
-      }
-    },
-    "/matches/{match_id}": {
-      "delete": {
-        "description": "Delete a single archived match by id.\n\nRequires a valid admin token unless ``MATCH_REPORT_PUBLIC_DELETE``\nis set \u2014 that flag is independent from ``MATCH_REPORT_PUBLIC``\n(public read does *not* imply public delete) and lets operators\nexpose the per-row Delete button on the matches index without\nsharing the admin password. Returns 204 on success, 404 when the\nmatch does not exist, and 401/403/503 for the various\nauthentication failure modes when the flag is off.",
-        "operationId": "delete_archived_match_matches__match_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "match_id",
-            "required": true,
-            "schema": {
-              "title": "Match Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
-            "in": "query",
-            "name": "token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "OVERLAY_MANAGER_PASSWORD; alternative to Bearer header.",
-              "title": "Token"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete an archived match snapshot"
-      }
-    },
     "/metrics": {
       "get": {
-        "description": "Return the registry's current exposition in Prometheus text format.\n\n``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth at the same\nladder as ``/api/v1/admin/*``. The check fires *before* the\nlibrary-availability check so an unauthenticated probe cannot use\nthe 503-vs-200 difference to fingerprint whether the metrics\nbackend is loaded.",
+        "description": "Return the registry's current exposition in Prometheus text format.\n\n``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth against the\nmachine-to-machine ``OVERLAY_SERVER_TOKEN`` (Prometheus scrapers can't\ncarry a session cookie). The check fires *before* the library-availability\ncheck so an unauthenticated probe cannot use the 503-vs-200 difference to\nfingerprint whether the metrics backend is loaded.",
         "operationId": "metrics_endpoint_metrics_get",
         "parameters": [
           {
@@ -5452,16 +8115,16 @@
         "summary": "Prometheus exposition"
       }
     },
-    "/overlay/{overlay_id}": {
+    "/overlay/{public_token}": {
       "get": {
-        "operationId": "serve_overlay_overlay__overlay_id__get",
+        "operationId": "serve_overlay_overlay__public_token__get",
         "parameters": [
           {
             "in": "path",
-            "name": "overlay_id",
+            "name": "public_token",
             "required": true,
             "schema": {
-              "title": "Overlay Id",
+              "title": "Public Token",
               "type": "string"
             }
           },

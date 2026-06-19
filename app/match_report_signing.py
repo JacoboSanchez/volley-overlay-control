@@ -1,23 +1,15 @@
-"""HMAC-signed URLs for ``/match/{match_id}/report``.
+"""HMAC-signed capability URLs for ``/match/{match_id}/report``.
 
-The legacy access mechanism for the gated match-report is
-``?token=<OVERLAY_MANAGER_PASSWORD>``: the operator pastes the
-report URL into a chat tool and the URL contains the actual admin
-password. Any browser bookmark, server access log, or HTTP
-``Referer`` header that touches that URL leaks the credential.
+A report's **owner** mints a per-match URL via
+``POST /api/v1/matches/{match_id}/sign-url``; the resulting URL carries
+an ``exp`` (expiry) and ``sig`` (HMAC-SHA256) parameter instead of any
+credential. Anyone who holds the URL can read the report until ``exp``
+passes; no secret ever leaves the server.
 
-This module replaces that flow with capability-style signed URLs.
-The operator mints a per-match URL via the new admin endpoint
-``POST /api/v1/admin/match/{match_id}/sign-url``; the resulting URL
-carries an ``exp`` (expiry) and ``sig`` (HMAC-SHA256) parameter
-instead of the raw password. Anyone who holds the URL can read the
-report until ``exp`` passes; the admin password itself never leaves
-the server.
-
-The signing key is derived from ``OVERLAY_MANAGER_PASSWORD`` so the
-deployment story stays a single secret. Rotating the admin password
-invalidates every outstanding signed URL — that's the desired
-behaviour, since a rotation is usually motivated by a compromise.
+The signing key is derived from ``SESSION_SECRET`` (the same secret that
+hardens the cookie sessions). Rotating it invalidates every outstanding
+signed URL — that's the desired behaviour, since a rotation is usually
+motivated by a compromise.
 
 Format
 ------
@@ -38,7 +30,7 @@ import hmac
 import logging
 import time
 
-from app.auth_utils import get_admin_password
+from app.env_vars_manager import EnvVarsManager
 
 logger = logging.getLogger(__name__)
 
@@ -53,16 +45,17 @@ MIN_TTL_SECONDS = 60                      # 1 minute
 
 
 def _signing_key() -> bytes | None:
-    """Return the HMAC key derived from ``OVERLAY_MANAGER_PASSWORD``.
+    """Return the HMAC key derived from ``SESSION_SECRET``.
 
-    Returns ``None`` when the password is unset — callers should fall
-    back to whatever auth mode is configured (typically a 503 in the
-    consuming endpoint).
+    ``SESSION_SECRET`` is minted + persisted on first start (see
+    ``app.security_bootstrap.ensure_session_secret``), so signing is
+    normally always available. Returns ``None`` only if it is somehow
+    unset, in which case the consuming endpoint should 503.
     """
-    pw = get_admin_password()
-    if pw is None:
+    secret = EnvVarsManager.get_env_var("SESSION_SECRET", None)
+    if not secret:
         return None
-    return pw.encode("utf-8")
+    return str(secret).encode("utf-8")
 
 
 def _digest(match_id: str, exp_unix: int) -> str | None:

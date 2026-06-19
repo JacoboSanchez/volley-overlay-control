@@ -4,9 +4,10 @@ and toggle open registration. All endpoints require an admin session.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app import settings_service
 from app.auth import service
@@ -135,3 +136,41 @@ def set_registration(
     settings_service.set_registration_open(db, body.registration_open)
     db.commit()
     return RegistrationSetting(registration_open=body.registration_open)
+
+
+@router.post("/webhooks/replay", summary="Re-deliver dead-lettered webhook records")
+async def replay_dead_letter_webhooks(
+    _admin: User = Depends(require_admin),
+    since: float | None = Query(
+        None, description="Only replay records whose ts is >= this Unix-seconds value."),
+    max_records: int = Query(
+        50, ge=1, le=500, description="Cap the records redelivered in this call."),
+):
+    """Replay a slice of the webhook dead-letter file (oldest first).
+
+    Successful redeliveries are removed; unknown-URL and still-failing records
+    are kept. Returns counts only — bodies are never echoed back.
+    """
+    from app.api import webhook_dead_letter, webhooks
+
+    records = webhook_dead_letter.read_all()
+    if since is not None:
+        eligible = [r for r in records if r.get("ts", 0) >= since]
+        held_back = [r for r in records if r.get("ts", 0) < since]
+    else:
+        eligible = list(records)
+        held_back = []
+    replay_set = eligible[:max_records]
+    deferred = eligible[max_records:]
+    succeeded, still_failing, skipped = await run_in_threadpool(
+        webhooks.webhook_dispatcher.replay_records, replay_set,
+    )
+    new_dl = held_back + deferred + still_failing
+    webhook_dead_letter.replace_all(new_dl)
+    return {
+        "considered": len(replay_set),
+        "succeeded": succeeded,
+        "still_failing": len(still_failing),
+        "skipped_unknown_url": skipped,
+        "remaining_in_dl": len(new_dl),
+    }

@@ -61,7 +61,6 @@ ln -s "$SCRATCH_DATA" "$REPO_ROOT/data"
 export PYTEST_CURRENT_TEST=1
 export APP_PORT="$PORT"
 export APP_TITLE="Volley Scoreboard Demo"
-export OVERLAY_MANAGER_PASSWORD="$ADMIN_PW"
 export LOGGING_LEVEL=warning
 # Make sure no external services or operator-configured tokens bleed through.
 unset UNO_OVERLAY_OID UNO_OVERLAY_OUTPUT REMOTE_CONFIG_URL APP_CUSTOM_OVERLAY_URL \
