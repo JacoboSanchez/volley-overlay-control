@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 _TOKEN_FILENAME = ".overlay_server_token"
+_SESSION_SECRET_FILENAME = ".session_secret"
 _TOKEN_BYTES = 32  # → 43-char URL-safe string
 
 def _data_dir() -> str:
@@ -192,6 +193,47 @@ def ensure_overlay_server_token() -> str | None:
     return new_token
 
 
+def ensure_session_secret() -> str | None:
+    """Resolve / mint / persist ``SESSION_SECRET``.
+
+    Used as defense-in-depth for the cookie sessions and as the HMAC key
+    for match-report capability URLs. Resolution mirrors
+    :func:`ensure_overlay_server_token`:
+
+    1. ``SESSION_SECRET=<value>`` set → honour it.
+    2. ``data/.session_secret`` exists → load it (stable across restarts so
+       outstanding signed report URLs keep validating).
+    3. Otherwise mint ``secrets.token_urlsafe(32)``, persist ``0o600``, and
+       inject into ``os.environ``.
+    """
+    existing = (os.environ.get("SESSION_SECRET") or "").strip()
+    if existing:
+        return existing
+
+    path = Path(_data_dir()) / _SESSION_SECRET_FILENAME
+    persisted = _read_persisted_token(path)
+    if persisted:
+        os.environ["SESSION_SECRET"] = persisted
+        return persisted
+
+    new_secret = secrets.token_urlsafe(_TOKEN_BYTES)
+    persisted_ok = _write_persisted_token(path, new_secret)
+    os.environ["SESSION_SECRET"] = new_secret
+    if persisted_ok:
+        logger.info(
+            "Auto-generated SESSION_SECRET and persisted to %s. Set "
+            "SESSION_SECRET explicitly to pin it across deployments.",
+            path,
+        )
+    else:
+        logger.warning(
+            "Auto-generated SESSION_SECRET but could not persist it; it will "
+            "rotate on every restart (invalidating signed report URLs and "
+            "logging every session out). Set SESSION_SECRET explicitly to fix."
+        )
+    return new_secret
+
+
 def warn_if_open_scoreboard() -> None:
     """Emit a loud startup warning when the scoreboard API is unauthenticated.
 
@@ -229,6 +271,10 @@ def run_security_bootstrap() -> None:
         ensure_overlay_server_token()
     except Exception:
         logger.exception("ensure_overlay_server_token failed")
+    try:
+        ensure_session_secret()
+    except Exception:
+        logger.exception("ensure_session_secret failed")
     try:
         warn_if_open_scoreboard()
     except Exception:

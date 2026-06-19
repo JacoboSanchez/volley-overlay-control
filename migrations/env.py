@@ -19,7 +19,10 @@ from app.db.engine import database_url
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # ``disable_existing_loggers=False`` is essential: ``run_migrations()``
+    # runs this env at app startup, and the default (True) would tear down
+    # every logger the app already configured (and break caplog in tests).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Inject the resolved URL so both offline and online modes use it.
 config.set_main_option("sqlalchemy.url", database_url())

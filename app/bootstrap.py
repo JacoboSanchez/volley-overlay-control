@@ -32,6 +32,8 @@ from app.api.middleware.metrics import MetricsMiddleware
 from app.api.middleware.security_headers import SecurityHeadersMiddleware
 from app.api.routes.metrics import router as metrics_router
 from app.app_config import get_app_title
+from app.auth.bootstrap import ensure_admin_bootstrap
+from app.auth.routes import auth_router
 from app.authentication import PasswordAuthenticator
 from app.db import migrate as db_migrate
 from app.match_report import match_report_router
@@ -183,6 +185,8 @@ def _register_auth(application: FastAPI) -> None:
 
 
 def _register_api_routes(application: FastAPI) -> None:
+    # Auth/account API first so /api/v1/auth/* is never shadowed.
+    application.include_router(auth_router)
     application.include_router(api_router)
     # Overlay manager page + admin API (password-protected).
     # Registered before the SPA mount so ``/manage`` is served by FastAPI.
@@ -465,6 +469,10 @@ def create_app() -> FastAPI:
     # is wired. Tests stub ``db_migrate.run_migrations`` and build the schema
     # via ``create_all`` against an in-memory engine instead.
     db_migrate.run_migrations()
+    # Mint/log the first-admin claim token when no admin exists yet. Runs
+    # after migrations so the users table is queryable; idempotent once an
+    # admin has been claimed.
+    ensure_admin_bootstrap()
     application = FastAPI(title="Volley Overlay Control", lifespan=_lifespan)
     _register_auth(application)
     _register_api_routes(application)
