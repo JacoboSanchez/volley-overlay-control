@@ -142,6 +142,9 @@ async def delete_my_overlay(
     skey = make_skey(user.id, oid)
     SessionManager.remove(skey)
     await run_in_threadpool(overlay_state_store.delete_overlay, skey)
+    # Reports key on the user (FK), not the overlay, so remove this overlay's
+    # archived matches explicitly.
+    await run_in_threadpool(match_archive.delete_for_oid, skey)
     return {"ok": True}
 
 

@@ -9,8 +9,42 @@ from fastapi.testclient import TestClient
 
 from app.api import action_log, match_archive
 from app.match_report import match_report_router
+from app.overlay_key import is_valid_skey, make_skey
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
+
+# These legacy print-report tests predate the per-user storage keys and seed
+# matches by bare oid. Match reports are DB-backed and keyed by a real user
+# now, so a single autouse fixture transparently maps every bare oid to a
+# fixed "reporter" user's storage key (archival, listing, deletion, and the
+# audit-log writes), keeping the tests focused on report rendering / access.
+_REPORTER_UID = 0
+
+
+def _sk(oid):
+    """Map a bare oid to the reporter user's storage key (skey pass-through)."""
+    if oid is None or is_valid_skey(oid):
+        return oid
+    return make_skey(_REPORTER_UID, oid)
+
+
+@pytest.fixture(autouse=True)
+def _reporter_user(db_session, monkeypatch):
+    from app.auth import service
+
+    global _REPORTER_UID
+    user = service.create_user(db_session, username="reporter", password="password123")
+    db_session.commit()
+    _REPORTER_UID = user.id
+
+    real_archive = match_archive.archive_match
+    real_list = match_archive.list_matches
+    real_delete_for = match_archive.delete_for_oid
+    real_append = action_log.append
+    monkeypatch.setattr(match_archive, "archive_match", lambda oid, **kw: real_archive(_sk(oid), **kw))
+    monkeypatch.setattr(match_archive, "list_matches", lambda oid=None: real_list(_sk(oid)))
+    monkeypatch.setattr(match_archive, "delete_for_oid", lambda oid: real_delete_for(_sk(oid)))
+    monkeypatch.setattr(action_log, "append", lambda oid, *a, **k: real_append(_sk(oid), *a, **k))
 
 
 def _seed_realistic_audit(oid: str, base_ts: float) -> None:
@@ -65,7 +99,7 @@ def _seed_realistic_audit(oid: str, base_ts: float) -> None:
          {"current_set": 2, "team_1": {"score": 22},
           "team_2": {"score": 25}}, offset=1500)
 
-    path = _al._path(oid)
+    path = _al._path(_sk(oid))
     assert path is not None, "action_log path resolution failed in test"
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -364,7 +398,7 @@ class TestMatchReport:
              "result": {"current_set": 1, "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -632,7 +666,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 0}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -681,7 +715,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -725,7 +759,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 2},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -765,7 +799,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -809,7 +843,7 @@ class TestMatchReportRichSections:
              "result": {"current_set": 1, "team_1": {"score": 5},
                         "team_2": {"score": 0}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -1006,7 +1040,7 @@ class TestMatchReportComebacks:
                 })
                 ts += 30.0
                 prev = (s1, s2)
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -1201,7 +1235,7 @@ class TestMatchReportPregameTrim:
 
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
         from app.api import action_log as _al
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -1371,7 +1405,7 @@ class TestMatchReportTimeoutsInline:
 
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
         from app.api import action_log as _al
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
