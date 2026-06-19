@@ -51,6 +51,12 @@ once a first tagged release ships.
   while hidden — painted the panels at full opacity for a frame before the
   hide animation ran. They now default to `opacity: 0` until the reveal
   animation raises them.
+- **Overlay pages can no longer be frozen by a proxy/CDN.** The `/overlay`
+  and `/follow` pages embed a per-render `?v=` cache-buster on their JS/CSS,
+  but if an intermediary cached the HTML itself that `?v` froze and stale
+  assets kept being served — the overlay looked stuck on old code after a
+  deploy even though the bare `/static` URLs were fresh. These dynamic pages
+  now send `Cache-Control: no-cache, no-store, must-revalidate`.
 
 ### Dependencies
 
