@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [5.9.0] - 2026-06-19
+
 ### Added
 
 - **New set-summary recap style "Scoresheet" (`ledger_diff`).** A
