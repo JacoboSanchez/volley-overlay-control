@@ -1,0 +1,238 @@
+/* Styling for the account / auth surface (login, dashboard, management). */
+
+.acc-shell {
+  min-height: 100vh;
+  background: #0f1115;
+  color: #e7e9ee;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.acc-auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.acc-card {
+  background: #181b22;
+  border: 1px solid #262b35;
+  border-radius: 14px;
+  padding: 28px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.acc-card h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+}
+
+.acc-sub {
+  color: #98a2b3;
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+}
+
+.acc-field {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.acc-field span {
+  display: block;
+  font-size: 0.8rem;
+  color: #98a2b3;
+  margin-bottom: 5px;
+}
+
+.acc-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0f1115;
+  border: 1px solid #2c333f;
+  border-radius: 8px;
+  color: #e7e9ee;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.acc-input:focus {
+  outline: none;
+  border-color: #4f8cff;
+}
+
+.acc-btn {
+  background: #4f8cff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.acc-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.acc-btn.secondary {
+  background: #262b35;
+  color: #e7e9ee;
+}
+
+.acc-btn.danger {
+  background: #c0392b;
+}
+
+.acc-btn.ghost {
+  background: transparent;
+  border: 1px solid #2c333f;
+  color: #cfd4dd;
+}
+
+.acc-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.acc-error {
+  background: #3a1d1d;
+  border: 1px solid #6b2b2b;
+  color: #ffb4ab;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.acc-info {
+  background: #142a1c;
+  border: 1px solid #2c5a3c;
+  color: #a6e6bf;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  word-break: break-all;
+}
+
+.acc-link {
+  color: #79a8ff;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  padding: 0;
+}
+
+.acc-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.acc-nav {
+  background: #14171d;
+  border-right: 1px solid #232833;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.acc-nav .brand {
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 6px 10px 16px;
+}
+
+.acc-nav a {
+  color: #c2c8d2;
+  text-decoration: none;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.acc-nav a.active,
+.acc-nav a:hover {
+  background: #20262f;
+  color: #fff;
+}
+
+.acc-nav .spacer {
+  flex: 1;
+}
+
+.acc-main {
+  padding: 28px 32px;
+  max-width: 960px;
+}
+
+.acc-main h2 {
+  margin-top: 0;
+}
+
+.acc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.acc-table th,
+.acc-table td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid #232833;
+  font-size: 0.9rem;
+}
+
+.acc-table th {
+  color: #98a2b3;
+  font-weight: 600;
+}
+
+.acc-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.acc-muted {
+  color: #98a2b3;
+  font-size: 0.85rem;
+}
+
+.acc-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: #20262f;
+  color: #c2c8d2;
+}
+
+@media (max-width: 720px) {
+  .acc-layout {
+    grid-template-columns: 1fr;
+  }
+  .acc-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid #232833;
+  }
+  .acc-nav .brand,
+  .acc-nav .spacer {
+    display: none;
+  }
+}

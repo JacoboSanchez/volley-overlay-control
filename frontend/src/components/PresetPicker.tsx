@@ -180,7 +180,7 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
   const sortedItems = useMemo(
     () =>
       [...items].sort((a, b) => {
-        if (a.source !== b.source) return a.source === 'system' ? -1 : 1;
+        if (a.source !== b.source) return a.source === 'global' ? -1 : 1;
         return a.name.localeCompare(b.name);
       }),
     [items],
@@ -287,7 +287,7 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
       ) : (
         <ul className="preset-picker-list">
           {sortedItems.map((item) => {
-            const isSystem = item.source === 'system';
+            const isSystem = item.source === 'global';
             return (
               <li
                 key={item.slug}

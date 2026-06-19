@@ -31,29 +31,39 @@ export type GameState = Schemas['GameStateResponse'];
 export type ActionResponse = Schemas['ActionResponse'];
 export type AppConfig = Schemas['AppConfigResponse'];
 export type InitRequest = Schemas['InitRequest'];
-export type OverlayPayload = Schemas['OverlayPayload'];
+/** One of the caller's overlays (DB-backed, per-user). ``name`` is a
+ *  board-friendly label derived from ``display_name`` or the oid. */
+export interface OverlayPayload {
+  name: string;
+  oid: string;
+  display_name: string | null;
+  public_token: string;
+  output_url: string;
+}
 export type TeamState = Schemas['TeamState'];
 
 export type InitOptions = Omit<InitRequest, 'oid'>;
 
 const BASE_URL = '/api/v1';
 
-let apiKey: string | null = null;
-
-export function setApiKey(key: string | null): void {
-  apiKey = key;
-}
-
-function headers(): Record<string, string> {
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiKey) h['Authorization'] = `Bearer ${apiKey}`;
-  return h;
-}
+// Authentication is cookie-based now (HttpOnly session cookie). Requests are
+// same-origin so the cookie is sent automatically; ``credentials: 'include'``
+// makes that explicit and survives any future cross-origin dev setup.
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 function withOid(oid: string): string {
   return `?oid=${encodeURIComponent(oid)}`;
+}
+
+/** Thrown on a non-2xx API response; carries the HTTP status. */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
 }
 
 async function request<T = unknown>(
@@ -62,7 +72,11 @@ async function request<T = unknown>(
   body: unknown = null,
   signal?: AbortSignal,
 ): Promise<T> {
-  const opts: RequestInit = { method, headers: headers() };
+  const opts: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  };
   if (body !== null) {
     opts.body = JSON.stringify(body);
   }
@@ -72,8 +86,9 @@ async function request<T = unknown>(
   const res = await fetch(`${BASE_URL}${path}`, opts);
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`API ${method} ${path} failed (${res.status}): ${text}`);
+    throw new ApiError(res.status, `API ${method} ${path} failed (${res.status}): ${text}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -227,8 +242,8 @@ export interface PresetCategory {
 export interface PresetSummary {
   slug: string;
   name: string;
-  created_at: number;
-  source: 'user' | 'system';
+  source: 'user' | 'global';
+  is_active?: boolean;
   categories: string[];
   values: Record<string, unknown>;
 }
@@ -244,19 +259,97 @@ export function createPreset(
   return request<PresetSummary>('POST', '/customization/presets', { name, values });
 }
 
-export async function deletePreset(slug: string): Promise<void> {
-  // ``request`` always tries to ``res.json()`` and the delete handler
-  // returns 204 No Content with no body, which would throw. Use the
-  // raw fetch path here so the caller gets a clean ``void`` resolve.
-  const path = `/customization/presets/${encodeURIComponent(slug)}`;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'DELETE',
-    headers: headers(),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API DELETE ${path} failed (${res.status}): ${text}`);
-  }
+export function deletePreset(slug: string): Promise<void> {
+  return request<void>('DELETE', `/customization/presets/${encodeURIComponent(slug)}`);
+}
+
+// ---- Teams: catalog, my list, groups --------------------------------------
+
+export interface TeamOut {
+  id: number;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  text_color: string | null;
+  is_global: boolean;
+}
+
+export interface TeamGroupOut {
+  id: number;
+  name: string;
+  is_active: boolean;
+  teams: TeamOut[];
+}
+
+export function getTeamCatalog(): Promise<TeamOut[]> {
+  return request<TeamOut[]>('GET', '/teams/catalog');
+}
+
+export function addTeamsToMine(teamIds: number[]): Promise<{ added: number }> {
+  return request('POST', '/teams/mine', { team_ids: teamIds });
+}
+
+export function removeTeamFromMine(teamId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/teams/mine/${teamId}`);
+}
+
+export function getTeamGroups(): Promise<TeamGroupOut[]> {
+  return request<TeamGroupOut[]>('GET', '/team-groups');
+}
+
+export function copyGroupToMine(groupId: number): Promise<{ added: number }> {
+  return request('POST', `/team-groups/${groupId}/copy-to-mine`, {});
+}
+
+// ---- Match reports (per overlay) ------------------------------------------
+
+export interface MatchSummary {
+  match_id: string;
+  oid: string;
+  ended_at: number | null;
+  duration_s: number | null;
+  winning_team: number | null;
+}
+
+export function listReports(oid?: string): Promise<{ count: number; matches: MatchSummary[] }> {
+  const q = oid ? withOid(oid) : '';
+  return request('GET', `/matches${q}`);
+}
+
+// ---- Admin -----------------------------------------------------------------
+
+export function adminListUsers(): Promise<UserOut[]> {
+  return request<UserOut[]>('GET', '/admin/users');
+}
+
+export function adminCreateUser(
+  username: string,
+  opts: { password?: string; role?: 'admin' | 'user'; email?: string; display_name?: string } = {},
+): Promise<{ user: UserOut; temp_password: string }> {
+  return request('POST', '/admin/users', { username, ...opts });
+}
+
+export function adminResetPassword(userId: number): Promise<{ user: UserOut; temp_password: string }> {
+  return request('POST', `/admin/users/${userId}/reset-password`, {});
+}
+
+export function adminUpdateUser(
+  userId: number,
+  data: { role?: 'admin' | 'user'; is_active?: boolean; display_name?: string; email?: string },
+): Promise<UserOut> {
+  return request('PATCH', `/admin/users/${userId}`, data);
+}
+
+export function adminDeleteUser(userId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/admin/users/${userId}`);
+}
+
+export function adminGetRegistration(): Promise<{ registration_open: boolean }> {
+  return request('GET', '/admin/registration');
+}
+
+export function adminSetRegistration(open: boolean): Promise<{ registration_open: boolean }> {
+  return request('PUT', '/admin/registration', { registration_open: open });
 }
 
 export function getLinks(oid: string): Promise<Record<string, unknown>> {
@@ -279,12 +372,91 @@ export function getStyleCapabilities(oid: string): Promise<Record<string, StyleC
   return request<Record<string, StyleCapabilities>>('GET', `/style-capabilities${withOid(oid)}`);
 }
 
-export function getOverlays(): Promise<OverlayPayload[]> {
-  return request<OverlayPayload[]>('GET', '/overlays');
+type OverlayRow = Omit<OverlayPayload, 'name'>;
+
+function withName(r: OverlayRow): OverlayPayload {
+  return { name: r.display_name || r.oid, ...r };
+}
+
+export async function getOverlays(): Promise<OverlayPayload[]> {
+  const rows = await request<OverlayRow[]>('GET', '/overlays');
+  return rows.map(withName);
+}
+
+export async function createOverlay(oid: string, displayName?: string): Promise<OverlayPayload> {
+  const row = await request<OverlayRow>('POST', '/overlays', {
+    oid,
+    display_name: displayName || null,
+  });
+  return withName(row);
+}
+
+export function deleteOverlay(oid: string): Promise<void> {
+  return request<void>('DELETE', `/overlays/${encodeURIComponent(oid)}`);
 }
 
 export function getAppConfig(): Promise<AppConfig> {
   return request<AppConfig>('GET', '/app-config');
+}
+
+// ---- Auth / account --------------------------------------------------------
+
+export interface UserOut {
+  id: number;
+  username: string;
+  display_name: string | null;
+  email: string | null;
+  role: 'admin' | 'user';
+  is_active: boolean;
+  must_change_password: boolean;
+}
+
+export interface AuthContext {
+  authenticated: boolean;
+  user: UserOut | null;
+  registration_open: boolean;
+  needs_admin_bootstrap: boolean;
+}
+
+export function getAuthContext(): Promise<AuthContext> {
+  return request<AuthContext>('GET', '/auth/context');
+}
+
+export function login(username: string, password: string): Promise<{ user: UserOut; must_change_password: boolean }> {
+  return request('POST', '/auth/login', { username, password });
+}
+
+export function registerAccount(
+  username: string,
+  password: string,
+  display_name?: string,
+  email?: string,
+): Promise<{ user: UserOut }> {
+  return request('POST', '/auth/register', { username, password, display_name, email });
+}
+
+export function claimAdmin(
+  token: string,
+  username: string,
+  password: string,
+): Promise<{ user: UserOut }> {
+  return request('POST', '/auth/claim-admin', { token, username, password });
+}
+
+export function logout(): Promise<{ ok: boolean }> {
+  return request('POST', '/auth/logout', {});
+}
+
+export function changePassword(current_password: string, new_password: string): Promise<UserOut> {
+  return request('POST', '/auth/change-password', { current_password, new_password });
+}
+
+export function updateMe(data: { display_name?: string; email?: string }): Promise<UserOut> {
+  return request('PATCH', '/auth/me', data);
+}
+
+export function deleteMe(): Promise<{ ok: boolean }> {
+  return request('DELETE', '/auth/me');
 }
 
 // Audit log

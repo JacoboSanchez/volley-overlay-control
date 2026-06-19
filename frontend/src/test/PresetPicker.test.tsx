@@ -14,7 +14,6 @@ vi.mock('../api/client', () => ({
 const POSITION_PRESET: PresetSummary = {
   slug: 'court-a',
   name: 'Court A',
-  created_at: 1234,
   source: 'user',
   categories: ['position'],
   values: { Height: 12, Width: 35 },
@@ -23,7 +22,6 @@ const POSITION_PRESET: PresetSummary = {
 const TEAM_COLOR_PRESET: PresetSummary = {
   slug: 'home-colors',
   name: 'Home colors',
-  created_at: 2345,
   source: 'user',
   categories: ['team1_color'],
   values: { 'Team 1 Color': '#0f0', 'Team 1 Text Color': '#000' },
@@ -32,8 +30,7 @@ const TEAM_COLOR_PRESET: PresetSummary = {
 const SYSTEM_THEME_PRESET: PresetSummary = {
   slug: 'system-bright-court',
   name: 'Bright Court',
-  created_at: 0,
-  source: 'system',
+  source: 'global',
   categories: ['style'],
   values: { 'Color 1': '#ffffff', 'Text Color 1': '#000000' },
 };

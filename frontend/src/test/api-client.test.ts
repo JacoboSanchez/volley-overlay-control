@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import {
-  setApiKey,
   initSession,
   getState,
   addPoint,
@@ -16,7 +15,6 @@ describe('api/client', () => {
   beforeEach(() => {
     originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn() as unknown as typeof globalThis.fetch;
-    setApiKey(null);
   });
 
   afterEach(() => {
@@ -101,14 +99,11 @@ describe('api/client', () => {
     await expect(getState('oid')).rejects.toThrow('API GET /state?oid=oid failed (500)');
   });
 
-  it('includes Authorization header when apiKey is set', async () => {
+  it('sends requests with credentials so the session cookie is included', async () => {
     mockFetchOk({});
-    setApiKey('secret');
     await getTeams();
     const firstCall = fetchMock().mock.calls[0]!;
-    const callHeaders = firstCall[1].headers;
-    expect(callHeaders.Authorization).toBe('Bearer secret');
-    setApiKey(null);
+    expect(firstCall[1].credentials).toBe('include');
   });
 
   it('setVisibility sends visible flag', async () => {
