@@ -8,6 +8,48 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **New set-summary recap style "Scoresheet" (`ledger_diff`).** A
+  comparative box-score — one row per stat with the home value, a bar
+  tinted toward whichever side leads, and the away value — sitting above
+  a full-width "point difference" area graph that swings up toward the
+  home team and down toward the away team as the lead changes through the
+  set (with timeout ticks and a set-point marker). When the set carries
+  per-point scouting tags the stats split into two columns (general |
+  point types); otherwise a single centred column shows and the graph
+  gets the extra room. Responsive from a 1280×720 up to a 2560×1440 OBS
+  canvas, with live/finished states, hot-swap and i18n in all six overlay
+  locales.
+
+### Removed
+
+- **Set-summary "Podium" (`podium`) style.** Replaced by the new
+  `ledger_diff` scoresheet. The built-in catalogue keeps six set-summary
+  styles. Any overlay still configured with `"podium"` falls back to the
+  default recap style automatically (the renderer already collapses
+  unknown styles to `brand_ledger`), so no operator action is required.
+
+### Fixed
+
+- **Stale per-point breakdown carried over between matches.** The
+  audit-derived `point_types_by_set` stats were deep-merged into the
+  persisted overlay state instead of replacing it, so a match scored
+  *without* per-point tags inherited the previous match's serve / attack
+  / block / opponent-error tallies — the set-summary recap (and any
+  other consumer of `overlay_control.stats`) kept showing e.g. "3 aces /
+  2 kills" when only one point had been played. `point_types_by_set` now
+  joins the other per-set buckets in the state store's force-replace
+  list, so an empty broadcast (no tags this match) correctly clears the
+  old breakdown.
+- **Glass set-summary recap clipped its lower stats.** When the
+  point-type breakdown band was shown, it ate into the fixed-height
+  stage and pushed the score tile's bottom rows (timeouts / total
+  points) off-screen. The band is now a compact single-line chip strip,
+  and the glass score tile tightens its hero scores only while the band
+  is present, so all four stat rows stay visible from a 1280×720 up to a
+  2560×1440 OBS canvas. The roomy no-band layout is unchanged.
+
 ## [5.8.0] - 2026-06-19
 
 ### Added

@@ -124,7 +124,7 @@ describe('set_summary.js overlay renderer', () => {
       brand_columns: '.ss-chart-wrap',
       bento: '.ss-bento-ledger',
       glass: '.ss-team-row',
-      podium: '.ss-pillar',
+      ledger_diff: '.ss-ld-cols',
       bumper: '.ss-bumper-row',
     };
 
@@ -151,13 +151,105 @@ describe('set_summary.js overlay renderer', () => {
     });
 
     it('rebuilds the stage on style hot-swap without leftovers', () => {
-      renderState({ match_info: { set_summary_style: 'podium' } });
+      renderState({ match_info: { set_summary_style: 'ledger_diff' } });
       const stage = renderState({
         match_info: { set_summary_style: 'glass' },
       });
       expect(stage.dataset.style).toBe('glass');
-      expect(stage.querySelector('.ss-pillar')).toBeNull();
+      expect(stage.querySelector('.ss-ld-cols')).toBeNull();
       expect(document.querySelectorAll('#set-summary-panel')).toHaveLength(1);
+    });
+  });
+
+  describe('glass point-type band', () => {
+    // A set that was scored with per-point scouting tags.
+    const TAGGED = {
+      1: {
+        1: { ace: 3, kill: 0, block: 0, opp_error: 0 },
+        2: { ace: 0, kill: 2, block: 1, opp_error: 1 },
+      },
+    };
+
+    it('renders the band and flags the stage when the set has tagged points', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      // The flag lets the CSS tighten the score tile so the band's
+      // extra row doesn't clip the lower stats — see set_summary.css.
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(true);
+      expect(stage.querySelector('.ss-pt-breakdown-wide')).not.toBeNull();
+    });
+
+    it('omits the band and the flag when the set has no tagged points', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: {} } },
+      });
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
+      expect(stage.querySelector('.ss-pt-breakdown-wide')).toBeNull();
+    });
+
+    it('clears the flag when hot-swapping a tagged set for an untagged one', () => {
+      renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      const stage = renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: {} } },
+      });
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
+    });
+
+    it('drops the flag when hot-swapping glass (with band) to another style', () => {
+      // The marker is glass-only; switching to a style that never sets
+      // it must not leave the stale class on the stage (the per-render
+      // className reset guarantees the clean slate the wipe promises).
+      renderState({
+        match_info: { set_summary_style: 'glass', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      const stage = renderState({
+        match_info: { set_summary_style: 'brand_ledger', summary_set_num: 1 },
+      });
+      expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
+      expect(stage.className).toBe('ss-stage');
+    });
+  });
+
+  describe('ledger_diff scoresheet variant', () => {
+    const TAGGED = {
+      1: {
+        1: { ace: 4, kill: 14, block: 5, opp_error: 2 },
+        2: { ace: 2, kill: 12, block: 4, opp_error: 4 },
+      },
+    };
+
+    it('splits stats into two columns when the set has tagged points', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'ledger_diff', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      expect(stage.querySelector('.ss-ld-cols.two')).not.toBeNull();
+      expect(stage.querySelector('.ss-ld-col-right')).not.toBeNull();
+    });
+
+    it('uses a single centred column when no points are tagged', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'ledger_diff', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: {} } },
+      });
+      expect(stage.querySelector('.ss-ld-cols.one')).not.toBeNull();
+      expect(stage.querySelector('.ss-ld-col-right')).toBeNull();
+    });
+
+    it('draws the point-difference line once the set has rallies', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'ledger_diff' },
+      });
+      // makeState seeds points_by_set[1] with three rallies.
+      expect(stage.querySelector('.ss-ld-svg .ss-ld-line')).not.toBeNull();
     });
   });
 

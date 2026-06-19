@@ -3,7 +3,7 @@
 
    Activated by ``body.set-summary-mode`` (toggled from app.js when
    match_info.show_set_summary is true). The variant
-   ("brand_ledger", "brand_columns", "bento", "glass", "podium",
+   ("brand_ledger", "brand_columns", "bento", "glass", "ledger_diff",
    "bumper") is selected via the stage's data-style attribute, set
    from match_info.set_summary_style.
 
@@ -227,14 +227,14 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 
 /* Very long club names: cap every variant's team name at two lines
    so an unusually long name can never blow the fixed 16:9 stage
-   (podium pillar / bumper core were the worst offenders). The
+   (the bumper core is the worst offender). The
    pre-existing ``overflow-wrap: anywhere`` on each rule still
    handles the in-line breaking. */
 .ss-stage[data-style="brand_ledger"] .ss-team-name,
 .ss-stage[data-style="brand_columns"] .ss-team-name,
 .ss-stage[data-style="bento"] .ss-tile-score .ss-team .ss-name,
 .ss-stage[data-style="glass"] .ss-team-row .ss-name strong,
-.ss-stage[data-style="podium"] .ss-pillar .ss-team-name,
+.ss-stage[data-style="ledger_diff"] .ss-ld-name,
 .ss-stage[data-style="bumper"] .ss-team-name {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -989,8 +989,31 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-stage[data-style="glass"] > .ss-pt-breakdown-wide {
   grid-column: 1 / -1;
   margin: 0;
-  padding: var(--ss-sz-sm) clamp(9px, 3cqw, 32px);
+  /* Trimmed vertical padding + row gap: the band shares the stage's
+     fixed height with the score/chart tiles, so a fat band squeezed
+     the lower score-tile stats off-screen. */
+  padding: clamp(4px, 1.2cqw, 11px) clamp(9px, 3cqw, 32px);
   border-top: none;
+  gap: clamp(3px, 0.9cqw, 8px);
+}
+/* Horizontal, low-profile chips for the full-width glass band so the
+   two team rows stay shallow (label + count on one line) and leave the
+   score tile its room. The stacked chip layout stays the default for
+   the in-tile breakdowns (bento / bumper) where height is not as
+   tight. */
+.ss-stage[data-style="glass"] > .ss-pt-breakdown-wide .ss-pt-logo {
+  width: clamp(13px, 2.7cqw, 28px);
+  height: clamp(13px, 2.7cqw, 28px);
+}
+.ss-stage[data-style="glass"] > .ss-pt-breakdown-wide .ss-pt-chip {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: center;
+  gap: clamp(3px, 0.9cqw, 8px);
+  padding: clamp(2px, 0.7cqw, 7px) clamp(4px, 1.2cqw, 12px);
+}
+.ss-stage[data-style="glass"] > .ss-pt-breakdown-wide .ss-pt-chip-n {
+  font-size: clamp(9px, 2cqw, 20px);
 }
 .ss-stage[data-style="glass"] .ss-blob {
   position: absolute;
@@ -1094,6 +1117,56 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   padding: clamp(9px, 3cqw, 28px) clamp(13px, 4.5cqw, 40px);
   display: flex; flex-direction: column;
   justify-content: space-between; gap: clamp(6px, 1.8cqw, 14px);
+}
+/* When the full-width point-type band is present it claims part of the
+   stage's fixed height, leaving the score tile a shorter row. Tighten
+   the tile's padding, gap and hero score so all four stat rows
+   (timeouts / total points included) stay inside the tile instead of
+   being clipped. The roomy defaults above are kept for the common
+   no-band case. */
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile {
+  padding-top: clamp(7px, 2.1cqw, 18px);
+  padding-bottom: clamp(7px, 2.1cqw, 18px);
+  gap: clamp(4px, 1.2cqw, 10px);
+}
+/* Protect the stats block: it keeps its natural height (so timeouts /
+   total points are always readable) while the taller hero-score block
+   absorbs the shortfall — and, only on the most cramped stages, trims
+   a hair off its digits rather than pushing the stats off the tile. */
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile .ss-teams {
+  /* Grow into the tile's spare height (instead of ``space-between``
+     parking it between the rows and the stats) so the hero scores get
+     every available pixel before they ever clip. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  gap: clamp(3px, 0.9cqw, 9px);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-score-tile .ss-stats-block {
+  flex: 0 0 auto;
+  gap: clamp(2px, 0.9cqw, 8px) var(--ss-sz-md);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown
+  .ss-score-tile .ss-stats-block .ss-stat-row {
+  padding: clamp(1px, 0.6cqw, 4px) 0;
+}
+.ss-stage[data-style="glass"].ss-has-breakdown
+  .ss-score-tile .ss-stats-block .ss-stat-row .ss-value {
+  font-size: clamp(10px, 2.55cqw, 26px);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-team-row {
+  padding: clamp(2px, 0.6cqw, 7px) 0;
+}
+/* The hero score is the tallest element in each team row, so it sets
+   how much vertical room the two rows need. A gentler ``cqw`` slope
+   (vs the no-band 9cqw) keeps both rows — and the away score — inside
+   the shortened tile down to a 1280×720 canvas. */
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-team-row .ss-pts {
+  font-size: clamp(20px, 4.2cqw, 70px);
+}
+.ss-stage[data-style="glass"].ss-has-breakdown .ss-team-row .ss-logo {
+  width: clamp(18px, 4cqw, 48px);
+  height: clamp(18px, 4cqw, 48px);
 }
 .ss-stage[data-style="glass"] .ss-score-tile .ss-teams {
   display: flex; flex-direction: column; gap: clamp(6px, 1.8cqw, 14px);
@@ -1214,138 +1287,6 @@ body.set-summary-mode .set-summary-panel .ss-extras {
   color: color-mix(in srgb, var(--ss-away) 40%, #fff);
 }
 
-
-/* ─────────────────────────────────────────────────────────────
-   Variant: podium
-   Winner pillar tall + runner-up shorter + chart ribbon floor.
-   ───────────────────────────────────────────────────────────── */
-
-.ss-stage[data-style="podium"] {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(255, 214, 74, 0.14) 0%, transparent 60%),
-    rgba(10, 13, 18, 0.62);
-  backdrop-filter: blur(14px) saturate(135%);
-  -webkit-backdrop-filter: blur(14px) saturate(135%);
-  padding: clamp(11px, 3.6cqw, 36px) clamp(17px, 5.4cqw, 56px) 0;
-  grid-template-rows: auto 1fr auto;
-  row-gap: 16px;
-}
-.ss-stage[data-style="podium"] .ss-header {
-  display: flex; justify-content: space-between; align-items: baseline;
-}
-.ss-stage[data-style="podium"] .ss-badge {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: rgba(255, 214, 74, 0.14);
-  border: 1px solid rgba(255, 214, 74, 0.45);
-  color: #ffd64a;
-  font: 800 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
-  letter-spacing: 0.24em; text-transform: uppercase;
-}
-.ss-stage[data-style="podium"] .ss-meta {
-  display: flex; gap: 28px;
-  font: 700 clamp(6px, 1.5cqw, 14px)/1 'Menlo', 'Consolas', monospace;
-  color: var(--ss-text-dim); letter-spacing: 0.08em;
-}
-.ss-stage[data-style="podium"] .ss-meta strong { color: #fff; }
-.ss-stage[data-style="podium"] .ss-podium {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: end;
-  gap: clamp(15px, 6.6cqw, 60px);
-  padding: 0 clamp(10px, 4.2cqw, 40px);
-}
-.ss-stage[data-style="podium"] .ss-pillar {
-  border-top-left-radius: 14px;
-  border-top-right-radius: 14px;
-  padding: clamp(9px, 3cqw, 28px) clamp(10px, 3.6cqw, 32px) clamp(8px, 2.7cqw, 22px);
-  display: flex; flex-direction: column;
-  align-items: center;
-  text-align: center;
-  position: relative;
-  box-shadow: 0 -16px 60px rgba(0,0,0,0.5);
-  overflow: hidden;
-  min-width: 0;
-}
-.ss-stage[data-style="podium"] .ss-pillar::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(180deg, var(--ss-white-18) 0%, rgba(0,0,0,0.25) 100%);
-  border-top-left-radius: inherit; border-top-right-radius: inherit;
-  pointer-events: none;
-}
-.ss-stage[data-style="podium"] .ss-pillar > * { position: relative; z-index: 1; }
-.ss-stage[data-style="podium"] .ss-pillar.winner {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--ss-winner, var(--ss-home)) 92%, transparent) 0%,
-    color-mix(in srgb, var(--ss-winner, var(--ss-home)) 58%, transparent) 100%);
-  backdrop-filter: blur(8px);
-  height: 80%;
-}
-.ss-stage[data-style="podium"] .ss-pillar.runner-up {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--ss-loser, var(--ss-away)) 90%, transparent) 0%,
-    color-mix(in srgb, var(--ss-loser, var(--ss-away)) 48%, transparent) 100%);
-  backdrop-filter: blur(8px);
-  height: 56%;
-}
-.ss-stage[data-style="podium"] .ss-pillar .ss-team-name {
-  font: 800 clamp(11px, 3.3cqw, 32px)/1.05 -apple-system, sans-serif;
-  letter-spacing: -0.01em;
-  margin-bottom: 14px;
-  overflow-wrap: anywhere;
-}
-.ss-stage[data-style="podium"] .ss-pillar .ss-score {
-  font: 900 clamp(35px, 10.8cqw, 130px)/0.85 'Menlo', 'Consolas', monospace;
-  letter-spacing: -0.05em;
-  text-shadow: 0 6px 20px rgba(0,0,0,0.4);
-  margin: auto 0;
-}
-.ss-stage[data-style="podium"] .ss-pillar.runner-up .ss-score { font-size: clamp(26px, 8.1cqw, 96px); }
-.ss-stage[data-style="podium"] .ss-pillar .ss-pillar-stat {
-  font: 600 var(--ss-fs-label)/1.3 -apple-system, sans-serif;
-  color: rgba(255,255,255,0.85);
-  text-align: center;
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.25);
-}
-.ss-stage[data-style="podium"] .ss-pillar .ss-pillar-stat strong {
-  font-weight: 800;
-  font-family: 'Menlo', monospace;
-  font-size: clamp(7px, 1.8cqw, 18px);
-  display: block;
-  margin-bottom: 2px;
-}
-.ss-stage[data-style="podium"] .ss-floor {
-  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
-  border-top: 1px solid var(--ss-white-08);
-  padding: 18px clamp(10px, 3.6cqw, 36px) clamp(8px, 2.7cqw, 24px);
-  margin: 0 calc(-1 * clamp(17px, 5.4cqw, 56px));
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 24px;
-}
-.ss-stage[data-style="podium"] .ss-floor .ss-floor-label {
-  font: 700 clamp(5px, 1.35cqw, 12px)/1 -apple-system, sans-serif;
-  color: var(--ss-text-dim);
-  letter-spacing: 0.22em; text-transform: uppercase;
-  white-space: nowrap;
-}
-.ss-stage[data-style="podium"] .ss-floor .ss-chart {
-  height: clamp(24px, 9cqw, 80px);
-  /* Anchor for the absolutely-positioned .ss-empty-note. */
-  position: relative;
-}
-.ss-stage[data-style="podium"] .ss-floor .ss-chart svg { width: 100%; height: 100%; display: block; }
-.ss-stage[data-style="podium"] .ss-floor .ss-line-home,
-.ss-stage[data-style="podium"] .ss-floor .ss-line-away { stroke-width: 2.5; }
-.ss-stage[data-style="podium"] .ss-floor .ss-duration {
-  font: 700 clamp(9px, 2.55cqw, 24px)/1 'Menlo', 'Consolas', monospace;
-  color: #ffd64a; letter-spacing: 0.04em;
-  white-space: nowrap;
-}
 
 /* ─────────────────────────────────────────────────────────────
    Variant: bumper
@@ -1729,3 +1670,212 @@ body.set-summary-mode .set-summary-panel .ss-extras {
 .ss-pt-chip-n.home { color: color-mix(in srgb, var(--ss-home) 45%, #fff); }
 .ss-pt-chip-n.away { color: color-mix(in srgb, var(--ss-away) 45%, #fff); }
 .ss-pt-chip.is-zero .ss-pt-chip-n { color: rgba(255, 255, 255, 0.28); }
+
+/* ─────────────────────────────────────────────────────────────
+   Variant: ledger_diff
+   Comparative box-score (home value · bar tinted to the leader ·
+   away value, per stat) over a full-width point-difference area
+   graph that swings toward whichever team leads. Stats split into
+   two columns (general | point types) only when the set carries
+   per-point tags; otherwise one centred column and a roomier graph.
+   ───────────────────────────────────────────────────────────── */
+.ss-stage[data-style="ledger_diff"] {
+  background:
+    radial-gradient(circle at 12% -12%,
+      color-mix(in srgb, var(--ss-home) 24%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 88% -12%,
+      color-mix(in srgb, var(--ss-away) 24%, transparent) 0%, transparent 45%),
+    rgba(12, 16, 24, 0.62);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: clamp(6px, 1.7cqh, 18px);
+  padding: clamp(10px, 3cqh, 30px) clamp(12px, 3.6cqw, 42px);
+}
+/* Header: status pill · match (sets) score · set + match clocks. */
+.ss-stage[data-style="ledger_diff"] .ss-ld-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: clamp(6px, 2cqw, 24px);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-pill {
+  padding: 0.45em 0.95em; border-radius: 999px;
+  background: rgba(91, 219, 124, 0.2); border: 1px solid rgba(91, 219, 124, 0.5);
+  color: #5bdb7c; font: 700 clamp(6px, 1.55cqh, 15px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase; white-space: nowrap;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-pill.is-live {
+  background: rgba(255, 170, 31, 0.22); border-color: rgba(255, 170, 31, 0.55);
+  color: #ffc36b; animation: ss-live-pulse 1.6s ease-in-out infinite;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-matchscore {
+  display: inline-flex; align-items: baseline; gap: 0.5em;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-ms-label {
+  font: 700 clamp(5px, 1.3cqh, 12px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ss-text-mid);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-ms-value {
+  font: 900 clamp(10px, 2.6cqh, 26px)/1 'Menlo', 'Consolas', monospace; color: #fff;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-ms-value .home {
+  color: color-mix(in srgb, var(--ss-home) 45%, #fff);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-ms-value .away {
+  color: color-mix(in srgb, var(--ss-away) 45%, #fff);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-clocks {
+  display: inline-flex; align-items: baseline; gap: clamp(8px, 1.8cqw, 22px);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-clock {
+  font: 700 clamp(7px, 1.7cqh, 17px)/1 'Menlo', 'Consolas', monospace;
+  color: #5bdb7c; letter-spacing: 0.02em;
+}
+/* Team header cards (logo · name/tag · big score), mirrored away-side. */
+.ss-stage[data-style="ledger_diff"] .ss-ld-teams {
+  display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px, 3cqw, 40px);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-team {
+  display: flex; align-items: center; gap: clamp(6px, 1.3cqw, 16px); min-width: 0;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-team.away {
+  flex-direction: row-reverse; text-align: right;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-logo {
+  width: clamp(22px, 5.4cqh, 56px); height: clamp(22px, 5.4cqh, 56px);
+  border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+  font: 800 clamp(9px, 2.4cqh, 24px)/1 -apple-system, sans-serif; color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.35); flex: 0 0 auto;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-team.home .ss-ld-logo {
+  background: color-mix(in srgb, var(--ss-home) 80%, transparent);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-team.away .ss-ld-logo {
+  background: color-mix(in srgb, var(--ss-away) 80%, transparent);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-logo img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-name {
+  font: 800 clamp(9px, 2.2cqh, 24px)/1.05 -apple-system, sans-serif;
+  overflow-wrap: anywhere;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-tag {
+  font: 600 clamp(5px, 1.3cqh, 12px)/1 -apple-system, sans-serif;
+  color: var(--ss-text-mid); letter-spacing: 0.2em; text-transform: uppercase;
+  margin-top: 0.3em;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-score {
+  margin-left: auto;
+  font: 900 clamp(26px, 6cqh, 76px)/0.9 'Menlo', 'Consolas', monospace;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-team.away .ss-ld-score {
+  margin-left: 0; margin-right: auto;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-team.home .ss-ld-score { color: var(--ss-home); }
+.ss-stage[data-style="ledger_diff"] .ss-ld-team.away .ss-ld-score { color: var(--ss-away); }
+/* Comparison columns. ``min-height: 0`` lets the row let the graph keep
+   its share of the fixed-height stage. */
+.ss-stage[data-style="ledger_diff"] .ss-ld-cols {
+  display: grid; gap: clamp(10px, 2.6cqw, 38px); align-content: center;
+  border-top: 1px solid var(--ss-white-12); padding-top: clamp(5px, 1.4cqh, 14px);
+  min-height: 0;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-cols.two { grid-template-columns: 1fr 1fr; }
+.ss-stage[data-style="ledger_diff"] .ss-ld-cols.one {
+  grid-template-columns: min(72%, 620px); justify-content: center;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-col {
+  display: flex; flex-direction: column; gap: clamp(3px, 1cqh, 11px); min-width: 0;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-col-right {
+  padding-left: clamp(10px, 2.6cqw, 38px); border-left: 1px solid var(--ss-white-12);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-colcap {
+  font: 700 clamp(5px, 1.2cqh, 12px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ss-text-dim);
+  text-align: center; margin-bottom: 0.3em;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-row {
+  display: grid;
+  grid-template-columns: clamp(28px, 4cqw, 52px) 1fr clamp(28px, 4cqw, 52px);
+  align-items: center; gap: clamp(4px, 0.9cqw, 11px);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-hv,
+.ss-stage[data-style="ledger_diff"] .ss-ld-av {
+  font: 800 clamp(9px, 1.95cqh, 22px)/1 'Menlo', 'Consolas', monospace;
+  white-space: nowrap;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-hv {
+  text-align: right; color: color-mix(in srgb, var(--ss-home) 45%, #fff);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-av {
+  text-align: left; color: color-mix(in srgb, var(--ss-away) 45%, #fff);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-bar {
+  position: relative; height: clamp(12px, 2.5cqh, 26px); border-radius: 999px;
+  overflow: hidden; display: flex; background: var(--ss-white-08);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-fh {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--ss-home) 75%, transparent),
+    color-mix(in srgb, var(--ss-home) 42%, transparent));
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-fa {
+  margin-left: auto;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--ss-away) 42%, transparent),
+    color-mix(in srgb, var(--ss-away) 75%, transparent));
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-cap {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font: 700 clamp(5px, 1.3cqh, 13px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.13em; text-transform: uppercase; color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); pointer-events: none;
+}
+/* Point-difference area graph. */
+.ss-stage[data-style="ledger_diff"] .ss-ld-graph {
+  display: flex; flex-direction: column; min-height: 0;
+  border-top: 1px solid var(--ss-white-12); padding-top: clamp(4px, 1.1cqh, 12px);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-graph-title {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: clamp(3px, 0.7cqh, 8px);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-gt {
+  font: 700 clamp(5px, 1.4cqh, 13px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--ss-text-mid);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-sp-leg {
+  font: 700 clamp(5px, 1.3cqh, 12px)/1 -apple-system, sans-serif;
+  letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.7);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-graph-body {
+  position: relative; flex: 1 1 0; min-height: 0; min-width: 0;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-svg { width: 100%; height: 100%; display: block; }
+.ss-stage[data-style="ledger_diff"] .ss-ld-line {
+  fill: none; stroke: #fff; stroke-width: 2.4; stroke-opacity: 0.9;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-grad-top {
+  stop-color: var(--ss-home); stop-opacity: 0.55;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-grad-bot {
+  stop-color: var(--ss-away); stop-opacity: 0.55;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-zero {
+  stroke: rgba(255, 255, 255, 0.35); stroke-width: 1.2; stroke-dasharray: 5 4;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-to {
+  stroke: rgba(255, 255, 255, 0.3); stroke-width: 1.4; stroke-dasharray: 4 4;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-dot { fill: #fff; }
+.ss-stage[data-style="ledger_diff"] .ss-ld-annot {
+  position: absolute; left: clamp(4px, 0.8cqw, 10px);
+  font: 700 clamp(5px, 1.25cqh, 12px)/1 -apple-system, sans-serif;
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-annot-top {
+  top: clamp(2px, 0.4cqh, 6px); color: color-mix(in srgb, var(--ss-home) 55%, #fff);
+}
+.ss-stage[data-style="ledger_diff"] .ss-ld-annot-bot {
+  bottom: clamp(2px, 0.4cqh, 6px); color: color-mix(in srgb, var(--ss-away) 55%, #fff);
+}
