@@ -1753,7 +1753,7 @@ export interface components {
              * Style
              * @enum {string}
              */
-            style: "brand_ledger" | "bento" | "glass" | "brand_columns" | "podium" | "bumper";
+            style: "brand_ledger" | "bento" | "glass" | "brand_columns" | "ledger_diff" | "bumper";
         };
         /** SimpleModeRequest */
         SimpleModeRequest: {

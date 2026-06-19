@@ -166,7 +166,7 @@ export const SET_SUMMARY_STYLES = [
   'bento',
   'glass',
   'brand_columns',
-  'podium',
+  'ledger_diff',
   'bumper',
 ] as const;
 export type SetSummaryStyle = (typeof SET_SUMMARY_STYLES)[number];

@@ -124,7 +124,7 @@ describe('set_summary.js overlay renderer', () => {
       brand_columns: '.ss-chart-wrap',
       bento: '.ss-bento-ledger',
       glass: '.ss-team-row',
-      podium: '.ss-pillar',
+      ledger_diff: '.ss-ld-cols',
       bumper: '.ss-bumper-row',
     };
 
@@ -151,12 +151,12 @@ describe('set_summary.js overlay renderer', () => {
     });
 
     it('rebuilds the stage on style hot-swap without leftovers', () => {
-      renderState({ match_info: { set_summary_style: 'podium' } });
+      renderState({ match_info: { set_summary_style: 'ledger_diff' } });
       const stage = renderState({
         match_info: { set_summary_style: 'glass' },
       });
       expect(stage.dataset.style).toBe('glass');
-      expect(stage.querySelector('.ss-pillar')).toBeNull();
+      expect(stage.querySelector('.ss-ld-cols')).toBeNull();
       expect(document.querySelectorAll('#set-summary-panel')).toHaveLength(1);
     });
   });
@@ -215,6 +215,41 @@ describe('set_summary.js overlay renderer', () => {
       });
       expect(stage.classList.contains('ss-has-breakdown')).toBe(false);
       expect(stage.className).toBe('ss-stage');
+    });
+  });
+
+  describe('ledger_diff scoresheet variant', () => {
+    const TAGGED = {
+      1: {
+        1: { ace: 4, kill: 14, block: 5, opp_error: 2 },
+        2: { ace: 2, kill: 12, block: 4, opp_error: 4 },
+      },
+    };
+
+    it('splits stats into two columns when the set has tagged points', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'ledger_diff', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: TAGGED } },
+      });
+      expect(stage.querySelector('.ss-ld-cols.two')).not.toBeNull();
+      expect(stage.querySelector('.ss-ld-col-right')).not.toBeNull();
+    });
+
+    it('uses a single centred column when no points are tagged', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'ledger_diff', summary_set_num: 1 },
+        overlay_control: { stats: { point_types_by_set: {} } },
+      });
+      expect(stage.querySelector('.ss-ld-cols.one')).not.toBeNull();
+      expect(stage.querySelector('.ss-ld-col-right')).toBeNull();
+    });
+
+    it('draws the point-difference line once the set has rallies', () => {
+      const stage = renderState({
+        match_info: { set_summary_style: 'ledger_diff' },
+      });
+      // makeState seeds points_by_set[1] with three rallies.
+      expect(stage.querySelector('.ss-ld-svg .ss-ld-line')).not.toBeNull();
     });
   });
 

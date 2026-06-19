@@ -35,6 +35,8 @@
       setWinner: 'Set winner', runnerUp: 'Runner-up',
       live: 'LIVE', vs: 'VS', pointsShort: 'pts',
       empty: 'No points yet this set',
+      statsGeneral: 'Overall', statsPointTypes: 'Point types',
+      pointDiff: 'Point difference', setPoint: 'Set point',
       chipAce: 'Ace', chipOppErr: 'Opp. err',
     },
     es: {
@@ -48,6 +50,8 @@
       setWinner: 'Ganador del set', runnerUp: 'Segundo',
       live: 'EN VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Aún sin puntos en este set',
+      statsGeneral: 'Generales', statsPointTypes: 'Tipos de punto',
+      pointDiff: 'Diferencia de puntos', setPoint: 'Punto de set',
       chipAce: 'Saque', chipOppErr: 'Err. riv',
     },
     pt: {
@@ -61,6 +65,8 @@
       setWinner: 'Vencedor do set', runnerUp: 'Segundo',
       live: 'AO VIVO', vs: 'VS', pointsShort: 'pts',
       empty: 'Ainda sem pontos neste set',
+      statsGeneral: 'Gerais', statsPointTypes: 'Tipos de ponto',
+      pointDiff: 'Diferença de pontos', setPoint: 'Ponto de set',
       chipAce: 'Saque', chipOppErr: 'Err. adv',
     },
     it: {
@@ -74,6 +80,8 @@
       setWinner: 'Vincitore del set', runnerUp: 'Secondo',
       live: 'LIVE', vs: 'VS', pointsShort: 'pti',
       empty: 'Nessun punto in questo set',
+      statsGeneral: 'Generali', statsPointTypes: 'Tipi di punto',
+      pointDiff: 'Differenza punti', setPoint: 'Set point',
       chipAce: 'Ace', chipOppErr: 'Err. avv',
     },
     fr: {
@@ -87,6 +95,8 @@
       setWinner: 'Vainqueur du set', runnerUp: 'Finaliste',
       live: 'EN DIRECT', vs: 'VS', pointsShort: 'pts',
       empty: 'Pas encore de points dans ce set',
+      statsGeneral: 'Général', statsPointTypes: 'Types de point',
+      pointDiff: 'Écart de points', setPoint: 'Balle de set',
       chipAce: 'Ace', chipOppErr: 'Faute adv',
     },
     de: {
@@ -100,6 +110,8 @@
       setWinner: 'Satzgewinner', runnerUp: 'Zweiter',
       live: 'LIVE', vs: 'VS', pointsShort: 'Pkt',
       empty: 'Noch keine Punkte in diesem Satz',
+      statsGeneral: 'Gesamt', statsPointTypes: 'Punktarten',
+      pointDiff: 'Punktdifferenz', setPoint: 'Satzball',
       chipAce: 'Ass', chipOppErr: 'Geg.-F.',
     },
   };
@@ -1207,51 +1219,209 @@
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Renderer: podium
+  // Renderer: ledger_diff (scoresheet + point-difference graph)
   // ─────────────────────────────────────────────────────────────────
-  function renderPodium(stage, vm) {
-    const homeWins = vm.homeScore >= vm.awayScore;
-    const winner = homeWins ? vm.home : vm.away;
-    const winnerScore = homeWins ? vm.homeScore : vm.awayScore;
-    const loser = homeWins ? vm.away : vm.home;
-    const loserScore = homeWins ? vm.awayScore : vm.homeScore;
+  // A comparative box-score on top — one row per stat with the home
+  // value, a bar tinted toward whichever side leads, and the away
+  // value — over a full-width "point difference" area graph that
+  // swings up toward the home team and down toward the away team as
+  // the lead changes through the set. When the set carries per-point
+  // scouting tags the stats split into two columns (general | point
+  // types); otherwise a single centred column shows and the graph
+  // gets the extra room.
 
-    // Apply per-pillar colour via custom props so the gradient picks
-    // up the actual winner/runner-up team colour. Goes through the
-    // contrast-aware resolver so a near-white team palette doesn't
-    // turn the pillar into a white-on-white block.
-    stage.style.setProperty('--ss-winner',
-      homeWins ? resolveTeamColour(vm.home, FALLBACK_HOME) : resolveTeamColour(vm.away, FALLBACK_AWAY));
-    stage.style.setProperty('--ss-loser',
-      homeWins ? resolveTeamColour(vm.away, FALLBACK_AWAY) : resolveTeamColour(vm.home, FALLBACK_HOME));
+  function buildLdRow(label, homeText, awayText, homeShare, awayShare) {
+    const h = Number(homeShare) || 0;
+    const a = Number(awayShare) || 0;
+    const total = h + a;
+    const hp = total > 0 ? Math.round((h / total) * 100) : 50;
+    const bar = el('div', {
+      class: 'ss-ld-bar',
+      children: [
+        el('span', { class: 'ss-ld-fh', style: { width: hp + '%' } }),
+        el('span', { class: 'ss-ld-fa', style: { width: (100 - hp) + '%' } }),
+        el('span', { class: 'ss-ld-cap', text: label }),
+      ],
+    });
+    return el('div', {
+      class: 'ss-ld-row',
+      children: [
+        el('span', { class: 'ss-ld-hv', text: String(homeText) }),
+        bar,
+        el('span', { class: 'ss-ld-av', text: String(awayText) }),
+      ],
+    });
+  }
 
-    const winnerStreak = vm.longestSet[homeWins ? 1 : 2] || 0;
-    const loserStreak = vm.longestSet[homeWins ? 2 : 1] || 0;
+  // Left column: the four match-wide-per-set comparisons every set has.
+  // Service share is driven by rallies won-on-serve; a zero timeout
+  // count keeps a 0.4 sliver so the bar still reads as "0 vs n".
+  function buildLdGeneralCol(vm) {
+    const sH = (vm.servicesSet && (vm.servicesSet[1] || vm.servicesSet['1'])) || {};
+    const sA = (vm.servicesSet && (vm.servicesSet[2] || vm.servicesSet['2'])) || {};
+    const toH = vm.home.timeouts_taken || 0;
+    const toA = vm.away.timeouts_taken || 0;
+    const col = el('div', { class: 'ss-ld-col' });
+    col.appendChild(buildLdRow(
+      t('points'), vm.homeScore, vm.awayScore, vm.homeScore, vm.awayScore));
+    col.appendChild(buildLdRow(
+      t('streak'), vm.longestSet[1] || 0, vm.longestSet[2] || 0,
+      vm.longestSet[1] || 0, vm.longestSet[2] || 0));
+    col.appendChild(buildLdRow(
+      t('services'),
+      formatServices(vm.servicesSet, 1), formatServices(vm.servicesSet, 2),
+      sH.won || 0, sA.won || 0));
+    col.appendChild(buildLdRow(t('timeouts'), toH, toA, toH || 0.4, toA || 0.4));
+    return col;
+  }
 
+  // Right column: the opt-in point-type tallies, shown attack / block /
+  // serve / opp-error. Only built when ``vm.hasPointTypes`` is set.
+  function buildLdPointTypesCol(vm) {
+    const byKey = {};
+    (vm.pointTypes || []).forEach((p) => { byKey[p.key] = p; });
+    const col = el('div', { class: 'ss-ld-col ss-ld-col-right' });
+    ['kill', 'block', 'ace', 'opp_error'].forEach((k) => {
+      const p = byKey[k] || { label: k, home: 0, away: 0 };
+      col.appendChild(buildLdRow(p.label, p.home, p.away, p.home, p.away));
+    });
+    return col;
+  }
+
+  function buildLdTeamCard(vm, side) {
+    const team = side === 'home' ? vm.home : vm.away;
+    const score = side === 'home' ? vm.homeScore : vm.awayScore;
+    return el('div', {
+      class: `ss-ld-team ${side}`,
+      children: [
+        teamLogoNode(team, side, 'ss-ld-logo'),
+        el('div', {
+          class: 'ss-ld-meta',
+          children: [
+            el('div', {
+              class: 'ss-ld-name',
+              text: team.name || (side === 'home' ? t('home') : t('away')),
+            }),
+            el('div', {
+              class: 'ss-ld-tag',
+              text: side === 'home' ? t('home') : t('away'),
+            }),
+          ],
+        }),
+        el('div', { class: 'ss-ld-score', text: String(score) }),
+      ],
+    });
+  }
+
+  // Point-difference area: a margin (home − away) line over the rally
+  // axis, filled from a centre baseline with a vertical gradient (home
+  // colour above, away below) so a glance shows who led and by how
+  // much. Timeout ticks mark where each timeout fell; the trailing dot
+  // flags the final (set-deciding) point.
+  function buildLdDiffChart(vm) {
+    const W = 1000, H = 240, pad = 12, cy = H / 2;
+    const events = vm.setPoints || [];
+    const total = events.length;
+    let maxM = 4;
+    const margins = events.map((ev) => {
+      const s = Array.isArray(ev.score) ? ev.score : [0, 0];
+      const m = (s[0] || 0) - (s[1] || 0);
+      if (Math.abs(m) > maxM) maxM = Math.abs(m);
+      return m;
+    });
+    const X = (i) => pad + (total > 0 ? (i / total) * (W - 2 * pad) : 0);
+    const Y = (m) => cy - (m / maxM) * (cy - pad);
+
+    const svg = svgEl('svg', {
+      viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', class: 'ss-ld-svg',
+    });
+    const defs = svgEl('defs');
+    const grad = svgEl('linearGradient', {
+      id: 'ssLdGrad', x1: '0', y1: '0', x2: '0', y2: '1',
+    });
+    grad.appendChild(svgEl('stop', { offset: '0', class: 'ss-ld-grad-top' }));
+    grad.appendChild(svgEl('stop', {
+      offset: '0.5', 'stop-color': '#ffffff', 'stop-opacity': '0.05',
+    }));
+    grad.appendChild(svgEl('stop', { offset: '1', class: 'ss-ld-grad-bot' }));
+    defs.appendChild(grad);
+    svg.appendChild(defs);
+
+    (vm.setTimeouts || []).forEach((tx) => {
+      let c = 0;
+      for (const ev of events) {
+        if ((ev.ts || 0) <= (tx.ts || 0)) c++; else break;
+      }
+      const x = X(c);
+      svg.appendChild(svgEl('line', {
+        class: 'ss-ld-to', x1: x.toFixed(1), y1: pad, x2: x.toFixed(1), y2: H - pad,
+      }));
+    });
+
+    if (total > 0) {
+      const linePts = [`${pad},${cy}`];
+      margins.forEach((m, idx) => {
+        linePts.push(`${X(idx + 1).toFixed(1)},${Y(m).toFixed(1)}`);
+      });
+      const lineStr = linePts.join(' ');
+      svg.appendChild(svgEl('polygon', {
+        class: 'ss-ld-area',
+        points: `${lineStr} ${X(total).toFixed(1)},${cy.toFixed(1)}`,
+        fill: 'url(#ssLdGrad)',
+      }));
+      svg.appendChild(svgEl('polyline', { class: 'ss-ld-line', points: lineStr }));
+    }
+    svg.appendChild(svgEl('line', {
+      class: 'ss-ld-zero', x1: pad, y1: cy, x2: W - pad, y2: cy,
+    }));
+    if (total > 0) {
+      svg.appendChild(svgEl('circle', {
+        class: 'ss-ld-dot',
+        cx: X(total).toFixed(1), cy: Y(margins[total - 1]).toFixed(1), r: '5',
+      }));
+    }
+    return svg;
+  }
+
+  function renderLedgerDiff(stage, vm) {
     stage.appendChild(el('div', {
-      class: 'ss-header',
+      class: 'ss-ld-header',
       children: [
         el('span', {
-          class: 'ss-badge',
-          text: `${t('set')} ${vm.setNum} · ${winner.name || ''}`,
+          class: `ss-ld-pill ${vm.setFinished ? 'is-final' : 'is-live'}`,
+          text: `${t('set')} ${vm.setNum} · ${vm.setFinished ? t('final') : t('live')}`,
         }),
         el('div', {
-          class: 'ss-meta',
+          class: 'ss-ld-matchscore',
           children: [
-            labelStrongNode(t('match'), `${vm.team1Sets} – ${vm.team2Sets}`),
-            labelStrongNode(t('bestOf'), vm.bestOf),
+            el('span', { class: 'ss-ld-ms-label', text: t('match') }),
+            el('span', {
+              class: 'ss-ld-ms-value',
+              children: [
+                el('span', { class: 'home', text: String(vm.team1Sets) }),
+                document.createTextNode(' – '),
+                el('span', { class: 'away', text: String(vm.team2Sets) }),
+              ],
+            }),
+          ],
+        }),
+        el('div', {
+          class: 'ss-ld-clocks',
+          children: [
             el('span', {
               class: 'ss-clock-block',
               children: [
                 el('span', { class: 'ss-clock-label', text: t('set') }),
-                durationNode(vm.durationSec, { class: 'ss-clock' }),
+                durationNode(vm.durationSec, { class: 'ss-ld-clock' }),
               ],
             }),
             el('span', {
               class: 'ss-clock-block ss-clock-match',
               children: [
                 el('span', { class: 'ss-clock-label', text: t('match') }),
-                matchClockNode(vm.matchElapsedSec, { class: 'ss-clock ss-match-duration' }),
+                matchClockNode(vm.matchElapsedSec, {
+                  class: 'ss-ld-clock ss-match-duration',
+                }),
               ],
             }),
           ],
@@ -1260,52 +1430,47 @@
     }));
 
     stage.appendChild(el('div', {
-      class: 'ss-podium',
-      children: [
-        el('div', {
-          class: 'ss-pillar winner',
-          children: [
-            el('span', { class: 'ss-team-name', text: winner.name || '' }),
-            el('span', { class: 'ss-score', text: String(winnerScore) }),
-            el('div', {
-              class: 'ss-pillar-stat',
-              children: [
-                el('strong', { text: winnerStreak ? `${winnerStreak}-${t('pointsShort')}` : '—' }),
-                document.createTextNode(t('longestStreak')),
-              ],
-            }),
-          ],
-        }),
-        el('div', {
-          class: 'ss-pillar runner-up',
-          children: [
-            el('span', { class: 'ss-team-name', text: loser.name || '' }),
-            el('span', { class: 'ss-score', text: String(loserScore) }),
-            el('div', {
-              class: 'ss-pillar-stat',
-              children: [
-                el('strong', { text: loserStreak ? `${loserStreak}-${t('pointsShort')}` : '—' }),
-                document.createTextNode(t('longestStreak')),
-              ],
-            }),
-          ],
-        }),
-      ],
+      class: 'ss-ld-teams',
+      children: [buildLdTeamCard(vm, 'home'), buildLdTeamCard(vm, 'away')],
     }));
 
-    const floor = el('div', {
-      class: 'ss-floor',
+    let cols;
+    if (vm.hasPointTypes) {
+      const general = buildLdGeneralCol(vm);
+      general.insertBefore(
+        el('div', { class: 'ss-ld-colcap', text: t('statsGeneral') }),
+        general.firstChild);
+      const types = buildLdPointTypesCol(vm);
+      types.insertBefore(
+        el('div', { class: 'ss-ld-colcap', text: t('statsPointTypes') }),
+        types.firstChild);
+      cols = el('div', { class: 'ss-ld-cols two', children: [general, types] });
+    } else {
+      cols = el('div', { class: 'ss-ld-cols one', children: [buildLdGeneralCol(vm)] });
+    }
+    stage.appendChild(cols);
+
+    const body = el('div', {
+      class: 'ss-ld-graph-body',
       children: [
-        el('span', { class: 'ss-floor-label', text: t('progression') }),
+        buildLdDiffChart(vm),
+        el('span', { class: 'ss-ld-annot ss-ld-annot-top', text: `▲ ${t('home')}` }),
+        el('span', { class: 'ss-ld-annot ss-ld-annot-bot', text: `▼ ${t('away')}` }),
       ],
     });
-    const chartHolder = el('div', { class: 'ss-chart' });
-    chartHolder.appendChild(buildSvgChart(vm, { width: 800, height: 80, padTop: 4, padBottom: 4 }));
-    const podiumNote = emptyNote(vm);
-    if (podiumNote) chartHolder.appendChild(podiumNote);
-    floor.appendChild(chartHolder);
-    floor.appendChild(durationNode(vm.durationSec, { class: 'ss-duration', prefix: '⏱ ' }));
-    stage.appendChild(floor);
+    const note = emptyNote(vm);
+    if (note) body.appendChild(note);
+
+    const title = el('div', {
+      class: 'ss-ld-graph-title',
+      children: [el('span', { class: 'ss-ld-gt', text: t('pointDiff') })],
+    });
+    if (vm.setFinished && (vm.setPoints || []).length) {
+      title.appendChild(el('span', {
+        class: 'ss-ld-sp-leg', text: `● ${t('setPoint')}`,
+      }));
+    }
+    stage.appendChild(el('div', { class: 'ss-ld-graph', children: [title, body] }));
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -1499,7 +1664,7 @@
     'brand_columns',
     'bento',
     'glass',
-    'podium',
+    'ledger_diff',
     'bumper',
   ];
 
@@ -1509,7 +1674,7 @@
       case 'brand_columns': return renderBrandColumns;
       case 'bento': return renderBento;
       case 'glass': return renderGlass;
-      case 'podium': return renderPodium;
+      case 'ledger_diff': return renderLedgerDiff;
       case 'bumper': return renderBumper;
       default: return renderBrandLedger;
     }

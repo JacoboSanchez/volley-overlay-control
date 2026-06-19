@@ -8,6 +8,28 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **New set-summary recap style "Scoresheet" (`ledger_diff`).** A
+  comparative box-score — one row per stat with the home value, a bar
+  tinted toward whichever side leads, and the away value — sitting above
+  a full-width "point difference" area graph that swings up toward the
+  home team and down toward the away team as the lead changes through the
+  set (with timeout ticks and a set-point marker). When the set carries
+  per-point scouting tags the stats split into two columns (general |
+  point types); otherwise a single centred column shows and the graph
+  gets the extra room. Responsive from a 1280×720 up to a 2560×1440 OBS
+  canvas, with live/finished states, hot-swap and i18n in all six overlay
+  locales.
+
+### Removed
+
+- **Set-summary "Podium" (`podium`) style.** Replaced by the new
+  `ledger_diff` scoresheet. The built-in catalogue keeps six set-summary
+  styles. Any overlay still configured with `"podium"` falls back to the
+  default recap style automatically (the renderer already collapses
+  unknown styles to `brand_ledger`), so no operator action is required.
+
 ### Fixed
 
 - **Stale per-point breakdown carried over between matches.** The

@@ -315,7 +315,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Glass',
     'setSummary.style.brand_columns': 'Columns',
-    'setSummary.style.podium': 'Podium',
+    'setSummary.style.ledger_diff': 'Scoresheet',
     'setSummary.style.bumper': 'Bumper',
   },
   es: {
@@ -634,7 +634,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Cristal',
     'setSummary.style.brand_columns': 'Columnas',
-    'setSummary.style.podium': 'Podio',
+    'setSummary.style.ledger_diff': 'Acta',
     'setSummary.style.bumper': 'Cortinilla',
   },
   pt: {
@@ -952,7 +952,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Vidro',
     'setSummary.style.brand_columns': 'Colunas',
-    'setSummary.style.podium': 'Pódio',
+    'setSummary.style.ledger_diff': 'Súmula',
     'setSummary.style.bumper': 'Cortina',
   },
   it: {
@@ -1270,7 +1270,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Vetro',
     'setSummary.style.brand_columns': 'Colonne',
-    'setSummary.style.podium': 'Podio',
+    'setSummary.style.ledger_diff': 'Tabellino',
     'setSummary.style.bumper': 'Sigla',
   },
   fr: {
@@ -1589,7 +1589,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Verre',
     'setSummary.style.brand_columns': 'Colonnes',
-    'setSummary.style.podium': 'Podium',
+    'setSummary.style.ledger_diff': 'Feuille de match',
     'setSummary.style.bumper': 'Habillage',
   },
   de: {
@@ -1908,7 +1908,7 @@ export const translations: Record<string, TranslationDict> = {
     'setSummary.style.bento': 'Bento',
     'setSummary.style.glass': 'Glas',
     'setSummary.style.brand_columns': 'Spalten',
-    'setSummary.style.podium': 'Podest',
+    'setSummary.style.ledger_diff': 'Spielbericht',
     'setSummary.style.bumper': 'Bumper',
   },
 };
