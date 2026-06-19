@@ -1,5 +1,18 @@
 # Authentication Coverage Audit
 
+> ⚠️ **Superseded by the multi-user refactor (in parts).** The scoreboard
+> API and control WebSocket are no longer gated by `SCOREBOARD_USERS` Bearer
+> tokens — they now require a **logged-in user via an HttpOnly cookie
+> session** (`app/auth/`), and each session is addressed by the per-user
+> storage key `"<user_id>:<oid>"`, so a user can only reach their own
+> scoreboards. `verify_api_key`/`check_oid_access`/`PasswordAuthenticator`
+> are removed; `verify_api_key` is now an alias requiring an authenticated
+> user. The public OBS surface (`/overlay`, `/follow`, `/ws/{token}`) is
+> addressed by an unguessable per-overlay `public_token`. The
+> `OVERLAY_SERVER_TOKEN` machine-to-machine layer (§5 below) is unchanged.
+> The sections below describing the legacy Bearer ladder are kept for
+> historical context and the still-current overlay-server-token coverage.
+
 Last audited: 2026-04-18 (branch `claude/overlay-auth-hardening`).
 
 This document is the single source of truth for **which routes are

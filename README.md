@@ -109,6 +109,26 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 ## Getting Started
 
+> **Multi-user application.** This is now a full multi-user app with a
+> database. The landing page is a **login** screen, and every user manages
+> their own scoreboards/overlays, teams, presets and match reports.
+>
+> **First run:** on first start, no administrator exists yet, so the service
+> logs a one-time **admin bootstrap token** (visible in `docker logs`). Open
+> `/claim-admin`, paste the token, and create the first administrator. After
+> that, users self-register at `/register` (an admin can disable registration
+> in the admin panel), and admins manage users, the global team catalog and
+> global presets.
+>
+> **Persistence:** SQLAlchemy + Alembic via `DATABASE_URL` — SQLite by default
+> (`data/app.db`), PostgreSQL supported (`postgresql+psycopg://…`). The schema
+> migrates to head automatically on startup; nothing to run by hand.
+>
+> **Sessions:** HttpOnly cookies (the old `SCOREBOARD_USERS` Bearer auth is
+> gone). The public OBS output URL for each overlay uses an unguessable token,
+> so usernames/oids never appear in it. See the *Accounts & sessions* env vars
+> below (`SESSION_SECRET`, `REGISTRATION_OPEN`, `ADMIN_BOOTSTRAP_TOKEN`, …).
+
 ### Prerequisites
 
 *   **Python 3.11+**

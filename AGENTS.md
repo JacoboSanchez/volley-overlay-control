@@ -8,10 +8,23 @@ This document provides everything an AI coding agent needs to understand, naviga
 
 Volley Overlay Control is a self-hostable application that bundles a React control UI, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages match state (scores, sets, timeouts, serve), renders overlay HTML templates for OBS browser sources, and synchronizes state with overlay backends — either the hosted **overlays.uno** cloud service or **in-process custom overlays** (with optional external overlay server support).
 
-**Backend stack:** Python 3.x · FastAPI · Uvicorn · Jinja2 · requests · python-dotenv · websocket-client · Docker
-**Frontend stack:** React 19 · Vite · PWA (vite-plugin-pwa) · react-colorful
+**Backend stack:** Python 3.x · FastAPI · Uvicorn · SQLAlchemy 2 · Alembic · Jinja2 · requests · python-dotenv · websocket-client · Docker
+**Frontend stack:** React 19 · React Router · Vite · PWA (vite-plugin-pwa) · react-colorful
 **Test stack:** pytest · pytest-asyncio · pytest-cov · ruff · mypy (backend) · Vitest · React Testing Library (frontend)
-**No database** — game state is in-memory; overlay state is persisted to JSON files (`data/overlay_state_{id}.json`). The frontend is built with Vite and served as static files by FastAPI in production.
+
+**Multi-user (since the multi-user refactor).** The app is now a full
+multi-user application with a database. Accounts use HttpOnly cookie sessions
+(no more `SCOREBOARD_USERS`/Bearer); the first admin is claimed on first start
+with a token printed to the startup log. Persistence is SQLAlchemy + Alembic
+via `DATABASE_URL` (SQLite default at `data/app.db`, PostgreSQL supported); the
+schema migrates to head on startup. Users, overlays (`user_overlays`, keyed
+per user), teams, presets, and match reports live in the DB. Every per-overlay
+runtime surface is keyed by the **storage key** `skey = "<user_id>:<oid>"` (see
+`app/overlay_key.py`), so two users can drive the same `oid` in isolation; the
+public OBS output URL uses an unguessable per-overlay `public_token`. Live
+overlay render state (`data/overlay_state_*.json`) and the per-overlay audit
+log (`data/audit_*.jsonl`) stay on file, re-keyed by `skey`. See `app/db/`,
+`app/auth/`, and `app/api/routes/{teams,admin_users}.py`.
 
 ---
 

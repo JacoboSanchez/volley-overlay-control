@@ -29,9 +29,17 @@ once a first tagged release ships.
   - Admin user management: list/create/delete users, reset a password to a
     temporary one (logging the user out everywhere), and toggle public
     registration.
+  - DB-backed match reports (replacing the per-match JSON files) surfaced in
+    each user's account, scoped to the owner.
+  - Per-overlay settings that the old remote-config app carried: a default
+    match format (best-of / points) and an optional output URL (for
+    overlays.uno cloud / custom outputs), editable from "My overlays".
+  - Admin configuration UIs for the global team catalog (logo, colour, text
+    colour, groups) and global presets (activate/deactivate), each with
+    JSON import/export in the `APP_TEAMS` / `APP_THEMES` shapes.
   - New persistence layer: SQLAlchemy + Alembic, configured via
-    `DATABASE_URL` (SQLite by default, PostgreSQL supported). The schema is
-    migrated to head automatically on startup.
+    `DATABASE_URL` (SQLite by default, PostgreSQL supported and verified). The
+    schema is migrated to head automatically on startup.
 
 ### Changed
 
