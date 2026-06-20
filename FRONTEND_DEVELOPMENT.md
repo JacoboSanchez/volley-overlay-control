@@ -12,7 +12,8 @@ The bundled React control UI (`frontend/`) is a reference implementation that us
 │                                                                   │
 │  ┌──────────────────────────────┐                                 │
 │  │  React Control UI (SPA)      │  served at /                    │
-│  │  frontend/dist/              │                                 │
+│  │  frontend/dist/              │  routed, multi-user             │
+│  │  account pages + /board      │  (cookie session auth)          │
 │  └──────────────────────────────┘                                 │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────┐         │
@@ -38,6 +39,56 @@ The bundled React control UI (`frontend/`) is a reference implementation that us
 │                            └──────────────────┘                   │
 └───────────────────────────────────────────────────────────────────┘
 ```
+
+## Bundled React SPA Structure
+
+The reference UI under `frontend/` is a multi-user, cookie-authenticated
+single-page app. It is built with React 19 + Vite and routed with
+`react-router-dom` (v7).
+
+### Entry points
+
+`frontend/src/main.tsx` picks one of two roots by URL:
+
+- `/preview` mounts `PreviewApp` — a standalone, **auth-free** OBS preview surface.
+- Everything else mounts `AppRouter` (`frontend/src/AppRouter.tsx`), the
+  authenticated router that hosts the login/account pages and the control board.
+
+### Routing & guards
+
+`AppRouter.tsx` wraps everything in an `AuthProvider`
+(`frontend/src/auth/AuthContext.tsx`), which calls `GET /api/v1/auth/context`
+on boot to learn whether the visitor is authenticated. Two guards gate routes:
+
+- `RequireAuth` — redirects unauthenticated visitors to `/login`, and users
+  with `must_change_password` to `/change-password`.
+- `PublicOnly` — bounces already-authenticated users away from `/login`,
+  `/register`, `/claim-admin`.
+
+| Route | Guard | Page (`frontend/src/pages/`) | Purpose |
+|-------|-------|------------------------------|---------|
+| `/login` | PublicOnly | `LoginPage` | Username + password sign-in |
+| `/register` | PublicOnly | `RegisterPage` | Self-service account creation (when registration is open) |
+| `/claim-admin` | PublicOnly | `ClaimAdminPage` | First-run admin bootstrap |
+| `/change-password` | RequireAuth | `ChangePasswordPage` | Forced/voluntary password change |
+| `/board` | RequireAuth | `App` (the scoreboard control screen) | Control a single overlay via `?oid=` |
+| `/` | RequireAuth | `AccountHome` | Account dashboard / landing |
+| `/overlays` | RequireAuth | `OverlaysPage` | Create overlays, copy OBS output URLs |
+| `/teams` | RequireAuth | `TeamsPage` | Manage the caller's team catalog (DB-backed) |
+| `/presets` | RequireAuth | `PresetsPage` | Manage saved customization presets |
+| `/reports` | RequireAuth | `ReportsPage` | Per-overlay match reports |
+| `/account` | RequireAuth | `AccountSettingsPage` | Profile (display name, email) |
+| `/admin` | RequireAuth | `AdminPage` | User/team/preset administration |
+
+The account routes (`/`, `/overlays`, `/teams`, `/presets`, `/reports`,
+`/account`, `/admin`) render inside the `AccountLayout` shell with shared
+navigation. A catch-all `*` redirects to `/`.
+
+The **scoreboard control screen** (`frontend/src/App.tsx`) is the old "whole
+app", now mounted only at `/board` and scoped to the logged-in user plus the
+`?oid=` query parameter. Teams and customization presets are sourced from the
+database via the account pages — there is no longer an env-driven team/theme
+picker baked into the board.
 
 ## Getting Started
 
@@ -119,16 +170,47 @@ You can also override match rules when initialising:
 
 ## Authentication
 
-If the server has `SCOREBOARD_USERS` configured, all API endpoints (except the WebSocket handshake) require a Bearer token:
+The control API is **multi-user and cookie-authenticated**. Every `/api/v1/*`
+scoreboard route requires a logged-in user; sessions are addressed by the
+per-user storage key `<user_id>:<oid>`, so a user can only ever reach overlays
+they own (passing another user's `oid` resolves to a different, empty key).
+
+The flow:
+
+1. `POST /api/v1/auth/login` with `{username, password}` — the server replies
+   with the user record and sets an **HttpOnly session cookie**.
+2. Subsequent requests are authenticated automatically because the browser
+   sends that cookie on same-origin requests. There is no `Authorization`
+   header and no API key.
+3. `POST /api/v1/auth/logout` clears the session.
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/game/add-point?oid=my-overlay \
+# Log in (stores the session cookie in cookies.txt)
+curl -c cookies.txt -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <password>" \
+  -d '{"username": "alice", "password": "<password>"}'
+
+# Use the cookie on subsequent calls
+curl -b cookies.txt -X POST "http://localhost:8080/api/v1/game/add-point?oid=my-overlay" \
+  -H "Content-Type: application/json" \
   -d '{"team": 1}'
 ```
 
-The API key is any valid user password from the `SCOREBOARD_USERS` configuration. If no users are configured, authentication is not required.
+In the bundled SPA, the API client (`frontend/src/api/client.ts`) sends every
+request with `credentials: 'include'`, so the cookie travels automatically. The
+client exposes an `ApiError` class (carrying the HTTP status); a `401` response
+routes the user back to `/login`. There is no `apiKey`/`setApiKey`/`Authorization`
+plumbing anymore.
+
+Related endpoints used by the SPA's auth screens:
+
+- `GET /api/v1/auth/context` — bootstrap call on app load; reports
+  `authenticated`, the current `user`, `registration_open`, and
+  `needs_admin_bootstrap`.
+- `POST /api/v1/auth/register` — self-service account creation.
+- `POST /api/v1/auth/claim-admin` — first-run admin bootstrap.
+- `POST /api/v1/auth/change-password`, `PATCH /api/v1/auth/me`,
+  `DELETE /api/v1/auth/me` — account management.
 
 ---
 
@@ -357,14 +439,19 @@ Returns overlay-related URLs for the session.
 ```json
 {
   "control": "https://app.overlays.uno/control/<OID>",
-  "overlay": "http://localhost:8080/overlay/<output_key>",
-  "preview": "http://localhost:8080/overlay/<output_key>?layout_id=auto"
+  "overlay": "http://localhost:8080/overlay/<public_token>",
+  "preview": "http://localhost:8080/preview?output=...&layout_id=auto"
 }
 ```
 
 - `control` — Only present for overlays.uno cloud overlays.
-- `overlay` — The URL to paste into OBS/vMix as a browser source.
-- `preview` — Only present for custom overlays (`C-` prefix). Used by the frontend to render a live preview card.
+- `overlay` — The URL to paste into OBS/vMix as a browser source. For built-in
+  (custom) overlays this is the unauthenticated `/overlay/<public_token>`
+  capability URL — the per-overlay `public_token` is what lets a browser source
+  connect without logging in. The same per-overlay URL is surfaced (and copyable)
+  on the SPA's `/overlays` page.
+- `preview` — Only present for custom overlays (`C-` prefix). Points at the
+  standalone SPA `/preview` route; used by the frontend to render a live preview card.
   For custom overlays, the query string also carries a `styles=<comma-separated>` list when the backend advertises more
   than one style, so the standalone `/preview` page can offer a per-viewer style selector (applied via `?style=` on
   the overlay iframe) without mutating the session's saved `preferredStyle`.
@@ -414,15 +501,21 @@ Responses:
 
 ### Admin
 
-The `/api/v1/admin/*` surface backs the custom-overlay manager page at `/manage`. Gated by `OVERLAY_MANAGER_PASSWORD`.
+The `/api/v1/admin/*` surface backs the SPA admin page at `/admin`
+(`frontend/src/pages/AdminPage.tsx`). It is gated by the **cookie session plus
+the `admin` role** — there is no separate admin password. Non-admin users are
+redirected away client-side, and the backend enforces the role on every route.
 
-- `GET /api/v1/admin/status` — whether management is enabled (`{"enabled": true|false}`). Unauthenticated.
-- `POST /api/v1/admin/login` — validates a `Authorization: Bearer <password>` header.
-- `GET /api/v1/admin/custom-overlays` — list overlays backed by `LocalOverlayBackend`.
-- `POST /api/v1/admin/custom-overlays` — create (optionally cloning from an existing overlay via `copy_from`).
-- `DELETE /api/v1/admin/custom-overlays/{name}` — remove an overlay and its persisted state file.
-
-All mutating routes require the same Bearer header. When `OVERLAY_MANAGER_PASSWORD` is unset, every route returns `503`.
+- `GET /api/v1/admin/users`, `POST /api/v1/admin/users` — list / create users.
+- `PATCH /api/v1/admin/users/{user_id}` — update role, active flag, profile.
+- `DELETE /api/v1/admin/users/{user_id}` — delete a user.
+- `POST /api/v1/admin/users/{user_id}/reset-password` — issue a temp password.
+- `GET` / `PUT /api/v1/admin/registration` — read / toggle whether self-service
+  registration is open.
+- `/api/v1/admin/teams*` and `/api/v1/admin/team-groups*` — manage the global
+  team catalog and groups (including JSON import/export).
+- `/api/v1/admin/presets*` — manage global customization presets (active flag,
+  JSON import/export).
 
 ---
 
@@ -440,13 +533,18 @@ ws.onopen = () => {
 };
 ```
 
-Browsers cannot set `Authorization` headers on `WebSocket`. When `SCOREBOARD_USERS` is configured, pass the user's password (same value used as the REST Bearer token) as a query parameter instead:
+The control WebSocket is **authenticated by the same session cookie as the REST
+API** — browsers send cookies automatically on same-origin WebSocket upgrades,
+so no extra credential is needed. The server resolves the cookie to the caller's
+per-user storage key and rejects unauthenticated upgrades with close code
+`4003`. There is no `bearer` subprotocol and no `?token=` query parameter on the
+control WS anymore.
 
-```javascript
-const ws = new WebSocket(`ws://localhost:8080/api/v1/ws?oid=${OID}&token=${password}`);
-```
-
-The same `?token=<value>` escape hatch works on the built-in overlay server's `/ws/{id}` when it is gated by `OVERLAY_SERVER_TOKEN`. See [AUTHENTICATION.md](AUTHENTICATION.md) for the full dependency inventory.
+This applies only to the control WS (`/api/v1/ws`). The built-in overlay
+**output** server's `/ws/{public_token}` is a separate, **unauthenticated
+capability URL** — the per-overlay `public_token` is the only credential, which
+is what lets OBS/vMix browser sources connect without a login. See
+[AUTHENTICATION.md](AUTHENTICATION.md) for the full dependency inventory.
 
 ### Message Format
 
@@ -591,22 +689,33 @@ This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **n
   <script>
     const BASE = 'http://localhost:8080';
     const OID = 'my-overlay';
-    // Set this if authentication is enabled:
-    const API_KEY = null; // e.g. 'my-password'
 
-    function headers() {
-      const h = { 'Content-Type': 'application/json' };
-      if (API_KEY) h['Authorization'] = `Bearer ${API_KEY}`;
-      return h;
+    // Auth is cookie-based. Log in once; the HttpOnly session cookie is then
+    // sent automatically on every same-origin request that uses
+    // `credentials: 'include'`.
+    async function login(username, password) {
+      await fetch(`${BASE}/api/v1/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+    }
+
+    function opts(body) {
+      const o = {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      };
+      if (body !== undefined) o.body = JSON.stringify(body);
+      return o;
     }
 
     // Initialize session on load
     async function init() {
-      const res = await fetch(`${BASE}/api/v1/session/init`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ oid: OID }),
-      });
+      // await login('alice', 'my-password');  // if not already signed in
+      const res = await fetch(`${BASE}/api/v1/session/init`, opts({ oid: OID }));
       const data = await res.json();
       if (data.success) {
         updateUI(data.state);
@@ -652,28 +761,18 @@ This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **n
 
     // API calls
     async function addPoint(team, undo = false) {
-      await fetch(`${BASE}/api/v1/game/add-point?oid=${OID}`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ team, undo }),
-      });
+      await fetch(`${BASE}/api/v1/game/add-point?oid=${OID}`, opts({ team, undo }));
     }
 
     async function resetMatch() {
-      await fetch(`${BASE}/api/v1/game/reset?oid=${OID}`, {
-        method: 'POST',
-        headers: headers(),
-      });
+      await fetch(`${BASE}/api/v1/game/reset?oid=${OID}`, opts());
     }
 
     async function toggleVisibility() {
       // Use the last known state from WebSocket instead of fetching,
       // to avoid a race condition between GET and POST.
-      await fetch(`${BASE}/api/v1/display/visibility?oid=${OID}`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ visible: !latestState.visible }),
-      });
+      await fetch(`${BASE}/api/v1/display/visibility?oid=${OID}`,
+        opts({ visible: !latestState.visible }));
     }
 
     init();
@@ -686,7 +785,7 @@ This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **n
 
 ## CORS Considerations
 
-The bundled React frontend is served from the same origin, so CORS is not needed. If you build an external frontend served from a different origin (e.g., `http://localhost:3000`), configure CORS via standard FastAPI middleware.
+The bundled React frontend is served from the same origin, so CORS is not needed. If you build an external frontend served from a different origin (e.g., `http://localhost:3000`), configure CORS via standard FastAPI middleware — and because auth is cookie-based, enable credentialed CORS (`allow_credentials=True` with explicit origins, plus `fetch(..., { credentials: 'include' })` on the client) so the session cookie crosses origins.
 
 ---
 
@@ -702,15 +801,38 @@ python main.py
 cd frontend && npm run dev
 ```
 
-Vite serves on port 3000 and proxies `/api` requests to the backend on port 8080.
+Vite serves on port 3000 and proxies `/api` requests (including WebSocket upgrades) to the backend on port 8080.
+
+### Regenerating API types
+
+The client's request/response types are derived from the backend's OpenAPI
+schema. After any backend schema change, regenerate them:
+
+```bash
+# 1. Snapshot the backend schema to frontend/schema/openapi.json
+python scripts/generate_openapi.py
+
+# 2. Emit the typed bindings to frontend/src/api/schema.d.ts
+cd frontend && npm run gen:types
+```
+
+### Gates
+
+Before pushing frontend changes, both must pass from `frontend/`:
+
+```bash
+npm test          # vitest
+npx tsc --noEmit  # type-check
+```
 
 ### Building a custom frontend
 
 1. **Start the backend** on port 8080
-2. **Initialise a session** via `POST /api/v1/session/init`
-3. **Connect WebSocket** for live updates
-4. **Build your UI** — call REST endpoints for actions, render state from WebSocket messages
-5. **Test** — the backend validates all game rules (point limits, set wins, match completion)
+2. **Authenticate** via `POST /api/v1/auth/login` and keep the session cookie (`credentials: 'include'`)
+3. **Initialise a session** via `POST /api/v1/session/init`
+4. **Connect WebSocket** for live updates (the same cookie authenticates the upgrade)
+5. **Build your UI** — call REST endpoints for actions, render state from WebSocket messages
+6. **Test** — the backend validates all game rules (point limits, set wins, match completion)
 
 ### Tips
 
@@ -725,7 +847,7 @@ Vite serves on port 3000 and proxies `/api` requests to the backend on port 8080
 
 These behaviours are not part of the API contract — document them here so alternate frontends can match them intentionally.
 
-- **HUD auto-hide** — the overlay controls fade out after 5 s of pointer inactivity (`resetHideTimer` in `frontend/src/App.tsx`). Any `pointerdown` resets the timer. Useful on touch devices where an always-visible toolbar occludes the scoreboard.
+- **HUD auto-hide** — the overlay controls fade out after 5 s of pointer inactivity (`resetHideTimer` in `frontend/src/hooks/useHudVisibility.ts`). Any `pointerdown` resets the timer. Useful on touch devices where an always-visible toolbar occludes the scoreboard.
 - **Score button gestures** — each side of the scoreboard uses a multi-gesture button (`frontend/src/components/ScoreButton.tsx`, backed by the shared `frontend/src/hooks/useDoubleTap.ts` hook). Priority is **long-press > double-tap > single-tap**:
   - *Single tap*: `POST /api/v1/game/add-point`.
   - *Double tap*: undo the last point on that team (`add-point` with `undo: true`).
@@ -736,5 +858,5 @@ These behaviours are not part of the API contract — document them here so alte
 - **Set-cell long press** — long-pressing a set counter in the centre panel opens the same dialog against `POST /api/v1/game/set-sets`.
 - **Swipe between scoreboard and config** — `frontend/src/hooks/useSwipeNavigation.ts` attaches touch handlers to `.app-container`. A horizontal swipe of ≥80 px with `|dy|/|dx| ≤ 0.5` switches tabs: left-swipe goes scoreboard → config, right-swipe goes config → scoreboard. Gestures whose `touchstart` target matches `DEFAULT_IGNORE_SELECTORS` (`button`, `input`, `select`, `textarea`, `a`, `label`, ARIA `button|slider|checkbox|switch|tab|menuitem`, `[contenteditable="true"]`) are skipped so taps, long-presses on `ScoreButton`, and slider drags work unchanged. `.app-container` declares `touch-action: pan-y` so the browser keeps native vertical scrolling and yields horizontal motion to us. When the overlay preview is rendered inside `.app-container`, `pointer-events: none` is applied to the iframe via `.app-container .preview-container iframe` because cross-document touch events do not bubble out of an iframe — without it, swipes that begin over the preview never reach the parent handler. The standalone `/preview` page is unaffected and keeps its iframe interactive.
 - **Pre-select OID via URL** — the bundled UI resolves the initial OID from `?oid=<OID>` first, falling back to the `volley_oid` key in `localStorage`. Providing a `?oid=` value auto-connects the session (skipping the picker) and replaces any previously stored OID, so external links can force-switch which overlay this tab is controlling.
-- **WebSocket reconnect** — on close (other than `4004` "no session"), the bundled UI reconnects after 3 s. The `?token=` query param above is re-applied automatically.
+- **WebSocket reconnect** — on close (other than `4004` "no session"), the bundled UI reconnects after 3 s. No credential is re-applied — the session cookie authenticates the upgrade automatically.
 - **Client error reporting** — uncaught errors and `window.onerror` traces are posted to `/api/v1/_log`, rate-limited and PII-redacted server-side.

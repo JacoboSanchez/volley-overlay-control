@@ -66,12 +66,17 @@ defence-in-depth middlewares, and the hash-at-rest options are
 documented in [`AUTHENTICATION.md`](AUTHENTICATION.md). New operators
 should at least:
 
-1. Set `SCOREBOARD_USERS` (with `password_hash` per user) so the API
-   is not open to the network.
-2. Set `OVERLAY_MANAGER_PASSWORD_HASH` so `/manage` and the admin
-   endpoints are gated.
+1. Claim the first admin on first start (the bootstrap token is logged
+   at startup / visible in `docker logs`), then create user accounts —
+   every `/api/v1/*` scoreboard route is cookie + role gated, so the API
+   is not open to the network out of the box.
+2. Leave `REGISTRATION_OPEN` off (admins create users) unless you want
+   open self-registration, and let `SESSION_SECRET` auto-mint (or set it
+   explicitly) so sessions and report share-URLs are signed.
 3. Set `OVERLAY_SERVER_TOKEN` (or let the bootstrap auto-generate it)
-   so overlay-server mutation endpoints reject anonymous writes.
+   so overlay-server mutation endpoints reject anonymous writes; gate
+   `GET /metrics` with `METRICS_REQUIRE_ADMIN=true` if you don't want it
+   exposed.
 4. Configure `TRUSTED_HOSTS` to the public hostname(s) the app serves
    from when running behind a reverse proxy.
 5. If serving the React UI from a different origin, set

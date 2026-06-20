@@ -2,6 +2,13 @@
 
 Tooling to regenerate the screenshots referenced from the project [README.md](../../README.md).
 
+> **Heads-up — pending multi-user update.** This capture pipeline
+> (`capture.mjs`) predates the multi-user refactor: it still walks the old
+> unauthenticated `/?oid=…` control screen, the removed `/manage` page, and
+> raw-`oid` overlay/follow URLs. It needs reworking for the new flow (claim the
+> first admin, sign in, seed overlays, then capture the account pages and the
+> `public_token`-based OBS URLs) before the shots below match the current UI.
+
 The capture pipeline boots a fresh backend instance with isolated environment
 variables (no `.env` is loaded), creates two demo custom overlays, applies
 invented "Thunder Wolves" / "Solar Hawks" team customization via the REST API,
@@ -22,7 +29,7 @@ bash scripts/screenshots/run.sh
 Output PNGs are written to `docs/screenshots/`. The orchestrator:
 
 * Runs the backend on port `8181` (override with `SCREENSHOT_PORT`).
-* Sets `OVERLAY_MANAGER_PASSWORD=demo` (override with `SCREENSHOT_ADMIN_PASSWORD`).
+* Uses `SCREENSHOT_ADMIN_PASSWORD` (default `demo`) for the seeded demo admin.
 * Symlinks `<repo>/data/` to a temp directory while running so the
   operator's real overlay state is never touched, then restores it on exit.
 * Skips loading `.env` (`PYTEST_CURRENT_TEST=1`) and unsets every operator

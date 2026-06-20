@@ -2,13 +2,13 @@
 
 ## Built-In Overlay Engine
 
-Remote-Scoreboard includes a **built-in overlay engine** that serves custom overlays in-process — no external server is needed. Overlays must be created up-front from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`); the system never auto-creates overlays from the control UI. Once an overlay named e.g. `mybroadcast` exists, the system:
+Remote-Scoreboard includes a **built-in overlay engine** that serves custom overlays in-process — no external server is needed. Overlays must be created up-front from your account's **Overlays** page (`/overlays`); the system never auto-creates overlays from the control UI. Each overlay belongs to the signed-in user, so two users can independently own an overlay with the same name (`oid`). Once an overlay named e.g. `mybroadcast` exists, the system:
 
-1. Persists state to `data/overlay_state_mybroadcast.json`
-2. Serves 16 overlay style templates at `/overlay/{id}` (for OBS browser sources)
-3. Broadcasts real-time updates to OBS via WebSocket at `/ws/{id}`
+1. Persists state to `data/overlay_state_<hash>.json` (the file name hashes the per-user storage key `"<user_id>:mybroadcast"`)
+2. Serves 16 overlay style templates for OBS browser sources at `/overlay/{public_token}` — an unguessable per-overlay token shown (copyable) on the Overlays page
+3. Broadcasts real-time updates to OBS via WebSocket at `/ws/{public_token}`
 
-The overlay's name is used directly as the OID in the control UI.
+The overlay's name is the OID you select in the control UI; the OBS-facing URLs use the overlay's `public_token` instead, so the public output surface stays a rotatable capability URL, separate from the username+oid management surface. The `{id}` used elsewhere in this document refers to that control-UI OID.
 
 > **Backward compatibility:** the legacy `C-<id>` syntax (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer the recommended form and is omitted from the documentation and UI.
 

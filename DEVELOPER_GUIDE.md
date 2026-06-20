@@ -6,7 +6,7 @@
 
 ## 1. Project Overview
 
-Volley Overlay Control is a self-contained application that bundles a React frontend, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages game logic (score, sets, serving, timeouts), handles user authentication, serves the touch-friendly control UI, renders overlay templates for OBS browser sources, and synchronizes state with overlay backends (the overlays.uno cloud service or in-process custom overlays with optional external overlay server support).
+Volley Overlay Control is a self-contained, **multi-user** application that bundles a React frontend, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages game logic (score, sets, serving, timeouts), authenticates users with cookie sessions and roles, serves the touch-friendly control UI, renders overlay templates for OBS browser sources, and synchronizes state with overlay backends (the overlays.uno cloud service or in-process custom overlays with optional external overlay server support). Each user owns their own overlays, teams, presets, and match reports; durable state lives in a SQL database (SQLite by default, Postgres optional).
 
 The React frontend lives in the `frontend/` directory and is built with Vite. In production, FastAPI serves the built SPA as static files. During development, Vite's dev server provides hot-reload and proxies API calls to the backend.
 
@@ -18,7 +18,8 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 | **REST API** | FastAPI router at `/api/v1/` with WebSocket real-time updates |
 | **HTTP Server** | Uvicorn (ASGI) — serves both the API and the frontend SPA |
 | **Backend Logic** | Python 3.x |
-| **State Management** | In-memory Python objects + JSON file persistence for overlay state |
+| **Persistence** | SQLAlchemy 2.0 ORM + Alembic migrations (SQLite default, Postgres via `postgresql+psycopg://`); in-memory + JSON file persistence for live overlay rendering state |
+| **Auth** | HttpOnly cookie sessions (opaque token, hashed server-side) with `user`/`admin` roles |
 | **Overlay Templates** | Jinja2 HTML templates for OBS browser sources (16 styles) |
 | **Containerization** | Docker (multi-stage: Node.js + Python) |
 | **CI/CD** | GitHub Actions pipelines (`.github/workflows/`) for automated testing and linting |
@@ -31,11 +32,18 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 | :--- | :--- |
 | `fastapi` | REST API framework + static file serving |
 | `uvicorn` | ASGI server |
+| `sqlalchemy` | ORM + engine for the multi-user database (users, overlays, teams, presets, reports, settings) |
+| `alembic` | Schema migrations (auto-run on startup, also `alembic upgrade head`) |
+| `psycopg` | Postgres driver (optional — only needed for `postgresql+psycopg://`) |
 | `requests` | HTTP communication with overlay APIs |
 | `jinja2` | Overlay HTML template rendering for OBS browser sources |
 | `websocket-client` | Persistent WebSocket connection to external overlay servers (optional) |
 | `python-dotenv` | `.env` file loading |
 | `pytest` / `pytest-asyncio` | Test suite |
+
+Passwords and session/share tokens are hashed with the Python standard
+library (`hashlib.scrypt` / SHA-256) — there is no `bcrypt`/`passlib`
+dependency.
 
 **Frontend (Node.js):**
 
@@ -52,7 +60,11 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 ## 2. Directory Structure & Key Files
 
 ```
-├── main.py                  # Entry point. Creates FastAPI app, mounts routes + SPA, starts uvicorn.
+├── main.py                  # Entry point. Validates config, sets up logging, calls create_app(), starts uvicorn.
+├── alembic.ini              # Alembic configuration (migration scripts dir, logging).
+├── migrations/              # Alembic environment + versioned migration scripts.
+│   ├── env.py               # Resolves DATABASE_URL, targets Base.metadata.
+│   └── versions/            # Migration revisions (0001_initial, 0002_overlay_settings, ...).
 ├── Dockerfile               # Multi-stage build (Node.js + Python).
 ├── docker-compose.yml       # Docker Compose configuration.
 ├── frontend/                # React control UI (built with Vite, TypeScript).
@@ -72,45 +84,79 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 │   │   └── test/            # Vitest test suite.
 │   └── public/              # Static assets (icons, fonts).
 ├── app/
+│   ├── bootstrap.py         # App factory — create_app() wires security/migrations/admin bootstrap, routers, SPA.
 │   ├── backend.py           # Coordinator — delegates to overlay backend strategies.
-│   ├── overlay_backends.py  # Strategy pattern: UnoOverlayBackend, LocalOverlayBackend, CustomOverlayBackend.
+│   ├── overlay_backends/    # Strategy pattern package: base, local, custom, uno, utils (resolver).
 │   ├── ws_client.py         # Persistent WebSocket client for external overlay servers (optional).
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the match state.
 │   ├── customization.py     # Logic for handling team names, colors, logos, and layout.
 │   ├── conf.py              # Configuration object mapping env vars to settings.
 │   ├── constants.py         # Centralized hardcoded strings, URLs, and favicon.
-│   ├── authentication.py    # PasswordAuthenticator (API key validation).
+│   ├── overlay_key.py       # Per-user storage-key helpers: make_skey/split_skey ("<user_id>:<oid>").
+│   ├── id_validation.py     # Overlay-ID charset/length validation.
+│   ├── password_hash.py     # scrypt credential hashing (stdlib, zero deps).
+│   ├── security_bootstrap.py # Resolve/mint/persist OVERLAY_SERVER_TOKEN and SESSION_SECRET at startup.
 │   ├── app_storage.py       # In-memory key-value storage.
 │   ├── oid_utils.py         # OID parsing utilities (extract_oid, compose_output).
+│   ├── db/                  # SQLAlchemy persistence layer.
+│   │   ├── base.py          # Declarative Base + TimestampMixin (naming convention).
+│   │   ├── engine.py        # Engine/sessionmaker from DATABASE_URL; session_scope() + get_db() dep.
+│   │   ├── migrate.py       # run_migrations() — in-process `alembic upgrade head` (cross-process file lock).
+│   │   └── models/          # ORM models: user (User, AuthSession), overlay (UserOverlay + public_token,
+│   │       │                #   OverlaySessionMeta), team, preset (Preset), report (MatchReport), setting.
+│   ├── auth/                # Cookie-session authentication + account management.
+│   │   ├── passwords.py     # hash/verify (thin layer over password_hash) + temp-password generator.
+│   │   ├── sessions.py      # Opaque cookie `vsession`; SHA-256 hash stored in auth_sessions.
+│   │   ├── dependencies.py  # current_user / require_user / require_admin FastAPI deps.
+│   │   ├── service.py       # User CRUD, authenticate, password/role/active changes.
+│   │   ├── routes.py        # /api/v1/auth/* (register, login, logout, me, change-password, claim-admin).
+│   │   ├── bootstrap.py     # First-admin claim flow (startup-logged token → claim-admin).
+│   │   └── schemas.py       # Pydantic auth request/response models.
+│   ├── teams_service.py     # DB-backed teams (global catalog, admin team-groups, per-user lists).
+│   ├── presets_service.py   # DB-backed customization presets (global + per-user).
+│   ├── settings_service.py  # DB-backed settings (REGISTRATION_OPEN, admin-bootstrap-claimed): env-seed-then-DB-override.
+│   ├── overlays_service.py  # Per-user overlay CRUD + public_token + skey resolution.
+│   ├── match_report.py      # Server-rendered print report router at /match/{id}/report.
+│   ├── match_report_access.py # Read gate: owner cookie / signed URL / MATCH_REPORT_PUBLIC.
+│   ├── match_report_signing.py # HMAC capability URLs derived from SESSION_SECRET.
 │   ├── api/                 # REST API + WebSocket layer for frontends.
-│   │   ├── __init__.py      # Exports api_router.
-│   │   ├── routes.py        # FastAPI endpoints under /api/v1/.
+│   │   ├── __init__.py      # Re-exports api_router.
+│   │   ├── routes/          # Domain-split endpoint modules under /api/v1/ (game, session, state,
+│   │   │   │                #   overlays, teams, matches, customization, websocket, admin_users, metrics, ...).
 │   │   ├── schemas.py       # Pydantic request/response models.
 │   │   ├── game_service.py  # Service layer — single entry point for all game actions.
-│   │   ├── session_manager.py # Thread-safe game session management by OID.
+│   │   ├── session_manager.py # Thread-safe game session management, keyed by skey.
+│   │   ├── match_archive.py # Archives finished matches to the match_reports table.
 │   │   ├── ws_hub.py        # WebSocket notification hub for real-time state push.
-│   │   └── dependencies.py  # Auth + session FastAPI dependencies.
+│   │   ├── middleware/      # ASGI middleware (auth rate-limit, metrics, security headers, logging, errors).
+│   │   └── dependencies.py  # verify_api_key (= require_user) + get_session keyed by skey.
 │   ├── overlay/             # In-process overlay serving (absorbed from volleyball-scoreboard-overlay).
 │   │   ├── __init__.py      # Package init — creates singleton OverlayStateStore & ObsBroadcastHub.
 │   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
 │   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
-│   │   └── routes.py        # HTTP/WS routes: /overlay/, /ws/, /api/config/, CRUD, themes.
-│   ├── admin/               # Custom overlay management page + CRUD API (password-protected).
-│   │   ├── __init__.py      # Exports admin_router, admin_page_router.
-│   │   ├── routes.py        # /manage HTML page + /api/v1/admin/custom-overlays CRUD endpoints.
-│   │   └── static/overlays.html # Standalone management page (vanilla JS, no React).
+│   │   ├── auth.py          # OVERLAY_SERVER_TOKEN Bearer check for machine-to-machine peers.
+│   │   └── routes.py        # Public OBS surface: /overlay|follow|ws/{public_token}, /api/config/, CRUD, themes.
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
 │   ├── logging_config.py    # Logging level configuration.
 │   ├── config_validator.py  # Startup configuration validation (env var checks).
 │   └── pwa/                 # Legacy PWA assets (icons).
 ├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
 ├── overlay_static/          # Static assets for overlays (JS, CSS, images).
-├── data/                    # Persisted custom overlay state files (overlay_state_{id}.json).
+├── data/                    # Runtime data dir: SQLite app.db (default), live overlay state JSON,
+│                            #   audit logs, and minted-token files (.session_secret, .overlay_server_token, etc.).
 ├── font/                    # Custom font files for the overlay.
 └── tests/                   # Pytest suite.
-    ├── conftest.py          # Test fixtures and configuration.
+    ├── conftest.py          # Test fixtures: in-memory SQLite db_session, make_user, login_client, auth_client, app_client.
     ├── test_api.py          # API layer tests (SessionManager, GameService, auth).
+    ├── test_auth.py         # Cookie-session auth + account-management tests.
+    ├── test_admin_users.py  # Admin user-management endpoint tests.
+    ├── test_bootstrap.py    # App-factory / first-admin bootstrap tests.
+    ├── test_db_migrations.py # Alembic migration tests.
+    ├── test_overlays_service.py # Per-user overlay CRUD + public_token tests.
+    ├── test_teams.py        # DB-backed teams (catalog/groups/lists) tests.
+    ├── test_match_archive.py # match_reports archiving tests.
+    ├── test_match_report.py # Print-report rendering + access-gate tests.
     ├── test_backend.py      # Backend API communication tests.
     ├── test_customization.py # Customization logic tests.
     ├── test_env_vars_manager.py # Environment variable manager tests.
@@ -118,7 +164,6 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
     ├── test_state.py            # State model tests.
     ├── test_config_validator.py # Startup configuration validation tests.
     ├── test_ws_client.py        # WebSocket client and Backend WS integration tests.
-    ├── test_admin.py            # Overlay manager page + CRUD + auth tests.
     └── test_coverage_proposals.py # Additional WSControlClient coverage tests.
 ```
 
@@ -133,10 +178,19 @@ The application follows a service-oriented architecture:
 | **Model** | `State` | Snapshot of the game (scores, timeouts, serve status) |
 | **Controller** | `GameManager` | Manipulates the Model based on volleyball rules |
 | **Service** | `GameService` | Single entry point for all game actions |
-| **API** | `api/routes.py` | REST + WebSocket endpoints for frontends |
+| **API** | `api/routes/` | REST + WebSocket endpoints for frontends (domain-split modules) |
+| **Auth** | `app/auth/` | Cookie sessions, roles, account management |
+| **Persistence** | `app/db/` | SQLAlchemy engine/models — users, overlays, teams, presets, reports, settings |
 | **Sync** | `Backend` | Pushes Model changes to overlay backends (in-process or cloud) |
-| **Overlay** | `OverlayStateStore` | In-memory + JSON persistence for custom overlay state |
+| **Overlay** | `OverlayStateStore` | In-memory + JSON persistence for live overlay render state |
 | **Overlay** | `ObsBroadcastHub` | Debounced WebSocket broadcasts to OBS browser sources |
+
+Every authenticated surface is keyed by a **storage key** `skey =
+"<user_id>:<oid>"` (`app/overlay_key.py`): the `SessionManager`,
+`OverlayStateStore`, audit log, session-meta persistence, and match archive
+are all re-keyed by `skey` so two users can drive the same `oid` in
+isolation. The public OBS output is addressed by an unguessable
+`public_token` (stored on the user's overlay row), never by `oid`.
 
 ### Data Flow (e.g., Adding a Point from a JS Frontend)
 
@@ -206,9 +260,9 @@ The "Bridge" to overlay systems.
   - `save_model(current_model, simple)` — Pushes local state changes to the overlay.
   - `change_overlay_visibility(show)` — Toggles overlay show/hide.
 
-#### `app/overlay_backends.py` — Overlay Backend Strategies
+#### `app/overlay_backends/` — Overlay Backend Strategies
 
-Three overlay backend implementations share the `OverlayBackend` abstract interface:
+Three overlay backend implementations (in `local.py`, `custom.py`, `uno.py`) share the `OverlayBackend` abstract interface defined in `base.py`; `utils.py` holds the per-request resolver:
 
 - **`LocalOverlayBackend`** — Default for custom overlays (selected when the OID maps to a locally-existing overlay; the legacy `C-` prefix is also accepted for backward compatibility). Manages state in-process via `OverlayStateStore`, broadcasts to OBS via `ObsBroadcastHub`. No external server needed.
 - **`CustomOverlayBackend`** — Optional external server mode (activated when `APP_CUSTOM_OVERLAY_URL` is set). Communicates via WebSocket + HTTP fallback.
@@ -246,7 +300,7 @@ Stateless service that operates on `GameSession` instances.
 
 #### `app/api/session_manager.py` — class `SessionManager`
 
-Thread-safe singleton managing `GameSession` instances by OID.
+Thread-safe singleton managing `GameSession` instances keyed by storage key (`skey = "<user_id>:<oid>"`), so each user's session for an `oid` is isolated.
 
 - **Key Methods**: `get_or_create()`, `get()`, `remove()`, `clear()`, `cleanup_expired()`.
 
@@ -254,37 +308,106 @@ Thread-safe singleton managing `GameSession` instances by OID.
 
 WebSocket notification hub for broadcasting state updates to connected frontend clients.
 
-#### `app/admin/` — custom overlay management
+#### `app/api/routes/overlays.py` — per-user overlays
 
-Standalone surface for managing **custom** overlays (those backed by the
-in-process overlay engine) at runtime, independent of the React scoreboard
-UI. Overlays must be created here before they can be used as OIDs in the
-control UI — the system never auto-creates overlays from the control flow.
+The control UI manages a user's own overlays through `/api/v1/overlays`
+(list/create/update/delete). Each overlay row carries a user-facing `oid`
+(unique per user) and an unguessable `public_token` for the OBS output.
+Backed by `app/overlays_service.py`; there is no longer a standalone,
+password-protected `/manage` page or `custom-overlays` admin API.
 
-- **`app/admin/routes.py`** — Two FastAPI routers:
-  - `admin_page_router` → `GET /manage` serves the standalone HTML page.
-  - `admin_router` → `GET /api/v1/admin/custom-overlays`,
-    `POST /api/v1/admin/custom-overlays` (optional `copy_from` to clone an
-    existing overlay's configuration), `DELETE /api/v1/admin/custom-overlays/{id}`,
-    `POST /api/v1/admin/login`, `GET /api/v1/admin/status`. All endpoints
-    (except `/status`) require `Authorization: Bearer $OVERLAY_MANAGER_PASSWORD`.
-  - Handlers operate directly on the singleton `overlay_state_store`
-    (`app/overlay/__init__.py`); there is no separate admin-side persistence
-    file.
-- **`app/admin/static/overlays.html`** — Self-contained page (no React,
-  just vanilla JS + `fetch`). Keeps the password in a JS closure variable
-  only (no `sessionStorage`/`localStorage`).
+#### `app/api/routes/admin_users.py` — admin user management
 
-The routers are registered in `main.py` **before** the SPA mount so that
-`/manage` is served by FastAPI rather than falling through to `index.html`.
+`router` mounted at `/api/v1/admin` — list/create/update/delete users,
+reset a user to a temp password, and toggle the `REGISTRATION_OPEN`
+setting. Every endpoint is gated by `Depends(require_admin)`.
 
 > For the full per-route authentication matrix (scoreboard API, admin
 > API, overlay server, static mounts) and known gaps, see
-> [AUTHENTICATION.md](AUTHENTICATION.md). When adding a new route,
-> classify it there and add a matching entry in
-> `tests/test_auth_coverage.py`.
+> [AUTHENTICATION.md](AUTHENTICATION.md).
+
+### B2. Authentication & Persistence
+
+#### `app/auth/` — cookie-session authentication
+
+Replaces the old env-var `SCOREBOARD_USERS` Bearer ladder. A login mints a
+random opaque token stored in an **HttpOnly** cookie named `vsession`; only
+its SHA-256 hash is persisted in the `auth_sessions` table (server-side
+storage is what makes logout and "log out everywhere on password change"
+possible). Accounts carry a `user`/`admin` role.
+
+- **`sessions.py`** — create/resolve/revoke sessions; cookie set/clear.
+- **`dependencies.py`** — `current_user` (resolve or `None`),
+  `require_user` (401 if anonymous, 409 if a forced password change is
+  pending), `require_admin` (403 unless admin role).
+- **`service.py`** — user CRUD, `authenticate`, password/role/active changes.
+- **`routes.py`** — `/api/v1/auth/*`: `register` (gated by the DB-backed
+  `REGISTRATION_OPEN` toggle), `login`, `logout`, `me`, `change-password`,
+  and the first-admin `claim-admin`.
+- **`bootstrap.py`** — first-admin bootstrap: when no admin exists, a
+  one-time claim token is minted (or read from `ADMIN_BOOTSTRAP_TOKEN`),
+  logged at startup, and exchanged via `POST /api/v1/auth/claim-admin`.
+  Once an admin exists the flow is a no-op and the endpoint returns 410.
+- **`passwords.py` / `app/password_hash.py`** — scrypt hashing (stdlib only).
+
+`app/api/dependencies.py` keeps the legacy name `verify_api_key` as an
+alias for `require_user` (so the many `dependencies=[Depends(verify_api_key)]`
+call sites keep working), and `get_session` resolves the caller's session by
+`skey = "<user_id>:<oid>"`. The control WebSocket `/api/v1/ws?oid=` is
+authenticated by the same cookie.
+
+#### `app/db/` — SQLAlchemy persistence
+
+- **`engine.py`** — builds the engine + `sessionmaker` from `DATABASE_URL`
+  (default: SQLite file `data/app.db`; Postgres via
+  `postgresql+psycopg://`). Exposes `session_scope()` for non-request code
+  and the `get_db()` FastAPI dependency. SQLite gets `PRAGMA foreign_keys=ON`
+  so the `ON DELETE CASCADE` rules (deleting a user wipes their overlays,
+  teams, presets, reports, and sessions) actually fire.
+- **`migrate.py`** — `run_migrations()` runs `alembic upgrade head`
+  in-process during `create_app`, guarded by a cross-process file lock so
+  multiple workers don't race the first boot. The Docker entrypoint also
+  runs `alembic upgrade head` (belt-and-suspenders; both idempotent).
+- **`models/`** — `User` + `AuthSession`, `UserOverlay`
+  (`public_token`, optional per-overlay default rules) + `OverlaySessionMeta`,
+  `Team`/`TeamGroup`/`UserTeamListItem`, `Preset`, `MatchReport`, `Setting`.
+
+#### DB-backed services
+
+- **`app/teams_service.py`** — global team catalog, admin team-groups, and
+  per-user lists. Replaces the env-driven `APP_TEAMS`; the wire shape
+  (`{name: {icon, color, text_color}}`) is unchanged.
+- **`app/presets_service.py`** — global (admin-activated) and per-user
+  customization presets. Replaces the on-disk preset store and env-driven
+  `APP_THEMES`.
+- **`app/settings_service.py`** — boolean app settings (`REGISTRATION_OPEN`,
+  admin-bootstrap-claimed) with env-seed-then-DB-override semantics ("DB
+  wins after first boot").
+- **`app/api/match_archive.py`** — archives a finished match to the
+  `match_reports` table (per `skey`), read back by the print report.
+
+#### Match report (`/match/{id}/report`)
+
+`app/match_report.py` server-renders a print-friendly per-match HTML page.
+The route is gated by `app/match_report_access.py`, which admits a reader if
+any of: the **owner's** session cookie is present; the URL carries a valid
+HMAC capability (`?exp=…&sig=…`, minted via
+`POST /api/v1/matches/{id}/sign-url` and signed with `SESSION_SECRET` in
+`app/match_report_signing.py`); or `MATCH_REPORT_PUBLIC=true`. The old
+`?token=` and admin paths are gone.
 
 ### C. Configuration & Extras
+
+#### `app/bootstrap.py` — application factory
+
+`create_app()` assembles the FastAPI instance in a fixed order:
+`run_security_bootstrap()` (resolve/mint `OVERLAY_SERVER_TOKEN` and
+`SESSION_SECRET`) → `run_migrations()` (schema to head) →
+`ensure_admin_bootstrap()` (mint/log the first-admin claim token) → routers
+(auth first so `/api/v1/auth/*` is never shadowed, then `api_router` +
+admin-users, then the match-report and metrics routers) → static mounts →
+the SPA catch-all mount (must be last). `main.py` only validates config,
+sets up logging, and calls `create_app()`.
 
 #### `app/customization.py`
 
@@ -328,12 +451,35 @@ cd frontend && npm ci && npm test
 | `test_state.py` | `State` model operations |
 | `test_game_manager.py` | Scoring rules, set logic, undo functionality |
 | `test_backend.py` | API communication, custom overlay integration |
-| `test_api.py` | SessionManager, GameService, API key auth |
+| `test_api.py` | SessionManager, GameService, cookie-session auth |
+| `test_auth.py` | Cookie sessions, login/logout, account self-service |
+| `test_admin_users.py` | Admin user-management endpoints |
+| `test_bootstrap.py` | App-factory wiring + first-admin bootstrap |
+| `test_db_migrations.py` | Alembic migrations |
+| `test_overlays_service.py` | Per-user overlay CRUD + `public_token` |
+| `test_teams.py` | DB-backed teams (catalog, groups, per-user lists) |
+| `test_match_archive.py` / `test_match_report.py` | Match archiving + print report + access gate |
 | `test_customization.py` | Team/color customization logic |
 | `test_env_vars_manager.py` | Environment variable loading |
 | `test_config_validator.py` | Startup environment variable validation |
 | `test_ws_client.py` | WebSocket client unit tests and Backend WS integration |
 | `test_coverage_proposals.py` | Additional WSControlClient message format tests |
+
+#### Test fixtures (`tests/conftest.py`)
+
+The multi-user model is exercised through a small set of fixtures:
+
+- **`db_session`** (autouse) — gives every test a fresh in-memory SQLite
+  database via a `StaticPool` (so the schema and rows survive across
+  sessions within one test). The app's engine is pointed at it and
+  `run_migrations` is stubbed to a no-op (the schema is built with
+  `Base.metadata.create_all`). Yields a live `Session` for direct
+  seeding/inspection.
+- **`make_user(db_session, ...)`** — create and commit a user.
+- **`app_client`** — `TestClient` over a freshly-built app (unauthenticated).
+- **`login_client(client, db_session, ...)` / `auth_client`** — a client with
+  its session cookie set; the user's id is attached as `client.test_user_id`
+  so tests can build `make_skey(client.test_user_id, oid)`.
 
 ### Frontend Tests
 
@@ -366,7 +512,7 @@ If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBacke
 
 `resolve_overlay_kind` (in `app/overlay_backends/utils.py`) picks a backend per request in this order:
 
-1. **Local overlay file present** → `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) with a matching `data/overlay_state_<id>.json` always resolves to the in-process engine.
+1. **Local overlay state present** → `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) that the `OverlayStateStore` already has render state for always resolves to the in-process engine. On disk the state lives in `data/overlay_state_<hash>.json`, where the hashed input is the per-user storage key (`skey`), not the bare id.
 2. **Legacy `C-<id>` prefix** with no local file → treated as `CUSTOM` only when `APP_CUSTOM_OVERLAY_URL` is configured.
 3. **Otherwise** → `UnoBackend` (overlays.uno cloud).
 
@@ -390,24 +536,38 @@ The API router installs its own lifespan (`app/api/routes/lifespan.py`):
 
 ### Adding a new API Endpoint
 
-1. Add the route in `app/api/routes.py`.
-2. Add request/response schemas in `app/api/schemas.py`.
-3. Add the business logic in `app/api/game_service.py`.
+1. Add the route to the appropriate domain module under `app/api/routes/`
+   (or create a new module and register it in `app/api/routes/__init__.py`).
+2. Add request/response schemas in `app/api/schemas.py` (or inline Pydantic
+   models in the route module, as several domain routers do).
+3. Add the business logic in `app/api/game_service.py` or the relevant
+   service module (`teams_service.py`, `presets_service.py`, etc.).
+4. Gate it: `dependencies=[Depends(verify_api_key)]` (any logged-in user) or
+   `Depends(require_admin)` for admin-only routes.
 
-### Extending the custom overlay manager page
+### Adding a DB model or migration
 
-1. Add the new operation to `OverlayStateStore` in
-   `app/overlay/state_store.py` if it needs a new storage primitive
-   (e.g. rename, bulk export). Keep mutations under `self._lock`.
-2. Add or update the matching FastAPI route in `app/admin/routes.py` and
-   keep it behind `Depends(require_admin)`.
-3. Update the UI in `app/admin/static/overlays.html` — it is a single
-   self-contained file with vanilla JS, so no bundler step is needed.
+1. Add/extend the ORM model under `app/db/models/` and export it from
+   `app/db/models/__init__.py` so Alembic and the test `create_all`
+   discover the table.
+2. Generate a migration: `alembic revision --autogenerate -m "..."`, review
+   the script in `migrations/versions/`, and commit it.
+3. Wire ON DELETE CASCADE for user-owned rows so account deletion cleans up
+   (SQLite FK enforcement is enabled in `app/db/engine.py`).
+4. The schema is applied automatically on the next `create_app()`
+   (`run_migrations()` → `alembic upgrade head`).
 
 ### Adding a new Setting
 
-1. Add field to `app/conf.py`.
+For a static, boot-time setting:
+
+1. Add the field to `app/conf.py`.
 2. Add the env var to `docker-compose.yml` and `README.md`.
+
+For an operator-toggleable setting that should persist (DB wins after first
+boot, like `REGISTRATION_OPEN`): add a key + accessor in
+`app/settings_service.py` (seeded from an env var, then overridden by the
+`settings` table) and an admin endpoint to flip it.
 
 ---
 
@@ -428,17 +588,29 @@ uv pip install -r requirements.lock -r requirements-dev.lock
 # 4. Build the frontend
 cd frontend && npm ci && npm run build && cd ..
 
-# 5. Configure environment
+# 5. Configure environment (all optional — sensible defaults apply)
 # Create a .env file with your settings, for example:
 # UNO_OVERLAY_OID=your_token_here
-# SCOREBOARD_USERS={"admin": {"password": "secret"}}
+# DATABASE_URL=postgresql+psycopg://user:pass@localhost/volley   # default: SQLite data/app.db
+# REGISTRATION_OPEN=true                                          # public self-registration
 
 # 6. Run the application (serves both API and UI on port 8080)
+# On startup the DB schema is migrated to head automatically, and — when
+# no admin exists yet — a one-time ADMIN BOOTSTRAP TOKEN is logged. POST it
+# to /api/v1/auth/claim-admin (or use the /claim-admin page) to create the
+# first admin account, then log in with the session cookie.
 python main.py
 
 # 7. Run the test suites
 pytest tests/ -v           # Backend tests
 cd frontend && npm test    # Frontend tests
+```
+
+The database is created and migrated automatically on first run. To apply
+migrations manually (e.g. for a Postgres instance before first boot):
+
+```bash
+alembic upgrade head
 ```
 
 ### Frontend Development with Hot-Reload

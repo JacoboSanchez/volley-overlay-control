@@ -79,8 +79,9 @@ Every PR must:
 2. **Pass CI** — backend (`ruff`, `mypy`, `pytest`, `bandit`,
    `pip-audit`) and frontend (`eslint`, `tsc`, `vitest`, `npm audit`).
 3. **Regenerate screenshots** when an operator-facing surface
-   changes — the React control UI, customization panel, `/manage`
-   page, or any overlay template/static asset. See
+   changes — the React control UI, customization panel, the account
+   pages (overlays / teams / presets / reports / admin), or any overlay
+   template/static asset. See
    `scripts/screenshots/README.md` and
    `scripts/screenshots/run.sh`.
 4. **Be small and focused.** Prefer a sequence of reviewable PRs over

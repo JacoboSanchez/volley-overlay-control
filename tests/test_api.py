@@ -3,7 +3,6 @@
 Shared fixtures (``mock_conf``, ``api_backend``, ``api_session``,
 ``clean_sessions``) live in ``tests/conftest.py``.
 """
-import json
 
 import pytest
 
@@ -344,26 +343,3 @@ class TestGameSession:
         assert session.points_limit == 25
         assert session.points_limit_last_set == 15
         assert session.sets_limit == 5
-
-
-# ---------------------------------------------------------------------------
-# API Key auth tests
-# ---------------------------------------------------------------------------
-
-class TestAPIKeyAuth:
-    def test_check_api_key_no_users(self, monkeypatch):
-        from app.authentication import PasswordAuthenticator
-        monkeypatch.setenv('SCOREBOARD_USERS', '')
-        assert PasswordAuthenticator.check_api_key('any') is False
-
-    def test_check_api_key_valid(self, monkeypatch):
-        from app.authentication import PasswordAuthenticator
-        users = json.dumps({"admin": {"password": "secret123"}})
-        monkeypatch.setenv('SCOREBOARD_USERS', users)
-        assert PasswordAuthenticator.check_api_key('secret123') is True
-
-    def test_check_api_key_invalid(self, monkeypatch):
-        from app.authentication import PasswordAuthenticator
-        users = json.dumps({"admin": {"password": "secret123"}})
-        monkeypatch.setenv('SCOREBOARD_USERS', users)
-        assert PasswordAuthenticator.check_api_key('wrong') is False

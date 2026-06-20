@@ -234,38 +234,14 @@ def ensure_session_secret() -> str | None:
     return new_secret
 
 
-def warn_if_open_scoreboard() -> None:
-    """Emit a loud startup warning when the scoreboard API is unauthenticated.
-
-    Unlike :func:`ensure_overlay_server_token`, we do not auto-generate
-    user records: ``SCOREBOARD_USERS`` is a JSON map of user→password
-    pairs and forcing one onto every fresh install would lock the
-    operator out of their own scoreboard. The right posture is "loud
-    warning by default, opt-out for trusted LANs".
-    """
-    raw = (os.environ.get("SCOREBOARD_USERS") or "").strip()
-    if raw:
-        return
-    if is_truthy(os.environ.get("SCOREBOARD_USERS_DISABLED")):
-        # Same opt-out shape as the overlay token — operator
-        # acknowledged the open posture, no need to warn again.
-        return
-    logger.warning(
-        "SCOREBOARD_USERS is not set — every /api/v1/* scoreboard "
-        "endpoint is reachable without authentication. Configure "
-        "SCOREBOARD_USERS as a JSON map of {username: {password: ...}} "
-        "to require Bearer auth, or set SCOREBOARD_USERS_DISABLED=true "
-        "to silence this warning on trusted-LAN deployments."
-    )
-
-
 def run_security_bootstrap() -> None:
     """Entry point invoked from :func:`app.bootstrap.create_app`.
 
-    Centralises the calls so future credential bootstraps (admin
-    password rotation, hashed-credential migration) only need a single
-    hook. Best-effort: a failure here logs but does not block startup,
-    because a missing token is not worse than a broken process.
+    Centralises the calls so future credential bootstraps only need a
+    single hook. Best-effort: a failure here logs but does not block
+    startup, because a missing token is not worse than a broken process.
+    The first-admin bootstrap runs separately in
+    :func:`app.auth.bootstrap.ensure_admin_bootstrap` (it needs the DB).
     """
     try:
         ensure_overlay_server_token()
@@ -275,7 +251,3 @@ def run_security_bootstrap() -> None:
         ensure_session_secret()
     except Exception:
         logger.exception("ensure_session_secret failed")
-    try:
-        warn_if_open_scoreboard()
-    except Exception:
-        logger.exception("warn_if_open_scoreboard failed")

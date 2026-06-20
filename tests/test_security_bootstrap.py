@@ -175,33 +175,6 @@ def test_generation_failure_to_persist_still_returns_token(
 
 
 # ---------------------------------------------------------------------------
-# SCOREBOARD_USERS warning
-# ---------------------------------------------------------------------------
-
-
-def test_scoreboard_warning_when_unset(monkeypatch, caplog):
-    with caplog.at_level(logging.WARNING, logger="app.security_bootstrap"):
-        security_bootstrap.warn_if_open_scoreboard()
-    assert any("SCOREBOARD_USERS" in rec.message for rec in caplog.records)
-
-
-def test_scoreboard_no_warning_when_set(monkeypatch, caplog):
-    monkeypatch.setenv("SCOREBOARD_USERS", '{"alice": {"password": "x"}}')
-    with caplog.at_level(logging.WARNING, logger="app.security_bootstrap"):
-        security_bootstrap.warn_if_open_scoreboard()
-    assert not any("SCOREBOARD_USERS" in rec.message
-                   for rec in caplog.records)
-
-
-def test_scoreboard_no_warning_when_explicitly_disabled(monkeypatch, caplog):
-    monkeypatch.setenv("SCOREBOARD_USERS_DISABLED", "true")
-    with caplog.at_level(logging.WARNING, logger="app.security_bootstrap"):
-        security_bootstrap.warn_if_open_scoreboard()
-    assert not any("SCOREBOARD_USERS" in rec.message
-                   for rec in caplog.records)
-
-
-# ---------------------------------------------------------------------------
 # Top-level entry point
 # ---------------------------------------------------------------------------
 
@@ -215,7 +188,7 @@ def test_run_security_bootstrap_swallows_exceptions(monkeypatch, caplog):
         security_bootstrap, "ensure_overlay_server_token", boom,
     )
     monkeypatch.setattr(
-        security_bootstrap, "warn_if_open_scoreboard", boom,
+        security_bootstrap, "ensure_session_secret", boom,
     )
     with caplog.at_level(logging.ERROR, logger="app.security_bootstrap"):
         security_bootstrap.run_security_bootstrap()

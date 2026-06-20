@@ -63,6 +63,29 @@ once a first tagged release ships.
 
 ### Removed
 
+- **`OVERLAY_MANAGER_PASSWORD` and the legacy `/manage` admin.** The single
+  shared admin password and everything it gated are gone, replaced by the
+  in-app `admin` role (cookie + role gated) and the SPA `/admin` page:
+  - Removed the `/manage` console, the custom-overlays admin API, and the
+    `/api/v1/admin/status` / `/api/v1/admin/login` endpoints.
+  - Removed `GET /list/overlay` (it defeated the capability-URL design).
+  - Match-report print access (`/match/{id}/report`) is now gated by the
+    report **owner's** session cookie, an owner-minted signed share URL
+    (`POST /api/v1/matches/{id}/sign-url`), or `MATCH_REPORT_PUBLIC=true` —
+    the old `?token=`/admin-Bearer paths are gone. The signed-URL HMAC key
+    moved from `OVERLAY_MANAGER_PASSWORD` to `SESSION_SECRET`.
+  - Report deletion is now owner-only via `DELETE /api/v1/matches/{id}`; the
+    `MATCH_REPORT_PUBLIC_DELETE` flag is removed.
+  - `METRICS_REQUIRE_ADMIN` now gates `GET /metrics` behind the
+    machine-to-machine `OVERLAY_SERVER_TOKEN` (Prometheus scrapers can't carry
+    a cookie) instead of the admin password.
+  - Webhook dead-letter replay moved to the cookie-admin
+    `POST /api/v1/admin/webhooks/replay`.
+  - Dropped the now-unused `OVERLAY_MANAGER_PASSWORD(+_HASH)`,
+    `MATCH_REPORT_PUBLIC_DELETE`, `PREDEFINED_OVERLAYS`, and
+    `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` entries from `.env.example` /
+    `docker-compose.yml`.
+
 - **Set-summary "Podium" (`podium`) style.** Replaced by the new
   `ledger_diff` scoresheet. The built-in catalogue keeps six set-summary
   styles. Any overlay still configured with `"podium"` falls back to the
