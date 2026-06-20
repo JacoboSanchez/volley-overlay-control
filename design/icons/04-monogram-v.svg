@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2196f3"/>
+      <stop offset="55%" stop-color="#1565c0"/>
+      <stop offset="100%" stop-color="#0d2b6b"/>
+    </linearGradient>
+    <filter id="sh4" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg4)"/>
+  <!-- big V -->
+  <g filter="url(#sh4)">
+    <path d="M118 138 L226 138 L256 300 L286 138 L394 138 L300 404 L212 404 Z" fill="#ffffff"/>
+  </g>
+  <!-- volleyball sitting in the V notch -->
+  <g transform="translate(256,322)">
+    <circle r="62" fill="#ffffff" stroke="#0d2b6b" stroke-width="0"/>
+    <circle r="62" fill="#eef2fa"/>
+    <g fill="none" stroke="#1565c0" stroke-width="7" stroke-linecap="round">
+      <path d="M-40 -28 C-12 -8 18 -8 42 -34"/>
+      <path d="M-46 22 C-16 2 24 6 42 38"/>
+      <path d="M-2 -60 C-14 -16 -10 26 -22 56"/>
+    </g>
+  </g>
+</svg>

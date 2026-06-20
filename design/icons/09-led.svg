@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg9" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0c1530"/>
+      <stop offset="100%" stop-color="#05070f"/>
+    </linearGradient>
+    <filter id="glow9" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg9)"/>
+  <!-- LED dot matrix scoreboard: 25 | 23 -->
+  <g filter="url(#glow9)">
+    <!-- left score group blue, right score group orange via per-text fill -->
+    <text x="256" y="320" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="150" letter-spacing="6" text-anchor="middle" fill="#19324d" opacity="0.5">25:23</text>
+    <text x="170" y="320" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="150" letter-spacing="6" text-anchor="middle" fill="#34d0ff">25</text>
+    <text x="256" y="316" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="120" text-anchor="middle" fill="#ffb74d">:</text>
+    <text x="344" y="320" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="150" letter-spacing="6" text-anchor="middle" fill="#ff7a45">23</text>
+  </g>
+  <!-- volleyball as a glowing LED disc above -->
+  <g filter="url(#glow9)" transform="translate(256,140)">
+    <circle r="46" fill="none" stroke="#eef6ff" stroke-width="9"/>
+    <g fill="none" stroke="#eef6ff" stroke-width="7" stroke-linecap="round" opacity="0.95">
+      <path d="M-30 -20 C-10 -4 14 -4 30 -24"/>
+      <path d="M-34 16 C-12 2 18 6 32 28"/>
+      <path d="M-2 -44 C-10 -14 -8 18 -16 42"/>
+    </g>
+  </g>
+</svg>

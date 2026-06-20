@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg8" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e2348"/>
+      <stop offset="100%" stop-color="#121327"/>
+    </linearGradient>
+    <linearGradient id="l8a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4fc3f7"/><stop offset="100%" stop-color="#2196f3"/>
+    </linearGradient>
+    <radialGradient id="ball8" cx="40%" cy="35%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e3e9f4"/>
+    </radialGradient>
+    <filter id="sh8" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg8)"/>
+  <!-- stacked overlay layers (isometric) -->
+  <g filter="url(#sh8)">
+    <path d="M256 350 L150 296 L256 242 L362 296 Z" fill="#26305c"/>
+    <path d="M256 300 L150 246 L256 192 L362 246 Z" fill="#33407a"/>
+    <path d="M256 250 L150 196 L256 142 L362 196 Z" fill="url(#l8a)"/>
+  </g>
+  <!-- ball sitting on top layer -->
+  <g filter="url(#sh8)" transform="translate(256,158)">
+    <circle r="58" fill="url(#ball8)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="6" stroke-linecap="round">
+      <path d="M-34 -24 C-20 -38 6 -40 18 -44"/>
+      <path d="M-40 4 C-16 -6 14 -2 36 -22"/>
+      <path d="M-20 40 C-30 18 -28 -10 -16 -38"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1f6dd8"/>
+      <stop offset="60%" stop-color="#143a8f"/>
+      <stop offset="100%" stop-color="#0e1f52"/>
+    </linearGradient>
+    <radialGradient id="ball5" cx="40%" cy="35%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e7edf7"/>
+    </radialGradient>
+    <filter id="sh5" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg5)"/>
+  <!-- arc trajectory -->
+  <path d="M96 360 C176 150 336 150 416 360" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-dasharray="2 26" opacity="0.85"/>
+  <!-- net -->
+  <g stroke="#ffffff" stroke-width="4" opacity="0.5">
+    <line x1="120" y1="360" x2="392" y2="360"/>
+    <line x1="120" y1="392" x2="392" y2="392"/>
+    <line x1="120" y1="360" x2="120" y2="430"/>
+    <line x1="160" y1="360" x2="160" y2="392"/>
+    <line x1="200" y1="360" x2="200" y2="392"/>
+    <line x1="240" y1="360" x2="240" y2="392"/>
+    <line x1="280" y1="360" x2="280" y2="392"/>
+    <line x1="320" y1="360" x2="320" y2="392"/>
+    <line x1="360" y1="360" x2="360" y2="392"/>
+    <line x1="392" y1="360" x2="392" y2="430"/>
+  </g>
+  <!-- ball at apex -->
+  <g filter="url(#sh5)" transform="translate(256,150)">
+    <circle r="86" fill="url(#ball5)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="8" stroke-linecap="round">
+      <path d="M-50 -36 C-32 -54 6 -58 28 -64"/>
+      <path d="M-58 8 C-24 -6 18 -2 50 -30"/>
+      <path d="M-30 60 C-44 30 -42 -10 -26 -52"/>
+      <path d="M40 56 C56 24 56 -16 36 -54"/>
+    </g>
+  </g>
+</svg>

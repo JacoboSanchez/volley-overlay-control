@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg11" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#26305c"/><stop offset="100%" stop-color="#121327"/>
+    </linearGradient>
+    <linearGradient id="play11" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4fc3f7"/><stop offset="100%" stop-color="#2196f3"/>
+    </linearGradient>
+    <radialGradient id="ball11" cx="40%" cy="35%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e3e9f4"/>
+    </radialGradient>
+    <filter id="sh11" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg11)"/>
+  <!-- ring -->
+  <circle cx="256" cy="256" r="158" fill="none" stroke="url(#play11)" stroke-width="22"/>
+  <!-- play triangle -->
+  <g filter="url(#sh11)">
+    <path d="M214 178 L214 334 L338 256 Z" fill="url(#play11)"/>
+  </g>
+  <!-- volleyball nested inside the triangle -->
+  <g transform="translate(252,256)">
+    <circle r="46" fill="url(#ball11)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="6" stroke-linecap="round">
+      <path d="M-28 -20 C-12 -34 10 -36 22 -40"/>
+      <path d="M-34 6 C-12 -4 16 0 34 -20"/>
+      <path d="M-18 38 C-28 16 -26 -12 -14 -38"/>
+    </g>
+  </g>
+</svg>

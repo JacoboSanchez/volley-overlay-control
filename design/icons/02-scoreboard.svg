@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#202549"/>
+      <stop offset="100%" stop-color="#141528"/>
+    </linearGradient>
+    <linearGradient id="panel2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#252b52"/>
+      <stop offset="100%" stop-color="#1b2040"/>
+    </linearGradient>
+    <filter id="sh2" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg2)"/>
+  <!-- scoreboard panel -->
+  <g filter="url(#sh2)">
+    <rect x="78" y="150" width="356" height="212" rx="32" fill="url(#panel2)" stroke="#39406e" stroke-width="3"/>
+  </g>
+  <!-- divider -->
+  <rect x="253" y="176" width="6" height="160" rx="3" fill="#39406e"/>
+  <!-- home score -->
+  <text x="166" y="290" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="120" fill="#4fc3f7" text-anchor="middle">25</text>
+  <!-- away score -->
+  <text x="346" y="290" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="120" fill="#ff7043" text-anchor="middle">23</text>
+  <!-- team dots -->
+  <circle cx="166" cy="332" r="9" fill="#2196f3"/>
+  <circle cx="346" cy="332" r="9" fill="#f44336"/>
+  <!-- little volleyball badge -->
+  <g transform="translate(256,150)">
+    <circle r="40" fill="#fff" stroke="#141528" stroke-width="6"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="5" stroke-linecap="round">
+      <path d="M-26 -18 C-6 -2 14 -2 30 -22"/>
+      <path d="M-30 14 C-10 0 18 4 28 26"/>
+      <path d="M0 -38 C-8 -10 -6 16 -14 36"/>
+    </g>
+  </g>
+</svg>

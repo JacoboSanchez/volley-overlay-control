@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#23284d"/>
+      <stop offset="100%" stop-color="#13142a"/>
+    </linearGradient>
+    <radialGradient id="ball3" cx="40%" cy="36%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dde3ee"/>
+    </radialGradient>
+    <filter id="sh3" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg3)"/>
+  <!-- broadcast rings -->
+  <g fill="none" stroke="#4fc3f7" stroke-linecap="round" opacity="0.55">
+    <path d="M150 150 A150 150 0 0 0 150 362" stroke-width="10"/>
+    <path d="M120 122 A190 190 0 0 0 120 390" stroke-width="9" opacity="0.45"/>
+  </g>
+  <g fill="none" stroke="#4fc3f7" stroke-linecap="round" opacity="0.55">
+    <path d="M362 150 A150 150 0 0 1 362 362" stroke-width="10"/>
+    <path d="M392 122 A190 190 0 0 1 392 390" stroke-width="9" opacity="0.45"/>
+  </g>
+  <!-- ball -->
+  <g filter="url(#sh3)">
+    <circle cx="256" cy="256" r="118" fill="url(#ball3)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="9" stroke-linecap="round">
+      <path d="M188 168 C172 220 172 296 196 344"/>
+      <path d="M324 168 C340 220 340 296 316 344"/>
+      <path d="M150 226 C206 250 306 250 362 226"/>
+    </g>
+  </g>
+  <!-- on-air dot -->
+  <circle cx="386" cy="126" r="30" fill="#f44336"/>
+  <circle cx="386" cy="126" r="30" fill="none" stroke="#ff8a80" stroke-width="4" opacity="0.7"/>
+</svg>

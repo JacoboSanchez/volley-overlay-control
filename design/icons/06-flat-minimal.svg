@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg6" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4fc3f7"/>
+      <stop offset="100%" stop-color="#2196f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg6)"/>
+  <circle cx="256" cy="256" r="150" fill="#ffffff"/>
+  <g fill="none" stroke="#2196f3" stroke-width="16" stroke-linecap="round">
+    <!-- three seam panels, bold and flat -->
+    <path d="M256 106 C212 170 212 230 256 256 C300 282 300 342 256 406"/>
+    <path d="M122 196 C196 226 240 248 256 256 C300 282 356 360 392 408"/>
+    <path d="M390 196 C316 226 272 248 256 256 C212 282 156 360 120 408"/>
+  </g>
+  <circle cx="256" cy="256" r="14" fill="#2196f3"/>
+</svg>
