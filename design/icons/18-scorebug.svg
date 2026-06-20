@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg18" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#222a52"/><stop offset="100%" stop-color="#101126"/>
+    </linearGradient>
+    <filter id="sh18" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg18)"/>
+  <!-- broadcast lower-third scorebug -->
+  <g filter="url(#sh18)">
+    <!-- bug body -->
+    <rect x="86" y="196" width="340" height="120" rx="22" fill="#1b2143"/>
+    <!-- home color tab -->
+    <rect x="86" y="196" width="64" height="120" rx="22" fill="#2196f3"/>
+    <rect x="118" y="196" width="32" height="120" fill="#2196f3"/>
+    <!-- away color tab -->
+    <rect x="362" y="196" width="64" height="120" rx="22" fill="#f44336"/>
+    <rect x="362" y="196" width="32" height="120" fill="#f44336"/>
+    <!-- score plates -->
+    <rect x="166" y="222" width="80" height="68" rx="12" fill="#0d1230"/>
+    <rect x="266" y="222" width="80" height="68" rx="12" fill="#0d1230"/>
+    <!-- set pips -->
+    <g fill="#4fc3f7"><circle cx="190" cy="306" r="6"/><circle cx="212" cy="306" r="6" opacity="0.3"/></g>
+    <g fill="#ffb74d"><circle cx="300" cy="306" r="6"/><circle cx="322" cy="306" r="6" opacity="0.3"/></g>
+  </g>
+  <text x="206" y="278" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="52" fill="#4fc3f7" text-anchor="middle">25</text>
+  <text x="306" y="278" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="52" fill="#ff7a45" text-anchor="middle">23</text>
+  <!-- small volleyball badge top center -->
+  <g transform="translate(256,156)">
+    <circle r="40" fill="#fff"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="5" stroke-linecap="round">
+      <path d="M-24 -16 C-10 -28 8 -30 18 -34"/>
+      <path d="M-30 4 C-10 -4 14 0 30 -18"/>
+      <path d="M-16 32 C-24 12 -22 -12 -12 -32"/>
+    </g>
+  </g>
+</svg>

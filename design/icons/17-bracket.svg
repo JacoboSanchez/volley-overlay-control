@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg17" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#222a52"/><stop offset="100%" stop-color="#101126"/>
+    </linearGradient>
+    <radialGradient id="ball17" cx="40%" cy="35%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e3e9f4"/>
+    </radialGradient>
+    <filter id="sh17" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg17)"/>
+  <!-- tournament bracket lines feeding into the champion ball -->
+  <g fill="none" stroke="#4fc3f7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <!-- top pair merges -->
+    <path d="M96 132 L156 132 L156 192"/>
+    <path d="M96 252 L156 252 L156 192"/>
+    <path d="M156 192 L216 192"/>
+    <!-- bottom pair merges -->
+    <path d="M96 260 L156 260 L156 320"/>
+    <path d="M96 380 L156 380 L156 320"/>
+    <path d="M156 320 L216 320"/>
+    <!-- final feed to centre -->
+    <path d="M216 192 L216 256 L264 256"/>
+    <path d="M216 320 L216 256"/>
+  </g>
+  <!-- node dots -->
+  <g fill="#33407a"><circle cx="96" cy="132" r="9"/><circle cx="96" cy="252" r="9"/><circle cx="96" cy="260" r="9"/><circle cx="96" cy="380" r="9"/></g>
+  <!-- champion ball on the right -->
+  <g filter="url(#sh17)" transform="translate(330,256)">
+    <circle r="96" fill="url(#ball17)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="9" stroke-linecap="round">
+      <path d="M-56 -40 C-36 -60 6 -64 32 -70"/>
+      <path d="M-64 8 C-26 -8 20 -2 56 -32"/>
+      <path d="M-34 66 C-50 32 -46 -12 -28 -58"/>
+      <path d="M46 62 C66 26 66 -18 40 -60"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg16" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#252b54"/><stop offset="100%" stop-color="#121327"/>
+    </linearGradient>
+    <radialGradient id="ball16" cx="40%" cy="35%" r="62%">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e3e9f4"/>
+    </radialGradient>
+    <filter id="sh16" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="9" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg16)"/>
+  <!-- control sliders / mixer -->
+  <g filter="url(#sh16)">
+    <!-- track 1 -->
+    <rect x="120" y="150" width="272" height="14" rx="7" fill="#33407a"/>
+    <circle cx="312" cy="157" r="26" fill="#4fc3f7"/>
+    <!-- track 2 -->
+    <rect x="120" y="232" width="272" height="14" rx="7" fill="#33407a"/>
+    <circle cx="196" cy="239" r="26" fill="#ff9800"/>
+    <!-- track 3 -->
+    <rect x="120" y="314" width="272" height="14" rx="7" fill="#33407a"/>
+    <circle cx="268" cy="321" r="26" fill="#f44336"/>
+  </g>
+  <!-- ball badge bottom -->
+  <g filter="url(#sh16)" transform="translate(256,408)">
+    <circle r="56" fill="url(#ball16)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="6" stroke-linecap="round">
+      <path d="M-32 -22 C-18 -36 8 -38 20 -42"/>
+      <path d="M-38 4 C-14 -6 16 -2 36 -22"/>
+      <path d="M-20 38 C-30 16 -28 -12 -16 -38"/>
+    </g>
+  </g>
+</svg>

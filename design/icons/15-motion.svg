@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg15" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#26305c"/><stop offset="100%" stop-color="#101126"/>
+    </linearGradient>
+    <radialGradient id="ball15" cx="38%" cy="34%" r="64%">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#dfe6f2"/>
+    </radialGradient>
+    <linearGradient id="streak15" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4fc3f7" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#4fc3f7" stop-opacity="0.95"/>
+    </linearGradient>
+    <filter id="sh15" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg15)"/>
+  <!-- speed streaks -->
+  <g stroke="url(#streak15)" stroke-linecap="round" fill="none">
+    <path d="M70 196 L210 196" stroke-width="16"/>
+    <path d="M50 256 L196 256" stroke-width="22"/>
+    <path d="M78 318 L214 318" stroke-width="14"/>
+  </g>
+  <!-- ball, pushed to the right with motion -->
+  <g filter="url(#sh15)" transform="translate(312,256)">
+    <circle r="128" fill="url(#ball15)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="10" stroke-linecap="round">
+      <path d="M-72 -54 C-46 -82 14 -88 42 -96"/>
+      <path d="M-86 8 C-34 -14 28 -8 76 -48"/>
+      <path d="M-46 88 C-66 40 -62 -20 -38 -82"/>
+      <path d="M62 84 C88 36 88 -24 56 -86"/>
+    </g>
+  </g>
+</svg>
