@@ -51,6 +51,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  // When any API call gets a 401 (session expired/revoked mid-use), mark the
+  // context unauthenticated so RequireAuth redirects to /login.
+  useEffect(() => {
+    const onUnauthorized = () =>
+      setCtx((prev) =>
+        prev && prev.authenticated
+          ? { ...prev, authenticated: false, user: null }
+          : prev,
+      );
+    window.addEventListener('auth:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
+  }, []);
+
   const value = useMemo(
     () => ({ loading, ctx, refresh, setUser }),
     [loading, ctx, refresh, setUser],

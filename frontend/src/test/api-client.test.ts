@@ -4,6 +4,7 @@ import {
   getState,
   addPoint,
   getTeams,
+  getAuthContext,
   setVisibility,
   resetGame,
   updateCustomization,
@@ -137,5 +138,23 @@ describe('api/client', () => {
         body: JSON.stringify({ Height: 10 }),
       }),
     );
+  });
+
+  it('dispatches auth:unauthorized on a 401 from a non-auth route', async () => {
+    mockFetchError(401, 'unauthorized');
+    const spy = vi.spyOn(window, 'dispatchEvent');
+    await expect(getTeams()).rejects.toThrow();
+    const fired = spy.mock.calls.some(([e]) => (e as Event).type === 'auth:unauthorized');
+    expect(fired).toBe(true);
+    spy.mockRestore();
+  });
+
+  it('does NOT dispatch auth:unauthorized on a 401 from an auth route', async () => {
+    mockFetchError(401, 'bad credentials');
+    const spy = vi.spyOn(window, 'dispatchEvent');
+    await expect(getAuthContext()).rejects.toThrow();
+    const fired = spy.mock.calls.some(([e]) => (e as Event).type === 'auth:unauthorized');
+    expect(fired).toBe(false);
+    spy.mockRestore();
   });
 });

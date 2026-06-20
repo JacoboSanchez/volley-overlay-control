@@ -6,12 +6,17 @@ export default function ReportsPage() {
   const [oid, setOid] = useState('');
   const [matches, setMatches] = useState<api.MatchSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     void (async () => {
-      const ovs = await api.getOverlays();
-      setOverlays(ovs);
-      if (ovs[0]) setOid(ovs[0].oid);
+      try {
+        const ovs = await api.getOverlays();
+        setOverlays(ovs);
+        if (ovs[0]) setOid(ovs[0].oid);
+      } catch {
+        setError('Could not load your overlays.');
+      }
     })();
   }, []);
 
@@ -21,9 +26,12 @@ export default function ReportsPage() {
       return;
     }
     setLoading(true);
+    setError('');
     try {
       const res = await api.listReports(id);
       setMatches(res.matches);
+    } catch {
+      setError('Could not load match reports.');
     } finally {
       setLoading(false);
     }
@@ -37,6 +45,7 @@ export default function ReportsPage() {
     <div>
       <h2>Match reports</h2>
       <p className="acc-muted">Archived matches for each of your scoreboards.</p>
+      {error && <div className="acc-error">{error}</div>}
 
       <label className="acc-field" style={{ maxWidth: 320, marginTop: 12 }}>
         <span>Scoreboard</span>

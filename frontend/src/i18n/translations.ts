@@ -418,7 +418,7 @@ export const translations: Record<string, TranslationDict> = {
     // Config panel
     'config.title': 'Config',
     'config.backToScoreboard': 'Volver al marcador',
-    'config.openManage': 'Abrir gestor de overlays',
+    'config.openManage': 'Mis overlays',
     'config.save': 'Guardar',
     'config.saveCustomization': 'Guardar personalización',
     'config.failedToSave': 'Error al guardar la personalización',

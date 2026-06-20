@@ -97,6 +97,13 @@ async function request<T = unknown>(
   }
   const res = await fetch(`${BASE_URL}${path}`, opts);
   if (!res.ok) {
+    // A 401 on any non-auth route means the session cookie expired or was
+    // revoked mid-use. Signal the app so AuthProvider drops to /login instead
+    // of leaving the user on a stuck/stale page. Auth routes (login,
+    // claim-admin, context, logout) handle their own 401s and must not loop.
+    if (res.status === 401 && !path.startsWith('/auth/') && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    }
     const text = await res.text();
     throw new ApiError(res.status, `API ${method} ${path} failed (${res.status}): ${text}`);
   }

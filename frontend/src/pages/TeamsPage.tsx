@@ -9,16 +9,21 @@ export default function TeamsPage() {
   const [mine, setMine] = useState<Record<string, unknown>>({});
   const [catalog, setCatalog] = useState<api.TeamOut[]>([]);
   const [groups, setGroups] = useState<api.TeamGroupOut[]>([]);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
-    const [m, c, g] = await Promise.all([
-      api.getTeams(),
-      api.getTeamCatalog(),
-      api.getTeamGroups(),
-    ]);
-    setMine(m);
-    setCatalog(c);
-    setGroups(g);
+    try {
+      const [m, c, g] = await Promise.all([
+        api.getTeams(),
+        api.getTeamCatalog(),
+        api.getTeamGroups(),
+      ]);
+      setMine(m);
+      setCatalog(c);
+      setGroups(g);
+    } catch {
+      setLoadError('Could not load teams.');
+    }
   }, []);
 
   useEffect(() => {
@@ -43,6 +48,7 @@ export default function TeamsPage() {
   return (
     <div>
       <h2>Teams</h2>
+      {loadError && <div className="acc-error">{loadError}</div>}
       <p className="acc-muted">
         Your team list appears in the scoreboard team picker. Add teams from the global catalog or
         copy a whole group.

@@ -13,14 +13,20 @@ export default function AdminPage() {
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    const [u, r] = await Promise.all([api.adminListUsers(), api.adminGetRegistration()]);
-    setUsers(u);
-    setRegistrationOpen(r.registration_open);
+    try {
+      const [u, r] = await Promise.all([api.adminListUsers(), api.adminGetRegistration()]);
+      setUsers(u);
+      setRegistrationOpen(r.registration_open);
+    } catch {
+      setError('Could not load admin data.');
+    }
   }, []);
 
+  // Only fire admin-only calls for an admin: a non-admin who reaches this URL
+  // is redirected below, so we must not request /admin/* (avoids 403 noise).
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (ctx?.user?.role === 'admin') void load();
+  }, [load, ctx]);
 
   if (ctx && ctx.user?.role !== 'admin') return <Navigate to="/" replace />;
 

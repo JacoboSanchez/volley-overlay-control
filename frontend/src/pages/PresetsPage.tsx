@@ -8,11 +8,17 @@ export default function PresetsPage() {
   const isAdmin = ctx?.user?.role === 'admin';
   const [items, setItems] = useState<api.PresetSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    const res = await api.listPresets();
-    setItems(res.items);
-    setLoading(false);
+    try {
+      const res = await api.listPresets();
+      setItems(res.items);
+    } catch {
+      setError('Could not load presets.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -33,6 +39,7 @@ export default function PresetsPage() {
         Global presets (curated by an administrator) and your own. Create new presets from a live
         scoreboard's customization panel; they appear across all your scoreboards.
       </p>
+      {error && <div className="acc-error">{error}</div>}
       {loading ? (
         <p className="acc-muted">Loading…</p>
       ) : items.length === 0 ? (

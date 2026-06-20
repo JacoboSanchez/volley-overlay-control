@@ -13,8 +13,13 @@ export default function OverlaysPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    setOverlays(await api.getOverlays());
-    setLoading(false);
+    try {
+      setOverlays(await api.getOverlays());
+    } catch {
+      setError('Could not load your overlays.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

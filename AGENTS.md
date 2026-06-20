@@ -248,7 +248,7 @@ The entire match lives in a flat dictionary with these keys:
 
 **External server mode:** When `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract.
 
-**Overlay templates:** 16 Jinja2 HTML templates in `overlay_templates/` serve overlay graphics to OBS browser sources at `/overlay/{public_token}` (and the lightweight spectator view at `/follow/{public_token}`). The overlay `app.js` connects via WebSocket at `/ws/{public_token}` for real-time state updates. The `public_token` is the unguessable per-overlay capability token — never the raw `oid` or `skey`.
+**Overlay templates:** the Jinja2 HTML templates in `overlay_templates/` (30 files; 27 selectable styles via `get_available_styles_list`) serve overlay graphics to OBS browser sources at `/overlay/{public_token}` (and the lightweight spectator view at `/follow/{public_token}`). The overlay `app.js` connects via WebSocket at `/ws/{public_token}` for real-time state updates. The `public_token` is the unguessable per-overlay capability token — never the raw `oid` or `skey`.
 
 ---
 
