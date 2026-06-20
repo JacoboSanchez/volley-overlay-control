@@ -68,14 +68,36 @@ function withOid(oid: string): string {
   return `?oid=${encodeURIComponent(oid)}`;
 }
 
-/** Thrown on a non-2xx API response; carries the HTTP status. */
+/** Thrown on a non-2xx API response; carries the HTTP status and a
+ *  human-facing ``detail`` (the API's ``detail`` field when present) so pages
+ *  can show a clean message instead of the raw JSON envelope. */
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  detail: string;
+  constructor(status: number, message: string, detail?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.detail = detail || message;
   }
+}
+
+/** Pull a clean human message out of a FastAPI error body (string ``detail``,
+ *  a 422 validation array, or the raw text as a last resort). */
+function extractDetail(text: string): string {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed.detail === 'string') return parsed.detail;
+    if (parsed && Array.isArray(parsed.detail)) {
+      const msgs = parsed.detail
+        .map((d: { msg?: string }) => (d && d.msg) || '')
+        .filter(Boolean);
+      if (msgs.length) return msgs.join('; ');
+    }
+  } catch {
+    /* not JSON — fall through to the raw text */
+  }
+  return text;
 }
 
 async function request<T = unknown>(
@@ -105,7 +127,11 @@ async function request<T = unknown>(
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
     const text = await res.text();
-    throw new ApiError(res.status, `API ${method} ${path} failed (${res.status}): ${text}`);
+    throw new ApiError(
+      res.status,
+      `API ${method} ${path} failed (${res.status}): ${text}`,
+      extractDetail(text),
+    );
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

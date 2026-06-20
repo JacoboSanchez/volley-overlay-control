@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import {
+  ApiError,
   initSession,
   getState,
   addPoint,
@@ -156,5 +157,27 @@ describe('api/client', () => {
     const fired = spy.mock.calls.some(([e]) => (e as Event).type === 'auth:unauthorized');
     expect(fired).toBe(false);
     spy.mockRestore();
+  });
+
+  it('ApiError.detail extracts the API detail field from a JSON error body', async () => {
+    mockFetchError(400, JSON.stringify({ detail: 'Overlay id must be 1-64 characters.' }));
+    try {
+      await getTeams();
+      throw new Error('expected getTeams to reject');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).detail).toBe('Overlay id must be 1-64 characters.');
+      expect((err as ApiError).message).toContain('400'); // full envelope kept for debugging
+    }
+  });
+
+  it('ApiError.detail summarises a 422 validation array', async () => {
+    mockFetchError(422, JSON.stringify({ detail: [{ msg: 'field required' }, { msg: 'too short' }] }));
+    await expect(getTeams()).rejects.toMatchObject({ detail: 'field required; too short' });
+  });
+
+  it('ApiError.detail falls back to the raw text for a non-JSON body', async () => {
+    mockFetchError(500, 'Internal Server Error');
+    await expect(getTeams()).rejects.toMatchObject({ detail: 'Internal Server Error' });
   });
 });

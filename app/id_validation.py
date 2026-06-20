@@ -57,7 +57,10 @@ def is_valid_overlay_id(value: object) -> bool:
 def validate_overlay_id(overlay_id: str) -> str:
     """Return *overlay_id* when valid; raise ``ValueError`` otherwise."""
     if not is_valid_overlay_id(overlay_id):
-        raise ValueError(f"Invalid overlay id: {overlay_id!r}")
+        raise ValueError(
+            "Overlay id must be 1–64 characters using only letters, digits, "
+            "'.', '_' or '-' (no spaces)."
+        )
     return overlay_id
 
 

@@ -153,7 +153,7 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
       setIcon('');
       await onChange();
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.message.replace(/^API.*?: /, '') : 'Could not create team.');
+      setError(err instanceof api.ApiError ? err.detail : 'Could not create team.');
     }
   }
 

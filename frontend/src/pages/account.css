@@ -235,4 +235,39 @@
   .acc-nav .spacer {
     display: none;
   }
+  .acc-main {
+    padding: 18px 16px;
+  }
+
+  /* Stack data tables into per-row cards so a phone operator can create an
+     overlay and reach Open / Copy URL without horizontal panning. */
+  .acc-table thead {
+    display: none;
+  }
+  .acc-table,
+  .acc-table tbody,
+  .acc-table tr,
+  .acc-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .acc-table tr {
+    border: 1px solid #232833;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    padding: 4px 2px;
+  }
+  .acc-table td {
+    border-bottom: none;
+    padding: 6px 12px;
+    /* Override the inline ``white-space: nowrap`` on action cells so the
+       buttons + the long OBS URL wrap instead of overflowing. */
+    white-space: normal !important;
+    word-break: break-word;
+  }
+  .acc-table td .acc-btn {
+    display: inline-block;
+    margin: 4px 6px 0 0;
+  }
 }

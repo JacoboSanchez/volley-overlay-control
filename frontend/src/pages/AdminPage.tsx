@@ -40,13 +40,18 @@ export default function AdminPage() {
       setTempNotice(`Created "${res.user.username}". Temporary password: ${res.temp_password}`);
       await load();
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.message.replace(/^API.*?: /, '') : 'Could not create user.');
+      setError(err instanceof api.ApiError ? err.detail : 'Could not create user.');
     }
   }
 
   async function resetPw(u: api.UserOut) {
-    const res = await api.adminResetPassword(u.id);
-    setTempNotice(`Reset "${u.username}". Temporary password: ${res.temp_password}`);
+    setError('');
+    try {
+      const res = await api.adminResetPassword(u.id);
+      setTempNotice(`Reset "${u.username}". Temporary password: ${res.temp_password}`);
+    } catch (err) {
+      setError(err instanceof api.ApiError ? err.detail : 'Password reset failed.');
+    }
   }
 
   async function toggleActive(u: api.UserOut) {
@@ -54,7 +59,7 @@ export default function AdminPage() {
       await api.adminUpdateUser(u.id, { is_active: !u.is_active });
       await load();
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.message.replace(/^API.*?: /, '') : 'Update failed.');
+      setError(err instanceof api.ApiError ? err.detail : 'Update failed.');
     }
   }
 
@@ -64,14 +69,24 @@ export default function AdminPage() {
       await api.adminDeleteUser(u.id);
       await load();
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.message.replace(/^API.*?: /, '') : 'Delete failed.');
+      setError(err instanceof api.ApiError ? err.detail : 'Delete failed.');
     }
   }
 
   async function toggleRegistration() {
-    const r = await api.adminSetRegistration(!registrationOpen);
-    setRegistrationOpen(r.registration_open);
+    setError('');
+    try {
+      const r = await api.adminSetRegistration(!registrationOpen);
+      setRegistrationOpen(r.registration_open);
+    } catch (err) {
+      setError(err instanceof api.ApiError ? err.detail : 'Could not change the registration setting.');
+      await load(); // re-sync the label to the authoritative value
+    }
   }
+
+  // Guard the destructive controls on the sole remaining admin (the backend
+  // also enforces this; the UI just avoids a surprising post-hoc error).
+  const activeAdminCount = users.filter((u) => u.role === 'admin' && u.is_active).length;
 
   return (
     <div>
@@ -107,20 +122,31 @@ export default function AdminPage() {
       <table className="acc-table">
         <thead><tr><th>Username</th><th>Role</th><th>Active</th><th></th></tr></thead>
         <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td>{u.username}{u.must_change_password && <span className="acc-pill" style={{ marginLeft: 6 }}>must change pw</span>}</td>
-              <td>{u.role}</td>
-              <td>{u.is_active ? 'yes' : 'no'}</td>
-              <td style={{ whiteSpace: 'nowrap' }}>
-                <button className="acc-btn ghost" onClick={() => resetPw(u)}>Reset pw</button>{' '}
-                <button className="acc-btn ghost" onClick={() => toggleActive(u)}>
-                  {u.is_active ? 'Deactivate' : 'Activate'}
-                </button>{' '}
-                <button className="acc-btn danger" onClick={() => del(u)}>Delete</button>
-              </td>
-            </tr>
-          ))}
+          {users.map((u) => {
+            const isSelf = ctx?.user?.id === u.id;
+            const lockLastAdmin = u.role === 'admin' && u.is_active && activeAdminCount <= 1;
+            const lockTitle = lockLastAdmin ? 'The last active administrator cannot be removed.' : undefined;
+            return (
+              <tr key={u.id}>
+                <td>
+                  {u.username}
+                  {isSelf && <span className="acc-muted"> (you)</span>}
+                  {u.must_change_password && <span className="acc-pill" style={{ marginLeft: 6 }}>must change pw</span>}
+                </td>
+                <td>{u.role}</td>
+                <td>{u.is_active ? 'yes' : 'no'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button className="acc-btn ghost" onClick={() => resetPw(u)}>Reset pw</button>{' '}
+                  <button className="acc-btn ghost" onClick={() => toggleActive(u)}
+                    disabled={lockLastAdmin} title={lockTitle}>
+                    {u.is_active ? 'Deactivate' : 'Activate'}
+                  </button>{' '}
+                  <button className="acc-btn danger" onClick={() => del(u)}
+                    disabled={lockLastAdmin} title={lockTitle}>Delete</button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

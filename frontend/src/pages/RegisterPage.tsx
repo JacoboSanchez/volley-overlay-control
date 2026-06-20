@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import './account.css';
@@ -13,8 +13,31 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Don't redirect silently when self-signup is off (or the app still needs its
+  // first admin) — explain why and point the visitor at the right place.
   if (ctx && !ctx.registration_open) {
-    return <Navigate to="/login" replace />;
+    return (
+      <div className="acc-shell">
+        <div className="acc-auth">
+          <div className="acc-card">
+            <h1>Sign-up disabled</h1>
+            <p className="acc-sub">
+              {ctx.needs_admin_bootstrap
+                ? 'This instance has no administrator yet.'
+                : 'Public registration is currently closed on this instance.'}
+            </p>
+            <div className="acc-info">
+              {ctx.needs_admin_bootstrap ? (
+                <>Set up the first account on the <Link to="/claim-admin">claim admin</Link> page using
+                the token from the service startup log.</>
+              ) : (
+                <>Ask an administrator to create an account for you, then <Link to="/login">sign in</Link>.</>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   async function onSubmit(e: FormEvent) {

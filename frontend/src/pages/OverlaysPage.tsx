@@ -41,7 +41,7 @@ export default function OverlaysPage() {
       setOutputUrl('');
       await load();
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.message.replace(/^API.*?: /, '') : 'Could not create overlay.');
+      setError(err instanceof api.ApiError ? err.detail : 'Could not create overlay.');
     }
   }
 
@@ -65,7 +65,8 @@ export default function OverlaysPage() {
     <div>
       <h2>My overlays</h2>
       <p className="acc-muted">
-        Each overlay is a scoreboard you control. Add one in OBS using its output URL.
+        Each overlay is a scoreboard you control. To put it on stream, copy its <strong>OBS output
+        URL</strong> below and add it in OBS as a <strong>Browser Source</strong>.
       </p>
 
       <form className="acc-row" onSubmit={onCreate} style={{ marginTop: 16 }}>
@@ -73,6 +74,7 @@ export default function OverlaysPage() {
           <span>Overlay id</span>
           <input className="acc-input" value={oid} placeholder="e.g. liga"
             onChange={(e) => setOid(e.target.value)} />
+          <small className="acc-muted">Letters, digits, <code>. _ -</code> — no spaces.</small>
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
           <span>Display name (optional)</span>
@@ -91,6 +93,7 @@ export default function OverlaysPage() {
           <span>Output URL (cloud, optional)</span>
           <input className="acc-input" value={outputUrl} placeholder="https://app.overlays.uno/output/…"
             onChange={(e) => setOutputUrl(e.target.value)} />
+          <small className="acc-muted">Leave blank to use this app's built-in OBS overlay URL.</small>
         </label>
         <button className="acc-btn" type="submit" disabled={!oid.trim()}>Add overlay</button>
       </form>

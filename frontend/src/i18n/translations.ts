@@ -220,7 +220,7 @@ export const translations: Record<string, TranslationDict> = {
     // Links dialog
     'links.title': 'Links',
     'links.control': 'Control',
-    'links.overlay': 'Overlay',
+    'links.overlay': 'OBS overlay',
     'links.preview': 'Preview',
     'links.follow': 'Spectator view',
     'links.latest_match_report': 'Latest match report',
@@ -539,7 +539,7 @@ export const translations: Record<string, TranslationDict> = {
     // Links dialog
     'links.title': 'Enlaces',
     'links.control': 'Control',
-    'links.overlay': 'Overlay',
+    'links.overlay': 'OBS overlay',
     'links.preview': 'Vista previa',
     'links.follow': 'Vista de espectador',
     'links.latest_match_report': 'Último informe de partido',
@@ -857,7 +857,7 @@ export const translations: Record<string, TranslationDict> = {
     // Links dialog
     'links.title': 'Ligações',
     'links.control': 'Controlo',
-    'links.overlay': 'Overlay',
+    'links.overlay': 'OBS overlay',
     'links.preview': 'Pré-visualização',
     'links.follow': 'Vista do espectador',
     'links.latest_match_report': 'Relatório do último jogo',
@@ -1175,7 +1175,7 @@ export const translations: Record<string, TranslationDict> = {
     // Links dialog
     'links.title': 'Link',
     'links.control': 'Controllo',
-    'links.overlay': 'Overlay',
+    'links.overlay': 'OBS overlay',
     'links.preview': 'Anteprima',
     'links.follow': 'Vista spettatore',
     'links.latest_match_report': 'Ultimo referto della partita',
@@ -1494,7 +1494,7 @@ export const translations: Record<string, TranslationDict> = {
     // Links dialog
     'links.title': 'Liens',
     'links.control': 'Contrôle',
-    'links.overlay': 'Overlay',
+    'links.overlay': 'OBS overlay',
     'links.preview': 'Aperçu',
     'links.follow': 'Vue spectateur',
     'links.latest_match_report': 'Rapport du dernier match',
@@ -1813,7 +1813,7 @@ export const translations: Record<string, TranslationDict> = {
     // Links dialog
     'links.title': 'Links',
     'links.control': 'Steuerung',
-    'links.overlay': 'Overlay',
+    'links.overlay': 'OBS overlay',
     'links.preview': 'Vorschau',
     'links.follow': 'Zuschaueransicht',
     'links.latest_match_report': 'Letzter Spielbericht',

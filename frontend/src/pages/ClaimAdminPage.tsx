@@ -43,7 +43,10 @@ export default function ClaimAdminPage() {
         <form className="acc-card" onSubmit={onSubmit}>
           <h1>Claim first administrator</h1>
           <p className="acc-sub">
-            Paste the one-time token printed in the service startup log (e.g. <code>docker logs</code>).
+            Paste the one-time token printed in the service startup log on first run
+            (<code>docker logs</code>, <code>journalctl</code>, or the console). It can also be set
+            via the <code>ADMIN_BOOTSTRAP_TOKEN</code> environment variable, and is saved to
+            <code>data/.admin_bootstrap_token</code>.
           </p>
           {error && <div className="acc-error">{error}</div>}
           <label className="acc-field">

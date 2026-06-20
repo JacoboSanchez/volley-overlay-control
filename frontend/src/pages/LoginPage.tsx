@@ -65,11 +65,15 @@ export default function LoginPage() {
               {busy ? 'Signing in…' : 'Sign in'}
             </button>
           </div>
-          {ctx?.registration_open && (
+          {ctx && (ctx.registration_open ? (
             <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
               No account? <Link to="/register">Create one</Link>
             </p>
-          )}
+          ) : !ctx.needs_admin_bootstrap && (
+            <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
+              Self sign-up is disabled — ask an administrator for an account.
+            </p>
+          ))}
         </form>
       </div>
     </div>
