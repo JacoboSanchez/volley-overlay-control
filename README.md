@@ -191,6 +191,8 @@ If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot),
 
 The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then the result is copied into the Python image. No separate frontend container or nginx is needed.
 
+> Deploying behind a **Traefik** reverse proxy? Use [`docker-compose.traefik.yml`](docker-compose.traefik.yml) + [`.env.traefik.example`](.env.traefik.example) instead — it publishes the app through Traefik (TLS, HTTP→HTTPS redirect, WebSocket pass-through) with no host ports, SQLite on a volume by default and an optional PostgreSQL service.
+
 1.  Create a `.env` file (everything here is optional):
     ```env
     EXTERNAL_PORT=80
