@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#23284d"/><stop offset="100%" stop-color="#13142a"/></linearGradient>
+    <radialGradient id="ball" cx="40%" cy="36%" r="62%"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#dde3ee"/></radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- ball -->
+  <g filter="url(#sh)" transform="translate(256,216)">
+    <circle r="124" fill="url(#ball)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="9" stroke-linecap="round">
+      <path d="M-70 -52 C-44 -78 12 -84 40 -90"/>
+      <path d="M-84 8 C-34 -12 28 -8 78 -46"/>
+      <path d="M-44 86 C-66 40 -62 -20 -38 -80"/>
+      <path d="M60 82 C84 36 84 -24 56 -84"/>
+    </g>
+  </g>
+  <!-- ON AIR pill -->
+  <g filter="url(#sh)">
+    <rect x="126" y="382" width="260" height="64" rx="32" fill="#f44336"/>
+    <circle cx="172" cy="414" r="14" fill="#fff"/>
+    <text x="232" y="426" font-family="system-ui,Arial,sans-serif" font-weight="800" font-size="32" letter-spacing="3" fill="#fff">ON AIR</text>
+  </g>
+</svg>

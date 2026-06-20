@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#23284d"/><stop offset="100%" stop-color="#13142a"/></linearGradient>
+    <radialGradient id="ball" cx="40%" cy="36%" r="62%"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#dde3ee"/></radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.4"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- bold symmetric broadcast waves both sides -->
+  <g fill="none" stroke="#4fc3f7" stroke-linecap="round">
+    <path d="M168 176 A150 150 0 0 0 168 336" stroke-width="14"/>
+    <path d="M132 144 A196 196 0 0 0 132 368" stroke-width="12" opacity="0.55"/>
+    <path d="M344 176 A150 150 0 0 1 344 336" stroke-width="14"/>
+    <path d="M380 144 A196 196 0 0 1 380 368" stroke-width="12" opacity="0.55"/>
+  </g>
+  <!-- ball -->
+  <g filter="url(#sh)" transform="translate(256,256)">
+    <circle r="104" fill="url(#ball)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="9" stroke-linecap="round">
+      <path d="M-60 -44 C-38 -66 8 -70 34 -76"/>
+      <path d="M-70 8 C-28 -10 22 -4 64 -38"/>
+      <path d="M-36 72 C-54 34 -50 -16 -30 -64"/>
+      <path d="M50 68 C70 30 70 -20 44 -66"/>
+    </g>
+  </g>
+  <!-- REC dot integrated bottom -->
+  <g filter="url(#sh)">
+    <circle cx="256" cy="392" r="26" fill="#f44336"/>
+  </g>
+</svg>

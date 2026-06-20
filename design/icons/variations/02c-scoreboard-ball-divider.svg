@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#202549"/><stop offset="100%" stop-color="#141528"/></linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#262c54"/><stop offset="100%" stop-color="#1a2042"/></linearGradient>
+    <radialGradient id="ball" cx="40%" cy="35%" r="62%"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e3e9f4"/></radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g filter="url(#sh)">
+    <rect x="60" y="168" width="392" height="176" rx="30" fill="url(#panel)" stroke="#39406e" stroke-width="3"/>
+  </g>
+  <text x="150" y="300" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="112" fill="#4fc3f7" text-anchor="middle">25</text>
+  <text x="362" y="300" font-family="'DejaVu Sans Mono',monospace" font-weight="800" font-size="112" fill="#ff7a45" text-anchor="middle">23</text>
+  <!-- ball as the centre separator -->
+  <g filter="url(#sh)" transform="translate(256,256)">
+    <circle r="58" fill="url(#ball)"/>
+    <g fill="none" stroke="#1f2a44" stroke-width="6" stroke-linecap="round">
+      <path d="M-34 -24 C-20 -38 6 -40 18 -44"/>
+      <path d="M-40 4 C-16 -6 14 -2 36 -22"/>
+      <path d="M-20 40 C-30 18 -28 -12 -16 -38"/>
+    </g>
+  </g>
+</svg>
