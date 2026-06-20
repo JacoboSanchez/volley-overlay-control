@@ -20,17 +20,17 @@ It includes 27 overlay style templates served directly to OBS browser sources �
 |---|---|
 | ![Scoreboard control UI in landscape](docs/screenshots/02-scoreboard.png) | ![Scoreboard control UI in portrait](docs/screenshots/03-scoreboard-phone.png) |
 
-| Initial connect screen | Configuration panel |
+| Sign-in page | Configuration panel |
 |---|---|
-| ![Connect screen](docs/screenshots/01-init-screen.png) | ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) |
+| ![Sign-in page](docs/screenshots/01-init-screen.png) | ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) |
 
 | Per-point classification picker (opt-in) |
 |---|
 | <p align="center"><img src="docs/screenshots/11-point-type-picker.png" alt="Scoreboard with the opt-in point-type picker open — ace, kill, block, opponent error, or quick point" width="65%"></p> |
 
-| Account dashboard (`/`) | Match report (`/match/{id}/report`) |
+| My overlays (`/overlays`) | Match report (`/match/{id}/report`) |
 |---|---|
-| ![Account dashboard listing the signed-in user's overlays](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
+| ![Account overlays page listing the signed-in user's overlays with copyable OBS output URLs](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
 | Public spectator page (`/follow/{public_token}`) |
 |---|
@@ -207,6 +207,22 @@ The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then
     `/claim-admin`, and create the first administrator. The SQLite database,
     session secret and bootstrap/overlay-server token files all live under
     `data/`, so persist that directory across container restarts.
+
+### Upgrading from a single-tenant deployment
+
+> ⚠️ **This is a clean break — there is no automatic data migration.** The
+> multi-user app keys runtime data per user (`"<user_id>:<oid>"`) instead of by
+> the bare overlay id, so an older single-tenant deployment's on-disk data is
+> **not** carried over: pre-existing `data/overlay_state_*.json`,
+> `data/audit_*.jsonl`, and the old file-based `data/matches/` archive are left
+> orphaned (nothing is deleted, but the new app never reads them).
+>
+> To upgrade, **start from a fresh `data/` directory**: let the app create a new
+> database, claim the first admin from the startup-log token, then recreate your
+> users, overlays, teams and presets. An existing **teams/presets catalog** can
+> be carried across with the admin JSON import (the **Teams** and **Presets**
+> admin pages, or `POST /api/v1/admin/{teams,presets}/import`). In-progress
+> overlay state and historical match reports are not migrated.
 
 ---
 

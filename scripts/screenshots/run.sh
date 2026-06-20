@@ -14,8 +14,21 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
 PORT="${SCREENSHOT_PORT:-8181}"
-ADMIN_PW="${SCREENSHOT_ADMIN_PASSWORD:-demo}"
+# Must satisfy the app's MIN_PASSWORD_LENGTH (8); the demo admin is throwaway.
+ADMIN_PW="${SCREENSHOT_ADMIN_PASSWORD:-demo-password}"
 BASE_URL="http://localhost:${PORT}"
+
+# The backend now depends on SQLAlchemy/Alembic, which live in the project's
+# virtualenv — the bare system ``python`` will fail to import the app. Prefer
+# the repo venv, fall back to whatever ``python`` is on PATH.
+PYTHON_BIN="${SCREENSHOT_PYTHON:-}"
+if [ -z "$PYTHON_BIN" ]; then
+  if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+    PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+  else
+    PYTHON_BIN="python"
+  fi
+fi
 
 # Use a scratch data dir so persisted overlay JSON does not collide with
 # the operator's working overlays. The backend reads its data dir from
@@ -62,6 +75,13 @@ export PYTEST_CURRENT_TEST=1
 export APP_PORT="$PORT"
 export APP_TITLE="Volley Scoreboard Demo"
 export LOGGING_LEVEL=warning
+# Multi-user auth for the demo: capture.mjs claims the first admin with this
+# known bootstrap token (the DB starts empty in the scratch data dir), then
+# carries the session cookie. Cookies must not require HTTPS over the http
+# harness, and the report shot reads a public match report.
+export ADMIN_BOOTSTRAP_TOKEN="${ADMIN_BOOTSTRAP_TOKEN:-screenshot-bootstrap-token}"
+export SESSION_COOKIE_SECURE=false
+export MATCH_REPORT_PUBLIC=true
 # Make sure no external services or operator-configured tokens bleed through.
 unset UNO_OVERLAY_OID UNO_OVERLAY_OUTPUT REMOTE_CONFIG_URL APP_CUSTOM_OVERLAY_URL \
       APP_CUSTOM_OVERLAY_OUTPUT_URL PREDEFINED_OVERLAYS APP_TEAMS APP_THEMES \
@@ -91,8 +111,8 @@ if [ ! -d "$SCRIPT_DIR/node_modules/playwright" ]; then
   (cd "$SCRIPT_DIR" && npx playwright install chromium)
 fi
 
-echo "Starting backend on $BASE_URL ..."
-python main.py >/tmp/volley-screenshots-server.log 2>&1 &
+echo "Starting backend on $BASE_URL (using $PYTHON_BIN) ..."
+"$PYTHON_BIN" main.py >/tmp/volley-screenshots-server.log 2>&1 &
 SERVER_PID=$!
 
 # Wait for /health.

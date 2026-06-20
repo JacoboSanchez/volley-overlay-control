@@ -49,6 +49,17 @@ once a first tagged release ships.
   teams/presets are superseded by the database. The control API and control
   WebSocket now require a logged-in session; the main page is the login page.
 
+- **No in-place data migration — start clean.** This release is a clean break;
+  there is **no automatic migration** of an existing single-tenant deployment's
+  on-disk data. Runtime data is now keyed per user (`"<user_id>:<oid>"`) instead
+  of by the bare overlay id, so pre-existing `data/overlay_state_*.json`,
+  `data/audit_*.jsonl`, and the old file-based `data/matches/` archive are **not**
+  read by the new app and stay orphaned on disk (nothing is deleted, but nothing
+  is carried over either). Upgrade by starting from a fresh `data/` dir: claim
+  the first admin from the startup-log token, then recreate users, overlays,
+  teams and presets. Migrate an existing **teams/presets catalog** via the admin
+  JSON import (`POST /api/v1/admin/{teams,presets}/import`).
+
 - **New set-summary recap style "Scoresheet" (`ledger_diff`).** A
   comparative box-score — one row per stat with the home value, a bar
   tinted toward whichever side leads, and the away value — sitting above

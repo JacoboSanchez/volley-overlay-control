@@ -178,7 +178,6 @@ _FILENAME_HASH_LEN = DEFAULT_HASH_LEN
 _HASHED_FILENAME_PATTERN = re.compile(
     r"^overlay_state_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$"
 )
-_LEGACY_FILENAME_PATTERN = re.compile(r"^overlay_state_(.+)\.json$")
 
 # Bundled overlay static CSS directory, resolved relative to this module
 # (app/overlay/) so style-capability scanning finds the shipped stylesheets
@@ -218,7 +217,6 @@ class OverlayStateStore:
         self._output_key_cache: dict[str, str] = {}
         self._all_overlays_scanned = False
         os.makedirs(data_dir, exist_ok=True)
-        self._migrate_legacy_files_locked()
 
     def set_broadcast_callback(self, callback: Callable) -> None:
         """Set the callback invoked after state changes to trigger broadcasts."""
@@ -413,49 +411,6 @@ class OverlayStateStore:
             self._output_key_cache[oid] = oid
             self._output_key_cache[self.get_output_key(oid)] = oid
         self._all_overlays_scanned = True
-
-    def _migrate_legacy_files_locked(self) -> None:
-        """Rename ``overlay_state_<id>.json`` → ``overlay_state_<hash>.json``.
-
-        Runs once at init. For each legacy file whose stem matches
-        :mod:`app.id_validation` overlay rules, injects ``_meta.overlay_id`` into
-        the payload and rewrites to the hashed basename. No-op for files
-        already in the new format.
-        """
-        if not os.path.isdir(self._data_dir):
-            return
-        for filename in os.listdir(self._data_dir):
-            if _HASHED_FILENAME_PATTERN.fullmatch(filename):
-                continue
-            m = _LEGACY_FILENAME_PATTERN.fullmatch(filename)
-            if m is None:
-                continue
-            stem = m.group(1)
-            if not is_valid_overlay_id(stem):
-                continue
-            legacy_path = os.path.join(self._data_dir, filename)
-            new_basename = self._hashed_basename(stem)
-            new_path = os.path.join(self._data_dir, new_basename)
-            if os.path.exists(new_path):
-                continue
-            try:
-                with open(legacy_path, encoding="utf-8") as f:
-                    payload = json.load(f)
-            except (OSError, json.JSONDecodeError) as exc:
-                logger.warning("Skipping legacy state file '%s': %s", filename, exc)
-                continue
-            if not isinstance(payload, dict):
-                continue
-            self._stamp_meta(payload, stem)
-            try:
-                self._write_state_sync(new_path, payload)
-                os.remove(legacy_path)
-                logger.info(
-                    "Migrated legacy state file '%s' -> '%s'",
-                    filename, new_basename,
-                )
-            except OSError as exc:
-                logger.warning("Failed to migrate '%s': %s", filename, exc)
 
     # -- Available styles --------------------------------------------------
 
