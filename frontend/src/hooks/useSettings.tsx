@@ -106,7 +106,7 @@ export interface Settings {
    * Show an "on-air" indicator on the control bar that lights when at
    * least one OBS browser source or spectator is connected to this
    * overlay's output. Lets the operator confirm the scoreboard is
-   * actually reaching the stream. Default ON.
+   * actually reaching the stream. Default OFF (opt-in).
    */
   showOnAir: boolean;
   /**
@@ -140,7 +140,7 @@ const DEFAULTS: Settings = {
   autoShowSetSummaryDuration: 15,
   trackPointTypes: false,
   extendedErrorTracking: false,
-  showOnAir: true,
+  showOnAir: false,
   showReportLink: true,
 };
 
