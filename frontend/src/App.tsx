@@ -365,6 +365,10 @@ export default function App() {
             setSummaryStyle={setSummaryStyle}
             onToggleSetSummary={handleToggleSetSummary}
             onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
+            obsClients={state?.obs_clients ?? 0}
+            showOnAir={settings.showOnAir}
+            lastMatchId={state?.last_match_id ?? null}
+            showReportLink={settings.showReportLink}
           />
         </ErrorBoundary>
       )}

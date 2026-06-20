@@ -65,6 +65,11 @@ export interface ScoreboardViewProps {
   setSummaryStyle?: import('../api/client').SetSummaryStyle;
   onToggleSetSummary?: () => void;
   onChangeSetSummaryStyle?: (style: import('../api/client').SetSummaryStyle) => void;
+  /** On-air indicator + match-report link (control-bar affordances). */
+  obsClients?: number;
+  showOnAir?: boolean;
+  lastMatchId?: string | null;
+  showReportLink?: boolean;
 }
 
 export default function ScoreboardView({
@@ -115,6 +120,10 @@ export default function ScoreboardView({
   setSummaryStyle,
   onToggleSetSummary,
   onChangeSetSummaryStyle,
+  obsClients,
+  showOnAir,
+  lastMatchId,
+  showReportLink,
 }: ScoreboardViewProps) {
   const { t } = useI18n();
 
@@ -290,6 +299,10 @@ export default function ScoreboardView({
             matchFinished={state.match_finished}
             setSummaryEnabled={setSummaryEnabled}
             setSummaryActive={setSummaryActive}
+            obsClients={obsClients}
+            showOnAir={showOnAir}
+            lastMatchId={lastMatchId}
+            showReportLink={showReportLink}
             onToggleVisibility={onToggleVisibility}
             onToggleSimpleMode={onToggleSimpleMode}
             onUndoLast={onUndoLast}

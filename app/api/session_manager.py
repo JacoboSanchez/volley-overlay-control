@@ -83,6 +83,12 @@ class GameSession:
         # ``GameService.reset`` and ``GameService.start_match`` clear
         # it back to ``None``. Persisted via session_meta.
         self.match_finished_at: float | None = None
+        # ``match_id`` of the report archived when this session's match
+        # last finished (set by ``game_audit_hooks.archive_if_finished``).
+        # Surfaced in ``GameStateResponse.last_match_id`` only while the
+        # match is finished, so the control board can link straight to the
+        # report. In-memory only — falls back to a DB lookup after a restart.
+        self.last_match_id: str | None = None
         # Match-rule preset (``'indoor'`` or ``'beach'``). Persisted in
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.

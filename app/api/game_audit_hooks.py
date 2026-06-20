@@ -48,6 +48,9 @@ def archive_if_finished(
             points_limit_last_set=session.points_limit_last_set,
             sets_limit=session.sets_limit,
         )
+        # Remember it so the control board can link straight to the report
+        # at match end without a separate lookup (see GameStateResponse).
+        session.last_match_id = match_id
         session.persist_meta()
         return match_id
     except Exception as exc:

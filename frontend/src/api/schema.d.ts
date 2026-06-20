@@ -1510,6 +1510,11 @@ export interface paths {
          *     carry a session cookie). The check fires *before* the library-availability
          *     check so an unauthenticated probe cannot use the 503-vs-200 difference to
          *     fingerprint whether the metrics backend is loaded.
+         *
+         *     Fail **closed**: if gating is requested but no overlay-server credential
+         *     is configured (i.e. ``OVERLAY_SERVER_TOKEN_DISABLED=true``), refuse with
+         *     503 rather than serving the metrics unauthenticated — otherwise the gate
+         *     would silently no-op under a self-contradictory config.
          */
         get: operations["metrics_endpoint_metrics_get"];
         put?: never;
@@ -1791,6 +1796,8 @@ export interface components {
             current_set: number;
             /** Current Set Started At */
             current_set_started_at?: number | null;
+            /** Last Match Id */
+            last_match_id?: string | null;
             /** Match Finished */
             match_finished: boolean;
             /** Match Finished At */
@@ -1798,6 +1805,11 @@ export interface components {
             match_point_info?: components["schemas"]["MatchPointInfo"] | null;
             /** Match Started At */
             match_started_at?: number | null;
+            /**
+             * Obs Clients
+             * @default 0
+             */
+            obs_clients: number;
             /** Serve */
             serve: string;
             /** Server Time */

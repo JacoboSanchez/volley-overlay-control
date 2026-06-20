@@ -4,6 +4,8 @@ import { ConfigSwitch } from './fields';
 export interface GeneralSettings {
   haptics: boolean;
   keyboardShortcuts: boolean;
+  showOnAir: boolean;
+  showReportLink: boolean;
 }
 
 export interface GeneralSectionProps {
@@ -46,6 +48,16 @@ export default function GeneralSection({
           </button>
         </div>
       )}
+      <ConfigSwitch
+        label={t('behavior.onAirIndicator')}
+        checked={settings.showOnAir}
+        onChange={(v) => setSetting('showOnAir', v)}
+      />
+      <ConfigSwitch
+        label={t('behavior.reportLink')}
+        checked={settings.showReportLink}
+        onChange={(v) => setSetting('showReportLink', v)}
+      />
 
       <div className="config-separator" />
       <div className="config-field-row">

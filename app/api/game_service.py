@@ -59,6 +59,37 @@ class GameService:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _obs_client_count(session) -> int:
+        """Live output clients (OBS + spectator) on this overlay, 0 on error.
+
+        Defensive: not every backend tracks this (e.g. bare/test backends),
+        and a counting failure must never break the operator's state fetch.
+        """
+        try:
+            return int(session.backend.obs_client_count)
+        except Exception:  # pragma: no cover - defensive
+            return 0
+
+    @staticmethod
+    def _resolve_last_match_id(session) -> str | None:
+        """``match_id`` of the just-finished match for the report link.
+
+        Prefers the id stashed on the session when the match was archived
+        (free, in-memory); falls back to the archive index only when that is
+        missing (e.g. the session was rebuilt after a restart).
+        """
+        cached = getattr(session, "last_match_id", None)
+        if cached:
+            return cached
+        try:
+            from app.api import match_archive
+
+            summaries = match_archive.list_matches(oid=session.oid)
+            return summaries[0]["match_id"] if summaries else None
+        except Exception:  # pragma: no cover - defensive
+            return None
+
+    @staticmethod
     def get_state(session) -> GameStateResponse:
         """Build a ``GameStateResponse`` from the current session state."""
         t0 = time.perf_counter()
@@ -162,6 +193,11 @@ class GameService:
                 getattr(session, "set_summary_style", "brand_ledger")
             ),
             server_time=time.time(),
+            obs_clients=GameService._obs_client_count(session),
+            last_match_id=(
+                GameService._resolve_last_match_id(session)
+                if match_finished else None
+            ),
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # Misconfigured env var must not turn every /state call into a 500;

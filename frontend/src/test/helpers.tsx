@@ -43,6 +43,8 @@ export const mockGameState: GameState = {
   set_summary_style: 'brand_ledger',
   sides_swapped: false,
   auto_swap_sides: false,
+  obs_clients: 0,
+  last_match_id: null,
 };
 
 export const mockCustomization = {

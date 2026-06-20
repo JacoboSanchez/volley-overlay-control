@@ -78,6 +78,21 @@ class TestGameService:
         assert state.team_2.sets == 0
         assert state.match_finished is False
 
+    def test_get_state_on_air_and_report_fields(self, session):
+        session.backend.obs_client_count = 0
+        state = GameService.get_state(session)
+        assert state.obs_clients == 0
+        # No report link while the match isn't finished.
+        assert state.last_match_id is None
+
+    def test_get_state_obs_clients_reflects_backend_count(self, session):
+        session.backend.obs_client_count = 4
+        assert GameService.get_state(session).obs_clients == 4
+
+    def test_resolve_last_match_id_prefers_session_cache(self, session):
+        session.last_match_id = "match_cached_123"
+        assert GameService._resolve_last_match_id(session) == "match_cached_123"
+
     def test_add_point(self, session):
         result = GameService.add_point(session, team=1)
         assert result.success is True

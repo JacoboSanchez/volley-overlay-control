@@ -322,6 +322,15 @@ class GameStateResponse(BaseModel):
     # stale-set "abandoned match" check) tracks the server even when
     # the client's system clock is wrong.
     server_time: float | None = None
+    # Number of live output clients (OBS browser sources + spectator
+    # pages) currently connected to this overlay's public broadcast.
+    # Lets the control board show an "on-air" indicator so the operator
+    # can confirm the scoreboard is actually reaching OBS/viewers.
+    obs_clients: int = 0
+    # ``match_id`` of the report archived for the just-finished match,
+    # populated only while ``match_finished`` is true so the control
+    # board can offer a "View match report" link. ``None`` mid-match.
+    last_match_id: str | None = None
 
 
 class ActionResponse(BaseModel):

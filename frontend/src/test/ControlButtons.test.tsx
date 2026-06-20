@@ -170,4 +170,50 @@ describe('ControlButtons', () => {
     renderWithI18n(<ControlButtons {...defaultProps} matchStartedAt={Date.now() / 1000} />);
     expect(screen.getByTestId('match-timer')).toBeInTheDocument();
   });
+
+  // ── On-air indicator ───────────────────────────────────────────────
+
+  it('shows the on-air badge with the connected-client count', () => {
+    renderWithI18n(<ControlButtons {...defaultProps} obsClients={3} showOnAir />);
+    expect(screen.getByTestId('onair-indicator')).toHaveTextContent('3');
+  });
+
+  it('hides the on-air badge when no clients are connected', () => {
+    renderWithI18n(<ControlButtons {...defaultProps} obsClients={0} showOnAir />);
+    expect(screen.queryByTestId('onair-indicator')).toBeNull();
+  });
+
+  it('hides the on-air badge when the setting is off', () => {
+    renderWithI18n(<ControlButtons {...defaultProps} obsClients={5} showOnAir={false} />);
+    expect(screen.queryByTestId('onair-indicator')).toBeNull();
+  });
+
+  // ── Match-report link ──────────────────────────────────────────────
+
+  it('shows the report link to the finished match when enabled', () => {
+    renderWithI18n(
+      <ControlButtons {...defaultProps} matchFinished lastMatchId="match_abc_123" showReportLink />,
+    );
+    const link = screen.getByTestId('view-report-button') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toContain('/match/match_abc_123/report');
+    expect(link.getAttribute('target')).toBe('_blank');
+  });
+
+  it('hides the report link until the match is finished', () => {
+    renderWithI18n(
+      <ControlButtons {...defaultProps} matchFinished={false} lastMatchId="m1" showReportLink />,
+    );
+    expect(screen.queryByTestId('view-report-button')).toBeNull();
+  });
+
+  it('hides the report link with no archived match or when the setting is off', () => {
+    renderWithI18n(
+      <ControlButtons {...defaultProps} matchFinished lastMatchId={null} showReportLink />,
+    );
+    expect(screen.queryByTestId('view-report-button')).toBeNull();
+    renderWithI18n(
+      <ControlButtons {...defaultProps} matchFinished lastMatchId="m1" showReportLink={false} />,
+    );
+    expect(screen.queryByTestId('view-report-button')).toBeNull();
+  });
 });

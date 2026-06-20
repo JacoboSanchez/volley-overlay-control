@@ -730,6 +730,17 @@
             ],
             "title": "Current Set Started At"
           },
+          "last_match_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Match Id"
+          },
           "match_finished": {
             "title": "Match Finished",
             "type": "boolean"
@@ -765,6 +776,11 @@
               }
             ],
             "title": "Match Started At"
+          },
+          "obs_clients": {
+            "default": 0,
+            "title": "Obs Clients",
+            "type": "integer"
           },
           "serve": {
             "title": "Serve",
@@ -8084,7 +8100,7 @@
     },
     "/metrics": {
       "get": {
-        "description": "Return the registry's current exposition in Prometheus text format.\n\n``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth against the\nmachine-to-machine ``OVERLAY_SERVER_TOKEN`` (Prometheus scrapers can't\ncarry a session cookie). The check fires *before* the library-availability\ncheck so an unauthenticated probe cannot use the 503-vs-200 difference to\nfingerprint whether the metrics backend is loaded.",
+        "description": "Return the registry's current exposition in Prometheus text format.\n\n``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth against the\nmachine-to-machine ``OVERLAY_SERVER_TOKEN`` (Prometheus scrapers can't\ncarry a session cookie). The check fires *before* the library-availability\ncheck so an unauthenticated probe cannot use the 503-vs-200 difference to\nfingerprint whether the metrics backend is loaded.\n\nFail **closed**: if gating is requested but no overlay-server credential\nis configured (i.e. ``OVERLAY_SERVER_TOKEN_DISABLED=true``), refuse with\n503 rather than serving the metrics unauthenticated \u2014 otherwise the gate\nwould silently no-op under a self-contradictory config.",
         "operationId": "metrics_endpoint_metrics_get",
         "parameters": [
           {
