@@ -176,3 +176,94 @@ def test_delete_own_account(client):
     client.post("/api/v1/auth/register", json={"username": "dave", "password": "password123"})
     assert client.delete("/api/v1/auth/me").status_code == 200
     assert client.get("/api/v1/auth/me").status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Session resolution: expiry, deactivation, cookie flags (review findings)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_session_rejects_and_deletes_expired(db_session):
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.auth import sessions
+    from app.db.models.user import AuthSession
+    from tests.conftest import make_user
+
+    user = make_user(db_session, "expu")
+    raw = sessions.create_session(db_session, user)
+    db_session.commit()
+
+    row = db_session.execute(
+        select(AuthSession).where(
+            AuthSession.token_hash == sessions.hash_token(raw)
+        )
+    ).scalar_one()
+    row.expires_at = sessions._now() - timedelta(hours=1)
+    db_session.commit()
+
+    assert sessions.resolve_session(db_session, raw) is None
+    # Expired rows are dropped lazily.
+    assert db_session.execute(select(AuthSession)).first() is None
+
+
+def test_resolve_session_rejects_deactivated_user(db_session):
+    from sqlalchemy import select
+
+    from app.auth import sessions
+    from app.db.models.user import AuthSession
+    from tests.conftest import make_user
+
+    user = make_user(db_session, "deactu")
+    raw = sessions.create_session(db_session, user)
+    db_session.commit()
+    user.is_active = False
+    db_session.commit()
+
+    assert sessions.resolve_session(db_session, raw) is None
+    # Deactivation is reversible, so the row is kept (not deleted) — it is
+    # simply unusable while is_active is False.
+    assert db_session.execute(select(AuthSession)).first() is not None
+
+
+def test_deactivated_user_is_logged_out_on_next_request(client, db_session):
+    from sqlalchemy import select
+
+    from app.db.models.user import User
+    from tests.conftest import make_user
+
+    make_user(db_session, "normo", password="password123")
+    assert client.post(
+        "/api/v1/auth/login", json={"username": "normo", "password": "password123"}
+    ).status_code == 200
+    assert client.get("/api/v1/auth/me").status_code == 200
+
+    # Admin deactivates the account out-of-band; the existing cookie must stop working.
+    u = db_session.execute(select(User).where(User.username == "normo")).scalar_one()
+    u.is_active = False
+    db_session.commit()
+    assert client.get("/api/v1/auth/me").status_code == 401
+
+
+def test_session_cookie_is_httponly_and_samesite_lax(client, db_session):
+    resp = _claim_admin(client, db_session)
+    set_cookie = resp.headers.get("set-cookie", "")
+    assert "vsession=" in set_cookie
+    low = set_cookie.lower()
+    assert "httponly" in low
+    assert "samesite=lax" in low
+
+
+def test_cookie_secure_follows_env_then_scheme(monkeypatch):
+    from app.auth import sessions
+
+    monkeypatch.delenv("SESSION_COOKIE_SECURE", raising=False)
+    assert sessions.cookie_secure("https") is True
+    assert sessions.cookie_secure("http") is False
+    # An explicit override wins over the request scheme either way.
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    assert sessions.cookie_secure("http") is True
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "false")
+    assert sessions.cookie_secure("https") is False

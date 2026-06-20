@@ -26,8 +26,10 @@ def validate_config():
             logger.warning("Invalid %s '%s': must be a positive integer. Defaulting to %s.", var, val, default)
             os.environ[var] = default
 
-    # JSON validation
-    json_vars = ['APP_TEAMS', 'SCOREBOARD_USERS', 'PREDEFINED_OVERLAYS', 'APP_THEMES']
+    # JSON validation. (SCOREBOARD_USERS / PREDEFINED_OVERLAYS were removed in
+    # the multi-user refactor; APP_TEAMS / APP_THEMES survive only as the admin
+    # import/export JSON shapes, not as operator env config.)
+    json_vars = ['APP_TEAMS', 'APP_THEMES']
     for var in json_vars:
         val = os.environ.get(var)
         if val:

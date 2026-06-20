@@ -511,3 +511,62 @@ class TestBuildOverlayPayloadSetSummary:
         info = self._payload(backend)["match_info"]
         assert info["show_set_summary"] is False
         assert info["set_summary_style"] == "brand_ledger"
+
+
+# --- _build_overlay_payload: live-stats key (regression) ---
+
+class TestBuildOverlayPayloadLiveStatsKey:
+    """The broadcast live-stats block must read the audit log under the
+    per-user storage key (``skey``), not the bare ``oid``.
+
+    Regression for a re-key bug where ``_build_overlay_payload`` read
+    ``compute_live_stats(conf.oid)`` while the audit log is written under
+    ``conf.skey`` — leaving the streak/comeback/points panel empty on
+    every overlay, and (if a bare-oid audit file ever existed) leaking
+    stats across users who share an ``oid``.
+    """
+
+    def _add_point(self, key, team, score_pair, set_num=1):
+        from app.api import action_log
+        action_log.append(
+            key, "add_point", {"team": team, "undo": False},
+            {
+                "current_set": set_num,
+                "team_1": {"score": score_pair[0], "sets": 0, "timeouts": 0},
+                "team_2": {"score": score_pair[1], "sets": 0, "timeouts": 0},
+                "serve": "A" if team == 1 else "B",
+            },
+        )
+
+    def _stats_for(self, oid, skey):
+        from app.customization import Customization
+        conf = Conf()
+        conf.oid = oid
+        conf.skey = skey
+        backend = Backend(conf)
+        payload = backend._build_overlay_payload(
+            {}, customization_state=dict(Customization.reset_state)
+        )
+        return payload["overlay_control"]["stats"]
+
+    def test_reads_skey_not_bare_oid(self):
+        # Real session: a 3-point team-1 streak written under the skey.
+        for i in range(1, 4):
+            self._add_point("7:liga", 1, (i, 0))
+        # A decoy written under the bare oid — must NOT be read.
+        self._add_point("liga", 2, (0, 1))
+
+        stats = self._stats_for("liga", "7:liga")
+        assert stats["current_streak"] == {"team": 1, "n": 3, "set": 1}
+
+    def test_two_users_sharing_oid_are_isolated(self):
+        # User A (skey 1:liga): team-1 streak of 2.
+        self._add_point("1:liga", 1, (1, 0))
+        self._add_point("1:liga", 1, (2, 0))
+        # User B (skey 2:liga): a single team-2 point.
+        self._add_point("2:liga", 2, (0, 1))
+
+        a = self._stats_for("liga", "1:liga")
+        b = self._stats_for("liga", "2:liga")
+        assert a["current_streak"] == {"team": 1, "n": 2, "set": 1}
+        assert b["current_streak"] == {"team": 2, "n": 1, "set": 1}

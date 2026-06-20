@@ -493,7 +493,12 @@ class Backend:
 
         try:
             from app.api.live_stats import compute_live_stats
-            stats = compute_live_stats(self.conf.oid, history_limit=30)
+            # The audit log is keyed by the per-user storage key (``skey``);
+            # ``conf.oid`` is the bare oid and would read the wrong (empty)
+            # file. Fall back to the raw id for bare/standalone backends.
+            stats = compute_live_stats(
+                self.conf.skey or self.conf.oid, history_limit=30,
+            )
             payload["overlay_control"]["stats"] = {
                 "current_streak": stats["current_streak"],
                 "longest_streak": stats["longest_streak"],

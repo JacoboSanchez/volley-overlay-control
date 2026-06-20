@@ -90,8 +90,8 @@ def make_signed_query(
 ) -> dict | None:
     """Return ``{exp, sig, expires_at}`` for the signed URL, or ``None``.
 
-    ``None`` means signing is unavailable because the admin password
-    is unset; callers translate that to a 503.
+    ``None`` means signing is unavailable because ``SESSION_SECRET`` is
+    unset; callers translate that to a 503.
 
     *now* is a test seam for deterministic expiry; production callers
     should leave it as ``None``.

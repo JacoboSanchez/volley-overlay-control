@@ -87,6 +87,16 @@ class TestMetricsAdminGate:
         res = client.get("/metrics", headers={"Authorization": "Bearer wrong"})
         assert res.status_code == 403
 
+    def test_token_required_but_no_credential_fails_closed_503(self, client, monkeypatch):
+        # METRICS_REQUIRE_ADMIN=true but no overlay-server credential configured
+        # (e.g. OVERLAY_SERVER_TOKEN_DISABLED): refuse rather than serve
+        # the metrics unauthenticated.
+        monkeypatch.setenv("METRICS_REQUIRE_ADMIN", "true")
+        monkeypatch.delenv("OVERLAY_SERVER_TOKEN", raising=False)
+        monkeypatch.delenv("OVERLAY_SERVER_TOKEN_HASH", raising=False)
+        res = client.get("/metrics", headers={"Authorization": "Bearer anything"})
+        assert res.status_code == 503
+
 
 class TestWebhookCounter:
     """``record_webhook_outcome`` updates the labelled counter."""

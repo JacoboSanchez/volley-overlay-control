@@ -1,19 +1,18 @@
 """Startup security bootstrap — fail-closed defaults for credentials.
 
 The original posture was "fail-open if unset": ``OVERLAY_SERVER_TOKEN``
-and ``SCOREBOARD_USERS`` would both default to "no auth required" with
-only a startup log line warning the operator. That is hostile to the
-common ``docker compose up`` install where the operator never reads
-the warning, and it leaves the seven mutation endpoints on the
-overlay router (``POST /api/state/{id}``, ``/create/overlay``,
-``/delete/overlay``, ``/api/raw_config``, ``/api/theme``) open to
-anyone who can reach the port.
+would default to "no auth required" with only a startup log line
+warning the operator. That is hostile to the common ``docker compose
+up`` install where the operator never reads the warning, and it leaves
+the mutation endpoints on the overlay router (``POST /api/state/{id}``,
+``/create/overlay``, ``/delete/overlay``, ``/api/raw_config``,
+``/api/theme``) open to anyone who can reach the port.
 
-This module flips that default for ``OVERLAY_SERVER_TOKEN`` only —
-``SCOREBOARD_USERS`` is left fail-open because it gates user-level
-auth and forcing every "Friday-night team" deployment into a mandatory
-account model would be a real downgrade. We log loudly when it's
-unset instead.
+User-level auth is no longer bootstrapped here: it is now a mandatory
+cookie-session model (``app.auth``), and the first admin is claimed via
+a one-time token minted by ``app.auth.bootstrap.ensure_admin_bootstrap``.
+This module covers the two machine credentials — ``OVERLAY_SERVER_TOKEN``
+and ``SESSION_SECRET`` — only.
 
 For ``OVERLAY_SERVER_TOKEN``, the resolution order at startup is:
 

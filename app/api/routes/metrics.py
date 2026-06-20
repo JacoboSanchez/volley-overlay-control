@@ -13,8 +13,12 @@ Auth ladder:
   Kubernetes service mesh / Prometheus operator without provisioning
   another secret.
 * Opt-in: setting ``METRICS_REQUIRE_ADMIN=true`` gates the route
-  behind the same Bearer token as ``/api/v1/admin/*`` for operators
-  who would rather not expose anything to the LAN.
+  behind the machine-to-machine ``OVERLAY_SERVER_TOKEN`` Bearer (the
+  same credential the overlay-server peer endpoints use) for operators
+  who would rather not expose anything to the LAN. This is **not** the
+  admin cookie-session credential — Prometheus scrapers can't carry a
+  cookie — so ``METRICS_REQUIRE_ADMIN`` is a slight misnomer kept for
+  backwards-compatible config.
 """
 from __future__ import annotations
 
@@ -27,7 +31,10 @@ from app.metrics import (
     REGISTRY,
     generate_latest,
 )
-from app.overlay.auth import require_overlay_server_token
+from app.overlay.auth import (
+    _get_overlay_server_credential,
+    require_overlay_server_token,
+)
 
 router = APIRouter()
 
@@ -49,8 +56,22 @@ def metrics_endpoint(authorization: str = Header(None)):
     carry a session cookie). The check fires *before* the library-availability
     check so an unauthenticated probe cannot use the 503-vs-200 difference to
     fingerprint whether the metrics backend is loaded.
+
+    Fail **closed**: if gating is requested but no overlay-server credential
+    is configured (i.e. ``OVERLAY_SERVER_TOKEN_DISABLED=true``), refuse with
+    503 rather than serving the metrics unauthenticated — otherwise the gate
+    would silently no-op under a self-contradictory config.
     """
     if _require_token_when_configured():
+        if _get_overlay_server_credential() is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "METRICS_REQUIRE_ADMIN is set but no OVERLAY_SERVER_TOKEN is "
+                    "configured (OVERLAY_SERVER_TOKEN_DISABLED?). Refusing to "
+                    "serve metrics unauthenticated."
+                ),
+            )
         require_overlay_server_token(authorization)
     if not PROMETHEUS_AVAILABLE:
         raise HTTPException(

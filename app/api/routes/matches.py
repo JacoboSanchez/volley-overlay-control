@@ -37,10 +37,12 @@ async def list_matches(
     user: User = Depends(require_user),
 ):
     """Return summaries of the caller's archived matches, newest first."""
-    # Always enforce ownership in the route: never trust ``list_matches`` to
-    # scope by the storage key. A malformed ``oid`` makes ``make_skey`` produce
-    # an invalid key, and ``list_matches`` then fails *open* (returns the full
-    # cross-user index) — so the ``_owns`` filter is the real authorization gate.
+    # The ``_owns`` filter below is the real authorization gate, applied
+    # unconditionally to every branch. Note the two ``list_matches`` shapes:
+    # a provided ``oid`` is scoped to this user's skey and fails *closed* on a
+    # malformed key (returns ``[]``); the no-``oid`` branch reads the full table
+    # (defense-in-depth then narrows it). Either way the caller only ever sees
+    # rows whose skey starts with ``"<their id>:"``.
     raw = match_archive.list_matches(oid=make_skey(user.id, oid)) if oid \
         else match_archive.list_matches()
     summaries = [s for s in raw if _owns(s.get("oid"), user)]
