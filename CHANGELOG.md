@@ -43,6 +43,15 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Mobile account navigation redesigned.** On phones the account/management
+  navigation (Dashboard, My overlays, Teams, Presets, Reports, Account, Admin)
+  was a single horizontally-scrolling row, so links past the viewport edge —
+  including Account, Admin, and Sign out — were hidden behind a non-obvious
+  swipe. It is now a sticky top bar with a hamburger button that opens an
+  off-canvas drawer listing every destination, the signed-in user, and Sign
+  out. The drawer closes on navigation, on backdrop tap, and on Escape, and
+  locks background scroll while open. The desktop sidebar layout is unchanged.
+
 - **No backward compatibility.** `SCOREBOARD_USERS`, `OVERLAY_MANAGER_PASSWORD`-
   gated scoreboard access, the `PREDEFINED_OVERLAYS` catalog, and the
   `APP_TEAMS` / `APP_THEMES` / `REMOTE_CONFIG_URL` configuration sources for

@@ -171,6 +171,91 @@
   flex: 1;
 }
 
+.acc-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.acc-nav-signout {
+  margin-top: 4px;
+}
+
+/* Mobile top bar + hamburger. Hidden on desktop, where the sidebar nav is
+   always on screen. */
+.acc-topbar {
+  display: none;
+}
+
+.acc-hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid #2c333f;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.acc-hamburger-box {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 14px;
+}
+
+.acc-hamburger-inner,
+.acc-hamburger-inner::before,
+.acc-hamburger-inner::after {
+  position: absolute;
+  left: 0;
+  width: 20px;
+  height: 2px;
+  background: #e7e9ee;
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease, top 0.2s ease;
+}
+
+.acc-hamburger-inner {
+  top: 6px;
+}
+
+.acc-hamburger-inner::before,
+.acc-hamburger-inner::after {
+  content: '';
+}
+
+.acc-hamburger-inner::before {
+  top: -6px;
+}
+
+.acc-hamburger-inner::after {
+  top: 6px;
+}
+
+/* Morph the three bars into an X while the drawer is open. */
+.acc-hamburger.open .acc-hamburger-inner {
+  background: transparent;
+}
+
+.acc-hamburger.open .acc-hamburger-inner::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+
+.acc-hamburger.open .acc-hamburger-inner::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
+.acc-nav-backdrop {
+  display: none;
+}
+
 .acc-main {
   padding: 28px 32px;
   max-width: 960px;
@@ -225,16 +310,73 @@
   .acc-layout {
     grid-template-columns: 1fr;
   }
-  .acc-nav {
-    flex-direction: row;
-    overflow-x: auto;
-    border-right: none;
+
+  /* Sticky top bar carries the brand + hamburger; it stays above the drawer so
+     the close (X) affordance is always reachable. */
+  .acc-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #14171d;
     border-bottom: 1px solid #232833;
   }
-  .acc-nav .brand,
-  .acc-nav .spacer {
+  .acc-topbar .brand {
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+
+  /* The sidebar becomes an off-canvas drawer that slides in from the left.
+     Every destination is one tap away — no horizontal swiping to discover
+     links that used to scroll off the edge. */
+  .acc-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(82vw, 300px);
+    /* Clear the sticky top bar (which stays above the drawer) so the first
+       link isn't hidden underneath it. */
+    padding: 70px 14px calc(16px + env(safe-area-inset-bottom));
+    border-right: 1px solid #232833;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+  .acc-nav.open {
+    transform: translateX(0);
+  }
+  /* The brand already lives in the top bar on mobile. */
+  .acc-nav .brand {
     display: none;
   }
+  .acc-nav a {
+    font-size: 1rem;
+    padding: 12px 12px;
+  }
+
+  /* Dim the page behind the open drawer; tapping it closes the menu. */
+  .acc-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    display: block;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .acc-nav-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .acc-main {
     padding: 18px 16px;
   }
