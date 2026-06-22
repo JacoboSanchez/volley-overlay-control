@@ -32,6 +32,13 @@ class UserOverlay(Base, TimestampMixin):
     oid: Mapped[str] = mapped_column(String(64), nullable=False)
     # Opaque, globally-unique capability token for the public OBS output URL.
     public_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    # Opaque, globally-unique capability token for the *control* board. Anyone
+    # with this token can drive the scoreboard without logging in (a link the
+    # owner hands to an operator). Resolves to this overlay's storage key, so it
+    # also separates two users sharing the same ``oid``. Nullable only so rows
+    # predating the column (backfilled by migration) remain valid; the service
+    # always mints one on create. Regenerating it revokes old links.
+    control_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     display_name: Mapped[str | None] = mapped_column(String(120))
     # Optional explicit OBS output URL — used for overlays.uno cloud overlays
     # or any custom output. When empty, the local ``/overlay/<public_token>``

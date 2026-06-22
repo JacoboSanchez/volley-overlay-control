@@ -7,15 +7,16 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
-from app.api.dependencies import get_session
+from app.api.dependencies import control_token, get_session
 from app.api.game_service import GameService
 from app.api.routes.lifespan import get_init_lock
 from app.api.schemas import ActionResponse, InitRequest, SetRulesRequest
 from app.api.session_manager import GameSession, SessionManager
-from app.auth.dependencies import require_user
+from app.auth.dependencies import PASSWORD_CHANGE_REQUIRED, current_user
 from app.backend import Backend
 from app.conf import Conf
 from app.db.engine import get_db
+from app.db.models.overlay import UserOverlay
 from app.db.models.user import User
 from app.logging_utils import redact_oid
 from app.oid_utils import UNO_OUTPUT_BASE_URL
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _ensure_user_overlay(db: Session, user: User, oid: str):
+def _ensure_user_overlay(db: Session, user: User, oid: str) -> UserOverlay:
     """Return the caller's overlay row for *oid*, auto-creating it.
 
     Opening a board for an id the user has not added yet simply registers it
@@ -41,24 +42,50 @@ def _ensure_user_overlay(db: Session, user: User, oid: str):
     return overlay
 
 
+def _resolve_init_overlay(
+    db: Session, *, token: str | None, user: User | None, oid: str,
+) -> UserOverlay:
+    """Resolve the overlay to initialise from a control token or cookie user.
+
+    Operator (token) mode resolves an existing overlay; owner (cookie) mode
+    auto-creates the overlay for a not-yet-registered ``oid``.
+    """
+    if token:
+        overlay = overlays_service.get_by_control_token(db, token)
+        if overlay is None:
+            raise HTTPException(status_code=403, detail="Invalid or revoked control link.")
+        return overlay
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if user.must_change_password:
+        raise HTTPException(status_code=409, detail=PASSWORD_CHANGE_REQUIRED)
+    return _ensure_user_overlay(db, user, oid)
+
+
 @router.post("/session/init", response_model=ActionResponse)
 async def init_session(
     req: InitRequest,
-    user: User = Depends(require_user),
+    token: str | None = Depends(control_token),
+    user: User | None = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Initialise (or re-use) a game session for the caller's overlay ID."""
+    """Initialise (or re-use) a game session for an overlay.
+
+    Reachable by the owner (cookie + ``oid``) or an operator holding the
+    overlay's control token (``?c=``), so a shared board can be bootstrapped
+    after a server restart by whoever opens the link.
+    """
     try:
-        overlay = _ensure_user_overlay(db, user, req.oid)
+        overlay = _resolve_init_overlay(db, token=token, user=user, oid=req.oid)
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    skey = make_skey(user.id, overlay.oid)
+    skey = make_skey(overlay.user_id, overlay.oid)
     is_uno = matches_uno_format(overlay.oid)
 
     conf = Conf()
     conf.oid = overlay.oid
-    conf.user_id = user.id
+    conf.user_id = overlay.user_id
     conf.skey = skey
     conf.public_token = overlay.public_token
     # Output URL precedence: explicit request > the overlay's stored output URL

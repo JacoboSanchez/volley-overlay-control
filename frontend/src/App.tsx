@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { setControlToken } from './api/client';
 import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
@@ -31,7 +32,13 @@ import PointTypePicker from './components/PointTypePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { asString } from './utils/coerce';
 
-export default function App() {
+export default function App({ controlToken }: { controlToken?: string } = {}) {
+  // Register the operator capability token before any board request fires (the
+  // session-init effect below runs after this render). ``useMemo`` sets it
+  // synchronously during render; owner mode clears it back to ``null``.
+  const operator = !!controlToken;
+  useMemo(() => setControlToken(controlToken ?? null), [controlToken]);
+
   const { t, lang } = useI18n();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
@@ -40,6 +47,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const { oid, setOid, oidInput, setOidInput, handleInit, handleLogout } = useOidSession({
     onLogout: useCallback(() => setActiveTab('scoreboard'), []),
+    initialOid: controlToken,
   });
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
@@ -65,14 +73,19 @@ export default function App() {
   // from ``useGameState(oid)``, which needs the hook's ``oid`` first.
   useEffect(() => {
     if (oid) {
-      try {
-        localStorage.setItem('volley_oid', oid);
-      } catch (e) {
-        console.warn('Failed to save OID:', e);
+      // Don't persist the operator's control-token handle to localStorage — it
+      // is a shared-device credential and a stale value would hijack a later
+      // owner visit to /board.
+      if (!operator) {
+        try {
+          localStorage.setItem('volley_oid', oid);
+        } catch (e) {
+          console.warn('Failed to save OID:', e);
+        }
       }
       initialize();
     }
-  }, [oid, initialize]);
+  }, [oid, initialize, operator]);
 
   useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
 
@@ -383,6 +396,7 @@ export default function App() {
             autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
+            operator={operator}
             onCustomizationSaved={refreshCustomization}
             darkMode={settings.darkMode}
             isFullscreen={isFullscreen}

@@ -6,6 +6,7 @@ import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
 import { HUD_AUTO_HIDE_MS } from '../constants';
 
 vi.mock('../api/client', () => ({
+  setControlToken: vi.fn(),
   initSession: vi.fn(),
   getCustomization: vi.fn(),
   getLinks: vi.fn(),

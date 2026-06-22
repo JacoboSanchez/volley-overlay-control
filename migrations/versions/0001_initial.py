@@ -1,16 +1,15 @@
 """initial schema
 
 Revision ID: 0001_initial
-Revises: 
+Revises:
 Create Date: 2026-06-19 17:21:47.803481
 """
 from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '0001_initial'

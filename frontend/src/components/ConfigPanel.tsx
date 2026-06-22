@@ -111,6 +111,10 @@ export interface ConfigPanelProps {
   autoSwapSides?: boolean | null;
   onBack: () => void;
   onLogout: () => void;
+  /** Operator (shareable-link) mode: hide the owner-only Sign out control,
+   *  which would otherwise drop the board to the OID picker the operator
+   *  cannot use. */
+  operator?: boolean;
   onCustomizationSaved?: () => void | Promise<void>;
   /**
    * Theme + fullscreen toggles live in this panel — they're
@@ -143,6 +147,7 @@ export default function ConfigPanel({
   autoSwapSides = null,
   onBack,
   onLogout,
+  operator = false,
   onCustomizationSaved,
   darkMode,
   isFullscreen,
@@ -490,14 +495,16 @@ export default function ConfigPanel({
         >
           <span className="material-icons">{themeIcon(darkMode)}</span>
         </button>
-        <button
-          className="config-bottom-btn config-bottom-btn-logout"
-          onClick={() => setLogoutConfirmOpen(true)}
-          title={t('config.logout')}
-          data-testid="logout-button"
-        >
-          <span className="material-icons">logout</span>
-        </button>
+        {!operator && (
+          <button
+            className="config-bottom-btn config-bottom-btn-logout"
+            onClick={() => setLogoutConfirmOpen(true)}
+            title={t('config.logout')}
+            data-testid="logout-button"
+          >
+            <span className="material-icons">logout</span>
+          </button>
+        )}
       </div>
 
       {saveError && (

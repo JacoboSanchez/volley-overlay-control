@@ -47,17 +47,21 @@ function PublicOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** The existing control board, scoped to the caller's overlay via ?oid=. */
+/** The control board. Owner mode is scoped via ?oid= behind a login; operator
+ *  mode is scoped via a ?c=<control_token> capability link and needs no login. */
 function Board() {
-  return (
+  const controlToken = new URLSearchParams(useLocation().search).get('c');
+  const board = (
     <I18nProvider>
       <SettingsProvider>
         <Suspense fallback={<Loading />}>
-          <App />
+          <App controlToken={controlToken ?? undefined} />
         </Suspense>
       </SettingsProvider>
     </I18nProvider>
   );
+  // A valid control link is its own credential — no session cookie required.
+  return controlToken ? board : <RequireAuth>{board}</RequireAuth>;
 }
 
 export default function AppRouter() {
@@ -76,7 +80,7 @@ export default function AppRouter() {
               </RequireAuth>
             }
           />
-          <Route path="/board" element={<RequireAuth><Board /></RequireAuth>} />
+          <Route path="/board" element={<Board />} />
           <Route
             element={
               <RequireAuth>

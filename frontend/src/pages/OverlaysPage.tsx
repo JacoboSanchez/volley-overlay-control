@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
+import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
 
 export default function OverlaysPage() {
@@ -225,6 +226,45 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
           onChange={(e) => setOutputUrl(e.target.value)} />
       </label>
       <button className="acc-btn" onClick={save}>Save settings</button>
+
+      <ControlLink o={o} onChanged={onSaved} />
+    </div>
+  );
+}
+
+function ControlLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  async function regenerate() {
+    if (!confirm('Generate a new control link? The current link will stop working immediately.')) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.regenerateControlToken(o.oid);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="acc-section" style={{ marginTop: 18, maxWidth: 560 }}>
+      <h4 style={{ margin: '0 0 4px' }}>Operator control link</h4>
+      <p className="acc-muted" style={{ marginTop: 0 }}>
+        Anyone with this link can run this scoreboard — no login needed. Hand it to whoever is
+        tracking the match. Regenerate it to revoke a link you’ve shared.
+      </p>
+      {o.control_url ? (
+        <CopyField value={o.control_url} label="Operator control link" />
+      ) : (
+        <span className="acc-muted">No link yet — generate one.</span>
+      )}
+      <div style={{ marginTop: 10 }}>
+        <button className="acc-btn ghost" onClick={regenerate} disabled={busy}>
+          {busy ? 'Working…' : o.control_url ? 'Regenerate link' : 'Generate link'}
+        </button>
+      </div>
     </div>
   );
 }

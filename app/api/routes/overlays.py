@@ -31,6 +31,8 @@ class OverlayOut(BaseModel):
     public_token: str = Field(..., description="Public OBS-output capability token")
     output_url: str = Field(..., description="OBS output URL (custom/cloud, or the local /overlay/<token>)")
     custom_output_url: str | None = Field(None, description="Explicit override URL, if set")
+    control_token: str | None = Field(None, description="Shareable control capability token")
+    control_url: str | None = Field(None, description="Ready-made shareable control-board link")
     points: int | None = Field(None, description="Default points per set")
     points_last_set: int | None = Field(None, description="Default points in the deciding set")
     sets: int | None = Field(None, description="Default sets in the match (best-of)")
@@ -57,12 +59,17 @@ def _overlay_out(request: Request, overlay) -> OverlayOut:
     public_url = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
     base = public_url or str(request.base_url).rstrip("/")
     local_url = f"{base}/overlay/{overlay.public_token}"
+    control_url = (
+        f"{base}/board?c={overlay.control_token}" if overlay.control_token else None
+    )
     return OverlayOut(
         oid=overlay.oid,
         display_name=overlay.display_name,
         public_token=overlay.public_token,
         output_url=overlay.output_url or local_url,
         custom_output_url=overlay.output_url,
+        control_token=overlay.control_token,
+        control_url=control_url,
         points=overlay.points,
         points_last_set=overlay.points_last_set,
         sets=overlay.sets,
@@ -146,6 +153,25 @@ async def delete_my_overlay(
     # archived matches explicitly.
     await run_in_threadpool(match_archive.delete_for_oid, skey)
     return {"ok": True}
+
+
+@router.post("/overlays/{oid}/regenerate-control-token", response_model=OverlayOut)
+async def regenerate_control_token(
+    oid: str,
+    request: Request,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Mint a fresh control token for one of the caller's overlays.
+
+    This revokes any previously-shared control link for that board.
+    """
+    try:
+        overlay = overlays_service.regenerate_control_token(db, user.id, oid)
+    except overlays_service.OverlayError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    db.commit()
+    return _overlay_out(request, overlay)
 
 
 # NOTE: ``GET /api/v1/teams`` now lives in app/api/routes/teams.py and returns

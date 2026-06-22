@@ -28,7 +28,14 @@ match reports (`match_reports`) live in the DB. Every per-overlay runtime
 surface is keyed by the **storage key** `skey = "<user_id>:<oid>"` (see
 `app/overlay_key.py`, `make_skey`), so two users can drive the same `oid` in
 isolation; the public OBS output URL uses an unguessable per-overlay
-`public_token`. Live overlay render state (`data/overlay_state_*.json`) and the
+`public_token`. Each overlay also has a `control_token`: an unguessable
+capability for a **shareable control-board link** (`/board?c=<token>`) that
+grants full board control without a login (the operator link the owner hands
+out). The control surface (`/api/v1/game/*`, `/state`, `/customization`,
+`/display/*`, `/session/*`, `/ws`) authorizes **either** that token (`?c=` query
+or `X-Control-Token` header) **or** the owner's `vsession` cookie — see
+`app/api/dependencies.py` (`resolve_board_skey`, `require_board_control`,
+`get_session`). Live overlay render state (`data/overlay_state_*.json`) and the
 per-overlay audit log (`data/audit_*.jsonl`) stay on file, re-keyed by `skey`.
 See `app/db/`, `app/auth/`, `app/teams_service.py`, `app/presets_service.py`,
 `app/settings_service.py`, and `app/api/routes/{overlays,teams,admin_users}.py`.
@@ -278,7 +285,8 @@ All `/api/v1/*` user routes require the `vsession` cookie (`require_user`); admi
 | `/` | SPA — login front door, account dashboard, and `/board?oid=` control (served from `frontend/dist/`) |
 | `/api/v1/auth/register`, `/login`, `/logout` | Cookie-session account lifecycle (registration gated by `REGISTRATION_OPEN`) |
 | `/api/v1/auth/claim-admin` | `POST` — claim the first admin with the startup bootstrap token (410 once an admin exists) |
-| `/api/v1/overlays` | Per-user overlay CRUD (`GET`/`POST`/`PATCH`/`DELETE`); each row mints an unguessable `public_token` |
+| `/api/v1/overlays` | Per-user overlay CRUD (`GET`/`POST`/`PATCH`/`DELETE`); each row mints an unguessable `public_token` (OBS output) and `control_token` (shareable board link) |
+| `/api/v1/overlays/{oid}/regenerate-control-token` | `POST` — mint a fresh control token, revoking the previously-shared `/board?c=` link |
 | `/api/v1/admin/users`, `/api/v1/admin/registration` | Admin user management + registration toggle (`require_admin`) |
 | `/api/v1/matches/{match_id}/sign-url` | `POST` — owner mints an HMAC-signed (`SESSION_SECRET`) capability URL for `/match/{id}/report` |
 | `/api/v1/session/rules?oid=X` | `POST` — update match rules (mode, points, sets) for the session |

@@ -40,6 +40,8 @@ export interface OverlayPayload {
   public_token: string;
   output_url: string;
   custom_output_url: string | null;
+  control_token: string | null;
+  control_url: string | null;
   points: number | null;
   points_last_set: number | null;
   sets: number | null;
@@ -64,7 +66,24 @@ const BASE_URL = '/api/v1';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
+// Operator (shareable-link) mode: when a control token is set, board-scoped
+// requests address the board by ``?c=<token>`` instead of the owner's
+// ``?oid=<oid>`` + session cookie. Set once when the board is opened via a
+// ``/board?c=`` link; ``null`` is the normal owner (cookie) mode.
+let controlToken: string | null = null;
+
+export function setControlToken(token: string | null): void {
+  controlToken = token || null;
+}
+
+export function getControlToken(): string | null {
+  return controlToken;
+}
+
+/** Board-scoping query string: the control token when in operator mode,
+ *  otherwise the owner's overlay id. */
 function withOid(oid: string): string {
+  if (controlToken) return `?c=${encodeURIComponent(controlToken)}`;
   return `?oid=${encodeURIComponent(oid)}`;
 }
 
@@ -139,7 +158,10 @@ async function request<T = unknown>(
 
 // Session
 export function initSession(oid: string, opts: InitOptions = {}): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', '/session/init', { oid, ...opts });
+  // In operator mode the server resolves the board from the control token; the
+  // body ``oid`` is ignored but kept to satisfy the request schema.
+  const q = controlToken ? `?c=${encodeURIComponent(controlToken)}` : '';
+  return request<ActionResponse>('POST', `/session/init${q}`, { oid, ...opts });
 }
 
 // State queries
@@ -509,6 +531,14 @@ export async function updateOverlay(
 
 export function deleteOverlay(oid: string): Promise<void> {
   return request<void>('DELETE', `/overlays/${encodeURIComponent(oid)}`);
+}
+
+/** Mint a fresh control link for an overlay, revoking the previous one. */
+export async function regenerateControlToken(oid: string): Promise<OverlayPayload> {
+  const row = await request<OverlayRow>(
+    'POST', `/overlays/${encodeURIComponent(oid)}/regenerate-control-token`, {},
+  );
+  return withName(row);
 }
 
 export function getAppConfig(): Promise<AppConfig> {

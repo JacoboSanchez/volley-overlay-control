@@ -10,6 +10,20 @@ once a first tagged release ships.
 
 ### Added
 
+- **Shareable operator control links.** Each overlay now carries an unguessable
+  *control token* alongside its public OBS token. The owner can copy a
+  ready-made link (`/board?c=<token>`) from **My overlays → Edit → Operator
+  control link** and hand it to whoever is running the match: opening it grants
+  full board control (scores, serve, timeouts, undo, sets, customization, rules)
+  **without logging in**. The token resolves to the owning overlay's storage
+  key, so it also separates two users who share the same `oid`, and the live
+  control WebSocket accepts it too. "Regenerate link" mints a new token and
+  revokes any previously-shared link. New endpoint:
+  `POST /api/v1/overlays/{oid}/regenerate-control-token`; the control surface
+  (`/api/v1/game/*`, `/state`, `/customization`, `/display/*`, `/session/*`,
+  `/ws`, …) now authorizes either a `?c=<token>` (or `X-Control-Token` header)
+  or the owner's session cookie.
+
 - **Multi-user application (backend).** The app now has real user accounts
   with cookie-based sessions, replacing the env-var Bearer auth. Highlights:
   - Registration + login/logout, self-service account management (change

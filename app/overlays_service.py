@@ -24,16 +24,24 @@ class OverlayError(ValueError):
     """A caller-fixable overlay error (duplicate oid, invalid id, ...)."""
 
 
-def _generate_public_token(db: Session) -> str:
-    """Return a fresh, collision-checked public token."""
+def _generate_token(db: Session, column) -> str:
+    """Return a fresh, collision-checked url-safe token unique on *column*."""
     for _ in range(8):
         token = secrets.token_urlsafe(_PUBLIC_TOKEN_BYTES)
-        exists = db.execute(
-            select(UserOverlay.id).where(UserOverlay.public_token == token)
-        ).first()
+        exists = db.execute(select(UserOverlay.id).where(column == token)).first()
         if exists is None:
             return token
     raise OverlayError("Could not allocate a unique overlay token.")  # pragma: no cover
+
+
+def _generate_public_token(db: Session) -> str:
+    """Return a fresh, collision-checked public (OBS output) token."""
+    return _generate_token(db, UserOverlay.public_token)
+
+
+def _generate_control_token(db: Session) -> str:
+    """Return a fresh, collision-checked control (shareable board) token."""
+    return _generate_token(db, UserOverlay.control_token)
 
 
 def normalize_oid(raw: str) -> str:
@@ -63,6 +71,7 @@ def create_overlay(
         user_id=user_id,
         oid=oid,
         public_token=_generate_public_token(db),
+        control_token=_generate_control_token(db),
         display_name=(display_name or "").strip() or None,
         output_url=(output_url or "").strip() or None,
         points=points,
@@ -120,6 +129,33 @@ def get_by_public_token(db: Session, token: str) -> UserOverlay | None:
     return db.execute(
         select(UserOverlay).where(UserOverlay.public_token == token)
     ).scalar_one_or_none()
+
+
+def get_by_control_token(db: Session, token: str) -> UserOverlay | None:
+    """Resolve the overlay a shareable control link points at, or ``None``."""
+    if not token:
+        return None
+    return db.execute(
+        select(UserOverlay).where(UserOverlay.control_token == token)
+    ).scalar_one_or_none()
+
+
+def ensure_control_token(db: Session, overlay: UserOverlay) -> str:
+    """Return the overlay's control token, minting one if a legacy row lacks it."""
+    if not overlay.control_token:
+        overlay.control_token = _generate_control_token(db)
+        db.flush()
+    return overlay.control_token
+
+
+def regenerate_control_token(db: Session, user_id: int, oid: str) -> UserOverlay:
+    """Mint a new control token, revoking any previously-shared link."""
+    overlay = get_overlay(db, user_id, oid)
+    if overlay is None:
+        raise OverlayError("Overlay not found.")
+    overlay.control_token = _generate_control_token(db)
+    db.flush()
+    return overlay
 
 
 def list_overlays(db: Session, user_id: int) -> list[UserOverlay]:

@@ -1,14 +1,16 @@
 """WebSocket /ws — real-time state stream for an overlay session.
 
-Authenticated by the same session cookie as the REST API (browsers send
-cookies on same-origin WebSocket upgrades), and addressed by the per-user
-storage key so a client only ever streams a session it owns.
+Authorized the same two ways as the REST control surface: an operator's control
+token (``?c=<token>``) or the owner's session cookie (sent on same-origin
+upgrades). Either resolves to the board's per-user storage key, so a client only
+ever streams a board its credential authorizes.
 """
 
 import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
+from app import overlays_service
 from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
 from app.api.ws_hub import WSHub, WSHubFull
@@ -22,12 +24,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _resolve_skey(ws: WebSocket, oid: str) -> str | None:
-    """Resolve the cookie session to the caller's storage key, or ``None``."""
-    raw = ws.cookies.get(sessions.COOKIE_NAME)
-    if not raw:
-        return None
+def _resolve_skey(ws: WebSocket, oid: str | None, token: str | None) -> str | None:
+    """Resolve a control token or cookie session to the storage key, or ``None``."""
     with session_scope() as db:
+        if token:
+            overlay = overlays_service.get_by_control_token(db, token)
+            return overlays_service.skey_for(overlay) if overlay is not None else None
+        raw = ws.cookies.get(sessions.COOKIE_NAME)
+        if not raw or not oid:
+            return None
         user = sessions.resolve_session(db, raw)
         if user is None:
             return None
@@ -39,13 +44,14 @@ async def websocket_endpoint(
     ws: WebSocket,
     oid: str | None = Query(None, description="Overlay ID"),
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
+    c: str | None = Query(None, description="Control capability token (shareable board link)"),
 ):
     resolved = oid or control
-    if not resolved:
-        await ws.close(code=4400, reason="Missing 'oid' (or alias 'control') query parameter.")
+    if not resolved and not c:
+        await ws.close(code=4400, reason="Missing 'oid' (or 'c' control token) query parameter.")
         return
 
-    skey = _resolve_skey(ws, resolved)
+    skey = _resolve_skey(ws, resolved, c)
     if skey is None:
         await ws.close(code=4003, reason="Authentication required.")
         return

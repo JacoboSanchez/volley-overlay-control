@@ -1118,6 +1118,28 @@ export interface paths {
         patch: operations["update_my_overlay_api_v1_overlays__oid__patch"];
         trace?: never;
     };
+    "/api/v1/overlays/{oid}/regenerate-control-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Control Token
+         * @description Mint a fresh control token for one of the caller's overlays.
+         *
+         *     This revokes any previously-shared control link for that board.
+         */
+        post: operations["regenerate_control_token_api_v1_overlays__oid__regenerate_control_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/session/init": {
         parameters: {
             query?: never;
@@ -1129,7 +1151,11 @@ export interface paths {
         put?: never;
         /**
          * Init Session
-         * @description Initialise (or re-use) a game session for the caller's overlay ID.
+         * @description Initialise (or re-use) a game session for an overlay.
+         *
+         *     Reachable by the owner (cookie + ``oid``) or an operator holding the
+         *     overlay's control token (``?c=``), so a shared board can be bootstrapped
+         *     after a server restart by whoever opens the link.
          */
         post: operations["init_session_api_v1_session_init_post"];
         delete?: never;
@@ -1966,6 +1992,16 @@ export interface components {
          * @description One of the caller's overlays.
          */
         OverlayOut: {
+            /**
+             * Control Token
+             * @description Shareable control capability token
+             */
+            control_token?: string | null;
+            /**
+             * Control Url
+             * @description Ready-made shareable control-board link
+             */
+            control_url?: string | null;
             /**
              * Custom Output Url
              * @description Explicit override URL, if set
@@ -3330,12 +3366,17 @@ export interface operations {
                 limit?: number;
                 /** @description Pagination cursor: only return records strictly older than this timestamp. Use the ``next_cursor`` value from the previous response. Omit for the first page. */
                 before_ts?: number | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -3663,12 +3704,17 @@ export interface operations {
     get_config_api_v1_config_get: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -3699,12 +3745,17 @@ export interface operations {
     get_customization_api_v1_customization_get: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -3735,12 +3786,17 @@ export interface operations {
     update_customization_api_v1_customization_put: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -3874,12 +3930,17 @@ export interface operations {
     set_auto_swap_sides_api_v1_display_auto_swap_sides_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -3914,12 +3975,17 @@ export interface operations {
     set_set_summary_api_v1_display_set_summary_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -3954,12 +4020,17 @@ export interface operations {
     set_set_summary_style_api_v1_display_set_summary_style_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -3994,12 +4065,17 @@ export interface operations {
     set_simple_mode_api_v1_display_simple_mode_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4034,12 +4110,17 @@ export interface operations {
     set_swap_sides_api_v1_display_swap_sides_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4074,12 +4155,17 @@ export interface operations {
     set_visibility_api_v1_display_visibility_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4114,12 +4200,17 @@ export interface operations {
     add_point_api_v1_game_add_point_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4154,12 +4245,17 @@ export interface operations {
     add_set_api_v1_game_add_set_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4194,12 +4290,17 @@ export interface operations {
     add_timeout_api_v1_game_add_timeout_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4234,12 +4335,17 @@ export interface operations {
     change_serve_api_v1_game_change_serve_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4274,12 +4380,17 @@ export interface operations {
     reset_game_api_v1_game_reset_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4310,12 +4421,17 @@ export interface operations {
     set_score_api_v1_game_set_score_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4350,12 +4466,17 @@ export interface operations {
     set_sets_api_v1_game_set_sets_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4390,12 +4511,17 @@ export interface operations {
     start_match_api_v1_game_start_match_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4426,12 +4552,17 @@ export interface operations {
     undo_last_api_v1_game_undo_post: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4462,12 +4593,17 @@ export interface operations {
     get_links_api_v1_links_get: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4534,12 +4670,17 @@ export interface operations {
             query?: {
                 /** @description Maximum number of recent points returned in ``points_history``. */
                 limit?: number;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4803,10 +4944,49 @@ export interface operations {
             };
         };
     };
-    init_session_api_v1_session_init_post: {
+    regenerate_control_token_api_v1_overlays__oid__regenerate_control_token_post: {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                oid: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverlayOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    init_session_api_v1_session_init_post: {
+        parameters: {
+            query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
+            };
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4845,8 +5025,13 @@ export interface operations {
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4881,12 +5066,17 @@ export interface operations {
     get_state_api_v1_state_get: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4917,12 +5107,17 @@ export interface operations {
     get_style_capabilities_api_v1_style_capabilities_get: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
@@ -4953,12 +5148,17 @@ export interface operations {
     get_styles_api_v1_styles_get: {
         parameters: {
             query?: {
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
             };
-            header?: never;
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
             path?: never;
             cookie?: {
                 vsession?: string | null;
