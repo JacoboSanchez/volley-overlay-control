@@ -60,42 +60,10 @@ class TestMetricsEndpoint:
             assert value >= 3.0
 
 
-class TestMetricsAdminGate:
-    def test_default_no_auth_required(self, client, monkeypatch):
-        monkeypatch.delenv("METRICS_REQUIRE_ADMIN", raising=False)
-        res = client.get("/metrics")
-        assert res.status_code == 200
-
-    def test_token_required_when_env_set(self, client, monkeypatch):
-        monkeypatch.setenv("METRICS_REQUIRE_ADMIN", "true")
-        monkeypatch.setenv("OVERLAY_SERVER_TOKEN", "topsecret")
-        monkeypatch.delenv("OVERLAY_SERVER_TOKEN_HASH", raising=False)
-        # Without the Bearer the route refuses.
-        res = client.get("/metrics")
-        assert res.status_code == 401
-        # With the right Bearer it lets through.
-        res = client.get(
-            "/metrics",
-            headers={"Authorization": "Bearer topsecret"},
-        )
-        assert res.status_code == 200
-
-    def test_token_required_wrong_token_403(self, client, monkeypatch):
-        monkeypatch.setenv("METRICS_REQUIRE_ADMIN", "true")
-        monkeypatch.setenv("OVERLAY_SERVER_TOKEN", "topsecret")
-        monkeypatch.delenv("OVERLAY_SERVER_TOKEN_HASH", raising=False)
-        res = client.get("/metrics", headers={"Authorization": "Bearer wrong"})
-        assert res.status_code == 403
-
-    def test_token_required_but_no_credential_fails_closed_503(self, client, monkeypatch):
-        # METRICS_REQUIRE_ADMIN=true but no overlay-server credential configured
-        # (e.g. OVERLAY_SERVER_TOKEN_DISABLED): refuse rather than serve
-        # the metrics unauthenticated.
-        monkeypatch.setenv("METRICS_REQUIRE_ADMIN", "true")
-        monkeypatch.delenv("OVERLAY_SERVER_TOKEN", raising=False)
-        monkeypatch.delenv("OVERLAY_SERVER_TOKEN_HASH", raising=False)
-        res = client.get("/metrics", headers={"Authorization": "Bearer anything"})
-        assert res.status_code == 503
+class TestMetricsOpen:
+    def test_metrics_is_unauthenticated(self, client):
+        # /metrics exposes only aggregates and is open by design.
+        assert client.get("/metrics").status_code == 200
 
 
 class TestWebhookCounter:

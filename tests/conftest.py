@@ -118,12 +118,12 @@ def isolate_match_archive(tmp_path_factory, monkeypatch):
 def isolate_security_bootstrap(tmp_path_factory, monkeypatch):
     """Redirect the security bootstrap's data dir to a per-test temp dir.
 
-    ``app.security_bootstrap.ensure_overlay_server_token`` writes a
-    persisted token file to ``data/.overlay_server_token`` on first
-    invocation. Tests that build a real FastAPI app via
-    ``bootstrap.create_app()`` (e.g. ``test_trusted_hosts_and_cors``)
-    trigger the bootstrap and would otherwise pollute the dev tree's
-    real ``data/`` directory and leak token state between tests.
+    ``app.security_bootstrap.ensure_session_secret`` writes a persisted
+    ``data/.session_secret`` file on first invocation. Tests that build a
+    real FastAPI app via ``bootstrap.create_app()`` (e.g.
+    ``test_trusted_hosts_and_cors``) trigger the bootstrap and would
+    otherwise pollute the dev tree's real ``data/`` directory and leak
+    secret state between tests.
 
     Mirrors the per-module isolation used for ``action_log``,
     ``match_archive``, ``session_persistence``, and

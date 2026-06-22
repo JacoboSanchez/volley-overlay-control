@@ -85,7 +85,7 @@ volley-overlay-control/
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
 │   ├── password_hash.py       # scrypt-based credential hashing (CLI: `python -m app.password_hash`)
-│   ├── security_bootstrap.py  # Startup machine-credential resolution (auto-mints SESSION_SECRET + OVERLAY_SERVER_TOKEN)
+│   ├── security_bootstrap.py  # Startup machine-credential resolution (auto-mints SESSION_SECRET)
 │   ├── match_report_signing.py # HMAC-signed capability URLs for /match/{id}/report (signed with SESSION_SECRET)
 │   ├── overlay_key.py         # Storage-key helpers — make_skey/split_skey ("<user_id>:<oid>")
 │   ├── overlays_service.py    # Per-user overlay CRUD + public_token / skey resolution
@@ -134,8 +134,7 @@ volley-overlay-control/
 │   │   ├── __init__.py        # Singletons: OverlayStateStore, ObsBroadcastHub
 │   │   ├── state_store.py     # Overlay state — in-memory + JSON file persistence
 │   │   ├── broadcast.py       # OBS WebSocket broadcast hub — 50ms debounced pushes
-│   │   ├── auth.py            # require_overlay_server_token — Bearer gate for overlay-server peer endpoints
-│   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/; peer CRUD/themes (Bearer-gated)
+│   │   └── routes.py          # HTTP/WS via public_token: /overlay/, /follow/, /ws/ + public /api/themes
 │   │
 │   └── pwa/                   # Legacy PWA assets (icons)
 │
@@ -261,7 +260,7 @@ Key variables:
 
 - **Persistence:** `DATABASE_URL` — SQLAlchemy URL; defaults to a SQLite file at `data/app.db`. Point it at Postgres with `postgresql+psycopg://...`. The schema migrates to head on startup; no manual `alembic` step needed.
 - **Auth / accounts:** `SESSION_SECRET` (auto-minted and persisted to `data/.session_secret` if unset; also signs match-report capability URLs — pin it explicitly to keep sessions/links valid across deployments). `REGISTRATION_OPEN` (seeds the DB toggle for self-registration; admins flip it at runtime). First-admin claim uses a one-time token logged at startup (see Auth, below) — there is no admin password env var.
-- **Machine auth:** `OVERLAY_SERVER_TOKEN` (+`_HASH`) — Bearer token for the overlay-server *peer* endpoints, auto-minted/persisted. `METRICS_REQUIRE_ADMIN=true` gates `/metrics` behind that same Bearer.
+- **Metrics:** `/metrics` is unauthenticated (aggregates only — no payloads, no per-OID labels).
 - **Match behaviour:** `MATCH_GAME_POINTS`, `MATCH_GAME_POINTS_LAST_SET`, `MATCH_SETS`, `STALE_SET_THRESHOLD_MINUTES` (minutes a single set may run before the control-UI abandoned-match prompt fires; `0` disables).
 - **Overlay / serving:** `OVERLAY_PUBLIC_URL` (public base URL for OBS output links behind a proxy), `APP_PORT`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`.
 - **Reports:** `MATCH_REPORT_PUBLIC=true` opens `/match/{id}/report` to anyone with the link (otherwise owner-cookie or signed URL).
@@ -293,8 +292,8 @@ All `/api/v1/*` user routes require the `vsession` cookie (`require_user`); admi
 | `/overlay/{public_token}` | Overlay HTML template for OBS browser sources (capability token) |
 | `/follow/{public_token}` | Lightweight spectator view over the same feed |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast) |
-| `/api/config/{skey}`, `/api/state/{skey}`, `/create/overlay/{skey}`, `/api/themes` | Overlay-server *peer* endpoints (Bearer `OVERLAY_SERVER_TOKEN`) |
-| `/metrics` | Prometheus exposition (open by default; Bearer-gated when `METRICS_REQUIRE_ADMIN=true`) |
+| `/api/themes` | List preset overlay theme names (public) |
+| `/metrics` | Prometheus exposition (unauthenticated; aggregates only) |
 | `/health` | Health check — returns `200 OK` with timestamp |
 | `/sw.js` | PWA service worker (from frontend build) |
 | `/manifest.webmanifest` | PWA manifest (from frontend build) |
@@ -351,8 +350,8 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 - **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`.
 - **Do not skip `GameManager.save()`** — after any mutation, save must be called.
 - **Overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
-- **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `OVERLAY_SERVER_TOKEN` is auto-generated / loaded and `os.environ` is populated before the auth dependencies read it. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect the token-persistence path to a per-test temp dir; do not call `ensure_overlay_server_token` directly without that isolation.
-- **Credentials never compare with `==`.** Both credential surfaces — user passwords (`app/auth/service.py` via `app/auth/passwords.verify_password`) and the overlay-server Bearer token (`overlay/auth.require_overlay_server_token`) — go through `app.password_hash.verify_password`, which accepts either a scrypt hash record or a legacy plaintext value with a constant-time compare. Per-user passwords are stored as scrypt hashes (`users.password_hash`); the hashed `OVERLAY_SERVER_TOKEN_HASH` wins over the plaintext `OVERLAY_SERVER_TOKEN` when both are set — see `AUTHENTICATION.md`.
+- **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `SESSION_SECRET` is auto-generated / loaded and `os.environ` is populated before the auth dependencies read it. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect the secret-persistence path to a per-test temp dir; do not call `ensure_session_secret` directly without that isolation.
+- **Credentials never compare with `==`.** User passwords (`app/auth/service.py` via `app/auth/passwords.verify_password`) go through `app.password_hash.verify_password`, which accepts a scrypt hash record (constant-time compare). Per-user passwords are stored as scrypt hashes (`users.password_hash`).
 - **Undo is a per-call flag, not a stack** — `add_game`, `add_set`, and `add_timeout` reverse only the most recent action of that type. `add_game(undo=True)` additionally falls back to `current_set - 1` when the current set has no score for the requested team, so a set-winning point can be undone after the session has advanced. The bundled React UI tracks its own short history of forward actions in `App.tsx` to drive the bottom-bar undo button — that stack is client-side only and does not survive page reloads or other clients.
 
 ---
@@ -365,7 +364,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 3. `api_router` — `/api/v1/*` REST + WebSocket API
 4. `match_report_router` — `/match/{id}/report`
 5. `metrics_router` — `/metrics` (before the SPA mount so the catch-all never shadows it)
-6. `overlay_router` — `/overlay/*`, `/follow/*`, `/ws/*`, and the Bearer-gated peer endpoints
+6. `overlay_router` — `/overlay/*`, `/follow/*`, `/ws/*`, and public `/api/themes`
 7. `app.mount("/fonts", ...)` — scoreboard fonts
 8. `app.mount("/static", ...)` — overlay JS/CSS/images
 9. `app.mount("/pwa", ...)` — PWA icons

@@ -97,38 +97,6 @@ def test_scoreboard_401_carries_cookie_challenge():
 # Bearer ladder.
 
 
-def test_overlay_server_401_carries_overlay_realm(monkeypatch, tmp_path):
-    """When ``OVERLAY_SERVER_TOKEN`` gates an endpoint, missing-header
-    rejections include the overlay-server realm."""
-    from fastapi.templating import Jinja2Templates
-
-    from app.overlay.broadcast import ObsBroadcastHub
-    from app.overlay.routes import create_overlay_router
-    from app.overlay.state_store import OverlayStateStore
-
-    monkeypatch.setenv("OVERLAY_SERVER_TOKEN", "server-pw")
-    templates_dir = tmp_path / "templates"
-    templates_dir.mkdir()
-    (templates_dir / "index.html").write_text("ok")
-    store = OverlayStateStore(
-        data_dir=str(tmp_path / "overlays"),
-        templates_dir=str(templates_dir),
-    )
-    store.create_overlay("ovl-1")
-    hub = ObsBroadcastHub()
-    app = FastAPI()
-    app.include_router(create_overlay_router(
-        store, hub, Jinja2Templates(directory=str(templates_dir)),
-    ))
-    client = TestClient(app)
-    res = client.post("/api/state/ovl-1", json={})
-    assert res.status_code == 401
-    assert (
-        res.headers.get("www-authenticate")
-        == 'Bearer realm="overlay-server"'
-    )
-
-
 # ---------------------------------------------------------------------------
 # L-6 — webhook SSRF guard
 # ---------------------------------------------------------------------------

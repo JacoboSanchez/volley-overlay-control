@@ -7,24 +7,18 @@ inside a factory function so the ``OverlayStateStore`` and
 
 import json
 import logging
-import os
 import re
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
-from app.overlay.auth import (
-    _get_overlay_server_credential,  # noqa: F401  (re-export; see AUTHENTICATION.md §5)
-    require_overlay_server_token,
-)
 from app.overlay.locale import _resolve_overlay_locale
-from app.overlay.models import OverlayStateUpdate, RawConfigPayload
 from app.overlay.state_store import OverlayStateStore
-from app.overlay.themes import PRESET_THEMES, get_theme_names
+from app.overlay.themes import get_theme_names
 
 logger = logging.getLogger(__name__)
 
@@ -224,125 +218,14 @@ def _register_api_routes(
     store: OverlayStateStore,
     broadcast,
 ) -> None:
-    """JSON API: state push, CRUD, raw config, output config, themes."""
+    """Public JSON API for the in-process overlay engine.
 
-    # -- State update (HTTP) -----------------------------------------------
-
-    @router.post(
-        "/api/state/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def update_state(
-        overlay_id: str, state_update: OverlayStateUpdate
-    ):
-        update_dict = state_update.model_dump(exclude_unset=True)
-        await store.update_state(overlay_id, update_dict)
-        return {"status": "success", "overlay_id": overlay_id}
-
-    # -- Overlay CRUD ------------------------------------------------------
-
-    @router.api_route(
-        "/create/overlay/{overlay_id}",
-        methods=["GET", "POST"],
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def create_overlay(overlay_id: str):
-        if store.overlay_exists(overlay_id):
-            return {"status": "already_exists", "overlay_id": overlay_id}
-        store.create_overlay(overlay_id)
-        return {"status": "created", "overlay_id": overlay_id}
-
-    @router.api_route(
-        "/delete/overlay/{overlay_id}",
-        methods=["GET", "POST", "DELETE"],
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def delete_overlay(overlay_id: str):
-        existed = store.delete_overlay(overlay_id)
-        await broadcast.cleanup_overlay(overlay_id)
-        if existed:
-            return {"status": "deleted", "overlay_id": overlay_id}
-        raise HTTPException(status_code=404, detail="Overlay not found")
-
-    # -- Raw config --------------------------------------------------------
-
-    @router.get(
-        "/api/raw_config/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def get_raw_config(overlay_id: str):
-        if not store.overlay_exists(overlay_id):
-            raise HTTPException(
-                status_code=404, detail="Overlay not found"
-            )
-        return store.get_raw_config(overlay_id)
-
-    @router.post(
-        "/api/raw_config/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def set_raw_config(overlay_id: str, payload: RawConfigPayload):
-        if not store.overlay_exists(overlay_id):
-            raise HTTPException(
-                status_code=404,
-                detail="Overlay not found. Call /create/overlay/ first.",
-            )
-        store.set_raw_config(
-            overlay_id,
-            model=payload.model,
-            customization=payload.customization,
-        )
-        return {"status": "success"}
-
-    # -- Config / output URL -----------------------------------------------
-
-    @router.get(
-        "/api/config/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def get_config(request: Request, overlay_id: str):
-        public_url = os.environ.get("OVERLAY_PUBLIC_URL", "").rstrip("/")
-        base_url = (
-            f"{public_url}/" if public_url else str(request.base_url)
-        )
-        output_key = OverlayStateStore.get_output_key(overlay_id)
-        output_url = f"{base_url}overlay/{output_key}"
-
-        return {
-            "outputUrl": output_url,
-            "outputKey": output_key,
-            "availableStyles": store.get_available_styles_list(),
-        }
-
-    # -- Themes ------------------------------------------------------------
+    Overlay state is driven in-process by ``LocalOverlayBackend`` (direct
+    ``OverlayStateStore`` calls), so there are no externally-callable
+    mutation/config endpoints — only the read-only theme list used by the
+    overlay templates.
+    """
 
     @router.get("/api/themes")
     async def list_themes():
         return {"themes": get_theme_names()}
-
-    @router.post(
-        "/api/theme/{overlay_id}/{theme_name}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def apply_theme(overlay_id: str, theme_name: str):
-        if theme_name not in PRESET_THEMES:
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Theme '{theme_name}' not found. "
-                    f"Available: {get_theme_names()}"
-                ),
-            )
-        if not store.overlay_exists(overlay_id):
-            raise HTTPException(
-                status_code=404, detail="Overlay not found"
-            )
-        await store.update_state(overlay_id, PRESET_THEMES[theme_name])
-        logger.info(
-            "Theme '%s' applied to overlay '%s'", theme_name, overlay_id
-        )
-        return {
-            "status": "applied",
-            "theme": theme_name,
-            "overlay_id": overlay_id,
-        }

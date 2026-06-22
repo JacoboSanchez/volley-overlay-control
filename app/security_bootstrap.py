@@ -1,35 +1,10 @@
-"""Startup security bootstrap — fail-closed defaults for credentials.
+"""Startup security bootstrap — auto-mint ``SESSION_SECRET``.
 
-The original posture was "fail-open if unset": ``OVERLAY_SERVER_TOKEN``
-would default to "no auth required" with only a startup log line
-warning the operator. That is hostile to the common ``docker compose
-up`` install where the operator never reads the warning, and it leaves
-the mutation endpoints on the overlay router (``POST /api/state/{id}``,
-``/create/overlay``, ``/delete/overlay``, ``/api/raw_config``,
-``/api/theme``) open to anyone who can reach the port.
-
-User-level auth is no longer bootstrapped here: it is now a mandatory
-cookie-session model (``app.auth``), and the first admin is claimed via
-a one-time token minted by ``app.auth.bootstrap.ensure_admin_bootstrap``.
-This module covers the two machine credentials — ``OVERLAY_SERVER_TOKEN``
-and ``SESSION_SECRET`` — only.
-
-For ``OVERLAY_SERVER_TOKEN``, the resolution order at startup is:
-
-1. ``OVERLAY_SERVER_TOKEN_DISABLED=true`` → keep legacy fail-open.
-   Logs a critical warning so the choice is visible in the startup
-   tail. Useful for trusted-LAN deployments and local debugging.
-2. ``OVERLAY_SERVER_TOKEN=<value>`` already set → honour it.
-3. ``data/.overlay_server_token`` exists on disk → load it. This
-   keeps the auto-generated token stable across restarts so an
-   external ``CustomOverlayBackend`` peer doesn't lose its
-   credential every time the container reboots.
-4. None of the above → generate ``secrets.token_urlsafe(32)``,
-   persist with mode ``0o600`` to the data dir, and inject into
-   ``os.environ`` so the rest of the app picks it up via
-   ``EnvVarsManager.get_env_var``. Log the path once at INFO so
-   operators can capture the value (the log line itself does not
-   contain the token).
+User-level auth is a mandatory cookie-session model (``app.auth``); the
+first admin is claimed via a one-time token minted by
+``app.auth.bootstrap.ensure_admin_bootstrap``. This module covers the
+machine credential ``SESSION_SECRET`` (cookie-session hardening + the HMAC
+key for signed match-report URLs).
 """
 
 from __future__ import annotations
@@ -40,12 +15,9 @@ import secrets
 import stat
 from pathlib import Path
 
-from app.env_vars_manager import is_truthy
-
 logger = logging.getLogger(__name__)
 
 
-_TOKEN_FILENAME = ".overlay_server_token"
 _SESSION_SECRET_FILENAME = ".session_secret"
 _TOKEN_BYTES = 32  # → 43-char URL-safe string
 
@@ -59,10 +31,6 @@ def _data_dir() -> str:
     """
     here = Path(__file__).resolve().parent
     return str(here.parent / "data")
-
-
-def _token_path() -> Path:
-    return Path(_data_dir()) / _TOKEN_FILENAME
 
 
 def _read_persisted_token(path: Path) -> str | None:
@@ -122,82 +90,11 @@ def _write_persisted_token(path: Path, token: str) -> bool:
     return True
 
 
-def ensure_overlay_server_token() -> str | None:
-    """Resolve / mint / persist the overlay-server token.
-
-    Returns the active token string, or ``None`` when fail-open mode is
-    explicitly enabled or when the operator configured a hashed
-    credential (``OVERLAY_SERVER_TOKEN_HASH``) — in the hashed case the
-    plaintext lives only on the peer side, never on this server.
-    Mutates ``os.environ`` so downstream callers that read via
-    :class:`EnvVarsManager` pick the value up transparently.
-    """
-    if is_truthy(os.environ.get("OVERLAY_SERVER_TOKEN_DISABLED")):
-        # Operator opted into the legacy fail-open behaviour. Make the
-        # choice loud so it shows up in the startup tail.
-        logger.critical(
-            "OVERLAY_SERVER_TOKEN_DISABLED=true — overlay server "
-            "mutation/config endpoints are UNAUTHENTICATED. Anyone "
-            "who can reach this port can mutate overlay state. Set "
-            "OVERLAY_SERVER_TOKEN or OVERLAY_SERVER_TOKEN_HASH to "
-            "enable authentication."
-        )
-        return None
-
-    # Hash-only configuration: the operator has set
-    # OVERLAY_SERVER_TOKEN_HASH and intentionally not set the
-    # plaintext. Auth is enforced (the verifier reads the hash) but
-    # we never store cleartext on this server. Skip auto-generation.
-    hashed = (os.environ.get("OVERLAY_SERVER_TOKEN_HASH") or "").strip()
-    if hashed:
-        logger.info(
-            "OVERLAY_SERVER_TOKEN_HASH is set — verifying against the "
-            "hash; auto-generated plaintext will not be persisted."
-        )
-        return None
-
-    existing = (os.environ.get("OVERLAY_SERVER_TOKEN") or "").strip()
-    if existing:
-        return existing
-
-    path = _token_path()
-    persisted = _read_persisted_token(path)
-    if persisted:
-        os.environ["OVERLAY_SERVER_TOKEN"] = persisted
-        logger.info(
-            "Loaded persisted OVERLAY_SERVER_TOKEN from %s "
-            "(set OVERLAY_SERVER_TOKEN env var to override).",
-            path,
-        )
-        return persisted
-
-    new_token = secrets.token_urlsafe(_TOKEN_BYTES)
-    persisted_ok = _write_persisted_token(path, new_token)
-    os.environ["OVERLAY_SERVER_TOKEN"] = new_token
-    if persisted_ok:
-        logger.warning(
-            "Auto-generated OVERLAY_SERVER_TOKEN and persisted to %s. "
-            "External CustomOverlayBackend peers must use the same "
-            "value (read it from the file or set OVERLAY_SERVER_TOKEN "
-            "explicitly). Set OVERLAY_SERVER_TOKEN_DISABLED=true to "
-            "opt out and run unauthenticated.",
-            path,
-        )
-    else:
-        logger.warning(
-            "Auto-generated OVERLAY_SERVER_TOKEN but could not persist "
-            "to disk; the token will rotate on every restart. Set "
-            "OVERLAY_SERVER_TOKEN explicitly to fix."
-        )
-    return new_token
-
-
 def ensure_session_secret() -> str | None:
     """Resolve / mint / persist ``SESSION_SECRET``.
 
     Used as defense-in-depth for the cookie sessions and as the HMAC key
-    for match-report capability URLs. Resolution mirrors
-    :func:`ensure_overlay_server_token`:
+    for match-report capability URLs. Resolution order:
 
     1. ``SESSION_SECRET=<value>`` set → honour it.
     2. ``data/.session_secret`` exists → load it (stable across restarts so
@@ -242,10 +139,6 @@ def run_security_bootstrap() -> None:
     The first-admin bootstrap runs separately in
     :func:`app.auth.bootstrap.ensure_admin_bootstrap` (it needs the DB).
     """
-    try:
-        ensure_overlay_server_token()
-    except Exception:
-        logger.exception("ensure_overlay_server_token failed")
     try:
         ensure_session_secret()
     except Exception:

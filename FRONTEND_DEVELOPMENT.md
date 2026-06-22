@@ -578,7 +578,7 @@ ws.onclose = (event) => {
 
 ## State Model Reference
 
-This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **not** the same as the payload the backend pushes to the in-process overlay engine (`POST /api/state/{id}` uses a different, human-readable schema like `"Serve": "A"`, `"Team 1 Sets": 0`). That translation lives inside the backend and alternate frontends never need to deal with it.
+This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **not** the same as the payload the backend pushes to the in-process overlay engine (which uses a different, human-readable schema like `"Serve": "A"`, `"Team 1 Sets": 0`). That translation lives inside the backend and alternate frontends never need to deal with it.
 
 ### GameStateResponse
 

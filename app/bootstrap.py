@@ -195,12 +195,10 @@ def _register_api_routes(application: FastAPI) -> None:
     # catch-all so /match/{id}/report is served by FastAPI.
     application.include_router(match_report_router)
     # Prometheus exposition. Must be registered before the SPA mount
-    # for the same reason as ``/manage`` and ``/match/{id}/report``:
-    # otherwise the SPA catch-all serves index.html for /metrics in
-    # any deployment that ships a built ``frontend/dist`` (i.e.
-    # production), turning the Prometheus scrape into "200 OK +
-    # text/html" — which is exactly the kind of silent-misconfig
-    # ``METRICS_REQUIRE_ADMIN`` should not be needed to detect.
+    # for the same reason as ``/match/{id}/report``: otherwise the SPA
+    # catch-all serves index.html for /metrics in any deployment that
+    # ships a built ``frontend/dist`` (i.e. production), turning the
+    # Prometheus scrape into "200 OK + text/html".
     application.include_router(metrics_router)
 
 
@@ -223,10 +221,6 @@ def _register_overlay_routes(application: FastAPI) -> None:
     )
     application.include_router(overlay_router)
     logger.info("Overlay routes mounted (templates: %s)", OVERLAY_TEMPLATES_DIR)
-    # The bootstrap.run_security_bootstrap call earlier in create_app
-    # has already either populated OVERLAY_SERVER_TOKEN (auto-generated
-    # or persisted) or logged the fail-open opt-out warning, so no
-    # additional warning is needed here.
 
 
 def _register_static_mounts(application: FastAPI) -> None:

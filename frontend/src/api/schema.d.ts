@@ -4,75 +4,6 @@
  */
 
 export interface paths {
-    "/api/config/{overlay_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Config */
-        get: operations["get_config_api_config__overlay_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/raw_config/{overlay_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Raw Config */
-        get: operations["get_raw_config_api_raw_config__overlay_id__get"];
-        put?: never;
-        /** Set Raw Config */
-        post: operations["set_raw_config_api_raw_config__overlay_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/state/{overlay_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Update State */
-        post: operations["update_state_api_state__overlay_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/theme/{overlay_id}/{theme_name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Apply Theme */
-        post: operations["apply_theme_api_theme__overlay_id___theme_name__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/themes": {
         parameters: {
             query?: never;
@@ -1357,43 +1288,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/create/overlay/{overlay_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Create Overlay */
-        get: operations["create_overlay_create_overlay__overlay_id__get_post"];
-        put?: never;
-        /** Create Overlay */
-        post: operations["create_overlay_create_overlay__overlay_id__get_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/delete/overlay/{overlay_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Delete Overlay */
-        get: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
-        put?: never;
-        /** Delete Overlay */
-        post: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
-        /** Delete Overlay */
-        delete: operations["delete_overlay_delete_overlay__overlay_id__delete_get_post"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/follow/{public_token}": {
         parameters: {
             query?: never;
@@ -1530,17 +1424,6 @@ export interface paths {
         /**
          * Prometheus exposition
          * @description Return the registry's current exposition in Prometheus text format.
-         *
-         *     ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth against the
-         *     machine-to-machine ``OVERLAY_SERVER_TOKEN`` (Prometheus scrapers can't
-         *     carry a session cookie). The check fires *before* the library-availability
-         *     check so an unauthenticated probe cannot use the 503-vs-200 difference to
-         *     fingerprint whether the metrics backend is loaded.
-         *
-         *     Fail **closed**: if gating is requested but no overlay-server credential
-         *     is configured (i.e. ``OVERLAY_SERVER_TOKEN_DISABLED=true``), refuse with
-         *     503 rather than serving the metrics unauthenticated — otherwise the gate
-         *     would silently no-op under a self-contradictory config.
          */
         get: operations["metrics_endpoint_metrics_get"];
         put?: never;
@@ -1924,21 +1807,6 @@ export interface components {
             must_change_password: boolean;
             user: components["schemas"]["UserOut"];
         };
-        /** MatchInfoModel */
-        MatchInfoModel: {
-            /** Best Of Sets */
-            best_of_sets?: number | null;
-            /** Current Set */
-            current_set?: number | null;
-            /** Phase */
-            phase?: string | null;
-            /** Show Only Current Set */
-            show_only_current_set?: boolean | null;
-            /** Tournament */
-            tournament?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
         /**
          * MatchPointInfo
          * @description Per-team flags signalling that the next point would close out the
@@ -1957,31 +1825,6 @@ export interface components {
             team_2_match_point: boolean;
             /** Team 2 Set Point */
             team_2_set_point: boolean;
-        };
-        /** OverlayControlModel */
-        OverlayControlModel: {
-            /** Colors */
-            colors?: {
-                [key: string]: string;
-            } | null;
-            /** Geometry */
-            geometry?: {
-                [key: string]: unknown;
-            } | null;
-            /** Player Stats Data */
-            player_stats_data?: unknown | null;
-            /** Preferredstyle */
-            preferredStyle?: string | null;
-            /** Show Bottom Ticker */
-            show_bottom_ticker?: boolean | null;
-            /** Show Main Scoreboard */
-            show_main_scoreboard?: boolean | null;
-            /** Show Player Stats */
-            show_player_stats?: boolean | null;
-            /** Ticker Message */
-            ticker_message?: string | null;
-        } & {
-            [key: string]: unknown;
         };
         /**
          * OverlayOut
@@ -2045,19 +1888,6 @@ export interface components {
              */
             sets?: number | null;
         };
-        /** OverlayStateUpdate */
-        OverlayStateUpdate: {
-            match_info?: components["schemas"]["MatchInfoModel"] | null;
-            overlay_control?: components["schemas"]["OverlayControlModel"] | null;
-            /** Raw Remote Customization */
-            raw_remote_customization?: unknown | null;
-            /** Raw Remote Model */
-            raw_remote_model?: unknown | null;
-            team_away?: components["schemas"]["TeamStateModel"] | null;
-            team_home?: components["schemas"]["TeamStateModel"] | null;
-        } & {
-            [key: string]: unknown;
-        };
         /** PresetCreateRequest */
         PresetCreateRequest: {
             /** Name */
@@ -2099,15 +1929,6 @@ export interface components {
             values?: {
                 [key: string]: unknown;
             };
-        };
-        /** RawConfigPayload */
-        RawConfigPayload: {
-            /** Customization */
-            customization?: unknown | null;
-            /** Model */
-            model?: unknown | null;
-        } & {
-            [key: string]: unknown;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -2269,33 +2090,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** TeamStateModel */
-        TeamStateModel: {
-            /** Color Primary */
-            color_primary?: string | null;
-            /** Color Secondary */
-            color_secondary?: string | null;
-            /** Logo Url */
-            logo_url?: string | null;
-            /** Name */
-            name?: string | null;
-            /** Points */
-            points?: number | null;
-            /** Serving */
-            serving?: boolean | null;
-            /** Set History */
-            set_history?: {
-                [key: string]: number;
-            } | null;
-            /** Sets Won */
-            sets_won?: number | null;
-            /** Short Name */
-            short_name?: string | null;
-            /** Timeouts Taken */
-            timeouts_taken?: number | null;
-        } & {
-            [key: string]: unknown;
-        };
         /** TempPasswordResponse */
         TempPasswordResponse: {
             /** Temp Password */
@@ -2369,180 +2163,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_config_api_config__overlay_id__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_raw_config_api_raw_config__overlay_id__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_raw_config_api_raw_config__overlay_id__post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RawConfigPayload"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_state_api_state__overlay_id__post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OverlayStateUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    apply_theme_api_theme__overlay_id___theme_name__post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-                theme_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_themes_api_themes_get: {
         parameters: {
             query?: never;
@@ -5437,171 +5057,6 @@ export interface operations {
             };
         };
     };
-    create_overlay_create_overlay__overlay_id__get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_overlay_create_overlay__overlay_id__get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_overlay_delete_overlay__overlay_id__delete_get_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path: {
-                overlay_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     serve_spectator_follow__public_token__get: {
         parameters: {
             query?: never;
@@ -5756,9 +5211,7 @@ export interface operations {
     metrics_endpoint_metrics_get: {
         parameters: {
             query?: never;
-            header?: {
-                authorization?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -5770,15 +5223,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
             };
         };
     };

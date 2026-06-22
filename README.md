@@ -247,15 +247,11 @@ Configure the application using the following environment variables:
 | `SESSION_TTL_HOURS` | Lifetime of a login session in hours. | `336` (14 days) |
 | `REGISTRATION_OPEN` | Whether self-service registration at `/register` is allowed. DB-backed after first boot; admins toggle it from the `/admin` page. | `true` |
 | `ADMIN_BOOTSTRAP_TOKEN` | First-admin bootstrap token. When unset, a one-time token is minted on first start, logged at `WARNING`, and persisted to `data/.admin_bootstrap_token` (mode `0600`). Set it explicitly to pin a known value. See [AUTHENTICATION.md](AUTHENTICATION.md). | *(auto)* |
-| `OVERLAY_SERVER_TOKEN` | Bearer token required by the built-in overlay server's mutation and config endpoints (peer/machine auth). **Auto-generated and persisted to `data/.overlay_server_token` on first start when unset.** Set explicitly here to override. See [AUTHENTICATION.md](AUTHENTICATION.md) §5. | *(auto)* |
-| `OVERLAY_SERVER_TOKEN_HASH` | scrypt-hashed alternative to `OVERLAY_SERVER_TOKEN`. When set, the bootstrap skips auto-generating the persisted plaintext file — a hash-only deployment keeps zero cleartext on this server (the peer keeps the cleartext). | |
-| `OVERLAY_SERVER_TOKEN_DISABLED` | If `true`, opts back into legacy unauthenticated overlay-server endpoints. The bootstrap logs a `CRITICAL` startup warning when active. Only safe on a trusted LAN. | `false` |
 | `TRUSTED_HOSTS` | Comma-separated allow-list of hostnames the app accepts in the `Host` header. Wildcard subdomains (`*.example.com`) supported. Requests outside the list are rejected with HTTP 400 before any handler reads `request.base_url`. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.2. | *(unset → no enforcement)* |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allow-list of origins permitted to call the API cross-origin. `*` is rejected (credentialed API; explicit origins only). Default: same-origin only. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.3. | *(unset → no CORS)* |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with non-account configuration fetched on startup. | |
 | `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
 | `CUSTOMIZATION_CACHE_TTL_SECONDS` | Single knob overriding the TTL (seconds) of both customization caches. When unset, the GameService cache defaults to `5` and the Backend cache to `60`. | *(per-cache defaults)* |
-| `METRICS_REQUIRE_ADMIN` | If `true`, `GET /metrics` is gated behind the `OVERLAY_SERVER_TOKEN` Bearer. Default: the Prometheus exposition is unauthenticated (aggregates only — no payloads, no per-OID labels). | `false` |
 | `APP_DEFAULT_LOGO` | URL of the fallback team logo used when a team has none configured. | *(flaticon volleyball icon)* |
 | `DEFAULT_TEAM_LOGO` | Logo path baked into a blank in-process overlay state (used by the built-in overlay server when an overlay is created). | `/static/images/default_volleyball.svg` |
 | `SET_SUMMARY_DEFAULT_STYLE` | Default style of the between-sets summary panel. | `brand_ledger` |
@@ -322,33 +318,12 @@ Teams and presets are stored in the database, not in environment variables:
 }
 ```
 
-### Overlay server token (`OVERLAY_SERVER_TOKEN`)
+### Overlay serving
 
-When the built-in overlay server is mounted (i.e. the `overlay_templates/`
-directory is present), its mutation and config endpoints are gated behind
-a Bearer token. Every request to the following routes must include
-`Authorization: Bearer <token>`:
-
-- `POST /api/state/{id}`
-- `GET` / `POST /create/overlay/{id}`
-- `GET` / `POST` / `DELETE /delete/overlay/{id}`
-- `GET` / `POST /api/raw_config/{id}`
-- `GET /api/config/{id}`
-- `POST /api/theme/{id}/{name}`
-
-The token is **auto-generated and persisted to `data/.overlay_server_token`
-on first start**. Subsequent restarts reuse the same value. Set
-`OVERLAY_SERVER_TOKEN` explicitly to pin a known value.
-
-To opt back into the legacy unauthenticated behaviour (e.g. for a
-trusted-LAN install or local debugging), set
-`OVERLAY_SERVER_TOKEN_DISABLED=true`. A `CRITICAL` startup warning is
-logged whenever this opt-out is active so the choice is visible in the
-startup tail.
-
-The OBS capability URLs (`/overlay/{public_token}` and `/ws/{public_token}`)
-are intentionally **not** gated by this token — they are the public-by-design
-entry points that OBS loads.
+Overlays are served in-process. The OBS capability URLs
+(`/overlay/{public_token}`, `/follow/{public_token}`, `/ws/{public_token}`) are
+public-by-design entry points that OBS and spectators load — they're addressed
+by an unguessable per-overlay `public_token`, never the raw oid.
 
 See [AUTHENTICATION.md](AUTHENTICATION.md) for the full route inventory.
 
@@ -379,12 +354,11 @@ Import non-account configuration from an external resource via `REMOTE_CONFIG_UR
 | `/overlay/{public_token}` | Overlay HTML for OBS browser sources (built-in engine; no cookie). `?style=mosaic` renders a preview grid of every selectable style. |
 | `/follow/{public_token}` | Public mobile-first spectator page (no cookie). |
 | `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast; no cookie). |
-| `/api/config/{id}` | Overlay config (output URL, available styles) |
-| `/api/themes` | List preset overlay themes |
+| `/api/themes` | List preset overlay themes (public). |
+| `/metrics` | Prometheus exposition (unauthenticated; aggregates only). |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
-For a full audit of every route and its authentication requirements
-(including the overlay server endpoints consumed by OBS), see
+For a full audit of every route and its authentication requirements, see
 [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---

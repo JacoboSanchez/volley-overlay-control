@@ -27,8 +27,17 @@ once a first tagged release ships.
     external-server contract). The control board's overlay preview always uses
     the in-process render path (no overlays.uno iframe branch).
   - **DB:** `user_overlays.output_url` column dropped (migration `0005`).
-  - The overlay-server *peer* endpoints (`OVERLAY_SERVER_TOKEN`-gated) are
-    unchanged.
+
+- **Overlay-server peer endpoints and `OVERLAY_SERVER_TOKEN` removed.** With no
+  external overlay server, the Bearer-gated peer endpoints (`POST /api/state/{id}`,
+  `/create|delete/overlay/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`,
+  `POST /api/theme/{id}/{name}`) and the `OVERLAY_SERVER_TOKEN` machine credential
+  (incl. `_HASH` / `_DISABLED`) are gone — `app/overlay/auth.py` and
+  `app/security_bootstrap.ensure_overlay_server_token` were deleted. The public
+  `GET /api/themes` and the OBS capability routes (`/overlay`, `/follow`, `/ws`)
+  remain. `security_bootstrap` now only mints `SESSION_SECRET`.
+  - **`/metrics` is now always unauthenticated** (it only ever exposed
+    aggregates); the `METRICS_REQUIRE_ADMIN` toggle is removed.
 
 ### Added
 

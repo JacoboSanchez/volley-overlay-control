@@ -1,6 +1,6 @@
 """First-admin bootstrap — claim the initial admin with a startup-log token.
 
-Modeled on :func:`app.security_bootstrap.ensure_overlay_server_token`:
+Modeled on :func:`app.security_bootstrap.ensure_session_secret`:
 resolve an existing token, else mint + persist one, and log it so the
 operator can read it out of ``docker logs`` and claim the first admin
 account. Idempotent — once any admin exists the flow is a no-op and the

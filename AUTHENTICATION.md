@@ -8,13 +8,13 @@
 > per-user storage key `"<user_id>:<oid>"`, so a user can only ever reach
 > their own scoreboards. The public OBS surface
 > (`/overlay/{token}`, `/follow/{token}`, `/ws/{token}`) is addressed by an
-> unguessable per-overlay `public_token` and carries no credential. The
-> `OVERLAY_SERVER_TOKEN` machine-to-machine layer (§5 below) is unchanged
-> and remains a Bearer ladder. The legacy `SCOREBOARD_USERS` Bearer ladder,
-> the `OVERLAY_MANAGER_PASSWORD` admin Bearer + `/manage`, `check_oid_access`
-> / `STRICT_OID_ACCESS`, and the match-report `?token=<password>` flow were
-> all **removed in the multi-user refactor**; they are noted here only where
-> a reader might expect them.
+> unguessable per-overlay `public_token` and carries no credential. The app
+> is purely in-process — there is no external overlay server and no
+> machine-to-machine Bearer layer. The legacy `SCOREBOARD_USERS` Bearer
+> ladder, the `OVERLAY_MANAGER_PASSWORD` admin Bearer + `/manage`,
+> `check_oid_access` / `STRICT_OID_ACCESS`, and the match-report
+> `?token=<password>` flow were all **removed in the multi-user refactor**;
+> they are noted here only where a reader might expect them.
 
 Last audited: 2026-06-19 (multi-user cookie-session refactor).
 
@@ -25,29 +25,23 @@ complements `README.md` (user-facing env var setup) and
 
 ## 1. Auth mechanisms in use
 
-The codebase now has **two distinct kinds of auth**: a cookie-session
-layer for human users (the scoreboard, the SPA, and account
-self-service), and a machine-to-machine Bearer layer for the overlay
-server. They are independent and gate different surfaces.
+The codebase has a single kind of auth: a **cookie-session layer for
+human users** (the scoreboard, the SPA, and account self-service). The
+app is purely in-process, so there is no machine-to-machine Bearer layer
+to gate any external overlay server.
 
 | Layer | Credential | How it's enforced | Where |
 | :--- | :--- | :--- | :--- |
 | User session dependencies (`current_user` → `require_user` → `require_admin`) | HttpOnly `vsession` cookie → `auth_sessions` row | Per-route `Depends(require_user)` / `Depends(require_admin)`. `401` when anonymous, `409 PASSWORD_CHANGE_REQUIRED` when a forced password change is pending, `403` when an admin-only route is hit by a non-admin. | `app/auth/dependencies.py` |
 | `verify_api_key` alias | (same cookie session) | Kept as a name on the many `dependencies=[Depends(verify_api_key)]` call sites; it is now simply an alias for `require_user`. | `app/api/dependencies.py` |
-| `require_overlay_server_token` dependency | `OVERLAY_SERVER_TOKEN` or `OVERLAY_SERVER_TOKEN_HASH` | Per-route `Depends(require_overlay_server_token)`. Auto-populated by the security bootstrap when neither is set (unless `OVERLAY_SERVER_TOKEN_DISABLED=true`). When set: `401` without `Authorization: Bearer`, `403` with a mismatched token. | `app/overlay/auth.py` |
 
-Passwords and the overlay-server token are stored hashed: user passwords
-as scrypt records in the `users` table, the overlay-server token via the
-preferred `OVERLAY_SERVER_TOKEN_HASH` scrypt record (see §8). The session
-cookie value is itself stored hashed — only the SHA-256 of the opaque
-token is persisted (§2.1). The cleartext credential never has to sit in
-`.env`.
+User passwords are stored hashed as scrypt records in the `users` table
+(see §8). The session cookie value is itself stored hashed — only the
+SHA-256 of the opaque token is persisted (§2.1). The cleartext credential
+never has to sit in `.env`.
 
-The user-session 401s carry `WWW-Authenticate: Cookie`; the
-overlay-server 401 carries `WWW-Authenticate: Bearer
-realm="overlay-server"` per RFC 7235 §4.1. The realm hint lets operators
-tell from access logs which layer rejected a request — the only Bearer
-ladder left is the overlay-server one.
+The user-session 401s carry `WWW-Authenticate: Cookie`. There is no
+Bearer ladder left in the app.
 
 ### 1.1 Sessions, roles, and the forced-password-change gate
 
@@ -169,8 +163,11 @@ admin role + the SPA `/admin` page replace the old `/manage` console.
 This router powers the **in-process overlay server**
 (`LocalOverlayBackend`) and is mounted when
 `_register_overlay_routes()` finds the `overlay_templates/` directory.
-The mutation and read endpoints below double as machine-to-machine
-**peer** endpoints, gated by `OVERLAY_SERVER_TOKEN`.
+Every endpoint it exposes is intentionally public: the OBS output
+surface is addressed by an unguessable per-overlay `public_token`
+(a capability URL), and the theme name list is not sensitive. There are
+no machine-to-machine peer endpoints — the app is purely in-process, so
+there is nothing here for an external overlay server to call.
 
 | Method | Path | Auth | Classification |
 | :--- | :--- | :--- | :--- |
@@ -178,14 +175,7 @@ The mutation and read endpoints below double as machine-to-machine
 | `GET` | `/overlay/{public_token}` | — | Public for OBS browser sources. Addressed by the unguessable per-overlay `public_token` (a capability URL); carries no credential. |
 | `GET` | `/follow/{public_token}` | — | Public spectator/follow page; same `public_token` capability URL, same `/ws/{public_token}` feed. |
 | `WS` | `/ws/{public_token}` | — | Public for OBS browser sources. Same `public_token` capability URL. |
-| `POST` | `/api/state/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
-| `GET`,`POST` | `/create/overlay/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
-| `GET`,`POST`,`DELETE` | `/delete/overlay/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
-| `GET` | `/api/raw_config/{overlay_id}` | `require_overlay_server_token` | Leak endpoint (F-5 fix). |
-| `POST` | `/api/raw_config/{overlay_id}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
-| `GET` | `/api/config/{overlay_id}` | `require_overlay_server_token` | Leak endpoint (F-5 fix). |
 | `GET` | `/api/themes` | — | Public OK (theme name list is not sensitive). |
-| `POST` | `/api/theme/{overlay_id}/{theme_name}` | `require_overlay_server_token` | Mutation endpoint (F-3 fix). |
 
 > **Removed in the multi-user refactor:** `GET /list/overlay` no longer
 > exists. It used to enumerate every overlay id plus its output key behind
@@ -193,14 +183,10 @@ The mutation and read endpoints below double as machine-to-machine
 > per-overlay `public_token` there is no id-enumeration endpoint to gate.
 > The old F-4 finding is therefore moot (§3).
 
-> **Note on `require_overlay_server_token`:** when `OVERLAY_SERVER_TOKEN`
-> is unset the dependency is a no-op (logged at startup). Existing
-> deployments keep working unchanged; setting the env var opts in to
-> enforcement. See F-3 below.
-
-> **Note on `{overlay_id}` format:** every path parameter marked
-> `{overlay_id}` / `{id}` above is validated against the strict allow-list
-> regex enforced by `OverlayStateStore._sanitize_id`:
+> **Note on `public_token` format:** the per-overlay `public_token` is an
+> unguessable random capability token, and any internal overlay-id input
+> is validated against the strict allow-list regex enforced by
+> `OverlayStateStore._sanitize_id`:
 >
 > ```
 > ^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$
@@ -210,9 +196,7 @@ The mutation and read endpoints below double as machine-to-machine
 > segments (`.`, `..`), NUL, whitespace, or non-ASCII are rejected at
 > the store boundary — `create_overlay` / `delete_overlay` return
 > `False`, `overlay_exists` returns `False`, and read/write helpers
-> raise `ValueError`. This complements `require_overlay_server_token`:
-> auth gates *who* may call the endpoints, the sanitizer gates *what*
-> ids those calls may name.
+> raise `ValueError`.
 
 ### 2.6 Static mounts and system endpoints — `app/bootstrap.py`
 
@@ -235,9 +219,10 @@ static assets (e.g. hiding the SPA behind a login wall), add a custom
 ## 3. Findings
 
 The five findings from the original audit are carried forward below.
-Three (F-1, F-3, F-5) describe the still-current machine-auth posture;
-two (F-2, F-4) were rendered moot by the multi-user refactor's move to
-per-overlay `public_token` capability URLs.
+F-1 was fixed by removing dead middleware; F-2, F-3, F-4, and F-5 were
+all rendered moot or fixed by the multi-user refactor's move to
+per-overlay `public_token` capability URLs and the removal of the
+external overlay-server peer endpoints.
 
 ### F-1 — Dead `AuthMiddleware` (low) — **fixed**
 
@@ -260,32 +245,16 @@ solely by an **unguessable per-overlay `public_token`**
 capability-URL property holds by construction. The overlay content
 itself remains intentionally public for OBS browser sources.
 
-### F-3 — Unauthenticated mutation endpoints on the overlay router (high) — **fixed**
+### F-3 — Unauthenticated mutation endpoints on the overlay router (high) — **moot after the refactor**
 
-The overlay router used to expose seven mutation endpoints without any
-auth. These are now gated by the new
-`require_overlay_server_token` dependency:
-
-- `POST /api/state/{id}`
-- `GET`/`POST /create/overlay/{id}`
-- `GET`/`POST`/`DELETE /delete/overlay/{id}`
-- `POST /api/raw_config/{id}`
-- `POST /api/theme/{id}/{name}`
-
-The dependency resolves its credential hash-first
-(`OVERLAY_SERVER_TOKEN_HASH`, else `OVERLAY_SERVER_TOKEN`):
-
-- **Credential present** (the default — the security bootstrap
-  auto-mints and persists `OVERLAY_SERVER_TOKEN` on first run, §5) →
-  requests must include `Authorization: Bearer <token>`, otherwise
-  `401` (missing) / `403` (mismatch).
-- **`OVERLAY_SERVER_TOKEN_DISABLED=true`** → the dependency fails open
-  (no-op) and logs a warning. This is the only way back to the legacy
-  unauthenticated behaviour and is safe only on a trusted LAN.
-
-A machine-to-machine peer can forward the same token so deployments
-that talk to this overlay server's peer endpoints set
-`OVERLAY_SERVER_TOKEN` on both sides and enforce.
+The overlay router used to expose a set of mutation and config-write
+endpoints intended as machine-to-machine peer endpoints. **These
+endpoints were removed when the app became purely in-process.** Overlay
+state is now driven only through the in-process backend on behalf of an
+authenticated owner (the scoreboard REST API, §2.3); there is no
+externally reachable mutation surface on the overlay router left to
+gate, and the Bearer credential that used to protect them no longer
+exists.
 
 ### F-4 — `/list/overlay` leaks all overlay IDs and output keys (high) — **moot after the refactor**
 
@@ -296,13 +265,12 @@ relied on (`OVERLAY_MANAGER_PASSWORD`) no longer exists. Nothing replaces
 it: enumerating overlays is a per-user, session-scoped concern handled by
 `GET /api/v1/overlays` (§2.3), which only returns the caller's own.
 
-### F-5 — Read endpoints leak config (medium) — **fixed**
+### F-5 — Read endpoints leak config (medium) — **moot after the refactor**
 
-`GET /api/raw_config/{id}` and `GET /api/config/{id}` require the
-overlay-server token (same dependency as F-3). The `outputUrl` /
-`outputKey` pair returned by `/api/config/{id}` is not readable by
-unauthenticated callers. This is overlay-server machine auth and is
-unaffected by the move to user cookie sessions.
+The config read endpoints that returned the `outputUrl` / `outputKey`
+pair were **removed when the app became purely in-process** — they were
+machine-to-machine peer endpoints with no remaining caller. There is no
+config-leak surface on the overlay router left to gate.
 
 ## 4. Tripwire tests
 
@@ -319,9 +287,6 @@ matrix covers:
   change-password / logout / context endpoints staying reachable.
 - Admin user-management API (`require_admin`) — `403` for non-admins,
   plus the last-active-admin guards on role/active/delete.
-- Overlay server mutation + read endpoints — `401`/`403` without the
-  correct Bearer token; the fail-open path verified only when
-  `OVERLAY_SERVER_TOKEN_DISABLED=true`.
 
 When adding a new route, add a matching entry in this test file.
 
@@ -329,32 +294,19 @@ When adding a new route, add a matching entry in this test file.
 
 Deployment-visible changes operators should be aware of:
 
-1. **`OVERLAY_SERVER_TOKEN` is auto-generated.** When the env var
-   is unset on first start, the bootstrap mints a random token,
-   persists it to `data/.overlay_server_token` (mode `0o600`), and
-   exposes it via `os.environ` so the rest of the app picks it up
-   transparently. Subsequent restarts read the same file, so the
-   token stays stable. Operators pairing this app with a
-   machine-to-machine peer must either set
-   `OVERLAY_SERVER_TOKEN` explicitly on both sides, or read the
-   generated value from the persisted file. Set
-   `OVERLAY_SERVER_TOKEN_DISABLED=true` to opt back into the legacy
-   unauthenticated behaviour (only safe on a trusted LAN); the
-   bootstrap logs a warning when this opt-out is active.
-2. **First start prints a one-time admin-bootstrap token.** With no
+1. **First start prints a one-time admin-bootstrap token.** With no
    admin account yet, startup logs an `ADMIN BOOTSTRAP TOKEN` at
    `WARNING` (visible in `docker logs`) and persists it to
    `data/.admin_bootstrap_token` (mode `0o600`). Claim the first admin
    by POSTing it to `/api/v1/auth/claim-admin` (SPA route
    `/claim-admin`); see §9. Set `ADMIN_BOOTSTRAP_TOKEN` to pin it.
-3. **`SESSION_SECRET` is auto-minted if unset.** It hardens sessions and
+2. **`SESSION_SECRET` is auto-minted if unset.** It hardens sessions and
    is the HMAC key for signed match-report share URLs. On first boot,
    if unset, the bootstrap mints `secrets.token_urlsafe(...)` and
-   persists it to `data/.session_secret` (mode `0o600`) — mirroring the
-   overlay-server-token bootstrap. Pin it explicitly
-   (`SESSION_SECRET=…`) across multiple replicas, or each replica will
-   reject the others' sessions and signed URLs.
-4. **Registration is closed unless opened.** `REGISTRATION_OPEN` only
+   persists it to `data/.session_secret` (mode `0o600`). Pin it
+   explicitly (`SESSION_SECRET=…`) across multiple replicas, or each
+   replica will reject the others' sessions and signed URLs.
+3. **Registration is closed unless opened.** `REGISTRATION_OPEN` only
    seeds the initial value; after first boot the DB flag wins and admins
    toggle it via `PUT /api/v1/admin/registration`. While closed,
    `POST /api/v1/auth/register` returns `403` and admins create accounts
@@ -409,7 +361,7 @@ backwards compatible). When set to a comma-separated list of
 hostnames, Starlette's `TrustedHostMiddleware` rejects requests
 whose `Host` header doesn't match any entry with HTTP 400 before
 any handler reads `request.base_url` (used by `/links`,
-`/api/config/{id}`, the match-report signed-URL minter, etc.).
+the match-report signed-URL minter, etc.).
 Wildcard subdomains are honoured (`*.example.com` matches any
 subdomain).
 
@@ -442,9 +394,8 @@ explicit allow-list semantics:
   credentials are explicitly allowed.
 * `Access-Control-Allow-Headers` includes `Authorization`,
   `Content-Type`, `X-Request-ID`, and `Sec-WebSocket-Protocol`. The
-  cookie itself needs no allow-listed header, but `Authorization`
-  remains allowed for the overlay-server Bearer flows and
-  `Content-Type` / `X-Request-ID` for ordinary JSON requests.
+  cookie itself needs no allow-listed header; `Content-Type` /
+  `X-Request-ID` cover ordinary JSON requests.
 
 | Env var | Default | Meaning |
 | :--- | :--- | :--- |
@@ -528,16 +479,13 @@ missing/invalid and ``4004`` when no session exists for ``(user, oid)``.
 
 ## 8. Hashed credentials at rest
 
-Two kinds of secret are stored hashed, both via `app/password_hash.py`
+User passwords are stored hashed via `app/password_hash.py`
 (`hashlib.scrypt`, stdlib-only, no new dependency):
 
 * **User passwords** live as scrypt records in the `users` table — the
   cleartext is never persisted. `app/auth/passwords.py` is a thin
   re-export of `hash_password` / `verify_password` so the auth package
   has a single import surface.
-* **The overlay-server token** can be supplied as a scrypt record via
-  the preferred `OVERLAY_SERVER_TOKEN_HASH`, so a hash-only deployment
-  keeps zero cleartext on the server side.
 
 Separately, the **session cookie** value is stored hashed too — only the
 SHA-256 of the opaque token reaches the DB (§2.1) — and `SESSION_SECRET`
@@ -567,14 +515,7 @@ Mint a hash via the CLI helper::
 | Credential | Where stored | Cleartext source | Hash form |
 | :--- | :--- | :--- | :--- |
 | User password | `users.password_hash` (scrypt record) | never persisted | always hashed |
-| Overlay server token | env / `data/.overlay_server_token` | `OVERLAY_SERVER_TOKEN` | `OVERLAY_SERVER_TOKEN_HASH` (preferred) |
 | Session cookie value | `auth_sessions.token_hash` (SHA-256) | the `vsession` cookie | always hashed |
-
-For the overlay-server token, when both forms are configured the hash
-wins. This matters for the migration path: an operator who has minted a
-hash but hasn't yet deleted the plaintext is already authenticating
-against the new value, otherwise the old token keeps working until both
-are rotated.
 
 ### 8.3 Verification cost
 
@@ -588,22 +529,10 @@ the row, an admin password reset revokes all of a user's sessions, and
 change-password revokes every session except the caller's — so there is
 no cache window in which a removed credential keeps working.
 
-### 8.4 Auto-generation interaction
-
-`security_bootstrap.ensure_overlay_server_token` auto-generates
-`OVERLAY_SERVER_TOKEN` and persists it to `data/.overlay_server_token`
-on first start. When `OVERLAY_SERVER_TOKEN_HASH` is set, the
-bootstrap skips that step — a hash-only deployment intentionally
-keeps zero cleartext on the server side. A machine-to-machine peer
-still reads the cleartext token from its own configuration, so the
-hash-only model splits trust cleanly: this server stores only a hash,
-the peer stores only the cleartext.
-
 ## 9. First-admin bootstrap
 
 `app/auth/bootstrap.py` solves the chicken-and-egg of creating the first
-admin with no admin to create it — modelled on the overlay-server-token
-bootstrap.
+admin with no admin to create it.
 
 On first start with **no admin user**, `ensure_admin_bootstrap` mints a
 one-time token (`secrets.token_urlsafe(32)`, unless `ADMIN_BOOTSTRAP_TOKEN`
@@ -623,10 +552,8 @@ send the operator there.
 
 ## 10. Metrics endpoint
 
-`GET /metrics` (`app/api/routes/metrics.py`) is **unauthenticated by
-default** — Prometheus exposition. Setting `METRICS_REQUIRE_ADMIN=true`
-gates it behind the **overlay-server Bearer token** (reusing
-`require_overlay_server_token`), not the user cookie session: a scraper
-cannot carry a `vsession` cookie, so the machine-auth Bearer is the right
-gate here. This is the only user-facing read endpoint deliberately wired
-to the machine-auth layer rather than to `require_user`.
+`GET /metrics` (`app/api/routes/metrics.py`) is **always unauthenticated
+(aggregates only)** — Prometheus exposition. It exposes only aggregate
+counters and histograms, never per-user data or any credential, so there
+is no auth gate on it: a scraper cannot carry a `vsession` cookie, and
+the endpoint has nothing sensitive to protect.

@@ -4,43 +4,24 @@ Mounted at the FastAPI app root (not under ``/api/v1``) so the path
 matches every other Prometheus-instrumented service the operator is
 likely to scrape.
 
-Auth ladder:
-
-* Default: **unauthenticated**. The exported metrics expose
-  aggregates (request latency, webhook delivery counts, total open
-  WebSocket connections, active session count) — no payloads, no
-  per-OID labels — so the surface is safe to scrape from the
-  Kubernetes service mesh / Prometheus operator without provisioning
-  another secret.
-* Opt-in: setting ``METRICS_REQUIRE_ADMIN=true`` gates the route
-  behind the machine-to-machine ``OVERLAY_SERVER_TOKEN`` Bearer (the
-  same credential the overlay-server peer endpoints use) for operators
-  who would rather not expose anything to the LAN. This is **not** the
-  admin cookie-session credential — Prometheus scrapers can't carry a
-  cookie — so ``METRICS_REQUIRE_ADMIN`` is a slight misnomer kept for
-  backwards-compatible config.
+The endpoint is **unauthenticated**. The exported metrics expose only
+aggregates (request latency, webhook delivery counts, total open
+WebSocket connections, active session count) — no payloads, no per-OID
+labels — so the surface is safe to scrape from the Kubernetes service
+mesh / Prometheus operator without provisioning a secret.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response
 
-from app.env_vars_manager import EnvVarsManager
 from app.metrics import (
     CONTENT_TYPE_LATEST,
     PROMETHEUS_AVAILABLE,
     REGISTRY,
     generate_latest,
 )
-from app.overlay.auth import (
-    _get_overlay_server_credential,
-    require_overlay_server_token,
-)
 
 router = APIRouter()
-
-
-def _require_token_when_configured() -> bool:
-    return EnvVarsManager.get_bool_env("METRICS_REQUIRE_ADMIN")
 
 
 @router.get(
@@ -48,31 +29,8 @@ def _require_token_when_configured() -> bool:
     summary="Prometheus exposition",
     response_class=Response,
 )
-def metrics_endpoint(authorization: str = Header(None)):
-    """Return the registry's current exposition in Prometheus text format.
-
-    ``METRICS_REQUIRE_ADMIN=true`` opts into Bearer auth against the
-    machine-to-machine ``OVERLAY_SERVER_TOKEN`` (Prometheus scrapers can't
-    carry a session cookie). The check fires *before* the library-availability
-    check so an unauthenticated probe cannot use the 503-vs-200 difference to
-    fingerprint whether the metrics backend is loaded.
-
-    Fail **closed**: if gating is requested but no overlay-server credential
-    is configured (i.e. ``OVERLAY_SERVER_TOKEN_DISABLED=true``), refuse with
-    503 rather than serving the metrics unauthenticated — otherwise the gate
-    would silently no-op under a self-contradictory config.
-    """
-    if _require_token_when_configured():
-        if _get_overlay_server_credential() is None:
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "METRICS_REQUIRE_ADMIN is set but no OVERLAY_SERVER_TOKEN is "
-                    "configured (OVERLAY_SERVER_TOKEN_DISABLED?). Refusing to "
-                    "serve metrics unauthenticated."
-                ),
-            )
-        require_overlay_server_token(authorization)
+def metrics_endpoint():
+    """Return the registry's current exposition in Prometheus text format."""
     if not PROMETHEUS_AVAILABLE:
         raise HTTPException(
             status_code=503,

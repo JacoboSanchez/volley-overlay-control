@@ -94,7 +94,7 @@ dependency.
 │   ├── overlay_key.py       # Per-user storage-key helpers: make_skey/split_skey ("<user_id>:<oid>").
 │   ├── id_validation.py     # Overlay-ID charset/length validation.
 │   ├── password_hash.py     # scrypt credential hashing (stdlib, zero deps).
-│   ├── security_bootstrap.py # Resolve/mint/persist OVERLAY_SERVER_TOKEN and SESSION_SECRET at startup.
+│   ├── security_bootstrap.py # Resolve/mint/persist SESSION_SECRET at startup.
 │   ├── app_storage.py       # In-memory key-value storage.
 │   ├── oid_utils.py         # OID parsing utilities (extract_oid).
 │   ├── db/                  # SQLAlchemy persistence layer.
@@ -133,8 +133,7 @@ dependency.
 │   │   ├── __init__.py      # Package init — creates singleton OverlayStateStore & ObsBroadcastHub.
 │   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
 │   │   ├── broadcast.py     # OBS WebSocket broadcast hub — debounced 50ms pushes.
-│   │   ├── auth.py          # OVERLAY_SERVER_TOKEN Bearer check for machine-to-machine peers.
-│   │   └── routes.py        # Public OBS surface: /overlay|follow|ws/{public_token}, /api/config/, CRUD, themes.
+│   │   └── routes.py        # Public OBS surface: /overlay|follow|ws/{public_token}, /api/themes.
 │   ├── env_vars_manager.py  # Dynamic environment variable management.
 │   ├── logging_config.py    # Logging level configuration.
 │   ├── config_validator.py  # Startup configuration validation (env var checks).
@@ -142,7 +141,7 @@ dependency.
 ├── overlay_templates/       # Jinja2 HTML templates for overlay styles (16 templates).
 ├── overlay_static/          # Static assets for overlays (JS, CSS, images).
 ├── data/                    # Runtime data dir: SQLite app.db (default), live overlay state JSON,
-│                            #   audit logs, and minted-token files (.session_secret, .overlay_server_token, etc.).
+│                            #   audit logs, and minted-token files (.session_secret, .admin_bootstrap_token, etc.).
 ├── font/                    # Custom font files for the overlay.
 └── tests/                   # Pytest suite.
     ├── conftest.py          # Test fixtures: in-memory SQLite db_session, make_user, login_client, auth_client, app_client.
@@ -268,7 +267,7 @@ In-memory + JSON file persistence for overlay state.
 
 - **Responsibility**: Manages overlay state with lazy-loading from disk, deep merge, normalization, CRUD, raw config pass-through, output key generation, and style enumeration.
 - **Key Methods**: `get_state()`, `update_state()`, `set_raw_config()`, `get_raw_config()`, `create_overlay()`, `ensure_overlay()`, `get_available_styles_list()`, `get_renderable_styles()`.
-- **Style enumeration** distinguishes two lists: `get_available_styles_list()` returns user-selectable styles (what `/api/config/{id}` exposes in `availableStyles` and what the picker UI shows); `get_renderable_styles()` is a superset that also includes meta-styles like `mosaic` — valid as a `?style=` URL parameter but hidden from the picker so users cannot accidentally adopt them as a broadcast layout.
+- **Style enumeration** distinguishes two lists: `get_available_styles_list()` returns user-selectable styles (what the `GET /api/v1/styles` endpoint exposes and what the picker UI shows); `get_renderable_styles()` is a superset that also includes meta-styles like `mosaic` — valid as a `?style=` URL parameter but hidden from the picker so users cannot accidentally adopt them as a broadcast layout.
 
 #### `app/overlay/broadcast.py` — class `ObsBroadcastHub`
 
@@ -388,8 +387,8 @@ HMAC capability (`?exp=…&sig=…`, minted via
 #### `app/bootstrap.py` — application factory
 
 `create_app()` assembles the FastAPI instance in a fixed order:
-`run_security_bootstrap()` (resolve/mint `OVERLAY_SERVER_TOKEN` and
-`SESSION_SECRET`) → `run_migrations()` (schema to head) →
+`run_security_bootstrap()` (resolve/mint `SESSION_SECRET`) →
+`run_migrations()` (schema to head) →
 `ensure_admin_bootstrap()` (mint/log the first-admin claim token) → routers
 (auth first so `/api/v1/auth/*` is never shadowed, then `api_router` +
 admin-users, then the match-report and metrics routers) → static mounts →

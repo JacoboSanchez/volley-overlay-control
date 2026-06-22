@@ -52,7 +52,6 @@ Out of scope:
   base images: `python:3.13-slim`, `node:25-alpine`).
 - Issues that depend on a misconfiguration explicitly called out as
   insecure in [`AUTHENTICATION.md`](AUTHENTICATION.md) — e.g.
-  `OVERLAY_SERVER_TOKEN_DISABLED=true` on a public deployment, or
   `MATCH_REPORT_PUBLIC=true` with a guessable `match_id` (the IDs are
   hash-prefixed and intentionally hard to guess, but the model is
   capability-URL).
@@ -73,13 +72,9 @@ should at least:
 2. Leave `REGISTRATION_OPEN` off (admins create users) unless you want
    open self-registration, and let `SESSION_SECRET` auto-mint (or set it
    explicitly) so sessions and report share-URLs are signed.
-3. Set `OVERLAY_SERVER_TOKEN` (or let the bootstrap auto-generate it)
-   so overlay-server mutation endpoints reject anonymous writes; gate
-   `GET /metrics` with `METRICS_REQUIRE_ADMIN=true` if you don't want it
-   exposed.
-4. Configure `TRUSTED_HOSTS` to the public hostname(s) the app serves
+3. Configure `TRUSTED_HOSTS` to the public hostname(s) the app serves
    from when running behind a reverse proxy.
-5. If serving the React UI from a different origin, set
+4. If serving the React UI from a different origin, set
    `CORS_ALLOWED_ORIGINS` explicitly — wildcards are rejected.
 
 ## CI scanning
