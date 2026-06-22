@@ -18,6 +18,17 @@ once a first tagged release ships.
 
 ### Added
 
+- **Installable per-board PWA from the permanent bookmark link.** Installing
+  the app (Chrome / desktop) from a board's permanent bookmark URL
+  (`/board?u=<username>&oid=<oid>`) used to launch the **app root** — the
+  static manifest `start_url` ignored which board you installed from. The board
+  page now points the manifest at a per-board variant
+  (`/manifest.webmanifest?u=…&oid=…`) whose `start_url`/`id` open **that** board
+  and whose `id` is distinct so Chrome installs it as its own app. The variant
+  is only applied for the stable no-login bookmark (not the revocable control
+  token, and not owner mode behind a login). iOS is unaffected — Safari's "Add
+  to Home Screen" already captures the current URL, query string included.
+
 - **The account pages are now fully localized, and the language setting moved
   to the app.** The account area (dashboard, My overlays, Teams, Presets,
   Reports, Account, Admin, plus the nav, toasts and confirm dialogs) was

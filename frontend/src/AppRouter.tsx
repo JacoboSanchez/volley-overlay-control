@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, type ReactNode } from 'react';
 import {
   BrowserRouter,
   Navigate,
@@ -56,6 +56,27 @@ function Board() {
   const params = new URLSearchParams(useLocation().search);
   const controlToken = params.get('c');
   const publicUser = params.get('u');
+  const oid = params.get('oid');
+
+  // Point the PWA manifest at this specific board so an "Install app" (Chrome /
+  // desktop) creates a launcher that reopens THIS board rather than the app
+  // root. Only for the stable, no-login bookmark (username + oid): the control
+  // token is revocable, so installing it would break when it's regenerated, and
+  // owner mode (?oid= behind a login) would just land on the login screen.
+  useEffect(() => {
+    if (!publicUser || !oid) return undefined;
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (!link) return undefined;
+    const previous = link.getAttribute('href');
+    link.setAttribute(
+      'href',
+      `/manifest.webmanifest?u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`,
+    );
+    return () => {
+      if (previous !== null) link.setAttribute('href', previous);
+    };
+  }, [publicUser, oid]);
+
   const board = (
     <SettingsProvider>
       <Suspense fallback={<Loading />}>

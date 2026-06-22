@@ -16,6 +16,8 @@ from app.app_config import (
     get_stale_set_threshold_minutes,
 )
 from app.bootstrap import (
+    _BOARD_TOKEN_RE,
+    _board_manifest,
     _inject_title_into_html,
     _render_index_html,
     _render_manifest,
@@ -135,3 +137,54 @@ def test_render_manifest_injects_title_into_name_fields(tmp_path):
     assert data["name"] == "MyApp"
     assert data["short_name"] == "MyApp"
     assert data["icons"] == []
+
+
+def test_board_manifest_points_start_url_at_the_board():
+    base = {"name": "Volley", "short_name": "Volley", "start_url": "/", "icons": ["x"]}
+    out = _board_manifest(base, "Volley", "alex", "liga")
+    assert out["start_url"] == "/board?u=alex&oid=liga"
+    # Distinct ``id`` so Chrome installs it as its own app, scope covers it.
+    assert out["id"] == "/board?u=alex&oid=liga"
+    assert out["scope"] == "/"
+    assert out["short_name"] == "liga"
+    # Shared/cached base dict is not mutated.
+    assert base["start_url"] == "/"
+    assert out["icons"] == ["x"]
+
+
+def test_board_manifest_token_regex_rejects_unsafe_values():
+    assert _BOARD_TOKEN_RE.match("liga-2024.A_b")
+    assert not _BOARD_TOKEN_RE.match("a/b")
+    assert not _BOARD_TOKEN_RE.match("a b")
+    assert not _BOARD_TOKEN_RE.match("")
+
+
+def test_manifest_route_serves_per_board_variant(tmp_path, monkeypatch):
+    # A minimal built frontend so the manifest route finds a source file.
+    import app.bootstrap as bootstrap
+
+    frontend = tmp_path / "dist"
+    frontend.mkdir()
+    (frontend / "manifest.webmanifest").write_text(
+        '{"name": "Volley", "short_name": "Volley", "start_url": "/", "icons": []}',
+        encoding="utf-8",
+    )
+    (frontend / "index.html").write_text("<title>x</title>", encoding="utf-8")
+    monkeypatch.setattr(bootstrap, "FRONTEND_DIR", frontend)
+    _render_manifest.cache_clear()
+
+    with TestClient(bootstrap.create_app()) as client:
+        base = client.get("/manifest.webmanifest").json()
+        assert base["start_url"] == "/"
+
+        board = client.get(
+            "/manifest.webmanifest", params={"u": "alex", "oid": "liga"}
+        ).json()
+        assert board["start_url"] == "/board?u=alex&oid=liga"
+        assert board["id"] == "/board?u=alex&oid=liga"
+
+        # Unsafe params are ignored — falls back to the app-wide manifest.
+        bad = client.get(
+            "/manifest.webmanifest", params={"u": "a/b", "oid": "liga"}
+        ).json()
+        assert bad["start_url"] == "/"
