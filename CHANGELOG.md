@@ -52,6 +52,14 @@ once a first tagged release ships.
   out. The drawer closes on navigation, on backdrop tap, and on Escape, and
   locks background scroll while open. The desktop sidebar layout is unchanged.
 
+- **Account-page UI consistency.** Introduced a shared `EmptyState` component
+  and reusable CSS classes (tiles, section dividers, colour swatches) so the
+  "nothing here yet" placeholders, dashboard tiles, and admin section dividers
+  render identically across the account pages instead of via per-page inline
+  styles. The **Reports** page now shows a clear call-to-action linking to
+  "My overlays" when you have no scoreboards yet, instead of an empty
+  scoreboard dropdown.
+
 - **No backward compatibility.** `SCOREBOARD_USERS`, `OVERLAY_MANAGER_PASSWORD`-
   gated scoreboard access, the `PREDEFINED_OVERLAYS` catalog, and the
   `APP_TEAMS` / `APP_THEMES` / `REMOTE_CONFIG_URL` configuration sources for

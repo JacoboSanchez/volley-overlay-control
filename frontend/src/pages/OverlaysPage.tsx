@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
+import EmptyState from '../components/EmptyState';
 
 export default function OverlaysPage() {
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
@@ -93,7 +94,7 @@ export default function OverlaysPage() {
           <span>Output URL (cloud, optional)</span>
           <input className="acc-input" value={outputUrl} placeholder="https://app.overlays.uno/output/…"
             onChange={(e) => setOutputUrl(e.target.value)} />
-          <small className="acc-muted">Leave blank to use this app's built-in OBS overlay URL.</small>
+          <small className="acc-muted">Leave blank to use this app’s built-in OBS overlay URL.</small>
         </label>
         <button className="acc-btn" type="submit" disabled={!oid.trim()}>Add overlay</button>
       </form>
@@ -102,7 +103,7 @@ export default function OverlaysPage() {
       {loading ? (
         <p className="acc-muted">Loading…</p>
       ) : overlays.length === 0 ? (
-        <p className="acc-muted">No overlays yet — add one above.</p>
+        <EmptyState>No overlays yet — add one above to create your first scoreboard.</EmptyState>
       ) : (
         <table className="acc-table">
           <thead>

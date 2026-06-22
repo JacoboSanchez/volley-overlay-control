@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import EmptyState from '../components/EmptyState';
 import JsonImportExport from './JsonImportExport';
 
 export default function TeamsPage() {
@@ -54,9 +55,9 @@ export default function TeamsPage() {
         copy a whole group.
       </p>
 
-      <h3 style={{ marginTop: 20 }}>My teams</h3>
+      <h3 className="acc-subhead">My teams</h3>
       {mineNames.size === 0 ? (
-        <p className="acc-muted">No teams yet — add some from the catalog below.</p>
+        <EmptyState>No teams yet — add some from the catalog below.</EmptyState>
       ) : (
         <table className="acc-table">
           <thead><tr><th>Team</th><th></th></tr></thead>
@@ -75,7 +76,7 @@ export default function TeamsPage() {
 
       {groups.length > 0 && (
         <>
-          <h3 style={{ marginTop: 24 }}>Team groups</h3>
+          <h3 className="acc-subhead">Team groups</h3>
           {groups.map((g) => (
             <div key={g.id} style={{ marginBottom: 10 }}>
               <button className="acc-btn secondary" onClick={() => copyGroup(g.id)}>
@@ -86,7 +87,7 @@ export default function TeamsPage() {
         </>
       )}
 
-      <h3 style={{ marginTop: 24 }}>Catalog</h3>
+      <h3 className="acc-subhead">Catalog</h3>
       <table className="acc-table">
         <thead><tr><th>Team</th><th></th></tr></thead>
         <tbody>
@@ -158,7 +159,7 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
   }
 
   return (
-    <div style={{ marginTop: 34, borderTop: '1px solid #232833', paddingTop: 18 }}>
+    <div className="acc-section">
       <h3>Manage catalog (admin)</h3>
       <p className="acc-muted">
         Configure the preloaded teams users can add: name, logo URL, background colour and text
@@ -177,13 +178,13 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
           <span>Colour</span>
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
-            style={{ width: 48, height: 38, background: 'none', border: 'none' }} />
+          <input type="color" className="acc-color" value={color}
+            onChange={(e) => setColor(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
           <span>Text colour</span>
-          <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)}
-            style={{ width: 48, height: 38, background: 'none', border: 'none' }} />
+          <input type="color" className="acc-color" value={textColor}
+            onChange={(e) => setTextColor(e.target.value)} />
         </label>
         <button className="acc-btn" type="submit" disabled={!name.trim()}>Add team</button>
       </form>
@@ -236,12 +237,12 @@ function AdminTeamRow({ team, onChange }: { team: api.TeamOut; onChange: () => v
           onChange={(e) => setIcon(e.target.value)} style={{ minWidth: 200 }} />
       </td>
       <td>
-        <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
-          style={{ width: 42, height: 32, background: 'none', border: 'none' }} />
+        <input type="color" className="acc-color sm" value={color}
+          onChange={(e) => setColor(e.target.value)} />
       </td>
       <td>
-        <input type="color" value={textColor} onChange={(e) => setTextColor(e.target.value)}
-          style={{ width: 42, height: 32, background: 'none', border: 'none' }} />
+        <input type="color" className="acc-color sm" value={textColor}
+          onChange={(e) => setTextColor(e.target.value)} />
       </td>
       <td style={{ whiteSpace: 'nowrap' }}>
         <button className="acc-btn" onClick={save}>{saved ? 'Saved!' : 'Save'}</button>{' '}

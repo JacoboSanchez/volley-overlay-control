@@ -102,7 +102,7 @@ export default function AdminPage() {
       {tempNotice && <div className="acc-info">{tempNotice}</div>}
       {error && <div className="acc-error">{error}</div>}
 
-      <h3 style={{ marginTop: 20 }}>Create user</h3>
+      <h3 className="acc-subhead">Create user</h3>
       <form className="acc-row" onSubmit={createUser}>
         <label className="acc-field" style={{ marginBottom: 0 }}>
           <span>Username</span>
@@ -118,7 +118,7 @@ export default function AdminPage() {
         <button className="acc-btn" type="submit" disabled={!newName.trim()}>Create (temp password)</button>
       </form>
 
-      <h3 style={{ marginTop: 20 }}>Users</h3>
+      <h3 className="acc-subhead">Users</h3>
       <table className="acc-table">
         <thead><tr><th>Username</th><th>Role</th><th>Active</th><th></th></tr></thead>
         <tbody>

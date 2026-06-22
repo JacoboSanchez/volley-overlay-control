@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import EmptyState from '../components/EmptyState';
 import JsonImportExport from './JsonImportExport';
 
 export default function PresetsPage() {
@@ -37,13 +38,16 @@ export default function PresetsPage() {
       <h2>Presets</h2>
       <p className="acc-muted">
         Global presets (curated by an administrator) and your own. Create new presets from a live
-        scoreboard's customization panel; they appear across all your scoreboards.
+        scoreboard’s customization panel; they appear across all your scoreboards.
       </p>
       {error && <div className="acc-error">{error}</div>}
       {loading ? (
         <p className="acc-muted">Loading…</p>
       ) : items.length === 0 ? (
-        <p className="acc-muted">No presets yet.</p>
+        <EmptyState>
+          No presets yet. Save a look from a live scoreboard’s customization panel and it will appear
+          here, ready to reuse across all your scoreboards.
+        </EmptyState>
       ) : (
         <table className="acc-table">
           <thead><tr><th>Name</th><th>Scope</th><th>Covers</th><th></th></tr></thead>
@@ -99,14 +103,14 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
   }
 
   return (
-    <div style={{ marginTop: 34, borderTop: '1px solid #232833', paddingTop: 18 }}>
+    <div className="acc-section">
       <h3>Manage global presets (admin)</h3>
       <p className="acc-muted">
         Only <strong>active</strong> global presets are shown to users. Toggle activation, delete,
         or bulk-import an <code>APP_THEMES</code> JSON map.
       </p>
       {globals.length === 0 ? (
-        <p className="acc-muted">No global presets yet — import some below.</p>
+        <EmptyState>No global presets yet — import some below.</EmptyState>
       ) : (
         <table className="acc-table">
           <thead><tr><th>Name</th><th>Active</th><th>Covers</th><th></th></tr></thead>

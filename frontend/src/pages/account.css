@@ -306,6 +306,81 @@
   color: #c2c8d2;
 }
 
+/* Shared empty / "nothing here yet" callout used across the account pages so
+   the placeholder copy looks the same everywhere. */
+.acc-empty {
+  background: #181b22;
+  border: 1px solid #262b35;
+  border-radius: 12px;
+  padding: 18px 20px;
+  color: #98a2b3;
+  font-size: 0.92rem;
+  margin-top: 12px;
+}
+
+.acc-empty strong {
+  color: #e7e9ee;
+}
+
+.acc-empty-action {
+  margin-top: 12px;
+}
+
+/* Section divider for the admin-only blocks appended to user pages. */
+.acc-section {
+  margin-top: 34px;
+  border-top: 1px solid #232833;
+  padding-top: 18px;
+}
+
+.acc-subhead {
+  margin-top: 22px;
+}
+
+/* Dashboard tiles (account home). */
+.acc-tile-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  margin-top: 18px;
+}
+
+.acc-tile {
+  text-decoration: none;
+  color: inherit;
+  background: #181b22;
+  border: 1px solid #262b35;
+  border-radius: 12px;
+  padding: 16px;
+  display: block;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.acc-tile:hover {
+  border-color: #2f6bff;
+  transform: translateY(-1px);
+}
+
+.acc-tile-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* Native colour swatch input, used in the admin team catalog. */
+.acc-color {
+  width: 48px;
+  height: 38px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.acc-color.sm {
+  width: 42px;
+  height: 32px;
+}
+
 @media (max-width: 720px) {
   .acc-layout {
     grid-template-columns: 1fr;
