@@ -71,6 +71,16 @@ once a first tagged release ships.
 
 ### Changed
 
+- **New PWA / app icon.** Redrawn `frontend/public/icon.svg` as a bold, flat
+  volleyball (coral→pink seams on a navy background), centred within the
+  maskable safe zone — the old icon tucked a tiny score bar against the bottom
+  edge, which maskable launchers crop off. The SVG is now also the **maskable**
+  source. Because the environment has no SVG→PNG rasteriser, the raster
+  siblings (`icon-192x192.png`, `icon-512x512.png`, `apple-touch-icon.png` —
+  what Chrome/iOS use for the installed launcher) are regenerated separately
+  via the new `frontend/scripts/regenerate-icons.sh` (needs librsvg / Inkscape /
+  ImageMagick); until that runs they keep the previous artwork.
+
 - **Overlay output is no longer described as "OBS"-specific.** OBS is one of
   several consumers of an overlay's output URL (vMix, a plain browser, etc.),
   so the OBS-only wording was misleading. The "OBS output URL" column is now
