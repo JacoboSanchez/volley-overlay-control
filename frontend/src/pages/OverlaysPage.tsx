@@ -70,18 +70,18 @@ export default function OverlaysPage() {
         URL</strong> below and add it in OBS as a <strong>Browser Source</strong>.
       </p>
 
-      <form className="acc-row" onSubmit={onCreate} style={{ marginTop: 16 }}>
-        <label className="acc-field" style={{ marginBottom: 0 }}>
+      <form className="acc-form" onSubmit={onCreate}>
+        <label className="acc-field">
           <span>Overlay id</span>
           <input className="acc-input" value={oid} placeholder="e.g. liga"
             onChange={(e) => setOid(e.target.value)} />
           <small className="acc-muted">Letters, digits, <code>. _ -</code> — no spaces.</small>
         </label>
-        <label className="acc-field" style={{ marginBottom: 0 }}>
+        <label className="acc-field">
           <span>Display name (optional)</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <label className="acc-field" style={{ marginBottom: 0 }}>
+        <label className="acc-field">
           <span>Format</span>
           <select className="acc-input" value={sets} onChange={(e) => setSets(e.target.value)}>
             <option value="">Default</option>
@@ -90,13 +90,16 @@ export default function OverlaysPage() {
             <option value="1">Single set</option>
           </select>
         </label>
-        <label className="acc-field" style={{ marginBottom: 0, minWidth: 200 }}>
+        <label className="acc-field">
           <span>Output URL (cloud, optional)</span>
           <input className="acc-input" value={outputUrl} placeholder="https://app.overlays.uno/output/…"
             onChange={(e) => setOutputUrl(e.target.value)} />
           <small className="acc-muted">Leave blank to use this app’s built-in OBS overlay URL.</small>
         </label>
-        <button className="acc-btn" type="submit" disabled={!oid.trim()}>Add overlay</button>
+        <div className="acc-form-actions">
+          <span className="acc-form-spacer" aria-hidden="true">&nbsp;</span>
+          <button className="acc-btn" type="submit" disabled={!oid.trim()}>Add overlay</button>
+        </div>
       </form>
       {error && <div className="acc-error">{error}</div>}
 

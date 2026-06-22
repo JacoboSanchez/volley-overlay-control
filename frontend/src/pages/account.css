@@ -292,6 +292,57 @@
   margin-bottom: 16px;
 }
 
+/* Responsive create-form layout. Labels sit on top and items align to their
+   top edge, so the inputs line up on one row even when individual fields carry
+   helper text below them — which previously dragged the row out of alignment
+   under the flex-end ``.acc-row`` and widened columns to fit the helper line. */
+.acc-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 16px 0;
+}
+
+.acc-form .acc-field {
+  flex: 1 1 190px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.acc-form-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A hidden, one-line spacer the same height as a field label, so the submit
+   button drops down to line up with the inputs in the other columns. */
+.acc-form-spacer {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 5px;
+}
+
+/* Read-only value + Copy button (e.g. a temporary password an admin hands to a
+   new user). The input is selectable so it can also be copied manually. */
+.acc-copy {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 460px;
+}
+
+.acc-copy-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.acc-copy .acc-btn {
+  flex: 0 0 auto;
+}
+
 .acc-muted {
   color: #98a2b3;
   font-size: 0.85rem;
@@ -454,6 +505,28 @@
 
   .acc-main {
     padding: 18px 16px;
+  }
+
+  /* Stacked form on phones: one field per row, full-width button, and drop the
+     label-height spacer that only exists to align the button on desktop. */
+  .acc-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  /* In a column the flex-basis becomes a height; reset it so fields hug their
+     content instead of each stretching to 190px tall. */
+  .acc-form .acc-field {
+    flex: 0 0 auto;
+  }
+  .acc-form-actions {
+    flex: 0 0 auto;
+    align-self: stretch;
+  }
+  .acc-form-actions .acc-btn {
+    width: 100%;
+  }
+  .acc-form-spacer {
+    display: none;
   }
 
   /* Stack data tables into per-row cards so a phone operator can create an

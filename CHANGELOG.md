@@ -52,6 +52,18 @@ once a first tagged release ships.
   out. The drawer closes on navigation, on backdrop tap, and on Escape, and
   locks background scroll while open. The desktop sidebar layout is unchanged.
 
+- **Create-overlay form alignment.** The "My overlays" create form mixed
+  fields with and without helper text in a `flex-end` row, so the inputs no
+  longer lined up and the helper text widened columns and forced ragged
+  wrapping. It now uses a top-aligned responsive grid: inputs line up on one
+  row on desktop and stack cleanly to full width on phones, with the submit
+  button aligned to the input row.
+
+- **Copyable temporary passwords.** When an admin creates a user or resets a
+  password, the temporary password is now shown in a selectable, monospace
+  field with a one-tap **Copy** button (shared `CopyField` component) instead
+  of as plain inline text that had to be copied character by character.
+
 - **Account-page UI consistency.** Introduced a shared `EmptyState` component
   and reusable CSS classes (tiles, section dividers, colour swatches) so the
   "nothing here yet" placeholders, dashboard tiles, and admin section dividers

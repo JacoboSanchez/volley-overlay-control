@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import CopyField from '../components/CopyField';
 
 export default function AdminPage() {
   const { ctx } = useAuth();
@@ -9,7 +10,7 @@ export default function AdminPage() {
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
-  const [tempNotice, setTempNotice] = useState('');
+  const [tempCred, setTempCred] = useState<{ text: string; password: string } | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -33,11 +34,11 @@ export default function AdminPage() {
   async function createUser(e: FormEvent) {
     e.preventDefault();
     setError('');
-    setTempNotice('');
+    setTempCred(null);
     try {
       const res = await api.adminCreateUser(newName.trim(), { role: newRole });
       setNewName('');
-      setTempNotice(`Created "${res.user.username}". Temporary password: ${res.temp_password}`);
+      setTempCred({ text: `Created "${res.user.username}". Temporary password:`, password: res.temp_password });
       await load();
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Could not create user.');
@@ -48,7 +49,7 @@ export default function AdminPage() {
     setError('');
     try {
       const res = await api.adminResetPassword(u.id);
-      setTempNotice(`Reset "${u.username}". Temporary password: ${res.temp_password}`);
+      setTempCred({ text: `Reset "${u.username}". Temporary password:`, password: res.temp_password });
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Password reset failed.');
     }
@@ -99,7 +100,17 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {tempNotice && <div className="acc-info">{tempNotice}</div>}
+      {tempCred && (
+        <div className="acc-info">
+          <div>{tempCred.text}</div>
+          <div style={{ marginTop: 8 }}>
+            <CopyField value={tempCred.password} label="Temporary password" />
+          </div>
+          <div className="acc-muted" style={{ marginTop: 6 }}>
+            Share it with the user — they’ll be asked to set a new password on first sign-in.
+          </div>
+        </div>
+      )}
       {error && <div className="acc-error">{error}</div>}
 
       <h3 className="acc-subhead">Create user</h3>
