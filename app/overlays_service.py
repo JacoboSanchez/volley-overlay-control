@@ -93,6 +93,7 @@ def update_overlay(
     *,
     display_name: object = _UNSET,
     output_url: object = _UNSET,
+    public_control: object = _UNSET,
     points: object = _UNSET,
     points_last_set: object = _UNSET,
     sets: object = _UNSET,
@@ -105,6 +106,8 @@ def update_overlay(
         overlay.display_name = (str(display_name or "").strip()) or None
     if output_url is not _UNSET:
         overlay.output_url = (str(output_url or "").strip()) or None
+    if public_control is not _UNSET:
+        overlay.public_control = bool(public_control)
     if points is not _UNSET:
         overlay.points = points
     if points_last_set is not _UNSET:
@@ -138,6 +141,29 @@ def get_by_control_token(db: Session, token: str) -> UserOverlay | None:
     return db.execute(
         select(UserOverlay).where(UserOverlay.control_token == token)
     ).scalar_one_or_none()
+
+
+def get_public_by_username_and_oid(
+    db: Session, username: str, oid: str,
+) -> UserOverlay | None:
+    """Resolve the overlay behind a ``/board?u=<username>&oid=<oid>`` URL.
+
+    Returns the overlay only when it exists **and** has opted into
+    ``public_control`` (the guessable, no-login bookmark URL). Returns ``None``
+    otherwise — including when the overlay exists but hasn't opted in — so the
+    caller can reject without leaking which boards exist.
+    """
+    from app.auth import service as auth_service
+
+    if not username or not oid:
+        return None
+    user = auth_service.get_by_username(db, username)
+    if user is None:
+        return None
+    overlay = get_overlay(db, user.id, oid)
+    if overlay is None or not overlay.public_control:
+        return None
+    return overlay
 
 
 def ensure_control_token(db: Session, overlay: UserOverlay) -> str:

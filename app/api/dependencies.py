@@ -1,6 +1,6 @@
 """Scoreboard API auth + session dependencies.
 
-The control board is reachable two ways:
+The control board is reachable three ways:
 
 * **Owner** — a logged-in cookie session (`vsession`). The session is addressed
   by the per-user storage key ``<user_id>:<oid>`` so two users can drive the
@@ -9,11 +9,14 @@ The control board is reachable two ways:
   ``X-Control-Token`` header). The token resolves to one overlay's storage key,
   granting full board control without a login — the link an owner hands to
   whoever is running the match. It also separates two users sharing an ``oid``.
+* **Public bookmark** — ``?u=<username>&oid=<oid>``: a stable, no-login URL the
+  owner can bookmark permanently. It is *guessable*, so it only works when the
+  overlay has opted into ``public_control``; otherwise it is rejected.
 
 ``verify_api_key`` is kept as a name (used as ``dependencies=[Depends(...)]`` on
-the domain routers); it now authorizes *either* a valid control token or an
-onboarded cookie user. ``get_session`` resolves the storage key from whichever
-credential is present.
+the domain routers); it now authorizes a valid control token, an opted-in
+username+oid pair, or an onboarded cookie user. ``get_session`` resolves the
+storage key from whichever credential is present.
 """
 
 import logging
@@ -54,16 +57,23 @@ def resolve_board_skey(
     db: Session,
     *,
     token: str | None,
+    public_user: str | None,
     user: User | None,
     oid: str | None,
 ) -> str:
-    """Resolve the storage key for the board, from a control token or cookie.
+    """Resolve the storage key for the board from whichever credential is present.
 
-    A valid control token wins and needs no login. Otherwise the caller must be
-    an onboarded user and pass an ``oid``.
+    Precedence: control token (operator) → opted-in ``username``+``oid`` (public
+    bookmark) → cookie user + ``oid`` (owner).
     """
     if token:
         overlay = overlays_service.get_by_control_token(db, token)
+        if overlay is None:
+            raise HTTPException(status_code=403, detail=_INVALID_LINK)
+        return overlays_service.skey_for(overlay)
+
+    if public_user:
+        overlay = overlays_service.get_public_by_username_and_oid(db, public_user, oid or "")
         if overlay is None:
             raise HTTPException(status_code=403, detail=_INVALID_LINK)
         return overlays_service.skey_for(overlay)
@@ -79,10 +89,14 @@ def resolve_board_skey(
 
 async def require_board_control(
     token: str | None = Depends(control_token),
+    u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
+    oid: str | None = Query(None, description="Overlay ID"),
+    control: str | None = Query(None, description="Alias of `oid`"),
     user: User | None = Depends(current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    """Authorize a board-control request: valid control token OR onboarded user.
+    """Authorize a board-control request: control token, opted-in username+oid,
+    or onboarded cookie user.
 
     Pure gate (no return value) — used as ``dependencies=[Depends(...)]``.
     """
@@ -90,12 +104,16 @@ async def require_board_control(
         if overlays_service.get_by_control_token(db, token) is None:
             raise HTTPException(status_code=403, detail=_INVALID_LINK)
         return
+    if u:
+        if overlays_service.get_public_by_username_and_oid(db, u, (oid or control) or "") is None:
+            raise HTTPException(status_code=403, detail=_INVALID_LINK)
+        return
     _require_onboarded(user)
 
 
 # Route-level "may control this board" dependency. Named for backwards
 # compatibility with the many ``dependencies=[Depends(verify_api_key)]`` call
-# sites; the implementation is now the token-or-cookie board gate.
+# sites; the implementation is now the token / public-bookmark / cookie gate.
 verify_api_key = require_board_control
 
 
@@ -103,17 +121,20 @@ async def get_session(
     oid: str | None = Query(None, description="Overlay ID"),
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
     token: str | None = Depends(control_token),
+    u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
     user: User | None = Depends(current_user),
     db: Session = Depends(get_db),
 ) -> GameSession:
     """Retrieve the board's previously-initialised ``GameSession``.
 
-    The storage key comes from the control token (operator) or the cookie user +
-    ``oid`` (owner), so a caller only ever reaches the board their credential
-    authorizes. Returns 404 when no session exists (call
-    ``POST /api/v1/session/init`` first).
+    The storage key comes from the control token (operator), the opted-in
+    ``username``+``oid`` bookmark, or the cookie user + ``oid`` (owner), so a
+    caller only ever reaches the board their credential authorizes. Returns 404
+    when no session exists (call ``POST /api/v1/session/init`` first).
     """
-    skey = resolve_board_skey(db, token=token, user=user, oid=(oid or control))
+    skey = resolve_board_skey(
+        db, token=token, public_user=u, user=user, oid=(oid or control),
+    )
     session = SessionManager.get(skey)
     if session is None:
         raise HTTPException(

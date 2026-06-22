@@ -5,7 +5,21 @@ import { createWebSocket } from '../api/websocket';
 describe('control-token (operator) mode', () => {
   afterEach(() => {
     api.setControlToken(null);
+    api.setPublicUser(null);
     vi.restoreAllMocks();
+  });
+
+  it('addresses board requests by ?u=&oid= in public bookmark mode', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ team_1: {} }), { status: 200 }),
+    );
+
+    api.setPublicUser('alice');
+    await api.getState('liga');
+
+    const url = fetchMock.mock.calls[0]![0] as string;
+    expect(url).toContain('/state?u=alice&oid=liga');
+    expect(url).not.toContain('?c=');
   });
 
   it('addresses board requests by ?c=<token> instead of ?oid=', async () => {

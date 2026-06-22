@@ -1292,6 +1292,24 @@
             "description": "Default points in the deciding set",
             "title": "Points Last Set"
           },
+          "public_control": {
+            "default": false,
+            "description": "Allow no-login control via the username+oid URL",
+            "title": "Public Control",
+            "type": "boolean"
+          },
+          "public_control_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stable username+oid bookmark link (when enabled)",
+            "title": "Public Control Url"
+          },
           "public_token": {
             "description": "Public OBS-output capability token",
             "title": "Public Token",
@@ -2093,6 +2111,18 @@
               }
             ],
             "title": "Points Last Set"
+          },
+          "public_control": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Toggle no-login username+oid control",
+            "title": "Public Control"
           },
           "sets": {
             "anyOf": [
@@ -3928,9 +3958,9 @@
             }
           },
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3941,8 +3971,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -3979,6 +4009,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -4489,9 +4537,9 @@
         "operationId": "get_config_api_v1_config_get",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -4502,8 +4550,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -4540,6 +4588,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -4608,9 +4674,9 @@
         "operationId": "get_customization_api_v1_customization_get",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -4621,8 +4687,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -4659,6 +4725,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -4725,9 +4809,9 @@
         "operationId": "update_customization_api_v1_customization_put",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -4738,8 +4822,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -4776,6 +4860,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5019,9 +5121,9 @@
         "operationId": "set_auto_swap_sides_api_v1_display_auto_swap_sides_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5032,8 +5134,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5070,6 +5172,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5151,9 +5271,9 @@
         "operationId": "set_set_summary_api_v1_display_set_summary_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5164,8 +5284,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5202,6 +5322,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5283,9 +5421,9 @@
         "operationId": "set_set_summary_style_api_v1_display_set_summary_style_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5296,8 +5434,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5334,6 +5472,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5414,9 +5570,9 @@
         "operationId": "set_simple_mode_api_v1_display_simple_mode_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5427,8 +5583,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5465,6 +5621,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5546,9 +5720,9 @@
         "operationId": "set_swap_sides_api_v1_display_swap_sides_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5559,8 +5733,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5597,6 +5771,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5677,9 +5869,9 @@
         "operationId": "set_visibility_api_v1_display_visibility_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5690,8 +5882,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5728,6 +5920,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5808,9 +6018,9 @@
         "operationId": "add_point_api_v1_game_add_point_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5821,8 +6031,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5859,6 +6069,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -5939,9 +6167,9 @@
         "operationId": "add_set_api_v1_game_add_set_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -5952,8 +6180,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -5990,6 +6218,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6070,9 +6316,9 @@
         "operationId": "add_timeout_api_v1_game_add_timeout_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6083,8 +6329,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -6121,6 +6367,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6201,9 +6465,9 @@
         "operationId": "change_serve_api_v1_game_change_serve_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6214,8 +6478,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -6252,6 +6516,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6332,9 +6614,9 @@
         "operationId": "reset_game_api_v1_game_reset_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6345,8 +6627,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -6383,6 +6665,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6453,9 +6753,9 @@
         "operationId": "set_score_api_v1_game_set_score_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6466,8 +6766,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -6504,6 +6804,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6584,9 +6902,9 @@
         "operationId": "set_sets_api_v1_game_set_sets_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6597,8 +6915,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -6635,6 +6953,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6716,9 +7052,9 @@
         "operationId": "start_match_api_v1_game_start_match_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6729,8 +7065,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -6767,6 +7103,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6838,9 +7192,9 @@
         "operationId": "undo_last_api_v1_game_undo_post",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6851,8 +7205,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -6889,6 +7243,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -6960,9 +7332,9 @@
         "operationId": "get_links_api_v1_links_get",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -6973,8 +7345,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -7011,6 +7383,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -7160,9 +7550,9 @@
             }
           },
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -7173,8 +7563,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -7211,6 +7601,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -7751,9 +8159,27 @@
     },
     "/api/v1/session/init": {
       "post": {
-        "description": "Initialise (or re-use) a game session for an overlay.\n\nReachable by the owner (cookie + ``oid``) or an operator holding the\noverlay's control token (``?c=``), so a shared board can be bootstrapped\nafter a server restart by whoever opens the link.",
+        "description": "Initialise (or re-use) a game session for an overlay.\n\nReachable by the owner (cookie + ``oid``), an operator holding the overlay's\ncontrol token (``?c=``), or an opted-in public ``?u=&oid=`` bookmark \u2014 so a\nboard can be bootstrapped after a server restart by whoever opens the link.",
         "operationId": "init_session_api_v1_session_init_post",
         "parameters": [
+          {
+            "description": "Username for a public ?u=&oid= board URL",
+            "in": "query",
+            "name": "u",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
+            }
+          },
           {
             "description": "Control capability token (shareable board link)",
             "in": "query",
@@ -7887,6 +8313,24 @@
             }
           },
           {
+            "description": "Username for a public ?u=&oid= board URL",
+            "in": "query",
+            "name": "u",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
+            }
+          },
+          {
             "description": "Control capability token (shareable board link)",
             "in": "query",
             "name": "c",
@@ -7982,9 +8426,9 @@
         "operationId": "get_state_api_v1_state_get",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -7995,8 +8439,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -8033,6 +8477,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -8104,9 +8566,9 @@
         "operationId": "get_style_capabilities_api_v1_style_capabilities_get",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -8117,8 +8579,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -8155,6 +8617,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {
@@ -8224,9 +8704,9 @@
         "operationId": "get_styles_api_v1_styles_get",
         "parameters": [
           {
-            "description": "Control capability token (shareable board link)",
+            "description": "Username for a public ?u=&oid= board URL",
             "in": "query",
-            "name": "c",
+            "name": "u",
             "required": false,
             "schema": {
               "anyOf": [
@@ -8237,8 +8717,8 @@
                   "type": "null"
                 }
               ],
-              "description": "Control capability token (shareable board link)",
-              "title": "C"
+              "description": "Username for a public ?u=&oid= board URL",
+              "title": "U"
             }
           },
           {
@@ -8275,6 +8755,24 @@
               ],
               "description": "Alias of `oid` for backward compatibility",
               "title": "Control"
+            }
+          },
+          {
+            "description": "Control capability token (shareable board link)",
+            "in": "query",
+            "name": "c",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Control capability token (shareable board link)",
+              "title": "C"
             }
           },
           {

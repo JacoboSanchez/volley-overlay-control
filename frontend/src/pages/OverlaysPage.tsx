@@ -228,6 +228,49 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
       <button className="acc-btn" onClick={save}>Save settings</button>
 
       <ControlLink o={o} onChanged={onSaved} />
+      <BookmarkLink o={o} onChanged={onSaved} />
+    </div>
+  );
+}
+
+function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    if (!o.public_control && !confirm(
+      'Enable a permanent no-login control URL for this board?\n\n' +
+      'The link is based on your username and this overlay id, so it is ' +
+      'guessable — anyone who works it out could control this scoreboard. ' +
+      'Use it as your own bookmark; share the operator link above instead.',
+    )) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.updateOverlay(o.oid, { public_control: !o.public_control });
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="acc-section" style={{ marginTop: 18, maxWidth: 560 }}>
+      <h4 style={{ margin: '0 0 4px' }}>Permanent bookmark link (username + id)</h4>
+      <p className="acc-muted" style={{ marginTop: 0 }}>
+        A stable, no-login URL you can bookmark forever. It never changes — but it’s
+        <strong> guessable</strong> (your username + this id), so keep it to yourself and use the
+        revocable operator link above for sharing.
+      </p>
+      <label className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input type="checkbox" checked={o.public_control} disabled={busy} onChange={toggle} />
+        Allow controlling this board from its username + id URL without logging in
+      </label>
+      {o.public_control && o.public_control_url && (
+        <div style={{ marginTop: 10 }}>
+          <CopyField value={o.public_control_url} label="Permanent bookmark link" />
+        </div>
+      )}
     </div>
   );
 }

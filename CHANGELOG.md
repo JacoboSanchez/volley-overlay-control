@@ -24,6 +24,16 @@ once a first tagged release ships.
   `/ws`, …) now authorizes either a `?c=<token>` (or `X-Control-Token` header)
   or the owner's session cookie.
 
+- **Permanent username+oid bookmark control (opt-in).** Each overlay can also
+  opt into a stable, no-login control URL based on the owner's username and the
+  overlay id (`/board?u=<username>&oid=<oid>`) — a permanent personal bookmark
+  that, unlike the control token, never changes when the token is regenerated.
+  Because it is **guessable** it is **off by default** and gated behind a
+  per-overlay `public_control` flag (toggle + warning under **My overlays →
+  Edit → Permanent bookmark link**); disabling it immediately revokes the URL.
+  The control surface and `/ws` accept `?u=<username>&oid=<oid>` only for
+  opted-in overlays.
+
 - **Multi-user application (backend).** The app now has real user accounts
   with cookie-based sessions, replacing the env-var Bearer auth. Highlights:
   - Registration + login/logout, self-service account management (change

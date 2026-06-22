@@ -47,21 +47,24 @@ function PublicOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** The control board. Owner mode is scoped via ?oid= behind a login; operator
- *  mode is scoped via a ?c=<control_token> capability link and needs no login. */
+/** The control board, reachable three ways: owner (?oid= behind a login), an
+ *  operator ?c=<control_token> capability link, or a public ?u=<username>&oid=
+ *  bookmark. The two capability modes need no login. */
 function Board() {
-  const controlToken = new URLSearchParams(useLocation().search).get('c');
+  const params = new URLSearchParams(useLocation().search);
+  const controlToken = params.get('c');
+  const publicUser = params.get('u');
   const board = (
     <I18nProvider>
       <SettingsProvider>
         <Suspense fallback={<Loading />}>
-          <App controlToken={controlToken ?? undefined} />
+          <App controlToken={controlToken ?? undefined} publicUser={publicUser ?? undefined} />
         </Suspense>
       </SettingsProvider>
     </I18nProvider>
   );
-  // A valid control link is its own credential — no session cookie required.
-  return controlToken ? board : <RequireAuth>{board}</RequireAuth>;
+  // A capability link is its own credential — no session cookie required.
+  return controlToken || publicUser ? board : <RequireAuth>{board}</RequireAuth>;
 }
 
 export default function AppRouter() {

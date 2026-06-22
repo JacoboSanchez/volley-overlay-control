@@ -33,6 +33,8 @@ class OverlayOut(BaseModel):
     custom_output_url: str | None = Field(None, description="Explicit override URL, if set")
     control_token: str | None = Field(None, description="Shareable control capability token")
     control_url: str | None = Field(None, description="Ready-made shareable control-board link")
+    public_control: bool = Field(False, description="Allow no-login control via the username+oid URL")
+    public_control_url: str | None = Field(None, description="Stable username+oid bookmark link (when enabled)")
     points: int | None = Field(None, description="Default points per set")
     points_last_set: int | None = Field(None, description="Default points in the deciding set")
     sets: int | None = Field(None, description="Default sets in the match (best-of)")
@@ -50,17 +52,22 @@ class CreateOverlayRequest(BaseModel):
 class UpdateOverlayRequest(BaseModel):
     display_name: str | None = Field(None, max_length=120)
     output_url: str | None = Field(None, max_length=2048)
+    public_control: bool | None = Field(None, description="Toggle no-login username+oid control")
     points: int | None = Field(None, ge=1, le=99)
     points_last_set: int | None = Field(None, ge=1, le=99)
     sets: int | None = Field(None, ge=1, le=15)
 
 
-def _overlay_out(request: Request, overlay) -> OverlayOut:
+def _overlay_out(request: Request, overlay, *, username: str | None = None) -> OverlayOut:
     public_url = (EnvVarsManager.get_env_var("OVERLAY_PUBLIC_URL", "") or "").rstrip("/")
     base = public_url or str(request.base_url).rstrip("/")
     local_url = f"{base}/overlay/{overlay.public_token}"
     control_url = (
         f"{base}/board?c={overlay.control_token}" if overlay.control_token else None
+    )
+    public_control_url = (
+        f"{base}/board?u={username}&oid={urllib.parse.quote(overlay.oid, safe='')}"
+        if (overlay.public_control and username) else None
     )
     return OverlayOut(
         oid=overlay.oid,
@@ -70,6 +77,8 @@ def _overlay_out(request: Request, overlay) -> OverlayOut:
         custom_output_url=overlay.output_url,
         control_token=overlay.control_token,
         control_url=control_url,
+        public_control=overlay.public_control,
+        public_control_url=public_control_url,
         points=overlay.points,
         points_last_set=overlay.points_last_set,
         sets=overlay.sets,
@@ -84,7 +93,7 @@ async def list_my_overlays(
 ):
     """Return the overlays owned by the caller."""
     return [
-        _overlay_out(request, o)
+        _overlay_out(request, o, username=user.username)
         for o in overlays_service.list_overlays(db, user.id)
     ]
 
@@ -106,7 +115,7 @@ async def create_my_overlay(
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
-    return _overlay_out(request, overlay)
+    return _overlay_out(request, overlay, username=user.username)
 
 
 @router.patch("/overlays/{oid}", response_model=OverlayOut)
@@ -129,7 +138,7 @@ async def update_my_overlay(
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     db.commit()
-    return _overlay_out(request, overlay)
+    return _overlay_out(request, overlay, username=user.username)
 
 
 @router.delete("/overlays/{oid}")
@@ -171,7 +180,7 @@ async def regenerate_control_token(
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     db.commit()
-    return _overlay_out(request, overlay)
+    return _overlay_out(request, overlay, username=user.username)
 
 
 # NOTE: ``GET /api/v1/teams`` now lives in app/api/routes/teams.py and returns

@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -43,15 +43,22 @@ def _ensure_user_overlay(db: Session, user: User, oid: str) -> UserOverlay:
 
 
 def _resolve_init_overlay(
-    db: Session, *, token: str | None, user: User | None, oid: str,
+    db: Session, *, token: str | None, public_user: str | None,
+    user: User | None, oid: str,
 ) -> UserOverlay:
-    """Resolve the overlay to initialise from a control token or cookie user.
+    """Resolve the overlay to initialise from whichever credential is present.
 
-    Operator (token) mode resolves an existing overlay; owner (cookie) mode
-    auto-creates the overlay for a not-yet-registered ``oid``.
+    Operator (token) and public-bookmark (username+oid) modes resolve an
+    existing overlay; owner (cookie) mode auto-creates the overlay for a
+    not-yet-registered ``oid``.
     """
     if token:
         overlay = overlays_service.get_by_control_token(db, token)
+        if overlay is None:
+            raise HTTPException(status_code=403, detail="Invalid or revoked control link.")
+        return overlay
+    if public_user:
+        overlay = overlays_service.get_public_by_username_and_oid(db, public_user, oid)
         if overlay is None:
             raise HTTPException(status_code=403, detail="Invalid or revoked control link.")
         return overlay
@@ -66,17 +73,20 @@ def _resolve_init_overlay(
 async def init_session(
     req: InitRequest,
     token: str | None = Depends(control_token),
+    u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
     user: User | None = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """Initialise (or re-use) a game session for an overlay.
 
-    Reachable by the owner (cookie + ``oid``) or an operator holding the
-    overlay's control token (``?c=``), so a shared board can be bootstrapped
-    after a server restart by whoever opens the link.
+    Reachable by the owner (cookie + ``oid``), an operator holding the overlay's
+    control token (``?c=``), or an opted-in public ``?u=&oid=`` bookmark — so a
+    board can be bootstrapped after a server restart by whoever opens the link.
     """
     try:
-        overlay = _resolve_init_overlay(db, token=token, user=user, oid=req.oid)
+        overlay = _resolve_init_overlay(
+            db, token=token, public_user=u, user=user, oid=req.oid,
+        )
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

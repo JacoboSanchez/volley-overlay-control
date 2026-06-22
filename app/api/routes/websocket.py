@@ -24,11 +24,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _resolve_skey(ws: WebSocket, oid: str | None, token: str | None) -> str | None:
-    """Resolve a control token or cookie session to the storage key, or ``None``."""
+def _resolve_skey(
+    ws: WebSocket, oid: str | None, token: str | None, public_user: str | None,
+) -> str | None:
+    """Resolve a control token, public username+oid, or cookie session to the
+    storage key, or ``None``."""
     with session_scope() as db:
         if token:
             overlay = overlays_service.get_by_control_token(db, token)
+            return overlays_service.skey_for(overlay) if overlay is not None else None
+        if public_user:
+            overlay = overlays_service.get_public_by_username_and_oid(db, public_user, oid or "")
             return overlays_service.skey_for(overlay) if overlay is not None else None
         raw = ws.cookies.get(sessions.COOKIE_NAME)
         if not raw or not oid:
@@ -45,13 +51,14 @@ async def websocket_endpoint(
     oid: str | None = Query(None, description="Overlay ID"),
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
     c: str | None = Query(None, description="Control capability token (shareable board link)"),
+    u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
 ):
     resolved = oid or control
     if not resolved and not c:
         await ws.close(code=4400, reason="Missing 'oid' (or 'c' control token) query parameter.")
         return
 
-    skey = _resolve_skey(ws, resolved, c)
+    skey = _resolve_skey(ws, resolved, c, u)
     if skey is None:
         await ws.close(code=4003, reason="Authentication required.")
         return

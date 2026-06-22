@@ -7,6 +7,7 @@ import { HUD_AUTO_HIDE_MS } from '../constants';
 
 vi.mock('../api/client', () => ({
   setControlToken: vi.fn(),
+  setPublicUser: vi.fn(),
   initSession: vi.fn(),
   getCustomization: vi.fn(),
   getLinks: vi.fn(),

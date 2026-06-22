@@ -32,8 +32,10 @@ isolation; the public OBS output URL uses an unguessable per-overlay
 capability for a **shareable control-board link** (`/board?c=<token>`) that
 grants full board control without a login (the operator link the owner hands
 out). The control surface (`/api/v1/game/*`, `/state`, `/customization`,
-`/display/*`, `/session/*`, `/ws`) authorizes **either** that token (`?c=` query
-or `X-Control-Token` header) **or** the owner's `vsession` cookie — see
+`/display/*`, `/session/*`, `/ws`) authorizes **any** of: that token (`?c=` query
+or `X-Control-Token` header), an opted-in `?u=<username>&oid=<oid>` public
+bookmark (per-overlay `public_control` flag, off by default — a stable but
+*guessable* no-login URL), or the owner's `vsession` cookie — see
 `app/api/dependencies.py` (`resolve_board_skey`, `require_board_control`,
 `get_session`). Live overlay render state (`data/overlay_state_*.json`) and the
 per-overlay audit log (`data/audit_*.jsonl`) stay on file, re-keyed by `skey`.

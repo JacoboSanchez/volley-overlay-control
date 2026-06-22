@@ -42,6 +42,8 @@ export interface OverlayPayload {
   custom_output_url: string | null;
   control_token: string | null;
   control_url: string | null;
+  public_control: boolean;
+  public_control_url: string | null;
   points: number | null;
   points_last_set: number | null;
   sets: number | null;
@@ -50,6 +52,7 @@ export interface OverlayPayload {
 export interface OverlaySettings {
   display_name?: string | null;
   output_url?: string | null;
+  public_control?: boolean;
   points?: number | null;
   points_last_set?: number | null;
   sets?: number | null;
@@ -66,11 +69,13 @@ const BASE_URL = '/api/v1';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
-// Operator (shareable-link) mode: when a control token is set, board-scoped
-// requests address the board by ``?c=<token>`` instead of the owner's
-// ``?oid=<oid>`` + session cookie. Set once when the board is opened via a
-// ``/board?c=`` link; ``null`` is the normal owner (cookie) mode.
+// Unauthenticated board modes. When set, board-scoped requests address the
+// board by capability instead of the owner's ``?oid=`` + session cookie:
+//   * controlToken → ``?c=<token>``           (shareable, revocable operator link)
+//   * publicUser   → ``?u=<username>&oid=<oid>`` (stable, opt-in bookmark link)
+// Both are ``null`` in the normal owner (cookie) mode.
 let controlToken: string | null = null;
+let publicUser: string | null = null;
 
 export function setControlToken(token: string | null): void {
   controlToken = token || null;
@@ -80,10 +85,20 @@ export function getControlToken(): string | null {
   return controlToken;
 }
 
-/** Board-scoping query string: the control token when in operator mode,
- *  otherwise the owner's overlay id. */
+export function setPublicUser(username: string | null): void {
+  publicUser = username || null;
+}
+
+export function getPublicUser(): string | null {
+  return publicUser;
+}
+
+/** Board-scoping query string for the active credential mode. */
 function withOid(oid: string): string {
   if (controlToken) return `?c=${encodeURIComponent(controlToken)}`;
+  if (publicUser) {
+    return `?u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`;
+  }
   return `?oid=${encodeURIComponent(oid)}`;
 }
 
@@ -158,9 +173,13 @@ async function request<T = unknown>(
 
 // Session
 export function initSession(oid: string, opts: InitOptions = {}): Promise<ActionResponse> {
-  // In operator mode the server resolves the board from the control token; the
-  // body ``oid`` is ignored but kept to satisfy the request schema.
-  const q = controlToken ? `?c=${encodeURIComponent(controlToken)}` : '';
+  // Owner mode carries the oid in the body (+ cookie); a capability mode needs
+  // the token or username+oid on the query so the server can resolve the board.
+  let q = '';
+  if (controlToken) q = `?c=${encodeURIComponent(controlToken)}`;
+  else if (publicUser) {
+    q = `?u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`;
+  }
   return request<ActionResponse>('POST', `/session/init${q}`, { oid, ...opts });
 }
 

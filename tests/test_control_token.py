@@ -149,3 +149,90 @@ def test_ws_rejects_bad_control_token(db_session):
             raise AssertionError("expected the socket to be rejected")
     except Exception:
         pass
+
+
+# --- Public username+oid bookmark URL (opt-in) ------------------------------
+
+
+def _enable_public(client: TestClient, oid: str) -> None:
+    r = client.patch(f"/api/v1/overlays/{oid}", json={"public_control": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["public_control"] is True
+
+
+def test_public_control_defaults_off_and_blocks_username_url(db_session):
+    owner = TestClient(create_app())
+    login_client(owner, db_session, username="alice")
+    owner.post("/api/v1/overlays", json={"oid": "pub-off"})
+
+    # Not opted in → the username+oid URL is rejected, no board payload leaks.
+    anon = TestClient(create_app())
+    assert anon.post(
+        "/api/v1/session/init?u=alice&oid=pub-off", json={"oid": "pub-off"},
+    ).status_code == 403
+    assert anon.get("/api/v1/state?u=alice&oid=pub-off").status_code == 403
+
+
+def test_public_url_surfaced_only_when_enabled(db_session):
+    owner = TestClient(create_app())
+    login_client(owner, db_session, username="alice")
+    body = owner.post("/api/v1/overlays", json={"oid": "pub-url"}).json()
+    assert body["public_control"] is False
+    assert body["public_control_url"] is None
+
+    _enable_public(owner, "pub-url")
+    row = next(o for o in owner.get("/api/v1/overlays").json() if o["oid"] == "pub-url")
+    assert row["public_control_url"].endswith("/board?u=alice&oid=pub-url")
+
+
+def test_opted_in_username_url_controls_without_login(db_session):
+    owner = TestClient(create_app())
+    login_client(owner, db_session, username="alice")
+    owner.post("/api/v1/overlays", json={"oid": "pub-on"})
+    _enable_public(owner, "pub-on")
+
+    anon = TestClient(create_app())
+    assert anon.post(
+        "/api/v1/session/init?u=alice&oid=pub-on", json={"oid": "pub-on"},
+    ).status_code == 200
+    assert anon.post(
+        "/api/v1/game/add-point?u=alice&oid=pub-on", json={"team": 1},
+    ).status_code == 200
+    state = anon.get("/api/v1/state?u=alice&oid=pub-on").json()
+    assert state["team_1"]["scores"]["set_1"] == 1
+
+
+def test_public_url_wrong_username_rejected(db_session):
+    owner = TestClient(create_app())
+    login_client(owner, db_session, username="alice")
+    owner.post("/api/v1/overlays", json={"oid": "pub-who"})
+    _enable_public(owner, "pub-who")
+
+    anon = TestClient(create_app())
+    assert anon.get("/api/v1/state?u=nobody&oid=pub-who").status_code == 403
+
+
+def test_disabling_public_control_revokes_username_url(db_session):
+    owner = TestClient(create_app())
+    login_client(owner, db_session, username="alice")
+    owner.post("/api/v1/overlays", json={"oid": "pub-rev"})
+    _enable_public(owner, "pub-rev")
+
+    anon = TestClient(create_app())
+    anon.post("/api/v1/session/init?u=alice&oid=pub-rev", json={"oid": "pub-rev"})
+    assert anon.get("/api/v1/state?u=alice&oid=pub-rev").status_code == 200
+
+    owner.patch("/api/v1/overlays/pub-rev", json={"public_control": False})
+    assert anon.get("/api/v1/state?u=alice&oid=pub-rev").status_code == 403
+
+
+def test_ws_accepts_opted_in_username_url(db_session):
+    owner = TestClient(create_app())
+    login_client(owner, db_session, username="alice")
+    owner.post("/api/v1/overlays", json={"oid": "pub-ws"})
+    _enable_public(owner, "pub-ws")
+    owner.post("/api/v1/session/init?u=alice&oid=pub-ws", json={"oid": "pub-ws"})
+
+    anon = TestClient(create_app())
+    with anon.websocket_connect("/api/v1/ws?u=alice&oid=pub-ws") as ws:
+        assert ws.receive_json()["type"] == "state_update"

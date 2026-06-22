@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -39,6 +39,13 @@ class UserOverlay(Base, TimestampMixin):
     # predating the column (backfilled by migration) remain valid; the service
     # always mints one on create. Regenerating it revokes old links.
     control_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    # Opt-in: when true, the board can also be controlled — without logging in —
+    # from its stable ``/board?u=<username>&oid=<oid>`` URL (a permanent personal
+    # bookmark). That URL is *guessable* (username + oid), so it stays off by
+    # default; the shareable, revocable control token is the private capability.
+    public_control: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="0",
+    )
     display_name: Mapped[str | None] = mapped_column(String(120))
     # Optional explicit OBS output URL — used for overlays.uno cloud overlays
     # or any custom output. When empty, the local ``/overlay/<public_token>``

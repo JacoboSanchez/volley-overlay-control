@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { setControlToken } from './api/client';
+import { setControlToken, setPublicUser } from './api/client';
 import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
@@ -32,12 +32,17 @@ import PointTypePicker from './components/PointTypePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { asString } from './utils/coerce';
 
-export default function App({ controlToken }: { controlToken?: string } = {}) {
-  // Register the operator capability token before any board request fires (the
-  // session-init effect below runs after this render). ``useMemo`` sets it
-  // synchronously during render; owner mode clears it back to ``null``.
-  const operator = !!controlToken;
-  useMemo(() => setControlToken(controlToken ?? null), [controlToken]);
+export default function App(
+  { controlToken, publicUser }: { controlToken?: string; publicUser?: string } = {},
+) {
+  // Register the board capability (operator token or public username) before any
+  // request fires (the session-init effect below runs after this render).
+  // ``useMemo`` sets them synchronously during render; owner mode clears both.
+  const unauthenticated = !!controlToken || !!publicUser;
+  useMemo(() => {
+    setControlToken(controlToken ?? null);
+    setPublicUser(publicUser ?? null);
+  }, [controlToken, publicUser]);
 
   const { t, lang } = useI18n();
   const appConfig = useAppConfig();
@@ -73,10 +78,10 @@ export default function App({ controlToken }: { controlToken?: string } = {}) {
   // from ``useGameState(oid)``, which needs the hook's ``oid`` first.
   useEffect(() => {
     if (oid) {
-      // Don't persist the operator's control-token handle to localStorage — it
-      // is a shared-device credential and a stale value would hijack a later
-      // owner visit to /board.
-      if (!operator) {
+      // Don't persist a capability handle to localStorage in an unauthenticated
+      // board mode — it's a shared-device credential and a stale value would
+      // hijack a later owner visit to /board.
+      if (!unauthenticated) {
         try {
           localStorage.setItem('volley_oid', oid);
         } catch (e) {
@@ -85,7 +90,7 @@ export default function App({ controlToken }: { controlToken?: string } = {}) {
       }
       initialize();
     }
-  }, [oid, initialize, operator]);
+  }, [oid, initialize, unauthenticated]);
 
   useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
 
@@ -396,7 +401,7 @@ export default function App({ controlToken }: { controlToken?: string } = {}) {
             autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
-            operator={operator}
+            operator={unauthenticated}
             onCustomizationSaved={refreshCustomization}
             darkMode={settings.darkMode}
             isFullscreen={isFullscreen}

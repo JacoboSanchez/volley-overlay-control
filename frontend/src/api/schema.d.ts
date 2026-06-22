@@ -1153,9 +1153,9 @@ export interface paths {
          * Init Session
          * @description Initialise (or re-use) a game session for an overlay.
          *
-         *     Reachable by the owner (cookie + ``oid``) or an operator holding the
-         *     overlay's control token (``?c=``), so a shared board can be bootstrapped
-         *     after a server restart by whoever opens the link.
+         *     Reachable by the owner (cookie + ``oid``), an operator holding the overlay's
+         *     control token (``?c=``), or an opted-in public ``?u=&oid=`` bookmark — so a
+         *     board can be bootstrapped after a server restart by whoever opens the link.
          */
         post: operations["init_session_api_v1_session_init_post"];
         delete?: never;
@@ -2033,6 +2033,17 @@ export interface components {
              */
             points_last_set?: number | null;
             /**
+             * Public Control
+             * @description Allow no-login control via the username+oid URL
+             * @default false
+             */
+            public_control: boolean;
+            /**
+             * Public Control Url
+             * @description Stable username+oid bookmark link (when enabled)
+             */
+            public_control_url?: string | null;
+            /**
              * Public Token
              * @description Public OBS-output capability token
              */
@@ -2310,6 +2321,11 @@ export interface components {
             points?: number | null;
             /** Points Last Set */
             points_last_set?: number | null;
+            /**
+             * Public Control
+             * @description Toggle no-login username+oid control
+             */
+            public_control?: boolean | null;
             /** Sets */
             sets?: number | null;
         };
@@ -3366,12 +3382,14 @@ export interface operations {
                 limit?: number;
                 /** @description Pagination cursor: only return records strictly older than this timestamp. Use the ``next_cursor`` value from the previous response. Omit for the first page. */
                 before_ts?: number | null;
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -3704,12 +3722,14 @@ export interface operations {
     get_config_api_v1_config_get: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -3745,12 +3765,14 @@ export interface operations {
     get_customization_api_v1_customization_get: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -3786,12 +3808,14 @@ export interface operations {
     update_customization_api_v1_customization_put: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -3930,12 +3954,14 @@ export interface operations {
     set_auto_swap_sides_api_v1_display_auto_swap_sides_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -3975,12 +4001,14 @@ export interface operations {
     set_set_summary_api_v1_display_set_summary_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4020,12 +4048,14 @@ export interface operations {
     set_set_summary_style_api_v1_display_set_summary_style_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4065,12 +4095,14 @@ export interface operations {
     set_simple_mode_api_v1_display_simple_mode_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4110,12 +4142,14 @@ export interface operations {
     set_swap_sides_api_v1_display_swap_sides_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4155,12 +4189,14 @@ export interface operations {
     set_visibility_api_v1_display_visibility_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4200,12 +4236,14 @@ export interface operations {
     add_point_api_v1_game_add_point_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4245,12 +4283,14 @@ export interface operations {
     add_set_api_v1_game_add_set_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4290,12 +4330,14 @@ export interface operations {
     add_timeout_api_v1_game_add_timeout_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4335,12 +4377,14 @@ export interface operations {
     change_serve_api_v1_game_change_serve_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4380,12 +4424,14 @@ export interface operations {
     reset_game_api_v1_game_reset_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4421,12 +4467,14 @@ export interface operations {
     set_score_api_v1_game_set_score_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4466,12 +4514,14 @@ export interface operations {
     set_sets_api_v1_game_set_sets_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4511,12 +4561,14 @@ export interface operations {
     start_match_api_v1_game_start_match_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4552,12 +4604,14 @@ export interface operations {
     undo_last_api_v1_game_undo_post: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4593,12 +4647,14 @@ export interface operations {
     get_links_api_v1_links_get: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4670,12 +4726,14 @@ export interface operations {
             query?: {
                 /** @description Maximum number of recent points returned in ``points_history``. */
                 limit?: number;
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -4980,6 +5038,8 @@ export interface operations {
     init_session_api_v1_session_init_post: {
         parameters: {
             query?: {
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Control capability token (shareable board link) */
                 c?: string | null;
             };
@@ -5025,6 +5085,8 @@ export interface operations {
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Control capability token (shareable board link) */
                 c?: string | null;
             };
@@ -5066,12 +5128,14 @@ export interface operations {
     get_state_api_v1_state_get: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -5107,12 +5171,14 @@ export interface operations {
     get_style_capabilities_api_v1_style_capabilities_get: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
@@ -5148,12 +5214,14 @@ export interface operations {
     get_styles_api_v1_styles_get: {
         parameters: {
             query?: {
-                /** @description Control capability token (shareable board link) */
-                c?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
                 /** @description Overlay ID */
                 oid?: string | null;
                 /** @description Alias of `oid` for backward compatibility */
                 control?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
             };
             header?: {
                 /** @description Control capability token (alternative to ?c=) */
