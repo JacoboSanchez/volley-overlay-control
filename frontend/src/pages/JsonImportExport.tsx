@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useI18n } from '../i18n';
 
 type JsonMap = Record<string, Record<string, unknown>>;
 
@@ -15,6 +16,7 @@ export default function JsonImportExport({
   importFn: (data: JsonMap, replace: boolean) => Promise<{ imported: number }>;
   onImported: () => void;
 }) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [replace, setReplace] = useState(false);
   const [msg, setMsg] = useState('');
@@ -27,9 +29,9 @@ export default function JsonImportExport({
     try {
       const data = await exportFn();
       setText(JSON.stringify(data, null, 2));
-      setMsg(`Exported ${Object.keys(data).length} entries.`);
+      setMsg(t('acc.json.exported', { n: Object.keys(data).length }));
     } catch {
-      setErr('Export failed.');
+      setErr(t('acc.json.errorExport'));
     }
   }
 
@@ -40,22 +42,22 @@ export default function JsonImportExport({
     try {
       parsed = JSON.parse(text);
     } catch {
-      setErr('That is not valid JSON.');
+      setErr(t('acc.json.invalidJson'));
       return;
     }
     try {
       const res = await importFn(parsed, replace);
-      setMsg(`Imported ${res.imported} entries.`);
+      setMsg(t('acc.json.imported', { n: res.imported }));
       onImported();
     } catch {
-      setErr('Import failed.');
+      setErr(t('acc.json.errorImport'));
     }
   }
 
   return (
     <div style={{ marginTop: 18, borderTop: '1px solid #232833', paddingTop: 12 }}>
       <button className="acc-link" onClick={() => setOpen((o) => !o)}>
-        {open ? '▾' : '▸'} {label} (JSON import / export)
+        {open ? '▾' : '▸'} {t('acc.json.toggle', { label })}
       </button>
       {open && (
         <div style={{ marginTop: 10 }}>
@@ -70,11 +72,11 @@ export default function JsonImportExport({
             style={{ fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical' }}
           />
           <div className="acc-btn-row">
-            <button className="acc-btn secondary" onClick={doExport}>Export</button>
-            <button className="acc-btn" onClick={doImport} disabled={!text.trim()}>Import</button>
+            <button className="acc-btn secondary" onClick={doExport}>{t('acc.json.export')}</button>
+            <button className="acc-btn" onClick={doImport} disabled={!text.trim()}>{t('acc.json.import')}</button>
             <label className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
-              Replace existing
+              {t('acc.json.replace')}
             </label>
           </div>
         </div>

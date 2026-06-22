@@ -4,8 +4,10 @@ import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useI18n } from '../i18n';
 
 export default function OverlaysPage() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
@@ -21,11 +23,11 @@ export default function OverlaysPage() {
     try {
       setOverlays(await api.getOverlays());
     } catch {
-      setError('Could not load your overlays.');
+      setError(t('acc.reports.errorOverlays'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -44,26 +46,26 @@ export default function OverlaysPage() {
       setName('');
       setSets('');
       await load();
-      toast(`Overlay “${created}” created.`);
+      toast(t('acc.overlays.toastCreated', { oid: created }));
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Could not create overlay.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorCreate'));
     }
   }
 
   async function onDelete(o: api.OverlayPayload) {
     const ok = await confirm({
-      title: 'Delete overlay',
-      message: `Delete overlay “${o.oid}”? This removes its scoreboard state and reports.`,
-      confirmLabel: 'Delete',
+      title: t('acc.overlays.confirmDeleteTitle'),
+      message: t('acc.overlays.confirmDeleteMsg', { oid: o.oid }),
+      confirmLabel: t('acc.common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteOverlay(o.oid);
       await load();
-      toast(`Overlay “${o.oid}” deleted.`);
+      toast(t('acc.overlays.toastDeleted', { oid: o.oid }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not delete overlay.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorDelete'), 'error');
     }
   }
 
@@ -79,49 +81,47 @@ export default function OverlaysPage() {
 
   return (
     <div>
-      <h2>My overlays</h2>
-      <p className="acc-muted">
-        Each overlay is a scoreboard you control. To put it on stream, copy its <strong>OBS output
-        URL</strong> below and add it in OBS as a <strong>Browser Source</strong>.
-      </p>
+      <h2>{t('acc.nav.overlays')}</h2>
+      <p className="acc-muted">{t('acc.overlays.intro')}</p>
 
       <form className="acc-form" onSubmit={onCreate}>
         <label className="acc-field">
-          <span>Overlay id</span>
-          <input className="acc-input" value={oid} placeholder="e.g. liga"
+          <span>{t('acc.overlays.field.oid')}</span>
+          <input className="acc-input" value={oid} placeholder={t('acc.overlays.field.oidPlaceholder')}
             onChange={(e) => setOid(e.target.value)} />
-          <small className="acc-muted">Letters, digits, <code>. _ -</code> — no spaces.</small>
+          <small className="acc-muted">{t('acc.overlays.field.oidHelp')}</small>
         </label>
         <label className="acc-field">
-          <span>Display name (optional)</span>
+          <span>{t('acc.overlays.field.displayName')}</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="acc-field">
-          <span>Format</span>
+          <span>{t('acc.overlays.field.format')}</span>
           <select className="acc-input" value={sets} onChange={(e) => setSets(e.target.value)}>
-            <option value="">Default</option>
-            <option value="3">Best of 3</option>
-            <option value="5">Best of 5</option>
-            <option value="1">Single set</option>
+            <option value="">{t('acc.format.default')}</option>
+            <option value="3">{t('acc.format.bo3')}</option>
+            <option value="5">{t('acc.format.bo5')}</option>
+            <option value="1">{t('acc.format.single')}</option>
           </select>
         </label>
         <div className="acc-form-actions">
           <span className="acc-form-spacer" aria-hidden="true">&nbsp;</span>
-          <button className="acc-btn" type="submit" disabled={!oid.trim()}>Add overlay</button>
+          <button className="acc-btn" type="submit" disabled={!oid.trim()}>{t('acc.overlays.add')}</button>
         </div>
       </form>
       {error && <div className="acc-error">{error}</div>}
 
       {loading ? (
-        <p className="acc-muted">Loading…</p>
+        <p className="acc-muted">{t('acc.common.loading')}</p>
       ) : overlays.length === 0 ? (
-        <EmptyState>No overlays yet — add one above to create your first scoreboard.</EmptyState>
+        <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
         <table className="acc-table">
           <thead>
             <tr>
-              <th scope="col">Overlay</th><th scope="col">OBS output URL</th>
-              <th scope="col">Format</th><th scope="col"></th>
+              <th scope="col">{t('acc.overlays.colOverlay')}</th>
+              <th scope="col">{t('acc.overlays.colObsUrl')}</th>
+              <th scope="col">{t('acc.overlays.colFormat')}</th><th scope="col"></th>
             </tr>
           </thead>
           <tbody>
@@ -144,10 +144,13 @@ export default function OverlaysPage() {
   );
 }
 
-function formatLabel(sets: number | null): string {
-  if (sets === 1) return 'Single set';
-  if (sets) return `Best of ${sets}`;
-  return 'Default';
+function useFormatLabel(): (sets: number | null) => string {
+  const { t } = useI18n();
+  return (sets: number | null) => {
+    if (sets === 1) return t('acc.format.single');
+    if (sets) return t('acc.format.bestOf', { n: sets });
+    return t('acc.format.default');
+  };
 }
 
 function OverlayRow({
@@ -161,6 +164,8 @@ function OverlayRow({
   onCopy: () => void;
   copied: boolean;
 }) {
+  const { t } = useI18n();
+  const formatLabel = useFormatLabel();
   return (
     <>
       <tr>
@@ -171,10 +176,10 @@ function OverlayRow({
         <td><code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{o.output_url}</code></td>
         <td className="acc-muted">{formatLabel(o.sets)}</td>
         <td style={{ whiteSpace: 'nowrap' }}>
-          <a className="acc-btn" href={`/board?oid=${encodeURIComponent(o.oid)}`}>Open</a>{' '}
-          <button className="acc-btn ghost" onClick={onCopy}>{copied ? 'Copied!' : 'Copy URL'}</button>{' '}
-          <button className="acc-btn ghost" onClick={onEdit}>{editing ? 'Close' : 'Edit'}</button>{' '}
-          <button className="acc-btn danger" onClick={onDelete}>Delete</button>
+          <a className="acc-btn" href={`/board?oid=${encodeURIComponent(o.oid)}`}>{t('acc.common.open')}</a>{' '}
+          <button className="acc-btn ghost" onClick={onCopy}>{copied ? t('acc.common.copied') : t('acc.common.copyUrl')}</button>{' '}
+          <button className="acc-btn ghost" onClick={onEdit}>{editing ? t('acc.common.close') : t('acc.common.edit')}</button>{' '}
+          <button className="acc-btn danger" onClick={onDelete}>{t('acc.common.delete')}</button>
         </td>
       </tr>
       {editing && (
@@ -187,6 +192,7 @@ function OverlayRow({
 }
 
 function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => void }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [name, setName] = useState(o.display_name || '');
   const [sets, setSets] = useState(o.sets ? String(o.sets) : '');
@@ -202,9 +208,9 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
         points_last_set: lastSet ? Number(lastSet) : null,
       });
       onSaved();
-      toast('Overlay settings saved.');
+      toast(t('acc.overlays.toastSaved'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not save settings.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorSave'), 'error');
     }
   }
 
@@ -212,30 +218,30 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
     <div style={{ background: '#14171d', borderRadius: 10, padding: 14, margin: '6px 0' }}>
       <div className="acc-row" style={{ marginBottom: 8 }}>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Display name</span>
+          <span>{t('acc.overlays.editDisplayName')}</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Format</span>
+          <span>{t('acc.overlays.field.format')}</span>
           <select className="acc-input" value={sets} onChange={(e) => setSets(e.target.value)}>
-            <option value="">Default</option>
-            <option value="1">Single set</option>
-            <option value="3">Best of 3</option>
-            <option value="5">Best of 5</option>
+            <option value="">{t('acc.format.default')}</option>
+            <option value="1">{t('acc.format.single')}</option>
+            <option value="3">{t('acc.format.bo3')}</option>
+            <option value="5">{t('acc.format.bo5')}</option>
           </select>
         </label>
         <label className="acc-field" style={{ marginBottom: 0, maxWidth: 110 }}>
-          <span>Points/set</span>
+          <span>{t('acc.overlays.editPoints')}</span>
           <input className="acc-input" type="number" value={points} placeholder="25"
             onChange={(e) => setPoints(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0, maxWidth: 130 }}>
-          <span>Last-set points</span>
+          <span>{t('acc.overlays.editLastSet')}</span>
           <input className="acc-input" type="number" value={lastSet} placeholder="15"
             onChange={(e) => setLastSet(e.target.value)} />
         </label>
       </div>
-      <button className="acc-btn" onClick={save}>Save settings</button>
+      <button className="acc-btn" onClick={save}>{t('acc.overlays.editSave')}</button>
 
       <ControlLink o={o} onChanged={onSaved} />
       <BookmarkLink o={o} onChanged={onSaved} />
@@ -244,6 +250,7 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
 }
 
 function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
@@ -251,12 +258,9 @@ function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
   async function toggle() {
     if (!o.public_control) {
       const ok = await confirm({
-        title: 'Enable bookmark link',
-        message:
-          'Enable a permanent no-login control URL for this board? The link is based on your ' +
-          'username and this overlay id, so it is guessable — anyone who works it out could ' +
-          'control this scoreboard. Use it as your own bookmark; share the operator link instead.',
-        confirmLabel: 'Enable',
+        title: t('acc.overlays.bookmarkConfirmTitle'),
+        message: t('acc.overlays.bookmarkConfirmMsg'),
+        confirmLabel: t('acc.common.confirm'),
       });
       if (!ok) return;
     }
@@ -264,9 +268,9 @@ function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
     try {
       await api.updateOverlay(o.oid, { public_control: !o.public_control });
       onChanged();
-      toast(o.public_control ? 'Bookmark link disabled.' : 'Bookmark link enabled.');
+      toast(o.public_control ? t('acc.overlays.bookmarkDisabled') : t('acc.overlays.bookmarkEnabled'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not update bookmark link.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.bookmarkError'), 'error');
     } finally {
       setBusy(false);
     }
@@ -274,19 +278,15 @@ function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
 
   return (
     <div className="acc-section" style={{ marginTop: 18, maxWidth: 560 }}>
-      <h4 style={{ margin: '0 0 4px' }}>Permanent bookmark link (username + id)</h4>
-      <p className="acc-muted" style={{ marginTop: 0 }}>
-        A stable, no-login URL you can bookmark forever. It never changes — but it’s
-        <strong> guessable</strong> (your username + this id), so keep it to yourself and use the
-        revocable operator link above for sharing.
-      </p>
+      <h4 style={{ margin: '0 0 4px' }}>{t('acc.overlays.bookmarkTitle')}</h4>
+      <p className="acc-muted" style={{ marginTop: 0 }}>{t('acc.overlays.bookmarkDesc')}</p>
       <label className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <input type="checkbox" checked={o.public_control} disabled={busy} onChange={toggle} />
-        Allow controlling this board from its username + id URL without logging in
+        {t('acc.overlays.bookmarkToggle')}
       </label>
       {o.public_control && o.public_control_url && (
         <div style={{ marginTop: 10 }}>
-          <CopyField value={o.public_control_url} label="Permanent bookmark link" />
+          <CopyField value={o.public_control_url} label={t('acc.overlays.bookmarkLabel')} />
         </div>
       )}
     </div>
@@ -294,6 +294,7 @@ function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
 }
 
 function ControlLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
@@ -301,9 +302,9 @@ function ControlLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =>
   async function regenerate() {
     if (o.control_url) {
       const ok = await confirm({
-        title: 'Regenerate control link',
-        message: 'Generate a new control link? The current link will stop working immediately.',
-        confirmLabel: 'Regenerate',
+        title: t('acc.overlays.controlConfirmTitle'),
+        message: t('acc.overlays.controlConfirmMsg'),
+        confirmLabel: t('acc.overlays.controlRegenerate'),
         danger: true,
       });
       if (!ok) return;
@@ -312,9 +313,9 @@ function ControlLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =>
     try {
       await api.regenerateControlToken(o.oid);
       onChanged();
-      toast('New operator control link generated.');
+      toast(t('acc.overlays.controlToast'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not generate link.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.controlError'), 'error');
     } finally {
       setBusy(false);
     }
@@ -322,19 +323,16 @@ function ControlLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =>
 
   return (
     <div className="acc-section" style={{ marginTop: 18, maxWidth: 560 }}>
-      <h4 style={{ margin: '0 0 4px' }}>Operator control link</h4>
-      <p className="acc-muted" style={{ marginTop: 0 }}>
-        Anyone with this link can run this scoreboard — no login needed. Hand it to whoever is
-        tracking the match. Regenerate it to revoke a link you’ve shared.
-      </p>
+      <h4 style={{ margin: '0 0 4px' }}>{t('acc.overlays.controlTitle')}</h4>
+      <p className="acc-muted" style={{ marginTop: 0 }}>{t('acc.overlays.controlDesc')}</p>
       {o.control_url ? (
-        <CopyField value={o.control_url} label="Operator control link" />
+        <CopyField value={o.control_url} label={t('acc.overlays.controlTitle')} />
       ) : (
-        <span className="acc-muted">No link yet — generate one.</span>
+        <span className="acc-muted">{t('acc.overlays.controlNone')}</span>
       )}
       <div style={{ marginTop: 10 }}>
         <button className="acc-btn ghost" onClick={regenerate} disabled={busy}>
-          {busy ? 'Working…' : o.control_url ? 'Regenerate link' : 'Generate link'}
+          {busy ? t('acc.common.working') : o.control_url ? t('acc.overlays.controlRegenerate') : t('acc.overlays.controlGenerate')}
         </button>
       </div>
     </div>

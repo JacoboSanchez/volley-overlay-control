@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useI18n } from '../i18n';
 import JsonImportExport from './JsonImportExport';
 
 function useSelection() {
@@ -30,6 +31,7 @@ function SelectAll({
   onSelectAll: (ids: number[]) => void;
   onClear: () => void;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLInputElement>(null);
   const inList = ids.filter((id) => selected.has(id)).length;
   const all = ids.length > 0 && inList === ids.length;
@@ -40,7 +42,7 @@ function SelectAll({
     <input
       ref={ref}
       type="checkbox"
-      aria-label={all ? 'Deselect all' : 'Select all'}
+      aria-label={all ? t('acc.common.deselectAll') : t('acc.common.selectAll')}
       checked={all}
       disabled={ids.length === 0}
       onChange={() => (all ? onClear() : onSelectAll(ids))}
@@ -51,6 +53,7 @@ function SelectAll({
 export default function TeamsPage() {
   const { ctx } = useAuth();
   const isAdmin = ctx?.user?.role === 'admin';
+  const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [mine, setMine] = useState<api.TeamOut[]>([]);
@@ -74,11 +77,11 @@ export default function TeamsPage() {
       setCatalog(c);
       setGroups(g);
     } catch {
-      setLoadError('Could not load teams.');
+      setLoadError(t('acc.teams.errorLoad'));
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -91,24 +94,24 @@ export default function TeamsPage() {
     await load();
   }, [load, mineSel, catSel]);
 
-  const mineIds = new Set(mine.map((t) => t.id));
+  const mineIds = new Set(mine.map((team) => team.id));
   // Catalog teams not yet in the user's list (matched by id, so a custom team
   // sharing a catalog team's name never masks the real catalog entry).
-  const addable = catalog.filter((t) => !mineIds.has(t.id));
+  const addable = catalog.filter((team) => !mineIds.has(team.id));
 
   async function removeSelectedMine() {
     if (mineSel.sel.size === 0) return;
     const ids = [...mineSel.sel];
     // Removing an owned custom team deletes it for good — make that explicit.
-    const customCount = mine.filter((t) => ids.includes(t.id) && !t.is_global).length;
+    const customCount = mine.filter((team) => ids.includes(team.id) && !team.is_global).length;
     if (customCount > 0) {
       const ok = await confirm({
-        title: 'Remove teams',
+        title: t('acc.teams.confirmRemoveTitle'),
         message:
           customCount === ids.length
-            ? `This permanently deletes ${customCount} custom team(s).`
-            : `${customCount} of the selected team(s) are custom and will be permanently deleted.`,
-        confirmLabel: 'Remove',
+            ? t('acc.teams.confirmRemoveAll', { n: customCount })
+            : t('acc.teams.confirmRemoveSome', { n: customCount }),
+        confirmLabel: t('acc.teams.removeLabel'),
         danger: true,
       });
       if (!ok) return;
@@ -116,9 +119,9 @@ export default function TeamsPage() {
     try {
       const { removed } = await api.removeTeamsFromMine(ids);
       await reload();
-      toast(`Removed ${removed} team${removed === 1 ? '' : 's'}.`);
+      toast(t('acc.teams.toastRemoved', { n: removed }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not remove teams.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorRemove'), 'error');
     }
   }
   async function addSelectedCatalog() {
@@ -126,57 +129,54 @@ export default function TeamsPage() {
     try {
       const { added } = await api.addTeamsToMine([...catSel.sel]);
       await reload();
-      toast(`Added ${added} team${added === 1 ? '' : 's'}.`);
+      toast(t('acc.teams.toastAdded', { n: added }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not add teams.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorAdd'), 'error');
     }
   }
   async function copyGroup(id: number, name: string) {
     try {
       const { added } = await api.copyGroupToMine(id);
       await reload();
-      toast(`Copied “${name}” — ${added} team${added === 1 ? '' : 's'} added.`);
+      toast(t('acc.teams.toastCopied', { name, n: added }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not copy group.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorCopy'), 'error');
     }
   }
 
   return (
     <div>
-      <h2>Teams</h2>
+      <h2>{t('acc.nav.teams')}</h2>
       {loadError && <div className="acc-error">{loadError}</div>}
-      <p className="acc-muted">
-        Your team list appears in the scoreboard team picker. It starts from the global catalog —
-        add or remove catalog teams, copy a whole group, or create your own custom teams.
-      </p>
+      <p className="acc-muted">{t('acc.teams.intro')}</p>
 
-      <h3 className="acc-subhead">My teams</h3>
+      <h3 className="acc-subhead">{t('acc.teams.myTeams')}</h3>
       {mine.length === 0 ? (
-        loaded && (
-          <EmptyState>No teams yet — add some from the catalog below or create a custom one.</EmptyState>
-        )
+        loaded && <EmptyState>{t('acc.teams.emptyMine')}</EmptyState>
       ) : (
         <>
           <div className="acc-row" style={{ marginBottom: 8, alignItems: 'center' }}>
             <span className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <SelectAll ids={mine.map((t) => t.id)} selected={mineSel.sel}
+              <SelectAll ids={mine.map((team) => team.id)} selected={mineSel.sel}
                 onSelectAll={mineSel.replace} onClear={mineSel.clear} />
-              Select all
+              {t('acc.common.selectAll')}
             </span>
             <button className="acc-btn danger" disabled={mineSel.sel.size === 0}
               onClick={removeSelectedMine}>
-              Remove selected ({mineSel.sel.size})
+              {t('acc.teams.removeSelected', { n: mineSel.sel.size })}
             </button>
           </div>
           <table className="acc-table">
-            <thead><tr><th scope="col"></th><th scope="col">Team</th><th scope="col"></th></tr></thead>
+            <thead><tr>
+              <th scope="col"></th><th scope="col">{t('acc.teams.colTeam')}</th><th scope="col"></th>
+            </tr></thead>
             <tbody>
-              {mine.map((t) => (
+              {mine.map((team) => (
                 <MyTeamRow
-                  key={t.id} t={t}
-                  selected={mineSel.sel.has(t.id)} onToggle={() => mineSel.toggle(t.id)}
-                  editing={editing === t.id}
-                  onEdit={() => setEditing(editing === t.id ? null : t.id)}
+                  key={team.id} t={team}
+                  selected={mineSel.sel.has(team.id)} onToggle={() => mineSel.toggle(team.id)}
+                  editing={editing === team.id}
+                  onEdit={() => setEditing(editing === team.id ? null : team.id)}
                   onChanged={reload}
                 />
               ))}
@@ -189,42 +189,42 @@ export default function TeamsPage() {
 
       {groups.length > 0 && (
         <>
-          <h3 className="acc-subhead">Team groups</h3>
+          <h3 className="acc-subhead">{t('acc.teams.groups')}</h3>
           {groups.map((g) => (
             <div key={g.id} style={{ marginBottom: 10 }}>
               <button className="acc-btn secondary" onClick={() => copyGroup(g.id, g.name)}>
-                Copy “{g.name}” ({g.teams.length})
+                {t('acc.teams.copyGroup', { name: g.name, n: g.teams.length })}
               </button>
             </div>
           ))}
         </>
       )}
 
-      <h3 className="acc-subhead">Catalog</h3>
+      <h3 className="acc-subhead">{t('acc.teams.catalog')}</h3>
       {addable.length === 0 ? (
-        loaded && <EmptyState>Every catalog team is already in your list.</EmptyState>
+        loaded && <EmptyState>{t('acc.teams.emptyCatalog')}</EmptyState>
       ) : (
         <>
           <div className="acc-row" style={{ marginBottom: 8, alignItems: 'center' }}>
             <span className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <SelectAll ids={addable.map((t) => t.id)} selected={catSel.sel}
+              <SelectAll ids={addable.map((team) => team.id)} selected={catSel.sel}
                 onSelectAll={catSel.replace} onClear={catSel.clear} />
-              Select all
+              {t('acc.common.selectAll')}
             </span>
             <button className="acc-btn" disabled={catSel.sel.size === 0} onClick={addSelectedCatalog}>
-              Add selected ({catSel.sel.size})
+              {t('acc.teams.addSelected', { n: catSel.sel.size })}
             </button>
           </div>
           <table className="acc-table">
-            <thead><tr><th scope="col"></th><th scope="col">Team</th></tr></thead>
+            <thead><tr><th scope="col"></th><th scope="col">{t('acc.teams.colTeam')}</th></tr></thead>
             <tbody>
-              {addable.map((t) => (
-                <tr key={t.id}>
+              {addable.map((team) => (
+                <tr key={team.id}>
                   <td>
-                    <input type="checkbox" aria-label={`Select ${t.name}`}
-                      checked={catSel.sel.has(t.id)} onChange={() => catSel.toggle(t.id)} />
+                    <input type="checkbox" aria-label={t('acc.teams.selectTeam', { name: team.name })}
+                      checked={catSel.sel.has(team.id)} onChange={() => catSel.toggle(team.id)} />
                   </td>
-                  <td><TeamSwatch t={t} /></td>
+                  <td><TeamSwatch t={team} /></td>
                 </tr>
               ))}
             </tbody>
@@ -238,7 +238,7 @@ export default function TeamsPage() {
 }
 
 function MyTeamRow({
-  t, selected, onToggle, editing, onEdit, onChanged,
+  t: team, selected, onToggle, editing, onEdit, onChanged,
 }: {
   t: api.TeamOut;
   selected: boolean;
@@ -247,26 +247,29 @@ function MyTeamRow({
   onEdit: () => void;
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <>
       <tr>
         <td>
-          <input type="checkbox" aria-label={`Select ${t.name}`}
+          <input type="checkbox" aria-label={t('acc.teams.selectTeam', { name: team.name })}
             checked={selected} onChange={onToggle} />
         </td>
         <td>
-          <TeamSwatch t={t} />
-          {!t.is_global && <span className="acc-pill" style={{ marginLeft: 8 }}>custom</span>}
+          <TeamSwatch t={team} />
+          {!team.is_global && <span className="acc-pill" style={{ marginLeft: 8 }}>{t('acc.teams.custom')}</span>}
         </td>
         <td style={{ whiteSpace: 'nowrap' }}>
-          {!t.is_global && (
-            <button className="acc-btn ghost" onClick={onEdit}>{editing ? 'Close' : 'Edit'}</button>
+          {!team.is_global && (
+            <button className="acc-btn ghost" onClick={onEdit}>
+              {editing ? t('acc.common.close') : t('acc.common.edit')}
+            </button>
           )}
         </td>
       </tr>
-      {editing && !t.is_global && (
+      {editing && !team.is_global && (
         <tr>
-          <td colSpan={3}><CustomTeamEditor t={t} onSaved={onChanged} /></td>
+          <td colSpan={3}><CustomTeamEditor t={team} onSaved={onChanged} /></td>
         </tr>
       )}
     </>
@@ -274,6 +277,7 @@ function MyTeamRow({
 }
 
 function CustomTeamForm({ onCreated }: { onCreated: () => void }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('');
@@ -289,41 +293,39 @@ function CustomTeamForm({ onCreated }: { onCreated: () => void }) {
       setName('');
       setIcon('');
       onCreated();
-      toast(`Created “${created.name}”.`);
+      toast(t('acc.teams.toastCreated', { name: created.name }));
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Could not create team.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.teams.errorCreate'));
     }
   }
 
   return (
     <div className="acc-section">
-      <h3>Create a custom team</h3>
-      <p className="acc-muted">
-        Your own teams live only in your list (not the global catalog). Removing one deletes it.
-      </p>
+      <h3>{t('acc.teams.customTitle')}</h3>
+      <p className="acc-muted">{t('acc.teams.customDesc')}</p>
       <form className="acc-form" onSubmit={onCreate}>
         <label className="acc-field">
-          <span>Name</span>
+          <span>{t('acc.teams.fieldName')}</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="acc-field">
-          <span>Logo URL (optional)</span>
-          <input className="acc-input" value={icon} placeholder="https://…/logo.png"
+          <span>{t('acc.teams.fieldLogo')}</span>
+          <input className="acc-input" value={icon} placeholder={t('acc.teams.logoPlaceholder')}
             onChange={(e) => setIcon(e.target.value)} />
         </label>
         <label className="acc-field" style={{ flex: '0 0 auto' }}>
-          <span>Colour</span>
+          <span>{t('acc.teams.fieldColour')}</span>
           <input type="color" className="acc-color" value={color}
             onChange={(e) => setColor(e.target.value)} />
         </label>
         <label className="acc-field" style={{ flex: '0 0 auto' }}>
-          <span>Text colour</span>
+          <span>{t('acc.teams.fieldTextColour')}</span>
           <input type="color" className="acc-color" value={textColor}
             onChange={(e) => setTextColor(e.target.value)} />
         </label>
         <div className="acc-form-actions">
           <span className="acc-form-spacer" aria-hidden="true">&nbsp;</span>
-          <button className="acc-btn" type="submit" disabled={!name.trim()}>Add team</button>
+          <button className="acc-btn" type="submit" disabled={!name.trim()}>{t('acc.teams.customAdd')}</button>
         </div>
       </form>
       {error && <div className="acc-error">{error}</div>}
@@ -331,17 +333,18 @@ function CustomTeamForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
-function CustomTeamEditor({ t, onSaved }: { t: api.TeamOut; onSaved: () => void }) {
+function CustomTeamEditor({ t: team, onSaved }: { t: api.TeamOut; onSaved: () => void }) {
+  const { t } = useI18n();
   const { toast } = useToast();
-  const [name, setName] = useState(t.name);
-  const [icon, setIcon] = useState(t.icon || '');
-  const [color, setColor] = useState(hex(t.color, '#1565c0'));
-  const [textColor, setTextColor] = useState(hex(t.text_color, '#ffffff'));
+  const [name, setName] = useState(team.name);
+  const [icon, setIcon] = useState(team.icon || '');
+  const [color, setColor] = useState(hex(team.color, '#1565c0'));
+  const [textColor, setTextColor] = useState(hex(team.text_color, '#ffffff'));
   const [saved, setSaved] = useState(false);
 
   async function save() {
     try {
-      await api.updateMyTeam(t.id, {
+      await api.updateMyTeam(team.id, {
         name: name.trim() || undefined,
         icon: icon.trim() || null,
         color,
@@ -350,9 +353,9 @@ function CustomTeamEditor({ t, onSaved }: { t: api.TeamOut; onSaved: () => void 
       setSaved(true);
       setTimeout(() => setSaved(false), 1200);
       onSaved();
-      toast('Team saved.');
+      toast(t('acc.teams.toastSaved'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not save team.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorSave'), 'error');
     }
   }
 
@@ -360,26 +363,26 @@ function CustomTeamEditor({ t, onSaved }: { t: api.TeamOut; onSaved: () => void 
     <div style={{ background: '#14171d', borderRadius: 10, padding: 14, margin: '6px 0' }}>
       <div className="acc-row" style={{ marginBottom: 8 }}>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Name</span>
+          <span>{t('acc.teams.fieldName')}</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0, minWidth: 200 }}>
-          <span>Logo URL</span>
-          <input className="acc-input" value={icon} placeholder="https://…/logo.png"
+          <span>{t('acc.teams.fieldLogoShort')}</span>
+          <input className="acc-input" value={icon} placeholder={t('acc.teams.logoPlaceholder')}
             onChange={(e) => setIcon(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Colour</span>
+          <span>{t('acc.teams.fieldColour')}</span>
           <input type="color" className="acc-color sm" value={color}
             onChange={(e) => setColor(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Text</span>
+          <span>{t('acc.teams.fieldText')}</span>
           <input type="color" className="acc-color sm" value={textColor}
             onChange={(e) => setTextColor(e.target.value)} />
         </label>
       </div>
-      <button className="acc-btn" onClick={save}>{saved ? 'Saved!' : 'Save'}</button>
+      <button className="acc-btn" onClick={save}>{saved ? t('acc.common.saved') : t('acc.common.save')}</button>
     </div>
   );
 }
@@ -412,6 +415,7 @@ function hex(value: string | null | undefined, fallback: string): string {
 }
 
 function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange: () => void }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('');
@@ -424,63 +428,62 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
     setError('');
     try {
       await api.adminCreateTeam({ name: name.trim(), icon: icon.trim() || null, color, text_color: textColor });
+      const created = name.trim();
       setName('');
       setIcon('');
       await onChange();
-      toast(`Added “${name.trim()}” to the catalog.`);
+      toast(t('acc.teams.adminToastAdded', { name: created }));
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Could not create team.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.teams.errorCreate'));
     }
   }
 
   return (
     <div className="acc-section">
-      <h3>Manage catalog (admin)</h3>
-      <p className="acc-muted">
-        Configure the preloaded teams users can add: name, logo URL, background colour and text
-        colour.
-      </p>
+      <h3>{t('acc.teams.adminTitle')}</h3>
+      <p className="acc-muted">{t('acc.teams.adminDesc')}</p>
 
       <form className="acc-row" onSubmit={onCreate}>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Name</span>
+          <span>{t('acc.teams.fieldName')}</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0, minWidth: 220 }}>
-          <span>Logo URL</span>
-          <input className="acc-input" value={icon} placeholder="https://…/logo.png"
+          <span>{t('acc.teams.fieldLogoShort')}</span>
+          <input className="acc-input" value={icon} placeholder={t('acc.teams.logoPlaceholder')}
             onChange={(e) => setIcon(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Colour</span>
+          <span>{t('acc.teams.fieldColour')}</span>
           <input type="color" className="acc-color" value={color}
             onChange={(e) => setColor(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Text colour</span>
+          <span>{t('acc.teams.fieldTextColour')}</span>
           <input type="color" className="acc-color" value={textColor}
             onChange={(e) => setTextColor(e.target.value)} />
         </label>
-        <button className="acc-btn" type="submit" disabled={!name.trim()}>Add team</button>
+        <button className="acc-btn" type="submit" disabled={!name.trim()}>{t('acc.teams.adminAdd')}</button>
       </form>
       {error && <div className="acc-error">{error}</div>}
 
       <table className="acc-table">
         <thead>
           <tr>
-            <th scope="col">Team</th><th scope="col">Logo URL</th>
-            <th scope="col">Colour</th><th scope="col">Text</th><th scope="col"></th>
+            <th scope="col">{t('acc.teams.colTeam')}</th><th scope="col">{t('acc.teams.colLogo')}</th>
+            <th scope="col">{t('acc.teams.colColour')}</th><th scope="col">{t('acc.teams.colText')}</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>
-          {catalog.map((t) => (
-            <AdminTeamRow key={t.id} team={t} onChange={onChange} />
+          {catalog.map((team) => (
+            <AdminTeamRow key={team.id} team={team} onChange={onChange} />
           ))}
         </tbody>
       </table>
 
       <JsonImportExport
-        label="Team catalog"
+        label={t('acc.teams.jsonLabel')}
         exportFn={api.adminExportTeams}
         importFn={api.adminImportTeams}
         onImported={onChange}
@@ -490,6 +493,7 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
 }
 
 function AdminTeamRow({ team, onChange }: { team: api.TeamOut; onChange: () => void }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [icon, setIcon] = useState(team.icon || '');
@@ -503,25 +507,25 @@ function AdminTeamRow({ team, onChange }: { team: api.TeamOut; onChange: () => v
       setSaved(true);
       setTimeout(() => setSaved(false), 1200);
       await onChange();
-      toast('Team saved.');
+      toast(t('acc.teams.toastSaved'));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not save team.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.errorSave'), 'error');
     }
   }
   async function del() {
     const ok = await confirm({
-      title: 'Delete team',
-      message: `Delete team “${team.name}” from the catalog?`,
-      confirmLabel: 'Delete',
+      title: t('acc.teams.adminConfirmDeleteTitle'),
+      message: t('acc.teams.adminConfirmDeleteMsg', { name: team.name }),
+      confirmLabel: t('acc.common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.adminDeleteTeam(team.id);
       await onChange();
-      toast(`Deleted “${team.name}”.`);
+      toast(t('acc.teams.adminToastDeleted', { name: team.name }));
     } catch (err) {
-      toast(err instanceof api.ApiError ? err.detail : 'Could not delete team.', 'error');
+      toast(err instanceof api.ApiError ? err.detail : t('acc.teams.adminErrorDelete'), 'error');
     }
   }
 
@@ -529,7 +533,7 @@ function AdminTeamRow({ team, onChange }: { team: api.TeamOut; onChange: () => v
     <tr>
       <td><TeamSwatch t={{ ...team, color, text_color: textColor, icon: icon || null }} /></td>
       <td>
-        <input className="acc-input" value={icon} placeholder="https://…/logo.png"
+        <input className="acc-input" value={icon} placeholder={t('acc.teams.logoPlaceholder')}
           onChange={(e) => setIcon(e.target.value)} style={{ minWidth: 200 }} />
       </td>
       <td>
@@ -541,8 +545,8 @@ function AdminTeamRow({ team, onChange }: { team: api.TeamOut; onChange: () => v
           onChange={(e) => setTextColor(e.target.value)} />
       </td>
       <td style={{ whiteSpace: 'nowrap' }}>
-        <button className="acc-btn" onClick={save}>{saved ? 'Saved!' : 'Save'}</button>{' '}
-        <button className="acc-btn danger" onClick={del}>Delete</button>
+        <button className="acc-btn" onClick={save}>{saved ? t('acc.common.saved') : t('acc.common.save')}</button>{' '}
+        <button className="acc-btn danger" onClick={del}>{t('acc.common.delete')}</button>
       </td>
     </tr>
   );

@@ -5,9 +5,11 @@ import { useAuth } from '../auth/AuthContext';
 import CopyField from '../components/CopyField';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useI18n } from '../i18n';
 
 export default function AdminPage() {
   const { ctx } = useAuth();
+  const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [users, setUsers] = useState<api.UserOut[]>([]);
@@ -23,9 +25,9 @@ export default function AdminPage() {
       setUsers(u);
       setRegistrationOpen(r.registration_open);
     } catch {
-      setError('Could not load admin data.');
+      setError(t('acc.admin.errorLoad'));
     }
-  }, []);
+  }, [t]);
 
   // Only fire admin-only calls for an admin: a non-admin who reaches this URL
   // is redirected below, so we must not request /admin/* (avoids 403 noise).
@@ -42,10 +44,10 @@ export default function AdminPage() {
     try {
       const res = await api.adminCreateUser(newName.trim(), { role: newRole });
       setNewName('');
-      setTempCred({ text: `Created "${res.user.username}". Temporary password:`, password: res.temp_password });
+      setTempCred({ text: t('acc.admin.created', { username: res.user.username }), password: res.temp_password });
       await load();
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Could not create user.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorCreate'));
     }
   }
 
@@ -53,9 +55,9 @@ export default function AdminPage() {
     setError('');
     try {
       const res = await api.adminResetPassword(u.id);
-      setTempCred({ text: `Reset "${u.username}". Temporary password:`, password: res.temp_password });
+      setTempCred({ text: t('acc.admin.reset', { username: u.username }), password: res.temp_password });
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Password reset failed.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorReset'));
     }
   }
 
@@ -63,26 +65,28 @@ export default function AdminPage() {
     try {
       await api.adminUpdateUser(u.id, { is_active: !u.is_active });
       await load();
-      toast(u.is_active ? `“${u.username}” deactivated.` : `“${u.username}” activated.`);
+      toast(u.is_active
+        ? t('acc.admin.toastDeactivated', { username: u.username })
+        : t('acc.admin.toastActivated', { username: u.username }));
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Update failed.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorUpdate'));
     }
   }
 
   async function del(u: api.UserOut) {
     const ok = await confirm({
-      title: 'Delete user',
-      message: `Delete user “${u.username}”? This permanently removes their account and data.`,
-      confirmLabel: 'Delete',
+      title: t('acc.admin.confirmDeleteTitle'),
+      message: t('acc.admin.confirmDeleteMsg', { username: u.username }),
+      confirmLabel: t('acc.common.delete'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.adminDeleteUser(u.id);
       await load();
-      toast(`Deleted “${u.username}”.`);
+      toast(t('acc.admin.toastDeleted', { username: u.username }));
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Delete failed.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorDelete'));
     }
   }
 
@@ -92,7 +96,7 @@ export default function AdminPage() {
       const r = await api.adminSetRegistration(!registrationOpen);
       setRegistrationOpen(r.registration_open);
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : 'Could not change the registration setting.');
+      setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorRegistration'));
       await load(); // re-sync the label to the authoritative value
     }
   }
@@ -103,12 +107,12 @@ export default function AdminPage() {
 
   return (
     <div>
-      <h2>Administration</h2>
+      <h2>{t('acc.admin.title')}</h2>
 
       <div className="acc-row" style={{ marginTop: 8 }}>
-        <span>Public registration is <strong>{registrationOpen ? 'open' : 'closed'}</strong>.</span>
+        <span>{registrationOpen ? t('acc.admin.registrationOpen') : t('acc.admin.registrationClosed')}</span>
         <button className="acc-btn secondary" onClick={toggleRegistration}>
-          {registrationOpen ? 'Close registration' : 'Open registration'}
+          {registrationOpen ? t('acc.admin.closeRegistration') : t('acc.admin.openRegistration')}
         </button>
       </div>
 
@@ -116,59 +120,57 @@ export default function AdminPage() {
         <div className="acc-info">
           <div>{tempCred.text}</div>
           <div style={{ marginTop: 8 }}>
-            <CopyField value={tempCred.password} label="Temporary password" />
+            <CopyField value={tempCred.password} label={t('acc.admin.tempPassword')} />
           </div>
-          <div className="acc-muted" style={{ marginTop: 6 }}>
-            Share it with the user — they’ll be asked to set a new password on first sign-in.
-          </div>
+          <div className="acc-muted" style={{ marginTop: 6 }}>{t('acc.admin.tempHint')}</div>
         </div>
       )}
       {error && <div className="acc-error">{error}</div>}
 
-      <h3 className="acc-subhead">Create user</h3>
+      <h3 className="acc-subhead">{t('acc.admin.createUser')}</h3>
       <form className="acc-row" onSubmit={createUser}>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Username</span>
+          <span>{t('acc.admin.username')}</span>
           <input className="acc-input" value={newName} onChange={(e) => setNewName(e.target.value)} />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>Role</span>
+          <span>{t('acc.admin.role')}</span>
           <select className="acc-input" value={newRole} onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}>
-            <option value="user">user</option>
-            <option value="admin">admin</option>
+            <option value="user">{t('acc.admin.roleUser')}</option>
+            <option value="admin">{t('acc.admin.roleAdmin')}</option>
           </select>
         </label>
-        <button className="acc-btn" type="submit" disabled={!newName.trim()}>Create (temp password)</button>
+        <button className="acc-btn" type="submit" disabled={!newName.trim()}>{t('acc.admin.createBtn')}</button>
       </form>
 
-      <h3 className="acc-subhead">Users</h3>
+      <h3 className="acc-subhead">{t('acc.admin.users')}</h3>
       <table className="acc-table">
         <thead><tr>
-          <th scope="col">Username</th><th scope="col">Role</th>
-          <th scope="col">Active</th><th scope="col"></th>
+          <th scope="col">{t('acc.admin.colUsername')}</th><th scope="col">{t('acc.admin.colRole')}</th>
+          <th scope="col">{t('acc.admin.colActive')}</th><th scope="col"></th>
         </tr></thead>
         <tbody>
           {users.map((u) => {
             const isSelf = ctx?.user?.id === u.id;
             const lockLastAdmin = u.role === 'admin' && u.is_active && activeAdminCount <= 1;
-            const lockTitle = lockLastAdmin ? 'The last active administrator cannot be removed.' : undefined;
+            const lockTitle = lockLastAdmin ? t('acc.admin.lockLastAdmin') : undefined;
             return (
               <tr key={u.id}>
                 <td>
                   {u.username}
-                  {isSelf && <span className="acc-muted"> (you)</span>}
-                  {u.must_change_password && <span className="acc-pill" style={{ marginLeft: 6 }}>must change pw</span>}
+                  {isSelf && <span className="acc-muted"> {t('acc.admin.you')}</span>}
+                  {u.must_change_password && <span className="acc-pill" style={{ marginLeft: 6 }}>{t('acc.admin.mustChangePw')}</span>}
                 </td>
                 <td>{u.role}</td>
-                <td>{u.is_active ? 'yes' : 'no'}</td>
+                <td>{u.is_active ? t('acc.admin.yes') : t('acc.admin.no')}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  <button className="acc-btn ghost" onClick={() => resetPw(u)}>Reset pw</button>{' '}
+                  <button className="acc-btn ghost" onClick={() => resetPw(u)}>{t('acc.admin.resetPw')}</button>{' '}
                   <button className="acc-btn ghost" onClick={() => toggleActive(u)}
                     disabled={lockLastAdmin} title={lockTitle}>
-                    {u.is_active ? 'Deactivate' : 'Activate'}
+                    {u.is_active ? t('acc.admin.deactivate') : t('acc.admin.activate')}
                   </button>{' '}
                   <button className="acc-btn danger" onClick={() => del(u)}
-                    disabled={lockLastAdmin} title={lockTitle}>Delete</button>
+                    disabled={lockLastAdmin} title={lockTitle}>{t('acc.common.delete')}</button>
                 </td>
               </tr>
             );

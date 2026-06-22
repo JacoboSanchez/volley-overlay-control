@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useI18n } from '../i18n';
 
 /** Read-only value paired with a Copy button. The input is fully selectable
  *  (and selects itself on focus) so a credential like a temporary password can
  *  be copied in one tap instead of character by character. */
 export default function CopyField({ value, label }: { value: string; label?: string }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -26,7 +28,7 @@ export default function CopyField({ value, label }: { value: string; label?: str
         onFocus={(e) => e.currentTarget.select()}
       />
       <button type="button" className="acc-btn secondary" onClick={copy}>
-        {copied ? 'Copied!' : 'Copy'}
+        {copied ? t('acc.common.copied') : t('acc.common.copy')}
       </button>
     </span>
   );

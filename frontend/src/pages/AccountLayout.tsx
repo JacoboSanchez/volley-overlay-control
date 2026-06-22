@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useI18n } from '../i18n';
 import './account.css';
 
 export default function AccountLayout() {
   const { ctx, refresh } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = ctx?.user?.role === 'admin';
@@ -50,11 +52,11 @@ export default function AccountLayout() {
       {/* Mobile-only top bar: brand on the left, hamburger toggle on the right.
           Hidden on desktop, where the sidebar nav is always visible. */}
       <header className="acc-topbar">
-        <div className="brand">🏐 Overlay Control</div>
+        <div className="brand">🏐 {t('acc.brand')}</div>
         <button
           type="button"
           className={`acc-hamburger${menuOpen ? ' open' : ''}`}
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-label={menuOpen ? t('acc.nav.closeMenu') : t('acc.nav.openMenu')}
           aria-expanded={menuOpen}
           aria-controls="acc-primary-nav"
           onClick={() => setMenuOpen((v) => !v)}
@@ -76,23 +78,23 @@ export default function AccountLayout() {
         <nav
           id="acc-primary-nav"
           className={`acc-nav${menuOpen ? ' open' : ''}`}
-          aria-label="Primary"
+          aria-label={t('acc.nav.primary')}
         >
-          <div className="brand">🏐 Overlay Control</div>
-          <NavLink to="/" end>Dashboard</NavLink>
-          <NavLink to="/overlays">My overlays</NavLink>
-          <NavLink to="/teams">Teams</NavLink>
-          <NavLink to="/presets">Presets</NavLink>
-          <NavLink to="/reports">Reports</NavLink>
-          <NavLink to="/account">Account</NavLink>
-          {isAdmin && <NavLink to="/admin">Admin</NavLink>}
+          <div className="brand">🏐 {t('acc.brand')}</div>
+          <NavLink to="/" end>{t('acc.nav.dashboard')}</NavLink>
+          <NavLink to="/overlays">{t('acc.nav.overlays')}</NavLink>
+          <NavLink to="/teams">{t('acc.nav.teams')}</NavLink>
+          <NavLink to="/presets">{t('acc.nav.presets')}</NavLink>
+          <NavLink to="/reports">{t('acc.nav.reports')}</NavLink>
+          <NavLink to="/account">{t('acc.nav.account')}</NavLink>
+          {isAdmin && <NavLink to="/admin">{t('acc.nav.admin')}</NavLink>}
           <div className="spacer" />
           <div className="acc-nav-user">
             <span className="acc-muted">{displayName}</span>
-            {isAdmin && <span className="acc-pill">admin</span>}
+            {isAdmin && <span className="acc-pill">{t('acc.pill.admin')}</span>}
           </div>
           <button className="acc-btn ghost acc-nav-signout" onClick={onLogout}>
-            Sign out
+            {t('acc.nav.signOut')}
           </button>
         </nav>
         <main className="acc-main">

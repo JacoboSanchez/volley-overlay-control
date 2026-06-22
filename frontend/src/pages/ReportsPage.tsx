@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
 import EmptyState from '../components/EmptyState';
+import { useI18n } from '../i18n';
 
 export default function ReportsPage() {
+  const { t } = useI18n();
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
   const [matches, setMatches] = useState<api.MatchSummary[]>([]);
@@ -17,12 +19,12 @@ export default function ReportsPage() {
         setOverlays(ovs);
         if (ovs[0]) setOid(ovs[0].oid);
       } catch {
-        setError('Could not load your overlays.');
+        setError(t('acc.reports.errorOverlays'));
       } finally {
         setOverlaysLoaded(true);
       }
     })();
-  }, []);
+  }, [t]);
 
   const load = useCallback(async (id: string) => {
     if (!id) {
@@ -35,11 +37,11 @@ export default function ReportsPage() {
       const res = await api.listReports(id);
       setMatches(res.matches);
     } catch {
-      setError('Could not load match reports.');
+      setError(t('acc.reports.errorReports'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load(oid);
@@ -47,18 +49,18 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <h2>Match reports</h2>
-      <p className="acc-muted">Archived matches for each of your scoreboards.</p>
+      <h2>{t('acc.reports.title')}</h2>
+      <p className="acc-muted">{t('acc.reports.intro')}</p>
       {error && <div className="acc-error">{error}</div>}
 
       {overlaysLoaded && overlays.length === 0 ? (
-        <EmptyState action={{ to: '/overlays', label: 'Create a scoreboard →' }}>
-          You don’t have any scoreboards yet. Create one to start archiving match reports.
+        <EmptyState action={{ to: '/overlays', label: t('acc.cta.createScoreboard') }}>
+          {t('acc.reports.emptyNoOverlays')}
         </EmptyState>
       ) : (
         <>
           <label className="acc-field" style={{ maxWidth: 320, marginTop: 12 }}>
-            <span>Scoreboard</span>
+            <span>{t('acc.reports.scoreboard')}</span>
             <select className="acc-input" value={oid} onChange={(e) => setOid(e.target.value)}>
               {overlays.map((o) => (
                 <option key={o.oid} value={o.oid}>{o.display_name || o.oid}</option>
@@ -67,21 +69,26 @@ export default function ReportsPage() {
           </label>
 
           {loading ? (
-            <p className="acc-muted">Loading…</p>
+            <p className="acc-muted">{t('acc.common.loading')}</p>
           ) : matches.length === 0 ? (
-            <EmptyState>No archived matches for this scoreboard yet.</EmptyState>
+            <EmptyState>{t('acc.reports.emptyNoMatches')}</EmptyState>
           ) : (
             <table className="acc-table">
-              <thead><tr><th>Ended</th><th>Winner</th><th>Duration</th><th></th></tr></thead>
+              <thead><tr>
+                <th scope="col">{t('acc.reports.colEnded')}</th>
+                <th scope="col">{t('acc.reports.colWinner')}</th>
+                <th scope="col">{t('acc.reports.colDuration')}</th>
+                <th scope="col"></th>
+              </tr></thead>
               <tbody>
                 {matches.map((m) => (
                   <tr key={m.match_id}>
                     <td>{m.ended_at ? new Date(m.ended_at * 1000).toLocaleString() : '—'}</td>
-                    <td>{m.winning_team ? `Team ${m.winning_team}` : '—'}</td>
-                    <td>{m.duration_s ? `${Math.round(m.duration_s / 60)} min` : '—'}</td>
+                    <td>{m.winning_team ? t('acc.reports.team', { n: m.winning_team }) : '—'}</td>
+                    <td>{m.duration_s ? t('acc.reports.minutes', { n: Math.round(m.duration_s / 60) }) : '—'}</td>
                     <td>
                       <a className="acc-btn ghost" href={`/match/${m.match_id}/report`} target="_blank" rel="noreferrer">
-                        Open report
+                        {t('acc.reports.openReport')}
                       </a>
                     </td>
                   </tr>

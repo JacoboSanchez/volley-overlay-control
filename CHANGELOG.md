@@ -18,6 +18,18 @@ once a first tagged release ships.
 
 ### Added
 
+- **The account pages are now fully localized, and the language setting moved
+  to the app.** The account area (dashboard, My overlays, Teams, Presets,
+  Reports, Account, Admin, plus the nav, toasts and confirm dialogs) was
+  English-only; it is now translated into all six supported languages (English,
+  Spanish, Portuguese, Italian, French, German). The `I18nProvider` was lifted
+  to wrap the whole app — so the board and the account pages share one language
+  preference (`volley_lang`, still resolved from saved choice → browser
+  language → English). The language selector **moved out of the board's General
+  config panel** into a new **Preferences** section on the **Account** page, so
+  it's a single global app setting rather than a per-board control. Login /
+  register pages inherit the resolved default (no switcher there yet).
+
 - **Account UX pass: toasts, styled confirms, and consistent layout.** Every
   account-page mutation (create/save/delete overlays, teams, presets, users;
   batch add/remove, copy group, regenerate links) now shows a transient

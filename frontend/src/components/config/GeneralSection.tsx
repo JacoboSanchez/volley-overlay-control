@@ -14,21 +14,12 @@ export interface GeneralSectionProps {
   onShowShortcuts?: () => void;
 }
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: 'English',
-  es: 'Español',
-  pt: 'Português',
-  it: 'Italiano',
-  fr: 'Français',
-  de: 'Deutsch',
-};
-
 export default function GeneralSection({
   settings,
   setSetting,
   onShowShortcuts,
 }: GeneralSectionProps) {
-  const { t, lang, setLanguage, languages } = useI18n();
+  const { t } = useI18n();
   return (
     <div className="config-section-general">
       <ConfigSwitch
@@ -58,22 +49,6 @@ export default function GeneralSection({
         checked={settings.showReportLink}
         onChange={(v) => setSetting('showReportLink', v)}
       />
-
-      <div className="config-separator" />
-      <div className="config-field-row">
-        <label className="config-label">{t('lang.label')}</label>
-        <select
-          className="config-select"
-          value={lang}
-          onChange={(e) => setLanguage(e.target.value)}
-        >
-          {languages.map((l) => (
-            <option key={l} value={l}>
-              {LANGUAGE_NAMES[l] ?? l}
-            </option>
-          ))}
-        </select>
-      </div>
     </div>
   );
 }
