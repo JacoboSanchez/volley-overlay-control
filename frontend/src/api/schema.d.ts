@@ -1261,10 +1261,74 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * My Team Rows
+         * @description The caller's team list as rows with ids (global + own custom teams).
+         */
+        get: operations["my_team_rows_api_v1_teams_mine_get"];
         put?: never;
         /** Add To My Teams */
         post: operations["add_to_my_teams_api_v1_teams_mine_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/mine/custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create My Custom Team
+         * @description Create a personal team and add it to the caller's list.
+         */
+        post: operations["create_my_custom_team_api_v1_teams_mine_custom_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/mine/custom/{team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update My Custom Team
+         * @description Edit one of the caller's own custom teams.
+         */
+        patch: operations["update_my_custom_team_api_v1_teams_mine_custom__team_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/teams/mine/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove My Teams
+         * @description Batch-remove teams from the caller's list (unlinks globals; deletes own customs).
+         */
+        post: operations["remove_my_teams_api_v1_teams_mine_remove_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1682,6 +1746,28 @@ export interface components {
             /** Sets */
             sets?: number | null;
         };
+        /** CustomTeamRequest */
+        CustomTeamRequest: {
+            /** Color */
+            color?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Name */
+            name: string;
+            /** Text Color */
+            text_color?: string | null;
+        };
+        /** CustomTeamUpdateRequest */
+        CustomTeamUpdateRequest: {
+            /** Color */
+            color?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Text Color */
+            text_color?: string | null;
+        };
         /** GameStateResponse */
         GameStateResponse: {
             /**
@@ -1945,6 +2031,11 @@ export interface components {
         RegistrationSetting: {
             /** Registration Open */
             registration_open: boolean;
+        };
+        /** RemoveTeamsRequest */
+        RemoveTeamsRequest: {
+            /** Team Ids */
+            team_ids?: number[];
         };
         /** ServeRequest */
         ServeRequest: {
@@ -4989,6 +5080,37 @@ export interface operations {
             };
         };
     };
+    my_team_rows_api_v1_teams_mine_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     add_to_my_teams_api_v1_teams_mine_post: {
         parameters: {
             query?: never;
@@ -5001,6 +5123,113 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AddTeamsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_my_custom_team_api_v1_teams_mine_custom_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_my_custom_team_api_v1_teams_mine_custom__team_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomTeamUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_my_teams_api_v1_teams_mine_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoveTeamsRequest"];
             };
         };
         responses: {

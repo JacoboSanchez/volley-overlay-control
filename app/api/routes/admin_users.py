@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app import settings_service
+from app import settings_service, teams_service
 from app.auth import service
 from app.auth.dependencies import require_admin
 from app.auth.schemas import (
@@ -55,6 +55,8 @@ def create_user(
         )
     except UserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
+    # Seed the new account with the full global team catalog (one-time).
+    teams_service.seed_user_with_global_teams(db, user.id)
     db.commit()
     return TempPasswordResponse(
         user=UserOut.from_user(user),

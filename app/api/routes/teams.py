@@ -49,6 +49,24 @@ class AddTeamsRequest(BaseModel):
     team_ids: list[int] = Field(default_factory=list)
 
 
+class RemoveTeamsRequest(BaseModel):
+    team_ids: list[int] = Field(default_factory=list)
+
+
+class CustomTeamRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    icon: str | None = Field(default=None, max_length=2048)
+    color: str | None = Field(default=None, max_length=32)
+    text_color: str | None = Field(default=None, max_length=32)
+
+
+class CustomTeamUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    icon: str | None = Field(default=None, max_length=2048)
+    color: str | None = Field(default=None, max_length=32)
+    text_color: str | None = Field(default=None, max_length=32)
+
+
 class TeamGroupOut(BaseModel):
     id: int
     name: str
@@ -96,6 +114,12 @@ async def my_teams(user: User = Depends(require_user), db: Session = Depends(get
     return teams_service.user_teams(db, user.id)
 
 
+@router.get("/teams/mine", response_model=list[TeamOut])
+async def my_team_rows(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """The caller's team list as rows with ids (global + own custom teams)."""
+    return [TeamOut.of(t) for t in teams_service.list_user_team_rows(db, user.id)]
+
+
 @router.get("/teams/catalog", response_model=list[TeamOut])
 async def catalog(user: User = Depends(require_user), db: Session = Depends(get_db)):
     return [TeamOut.of(t) for t in teams_service.list_global(db)]
@@ -113,6 +137,55 @@ async def add_to_my_teams(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()
     return {"added": added}
+
+
+@router.post("/teams/mine/custom", response_model=TeamOut, status_code=201)
+async def create_my_custom_team(
+    body: CustomTeamRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Create a personal team and add it to the caller's list."""
+    try:
+        team = teams_service.create_user_team(
+            db, user.id, body.name,
+            icon=body.icon, color=body.color, text_color=body.text_color,
+        )
+    except teams_service.TeamError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    return TeamOut.of(team)
+
+
+@router.patch("/teams/mine/custom/{team_id}", response_model=TeamOut)
+async def update_my_custom_team(
+    team_id: int,
+    body: CustomTeamUpdateRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Edit one of the caller's own custom teams."""
+    try:
+        team = teams_service.update_user_team(
+            db, user.id, team_id,
+            name=body.name, icon=body.icon, color=body.color, text_color=body.text_color,
+        )
+    except teams_service.TeamError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    db.commit()
+    return TeamOut.of(team)
+
+
+@router.post("/teams/mine/remove")
+async def remove_my_teams(
+    body: RemoveTeamsRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Batch-remove teams from the caller's list (unlinks globals; deletes own customs)."""
+    removed = teams_service.remove_teams_from_user(db, user.id, body.team_ids)
+    db.commit()
+    return {"removed": removed}
 
 
 @router.delete("/teams/mine/{team_id}")

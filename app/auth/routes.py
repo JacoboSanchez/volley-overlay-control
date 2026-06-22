@@ -11,6 +11,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
+from app import teams_service
 from app.auth import bootstrap, service, sessions
 from app.auth.dependencies import current_user, current_user_or_401, require_user
 from app.auth.schemas import (
@@ -84,6 +85,8 @@ def register(
         )
     except UserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Seed the new account with the full global team catalog (one-time).
+    teams_service.seed_user_with_global_teams(db, user.id)
     _start_session(db, response, request, user)
     db.commit()
     return LoginResponse(user=UserOut.from_user(user), must_change_password=False)

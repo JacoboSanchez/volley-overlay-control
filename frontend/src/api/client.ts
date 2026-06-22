@@ -413,12 +413,29 @@ export function getTeamCatalog(): Promise<TeamOut[]> {
   return request<TeamOut[]>('GET', '/teams/catalog');
 }
 
+/** The caller's team list as rows with ids (global + own custom teams). */
+export function getMyTeams(): Promise<TeamOut[]> {
+  return request<TeamOut[]>('GET', '/teams/mine');
+}
+
 export function addTeamsToMine(teamIds: number[]): Promise<{ added: number }> {
   return request('POST', '/teams/mine', { team_ids: teamIds });
 }
 
 export function removeTeamFromMine(teamId: number): Promise<{ ok: boolean }> {
   return request('DELETE', `/teams/mine/${teamId}`);
+}
+
+export function removeTeamsFromMine(teamIds: number[]): Promise<{ removed: number }> {
+  return request('POST', '/teams/mine/remove', { team_ids: teamIds });
+}
+
+export function createMyTeam(fields: TeamFields): Promise<TeamOut> {
+  return request<TeamOut>('POST', '/teams/mine/custom', fields);
+}
+
+export function updateMyTeam(teamId: number, fields: Partial<TeamFields>): Promise<TeamOut> {
+  return request<TeamOut>('PATCH', `/teams/mine/custom/${teamId}`, fields);
 }
 
 export function getTeamGroups(): Promise<TeamGroupOut[]> {

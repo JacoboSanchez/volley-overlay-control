@@ -8,6 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Personal team lists: custom teams, seeding, and batch editing.** A new
+  account starts with the **full global team catalog** copied into its list
+  (one-time, at registration / admin-create). Users can now create their own
+  **custom teams** (name, logo, colours) that live only in their list —
+  editable and deletable by the owner; removing a custom team deletes it, while
+  removing a global team just unlinks it (it stays in the admin catalog). The
+  **Teams** page gained multi-select **batch add** (from the catalog) and
+  **batch remove**. New endpoints: `GET /api/v1/teams/mine` (list rows with
+  ids), `POST /api/v1/teams/mine/custom`, `PATCH /api/v1/teams/mine/custom/{id}`,
+  `POST /api/v1/teams/mine/remove` (batch).
+
 ### Removed
 
 - **overlays.uno cloud and external overlay-server support — in-process only.**

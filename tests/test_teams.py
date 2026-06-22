@@ -161,3 +161,104 @@ def test_add_member_to_missing_group_is_404(db_session):
     tid = admin.get("/api/v1/teams/catalog").json()[0]["id"]
     r = admin.post("/api/v1/admin/team-groups/999999/members", json={"team_id": tid})
     assert r.status_code == 404
+
+
+# ---- custom (user-owned) teams ---------------------------------------------
+
+
+def test_user_creates_custom_team(db_session):
+    user = _user(db_session)
+    r = user.post(
+        "/api/v1/teams/mine/custom",
+        json={"name": "My Club", "color": "#123456", "text_color": "#ffffff"},
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["name"] == "My Club" and body["is_global"] is False
+
+    # Appears in both the rows endpoint and the APP_TEAMS map.
+    rows = user.get("/api/v1/teams/mine").json()
+    assert any(t["name"] == "My Club" and not t["is_global"] for t in rows)
+    assert "My Club" in user.get("/api/v1/teams").json()
+
+
+def test_user_edits_own_custom_team(db_session):
+    user = _user(db_session)
+    tid = user.post("/api/v1/teams/mine/custom", json={"name": "Tmp"}).json()["id"]
+    r = user.patch(f"/api/v1/teams/mine/custom/{tid}", json={"name": "Renamed", "color": "#abcdef"})
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "Renamed"
+    assert r.json()["color"] == "#abcdef"
+
+
+def test_cannot_edit_a_global_team_via_custom_endpoint(db_session):
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    gid = admin.get("/api/v1/teams/catalog").json()[0]["id"]
+    user = _user(db_session)
+    assert user.patch(f"/api/v1/teams/mine/custom/{gid}", json={"name": "Hijack"}).status_code == 404
+
+
+def test_removing_custom_team_deletes_it(db_session):
+    user = _user(db_session)
+    tid = user.post("/api/v1/teams/mine/custom", json={"name": "Throwaway"}).json()["id"]
+    assert user.delete(f"/api/v1/teams/mine/{tid}").status_code == 200
+    # Gone from the list and from existence (no longer addable).
+    assert "Throwaway" not in user.get("/api/v1/teams").json()
+    assert user.post("/api/v1/teams/mine", json={"team_ids": [tid]}).status_code == 400
+
+
+def test_removing_global_team_only_unlinks_it(db_session):
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    gid = admin.get("/api/v1/teams/catalog").json()[0]["id"]
+    user = _user(db_session)
+    user.post("/api/v1/teams/mine", json={"team_ids": [gid]})
+    user.delete(f"/api/v1/teams/mine/{gid}")
+    # Unlinked from the list but still in the global catalog (re-addable).
+    assert gid in {t["id"] for t in user.get("/api/v1/teams/catalog").json()}
+    assert user.post("/api/v1/teams/mine", json={"team_ids": [gid]}).json()["added"] == 1
+
+
+def test_batch_remove(db_session):
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    user = _user(db_session)
+    ids = [t["id"] for t in user.get("/api/v1/teams/catalog").json()]
+    user.post("/api/v1/teams/mine", json={"team_ids": ids})
+    assert len(user.get("/api/v1/teams/mine").json()) == len(ids)
+
+    r = user.post("/api/v1/teams/mine/remove", json={"team_ids": ids})
+    assert r.status_code == 200
+    assert r.json()["removed"] == len(ids)
+    assert user.get("/api/v1/teams/mine").json() == []
+
+
+# ---- seed-on-creation ------------------------------------------------------
+
+
+def test_register_seeds_global_teams(db_session):
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+
+    fresh = TestClient(create_app())
+    r = fresh.post(
+        "/api/v1/auth/register",
+        json={"username": "newbie", "password": "password123"},
+    )
+    assert r.status_code == 200, r.text
+    # The freshly-registered (and now logged-in) user starts with the catalog.
+    assert set(fresh.get("/api/v1/teams").json()) == set(APP_TEAMS)
+
+
+def test_admin_created_user_is_seeded(db_session):
+    from app.db.models.team import UserTeamListItem
+
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    res = admin.post("/api/v1/admin/users", json={"username": "staff"})
+    assert res.status_code in (200, 201), res.text
+    uid = res.json()["user"]["id"]
+
+    seeded = db_session.query(UserTeamListItem).filter_by(user_id=uid).count()
+    assert seeded == len(APP_TEAMS)

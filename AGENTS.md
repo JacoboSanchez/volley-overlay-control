@@ -89,7 +89,7 @@ volley-overlay-control/
 │   ├── match_report_signing.py # HMAC-signed capability URLs for /match/{id}/report (signed with SESSION_SECRET)
 │   ├── overlay_key.py         # Storage-key helpers — make_skey/split_skey ("<user_id>:<oid>")
 │   ├── overlays_service.py    # Per-user overlay CRUD + public_token / skey resolution
-│   ├── teams_service.py       # DB-backed team lists, catalog, and groups
+│   ├── teams_service.py       # DB-backed team lists, global catalog, groups, per-user custom teams + seeding
 │   ├── presets_service.py     # DB-backed overlay/theme presets
 │   ├── settings_service.py    # DB-backed app settings (env-seed-then-DB-override, e.g. REGISTRATION_OPEN)
 │   ├── app_storage.py         # In-memory key-value storage

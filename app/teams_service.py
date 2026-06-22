@@ -245,9 +245,93 @@ def remove_team_from_user(db: Session, user_id: int, team_id: int) -> bool:
     ).scalar_one_or_none()
     if row is None:
         return False
-    db.delete(row)
+    team = db.get(Team, team_id)
+    # A user's custom team only exists inside their list — removing it deletes
+    # it outright (the FK cascade drops the list item). A global team is just
+    # unlinked from the list and stays in the admin catalog.
+    if team is not None and not team.is_global and team.owner_user_id == user_id:
+        db.delete(team)
+    else:
+        db.delete(row)
     db.flush()
     return True
+
+
+def remove_teams_from_user(db: Session, user_id: int, team_ids: list[int]) -> int:
+    """Remove several teams from the user's list (idempotent). Returns the count."""
+    return sum(1 for tid in team_ids if remove_team_from_user(db, user_id, tid))
+
+
+def seed_user_with_global_teams(db: Session, user_id: int) -> int:
+    """Copy every current global team into a user's list. Returns the count.
+
+    Called once at account creation so a new user starts with the full admin
+    catalog; later-added global teams are not auto-pushed (the user adds those
+    from the catalog).
+    """
+    return add_teams_to_user(db, user_id, [t.id for t in list_global(db)])
+
+
+# ---- custom (user-owned) teams ---------------------------------------------
+
+
+def create_user_team(
+    db: Session,
+    user_id: int,
+    name: str,
+    *,
+    icon: str | None = None,
+    color: str | None = None,
+    text_color: str | None = None,
+) -> Team:
+    """Create a personal (user-owned) team and add it to the user's list."""
+    name = (name or "").strip()
+    if not name:
+        raise TeamError("Team name is required.")
+    team = Team(
+        name=name,
+        is_global=False,
+        owner_user_id=user_id,
+        icon_url=(icon or "").strip() or None,
+        color=(color or "").strip() or None,
+        text_color=(text_color or "").strip() or None,
+    )
+    db.add(team)
+    db.flush()
+    db.add(UserTeamListItem(
+        user_id=user_id, team_id=team.id, sort_order=_next_sort_order(db, user_id),
+    ))
+    db.flush()
+    return team
+
+
+def update_user_team(
+    db: Session,
+    user_id: int,
+    team_id: int,
+    *,
+    name: str | None = None,
+    icon: str | None = None,
+    color: str | None = None,
+    text_color: str | None = None,
+) -> Team:
+    """Edit one of the caller's custom teams. Only provided fields change."""
+    team = db.get(Team, team_id)
+    if team is None or team.is_global or team.owner_user_id != user_id:
+        raise TeamError("Team not found.")
+    if name is not None:
+        name = name.strip()
+        if not name:
+            raise TeamError("Team name is required.")
+        team.name = name
+    if icon is not None:
+        team.icon_url = icon.strip() or None
+    if color is not None:
+        team.color = color.strip() or None
+    if text_color is not None:
+        team.text_color = text_color.strip() or None
+    db.flush()
+    return team
 
 
 def copy_group_to_user(db: Session, user_id: int, group_id: int) -> int:
