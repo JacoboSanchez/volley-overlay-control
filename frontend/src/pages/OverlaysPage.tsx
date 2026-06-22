@@ -2,8 +2,12 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
 import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmProvider';
 
 export default function OverlaysPage() {
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
   const [name, setName] = useState('');
@@ -31,7 +35,8 @@ export default function OverlaysPage() {
     e.preventDefault();
     setError('');
     try {
-      await api.createOverlay(oid.trim(), {
+      const created = oid.trim();
+      await api.createOverlay(created, {
         display_name: name.trim() || null,
         sets: sets ? Number(sets) : null,
       });
@@ -39,15 +44,27 @@ export default function OverlaysPage() {
       setName('');
       setSets('');
       await load();
+      toast(`Overlay “${created}” created.`);
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Could not create overlay.');
     }
   }
 
   async function onDelete(o: api.OverlayPayload) {
-    if (!confirm(`Delete overlay "${o.oid}"? This removes its scoreboard state and reports.`)) return;
-    await api.deleteOverlay(o.oid);
-    await load();
+    const ok = await confirm({
+      title: 'Delete overlay',
+      message: `Delete overlay “${o.oid}”? This removes its scoreboard state and reports.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteOverlay(o.oid);
+      await load();
+      toast(`Overlay “${o.oid}” deleted.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not delete overlay.', 'error');
+    }
   }
 
   async function copy(url: string) {
@@ -102,7 +119,10 @@ export default function OverlaysPage() {
       ) : (
         <table className="acc-table">
           <thead>
-            <tr><th>Overlay</th><th>OBS output URL</th><th>Format</th><th></th></tr>
+            <tr>
+              <th scope="col">Overlay</th><th scope="col">OBS output URL</th>
+              <th scope="col">Format</th><th scope="col"></th>
+            </tr>
           </thead>
           <tbody>
             {overlays.map((o) => (
@@ -167,19 +187,25 @@ function OverlayRow({
 }
 
 function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => void }) {
+  const { toast } = useToast();
   const [name, setName] = useState(o.display_name || '');
   const [sets, setSets] = useState(o.sets ? String(o.sets) : '');
   const [points, setPoints] = useState(o.points ? String(o.points) : '');
   const [lastSet, setLastSet] = useState(o.points_last_set ? String(o.points_last_set) : '');
 
   async function save() {
-    await api.updateOverlay(o.oid, {
-      display_name: name.trim() || null,
-      sets: sets ? Number(sets) : null,
-      points: points ? Number(points) : null,
-      points_last_set: lastSet ? Number(lastSet) : null,
-    });
-    onSaved();
+    try {
+      await api.updateOverlay(o.oid, {
+        display_name: name.trim() || null,
+        sets: sets ? Number(sets) : null,
+        points: points ? Number(points) : null,
+        points_last_set: lastSet ? Number(lastSet) : null,
+      });
+      onSaved();
+      toast('Overlay settings saved.');
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not save settings.', 'error');
+    }
   }
 
   return (
@@ -218,21 +244,29 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
 }
 
 function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
   async function toggle() {
-    if (!o.public_control && !confirm(
-      'Enable a permanent no-login control URL for this board?\n\n' +
-      'The link is based on your username and this overlay id, so it is ' +
-      'guessable — anyone who works it out could control this scoreboard. ' +
-      'Use it as your own bookmark; share the operator link above instead.',
-    )) {
-      return;
+    if (!o.public_control) {
+      const ok = await confirm({
+        title: 'Enable bookmark link',
+        message:
+          'Enable a permanent no-login control URL for this board? The link is based on your ' +
+          'username and this overlay id, so it is guessable — anyone who works it out could ' +
+          'control this scoreboard. Use it as your own bookmark; share the operator link instead.',
+        confirmLabel: 'Enable',
+      });
+      if (!ok) return;
     }
     setBusy(true);
     try {
       await api.updateOverlay(o.oid, { public_control: !o.public_control });
       onChanged();
+      toast(o.public_control ? 'Bookmark link disabled.' : 'Bookmark link enabled.');
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not update bookmark link.', 'error');
     } finally {
       setBusy(false);
     }
@@ -260,16 +294,27 @@ function BookmarkLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
 }
 
 function ControlLink({ o, onChanged }: { o: api.OverlayPayload; onChanged: () => void }) {
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
   async function regenerate() {
-    if (!confirm('Generate a new control link? The current link will stop working immediately.')) {
-      return;
+    if (o.control_url) {
+      const ok = await confirm({
+        title: 'Regenerate control link',
+        message: 'Generate a new control link? The current link will stop working immediately.',
+        confirmLabel: 'Regenerate',
+        danger: true,
+      });
+      if (!ok) return;
     }
     setBusy(true);
     try {
       await api.regenerateControlToken(o.oid);
       onChanged();
+      toast('New operator control link generated.');
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not generate link.', 'error');
     } finally {
       setBusy(false);
     }

@@ -18,6 +18,18 @@ once a first tagged release ships.
 
 ### Added
 
+- **Account UX pass: toasts, styled confirms, and consistent layout.** Every
+  account-page mutation (create/save/delete overlays, teams, presets, users;
+  batch add/remove, copy group, regenerate links) now shows a transient
+  **toast** confirming success or surfacing the real error. All destructive
+  actions moved off the browser's native `confirm()` onto a styled in-app
+  confirmation dialog, including a clear warning that removing an owned
+  **custom** team deletes it permanently. Other polish: the desktop sidebar is
+  now **sticky** while content scrolls, empty states only appear after data has
+  loaded (no flash), catalog membership is matched by id (so a custom team
+  can't mask a same-named catalog team), table headers carry `scope="col"`,
+  and the account-settings forms share a single width helper.
+
 - **Select all / none on the Teams lists.** Each team table (My teams,
   Catalog) gained a "Select all" control in its action toolbar (visible on
   mobile, where table headers are hidden), with an indeterminate state when a

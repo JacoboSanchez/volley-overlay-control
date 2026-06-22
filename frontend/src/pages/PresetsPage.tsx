@@ -2,11 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmProvider';
 import JsonImportExport from './JsonImportExport';
 
 export default function PresetsPage() {
   const { ctx } = useAuth();
   const isAdmin = ctx?.user?.role === 'admin';
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [items, setItems] = useState<api.PresetSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,9 +32,20 @@ export default function PresetsPage() {
 
   async function onDelete(p: api.PresetSummary) {
     if (p.source !== 'user') return;
-    if (!confirm(`Delete preset "${p.name}"?`)) return;
-    await api.deletePreset(p.slug);
-    await load();
+    const ok = await confirm({
+      title: 'Delete preset',
+      message: `Delete preset “${p.name}”?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deletePreset(p.slug);
+      await load();
+      toast(`Deleted “${p.name}”.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not delete preset.', 'error');
+    }
   }
 
   return (
@@ -50,7 +65,10 @@ export default function PresetsPage() {
         </EmptyState>
       ) : (
         <table className="acc-table">
-          <thead><tr><th>Name</th><th>Scope</th><th>Covers</th><th></th></tr></thead>
+          <thead><tr>
+            <th scope="col">Name</th><th scope="col">Scope</th>
+            <th scope="col">Covers</th><th scope="col"></th>
+          </tr></thead>
           <tbody>
             {items.map((p) => (
               <tr key={`${p.source}:${p.slug}`}>
@@ -76,6 +94,8 @@ export default function PresetsPage() {
 }
 
 function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [globals, setGlobals] = useState<api.PresetSummary[]>([]);
 
   const load = useCallback(async () => {
@@ -93,13 +113,29 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
   }, [load, onChange]);
 
   async function toggle(p: api.PresetSummary) {
-    await api.adminSetPresetActive(p.slug, !p.is_active);
-    await refresh();
+    try {
+      await api.adminSetPresetActive(p.slug, !p.is_active);
+      await refresh();
+      toast(p.is_active ? `“${p.name}” deactivated.` : `“${p.name}” activated.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not update preset.', 'error');
+    }
   }
   async function del(p: api.PresetSummary) {
-    if (!confirm(`Delete global preset "${p.name}"?`)) return;
-    await api.adminDeleteGlobalPreset(p.slug);
-    await refresh();
+    const ok = await confirm({
+      title: 'Delete global preset',
+      message: `Delete global preset “${p.name}”?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.adminDeleteGlobalPreset(p.slug);
+      await refresh();
+      toast(`Deleted “${p.name}”.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not delete preset.', 'error');
+    }
   }
 
   return (
@@ -113,7 +149,10 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
         <EmptyState>No global presets yet — import some below.</EmptyState>
       ) : (
         <table className="acc-table">
-          <thead><tr><th>Name</th><th>Active</th><th>Covers</th><th></th></tr></thead>
+          <thead><tr>
+            <th scope="col">Name</th><th scope="col">Active</th>
+            <th scope="col">Covers</th><th scope="col"></th>
+          </tr></thead>
           <tbody>
             {globals.map((p) => (
               <tr key={p.slug}>

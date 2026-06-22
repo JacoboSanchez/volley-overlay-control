@@ -2,6 +2,8 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmProvider';
 import JsonImportExport from './JsonImportExport';
 
 function useSelection() {
@@ -49,11 +51,14 @@ function SelectAll({
 export default function TeamsPage() {
   const { ctx } = useAuth();
   const isAdmin = ctx?.user?.role === 'admin';
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [mine, setMine] = useState<api.TeamOut[]>([]);
   const [catalog, setCatalog] = useState<api.TeamOut[]>([]);
   const [groups, setGroups] = useState<api.TeamGroupOut[]>([]);
   const [editing, setEditing] = useState<number | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [loaded, setLoaded] = useState(false);
 
   const mineSel = useSelection();
   const catSel = useSelection();
@@ -70,6 +75,8 @@ export default function TeamsPage() {
       setGroups(g);
     } catch {
       setLoadError('Could not load teams.');
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -84,23 +91,54 @@ export default function TeamsPage() {
     await load();
   }, [load, mineSel, catSel]);
 
-  const mineNames = new Set(mine.map((t) => t.name));
-  // Catalog teams not yet in the user's list (by name).
-  const addable = catalog.filter((t) => !mineNames.has(t.name));
+  const mineIds = new Set(mine.map((t) => t.id));
+  // Catalog teams not yet in the user's list (matched by id, so a custom team
+  // sharing a catalog team's name never masks the real catalog entry).
+  const addable = catalog.filter((t) => !mineIds.has(t.id));
 
   async function removeSelectedMine() {
     if (mineSel.sel.size === 0) return;
-    await api.removeTeamsFromMine([...mineSel.sel]);
-    await reload();
+    const ids = [...mineSel.sel];
+    // Removing an owned custom team deletes it for good — make that explicit.
+    const customCount = mine.filter((t) => ids.includes(t.id) && !t.is_global).length;
+    if (customCount > 0) {
+      const ok = await confirm({
+        title: 'Remove teams',
+        message:
+          customCount === ids.length
+            ? `This permanently deletes ${customCount} custom team(s).`
+            : `${customCount} of the selected team(s) are custom and will be permanently deleted.`,
+        confirmLabel: 'Remove',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    try {
+      const { removed } = await api.removeTeamsFromMine(ids);
+      await reload();
+      toast(`Removed ${removed} team${removed === 1 ? '' : 's'}.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not remove teams.', 'error');
+    }
   }
   async function addSelectedCatalog() {
     if (catSel.sel.size === 0) return;
-    await api.addTeamsToMine([...catSel.sel]);
-    await reload();
+    try {
+      const { added } = await api.addTeamsToMine([...catSel.sel]);
+      await reload();
+      toast(`Added ${added} team${added === 1 ? '' : 's'}.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not add teams.', 'error');
+    }
   }
-  async function copyGroup(id: number) {
-    await api.copyGroupToMine(id);
-    await reload();
+  async function copyGroup(id: number, name: string) {
+    try {
+      const { added } = await api.copyGroupToMine(id);
+      await reload();
+      toast(`Copied “${name}” — ${added} team${added === 1 ? '' : 's'} added.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not copy group.', 'error');
+    }
   }
 
   return (
@@ -114,7 +152,9 @@ export default function TeamsPage() {
 
       <h3 className="acc-subhead">My teams</h3>
       {mine.length === 0 ? (
-        <EmptyState>No teams yet — add some from the catalog below or create a custom one.</EmptyState>
+        loaded && (
+          <EmptyState>No teams yet — add some from the catalog below or create a custom one.</EmptyState>
+        )
       ) : (
         <>
           <div className="acc-row" style={{ marginBottom: 8, alignItems: 'center' }}>
@@ -129,7 +169,7 @@ export default function TeamsPage() {
             </button>
           </div>
           <table className="acc-table">
-            <thead><tr><th></th><th>Team</th><th></th></tr></thead>
+            <thead><tr><th scope="col"></th><th scope="col">Team</th><th scope="col"></th></tr></thead>
             <tbody>
               {mine.map((t) => (
                 <MyTeamRow
@@ -152,7 +192,7 @@ export default function TeamsPage() {
           <h3 className="acc-subhead">Team groups</h3>
           {groups.map((g) => (
             <div key={g.id} style={{ marginBottom: 10 }}>
-              <button className="acc-btn secondary" onClick={() => copyGroup(g.id)}>
+              <button className="acc-btn secondary" onClick={() => copyGroup(g.id, g.name)}>
                 Copy “{g.name}” ({g.teams.length})
               </button>
             </div>
@@ -162,7 +202,7 @@ export default function TeamsPage() {
 
       <h3 className="acc-subhead">Catalog</h3>
       {addable.length === 0 ? (
-        <EmptyState>Every catalog team is already in your list.</EmptyState>
+        loaded && <EmptyState>Every catalog team is already in your list.</EmptyState>
       ) : (
         <>
           <div className="acc-row" style={{ marginBottom: 8, alignItems: 'center' }}>
@@ -176,7 +216,7 @@ export default function TeamsPage() {
             </button>
           </div>
           <table className="acc-table">
-            <thead><tr><th></th><th>Team</th></tr></thead>
+            <thead><tr><th scope="col"></th><th scope="col">Team</th></tr></thead>
             <tbody>
               {addable.map((t) => (
                 <tr key={t.id}>
@@ -234,6 +274,7 @@ function MyTeamRow({
 }
 
 function CustomTeamForm({ onCreated }: { onCreated: () => void }) {
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('');
   const [color, setColor] = useState('#1565c0');
@@ -244,10 +285,11 @@ function CustomTeamForm({ onCreated }: { onCreated: () => void }) {
     e.preventDefault();
     setError('');
     try {
-      await api.createMyTeam({ name: name.trim(), icon: icon.trim() || null, color, text_color: textColor });
+      const created = await api.createMyTeam({ name: name.trim(), icon: icon.trim() || null, color, text_color: textColor });
       setName('');
       setIcon('');
       onCreated();
+      toast(`Created “${created.name}”.`);
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Could not create team.');
     }
@@ -290,6 +332,7 @@ function CustomTeamForm({ onCreated }: { onCreated: () => void }) {
 }
 
 function CustomTeamEditor({ t, onSaved }: { t: api.TeamOut; onSaved: () => void }) {
+  const { toast } = useToast();
   const [name, setName] = useState(t.name);
   const [icon, setIcon] = useState(t.icon || '');
   const [color, setColor] = useState(hex(t.color, '#1565c0'));
@@ -297,15 +340,20 @@ function CustomTeamEditor({ t, onSaved }: { t: api.TeamOut; onSaved: () => void 
   const [saved, setSaved] = useState(false);
 
   async function save() {
-    await api.updateMyTeam(t.id, {
-      name: name.trim() || undefined,
-      icon: icon.trim() || null,
-      color,
-      text_color: textColor,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1200);
-    onSaved();
+    try {
+      await api.updateMyTeam(t.id, {
+        name: name.trim() || undefined,
+        icon: icon.trim() || null,
+        color,
+        text_color: textColor,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1200);
+      onSaved();
+      toast('Team saved.');
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not save team.', 'error');
+    }
   }
 
   return (
@@ -364,6 +412,7 @@ function hex(value: string | null | undefined, fallback: string): string {
 }
 
 function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange: () => void }) {
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('');
   const [color, setColor] = useState('#1565c0');
@@ -378,6 +427,7 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
       setName('');
       setIcon('');
       await onChange();
+      toast(`Added “${name.trim()}” to the catalog.`);
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Could not create team.');
     }
@@ -417,7 +467,10 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
 
       <table className="acc-table">
         <thead>
-          <tr><th>Team</th><th>Logo URL</th><th>Colour</th><th>Text</th><th></th></tr>
+          <tr>
+            <th scope="col">Team</th><th scope="col">Logo URL</th>
+            <th scope="col">Colour</th><th scope="col">Text</th><th scope="col"></th>
+          </tr>
         </thead>
         <tbody>
           {catalog.map((t) => (
@@ -437,21 +490,39 @@ function AdminCatalog({ catalog, onChange }: { catalog: api.TeamOut[]; onChange:
 }
 
 function AdminTeamRow({ team, onChange }: { team: api.TeamOut; onChange: () => void }) {
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [icon, setIcon] = useState(team.icon || '');
   const [color, setColor] = useState(hex(team.color, '#1565c0'));
   const [textColor, setTextColor] = useState(hex(team.text_color, '#ffffff'));
   const [saved, setSaved] = useState(false);
 
   async function save() {
-    await api.adminUpdateTeam(team.id, { icon: icon.trim() || null, color, text_color: textColor });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1200);
-    await onChange();
+    try {
+      await api.adminUpdateTeam(team.id, { icon: icon.trim() || null, color, text_color: textColor });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1200);
+      await onChange();
+      toast('Team saved.');
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not save team.', 'error');
+    }
   }
   async function del() {
-    if (!confirm(`Delete team "${team.name}" from the catalog?`)) return;
-    await api.adminDeleteTeam(team.id);
-    await onChange();
+    const ok = await confirm({
+      title: 'Delete team',
+      message: `Delete team “${team.name}” from the catalog?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.adminDeleteTeam(team.id);
+      await onChange();
+      toast(`Deleted “${team.name}”.`);
+    } catch (err) {
+      toast(err instanceof api.ApiError ? err.detail : 'Could not delete team.', 'error');
+    }
   }
 
   return (

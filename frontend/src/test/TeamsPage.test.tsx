@@ -69,12 +69,16 @@ describe('TeamsPage', () => {
   });
 
   it('select-all toggles every team in my list', async () => {
+    // The selection includes the custom "My Club", so removal first asks for
+    // confirmation; outside a ConfirmProvider that falls back to window.confirm.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<TeamsPage />);
     await waitFor(() => expect(screen.getByText('Breogán')).toBeInTheDocument());
     // First select-all is the "My teams" header (Catalog has its own).
     fireEvent.click(screen.getAllByLabelText('Select all')[0]!);
     fireEvent.click(screen.getByRole('button', { name: /Remove selected \(2\)/ }));
     await waitFor(() => expect(api.removeTeamsFromMine).toHaveBeenCalledWith([1, 2]));
+    confirmSpy.mockRestore();
   });
 
   it('creates a custom team', async () => {

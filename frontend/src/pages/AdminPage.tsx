@@ -3,9 +3,13 @@ import { Navigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import CopyField from '../components/CopyField';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmProvider';
 
 export default function AdminPage() {
   const { ctx } = useAuth();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<api.UserOut[]>([]);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [newName, setNewName] = useState('');
@@ -59,16 +63,24 @@ export default function AdminPage() {
     try {
       await api.adminUpdateUser(u.id, { is_active: !u.is_active });
       await load();
+      toast(u.is_active ? `“${u.username}” deactivated.` : `“${u.username}” activated.`);
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Update failed.');
     }
   }
 
   async function del(u: api.UserOut) {
-    if (!confirm(`Delete user "${u.username}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete user',
+      message: `Delete user “${u.username}”? This permanently removes their account and data.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.adminDeleteUser(u.id);
       await load();
+      toast(`Deleted “${u.username}”.`);
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Delete failed.');
     }
@@ -131,7 +143,10 @@ export default function AdminPage() {
 
       <h3 className="acc-subhead">Users</h3>
       <table className="acc-table">
-        <thead><tr><th>Username</th><th>Role</th><th>Active</th><th></th></tr></thead>
+        <thead><tr>
+          <th scope="col">Username</th><th scope="col">Role</th>
+          <th scope="col">Active</th><th scope="col"></th>
+        </tr></thead>
         <tbody>
           {users.map((u) => {
             const isSelf = ctx?.user?.id === u.id;
