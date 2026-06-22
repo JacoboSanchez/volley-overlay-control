@@ -575,7 +575,7 @@
     border-bottom: none;
     padding: 6px 12px;
     /* Override the inline ``white-space: nowrap`` on action cells so the
-       buttons + the long OBS URL wrap instead of overflowing. */
+       buttons + the long output URL wrap instead of overflowing. */
     white-space: normal !important;
     word-break: break-word;
   }

@@ -120,7 +120,7 @@ export default function OverlaysPage() {
           <thead>
             <tr>
               <th scope="col">{t('acc.overlays.colOverlay')}</th>
-              <th scope="col">{t('acc.overlays.colObsUrl')}</th>
+              <th scope="col">{t('acc.overlays.colOutputUrl')}</th>
               <th scope="col">{t('acc.overlays.colFormat')}</th><th scope="col"></th>
             </tr>
           </thead>

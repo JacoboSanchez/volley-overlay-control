@@ -1176,7 +1176,7 @@
             "type": "string"
           },
           "output_url": {
-            "description": "Built-in OBS output URL (the local /overlay/<token>)",
+            "description": "Built-in overlay output URL (the local /overlay/<token>)",
             "title": "Output Url",
             "type": "string"
           },
@@ -1223,7 +1223,7 @@
             "title": "Public Control Url"
           },
           "public_token": {
-            "description": "Public OBS-output capability token",
+            "description": "Public overlay-output capability token",
             "title": "Public Token",
             "type": "string"
           },
@@ -7347,7 +7347,7 @@
         ]
       },
       "post": {
-        "description": "Register a new overlay for the caller (mints a public OBS token).",
+        "description": "Register a new overlay for the caller (mints a public output token).",
         "operationId": "create_my_overlay_api_v1_overlays_post",
         "parameters": [
           {

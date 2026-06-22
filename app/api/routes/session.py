@@ -30,7 +30,7 @@ def _ensure_user_overlay(db: Session, user: User, oid: str) -> UserOverlay:
     """Return the caller's overlay row for *oid*, auto-creating it.
 
     Opening a board for an id the user has not added yet simply registers it
-    (mints a public OBS token) — the explicit "My overlays" management screen
+    (mints a public output token) — the explicit "My overlays" management screen
     is for renaming/removing, not a precondition for use.
     """
     overlay = overlays_service.get_overlay(db, user.id, oid)

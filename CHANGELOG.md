@@ -58,6 +58,17 @@ once a first tagged release ships.
   ids), `POST /api/v1/teams/mine/custom`, `PATCH /api/v1/teams/mine/custom/{id}`,
   `POST /api/v1/teams/mine/remove` (batch).
 
+### Changed
+
+- **Overlay output is no longer described as "OBS"-specific.** OBS is one of
+  several consumers of an overlay's output URL (vMix, a plain browser, etc.),
+  so the OBS-only wording was misleading. The "OBS output URL" column is now
+  **"Output URL"**, the links dialog's "OBS overlay" entry is now **"Overlay"**,
+  and the setup hint points to "your streaming software (OBS, vMix, …)" rather
+  than OBS alone — across all six languages. The corresponding API field
+  descriptions (`output_url`, `public_token`) and the register-overlay endpoint
+  summary were generalized too, and the OpenAPI snapshot / TS types regenerated.
+
 ### Removed
 
 - **overlays.uno cloud and external overlay-server support — in-process only.**

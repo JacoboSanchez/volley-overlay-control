@@ -1013,7 +1013,7 @@ export interface paths {
         put?: never;
         /**
          * Create My Overlay
-         * @description Register a new overlay for the caller (mints a public OBS token).
+         * @description Register a new overlay for the caller (mints a public output token).
          */
         post: operations["create_my_overlay_api_v1_overlays_post"];
         delete?: never;
@@ -1939,7 +1939,7 @@ export interface components {
             oid: string;
             /**
              * Output Url
-             * @description Built-in OBS output URL (the local /overlay/<token>)
+             * @description Built-in overlay output URL (the local /overlay/<token>)
              */
             output_url: string;
             /**
@@ -1965,7 +1965,7 @@ export interface components {
             public_control_url?: string | null;
             /**
              * Public Token
-             * @description Public OBS-output capability token
+             * @description Public overlay-output capability token
              */
             public_token: string;
             /**

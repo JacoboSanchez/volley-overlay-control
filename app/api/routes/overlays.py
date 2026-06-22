@@ -27,8 +27,8 @@ class OverlayOut(BaseModel):
 
     oid: str = Field(..., description="Overlay identifier (unique per user)")
     display_name: str | None = Field(None, description="Friendly label")
-    public_token: str = Field(..., description="Public OBS-output capability token")
-    output_url: str = Field(..., description="Built-in OBS output URL (the local /overlay/<token>)")
+    public_token: str = Field(..., description="Public overlay-output capability token")
+    output_url: str = Field(..., description="Built-in overlay output URL (the local /overlay/<token>)")
     control_token: str | None = Field(None, description="Shareable control capability token")
     control_url: str | None = Field(None, description="Ready-made shareable control-board link")
     public_control: bool = Field(False, description="Allow no-login control via the username+oid URL")
@@ -100,7 +100,7 @@ async def create_my_overlay(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Register a new overlay for the caller (mints a public OBS token)."""
+    """Register a new overlay for the caller (mints a public output token)."""
     try:
         overlay = overlays_service.create_overlay(
             db, user.id, body.oid,
