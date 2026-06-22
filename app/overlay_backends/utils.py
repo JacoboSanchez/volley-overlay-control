@@ -1,29 +1,20 @@
-"""Small helpers shared by the overlay backend strategies."""
+"""Small helpers shared by the overlay backend strategy."""
 
 import logging
-import re
 from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# UNO overlay IDs are exactly 22 mixed-case alphanumeric characters
-# (e.g. ``2cIXk2IjHvMuva6Wwele8j``). The format is documented by overlays.uno
-# and is what we fall back to when an OID does not match a local custom
-# overlay.
-UNO_OID_LENGTH = 22
-_UNO_OID_PATTERN = re.compile(rf'^[A-Za-z0-9]{{{UNO_OID_LENGTH}}}$')
-
 _LEGACY_PREFIX = "C-"
 
 
 class OverlayKind(str, Enum):
-    """Result of resolving an OID against the available overlay sources."""
+    """Result of resolving an OID against the local overlay store."""
 
     EMPTY = "empty"
     CUSTOM = "custom"
-    UNO = "uno"
     INVALID = "invalid"
 
 
@@ -34,11 +25,6 @@ def is_custom_overlay(oid: str) -> bool:
     :func:`resolve_overlay_kind`.
     """
     return oid is not None and str(oid).upper().startswith(_LEGACY_PREFIX)
-
-
-def matches_uno_format(oid: str) -> bool:
-    """Whether *oid* matches the UNO format (22 alphanumeric characters)."""
-    return bool(oid) and bool(_UNO_OID_PATTERN.match(str(oid)))
 
 
 def strip_legacy_prefix(oid: str) -> str:
@@ -52,10 +38,10 @@ def strip_legacy_prefix(oid: str) -> str:
 
 
 def split_custom_oid(oid: str):
-    """Extract ``base_id`` and optional ``style`` from a custom overlay OID.
+    """Extract ``base_id`` and optional ``style`` from an overlay OID.
 
     Accepts both the legacy ``C-id[/style]`` syntax and the bare
-    ``id[/style]`` form used by the new resolver.
+    ``id[/style]`` form.
     """
     raw_id = strip_legacy_prefix(oid)
     parts = raw_id.split('/', 1)
@@ -66,39 +52,29 @@ def resolve_overlay_kind(
     oid: str,
     local_overlay_exists: Callable[[str], bool],
 ) -> OverlayKind:
-    """Decide whether *oid* refers to a custom (local) or UNO overlay.
+    """Decide whether *oid* refers to a known local overlay.
 
     Resolution order:
       1. Empty/None -> ``EMPTY``
-      2. Legacy ``C-<id>[/style]`` syntax: ``CUSTOM`` iff the overlay
-         exists locally, otherwise ``INVALID`` (no auto-creation).
-      3. Bare id matching an existing local overlay -> ``CUSTOM``
-      4. Otherwise, UNO format (22 alphanumeric chars) -> ``UNO``
-      5. Anything else -> ``INVALID``
+      2. An ``id[/style]`` (or legacy ``C-id[/style]``) whose base id exists
+         in the local overlay store -> ``CUSTOM``
+      3. Anything else -> ``INVALID`` (no auto-creation; overlays are created
+         up-front via the "My overlays" page)
     """
     if oid is None or not str(oid).strip():
         return OverlayKind.EMPTY
-    s = str(oid).strip()
-    if s.upper().startswith(_LEGACY_PREFIX):
-        bare = s[len(_LEGACY_PREFIX):].split('/', 1)[0]
-        if bare and local_overlay_exists(bare):
-            return OverlayKind.CUSTOM
-        return OverlayKind.INVALID
-    bare = s.split('/', 1)[0]
+    bare = strip_legacy_prefix(str(oid).strip()).split('/', 1)[0]
     if bare and local_overlay_exists(bare):
         return OverlayKind.CUSTOM
-    if matches_uno_format(s):
-        return OverlayKind.UNO
     return OverlayKind.INVALID
 
 
 def safe_json(response, default: Any = None) -> Any:
     """Decode *response*'s JSON body, returning *default* on parse error.
 
-    Overlay servers occasionally reply with HTML error pages even on 2xx, and
-    a raw ``response.json()`` would raise and bubble up to the request
-    handler. Treating malformed bodies as missing payloads degrades
-    gracefully.
+    Overlay responses occasionally come back as HTML error pages even on 2xx,
+    and a raw ``response.json()`` would raise and bubble up to the request
+    handler. Treating malformed bodies as missing payloads degrades gracefully.
     """
     try:
         return response.json()
@@ -115,3 +91,4 @@ def _mock_response(status_code=200, payload=None):
         'text': '',
         'json': lambda self: body,
     })()
+

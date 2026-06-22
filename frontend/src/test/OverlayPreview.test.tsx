@@ -27,22 +27,23 @@ describe('OverlayPreview', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders standard overlay iframe for overlays.uno URL', () => {
+  it('renders the in-process overlay iframe (cache-busted, no aspect param)', () => {
     renderWithI18n(
       <OverlayPreview
-        overlayUrl="https://overlays.uno/output/abc"
+        overlayUrl="https://my-app.example/overlay/tok"
         x={-33}
         y={-41}
         width={30}
         height={10}
-        layoutId="some-layout"
+        layoutId="auto"
         cardWidth={300}
       />,
     );
     const iframe = screen.getByTestId('overlay-preview');
     expect(iframe).toBeInTheDocument();
-    expect(iframe.getAttribute('src')).toContain('overlays.uno');
-    expect(iframe.getAttribute('src')).toMatch(/aspect=16[:%]3A9/);
+    expect(iframe.getAttribute('src')).toContain('https://my-app.example/overlay/tok');
+    expect(iframe.getAttribute('src')).toMatch(/_t=\d+/);
+    expect(iframe.getAttribute('src')).not.toContain('aspect=');
   });
 
   it('renders custom overlay iframe for non-overlays.uno URL', () => {
@@ -132,21 +133,20 @@ describe('OverlayPreview', () => {
     expect(uno).toHaveStyle({ width: '400px', height: '225px' });
   });
 
-  it('appends aspect param with & when URL already has query params', () => {
+  it('preserves an existing query string while cache-busting', () => {
     renderWithI18n(
       <OverlayPreview
-        overlayUrl="https://overlays.uno/output/abc?token=xyz"
+        overlayUrl="https://my-app.example/overlay/tok?style=mosaic"
         x={0}
         y={0}
         width={30}
         height={10}
-        layoutId=""
+        layoutId="auto"
         cardWidth={300}
       />,
     );
     const iframe = screen.getByTestId('overlay-preview');
-    expect(iframe.getAttribute('src')).toContain('token=xyz');
-    expect(iframe.getAttribute('src')).toMatch(/aspect=16[:%]3A9/);
+    expect(iframe.getAttribute('src')).toContain('style=mosaic');
     expect(iframe.getAttribute('src')).toMatch(/_t=\d+/);
   });
 

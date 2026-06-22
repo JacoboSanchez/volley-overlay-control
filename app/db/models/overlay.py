@@ -47,10 +47,6 @@ class UserOverlay(Base, TimestampMixin):
         Boolean, default=False, nullable=False, server_default="0",
     )
     display_name: Mapped[str | None] = mapped_column(String(120))
-    # Optional explicit OBS output URL — used for overlays.uno cloud overlays
-    # or any custom output. When empty, the local ``/overlay/<public_token>``
-    # URL is the output. (Replaces the config-provider's per-overlay ``output``.)
-    output_url: Mapped[str | None] = mapped_column(String(2048))
     # Optional per-overlay default match rules applied at session creation, so
     # an overlay's format (best-of-3 vs 5, points) can be configured without
     # opening the board. ``None`` falls back to the env defaults; once the

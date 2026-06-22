@@ -26,17 +26,15 @@ The bundled React control UI (`frontend/`) is a reference implementation that us
 │  │  GameManager  │  State  │  Backend  │  Customization  │         │
 │  └──────────────────────────────────────────────────────┘         │
 │                        │                                          │
-│           ┌────────────┼────────────┐                             │
-│           ▼                         ▼                             │
-│  ┌─────────────────────┐   ┌──────────────────┐                  │
-│  │  Built-in Overlay    │   │  overlays.uno    │                  │
-│  │  Engine (app/overlay)│   │  (cloud API)     │                  │
-│  │  /overlay/* /ws/*    │   └──────────────────┘                  │
-│  └─────────────────────┘            │ (optional)                  │
-│           │                ┌──────────────────┐                   │
-│           ▼                │  External overlay │                   │
-│     OBS browser sources    │  server (HTTP/WS) │                   │
-│                            └──────────────────┘                   │
+│                        ▼                                          │
+│  ┌─────────────────────┐                                          │
+│  │  Built-in Overlay    │                                          │
+│  │  Engine (app/overlay)│                                          │
+│  │  /overlay/* /ws/*    │                                          │
+│  └─────────────────────┘                                          │
+│           │                                                       │
+│           ▼                                                       │
+│     OBS browser sources                                           │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -101,9 +99,6 @@ uv pip install -r requirements.lock
 
 # Build the frontend (optional — backend works without it)
 cd frontend && npm ci && npm run build && cd ..
-
-# Configure (minimal)
-export UNO_OVERLAY_OID=my-overlay   # or a cloud overlay OID
 
 # Start the server
 python main.py
@@ -227,16 +222,9 @@ Initialise or re-use a game session.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `oid` | string | yes | — | Overlay control ID |
-| `output_url` | string | no | auto | Output URL for overlay preview |
 | `points_limit` | int | no | 25 | Points to win a set |
 | `points_limit_last_set` | int | no | 15 | Points to win the last set |
 | `sets_limit` | int | no | 5 | Total sets in the match |
-
-When `output_url` is not provided, the backend automatically resolves it by calling
-`fetch_output_token(oid)`. For cloud (overlays.uno) overlays this queries the
-overlays.uno API; for custom overlays it fetches the `outputUrl` from
-`/api/config/{id}`. If `APP_CUSTOM_OVERLAY_OUTPUT_URL` is set, the host portion is
-replaced to avoid mixed-content issues.
 
 ### State Queries
 
@@ -438,23 +426,21 @@ Returns overlay-related URLs for the session.
 
 ```json
 {
-  "control": "https://app.overlays.uno/control/<OID>",
   "overlay": "http://localhost:8080/overlay/<public_token>",
   "preview": "http://localhost:8080/preview?output=...&layout_id=auto"
 }
 ```
 
-- `control` — Only present for overlays.uno cloud overlays.
-- `overlay` — The URL to paste into OBS/vMix as a browser source. For built-in
-  (custom) overlays this is the unauthenticated `/overlay/<public_token>`
-  capability URL — the per-overlay `public_token` is what lets a browser source
-  connect without logging in. The same per-overlay URL is surfaced (and copyable)
-  on the SPA's `/overlays` page.
-- `preview` — Only present for custom overlays (`C-` prefix). Points at the
-  standalone SPA `/preview` route; used by the frontend to render a live preview card.
-  For custom overlays, the query string also carries a `styles=<comma-separated>` list when the backend advertises more
-  than one style, so the standalone `/preview` page can offer a per-viewer style selector (applied via `?style=` on
-  the overlay iframe) without mutating the session's saved `preferredStyle`.
+- `overlay` — The URL to paste into OBS/vMix as a browser source. This is the
+  unauthenticated `/overlay/<public_token>` capability URL — the per-overlay
+  `public_token` is what lets a browser source connect without logging in. The
+  same per-overlay URL is surfaced (and copyable) on the SPA's `/overlays` page.
+- `preview` — Points at the standalone SPA `/preview` route; used by the frontend
+  to render a live preview card. The query string also carries a
+  `styles=<comma-separated>` list when the backend advertises more than one style,
+  so the standalone `/preview` page can offer a per-viewer style selector (applied
+  via `?style=` on the overlay iframe) without mutating the session's saved
+  `preferredStyle`.
 
 #### `GET /api/v1/styles?oid=<OID>`
 
@@ -592,7 +578,7 @@ ws.onclose = (event) => {
 
 ## State Model Reference
 
-This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **not** the same as the payload the server pushes to an external overlay (`POST /api/state/{id}` uses a different, human-readable schema like `"Serve": "A"`, `"Team 1 Sets": 0`). See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for that external contract — the translation lives inside the backend and alternate frontends never need to deal with it.
+This is the shape exposed by `/api/v1/state` and the WebSocket stream. It is **not** the same as the payload the backend pushes to the in-process overlay engine (`POST /api/state/{id}` uses a different, human-readable schema like `"Serve": "A"`, `"Team 1 Sets": 0`). That translation lives inside the backend and alternate frontends never need to deal with it.
 
 ### GameStateResponse
 

@@ -955,7 +955,7 @@ export interface paths {
         };
         /**
          * Get Links
-         * @description Return control, overlay, and preview links for the session.
+         * @description Return overlay, preview, and spectator links for the session.
          */
         get: operations["get_links_api_v1_links_get"];
         put?: never;
@@ -1792,8 +1792,6 @@ export interface components {
             display_name?: string | null;
             /** Oid */
             oid: string;
-            /** Output Url */
-            output_url?: string | null;
             /** Points */
             points?: number | null;
             /** Points Last Set */
@@ -1906,8 +1904,6 @@ export interface components {
         InitRequest: {
             /** Oid */
             oid: string;
-            /** Output Url */
-            output_url?: string | null;
             /** Points Limit */
             points_limit?: number | null;
             /** Points Limit Last Set */
@@ -2003,11 +1999,6 @@ export interface components {
              */
             control_url?: string | null;
             /**
-             * Custom Output Url
-             * @description Explicit override URL, if set
-             */
-            custom_output_url?: string | null;
-            /**
              * Display Name
              * @description Friendly label
              */
@@ -2019,7 +2010,7 @@ export interface components {
             oid: string;
             /**
              * Output Url
-             * @description OBS output URL (custom/cloud, or the local /overlay/<token>)
+             * @description Built-in OBS output URL (the local /overlay/<token>)
              */
             output_url: string;
             /**
@@ -2315,8 +2306,6 @@ export interface components {
         UpdateOverlayRequest: {
             /** Display Name */
             display_name?: string | null;
-            /** Output Url */
-            output_url?: string | null;
             /** Points */
             points?: number | null;
             /** Points Last Set */

@@ -16,7 +16,6 @@ from app.auth.dependencies import require_user
 from app.db.engine import get_db
 from app.db.models.user import User
 from app.env_vars_manager import EnvVarsManager
-from app.oid_utils import compose_output
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +28,7 @@ class OverlayOut(BaseModel):
     oid: str = Field(..., description="Overlay identifier (unique per user)")
     display_name: str | None = Field(None, description="Friendly label")
     public_token: str = Field(..., description="Public OBS-output capability token")
-    output_url: str = Field(..., description="OBS output URL (custom/cloud, or the local /overlay/<token>)")
-    custom_output_url: str | None = Field(None, description="Explicit override URL, if set")
+    output_url: str = Field(..., description="Built-in OBS output URL (the local /overlay/<token>)")
     control_token: str | None = Field(None, description="Shareable control capability token")
     control_url: str | None = Field(None, description="Ready-made shareable control-board link")
     public_control: bool = Field(False, description="Allow no-login control via the username+oid URL")
@@ -43,7 +41,6 @@ class OverlayOut(BaseModel):
 class CreateOverlayRequest(BaseModel):
     oid: str = Field(..., min_length=1, max_length=64)
     display_name: str | None = Field(None, max_length=120)
-    output_url: str | None = Field(None, max_length=2048)
     points: int | None = Field(None, ge=1, le=99)
     points_last_set: int | None = Field(None, ge=1, le=99)
     sets: int | None = Field(None, ge=1, le=15)
@@ -51,7 +48,6 @@ class CreateOverlayRequest(BaseModel):
 
 class UpdateOverlayRequest(BaseModel):
     display_name: str | None = Field(None, max_length=120)
-    output_url: str | None = Field(None, max_length=2048)
     public_control: bool | None = Field(None, description="Toggle no-login username+oid control")
     points: int | None = Field(None, ge=1, le=99)
     points_last_set: int | None = Field(None, ge=1, le=99)
@@ -73,8 +69,7 @@ def _overlay_out(request: Request, overlay, *, username: str | None = None) -> O
         oid=overlay.oid,
         display_name=overlay.display_name,
         public_token=overlay.public_token,
-        output_url=overlay.output_url or local_url,
-        custom_output_url=overlay.output_url,
+        output_url=local_url,
         control_token=overlay.control_token,
         control_url=control_url,
         public_control=overlay.public_control,
@@ -109,7 +104,7 @@ async def create_my_overlay(
     try:
         overlay = overlays_service.create_overlay(
             db, user.id, body.oid,
-            display_name=body.display_name, output_url=body.output_url,
+            display_name=body.display_name,
             points=body.points, points_last_set=body.points_last_set, sets=body.sets,
         )
     except overlays_service.OverlayError as exc:
@@ -191,70 +186,49 @@ async def regenerate_control_token(
 @router.get("/links", dependencies=[Depends(verify_api_key)])
 async def get_links(request: Request,
                     session: GameSession = Depends(get_session)):
-    """Return control, overlay, and preview links for the session."""
-    # ``raw_oid`` for backend/cloud resolution (uno control URL needs the bare
-    # token); ``skey`` (== session.oid) for per-user archive lookups.
+    """Return overlay, preview, and spectator links for the session."""
+    # ``raw_oid`` for backend resolution; ``skey`` (== session.oid) for
+    # per-user archive lookups.
     oid = session.raw_oid
     skey = session.oid
     output = session.conf.output
     links = {}
 
-    if not session.backend.is_custom_overlay(oid):
-        links["control"] = f"https://app.overlays.uno/control/{oid}"
-
     if output and output.strip():
-        overlay_url = (
-            output if output.startswith("http")
-            else compose_output(output)
-        )
-        links["overlay"] = overlay_url
+        links["overlay"] = output
 
         # Build a preview-page URL pointing at the SPA /preview route. The
         # in-app preview card consumes the geometry params from this URL, and
         # users can also open it directly as a standalone scalable preview.
-        # Custom overlays use layout_id=auto so the overlay JS reports its
-        # render bounds via postMessage; geometry params are ignored in that
-        # branch but kept for a uniform URL shape.
+        # The in-process overlay reports its own render bounds via postMessage
+        # (layout_id=auto); geometry params are ignored there but kept for a
+        # uniform URL shape.
         styles: list[str] = []
-        if session.backend.is_custom_overlay(oid):
-            layout_id = "auto"
-            x = y = 0.0
-            width = height = 100.0
-            try:
-                styles = await run_in_threadpool(
-                    session.backend.get_available_styles, oid
-                ) or []
-            except Exception:
-                logger.exception("Failed to fetch available styles for preview")
-                styles = []
-        else:
-            layout_id = session.conf.id or ""
-            cust = session.customization
-            x = cust.get_h_pos()
-            y = cust.get_v_pos()
-            width = cust.get_width()
-            height = cust.get_height()
+        try:
+            styles = await run_in_threadpool(
+                session.backend.get_available_styles, oid
+            ) or []
+        except Exception:
+            logger.exception("Failed to fetch available styles for preview")
+            styles = []
 
         base_url = str(request.base_url).rstrip('/')
         qs_params = {
-            "output": overlay_url,
-            "x": x,
-            "y": y,
-            "width": width,
-            "height": height,
-            "layout_id": layout_id,
+            "output": output,
+            "x": 0.0,
+            "y": 0.0,
+            "width": 100.0,
+            "height": 100.0,
+            "layout_id": "auto",
         }
         if len(styles) > 1:
             qs_params["styles"] = ",".join(styles)
         preview_qs = urllib.parse.urlencode(qs_params)
         links["preview"] = f"{base_url}/preview?{preview_qs}"
 
-        # Public spectator (follow) page — same backend, mobile-first
-        # read-only view that consumes the OBS WS broadcast. Only
-        # surfaced for custom overlays where the output key resolves
-        # to our own ``/follow/{key}`` route; cloud overlays
-        # (overlays.uno) have no equivalent path.
-        if session.backend.is_custom_overlay(oid) and session.public_token:
+        # Public spectator (follow) page — the mobile-first read-only view that
+        # consumes the OBS WS broadcast over the same public token.
+        if session.public_token:
             links["follow"] = f"{base_url}/follow/{session.public_token}"
 
     # Surface the latest archived match report — but only when the

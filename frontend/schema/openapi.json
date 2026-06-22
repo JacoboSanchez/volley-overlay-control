@@ -630,18 +630,6 @@
             "title": "Oid",
             "type": "string"
           },
-          "output_url": {
-            "anyOf": [
-              {
-                "maxLength": 2048,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Url"
-          },
           "points": {
             "anyOf": [
               {
@@ -928,17 +916,6 @@
             "minLength": 1,
             "title": "Oid",
             "type": "string"
-          },
-          "output_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Url"
           },
           "points_limit": {
             "anyOf": [
@@ -1234,18 +1211,6 @@
             "description": "Ready-made shareable control-board link",
             "title": "Control Url"
           },
-          "custom_output_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Explicit override URL, if set",
-            "title": "Custom Output Url"
-          },
           "display_name": {
             "anyOf": [
               {
@@ -1264,7 +1229,7 @@
             "type": "string"
           },
           "output_url": {
-            "description": "OBS output URL (custom/cloud, or the local /overlay/<token>)",
+            "description": "Built-in OBS output URL (the local /overlay/<token>)",
             "title": "Output Url",
             "type": "string"
           },
@@ -2073,18 +2038,6 @@
               }
             ],
             "title": "Display Name"
-          },
-          "output_url": {
-            "anyOf": [
-              {
-                "maxLength": 2048,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Url"
           },
           "points": {
             "anyOf": [
@@ -7328,7 +7281,7 @@
     },
     "/api/v1/links": {
       "get": {
-        "description": "Return control, overlay, and preview links for the session.",
+        "description": "Return overlay, preview, and spectator links for the session.",
         "operationId": "get_links_api_v1_links_get",
         "parameters": [
           {

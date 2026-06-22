@@ -10,7 +10,6 @@ export interface OverlaySectionProps {
   styles: string[];
   /** Per-style capability flags from the backend; gates the theme + anchor knobs. */
   capabilities?: Record<string, StyleCapabilities>;
-  isCustomOverlay: boolean;
 }
 
 export default function OverlaySection({
@@ -18,7 +17,6 @@ export default function OverlaySection({
   updateField,
   styles,
   capabilities = {},
-  isCustomOverlay,
 }: OverlaySectionProps) {
   const { t } = useI18n();
   const hasStyles = Array.isArray(styles) && styles.length > 1;
@@ -40,16 +38,6 @@ export default function OverlaySection({
           />
           {t('overlay.logos')}
         </label>
-        {!isCustomOverlay && (
-          <label className="config-switch-label">
-            <input
-              type="checkbox"
-              checked={asBool(model['Gradient'])}
-              onChange={(e) => updateField('Gradient', e.target.checked ? 'true' : 'false')}
-            />
-            {t('overlay.gradient')}
-          </label>
-        )}
       </div>
       <div className="config-color-grid-2x2">
         <ConfigColorField

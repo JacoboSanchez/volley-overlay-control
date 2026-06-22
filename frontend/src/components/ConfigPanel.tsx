@@ -302,12 +302,6 @@ export default function ConfigPanel({
     setIsDirty(true);
   }, []);
 
-  const isCustomOverlay = !!(
-    links?.overlay &&
-    typeof links.overlay === 'string' &&
-    !links.overlay.includes('overlays.uno')
-  );
-
   function renderSection(sec: Section | null) {
     switch (sec) {
       case 'presets':
@@ -323,7 +317,6 @@ export default function ConfigPanel({
             updateField={updateField}
             styles={styles}
             capabilities={styleCaps}
-            isCustomOverlay={isCustomOverlay}
           />
         );
       case 'position':

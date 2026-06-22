@@ -58,7 +58,6 @@ def create_overlay(
     oid: str,
     *,
     display_name: str | None = None,
-    output_url: str | None = None,
     points: int | None = None,
     points_last_set: int | None = None,
     sets: int | None = None,
@@ -73,7 +72,6 @@ def create_overlay(
         public_token=_generate_public_token(db),
         control_token=_generate_control_token(db),
         display_name=(display_name or "").strip() or None,
-        output_url=(output_url or "").strip() or None,
         points=points,
         points_last_set=points_last_set,
         sets=sets,
@@ -92,7 +90,6 @@ def update_overlay(
     oid: str,
     *,
     display_name: object = _UNSET,
-    output_url: object = _UNSET,
     public_control: object = _UNSET,
     points: object = _UNSET,
     points_last_set: object = _UNSET,
@@ -104,8 +101,6 @@ def update_overlay(
         raise OverlayError("Overlay not found.")
     if display_name is not _UNSET:
         overlay.display_name = (str(display_name or "").strip()) or None
-    if output_url is not _UNSET:
-        overlay.output_url = (str(output_url or "").strip()) or None
     if public_control is not _UNSET:
         overlay.public_control = bool(public_control)
     if points is not _UNSET:

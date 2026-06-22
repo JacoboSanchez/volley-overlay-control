@@ -10,12 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class CustomOidMixin:
-    """Shared OID parsing helpers for custom-overlay backends.
+    """Shared OID parsing helpers for the overlay backend.
 
-    Both :class:`LocalOverlayBackend` and :class:`CustomOverlayBackend`
-    accept the ``id[/style]`` (and legacy ``C-id[/style]``) syntax. This
-    mixin avoids duplicating the same three accessors in each subclass.
-    The Uno backend stores opaque OIDs and does NOT inherit this mixin.
+    Accepts the ``id[/style]`` (and legacy ``C-id[/style]``) syntax and
+    exposes the base-id / style accessors used by :class:`LocalOverlayBackend`.
     """
 
     @staticmethod
@@ -66,12 +64,7 @@ class OverlayBackend(ABC):
         """Return list of available overlay styles."""
 
     def get_style_capabilities(self, oid: str = None) -> dict:
-        """Per-style UI capability flags (theme / vertical-anchor support).
-
-        Concrete (not abstract): backends without local templates — e.g.
-        the overlays.uno cloud backend — inherit the empty default, so the
-        control UI simply offers no style-specific knobs for them.
-        """
+        """Per-style UI capability flags (theme / vertical-anchor support)."""
         return {}
 
     @abstractmethod
@@ -104,8 +97,8 @@ class OverlayBackend(ABC):
                           show_only_current_set=None) -> None:
         """Push a model update using the backend-appropriate mechanism.
 
-        Subclasses override to send either a partial Uno model or a full
-        overlay state payload for custom backends.
+        :class:`LocalOverlayBackend` overrides this to send a full overlay
+        state payload to the in-process display hub.
         """
         self.send_json_model(to_save)
 

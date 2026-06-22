@@ -1,15 +1,10 @@
-"""Strategy implementations for overlay communication.
+"""Overlay communication backend.
 
-Three overlay backends exist:
-
-- :class:`UnoOverlayBackend` — overlays.uno cloud REST API
-- :class:`CustomOverlayBackend` — external overlay server (WebSocket + HTTP
-  fallback)
-- :class:`LocalOverlayBackend` — in-process overlay (no external server)
+Every overlay is served **in-process** by :class:`LocalOverlayBackend` — there
+is no external overlay server or cloud (overlays.uno) support.
 
 The public symbols below are re-exported so existing imports such as
-``from app.overlay_backends import UnoOverlayBackend`` keep working after the
-split into submodules.
+``from app.overlay_backends import LocalOverlayBackend`` keep working.
 """
 
 # Re-exported so ``@patch('app.overlay_backends.AppStorage.<method>')`` keeps
@@ -17,31 +12,23 @@ split into submodules.
 # via this namespace.
 from app.app_storage import AppStorage
 from app.overlay_backends.base import OverlayBackend
-from app.overlay_backends.custom import CustomOverlayBackend
 from app.overlay_backends.local import LocalOverlayBackend
-from app.overlay_backends.uno import UnoOverlayBackend
 from app.overlay_backends.utils import (
-    UNO_OID_LENGTH,
     OverlayKind,
     _mock_response,
     is_custom_overlay,
-    matches_uno_format,
     resolve_overlay_kind,
     split_custom_oid,
     strip_legacy_prefix,
 )
 
 __all__ = [
-    "UNO_OID_LENGTH",
     "AppStorage",
-    "CustomOverlayBackend",
     "LocalOverlayBackend",
     "OverlayBackend",
     "OverlayKind",
-    "UnoOverlayBackend",
     "_mock_response",
     "is_custom_overlay",
-    "matches_uno_format",
     "resolve_overlay_kind",
     "split_custom_oid",
     "strip_legacy_prefix",

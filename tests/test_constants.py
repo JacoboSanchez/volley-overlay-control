@@ -27,10 +27,6 @@ def reloaded_constants(monkeypatch):
     for key in (
         "SESSION_TTL_SECONDS",
         "WS_BROADCAST_SEND_TIMEOUT_SECONDS",
-        "WS_RECONNECT_BASE_SECONDS",
-        "WS_RECONNECT_MAX_SECONDS",
-        "WS_HEARTBEAT_INTERVAL_SECONDS",
-        "WS_ZOMBIE_DEADLINE_SECONDS",
     ):
         monkeypatch.delenv(key, raising=False)
     importlib.reload(_constants)
@@ -78,26 +74,11 @@ class TestWebSocketTimeouts:
     def test_defaults_match_legacy_values(self, reloaded_constants):
         c = reloaded_constants()
         assert c.WS_BROADCAST_SEND_TIMEOUT_SECONDS == 2.0
-        assert c.WS_RECONNECT_BASE_SECONDS == 1.0
-        assert c.WS_RECONNECT_MAX_SECONDS == 30.0
-        assert c.WS_HEARTBEAT_INTERVAL_SECONDS == 25.0
-        assert c.WS_ZOMBIE_DEADLINE_SECONDS == 55.0
 
     def test_broadcast_timeout_env_override(self, monkeypatch, reloaded_constants):
         monkeypatch.setenv("WS_BROADCAST_SEND_TIMEOUT_SECONDS", "0.5")
         c = reloaded_constants()
         assert c.WS_BROADCAST_SEND_TIMEOUT_SECONDS == 0.5
-
-    def test_reconnect_envs_respected(self, monkeypatch, reloaded_constants):
-        monkeypatch.setenv("WS_RECONNECT_BASE_SECONDS", "0.25")
-        monkeypatch.setenv("WS_RECONNECT_MAX_SECONDS", "10")
-        monkeypatch.setenv("WS_HEARTBEAT_INTERVAL_SECONDS", "5")
-        monkeypatch.setenv("WS_ZOMBIE_DEADLINE_SECONDS", "12")
-        c = reloaded_constants()
-        assert c.WS_RECONNECT_BASE_SECONDS == 0.25
-        assert c.WS_RECONNECT_MAX_SECONDS == 10.0
-        assert c.WS_HEARTBEAT_INTERVAL_SECONDS == 5.0
-        assert c.WS_ZOMBIE_DEADLINE_SECONDS == 12.0
 
     def test_garbage_float_falls_back(self, monkeypatch, reloaded_constants):
         monkeypatch.setenv("WS_BROADCAST_SEND_TIMEOUT_SECONDS", "fast")
@@ -120,12 +101,3 @@ class TestLegacyAliasesPickUpReload:
         reloaded_constants()
         importlib.reload(session_manager)
         assert session_manager.SESSION_TTL_SECONDS == 120
-
-    def test_ws_client_aliases_follow_env(self, monkeypatch, reloaded_constants):
-        import app.ws_client as ws_client
-        monkeypatch.setenv("WS_HEARTBEAT_INTERVAL_SECONDS", "7")
-        monkeypatch.setenv("WS_ZOMBIE_DEADLINE_SECONDS", "20")
-        reloaded_constants()
-        importlib.reload(ws_client)
-        assert ws_client._HEARTBEAT_INTERVAL == 7.0
-        assert ws_client._ZOMBIE_DEADLINE == 20.0

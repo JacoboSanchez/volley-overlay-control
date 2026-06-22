@@ -166,11 +166,11 @@ admin role + the SPA `/admin` page replace the old `/manage` console.
 
 ### 2.5 Overlay server — `overlay_router` (`app/overlay/routes.py`)
 
-This router powers the **in-process custom overlay server**
+This router powers the **in-process overlay server**
 (`LocalOverlayBackend`) and is mounted when
 `_register_overlay_routes()` finds the `overlay_templates/` directory.
-It is **also consumed by `CustomOverlayBackend` when a remote app
-instance points at this server** (`APP_CUSTOM_OVERLAY_URL=…`).
+The mutation and read endpoints below double as machine-to-machine
+**peer** endpoints, gated by `OVERLAY_SERVER_TOKEN`.
 
 | Method | Path | Auth | Classification |
 | :--- | :--- | :--- | :--- |
@@ -283,10 +283,9 @@ The dependency resolves its credential hash-first
   (no-op) and logs a warning. This is the only way back to the legacy
   unauthenticated behaviour and is safe only on a trusted LAN.
 
-`CustomOverlayBackend` forwards the same token so control-app
-deployments pointed at an external overlay server
-(`APP_CUSTOM_OVERLAY_URL`) can set `OVERLAY_SERVER_TOKEN` on both sides
-and enforce.
+A machine-to-machine peer can forward the same token so deployments
+that talk to this overlay server's peer endpoints set
+`OVERLAY_SERVER_TOKEN` on both sides and enforce.
 
 ### F-4 — `/list/overlay` leaks all overlay IDs and output keys (high) — **moot after the refactor**
 
@@ -335,8 +334,8 @@ Deployment-visible changes operators should be aware of:
    persists it to `data/.overlay_server_token` (mode `0o600`), and
    exposes it via `os.environ` so the rest of the app picks it up
    transparently. Subsequent restarts read the same file, so the
-   token stays stable. Operators pairing this app with an external
-   overlay server (`APP_CUSTOM_OVERLAY_URL`) must either set
+   token stays stable. Operators pairing this app with a
+   machine-to-machine peer must either set
    `OVERLAY_SERVER_TOKEN` explicitly on both sides, or read the
    generated value from the persisted file. Set
    `OVERLAY_SERVER_TOKEN_DISABLED=true` to opt back into the legacy
@@ -595,10 +594,10 @@ no cache window in which a removed credential keeps working.
 `OVERLAY_SERVER_TOKEN` and persists it to `data/.overlay_server_token`
 on first start. When `OVERLAY_SERVER_TOKEN_HASH` is set, the
 bootstrap skips that step — a hash-only deployment intentionally
-keeps zero cleartext on the server side. The peer
-(`CustomOverlayBackend`) still reads the cleartext token from its
-own configuration, so the hash-only model splits trust cleanly:
-this server stores only a hash, the peer stores only the cleartext.
+keeps zero cleartext on the server side. A machine-to-machine peer
+still reads the cleartext token from its own configuration, so the
+hash-only model splits trust cleanly: this server stores only a hash,
+the peer stores only the cleartext.
 
 ## 9. First-admin bootstrap
 

@@ -1,12 +1,12 @@
 # Developer Guide — Volley Overlay Control
 
-> A comprehensive reference for developers contributing to or extending the Volley Overlay Control codebase. For user-facing setup and configuration, see [README.md](README.md). For building a custom overlay engine, see [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md).
+> A comprehensive reference for developers contributing to or extending the Volley Overlay Control codebase. For user-facing setup and configuration, see [README.md](README.md).
 
 ---
 
 ## 1. Project Overview
 
-Volley Overlay Control is a self-contained, **multi-user** application that bundles a React frontend, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages game logic (score, sets, serving, timeouts), authenticates users with cookie sessions and roles, serves the touch-friendly control UI, renders overlay templates for OBS browser sources, and synchronizes state with overlay backends (the overlays.uno cloud service or in-process custom overlays with optional external overlay server support). Each user owns their own overlays, teams, presets, and match reports; durable state lives in a SQL database (SQLite by default, Postgres optional).
+Volley Overlay Control is a self-contained, **multi-user** application that bundles a React frontend, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. It manages game logic (score, sets, serving, timeouts), authenticates users with cookie sessions and roles, serves the touch-friendly control UI, renders overlay templates for OBS browser sources, and synchronizes state with the in-process overlay engine. Each user owns their own overlays, teams, presets, and match reports; durable state lives in a SQL database (SQLite by default, Postgres optional).
 
 The React frontend lives in the `frontend/` directory and is built with Vite. In production, FastAPI serves the built SPA as static files. During development, Vite's dev server provides hot-reload and proxies API calls to the backend.
 
@@ -35,9 +35,8 @@ The React frontend lives in the `frontend/` directory and is built with Vite. In
 | `sqlalchemy` | ORM + engine for the multi-user database (users, overlays, teams, presets, reports, settings) |
 | `alembic` | Schema migrations (auto-run on startup, also `alembic upgrade head`) |
 | `psycopg` | Postgres driver (optional — only needed for `postgresql+psycopg://`) |
-| `requests` | HTTP communication with overlay APIs |
+| `requests` | HTTP utility library |
 | `jinja2` | Overlay HTML template rendering for OBS browser sources |
-| `websocket-client` | Persistent WebSocket connection to external overlay servers (optional) |
 | `python-dotenv` | `.env` file loading |
 | `pytest` / `pytest-asyncio` | Test suite |
 
@@ -85,9 +84,8 @@ dependency.
 │   └── public/              # Static assets (icons, fonts).
 ├── app/
 │   ├── bootstrap.py         # App factory — create_app() wires security/migrations/admin bootstrap, routers, SPA.
-│   ├── backend.py           # Coordinator — delegates to overlay backend strategies.
-│   ├── overlay_backends/    # Strategy pattern package: base, local, custom, uno, utils (resolver).
-│   ├── ws_client.py         # Persistent WebSocket client for external overlay servers (optional).
+│   ├── backend.py           # Coordinator — delegates to the in-process overlay backend.
+│   ├── overlay_backends/    # Strategy pattern package: base, local, utils (resolver).
 │   ├── game_manager.py      # Core business logic (rules, scoring, limits).
 │   ├── state.py             # Data model definition. Holds the match state.
 │   ├── customization.py     # Logic for handling team names, colors, logos, and layout.
@@ -98,7 +96,7 @@ dependency.
 │   ├── password_hash.py     # scrypt credential hashing (stdlib, zero deps).
 │   ├── security_bootstrap.py # Resolve/mint/persist OVERLAY_SERVER_TOKEN and SESSION_SECRET at startup.
 │   ├── app_storage.py       # In-memory key-value storage.
-│   ├── oid_utils.py         # OID parsing utilities (extract_oid, compose_output).
+│   ├── oid_utils.py         # OID parsing utilities (extract_oid).
 │   ├── db/                  # SQLAlchemy persistence layer.
 │   │   ├── base.py          # Declarative Base + TimestampMixin (naming convention).
 │   │   ├── engine.py        # Engine/sessionmaker from DATABASE_URL; session_scope() + get_db() dep.
@@ -162,9 +160,7 @@ dependency.
     ├── test_env_vars_manager.py # Environment variable manager tests.
     ├── test_game_manager.py     # Game rules and scoring tests.
     ├── test_state.py            # State model tests.
-    ├── test_config_validator.py # Startup configuration validation tests.
-    ├── test_ws_client.py        # WebSocket client and Backend WS integration tests.
-    └── test_coverage_proposals.py # Additional WSControlClient coverage tests.
+    └── test_config_validator.py # Startup configuration validation tests.
 ```
 
 ---
@@ -181,7 +177,7 @@ The application follows a service-oriented architecture:
 | **API** | `api/routes/` | REST + WebSocket endpoints for frontends (domain-split modules) |
 | **Auth** | `app/auth/` | Cookie sessions, roles, account management |
 | **Persistence** | `app/db/` | SQLAlchemy engine/models — users, overlays, teams, presets, reports, settings |
-| **Sync** | `Backend` | Pushes Model changes to overlay backends (in-process or cloud) |
+| **Sync** | `Backend` | Pushes Model changes to the in-process overlay backend |
 | **Overlay** | `OverlayStateStore` | In-memory + JSON persistence for live overlay render state |
 | **Overlay** | `ObsBroadcastHub` | Debounced WebSocket broadcasts to OBS browser sources |
 
@@ -246,9 +242,9 @@ The "Brain" of the application. Enforces volleyball rules.
 
 #### `app/backend.py` — class `Backend`
 
-The "Bridge" to overlay systems.
+The "Bridge" to the overlay engine.
 
-- **Responsibility**: Coordinates overlay communication using the strategy pattern. Delegates to `LocalOverlayBackend` (in-process, default for custom overlays), `CustomOverlayBackend` (external server, when `APP_CUSTOM_OVERLAY_URL` is set), or `UnoOverlayBackend` (cloud).
+- **Responsibility**: Coordinates overlay communication using the strategy pattern. Delegates to `LocalOverlayBackend`, the in-process overlay engine that serves every overlay.
 - **Key Internals**:
   - Uses a shared `requests.Session` for all HTTP calls to enable TCP connection reuse.
   - A `ThreadPoolExecutor` (5 workers) handles overlay updates asynchronously when `ENABLE_MULTITHREAD=true`.
@@ -260,13 +256,11 @@ The "Bridge" to overlay systems.
   - `save_model(current_model, simple)` — Pushes local state changes to the overlay.
   - `change_overlay_visibility(show)` — Toggles overlay show/hide.
 
-#### `app/overlay_backends/` — Overlay Backend Strategies
+#### `app/overlay_backends/` — Overlay Backend Strategy
 
-Three overlay backend implementations (in `local.py`, `custom.py`, `uno.py`) share the `OverlayBackend` abstract interface defined in `base.py`; `utils.py` holds the per-request resolver:
+The overlay backend implementation in `local.py` provides the `OverlayBackend` interface defined in `base.py`; `utils.py` holds the per-request resolver:
 
-- **`LocalOverlayBackend`** — Default for custom overlays (selected when the OID maps to a locally-existing overlay; the legacy `C-` prefix is also accepted for backward compatibility). Manages state in-process via `OverlayStateStore`, broadcasts to OBS via `ObsBroadcastHub`. No external server needed.
-- **`CustomOverlayBackend`** — Optional external server mode (activated when `APP_CUSTOM_OVERLAY_URL` is set). Communicates via WebSocket + HTTP fallback.
-- **`UnoOverlayBackend`** — Cloud overlays. Communicates with the overlays.uno REST API.
+- **`LocalOverlayBackend`** — Serves every overlay in-process (the legacy `C-` prefix is also accepted for backward compatibility). Manages state via `OverlayStateStore`, broadcasts to OBS via `ObsBroadcastHub`. No external server needed.
 
 #### `app/overlay/state_store.py` — class `OverlayStateStore`
 
@@ -274,7 +268,7 @@ In-memory + JSON file persistence for overlay state.
 
 - **Responsibility**: Manages overlay state with lazy-loading from disk, deep merge, normalization, CRUD, raw config pass-through, output key generation, and style enumeration.
 - **Key Methods**: `get_state()`, `update_state()`, `set_raw_config()`, `get_raw_config()`, `create_overlay()`, `ensure_overlay()`, `get_available_styles_list()`, `get_renderable_styles()`.
-- **Style enumeration** distinguishes two lists: `get_available_styles_list()` returns user-selectable styles (what `/api/config/{id}` exposes in `availableStyles` and what the picker UI shows); `get_renderable_styles()` is a superset that also includes meta-styles like `mosaic` — valid as a `?style=` URL parameter but hidden from the picker so users cannot accidentally adopt them as a broadcast layout. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the mosaic preview grid.
+- **Style enumeration** distinguishes two lists: `get_available_styles_list()` returns user-selectable styles (what `/api/config/{id}` exposes in `availableStyles` and what the picker UI shows); `get_renderable_styles()` is a superset that also includes meta-styles like `mosaic` — valid as a `?style=` URL parameter but hidden from the picker so users cannot accidentally adopt them as a broadcast layout.
 
 #### `app/overlay/broadcast.py` — class `ObsBroadcastHub`
 
@@ -282,13 +276,6 @@ Debounced WebSocket broadcasts to OBS browser sources.
 
 - **Responsibility**: Tracks OBS browser source WebSocket connections per overlay and broadcasts state updates with 50ms debouncing.
 - **Key Methods**: `add_client()`, `remove_client()`, `schedule_broadcast()`, `get_client_count()`.
-
-#### `app/ws_client.py` — class `WSControlClient`
-
-Persistent WebSocket connection to an external custom overlay server's `/ws/control/{overlay_id}` endpoint. Only used when `APP_CUSTOM_OVERLAY_URL` is set.
-
-- **Responsibility**: Maintains a background daemon thread with auto-reconnect and heartbeat.
-- **Key Methods**: `connect()`, `disconnect()`, `send_state()`, `send_visibility()`, `send_raw_config()`.
 
 ### B. API Layer
 
@@ -423,7 +410,7 @@ sets up logging, and calls `create_app()`.
 
 #### `app/oid_utils.py`
 
-- **Responsibility**: Overlay ID parsing utilities — `extract_oid()` extracts OIDs from full overlays.uno URLs, `compose_output()` ensures output URLs are fully qualified.
+- **Responsibility**: Overlay ID parsing utilities — `extract_oid()` normalises a raw overlay ID input.
 
 #### `app/config_validator.py`
 
@@ -450,7 +437,7 @@ cd frontend && npm ci && npm test
 | :--- | :--- |
 | `test_state.py` | `State` model operations |
 | `test_game_manager.py` | Scoring rules, set logic, undo functionality |
-| `test_backend.py` | API communication, custom overlay integration |
+| `test_backend.py` | API communication, overlay integration |
 | `test_api.py` | SessionManager, GameService, cookie-session auth |
 | `test_auth.py` | Cookie sessions, login/logout, account self-service |
 | `test_admin_users.py` | Admin user-management endpoints |
@@ -462,8 +449,6 @@ cd frontend && npm ci && npm test
 | `test_customization.py` | Team/color customization logic |
 | `test_env_vars_manager.py` | Environment variable loading |
 | `test_config_validator.py` | Startup environment variable validation |
-| `test_ws_client.py` | WebSocket client unit tests and Backend WS integration |
-| `test_coverage_proposals.py` | Additional WSControlClient message format tests |
 
 #### Test fixtures (`tests/conftest.py`)
 
@@ -502,19 +487,13 @@ The GitHub Actions CI pipeline (`.github/workflows/ci.yml`) runs on `push` / `pu
 
 The app assumes it is the **primary controller**. However, `GameManager.reset()` reloads data from `Backend` to ensure it syncs with any external resets.
 
-### Custom Overlay State Flow
+### Overlay State Flow
 
-By default, custom overlays are managed **in-process** by `LocalOverlayBackend` (an OID is treated as custom when a matching overlay file exists locally — the legacy `C-` prefix is also accepted). State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
+Every overlay is managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources — no inter-process communication needed.
 
-If `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract.
+### OID resolution
 
-### OID resolution order
-
-`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) picks a backend per request in this order:
-
-1. **Local overlay state present** → `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) that the `OverlayStateStore` already has render state for always resolves to the in-process engine. On disk the state lives in `data/overlay_state_<hash>.json`, where the hashed input is the per-user storage key (`skey`), not the bare id.
-2. **Legacy `C-<id>` prefix** with no local file → treated as `CUSTOM` only when `APP_CUSTOM_OVERLAY_URL` is configured.
-3. **Otherwise** → `UnoBackend` (overlays.uno cloud).
+`resolve_overlay_kind` (in `app/overlay_backends/utils.py`) maps every request to the in-process `LocalOverlayBackend`. A bare OID (or the legacy `C-<id>` form) resolves to the in-process engine; the `OverlayStateStore` holds its render state on disk in `data/overlay_state_<hash>.json`, where the hashed input is the per-user storage key (`skey`), not the bare id.
 
 The bare ID is always preferred; the `C-` prefix is accepted for backwards compatibility but omitted from the UI.
 
@@ -590,7 +569,6 @@ cd frontend && npm ci && npm run build && cd ..
 
 # 5. Configure environment (all optional — sensible defaults apply)
 # Create a .env file with your settings, for example:
-# UNO_OVERLAY_OID=your_token_here
 # DATABASE_URL=postgresql+psycopg://user:pass@localhost/volley   # default: SQLite data/app.db
 # REGISTRATION_OPEN=true                                          # public self-registration
 

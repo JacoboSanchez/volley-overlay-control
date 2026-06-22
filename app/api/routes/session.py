@@ -19,8 +19,6 @@ from app.db.engine import get_db
 from app.db.models.overlay import UserOverlay
 from app.db.models.user import User
 from app.logging_utils import redact_oid
-from app.oid_utils import UNO_OUTPUT_BASE_URL
-from app.overlay_backends.utils import matches_uno_format
 from app.overlay_key import make_skey
 from app.state import State
 
@@ -91,16 +89,12 @@ async def init_session(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     skey = make_skey(overlay.user_id, overlay.oid)
-    is_uno = matches_uno_format(overlay.oid)
 
     conf = Conf()
     conf.oid = overlay.oid
     conf.user_id = overlay.user_id
     conf.skey = skey
     conf.public_token = overlay.public_token
-    # Output URL precedence: explicit request > the overlay's stored output URL
-    # (cloud/custom) > auto-resolved at validation time.
-    conf.output = req.output_url or overlay.output_url or None
     # Per-overlay default match rules replace the env defaults for a fresh
     # session; the request still wins, and once the board edits the rules they
     # persist in the session meta and win on subsequent inits.
@@ -129,11 +123,10 @@ async def init_session(
             logger.debug("Session reused for skey=%s", redact_oid(skey))
             return ActionResponse(success=True, state=GameService.get_state(session))
 
-        # For a local (non-uno) overlay, make sure the per-user overlay state
-        # exists so the Backend resolves it as a local/custom overlay.
-        if not is_uno:
-            from app.overlay import overlay_state_store
-            await run_in_threadpool(overlay_state_store.ensure_overlay, skey)
+        # Make sure the per-user overlay state exists so the Backend resolves
+        # it as a local overlay.
+        from app.overlay import overlay_state_store
+        await run_in_threadpool(overlay_state_store.ensure_overlay, skey)
 
         backend = Backend(conf)
         status = await run_in_threadpool(backend.validate_and_store_model_for_oid, overlay.oid)
@@ -148,15 +141,8 @@ async def init_session(
                 message=f"OID validation returned '{status.value}'.",
             )
 
-        await run_in_threadpool(backend.init_ws_client)
-
-        if not conf.output:
-            token = await run_in_threadpool(backend.fetch_output_token, overlay.oid)
-            if token:
-                conf.output = (
-                    token if token.startswith("http")
-                    else UNO_OUTPUT_BASE_URL + token
-                )
+        # Resolve the built-in OBS overlay URL (always the local /overlay/<token>).
+        conf.output = await run_in_threadpool(backend.fetch_output_token, overlay.oid)
 
         session = await run_in_threadpool(
             SessionManager.get_or_create,

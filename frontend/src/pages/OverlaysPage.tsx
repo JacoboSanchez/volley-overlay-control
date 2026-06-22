@@ -8,7 +8,6 @@ export default function OverlaysPage() {
   const [oid, setOid] = useState('');
   const [name, setName] = useState('');
   const [sets, setSets] = useState('');
-  const [outputUrl, setOutputUrl] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
@@ -34,13 +33,11 @@ export default function OverlaysPage() {
     try {
       await api.createOverlay(oid.trim(), {
         display_name: name.trim() || null,
-        output_url: outputUrl.trim() || null,
         sets: sets ? Number(sets) : null,
       });
       setOid('');
       setName('');
       setSets('');
-      setOutputUrl('');
       await load();
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : 'Could not create overlay.');
@@ -90,12 +87,6 @@ export default function OverlaysPage() {
             <option value="5">Best of 5</option>
             <option value="1">Single set</option>
           </select>
-        </label>
-        <label className="acc-field">
-          <span>Output URL (cloud, optional)</span>
-          <input className="acc-input" value={outputUrl} placeholder="https://app.overlays.uno/output/…"
-            onChange={(e) => setOutputUrl(e.target.value)} />
-          <small className="acc-muted">Leave blank to use this app’s built-in OBS overlay URL.</small>
         </label>
         <div className="acc-form-actions">
           <span className="acc-form-spacer" aria-hidden="true">&nbsp;</span>
@@ -180,12 +171,10 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
   const [sets, setSets] = useState(o.sets ? String(o.sets) : '');
   const [points, setPoints] = useState(o.points ? String(o.points) : '');
   const [lastSet, setLastSet] = useState(o.points_last_set ? String(o.points_last_set) : '');
-  const [outputUrl, setOutputUrl] = useState(o.custom_output_url || '');
 
   async function save() {
     await api.updateOverlay(o.oid, {
       display_name: name.trim() || null,
-      output_url: outputUrl.trim() || null,
       sets: sets ? Number(sets) : null,
       points: points ? Number(points) : null,
       points_last_set: lastSet ? Number(lastSet) : null,
@@ -220,11 +209,6 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
             onChange={(e) => setLastSet(e.target.value)} />
         </label>
       </div>
-      <label className="acc-field" style={{ maxWidth: 480 }}>
-        <span>Output URL (cloud / custom — blank = local OBS URL above)</span>
-        <input className="acc-input" value={outputUrl} placeholder="https://app.overlays.uno/output/…"
-          onChange={(e) => setOutputUrl(e.target.value)} />
-      </label>
       <button className="acc-btn" onClick={save}>Save settings</button>
 
       <ControlLink o={o} onChanged={onSaved} />

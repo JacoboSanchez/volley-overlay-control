@@ -10,7 +10,7 @@
 
 **Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend, a FastAPI backend, and a **built-in overlay engine** into a single deployable service.
 
-It includes 27 overlay style templates served directly to OBS browser sources — no external overlay server required. It also works with *overlays.uno* cloud overlays and with fully custom, external overlay engines. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it is a **multi-user** app: each account signs in, manages its own scoreboards/overlays, teams, presets and match reports, while admins curate a shared global catalog of teams and presets.
+It includes 27 overlay style templates served **in-process** directly to OBS browser sources — no external overlay server or cloud account required. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it is a **multi-user** app: each account signs in, manages its own scoreboards/overlays, teams, presets and match reports, while admins curate a shared global catalog of teams and presets.
 
 ---
 
@@ -134,22 +134,15 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 *   **Python 3.11+**
 *   **Node.js 20+** and **npm** (for building the frontend)
-*   *(Optional)* An account on **[overlays.uno](https://overlays.uno)** for cloud overlays. Not needed when using the built-in overlay engine.
 
 ### Creating an Overlay
 
-1.  **Login** to your *overlays.uno* account.
-2.  Navigate to [this overlay](https://overlays.uno/library/437-Volleyball-Scorebug---Standard) and click **Add to My Overlays**.
-3.  **Open your overlay** to get the necessary tokens:
-    *   **Control URL**: Copy the URL. The part after `https://app.overlays.uno/control/` is your **`UNO_OVERLAY_OID`**.
-
-### Using the Built-In Overlay Engine
-
-The fastest way to get started is with the built-in overlay engine. Once signed in, create an overlay from your account dashboard (or via `POST /api/v1/overlays`) — say, `mybroadcast` — then use that ID directly as the OID in the control UI. Each overlay is handed an unguessable `public_token`: point OBS at `/overlay/{public_token}` (plus the `mosaic` preview grid via `?style=mosaic`) and it receives state updates over WebSocket at `/ws/{public_token}`. No external server or account is required.
-
-### Building a Custom External Overlay
-
-If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot), you can point Remote-Scoreboard at an **external overlay server** by setting `APP_CUSTOM_OVERLAY_URL`. Refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for the API contract.
+Overlays are served **in-process** — there is no external overlay server or
+cloud account. Once signed in, create an overlay from your account dashboard
+(or via `POST /api/v1/overlays`) — say, `mybroadcast`. Each overlay is handed
+an unguessable `public_token`: point OBS at `/overlay/{public_token}` (plus the
+`mosaic` preview grid via `?style=mosaic`) and it receives state updates over
+WebSocket at `/ws/{public_token}`.
 
 ---
 
@@ -169,11 +162,10 @@ If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot),
     ```
 
 3.  **Configure Environment Variables** *(optional)*:
-    Create a `.env` file in the root directory or export variables in your terminal. Nothing is required for first run — the app ships with sensible defaults and persists to SQLite at `data/app.db`. `UNO_OVERLAY_OID` is required only when using overlays.uno; set `DATABASE_URL` to point at PostgreSQL instead of SQLite.
+    Create a `.env` file in the root directory or export variables in your terminal. Nothing is required for first run — the app ships with sensible defaults and persists to SQLite at `data/app.db`. Set `DATABASE_URL` to point at PostgreSQL instead of SQLite.
 
     ```env
     # .env file (all optional)
-    UNO_OVERLAY_OID=XXXXXXXX
     # DATABASE_URL=postgresql+psycopg://user:pass@host/db
     ```
 
@@ -183,7 +175,7 @@ If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot),
     ```
     Alembic migrates the schema to head automatically on startup. The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The app is available at `http://localhost:8080/` — the front door is a **login** screen.
 
-5.  **Claim the first admin** — On the very first start with no administrator, a one-time **bootstrap token** is logged at `WARNING` level (look in the startup output / `docker logs`). Open `/claim-admin`, paste the token, and create the first admin account. After that, users self-register at `/register` (an admin can toggle registration off), and each user creates overlays from their account dashboard. The overlay's OBS output is served at `http://localhost:8080/overlay/{public_token}`. To use an *external* overlay server instead of the built-in engine, set `APP_CUSTOM_OVERLAY_URL`. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for details.
+5.  **Claim the first admin** — On the very first start with no administrator, a one-time **bootstrap token** is logged at `WARNING` level (look in the startup output / `docker logs`). Open `/claim-admin`, paste the token, and create the first admin account. After that, users self-register at `/register` (an admin can toggle registration off), and each user creates overlays from their account dashboard. The overlay's OBS output is served at `http://localhost:8080/overlay/{public_token}`.
 
 > **Tip:** For frontend development with hot-reload, run `cd frontend && npm run dev` alongside `python main.py`. Vite serves on port 3000 and proxies API calls to the backend on port 8080.
 
@@ -197,7 +189,6 @@ The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then
     ```env
     EXTERNAL_PORT=80
     APP_TITLE=MyScoreboard
-    # UNO_OVERLAY_OID=<overlay_control_token>   # only for overlays.uno
     # DATABASE_URL=postgresql+psycopg://user:pass@host/db  # default: SQLite under data/
     ```
 2.  Run Docker Compose:
@@ -234,11 +225,8 @@ Configure the application using the following environment variables:
 
 | Variable | Description | Default Value |
 | :--- | :--- | :--- |
-| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
 | `APP_TITLE` | Application title shown in the browser tab, the init screen heading and the PWA manifest. | `Volley Scoreboard` |
-| `APP_CUSTOM_OVERLAY_URL` | *(Optional)* Base URL of an external custom overlay server. When set, custom overlays use the external server instead of the built-in engine. | *(unset — built-in engine)* |
-| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | *(Optional)* Public-facing base URL for overlay links. Used to replace the host in output URLs when the overlay server is behind a proxy. | |
 | `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
@@ -259,7 +247,7 @@ Configure the application using the following environment variables:
 | `SESSION_TTL_HOURS` | Lifetime of a login session in hours. | `336` (14 days) |
 | `REGISTRATION_OPEN` | Whether self-service registration at `/register` is allowed. DB-backed after first boot; admins toggle it from the `/admin` page. | `true` |
 | `ADMIN_BOOTSTRAP_TOKEN` | First-admin bootstrap token. When unset, a one-time token is minted on first start, logged at `WARNING`, and persisted to `data/.admin_bootstrap_token` (mode `0600`). Set it explicitly to pin a known value. See [AUTHENTICATION.md](AUTHENTICATION.md). | *(auto)* |
-| `OVERLAY_SERVER_TOKEN` | Bearer token required by the built-in overlay server's mutation and config endpoints (peer/machine auth). **Auto-generated and persisted to `data/.overlay_server_token` on first start when unset.** Set explicitly here to override (e.g. when an external `CustomOverlayBackend` peer must use the same value). See [AUTHENTICATION.md](AUTHENTICATION.md) §5. | *(auto)* |
+| `OVERLAY_SERVER_TOKEN` | Bearer token required by the built-in overlay server's mutation and config endpoints (peer/machine auth). **Auto-generated and persisted to `data/.overlay_server_token` on first start when unset.** Set explicitly here to override. See [AUTHENTICATION.md](AUTHENTICATION.md) §5. | *(auto)* |
 | `OVERLAY_SERVER_TOKEN_HASH` | scrypt-hashed alternative to `OVERLAY_SERVER_TOKEN`. When set, the bootstrap skips auto-generating the persisted plaintext file — a hash-only deployment keeps zero cleartext on this server (the peer keeps the cleartext). | |
 | `OVERLAY_SERVER_TOKEN_DISABLED` | If `true`, opts back into legacy unauthenticated overlay-server endpoints. The bootstrap logs a `CRITICAL` startup warning when active. Only safe on a trusted LAN. | `false` |
 | `TRUSTED_HOSTS` | Comma-separated allow-list of hostnames the app accepts in the `Host` header. Wildcard subdomains (`*.example.com`) supported. Requests outside the list are rejected with HTTP 400 before any handler reads `request.base_url`. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.2. | *(unset → no enforcement)* |
@@ -272,9 +260,7 @@ Configure the application using the following environment variables:
 | `DEFAULT_TEAM_LOGO` | Logo path baked into a blank in-process overlay state (used by the built-in overlay server when an overlay is created). | `/static/images/default_volleyball.svg` |
 | `SET_SUMMARY_DEFAULT_STYLE` | Default style of the between-sets summary panel. | `brand_ledger` |
 | `OVERLAY_LOCALE` | Fallback locale for overlay rendering when neither the `?lang=` query parameter nor a persisted overlay locale is present. | *(browser/`en`)* |
-| `UNO_OVERLAY_ID` | Internal instance identifier sent to overlays.uno. Rarely needs changing. | *(fixed UUID)* |
 | `APP_RELOAD` | Development only: if `true`, runs uvicorn with auto-reload. | `false` |
-| `UNO_OVERLAY_OUTPUT` | Custom output URL override for the overlay display link. | |
 | `WEBHOOKS_URL` | *(Optional)* Single outbound webhook endpoint. POSTed JSON `{event, oid, ts, state, details}` on `set_end`, `match_end`, `timeout`, `serve_change`. | |
 | `WEBHOOKS_SECRET` | *(Optional)* Shared secret for HMAC-SHA256 signing of single-URL webhook bodies. Sent as `X-Webhook-Signature: sha256=<hex>`. | |
 | `WEBHOOKS_EVENTS` | *(Optional)* CSV subset of events the single-URL webhook should receive. | *(all events)* |
@@ -351,11 +337,8 @@ a Bearer token. Every request to the following routes must include
 - `POST /api/theme/{id}/{name}`
 
 The token is **auto-generated and persisted to `data/.overlay_server_token`
-on first start**. Subsequent restarts reuse the same value, so an external
-`CustomOverlayBackend` peer pointed at this app via
-`APP_CUSTOM_OVERLAY_URL` only needs to be configured once: read the value
-from the persisted file or set `OVERLAY_SERVER_TOKEN` explicitly on both
-sides.
+on first start**. Subsequent restarts reuse the same value. Set
+`OVERLAY_SERVER_TOKEN` explicitly to pin a known value.
 
 To opt back into the legacy unauthenticated behaviour (e.g. for a
 trusted-LAN install or local debugging), set
@@ -401,8 +384,8 @@ Import non-account configuration from an external resource via `REMOTE_CONFIG_UR
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
 For a full audit of every route and its authentication requirements
-(including the overlay server endpoints consumed by OBS and
-`CustomOverlayBackend`), see [AUTHENTICATION.md](AUTHENTICATION.md).
+(including the overlay server endpoints consumed by OBS), see
+[AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
 
@@ -410,12 +393,11 @@ For a full audit of every route and its authentication requirements
 
 | Issue | Solution |
 | :--- | :--- |
-| App won't start | Check logs for errors (Alembic runs migrations on startup). Ensure the `data/` directory is writable. `UNO_OVERLAY_OID` is required only when using overlays.uno. |
-| Overlay not updating | Ensure the overlay control token is valid. Try calling `POST /api/v1/session/init` again. |
+| App won't start | Check logs for errors (Alembic runs migrations on startup). Ensure the `data/` directory is writable. |
+| Overlay not updating | Ensure the overlay exists and try calling `POST /api/v1/session/init` again. |
 | Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
-| "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
 | Can't sign in on first run | No administrator exists yet. Check the startup log / `docker logs` for the one-time bootstrap token (logged at `WARNING`), then claim the first admin at `/claim-admin`. The token is also persisted to `data/.admin_bootstrap_token`. |
-| Custom overlay not receiving updates | Confirm the overlay exists (create it from your account dashboard if needed) and that OBS is pointed at its `public_token` URL (`/overlay/{public_token}`). For built-in overlays, check that `overlay_templates/` exists. For external overlays, verify `APP_CUSTOM_OVERLAY_URL` is reachable. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+| Overlay not receiving updates | Confirm the overlay exists (create it from your account dashboard if needed) and that OBS is pointed at its `public_token` URL (`/overlay/{public_token}`). Check that `overlay_templates/` exists. |
 
 ---
 
@@ -429,8 +411,6 @@ Contributions are welcome! Here's how to get started:
     - Frontend: `cd frontend && npm ci && npm test`
 3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
 4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.
-
-For custom overlay development, see [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md).
 
 ---
 

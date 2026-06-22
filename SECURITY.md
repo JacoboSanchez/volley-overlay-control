@@ -57,7 +57,7 @@ Out of scope:
   hash-prefixed and intentionally hard to guess, but the model is
   capability-URL).
 - Vulnerabilities in third-party services this app integrates with
-  (overlays.uno, OBS itself, the operator's reverse proxy).
+  (OBS itself, the operator's reverse proxy).
 
 ## Hardening reference
 

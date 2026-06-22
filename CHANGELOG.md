@@ -8,6 +8,28 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Removed
+
+- **overlays.uno cloud and external overlay-server support — in-process only.**
+  The project now serves **every** overlay with its built-in, in-process engine
+  (`LocalOverlayBackend`). Removed: the `UnoOverlayBackend` (overlays.uno cloud
+  REST API), the `CustomOverlayBackend` + `app/ws_client.py` (external overlay
+  server over WebSocket/HTTP), the 22-char UNO OID format, and the per-overlay
+  **custom output URL** (the overlay `output_url` / `custom_output_url` field,
+  the "Output URL (cloud, optional)" form field, and `output_url` on
+  `POST /api/v1/session/init`). Each overlay's OBS output URL is now always the
+  app's own `/overlay/<public_token>` link.
+  - **Removed env vars:** `UNO_OVERLAY_ID`, `UNO_OVERLAY_OID`,
+    `UNO_OVERLAY_OUTPUT`, `APP_CUSTOM_OVERLAY_URL`,
+    `APP_CUSTOM_OVERLAY_OUTPUT_URL`, and the now-unused `WS_RECONNECT_*` /
+    `WS_HEARTBEAT_INTERVAL_SECONDS` / `WS_ZOMBIE_DEADLINE_SECONDS` tunables.
+  - **Removed docs:** `CUSTOM_OVERLAY.md` and `CUSTOM_OVERLAY_API.yaml` (the
+    external-server contract). The control board's overlay preview always uses
+    the in-process render path (no overlays.uno iframe branch).
+  - **DB:** `user_overlays.output_url` column dropped (migration `0005`).
+  - The overlay-server *peer* endpoints (`OVERLAY_SERVER_TOKEN`-gated) are
+    unchanged.
+
 ### Added
 
 - **Shareable operator control links.** Each overlay now carries an unguessable

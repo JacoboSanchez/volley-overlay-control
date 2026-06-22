@@ -6,7 +6,7 @@ This document provides everything an AI coding agent needs to understand, naviga
 
 ## Project Overview
 
-Volley Overlay Control is a self-hostable, **multi-user** application that bundles a React 19 control SPA, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. Accounts log in (the login page is the front door); `/` is the SPA account dashboard and scoreboard control lives on the SPA route `/board?oid=<overlay>`. It manages per-user match state (scores, sets, timeouts, serve), renders overlay HTML templates for OBS browser sources, and synchronizes state with overlay backends — either the hosted **overlays.uno** cloud service or **in-process custom overlays** (with optional external overlay server support).
+Volley Overlay Control is a self-hostable, **multi-user** application that bundles a React 19 control SPA, a Python/FastAPI backend, and an overlay serving engine into a single deployable service. Accounts log in (the login page is the front door); `/` is the SPA account dashboard and scoreboard control lives on the SPA route `/board?oid=<overlay>`. It manages per-user match state (scores, sets, timeouts, serve), renders overlay HTML templates for OBS browser sources, and serves every overlay **in-process** (the built-in `LocalOverlayBackend`) — there is no external overlay server or cloud (overlays.uno) integration.
 
 **Backend stack:** Python 3.x · FastAPI · Uvicorn · SQLAlchemy 2 · Alembic · Jinja2 · requests · python-dotenv · websocket-client · Docker
 **Frontend stack:** React 19 · React Router · Vite · PWA (vite-plugin-pwa) · react-colorful
@@ -81,8 +81,7 @@ volley-overlay-control/
 │   ├── state.py               # Data model — match state dictionary
 │   ├── game_manager.py        # Business logic — volleyball rules & score mutations
 │   ├── backend.py             # Coordinator — delegates to overlay backend strategies
-│   ├── overlay_backends/      # Strategy pkg: uno.py (UnoOverlayBackend), local.py (LocalOverlayBackend), custom.py (CustomOverlayBackend), utils.py (resolve_overlay_kind)
-│   ├── ws_client.py           # Persistent WebSocket client for external overlay servers (optional)
+│   ├── overlay_backends/      # local.py (LocalOverlayBackend, the only backend), base.py, utils.py (resolve_overlay_kind)
 │   ├── customization.py       # Team names, colors, logos, layout geometry
 │   ├── conf.py                # Configuration object — wraps env vars
 │   ├── password_hash.py       # scrypt-based credential hashing (CLI: `python -m app.password_hash`)
@@ -97,7 +96,7 @@ volley-overlay-control/
 │   ├── oid_utils.py           # OID parsing utilities (extract_oid, compose_output)
 │   ├── env_vars_manager.py    # Centralized env var access with caching
 │   ├── logging_config.py      # Logging level configuration
-│   ├── constants.py           # SVG favicon, overlays.uno API base URL
+│   ├── constants.py           # SVG favicon, tunable runtime constants
 │   ├── config_validator.py    # Startup configuration validation (env var checks)
 │   │
 │   ├── db/                    # SQLAlchemy 2.0 + Alembic persistence
@@ -157,7 +156,6 @@ volley-overlay-control/
 │   ├── test_customization.py  # Unit tests for team/color customization
 │   ├── test_env_vars_manager.py
 │   ├── test_config_validator.py
-│   ├── test_ws_client.py      # WebSocket client and Backend WS integration tests
 │   ├── test_admin_users.py    # Admin user-management + registration toggle tests
 │   ├── test_overlays_service.py  # Per-user overlay CRUD + public_token tests
 │   └── test_db_migrations.py  # Alembic upgrade-to-head migration tests
@@ -243,19 +241,13 @@ The entire match lives in a flat dictionary with these keys:
 
 ## Backend & Overlay Integration
 
-`Backend` communicates with overlay backends using the strategy pattern:
+`Backend` forwards every overlay operation to a single in-process backend,
+`LocalOverlayBackend`. There is no cloud (overlays.uno) or external-server
+backend.
 
-| OID Pattern | Type | Backend Class | Communication |
-|-------------|------|--------------|---------------|
-| Existing local overlay id (e.g. `mybroadcast`) — bare or legacy `C-mybroadcast[/style]` | Custom (local) | `LocalOverlayBackend` | In-process via `OverlayStateStore` |
-| Same as above, with `APP_CUSTOM_OVERLAY_URL` set | Custom (external) | `CustomOverlayBackend` | WebSocket + HTTP to external server |
-| 22-char alphanumeric token (e.g. `2cIXk2IjHvMuva6Wwele8j`) | overlays.uno cloud | `UnoOverlayBackend` | HTTP to overlays.uno API |
+**Resolution:** `Backend._resolve_kind()` (see `app/overlay_backends/utils.resolve_overlay_kind`) returns `CUSTOM` when the OID's base id exists in the local overlay store, `EMPTY` for a blank id, and `INVALID` otherwise. **No auto-creation** — overlays must be created up-front by the owner via `POST /api/v1/overlays` (the SPA "Overlays" page); session init then ensures the local overlay state exists. The legacy `C-id[/style]` prefix is still accepted (and stripped) but is no longer required and is not used in the UI/docs.
 
-**Resolution order:** `Backend._resolve_kind()` (see `app/overlay_backends/utils.resolve_overlay_kind`) checks the local overlay store first; if a custom overlay with that id exists, it wins. Otherwise, an OID matching the UNO format (22 alphanumeric characters) is treated as a cloud overlay; anything else is INVALID. **No auto-creation** — overlays must be created up-front by the owner via `POST /api/v1/overlays` (the SPA "Overlays" page). The legacy `C-` prefix is still accepted but is no longer required and is not used in the UI/docs.
-
-**Default behavior:** Custom overlays are managed **in-process** by `LocalOverlayBackend`. State flows directly from `GameManager` → `Backend` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources.
-
-**External server mode:** When `APP_CUSTOM_OVERLAY_URL` is set, the system falls back to `CustomOverlayBackend` which communicates with an external overlay server. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for the external server API contract.
+**State flow:** `GameManager` → `Backend` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources. Each overlay's OBS output URL is always the app's own `/overlay/<public_token>` link (there is no per-overlay custom/cloud output URL).
 
 **Overlay templates:** the Jinja2 HTML templates in `overlay_templates/` (30 files; 27 selectable styles via `get_available_styles_list`) serve overlay graphics to OBS browser sources at `/overlay/{public_token}` (and the lightweight spectator view at `/follow/{public_token}`). The overlay `app.js` connects via WebSocket at `/ws/{public_token}` for real-time state updates. The `public_token` is the unguessable per-overlay capability token — never the raw `oid` or `skey`.
 
@@ -271,7 +263,7 @@ Key variables:
 - **Auth / accounts:** `SESSION_SECRET` (auto-minted and persisted to `data/.session_secret` if unset; also signs match-report capability URLs — pin it explicitly to keep sessions/links valid across deployments). `REGISTRATION_OPEN` (seeds the DB toggle for self-registration; admins flip it at runtime). First-admin claim uses a one-time token logged at startup (see Auth, below) — there is no admin password env var.
 - **Machine auth:** `OVERLAY_SERVER_TOKEN` (+`_HASH`) — Bearer token for the overlay-server *peer* endpoints, auto-minted/persisted. `METRICS_REQUIRE_ADMIN=true` gates `/metrics` behind that same Bearer.
 - **Match behaviour:** `MATCH_GAME_POINTS`, `MATCH_GAME_POINTS_LAST_SET`, `MATCH_SETS`, `STALE_SET_THRESHOLD_MINUTES` (minutes a single set may run before the control-UI abandoned-match prompt fires; `0` disables).
-- **Overlay / serving:** `UNO_OVERLAY_OID`, `APP_CUSTOM_OVERLAY_URL` (external overlay-server mode), `APP_PORT`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`.
+- **Overlay / serving:** `OVERLAY_PUBLIC_URL` (public base URL for OBS output links behind a proxy), `APP_PORT`, `ENABLE_MULTITHREAD`, `LOGGING_LEVEL`.
 - **Reports:** `MATCH_REPORT_PUBLIC=true` opens `/match/{id}/report` to anyone with the link (otherwise owner-cookie or signed URL).
 
 Full list in [README.md](README.md).
@@ -358,7 +350,7 @@ Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not imp
 
 - **Do not block the event loop** — long-running I/O must use the `ThreadPoolExecutor` in `Backend`.
 - **Do not skip `GameManager.save()`** — after any mutation, save must be called.
-- **Custom overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
+- **Overlay detection:** `Backend.is_custom_overlay()` calls `resolve_overlay_kind()` (in `app/overlay_backends/utils.py`), which returns `OverlayKind.CUSTOM` only if the local overlay store has a file for that id. The legacy `C-` prefix is still accepted (and stripped) but never auto-creates a missing overlay.
 - **Do not bypass `run_security_bootstrap`.** `bootstrap.create_app` calls it before any router is registered so `OVERLAY_SERVER_TOKEN` is auto-generated / loaded and `os.environ` is populated before the auth dependencies read it. Tests that build a real app via `create_app()` rely on the autouse `isolate_security_bootstrap` fixture in `tests/conftest.py` to redirect the token-persistence path to a per-test temp dir; do not call `ensure_overlay_server_token` directly without that isolation.
 - **Credentials never compare with `==`.** Both credential surfaces — user passwords (`app/auth/service.py` via `app/auth/passwords.verify_password`) and the overlay-server Bearer token (`overlay/auth.require_overlay_server_token`) — go through `app.password_hash.verify_password`, which accepts either a scrypt hash record or a legacy plaintext value with a constant-time compare. Per-user passwords are stored as scrypt hashes (`users.password_hash`); the hashed `OVERLAY_SERVER_TOKEN_HASH` wins over the plaintext `OVERLAY_SERVER_TOKEN` when both are set — see `AUTHENTICATION.md`.
 - **Undo is a per-call flag, not a stack** — `add_game`, `add_set`, and `add_timeout` reverse only the most recent action of that type. `add_game(undo=True)` additionally falls back to `current_set - 1` when the current set has no score for the requested team, so a set-winning point can be undone after the session has advanced. The bundled React UI tracks its own short history of forward actions in `App.tsx` to drive the bottom-bar undo button — that stack is client-side only and does not survive page reloads or other clients.
@@ -388,8 +380,6 @@ The SPA mount uses a custom `SPAStaticFiles` class that falls back to `index.htm
 | `README.md` | End-user setup and configuration guide |
 | `DEVELOPER_GUIDE.md` | Architecture deep-dive and coding patterns |
 | `FRONTEND_DEVELOPMENT.md` | REST API reference + guide for building JS frontends |
-| `CUSTOM_OVERLAY.md` | Guide for building a custom overlay server |
-| `CUSTOM_OVERLAY_API.yaml` | OpenAPI 3.0 spec for the custom overlay REST contract |
 | `AUTHENTICATION.md` | Auth coverage audit — per-route inventory, defence-in-depth middleware, hashed-credential migration |
 | `SECURITY.md` | Vulnerability disclosure policy and supported-versions matrix |
 | `CHANGELOG.md` | User-facing change log (Keep a Changelog format) |

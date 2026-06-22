@@ -224,31 +224,18 @@ describe('ConfigPanel', () => {
     });
   });
 
-  it('hides gradient toggle for custom overlays', async () => {
+  it('never shows the (removed) gradient toggle', async () => {
     vi.mocked(api.getLinks).mockResolvedValue({
       control: '',
-      overlay: 'http://custom-overlay.example.com/output',
+      overlay: 'http://my-app.example/overlay/tok',
       preview: '',
     });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
     await waitFor(() => {
-      expect(screen.queryByText('Gradient')).not.toBeInTheDocument();
+      expect(screen.getByText('Overlay Style')).toBeInTheDocument();
     });
-  });
-
-  it('shows gradient toggle for standard overlays', async () => {
-    vi.mocked(api.getLinks).mockResolvedValue({
-      control: '',
-      overlay: 'https://overlays.uno/output/abc',
-      preview: '',
-    });
-    renderWithI18n(<ConfigPanel {...defaultProps} />);
-    const overlayButton = screen.getByText('Overlay Style').closest('button')!;
-    fireEvent.click(overlayButton);
-    await waitFor(() => {
-      expect(screen.getByText('Gradient')).toBeInTheDocument();
-    });
+    expect(screen.queryByText('Gradient')).not.toBeInTheDocument();
   });
 });

@@ -10,7 +10,6 @@ from app.api.oid_validation import OID_PATTERN
 
 class InitRequest(BaseModel):
     oid: str = Field(min_length=1, max_length=200)
-    output_url: str | None = None
     points_limit: int | None = None
     points_limit_last_set: int | None = None
     sets_limit: int | None = None

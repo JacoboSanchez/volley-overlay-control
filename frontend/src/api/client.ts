@@ -39,7 +39,6 @@ export interface OverlayPayload {
   display_name: string | null;
   public_token: string;
   output_url: string;
-  custom_output_url: string | null;
   control_token: string | null;
   control_url: string | null;
   public_control: boolean;
@@ -51,7 +50,6 @@ export interface OverlayPayload {
 
 export interface OverlaySettings {
   display_name?: string | null;
-  output_url?: string | null;
   public_control?: boolean;
   points?: number | null;
   points_last_set?: number | null;
