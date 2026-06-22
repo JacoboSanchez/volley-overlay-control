@@ -68,6 +68,15 @@ describe('TeamsPage', () => {
     await waitFor(() => expect(api.addTeamsToMine).toHaveBeenCalledWith([3]));
   });
 
+  it('select-all toggles every team in my list', async () => {
+    render(<TeamsPage />);
+    await waitFor(() => expect(screen.getByText('Breogán')).toBeInTheDocument());
+    // First select-all is the "My teams" header (Catalog has its own).
+    fireEvent.click(screen.getAllByLabelText('Select all')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: /Remove selected \(2\)/ }));
+    await waitFor(() => expect(api.removeTeamsFromMine).toHaveBeenCalledWith([1, 2]));
+  });
+
   it('creates a custom team', async () => {
     render(<TeamsPage />);
     await waitFor(() => expect(screen.getByText('Create a custom team')).toBeInTheDocument());

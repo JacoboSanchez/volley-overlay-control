@@ -8,7 +8,20 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Account pages now scroll.** The fullscreen control board's global
+  `overflow: hidden` (and `user-select: none`) leaked onto every account page,
+  so a list taller than the viewport (e.g. a long Teams list) couldn't be
+  scrolled and text couldn't be selected. The account shell is now its own
+  scroll container with text selection restored.
+
 ### Added
+
+- **Select all / none on the Teams lists.** Each team table (My teams,
+  Catalog) gained a "Select all" control in its action toolbar (visible on
+  mobile, where table headers are hidden), with an indeterminate state when a
+  subset is selected.
 
 - **Personal team lists: custom teams, seeding, and batch editing.** A new
   account starts with the **full global team catalog** copied into its list

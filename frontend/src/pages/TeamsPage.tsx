@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import EmptyState from '../components/EmptyState';
@@ -14,7 +14,36 @@ function useSelection() {
     });
   }, []);
   const clear = useCallback(() => setSel(new Set()), []);
-  return { sel, toggle, clear };
+  const replace = useCallback((ids: number[]) => setSel(new Set(ids)), []);
+  return { sel, toggle, clear, replace };
+}
+
+/** Header checkbox that selects all / none of *ids*, with an indeterminate
+ *  state when only some are selected. */
+function SelectAll({
+  ids, selected, onSelectAll, onClear,
+}: {
+  ids: number[];
+  selected: Set<number>;
+  onSelectAll: (ids: number[]) => void;
+  onClear: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const inList = ids.filter((id) => selected.has(id)).length;
+  const all = ids.length > 0 && inList === ids.length;
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = inList > 0 && !all;
+  }, [inList, all]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={all ? 'Deselect all' : 'Select all'}
+      checked={all}
+      disabled={ids.length === 0}
+      onChange={() => (all ? onClear() : onSelectAll(ids))}
+    />
+  );
 }
 
 export default function TeamsPage() {
@@ -88,7 +117,12 @@ export default function TeamsPage() {
         <EmptyState>No teams yet — add some from the catalog below or create a custom one.</EmptyState>
       ) : (
         <>
-          <div className="acc-row" style={{ marginBottom: 8 }}>
+          <div className="acc-row" style={{ marginBottom: 8, alignItems: 'center' }}>
+            <span className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <SelectAll ids={mine.map((t) => t.id)} selected={mineSel.sel}
+                onSelectAll={mineSel.replace} onClear={mineSel.clear} />
+              Select all
+            </span>
             <button className="acc-btn danger" disabled={mineSel.sel.size === 0}
               onClick={removeSelectedMine}>
               Remove selected ({mineSel.sel.size})
@@ -131,7 +165,12 @@ export default function TeamsPage() {
         <EmptyState>Every catalog team is already in your list.</EmptyState>
       ) : (
         <>
-          <div className="acc-row" style={{ marginBottom: 8 }}>
+          <div className="acc-row" style={{ marginBottom: 8, alignItems: 'center' }}>
+            <span className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <SelectAll ids={addable.map((t) => t.id)} selected={catSel.sel}
+                onSelectAll={catSel.replace} onClear={catSel.clear} />
+              Select all
+            </span>
             <button className="acc-btn" disabled={catSel.sel.size === 0} onClick={addSelectedCatalog}>
               Add selected ({catSel.sel.size})
             </button>

@@ -1,7 +1,15 @@
 /* Styling for the account / auth surface (login, dashboard, management). */
 
 .acc-shell {
-  min-height: 100vh;
+  /* The global App.css forces ``html, body, #root { overflow: hidden }`` for
+     the fullscreen control board, which would otherwise clip (and prevent
+     scrolling of) the account pages. Make the shell its own scroll container
+     and re-enable text selection that the board disables globally. */
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  user-select: text;
+  -webkit-user-select: text;
   background: #0f1115;
   color: #e7e9ee;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
