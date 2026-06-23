@@ -441,6 +441,89 @@
   margin-bottom: 6px;
 }
 
+/* ``My overlays`` cards. Each scoreboard leads with the action taken every
+   match — opening the control board — and demotes the copy-once browser-source
+   URL plus the occasional share/rename actions below it. */
+.acc-overlay-cards {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.acc-overlay-card {
+  border: 1px solid #262b35;
+  border-radius: 12px;
+  background: #181b22;
+  padding: 16px 18px;
+}
+.acc-overlay-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.acc-overlay-card__id {
+  min-width: 0;
+}
+.acc-overlay-card__title {
+  font-size: 1.15rem;
+  word-break: break-word;
+}
+/* The hero action: visually the heaviest thing on the card. */
+.acc-overlay-open {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  font-size: 1rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.acc-overlay-source {
+  margin-top: 16px;
+}
+.acc-overlay-source__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b93a7;
+  margin-bottom: 6px;
+}
+.acc-overlay-source small {
+  display: block;
+  margin-top: 6px;
+}
+.acc-overlay-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #232833;
+}
+.acc-overlay-card__actions .acc-btn {
+  padding: 7px 14px;
+  font-size: 0.88rem;
+}
+/* Delete stays an outline-only danger affordance in the footer — clearly
+   destructive without a loud red block competing with the hero. */
+.acc-overlay-card__actions .acc-btn.danger {
+  background: transparent;
+  border: 1px solid #5a2f2a;
+  color: #e07d6f;
+}
+.acc-btn.ghost.is-active {
+  border-color: #4f8cff;
+  color: #fff;
+}
+.acc-overlay-panel {
+  background: #14171d;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+
 /* Native colour swatch input, used in the admin team catalog. */
 .acc-color {
   width: 48px;
@@ -459,6 +542,16 @@
 @media (max-width: 720px) {
   .acc-layout {
     grid-template-columns: 1fr;
+  }
+
+  /* On phones the hero ``Open scoreboard`` button drops below the id and spans
+     the full card so it stays the obvious primary tap target. */
+  .acc-overlay-card__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .acc-overlay-open {
+    width: 100%;
   }
 
   /* Sticky top bar carries the brand + hamburger; it stays above the drawer so

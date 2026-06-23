@@ -8,6 +8,19 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Rebuilt the "My overlays" screen around the action you take every match.**
+  The page was a flat table that gave equal weight to four different
+  destinations and labelled the control board with an ambiguous "Open" button,
+  while the copy-once browser-source URL dominated each row. Each overlay is now
+  a **card** led by a single prominent **Open scoreboard** button (opens the
+  control board in a new tab); the OBS browser-source URL is demoted to a
+  labelled, copy-once detail with a hint; and the operator/bookmark sharing
+  links plus rename now live behind tidy **Share control** / **Rename**
+  expanders. Reworked the layout to cards also fixes the cramped four-button
+  row on phones. Regenerated `docs/screenshots/05-manage-page.png`.
+
 ### Fixed
 
 - **Mobile usability pass on the account pages.** Several fixes after reviewing
@@ -21,10 +34,9 @@ once a first tagged release ships.
     each value (Role / Active / Scope / Covers / Winner / Duration …).
   - Admins get an **Admin** tile on the dashboard, for parity with the other
     sections (it was only in the nav).
-  - The **My overlays** row actions use an even, wrapping button group; the
-    Teams catalog shows a correct "The catalog is empty." message when there are
-    no catalog teams (instead of "already in your list"); and section headings
-    got a little more breathing room.
+  - The Teams catalog shows a correct "The catalog is empty." message when there
+    are no catalog teams (instead of "already in your list"), and section
+    headings got a little more breathing room.
 
 - **Teams lists no longer strand the checkbox on its own line on phones.** The
   mobile "stack each table cell onto its own line" rule turned every team into a

@@ -14,8 +14,6 @@ export default function OverlaysPage() {
   const [oid, setOid] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState('');
-  const [editing, setEditing] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -66,16 +64,6 @@ export default function OverlaysPage() {
     }
   }
 
-  async function copy(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(url);
-      setTimeout(() => setCopied(''), 1500);
-    } catch {
-      /* ignore */
-    }
-  }
-
   return (
     <div>
       <h2>{t('acc.nav.overlays')}</h2>
@@ -104,73 +92,89 @@ export default function OverlaysPage() {
       ) : overlays.length === 0 ? (
         <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
-        <table className="acc-table">
-          <thead>
-            <tr>
-              <th scope="col">{t('acc.overlays.colOverlay')}</th>
-              <th scope="col">{t('acc.overlays.colOutputUrl')}</th>
-              <th scope="col"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {overlays.map((o) => (
-              <OverlayRow
-                key={o.oid}
-                o={o}
-                editing={editing === o.oid}
-                onEdit={() => setEditing(editing === o.oid ? null : o.oid)}
-                onSaved={async () => { setEditing(null); await load(); }}
-                onDelete={() => onDelete(o)}
-                onCopy={() => copy(o.output_url)}
-                copied={copied === o.output_url}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="acc-overlay-cards">
+          {overlays.map((o) => (
+            <OverlayCard key={o.oid} o={o} onChanged={load} onDelete={() => onDelete(o)} />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-function OverlayRow({
-  o, editing, onEdit, onSaved, onDelete, onCopy, copied,
+type Panel = 'rename' | 'share' | null;
+
+/** One scoreboard. The card leads with the action you take every match —
+ *  opening the control board — and demotes the copy-once browser-source URL and
+ *  the occasional share/rename actions below it. */
+function OverlayCard({
+  o, onChanged, onDelete,
 }: {
   o: api.OverlayPayload;
-  editing: boolean;
-  onEdit: () => void;
-  onSaved: () => void;
+  onChanged: () => void;
   onDelete: () => void;
-  onCopy: () => void;
-  copied: boolean;
 }) {
   const { t } = useI18n();
+  const [panel, setPanel] = useState<Panel>(null);
+  const toggle = (p: Exclude<Panel, null>) => setPanel((cur) => (cur === p ? null : p));
+
   return (
-    <>
-      <tr>
-        <td>
-          <strong>{o.oid}</strong>
+    <section className="acc-overlay-card">
+      <header className="acc-overlay-card__head">
+        <div className="acc-overlay-card__id">
+          <strong className="acc-overlay-card__title">{o.oid}</strong>
           {o.display_name && <div className="acc-muted">{o.display_name}</div>}
-        </td>
-        <td><code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{o.output_url}</code></td>
-        <td>
-          <div className="acc-btn-row">
-            <a className="acc-btn" href={`/board?oid=${encodeURIComponent(o.oid)}`}>{t('acc.common.open')}</a>
-            <button className="acc-btn ghost" onClick={onCopy}>{copied ? t('acc.common.copied') : t('acc.common.copyUrl')}</button>
-            <button className="acc-btn ghost" onClick={onEdit}>{editing ? t('acc.common.close') : t('acc.common.edit')}</button>
-            <button className="acc-btn danger" onClick={onDelete}>{t('acc.common.delete')}</button>
-          </div>
-        </td>
-      </tr>
-      {editing && (
-        <tr>
-          <td colSpan={3}><OverlayEditor o={o} onSaved={onSaved} /></td>
-        </tr>
+        </div>
+        <a
+          className="acc-btn acc-overlay-open"
+          href={`/board?oid=${encodeURIComponent(o.oid)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {t('acc.overlays.openBoard')}<span aria-hidden="true"> ↗</span>
+        </a>
+      </header>
+
+      <div className="acc-overlay-source">
+        <div className="acc-overlay-source__label">{t('acc.overlays.sourceLabel')}</div>
+        <CopyField value={o.output_url} label={t('acc.overlays.sourceLabel')} />
+        <small className="acc-muted">{t('acc.overlays.sourceHint')}</small>
+      </div>
+
+      <div className="acc-overlay-card__actions">
+        <button
+          type="button"
+          className={`acc-btn ghost${panel === 'share' ? ' is-active' : ''}`}
+          aria-expanded={panel === 'share'}
+          onClick={() => toggle('share')}
+        >
+          {t('acc.overlays.share')}
+        </button>
+        <button
+          type="button"
+          className={`acc-btn ghost${panel === 'rename' ? ' is-active' : ''}`}
+          aria-expanded={panel === 'rename'}
+          onClick={() => toggle('rename')}
+        >
+          {t('acc.overlays.rename')}
+        </button>
+        <button type="button" className="acc-btn danger" onClick={onDelete}>{t('acc.common.delete')}</button>
+      </div>
+
+      {panel === 'rename' && (
+        <RenamePanel o={o} onSaved={() => { setPanel(null); onChanged(); }} />
       )}
-    </>
+      {panel === 'share' && (
+        <div className="acc-overlay-panel">
+          <ControlLink o={o} onChanged={onChanged} />
+          <BookmarkLink o={o} onChanged={onChanged} />
+        </div>
+      )}
+    </section>
   );
 }
 
-function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => void }) {
+function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [name, setName] = useState(o.display_name || '');
@@ -186,17 +190,12 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
   }
 
   return (
-    <div style={{ background: '#14171d', borderRadius: 10, padding: 14, margin: '6px 0' }}>
-      <div className="acc-row" style={{ marginBottom: 8 }}>
-        <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>{t('acc.overlays.editDisplayName')}</span>
-          <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-      </div>
+    <div className="acc-overlay-panel">
+      <label className="acc-field" style={{ marginBottom: 8 }}>
+        <span>{t('acc.overlays.editDisplayName')}</span>
+        <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
       <button className="acc-btn" onClick={save}>{t('acc.overlays.editSave')}</button>
-
-      <ControlLink o={o} onChanged={onSaved} />
-      <BookmarkLink o={o} onChanged={onSaved} />
     </div>
   );
 }
