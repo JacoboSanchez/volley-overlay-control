@@ -548,6 +548,132 @@
   gap: 10px;
 }
 
+/* ── Reports: match-day calendar + teams cell ─────────────────────────── */
+.acc-cal {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.acc-cal-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.acc-cal-trigger .material-icons {
+  font-size: 18px;
+}
+.acc-cal-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 80;
+  width: 280px;
+  padding: 12px;
+  background: #181b22;
+  border: 1px solid #2c333f;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.acc-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.acc-cal-month {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.acc-cal-nav {
+  display: inline-flex;
+  background: transparent;
+  border: 1px solid #2c333f;
+  border-radius: 8px;
+  color: #cfd4dd;
+  cursor: pointer;
+  padding: 2px;
+}
+.acc-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.acc-cal-weekdays {
+  margin-bottom: 4px;
+}
+.acc-cal-weekday {
+  text-align: center;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b93a7;
+  padding: 2px 0;
+}
+.acc-cal-cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #5a616e;
+  cursor: default;
+}
+.acc-cal-blank {
+  border: none;
+}
+/* A day with at least one match: brighter, clickable, dot-marked. */
+.acc-cal-cell.has-match {
+  color: #e7e9ee;
+  border-color: #2c333f;
+  cursor: pointer;
+}
+.acc-cal-cell.has-match::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4f8cff;
+}
+.acc-cal-cell.has-match:hover {
+  border-color: #4f8cff;
+}
+.acc-cal-cell.is-selected {
+  background: #4f8cff;
+  border-color: #4f8cff;
+  color: #fff;
+  font-weight: 700;
+}
+.acc-cal-cell.is-selected::after {
+  background: #fff;
+}
+
+.acc-match-teams {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.acc-match-name.is-winner {
+  font-weight: 700;
+  color: #7fd1a4;
+}
+.acc-match-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #cfd4dd;
+}
+.acc-match-dash {
+  margin: 0 3px;
+  color: #8b93a7;
+}
+
 @media (max-width: 720px) {
   .acc-layout {
     grid-template-columns: 1fr;

@@ -10,6 +10,15 @@ once a first tagged release ships.
 
 ### Added
 
+- **The reports list shows who played and filters by day.** Each row now reads
+  the two teams and the set score (e.g. "Lions **3–1** Bears") with the winner
+  highlighted, instead of a bare "Team 1" winner number. A new **Filter by day**
+  control opens a self-contained month calendar that dots the days with
+  archived matches; picking one narrows the list to that day (with an *All days*
+  reset). No date library and no browser-native picker — it looks the same
+  everywhere and shows at a glance which days had matches. Team names ride along
+  in the `/matches` summary so the list needs no extra per-match fetch.
+
 - **Reports are reachable from the control board's Share dialog.** The signed-in
   owner gets an **All reports** link (deep-linked to this board's overlay); any
   viewer also sees the read-only **Latest match report** / **Match history**

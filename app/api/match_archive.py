@@ -62,6 +62,11 @@ def _summary(r: MatchReport) -> dict:
     fs = r.final_state or {}
     t1 = fs.get("team_1", {}) or {}
     t2 = fs.get("team_2", {}) or {}
+    # Team names live in the captured customization (same keys the overlay
+    # uses); surface them so the reports list can show who played without a
+    # second per-match fetch. ``None`` when unnamed — the UI falls back to
+    # "Team 1" / "Team 2".
+    cust = r.customization or {}
     return {
         "match_id": r.match_id,
         "oid": make_skey(r.user_id, r.oid),
@@ -70,6 +75,8 @@ def _summary(r: MatchReport) -> dict:
         "winning_team": r.winning_team,
         "team_1_sets": t1.get("sets"),
         "team_2_sets": t2.get("sets"),
+        "team_1_name": (cust.get("Team 1 Name") or None),
+        "team_2_name": (cust.get("Team 2 Name") or None),
         "current_set": fs.get("current_set"),
     }
 
