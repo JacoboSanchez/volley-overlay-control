@@ -142,15 +142,15 @@ class SetSummaryStyleRequest(BaseModel):
 class SetRulesRequest(BaseModel):
     """Body for ``POST /api/v1/session/rules``.
 
-    All fields are optional. ``mode`` switches between ``"indoor"``
-    and ``"beach"``; ``reset_to_defaults`` replaces every limit with
-    the canonical preset for the resulting mode (per-field overrides
-    in the same call still win).
+    All fields are optional. ``mode`` switches between ``"indoor"``,
+    ``"beach"`` and ``"table_tennis"``; ``reset_to_defaults`` replaces
+    every limit with the canonical preset for the resulting mode
+    (per-field overrides in the same call still win).
     """
-    mode: Literal["indoor", "beach"] | None = None
+    mode: Literal["indoor", "beach", "table_tennis"] | None = None
     points_limit: int | None = Field(default=None, ge=1, le=99)
     points_limit_last_set: int | None = Field(default=None, ge=1, le=99)
-    sets_limit: int | None = Field(default=None, ge=1, le=5)
+    sets_limit: int | None = Field(default=None, ge=1, le=7)
     reset_to_defaults: bool = False
 
 
@@ -252,6 +252,23 @@ class BeachSideSwitch(BaseModel):
     is_switch_pending: bool
 
 
+class ServeSwitch(BaseModel):
+    """Table-tennis serve-rotation indicator (only set when
+    mode='table_tennis').
+
+    The serve alternates every 2 points, then every point once both
+    players reach 10 (deuce). ``server`` is the team (1 or 2) currently
+    on serve; ``is_change_pending`` is true the moment a point handed
+    the serve over — so the control UI can flash a "serve changes now"
+    pill — and ``points_until_change`` counts down to the next handover.
+    """
+    server: int
+    points_in_set: int
+    next_change_at: int
+    points_until_change: int
+    is_change_pending: bool
+
+
 class MatchPointInfo(BaseModel):
     """Per-team flags signalling that the next point would close out the
     current set or the entire match.
@@ -276,6 +293,10 @@ class GameStateResponse(BaseModel):
     serve: str
     config: dict  # points_limit, sets_limit, mode, etc.
     beach_side_switch: BeachSideSwitch | None = None
+    # Table-tennis serve-rotation indicator (None for volleyball modes,
+    # where serve follows the rally winner). Drives the serve-change
+    # countdown chip in the control UI.
+    serve_switch: ServeSwitch | None = None
     match_point_info: MatchPointInfo | None = None
     # Display-side swap: the orientation every live view should render
     # right now (True = team 2 on the left), plus the auto-swap

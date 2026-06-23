@@ -1805,6 +1805,7 @@ export interface components {
             obs_clients: number;
             /** Serve */
             serve: string;
+            serve_switch?: components["schemas"]["ServeSwitch"] | null;
             /** Server Time */
             server_time?: number | null;
             /**
@@ -2045,6 +2046,29 @@ export interface components {
              */
             team: 1 | 2;
         };
+        /**
+         * ServeSwitch
+         * @description Table-tennis serve-rotation indicator (only set when
+         *     mode='table_tennis').
+         *
+         *     The serve alternates every 2 points, then every point once both
+         *     players reach 10 (deuce). ``server`` is the team (1 or 2) currently
+         *     on serve; ``is_change_pending`` is true the moment a point handed
+         *     the serve over — so the control UI can flash a "serve changes now"
+         *     pill — and ``points_until_change`` counts down to the next handover.
+         */
+        ServeSwitch: {
+            /** Is Change Pending */
+            is_change_pending: boolean;
+            /** Next Change At */
+            next_change_at: number;
+            /** Points In Set */
+            points_in_set: number;
+            /** Points Until Change */
+            points_until_change: number;
+            /** Server */
+            server: number;
+        };
         /** SetActiveRequest */
         SetActiveRequest: {
             /** Is Active */
@@ -2054,14 +2078,14 @@ export interface components {
          * SetRulesRequest
          * @description Body for ``POST /api/v1/session/rules``.
          *
-         *     All fields are optional. ``mode`` switches between ``"indoor"``
-         *     and ``"beach"``; ``reset_to_defaults`` replaces every limit with
-         *     the canonical preset for the resulting mode (per-field overrides
-         *     in the same call still win).
+         *     All fields are optional. ``mode`` switches between ``"indoor"``,
+         *     ``"beach"`` and ``"table_tennis"``; ``reset_to_defaults`` replaces
+         *     every limit with the canonical preset for the resulting mode
+         *     (per-field overrides in the same call still win).
          */
         SetRulesRequest: {
             /** Mode */
-            mode?: ("indoor" | "beach") | null;
+            mode?: ("indoor" | "beach" | "table_tennis") | null;
             /** Points Limit */
             points_limit?: number | null;
             /** Points Limit Last Set */

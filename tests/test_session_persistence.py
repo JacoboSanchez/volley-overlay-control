@@ -95,6 +95,7 @@ class TestGameSessionMeta:
             "match_started_at": session.match_started_at,
             "match_finished_at": session.match_finished_at,
             "mode": session.mode,
+            "first_server": session.first_server,
         }
 
     def test_apply_meta_restores_fields(self, mock_conf):

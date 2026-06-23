@@ -93,6 +93,12 @@ class GameSession:
         # session_meta. Drives the beach side-switch indicator and the
         # "reset to defaults" affordance in the new MatchRulesSection.
         self.mode: str = "indoor"
+        # Team (1 or 2) that serves first in game 1 of a table-tennis
+        # match. The live server is derived from this, the score and the
+        # game index (see ``match_rules.table_tennis_server``); it
+        # alternates each game. Unused by volleyball modes (serve there
+        # follows the rally winner). Persisted in session_meta.
+        self.first_server: int = 1
         # Cached count of undoable forward records in the audit log.
         # Updated by GameService._audit on every undoable mutation so
         # ``get_state`` can answer ``can_undo`` in O(1) without re-reading
@@ -194,6 +200,7 @@ class GameSession:
                 if self.match_finished_at is not None else None
             ),
             "mode": str(self.mode),
+            "first_server": int(self.first_server),
         }
 
     def apply_meta(self, meta: dict) -> None:
@@ -228,26 +235,29 @@ class GameSession:
                     "Ignoring invalid %s=%r in persisted meta for OID=%s",
                     key, value, self.oid,
                 )
-        if "match_started_at" in meta:
-            raw = meta["match_started_at"]
-            if raw is None:
-                self.match_started_at = None
-            else:
-                try:
-                    self.match_started_at = float(raw)
-                except (TypeError, ValueError):
-                    pass
-        if "match_finished_at" in meta:
-            raw = meta["match_finished_at"]
-            if raw is None:
-                self.match_finished_at = None
-            else:
-                try:
-                    self.match_finished_at = float(raw)
-                except (TypeError, ValueError):
-                    pass
+        self._restore_optional_float(meta, "match_started_at")
+        self._restore_optional_float(meta, "match_finished_at")
         if "mode" in meta and is_valid_mode(meta["mode"]):
             self.mode = meta["mode"]
+        if meta.get("first_server") in (1, 2):
+            self.first_server = int(meta["first_server"])
+
+    def _restore_optional_float(self, meta: dict, key: str) -> None:
+        """Restore an optional ``float | None`` attribute from *meta*.
+
+        Missing key → left untouched. Explicit ``None`` → cleared.
+        Malformed value → ignored (keeps the constructor default).
+        """
+        if key not in meta:
+            return
+        raw = meta[key]
+        if raw is None:
+            setattr(self, key, None)
+            return
+        try:
+            setattr(self, key, float(raw))
+        except (TypeError, ValueError):
+            pass
 
     def persist_meta(self) -> None:
         """Best-effort save of :meth:`to_meta_dict` to disk."""

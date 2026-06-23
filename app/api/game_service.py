@@ -7,9 +7,12 @@ from app.api import game_broadcast as _broadcast
 from app.api import game_rapid_pair as _rapid_pair
 from app.api.match_rules import (
     compute_match_point_info,
+    compute_serve_switch,
     compute_side_switch,
     defaults_for,
     is_valid_mode,
+    table_tennis_first_server_for,
+    table_tennis_server,
 )
 from app.api.schemas import (
     ALLOWED_CUSTOMIZATION_KEYS,
@@ -20,6 +23,7 @@ from app.api.schemas import (
     BeachSideSwitch,
     GameStateResponse,
     MatchPointInfo,
+    ServeSwitch,
     TeamState,
     is_safe_logo_url,
 )
@@ -90,9 +94,42 @@ class GameService:
             return None
 
     @staticmethod
+    def _sync_table_tennis_serve(session) -> None:
+        """Recompute the live serve for a table-tennis session.
+
+        Volleyball serve follows the rally winner (handled in
+        ``GameManager.add_game``); table tennis rotates the serve on a
+        fixed cadence that depends only on the score, the game index and
+        the match's ``first_server``. We recompute it here — the single
+        choke point every action runs through before broadcasting — so
+        the API state *and* the OBS overlay (which reads serve straight
+        off the persisted model) both track the rotation, and an undo
+        rewinds it for free. No-op once the match is finished so the
+        final server sticks.
+        """
+        if session.mode != "table_tennis":
+            return
+        if session.game_manager.match_finished(session.sets_limit):
+            return
+        state = session.game_manager.get_current_state()
+        server = table_tennis_server(
+            first_server=session.first_server,
+            current_set=session.current_set,
+            sets_limit=session.sets_limit,
+            team1_score=state.get_game(1, session.current_set),
+            team2_score=state.get_game(2, session.current_set),
+            points_limit=session.points_limit,
+            points_limit_last_set=session.points_limit_last_set,
+        )
+        desired = State.SERVE_1 if server == 1 else State.SERVE_2
+        if state.get_current_serve() != desired:
+            state.set_current_serve(desired)
+
+    @staticmethod
     def get_state(session) -> GameStateResponse:
         """Build a ``GameStateResponse`` from the current session state."""
         t0 = time.perf_counter()
+        GameService._sync_table_tennis_serve(session)
         state = session.game_manager.get_current_state()
         serve = state.get_current_serve()
 
@@ -128,6 +165,20 @@ class GameService:
         )
         side_switch = (
             BeachSideSwitch(**side_switch_data) if side_switch_data is not None
+            else None
+        )
+        serve_switch_data = compute_serve_switch(
+            mode=session.mode,
+            current_set=session.current_set,
+            sets_limit=session.sets_limit,
+            first_server=session.first_server,
+            team1_score=team1_score,
+            team2_score=team2_score,
+            points_limit=session.points_limit,
+            points_limit_last_set=session.points_limit_last_set,
+        )
+        serve_switch = (
+            ServeSwitch(**serve_switch_data) if serve_switch_data is not None
             else None
         )
         match_finished = session.game_manager.match_finished(session.sets_limit)
@@ -173,6 +224,7 @@ class GameService:
                 "sets_limit": session.sets_limit,
             },
             beach_side_switch=side_switch,
+            serve_switch=serve_switch,
             match_point_info=match_point_info,
             sides_swapped=GameService.effective_sides_swapped(session, state),
             auto_swap_sides=bool(session.auto_swap_sides),
@@ -550,6 +602,19 @@ class GameService:
             if blocked is not None:
                 return blocked
 
+        # Table tennis allows a single timeout per team for the *whole*
+        # match (volleyball is 2 per set, enforced in GameManager). Since
+        # timeouts are stored per-set, sum across sets to enforce the
+        # per-match cap before the forward add lands.
+        if not undo and session.mode == "table_tennis":
+            state = session.game_manager.get_current_state()
+            taken = sum(state.get_timeouts_by_set(team).values())
+            if taken >= 1:
+                return ActionResponse(
+                    success=True, state=GameService.get_state(session),
+                    message="Timeout limit reached for this match.",
+                )
+
         GameService._invalidate_rapid_pair_cache(session)
         popped = (
             action_log.pop_last_forward(
@@ -580,7 +645,24 @@ class GameService:
     def change_serve(session, team: int) -> ActionResponse:
         GameService._invalidate_rapid_pair_cache(session)
         serve_before = session.game_manager.get_current_state().get_current_serve()
-        session.game_manager.change_serve(team)
+        if session.mode == "table_tennis":
+            # Serve is automatic in table tennis — the toggle instead
+            # re-bases who serves first so the clicked team is on serve
+            # *now* and the rotation stays consistent from here. ``get_state``
+            # then derives and writes the live serve via _sync.
+            state = session.game_manager.get_current_state()
+            session.first_server = table_tennis_first_server_for(
+                desired_server=team,
+                current_set=session.current_set,
+                sets_limit=session.sets_limit,
+                team1_score=state.get_game(1, session.current_set),
+                team2_score=state.get_game(2, session.current_set),
+                points_limit=session.points_limit,
+                points_limit_last_set=session.points_limit_last_set,
+            )
+            session.persist_meta()
+        else:
+            session.game_manager.change_serve(team)
         state_response = GameService.get_state(session)
         GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "change_serve", {"team": team})
@@ -742,9 +824,9 @@ class GameService:
             session.points_limit_last_set = max(1, int(points_limit_last_set))
         if sets_limit is not None:
             cleaned = max(1, int(sets_limit))
-            # Whilst the rules allow odd numbers in general, the rest of
-            # the codebase (State, get_game) hard-codes 1..5. Clamp.
-            session.sets_limit = min(cleaned, 5)
+            # The per-set arrays in State are 1-indexed up to MAX_SETS (7),
+            # so a best-of-7 table-tennis match is the upper bound. Clamp.
+            session.sets_limit = min(cleaned, 7)
 
         # A smaller sets_limit may invalidate the current set.
         session.current_set = session._compute_current_set()

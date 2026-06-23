@@ -205,7 +205,7 @@ class Backend:
                         f'Team {team} Game {i} Score', 0
                     )
                 )
-                for i in range(1, 6)
+                for i in range(1, 8)
             }
 
         current_set = int(
