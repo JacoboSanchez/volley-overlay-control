@@ -19,8 +19,28 @@ From the repository root:
 # Build the frontend once.
 (cd frontend && npm ci && npm run build)
 
-# Capture (installs Playwright + Chromium on first run).
+# Capture. Reuses a pre-installed Chromium when one is available.
 bash scripts/screenshots/run.sh
+```
+
+### Chromium binary
+
+`run.sh` resolves a Chromium for Playwright in this order:
+
+1. `SCREENSHOT_CHROMIUM_PATH`, if it points at an executable.
+2. A pre-installed Playwright browser under `PLAYWRIGHT_BROWSERS_PATH`,
+   `/opt/pw-browsers`, or `~/.cache/ms-playwright` (the highest `chromium-*`
+   build, or a `chromium_headless_shell-*` as a fallback). Managed/CI images
+   commonly ship these.
+3. Only if none is found does it run `npx playwright install chromium`.
+
+This avoids depending on the version-pinned download from `cdn.playwright.dev`,
+which restricted networks block. If you hit that block, point
+`SCREENSHOT_CHROMIUM_PATH` at any Chromium binary, e.g.:
+
+```bash
+SCREENSHOT_CHROMIUM_PATH=/opt/pw-browsers/chromium-*/chrome-linux/chrome \
+  bash scripts/screenshots/run.sh
 ```
 
 Output PNGs are written to `docs/screenshots/`. The orchestrator:

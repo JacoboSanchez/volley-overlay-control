@@ -105,10 +105,44 @@ if [ -n "$NEWEST_SRC" ] && [ "${NEWEST_SRC%.*}" -gt "$DIST_TIME" ]; then
     || { tail -n 40 /tmp/volley-screenshots-build.log >&2; exit 1; }
 fi
 
+# Ensure the Playwright JS package is present (this is just the npm library —
+# no browser binary is downloaded here).
 if [ ! -d "$SCRIPT_DIR/node_modules/playwright" ]; then
-  echo "Installing Playwright into scripts/screenshots/ ..."
+  echo "Installing Playwright (JS) into scripts/screenshots/ ..."
   (cd "$SCRIPT_DIR" && npm install --no-audit --no-fund)
-  (cd "$SCRIPT_DIR" && npx playwright install chromium)
+fi
+
+# Locate a Chromium binary for capture.mjs (which honours
+# ``SCREENSHOT_CHROMIUM_PATH``). Prefer an explicit override, then any
+# pre-installed Playwright browser — managed/CI images commonly ship these
+# under /opt/pw-browsers or PLAYWRIGHT_BROWSERS_PATH — so we don't depend on
+# the version-pinned download from cdn.playwright.dev, which restricted
+# networks block. Only fall back to that download when nothing is found.
+find_chromium() {
+  if [ -n "${SCREENSHOT_CHROMIUM_PATH:-}" ] && [ -x "${SCREENSHOT_CHROMIUM_PATH}" ]; then
+    printf '%s' "$SCREENSHOT_CHROMIUM_PATH"; return 0
+  fi
+  local root bin
+  for root in "${PLAYWRIGHT_BROWSERS_PATH:-}" /opt/pw-browsers "$HOME/.cache/ms-playwright"; do
+    [ -n "$root" ] && [ -d "$root" ] || continue
+    bin=$(ls -1 "$root"/chromium-*/chrome-linux/chrome 2>/dev/null | sort -V | tail -1)
+    [ -n "$bin" ] || bin=$(ls -1 "$root"/chromium_headless_shell-*/chrome-linux/headless_shell 2>/dev/null | sort -V | tail -1)
+    if [ -n "$bin" ] && [ -x "$bin" ]; then printf '%s' "$bin"; return 0; fi
+  done
+  return 1
+}
+
+if CHROMIUM_BIN="$(find_chromium)"; then
+  export SCREENSHOT_CHROMIUM_PATH="$CHROMIUM_BIN"
+  echo "Using pre-installed Chromium: $SCREENSHOT_CHROMIUM_PATH"
+else
+  echo "No pre-installed Chromium found — attempting Playwright download ..."
+  if ! (cd "$SCRIPT_DIR" && npx playwright install chromium); then
+    echo "ERROR: no Chromium available. Set SCREENSHOT_CHROMIUM_PATH to a" >&2
+    echo "Chromium binary, or install one (the cdn.playwright.dev download is" >&2
+    echo "blocked on this network)." >&2
+    exit 1
+  fi
 fi
 
 echo "Starting backend on $BASE_URL (using $PYTHON_BIN) ..."

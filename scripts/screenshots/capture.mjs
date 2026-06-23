@@ -507,7 +507,13 @@ async function main() {
   await seedFinishedMatchForReport();
   const reportMatchId = await fetchLatestMatchId();
 
-  const launchOpts = { headless: true };
+  const launchOpts = {
+    headless: true,
+    // ``--no-sandbox`` so a root/container run (common in CI and managed
+    // images) doesn't abort; ``--disable-dev-shm-usage`` avoids crashes from a
+    // small /dev/shm in containers.
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  };
   if (process.env.SCREENSHOT_CHROMIUM_PATH) {
     launchOpts.executablePath = process.env.SCREENSHOT_CHROMIUM_PATH;
   }
