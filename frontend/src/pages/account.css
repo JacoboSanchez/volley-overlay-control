@@ -610,6 +610,12 @@
   .acc-table.acc-checklist td .acc-btn {
     margin: 0;
   }
+  /* Keep the "custom" pill intact (never break it to "custo / m") and let it
+     sit at its natural size next to the name. */
+  .acc-table.acc-checklist .acc-pill {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
   /* The expanded custom-team editor spans the full row width. */
   .acc-table.acc-checklist td[colspan] {
     flex: 1 1 100%;
