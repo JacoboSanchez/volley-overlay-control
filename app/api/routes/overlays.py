@@ -33,25 +33,16 @@ class OverlayOut(BaseModel):
     control_url: str | None = Field(None, description="Ready-made shareable control-board link")
     public_control: bool = Field(False, description="Allow no-login control via the username+oid URL")
     public_control_url: str | None = Field(None, description="Stable username+oid bookmark link (when enabled)")
-    points: int | None = Field(None, description="Default points per set")
-    points_last_set: int | None = Field(None, description="Default points in the deciding set")
-    sets: int | None = Field(None, description="Default sets in the match (best-of)")
 
 
 class CreateOverlayRequest(BaseModel):
     oid: str = Field(..., min_length=1, max_length=64)
     display_name: str | None = Field(None, max_length=120)
-    points: int | None = Field(None, ge=1, le=99)
-    points_last_set: int | None = Field(None, ge=1, le=99)
-    sets: int | None = Field(None, ge=1, le=15)
 
 
 class UpdateOverlayRequest(BaseModel):
     display_name: str | None = Field(None, max_length=120)
     public_control: bool | None = Field(None, description="Toggle no-login username+oid control")
-    points: int | None = Field(None, ge=1, le=99)
-    points_last_set: int | None = Field(None, ge=1, le=99)
-    sets: int | None = Field(None, ge=1, le=15)
 
 
 def _overlay_out(request: Request, overlay, *, username: str | None = None) -> OverlayOut:
@@ -74,9 +65,6 @@ def _overlay_out(request: Request, overlay, *, username: str | None = None) -> O
         control_url=control_url,
         public_control=overlay.public_control,
         public_control_url=public_control_url,
-        points=overlay.points,
-        points_last_set=overlay.points_last_set,
-        sets=overlay.sets,
     )
 
 
@@ -105,7 +93,6 @@ async def create_my_overlay(
         overlay = overlays_service.create_overlay(
             db, user.id, body.oid,
             display_name=body.display_name,
-            points=body.points, points_last_set=body.points_last_set, sets=body.sets,
         )
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

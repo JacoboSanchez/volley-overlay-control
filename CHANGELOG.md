@@ -105,6 +105,18 @@ once a first tagged release ships.
 
 ### Removed
 
+- **Per-overlay default match rules (format / points / last-set points).** These
+  duplicated what the live control board already configures via its
+  customization panel (`POST /session/rules`), so they were redundant. Removed
+  the **Format / Points / Last-set** controls from the "My overlays" create and
+  edit forms (and the Format column), the `points` / `points_last_set` / `sets`
+  columns on `user_overlays` (migration `0006`), those fields from the overlay
+  API (`CreateOverlayRequest` / `UpdateOverlayRequest` / `OverlayOut`), and the
+  override that applied them at `/session/init`. A fresh board session now
+  starts from the env defaults (`MATCH_SETS`, `MATCH_GAME_POINTS`,
+  `MATCH_GAME_POINTS_LAST_SET`) and the operator sets the format on the board,
+  where it already persists in the session.
+
 - **overlays.uno cloud and external overlay-server support — in-process only.**
   The project now serves **every** overlay with its built-in, in-process engine
   (`LocalOverlayBackend`). Removed: the `UnoOverlayBackend` (overlays.uno cloud

@@ -13,7 +13,6 @@ export default function OverlaysPage() {
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
   const [name, setName] = useState('');
-  const [sets, setSets] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
@@ -40,11 +39,9 @@ export default function OverlaysPage() {
       const created = oid.trim();
       await api.createOverlay(created, {
         display_name: name.trim() || null,
-        sets: sets ? Number(sets) : null,
       });
       setOid('');
       setName('');
-      setSets('');
       await load();
       toast(t('acc.overlays.toastCreated', { oid: created }));
     } catch (err) {
@@ -95,15 +92,6 @@ export default function OverlaysPage() {
           <span>{t('acc.overlays.field.displayName')}</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <label className="acc-field">
-          <span>{t('acc.overlays.field.format')}</span>
-          <select className="acc-input" value={sets} onChange={(e) => setSets(e.target.value)}>
-            <option value="">{t('acc.format.default')}</option>
-            <option value="3">{t('acc.format.bo3')}</option>
-            <option value="5">{t('acc.format.bo5')}</option>
-            <option value="1">{t('acc.format.single')}</option>
-          </select>
-        </label>
         <div className="acc-form-actions">
           <span className="acc-form-spacer" aria-hidden="true">&nbsp;</span>
           <button className="acc-btn" type="submit" disabled={!oid.trim()}>{t('acc.overlays.add')}</button>
@@ -121,7 +109,7 @@ export default function OverlaysPage() {
             <tr>
               <th scope="col">{t('acc.overlays.colOverlay')}</th>
               <th scope="col">{t('acc.overlays.colOutputUrl')}</th>
-              <th scope="col">{t('acc.overlays.colFormat')}</th><th scope="col"></th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody>
@@ -144,15 +132,6 @@ export default function OverlaysPage() {
   );
 }
 
-function useFormatLabel(): (sets: number | null) => string {
-  const { t } = useI18n();
-  return (sets: number | null) => {
-    if (sets === 1) return t('acc.format.single');
-    if (sets) return t('acc.format.bestOf', { n: sets });
-    return t('acc.format.default');
-  };
-}
-
 function OverlayRow({
   o, editing, onEdit, onSaved, onDelete, onCopy, copied,
 }: {
@@ -165,7 +144,6 @@ function OverlayRow({
   copied: boolean;
 }) {
   const { t } = useI18n();
-  const formatLabel = useFormatLabel();
   return (
     <>
       <tr>
@@ -174,7 +152,6 @@ function OverlayRow({
           {o.display_name && <div className="acc-muted">{o.display_name}</div>}
         </td>
         <td><code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{o.output_url}</code></td>
-        <td className="acc-muted">{formatLabel(o.sets)}</td>
         <td style={{ whiteSpace: 'nowrap' }}>
           <a className="acc-btn" href={`/board?oid=${encodeURIComponent(o.oid)}`}>{t('acc.common.open')}</a>{' '}
           <button className="acc-btn ghost" onClick={onCopy}>{copied ? t('acc.common.copied') : t('acc.common.copyUrl')}</button>{' '}
@@ -184,7 +161,7 @@ function OverlayRow({
       </tr>
       {editing && (
         <tr>
-          <td colSpan={4}><OverlayEditor o={o} onSaved={onSaved} /></td>
+          <td colSpan={3}><OverlayEditor o={o} onSaved={onSaved} /></td>
         </tr>
       )}
     </>
@@ -195,18 +172,10 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
   const { t } = useI18n();
   const { toast } = useToast();
   const [name, setName] = useState(o.display_name || '');
-  const [sets, setSets] = useState(o.sets ? String(o.sets) : '');
-  const [points, setPoints] = useState(o.points ? String(o.points) : '');
-  const [lastSet, setLastSet] = useState(o.points_last_set ? String(o.points_last_set) : '');
 
   async function save() {
     try {
-      await api.updateOverlay(o.oid, {
-        display_name: name.trim() || null,
-        sets: sets ? Number(sets) : null,
-        points: points ? Number(points) : null,
-        points_last_set: lastSet ? Number(lastSet) : null,
-      });
+      await api.updateOverlay(o.oid, { display_name: name.trim() || null });
       onSaved();
       toast(t('acc.overlays.toastSaved'));
     } catch (err) {
@@ -220,25 +189,6 @@ function OverlayEditor({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => v
         <label className="acc-field" style={{ marginBottom: 0 }}>
           <span>{t('acc.overlays.editDisplayName')}</span>
           <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label className="acc-field" style={{ marginBottom: 0 }}>
-          <span>{t('acc.overlays.field.format')}</span>
-          <select className="acc-input" value={sets} onChange={(e) => setSets(e.target.value)}>
-            <option value="">{t('acc.format.default')}</option>
-            <option value="1">{t('acc.format.single')}</option>
-            <option value="3">{t('acc.format.bo3')}</option>
-            <option value="5">{t('acc.format.bo5')}</option>
-          </select>
-        </label>
-        <label className="acc-field" style={{ marginBottom: 0, maxWidth: 110 }}>
-          <span>{t('acc.overlays.editPoints')}</span>
-          <input className="acc-input" type="number" value={points} placeholder="25"
-            onChange={(e) => setPoints(e.target.value)} />
-        </label>
-        <label className="acc-field" style={{ marginBottom: 0, maxWidth: 130 }}>
-          <span>{t('acc.overlays.editLastSet')}</span>
-          <input className="acc-input" type="number" value={lastSet} placeholder="15"
-            onChange={(e) => setLastSet(e.target.value)} />
         </label>
       </div>
       <button className="acc-btn" onClick={save}>{t('acc.overlays.editSave')}</button>

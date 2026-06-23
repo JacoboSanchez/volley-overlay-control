@@ -43,17 +43,11 @@ export interface OverlayPayload {
   control_url: string | null;
   public_control: boolean;
   public_control_url: string | null;
-  points: number | null;
-  points_last_set: number | null;
-  sets: number | null;
 }
 
 export interface OverlaySettings {
   display_name?: string | null;
   public_control?: boolean;
-  points?: number | null;
-  points_last_set?: number | null;
-  sets?: number | null;
 }
 export type TeamState = Schemas['TeamState'];
 

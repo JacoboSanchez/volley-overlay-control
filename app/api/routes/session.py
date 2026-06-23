@@ -95,15 +95,10 @@ async def init_session(
     conf.user_id = overlay.user_id
     conf.skey = skey
     conf.public_token = overlay.public_token
-    # Per-overlay default match rules replace the env defaults for a fresh
-    # session; the request still wins, and once the board edits the rules they
-    # persist in the session meta and win on subsequent inits.
-    if overlay.points is not None:
-        conf.points = overlay.points
-    if overlay.points_last_set is not None:
-        conf.points_last_set = overlay.points_last_set
-    if overlay.sets is not None:
-        conf.sets = overlay.sets
+    # A fresh session starts from the env-default match rules; the request can
+    # still override them, and once the board edits the rules (via
+    # POST /session/rules) they persist in the session meta and win on
+    # subsequent inits.
     if req.points_limit is not None:
         conf.points = req.points_limit
     if req.points_limit_last_set is not None:

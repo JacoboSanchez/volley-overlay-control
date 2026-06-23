@@ -86,18 +86,16 @@ def test_create_and_update_overlay_settings(db_session):
     db_session.flush()
     o = overlays_service.create_overlay(
         db_session, a.id, "liga",
-        display_name="Liga", sets=3, points=21,
+        display_name="Liga",
     )
     db_session.commit()
     assert o.display_name == "Liga"
-    assert o.sets == 3 and o.points == 21
 
-    # Partial update: only sets changes; display_name/points untouched.
-    overlays_service.update_overlay(db_session, a.id, "liga", sets=5)
+    # Partial update: toggling public_control leaves display_name untouched.
+    overlays_service.update_overlay(db_session, a.id, "liga", public_control=True)
     db_session.commit()
     refreshed = overlays_service.get_overlay(db_session, a.id, "liga")
-    assert refreshed.sets == 5
-    assert refreshed.points == 21
+    assert refreshed.public_control is True
     assert refreshed.display_name == "Liga"
 
     # Clearing a field with an empty string nulls it.

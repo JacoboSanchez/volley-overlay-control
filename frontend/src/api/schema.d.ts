@@ -1739,12 +1739,6 @@ export interface components {
             display_name?: string | null;
             /** Oid */
             oid: string;
-            /** Points */
-            points?: number | null;
-            /** Points Last Set */
-            points_last_set?: number | null;
-            /** Sets */
-            sets?: number | null;
         };
         /** CustomTeamRequest */
         CustomTeamRequest: {
@@ -1943,16 +1937,6 @@ export interface components {
              */
             output_url: string;
             /**
-             * Points
-             * @description Default points per set
-             */
-            points?: number | null;
-            /**
-             * Points Last Set
-             * @description Default points in the deciding set
-             */
-            points_last_set?: number | null;
-            /**
              * Public Control
              * @description Allow no-login control via the username+oid URL
              * @default false
@@ -1968,11 +1952,6 @@ export interface components {
              * @description Public overlay-output capability token
              */
             public_token: string;
-            /**
-             * Sets
-             * @description Default sets in the match (best-of)
-             */
-            sets?: number | null;
         };
         /** PresetCreateRequest */
         PresetCreateRequest: {
@@ -2191,17 +2170,11 @@ export interface components {
         UpdateOverlayRequest: {
             /** Display Name */
             display_name?: string | null;
-            /** Points */
-            points?: number | null;
-            /** Points Last Set */
-            points_last_set?: number | null;
             /**
              * Public Control
              * @description Toggle no-login username+oid control
              */
             public_control?: boolean | null;
-            /** Sets */
-            sets?: number | null;
         };
         /** UpdateProfileRequest */
         UpdateProfileRequest: {

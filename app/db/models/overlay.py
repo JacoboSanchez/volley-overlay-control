@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -47,13 +47,6 @@ class UserOverlay(Base, TimestampMixin):
         Boolean, default=False, nullable=False, server_default="0",
     )
     display_name: Mapped[str | None] = mapped_column(String(120))
-    # Optional per-overlay default match rules applied at session creation, so
-    # an overlay's format (best-of-3 vs 5, points) can be configured without
-    # opening the board. ``None`` falls back to the env defaults; once the
-    # board edits the rules they persist in the session meta and win.
-    points: Mapped[int | None] = mapped_column(Integer)
-    points_last_set: Mapped[int | None] = mapped_column(Integer)
-    sets: Mapped[int | None] = mapped_column(Integer)
 
     meta: Mapped[OverlaySessionMeta | None] = relationship(
         back_populates="overlay", cascade="all, delete-orphan",

@@ -629,45 +629,6 @@
             "minLength": 1,
             "title": "Oid",
             "type": "string"
-          },
-          "points": {
-            "anyOf": [
-              {
-                "maximum": 99.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Points"
-          },
-          "points_last_set": {
-            "anyOf": [
-              {
-                "maximum": 99.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Points Last Set"
-          },
-          "sets": {
-            "anyOf": [
-              {
-                "maximum": 15.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sets"
           }
         },
         "required": [
@@ -1180,30 +1141,6 @@
             "title": "Output Url",
             "type": "string"
           },
-          "points": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Default points per set",
-            "title": "Points"
-          },
-          "points_last_set": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Default points in the deciding set",
-            "title": "Points Last Set"
-          },
           "public_control": {
             "default": false,
             "description": "Allow no-login control via the username+oid URL",
@@ -1226,18 +1163,6 @@
             "description": "Public overlay-output capability token",
             "title": "Public Token",
             "type": "string"
-          },
-          "sets": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Default sets in the match (best-of)",
-            "title": "Sets"
           }
         },
         "required": [
@@ -1789,32 +1714,6 @@
             ],
             "title": "Display Name"
           },
-          "points": {
-            "anyOf": [
-              {
-                "maximum": 99.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Points"
-          },
-          "points_last_set": {
-            "anyOf": [
-              {
-                "maximum": 99.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Points Last Set"
-          },
           "public_control": {
             "anyOf": [
               {
@@ -1826,19 +1725,6 @@
             ],
             "description": "Toggle no-login username+oid control",
             "title": "Public Control"
-          },
-          "sets": {
-            "anyOf": [
-              {
-                "maximum": 15.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sets"
           }
         },
         "title": "UpdateOverlayRequest",
