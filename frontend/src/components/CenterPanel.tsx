@@ -8,6 +8,7 @@ import PointsHistoryStrip from './PointsHistoryStrip';
 import SetSummaryActiveNotice from './SetSummaryActiveNotice';
 import type { SetSummaryStyle } from '../api/client';
 import SideSwitchIndicator from './SideSwitchIndicator';
+import ServeSwitchIndicator from './ServeSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
@@ -208,6 +209,9 @@ function CenterPanel({
             info={state.beach_side_switch}
             forcePending={indoorMidpointPending}
           />
+        )}
+        {!state.match_finished && (
+          <ServeSwitchIndicator info={state.serve_switch} />
         )}
       </div>
 
