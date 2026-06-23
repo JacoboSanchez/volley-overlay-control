@@ -147,9 +147,12 @@ def test_board_manifest_points_start_url_at_the_board():
     assert out["id"] == "/board?u=alex&oid=liga"
     assert out["scope"] == "/"
     assert out["short_name"] == "liga"
+    # Boards carry their own icon set, distinct from the base app's.
+    assert out["icons"][0]["src"] == "icon-board.svg"
+    assert all("icon-board" in icon["src"] for icon in out["icons"])
     # Shared/cached base dict is not mutated.
     assert base["start_url"] == "/"
-    assert out["icons"] == ["x"]
+    assert base["icons"] == ["x"]
 
 
 def test_board_manifest_token_regex_rejects_unsafe_values():
@@ -182,6 +185,7 @@ def test_manifest_route_serves_per_board_variant(tmp_path, monkeypatch):
         ).json()
         assert board["start_url"] == "/board?u=alex&oid=liga"
         assert board["id"] == "/board?u=alex&oid=liga"
+        assert board["icons"][0]["src"] == "icon-board.svg"
 
         # Unsafe params are ignored — falls back to the app-wide manifest.
         bad = client.get(

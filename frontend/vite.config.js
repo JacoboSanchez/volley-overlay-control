@@ -51,7 +51,7 @@ export default defineConfig(async () => ({
     ...(await maybeCompression()),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['fonts/**/*', 'icon.svg'],
+      includeAssets: ['fonts/**/*', 'icon.svg', 'icon-board.svg'],
       manifest: {
         name: 'Volley Scoreboard',
         short_name: 'Volley',

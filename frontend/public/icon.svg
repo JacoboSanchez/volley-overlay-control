@@ -1,37 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Volley Scoreboard">
   <defs>
-    <linearGradient id="vbg" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="sbg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#2b2f57"/>
       <stop offset="1" stop-color="#15162b"/>
     </linearGradient>
-    <linearGradient id="vball" x1="0.2" y1="0.1" x2="0.85" y2="0.95">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#dde3f1"/>
-    </linearGradient>
-    <linearGradient id="vseam" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="sLeft" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ff8a5b"/>
       <stop offset="1" stop-color="#ff3d6e"/>
     </linearGradient>
-    <radialGradient id="vshine" cx="0.36" cy="0.30" r="0.55">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
-      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <clipPath id="vclip"><circle cx="256" cy="256" r="176"/></clipPath>
+    <linearGradient id="sRight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5ad1e6"/>
+      <stop offset="1" stop-color="#3a8dff"/>
+    </linearGradient>
+    <filter id="sshadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
   </defs>
 
   <!-- Full-bleed background: maskable launchers crop the corners. -->
-  <rect width="512" height="512" fill="url(#vbg)"/>
+  <rect width="512" height="512" fill="url(#sbg)"/>
 
-  <!-- Ball (kept inside the maskable safe zone, centred). -->
-  <circle cx="256" cy="256" r="176" fill="url(#vball)"/>
+  <!-- Scoreboard panel (kept within the maskable safe zone, centred). -->
+  <g filter="url(#sshadow)">
+    <rect x="86" y="168" width="340" height="176" rx="30" fill="#232a52"/>
+    <!-- Header strip with two team dots. -->
+    <path d="M116 168 h280 a30 30 0 0 1 30 30 v8 H86 v-8 a30 30 0 0 1 30 -30 z"
+          fill="#2c3568"/>
+    <circle cx="150" cy="188" r="9" fill="#ff5d73"/>
+    <circle cx="362" cy="188" r="9" fill="#43b6e8"/>
 
-  <!-- Bold stylised volleyball seams, clipped to the ball. -->
-  <g clip-path="url(#vclip)" fill="none" stroke="url(#vseam)" stroke-width="24" stroke-linecap="round">
-    <path d="M196 92 C250 220 248 300 156 424"/>
-    <path d="M368 132 C250 232 300 326 320 436"/>
-    <path d="M72 300 C220 300 300 366 452 252"/>
+    <!-- Two score windows. -->
+    <rect x="116" y="224" width="120" height="92" rx="16" fill="url(#sLeft)"/>
+    <rect x="276" y="224" width="120" height="92" rx="16" fill="url(#sRight)"/>
+    <!-- Subtle gloss on each window. -->
+    <rect x="116" y="224" width="120" height="42" rx="16" fill="#ffffff" opacity="0.16"/>
+    <rect x="276" y="224" width="120" height="42" rx="16" fill="#ffffff" opacity="0.16"/>
+
+    <!-- Colon divider. -->
+    <circle cx="256" cy="252" r="9" fill="#ffffff" opacity="0.92"/>
+    <circle cx="256" cy="288" r="9" fill="#ffffff" opacity="0.92"/>
   </g>
-
-  <!-- Glossy highlight. -->
-  <circle cx="256" cy="256" r="176" fill="url(#vshine)"/>
 </svg>

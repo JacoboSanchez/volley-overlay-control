@@ -71,15 +71,22 @@ once a first tagged release ships.
 
 ### Changed
 
-- **New PWA / app icon.** Redrawn `frontend/public/icon.svg` as a bold, flat
-  volleyball (coral→pink seams on a navy background), centred within the
-  maskable safe zone — the old icon tucked a tiny score bar against the bottom
-  edge, which maskable launchers crop off. The SVG is now also the **maskable**
-  source. Because the environment has no SVG→PNG rasteriser, the raster
-  siblings (`icon-192x192.png`, `icon-512x512.png`, `apple-touch-icon.png` —
-  what Chrome/iOS use for the installed launcher) are regenerated separately
-  via the new `frontend/scripts/regenerate-icons.sh` (needs librsvg / Inkscape /
-  ImageMagick); until that runs they keep the previous artwork.
+- **New PWA icons — distinct base-app vs. board icon.** The base app
+  (`frontend/public/icon.svg`) is now a **scoreboard** mark (two coral / blue
+  score windows with a colon divider), and **boards** get their own
+  `icon-board.svg`: a flat **volleyball** whose seams are a three-fold "beach
+  ball" swirl rather than the previous basketball-style cross. The per-board
+  manifest (`/manifest.webmanifest?u=&oid=`) serves the board icon, so an
+  installed board looks different from the installed base app (one shared icon
+  across all boards). Both SVGs are drawn maskable-safe (key art centred in the
+  inner 80%) and act as their own maskable source. Because this environment has
+  no SVG→PNG rasteriser, the raster siblings (the PNGs Chrome/iOS use for the
+  installed launcher) are regenerated separately via
+  `frontend/scripts/regenerate-icons.sh` (needs librsvg / Inkscape /
+  ImageMagick); until that runs Chrome falls back to the SVG (a missing PNG is
+  skipped) and the base PNGs keep the previous artwork. iOS uses the base
+  apple-touch icon for boards too (manifest-based differentiation is
+  Chrome/Android/desktop).
 
 - **Overlay output is no longer described as "OBS"-specific.** OBS is one of
   several consumers of an overlay's output URL (vMix, a plain browser, etc.),
