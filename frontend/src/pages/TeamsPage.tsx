@@ -202,7 +202,11 @@ export default function TeamsPage() {
 
       <h3 className="acc-subhead">{t('acc.teams.catalog')}</h3>
       {addable.length === 0 ? (
-        loaded && <EmptyState>{t('acc.teams.emptyCatalog')}</EmptyState>
+        loaded && (
+          <EmptyState>
+            {catalog.length === 0 ? t('acc.teams.emptyCatalogNone') : t('acc.teams.emptyCatalog')}
+          </EmptyState>
+        )
       ) : (
         <>
           <div className="acc-row" style={{ marginBottom: 8, alignItems: 'center' }}>

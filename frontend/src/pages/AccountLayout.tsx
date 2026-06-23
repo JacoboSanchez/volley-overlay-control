@@ -49,10 +49,10 @@ export default function AccountLayout() {
 
   return (
     <div className="acc-shell">
-      {/* Mobile-only top bar: brand on the left, hamburger toggle on the right.
-          Hidden on desktop, where the sidebar nav is always visible. */}
+      {/* Mobile-only top bar: hamburger toggle on the left (next to where the
+          drawer slides in from), brand after it. Hidden on desktop, where the
+          sidebar nav is always visible. */}
       <header className="acc-topbar">
-        <div className="brand">🏐 {t('acc.brand')}</div>
         <button
           type="button"
           className={`acc-hamburger${menuOpen ? ' open' : ''}`}
@@ -65,6 +65,7 @@ export default function AccountLayout() {
             <span className="acc-hamburger-inner" />
           </span>
         </button>
+        <div className="brand">🏐 {t('acc.brand')}</div>
       </header>
 
       {/* Dim + close-on-tap backdrop behind the mobile drawer. */}

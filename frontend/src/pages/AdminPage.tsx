@@ -161,8 +161,8 @@ export default function AdminPage() {
                   {isSelf && <span className="acc-muted"> {t('acc.admin.you')}</span>}
                   {u.must_change_password && <span className="acc-pill" style={{ marginLeft: 6 }}>{t('acc.admin.mustChangePw')}</span>}
                 </td>
-                <td>{u.role}</td>
-                <td>{u.is_active ? t('acc.admin.yes') : t('acc.admin.no')}</td>
+                <td data-label={t('acc.admin.colRole')}>{u.role}</td>
+                <td data-label={t('acc.admin.colActive')}>{u.is_active ? t('acc.admin.yes') : t('acc.admin.no')}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <button className="acc-btn ghost" onClick={() => resetPw(u)}>{t('acc.admin.resetPw')}</button>{' '}
                   <button className="acc-btn ghost" onClick={() => toggleActive(u)}

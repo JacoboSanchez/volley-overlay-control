@@ -69,8 +69,8 @@ export default function PresetsPage() {
             {items.map((p) => (
               <tr key={`${p.source}:${p.slug}`}>
                 <td>{p.name}</td>
-                <td><span className="acc-pill">{p.source}</span></td>
-                <td className="acc-muted">{p.categories.join(', ')}</td>
+                <td data-label={t('acc.presets.colScope')}><span className="acc-pill">{p.source}</span></td>
+                <td className="acc-muted" data-label={t('acc.presets.colCovers')}>{p.categories.join(', ')}</td>
                 <td>
                   {p.source === 'user' ? (
                     <button className="acc-btn danger" onClick={() => onDelete(p)}>{t('acc.common.delete')}</button>
@@ -153,12 +153,12 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
             {globals.map((p) => (
               <tr key={p.slug}>
                 <td>{p.name}</td>
-                <td>
+                <td data-label={t('acc.presets.colActive')}>
                   <span className="acc-pill" style={{ background: p.is_active ? '#1e4031' : '#3a2b1d' }}>
                     {p.is_active ? t('acc.presets.active') : t('acc.presets.inactive')}
                   </span>
                 </td>
-                <td className="acc-muted">{p.categories.join(', ')}</td>
+                <td className="acc-muted" data-label={t('acc.presets.colCovers')}>{p.categories.join(', ')}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <button className="acc-btn ghost" onClick={() => toggle(p)}>
                     {p.is_active ? t('acc.presets.deactivate') : t('acc.presets.activate')}

@@ -7,6 +7,7 @@ import { useI18n } from '../i18n';
 export default function AccountHome() {
   const { ctx } = useAuth();
   const { t } = useI18n();
+  const isAdmin = ctx?.user?.role === 'admin';
   const name = ctx?.user?.display_name || ctx?.user?.username;
   const [overlayCount, setOverlayCount] = useState<number | null>(null);
 
@@ -39,6 +40,7 @@ export default function AccountHome() {
         <Tile to="/presets" title={t('acc.nav.presets')} desc={t('acc.home.tile.presets.desc')} />
         <Tile to="/reports" title={t('acc.nav.reports')} desc={t('acc.home.tile.reports.desc')} />
         <Tile to="/account" title={t('acc.nav.account')} desc={t('acc.home.tile.account.desc')} />
+        {isAdmin && <Tile to="/admin" title={t('acc.nav.admin')} desc={t('acc.home.tile.admin.desc')} />}
       </div>
     </div>
   );

@@ -152,11 +152,13 @@ function OverlayRow({
           {o.display_name && <div className="acc-muted">{o.display_name}</div>}
         </td>
         <td><code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{o.output_url}</code></td>
-        <td style={{ whiteSpace: 'nowrap' }}>
-          <a className="acc-btn" href={`/board?oid=${encodeURIComponent(o.oid)}`}>{t('acc.common.open')}</a>{' '}
-          <button className="acc-btn ghost" onClick={onCopy}>{copied ? t('acc.common.copied') : t('acc.common.copyUrl')}</button>{' '}
-          <button className="acc-btn ghost" onClick={onEdit}>{editing ? t('acc.common.close') : t('acc.common.edit')}</button>{' '}
-          <button className="acc-btn danger" onClick={onDelete}>{t('acc.common.delete')}</button>
+        <td>
+          <div className="acc-btn-row">
+            <a className="acc-btn" href={`/board?oid=${encodeURIComponent(o.oid)}`}>{t('acc.common.open')}</a>
+            <button className="acc-btn ghost" onClick={onCopy}>{copied ? t('acc.common.copied') : t('acc.common.copyUrl')}</button>
+            <button className="acc-btn ghost" onClick={onEdit}>{editing ? t('acc.common.close') : t('acc.common.edit')}</button>
+            <button className="acc-btn danger" onClick={onDelete}>{t('acc.common.delete')}</button>
+          </div>
         </td>
       </tr>
       {editing && (

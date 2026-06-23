@@ -10,6 +10,22 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Mobile usability pass on the account pages.** Several fixes after reviewing
+  every account screen at phone width:
+  - The off-canvas menu now opens from a hamburger in the **top-left** (next to
+    where the drawer slides in), matching the usual convention — it used to sit
+    top-right while the drawer came from the left.
+  - **Data tables now label their stacked cells on mobile.** With the header row
+    hidden, a value like "yes" or "admin" was meaningless; the Admin **Users**
+    list, **Presets**, and **Reports** tables now show the column name above
+    each value (Role / Active / Scope / Covers / Winner / Duration …).
+  - Admins get an **Admin** tile on the dashboard, for parity with the other
+    sections (it was only in the nav).
+  - The **My overlays** row actions use an even, wrapping button group; the
+    Teams catalog shows a correct "The catalog is empty." message when there are
+    no catalog teams (instead of "already in your list"); and section headings
+    got a little more breathing room.
+
 - **Teams lists no longer strand the checkbox on its own line on phones.** The
   mobile "stack each table cell onto its own line" rule turned every team into a
   tall card with the select checkbox floating alone above the team name. The

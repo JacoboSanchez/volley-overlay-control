@@ -83,9 +83,9 @@ export default function ReportsPage() {
               <tbody>
                 {matches.map((m) => (
                   <tr key={m.match_id}>
-                    <td>{m.ended_at ? new Date(m.ended_at * 1000).toLocaleString() : '—'}</td>
-                    <td>{m.winning_team ? t('acc.reports.team', { n: m.winning_team }) : '—'}</td>
-                    <td>{m.duration_s ? t('acc.reports.minutes', { n: Math.round(m.duration_s / 60) }) : '—'}</td>
+                    <td data-label={t('acc.reports.colEnded')}>{m.ended_at ? new Date(m.ended_at * 1000).toLocaleString() : '—'}</td>
+                    <td data-label={t('acc.reports.colWinner')}>{m.winning_team ? t('acc.reports.team', { n: m.winning_team }) : '—'}</td>
+                    <td data-label={t('acc.reports.colDuration')}>{m.duration_s ? t('acc.reports.minutes', { n: Math.round(m.duration_s / 60) }) : '—'}</td>
                     <td>
                       <a className="acc-btn ghost" href={`/match/${m.match_id}/report`} target="_blank" rel="noreferrer">
                         {t('acc.reports.openReport')}

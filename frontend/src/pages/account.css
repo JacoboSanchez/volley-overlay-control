@@ -400,6 +400,7 @@
 
 .acc-subhead {
   margin-top: 22px;
+  margin-bottom: 10px;
 }
 
 /* Constrain single-column forms (account settings, etc.) to a readable width
@@ -468,7 +469,7 @@
     z-index: 70;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 12px;
     padding: 10px 14px;
     background: #14171d;
@@ -582,6 +583,24 @@
   .acc-table td .acc-btn {
     display: inline-block;
     margin: 4px 6px 0 0;
+  }
+  /* Inside a flex button-row the gap already spaces the buttons — drop the
+     per-button margin so they don't double up. */
+  .acc-table td .acc-btn-row .acc-btn {
+    margin: 0;
+  }
+  /* When the header row is hidden, a stacked value like "yes" or "admin" loses
+     its meaning. Cells tagged with ``data-label`` show that column name above
+     the value on mobile (the primary cell and the actions cell stay
+     label-less). */
+  .acc-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8b93a7;
   }
 
   /* Selectable lists (Teams: My teams / Catalog) are checkbox + swatch rows,
