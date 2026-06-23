@@ -31,9 +31,16 @@ const MODE_PRESETS: Record<
 > = {
   indoor: { points_limit: 25, points_limit_last_set: 15, sets_limit: 5 },
   beach: { points_limit: 21, points_limit_last_set: 15, sets_limit: 3 },
+  table_tennis: { points_limit: 11, points_limit_last_set: 11, sets_limit: 5 },
 };
 
-const SETS_OPTIONS = [1, 3, 5];
+const SETS_OPTIONS = [1, 3, 5, 7];
+
+const MODE_ICONS: Record<api.MatchMode, string> = {
+  indoor: 'sports_volleyball',
+  beach: 'beach_access',
+  table_tennis: 'sports_tennis',
+};
 
 export default function MatchRulesSection({
   oid,
@@ -114,7 +121,7 @@ export default function MatchRulesSection({
         aria-label={t('rules.mode')}
         data-testid="rules-mode-toggle"
       >
-        {(['indoor', 'beach'] as const).map((m) => (
+        {(['indoor', 'beach', 'table_tennis'] as const).map((m) => (
           <button
             key={m}
             type="button"
@@ -125,9 +132,7 @@ export default function MatchRulesSection({
             disabled={pending}
             data-testid={`rules-mode-${m}`}
           >
-            <span className="material-icons">
-              {m === 'indoor' ? 'sports_volleyball' : 'beach_access'}
-            </span>
+            <span className="material-icons">{MODE_ICONS[m]}</span>
             {t(`rules.mode.${m}`)}
           </button>
         ))}

@@ -2423,6 +2423,33 @@ body {
   }
 }
 
+/* Serve-change indicator — table-tennis serve rotation. Same pill as the
+   side-switch chip but a distinct accent so the operator can tell the two
+   apart when both could plausibly show. */
+.serve-switch-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-light);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+.serve-switch-indicator-pending {
+  background: #2f6fed;
+  color: #fff;
+  border-color: #2f6fed;
+  animation: side-switch-pulse 1.2s ease-in-out infinite;
+}
+
+.serve-switch-indicator .material-icons {
+  font-size: 0.95rem;
+}
+
 /* Container for the side-switch + match-alert pills. Keeps them on a
    single horizontal row so beach side-switch and set/match point can sit
    side by side without colliding. */

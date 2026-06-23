@@ -97,6 +97,19 @@ once a first tagged release ships.
 
 ### Added
 
+- **Table tennis match mode.** A third mode (alongside indoor and beach)
+  with an 11/11-point preset, best-of **1 / 3 / 5 / 7** (the set cap is
+  raised from 5 to 7 across the data model and match report). The serve
+  rotates automatically — every 2 points, every point once both players
+  reach 10 (deuce) — and the first server alternates each game, so the
+  operator never tracks it by hand; the serve toggle instead re-bases who
+  serves first. A new **serve-change chip** counts down to the next
+  handover and flashes when the serve changes. Teams auto-switch ends
+  after every game and at the deciding-game midpoint, and each team gets a
+  single timeout for the whole match. New state field `serve_switch`
+  (`GameStateResponse`); `POST /api/v1/session/rules` accepts
+  `mode: "table_tennis"` and `sets_limit` up to 7.
+
 - **Installable per-board PWA from the permanent bookmark link.** Installing
   the app (Chrome / desktop) from a board's permanent bookmark URL
   (`/board?u=<username>&oid=<oid>`) used to launch the **app root** — the

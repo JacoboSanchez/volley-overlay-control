@@ -280,7 +280,7 @@ export function setSetSummaryStyle(oid: string, style: SetSummaryStyle): Promise
   return request<ActionResponse>('POST', `/display/set-summary-style${withOid(oid)}`, { style });
 }
 
-export type MatchMode = 'indoor' | 'beach';
+export type MatchMode = 'indoor' | 'beach' | 'table_tennis';
 
 export interface SetRulesPayload {
   mode?: MatchMode;
