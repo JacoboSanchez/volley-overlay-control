@@ -583,6 +583,37 @@
     display: inline-block;
     margin: 4px 6px 0 0;
   }
+
+  /* Selectable lists (Teams: My teams / Catalog) are checkbox + swatch rows,
+     not data cards. Keep the whole row on one line — a checkbox stranded on its
+     own line above the team name looks broken. Each <td> becomes an inline flex
+     cell; the name cell takes the slack and the trailing action (Edit) sits at
+     the end. */
+  .acc-table.acc-checklist tr {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 8px 12px;
+  }
+  .acc-table.acc-checklist td {
+    display: flex;
+    align-items: center;
+    width: auto;
+    padding: 0;
+  }
+  /* The team-name cell absorbs the remaining width (and may wrap a long name). */
+  .acc-table.acc-checklist td:nth-child(2) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .acc-table.acc-checklist td .acc-btn {
+    margin: 0;
+  }
+  /* The expanded custom-team editor spans the full row width. */
+  .acc-table.acc-checklist td[colspan] {
+    flex: 1 1 100%;
+  }
 }
 
 /* --- Transient toast notifications ------------------------------------ */

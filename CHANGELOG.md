@@ -10,6 +10,12 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Teams lists no longer strand the checkbox on its own line on phones.** The
+  mobile "stack each table cell onto its own line" rule turned every team into a
+  tall card with the select checkbox floating alone above the team name. The
+  selectable Teams lists (My teams / Catalog) now use a compact single-line row
+  on mobile — checkbox + crest + name inline, with the Edit action at the end.
+
 - **Account pages now scroll.** The fullscreen control board's global
   `overflow: hidden` (and `user-select: none`) leaked onto every account page,
   so a list taller than the viewport (e.g. a long Teams list) couldn't be

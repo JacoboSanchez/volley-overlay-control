@@ -166,7 +166,7 @@ export default function TeamsPage() {
               {t('acc.teams.removeSelected', { n: mineSel.sel.size })}
             </button>
           </div>
-          <table className="acc-table">
+          <table className="acc-table acc-checklist">
             <thead><tr>
               <th scope="col"></th><th scope="col">{t('acc.teams.colTeam')}</th><th scope="col"></th>
             </tr></thead>
@@ -215,7 +215,7 @@ export default function TeamsPage() {
               {t('acc.teams.addSelected', { n: catSel.sel.size })}
             </button>
           </div>
-          <table className="acc-table">
+          <table className="acc-table acc-checklist">
             <thead><tr><th scope="col"></th><th scope="col">{t('acc.teams.colTeam')}</th></tr></thead>
             <tbody>
               {addable.map((team) => (
