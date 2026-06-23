@@ -841,6 +841,16 @@
             "title": "Serve",
             "type": "string"
           },
+          "serve_switch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServeSwitch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "server_time": {
             "anyOf": [
               {
@@ -1345,6 +1355,40 @@
         "title": "ServeRequest",
         "type": "object"
       },
+      "ServeSwitch": {
+        "description": "Table-tennis serve-rotation indicator (only set when\nmode='table_tennis').\n\nThe serve alternates every 2 points, then every point once both\nplayers reach 10 (deuce). ``server`` is the team (1 or 2) currently\non serve; ``is_change_pending`` is true the moment a point handed\nthe serve over \u2014 so the control UI can flash a \"serve changes now\"\npill \u2014 and ``points_until_change`` counts down to the next handover.",
+        "properties": {
+          "is_change_pending": {
+            "title": "Is Change Pending",
+            "type": "boolean"
+          },
+          "next_change_at": {
+            "title": "Next Change At",
+            "type": "integer"
+          },
+          "points_in_set": {
+            "title": "Points In Set",
+            "type": "integer"
+          },
+          "points_until_change": {
+            "title": "Points Until Change",
+            "type": "integer"
+          },
+          "server": {
+            "title": "Server",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "server",
+          "points_in_set",
+          "next_change_at",
+          "points_until_change",
+          "is_change_pending"
+        ],
+        "title": "ServeSwitch",
+        "type": "object"
+      },
       "SetActiveRequest": {
         "properties": {
           "is_active": {
@@ -1359,14 +1403,15 @@
         "type": "object"
       },
       "SetRulesRequest": {
-        "description": "Body for ``POST /api/v1/session/rules``.\n\nAll fields are optional. ``mode`` switches between ``\"indoor\"``\nand ``\"beach\"``; ``reset_to_defaults`` replaces every limit with\nthe canonical preset for the resulting mode (per-field overrides\nin the same call still win).",
+        "description": "Body for ``POST /api/v1/session/rules``.\n\nAll fields are optional. ``mode`` switches between ``\"indoor\"``,\n``\"beach\"`` and ``\"table_tennis\"``; ``reset_to_defaults`` replaces\nevery limit with the canonical preset for the resulting mode\n(per-field overrides in the same call still win).",
         "properties": {
           "mode": {
             "anyOf": [
               {
                 "enum": [
                   "indoor",
-                  "beach"
+                  "beach",
+                  "table_tennis"
                 ],
                 "type": "string"
               },
@@ -1410,7 +1455,7 @@
           "sets_limit": {
             "anyOf": [
               {
-                "maximum": 5.0,
+                "maximum": 7.0,
                 "minimum": 1.0,
                 "type": "integer"
               },

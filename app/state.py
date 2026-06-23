@@ -17,14 +17,14 @@ class GameState:
     current_set: int = 1
     team1_sets: int = 0
     team2_sets: int = 0
-    # Index 0 is unused; indices 1-5 hold per-set values.
+    # Index 0 is unused; indices 1-7 hold per-set values (best-of-7 cap).
     # Per-set timeout history lets undo across a set boundary restore the
     # prior set's timeouts (the flat counter that used to live here got
     # zeroed on every forward set transition).
-    team1_timeouts_by_set: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0])
-    team2_timeouts_by_set: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0])
-    team1_scores: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0])
-    team2_scores: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0])
+    team1_timeouts_by_set: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0])
+    team2_timeouts_by_set: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0])
+    team1_scores: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0])
+    team2_scores: list[int] = field(default_factory=lambda: [0, 0, 0, 0, 0, 0, 0, 0])
 
 
 class State:
@@ -47,16 +47,24 @@ class State:
     T1SETS_INT = 'Team 1 Sets'
     T2SETS_INT = 'Team 2 Sets'
     CURRENT_SET_INT = 'Current Set'
+    # Largest supported best-of-N. Per-set arrays are 1-indexed up to and
+    # including this value (index 0 unused), so a best-of-7 table-tennis
+    # match has slots 1..7. Indoor/beach use a subset (5 / 3).
+    MAX_SETS = 7
     T1SET1_INT = 'Team 1 Game 1 Score'
     T1SET2_INT = 'Team 1 Game 2 Score'
     T1SET3_INT = 'Team 1 Game 3 Score'
     T1SET4_INT = 'Team 1 Game 4 Score'
     T1SET5_INT = 'Team 1 Game 5 Score'
+    T1SET6_INT = 'Team 1 Game 6 Score'
+    T1SET7_INT = 'Team 1 Game 7 Score'
     T2SET1_INT = 'Team 2 Game 1 Score'
     T2SET2_INT = 'Team 2 Game 2 Score'
     T2SET3_INT = 'Team 2 Game 3 Score'
     T2SET4_INT = 'Team 2 Game 4 Score'
     T2SET5_INT = 'Team 2 Game 5 Score'
+    T2SET6_INT = 'Team 2 Game 6 Score'
+    T2SET7_INT = 'Team 2 Game 7 Score'
 
     reset_model = {
         SERVE: SERVE_NONE,
@@ -67,11 +75,15 @@ class State:
         T1SET3_INT: '0',
         T1SET4_INT: '0',
         T1SET5_INT: '0',
+        T1SET6_INT: '0',
+        T1SET7_INT: '0',
         T2SET1_INT: '0',
         T2SET2_INT: '0',
         T2SET3_INT: '0',
         T2SET4_INT: '0',
         T2SET5_INT: '0',
+        T2SET6_INT: '0',
+        T2SET7_INT: '0',
         T1TIMEOUTS_INT: '0',
         T2TIMEOUTS_INT: '0',
         CURRENT_SET_INT: '1',
@@ -79,7 +91,7 @@ class State:
         # ``_to_dict`` so a reset payload zeroes the per-set history
         # alongside the legacy flat counter.
         **{f'Team {team} Set {set_num} Timeouts': '0'
-           for team in (1, 2) for set_num in range(1, 6)},
+           for team in (1, 2) for set_num in range(1, 8)},
     }
 
     @staticmethod
@@ -89,7 +101,11 @@ class State:
 
     @staticmethod
     def keys_to_reset_simple_mode():
-        keys = {State.T1SET5_INT,
+        keys = {State.T1SET7_INT,
+                State.T2SET7_INT,
+                State.T1SET6_INT,
+                State.T2SET6_INT,
+                State.T1SET5_INT,
                 State.T2SET5_INT,
                 State.T1SET4_INT,
                 State.T2SET4_INT,
@@ -100,7 +116,7 @@ class State:
                 State.T1SET1_INT,
                 State.T2SET1_INT}
         for team in (1, 2):
-            for set_num in range(1, 6):
+            for set_num in range(1, 8):
                 keys.add(State._t_timeouts_key(team, set_num))
         return keys
 
@@ -127,16 +143,16 @@ class State:
         current_set = int(d.get('Current Set', 1))
 
         def per_set_timeouts(team: int) -> list[int]:
-            slots = [0, 0, 0, 0, 0, 0]
+            slots = [0, 0, 0, 0, 0, 0, 0, 0]
             has_per_set = any(
-                State._t_timeouts_key(team, i) in d for i in range(1, 6)
+                State._t_timeouts_key(team, i) in d for i in range(1, 8)
             )
             if has_per_set:
-                for i in range(1, 6):
+                for i in range(1, 8):
                     slots[i] = int(d.get(State._t_timeouts_key(team, i), 0))
             else:
                 legacy = int(d.get(f'Team {team} Timeouts', 0))
-                if 1 <= current_set <= 5:
+                if 1 <= current_set <= 7:
                     slots[current_set] = legacy
             return slots
 
@@ -147,8 +163,8 @@ class State:
             team2_sets=int(d.get('Team 2 Sets', 0)),
             team1_timeouts_by_set=per_set_timeouts(1),
             team2_timeouts_by_set=per_set_timeouts(2),
-            team1_scores=[0] + [int(d.get(f'Team 1 Game {i} Score', 0)) for i in range(1, 6)],
-            team2_scores=[0] + [int(d.get(f'Team 2 Game {i} Score', 0)) for i in range(1, 6)],
+            team1_scores=[0] + [int(d.get(f'Team 1 Game {i} Score', 0)) for i in range(1, 8)],
+            team2_scores=[0] + [int(d.get(f'Team 2 Game {i} Score', 0)) for i in range(1, 8)],
         )
 
     def _to_dict(self) -> dict[str, str]:
@@ -173,7 +189,7 @@ class State:
             'Team 1 Timeouts': str(self.get_timeout(1)),
             'Team 2 Timeouts': str(self.get_timeout(2)),
         }
-        for i in range(1, 6):
+        for i in range(1, 8):
             d[f'Team 1 Game {i} Score'] = str(s.team1_scores[i])
             d[f'Team 2 Game {i} Score'] = str(s.team2_scores[i])
             d[State._t_timeouts_key(1, i)] = str(s.team1_timeouts_by_set[i])
@@ -240,7 +256,7 @@ class State:
             raise KeyError(f'Team {team} Timeouts')
         if set_num is None:
             set_num = self._state.current_set
-        if not (1 <= set_num <= 5):
+        if not (1 <= set_num <= 7):
             return 0
         slots = (
             self._state.team1_timeouts_by_set if team == 1
@@ -261,7 +277,7 @@ class State:
             raise KeyError(f'Team {team} Timeouts')
         if set_num is None:
             set_num = self._state.current_set
-        if not (1 <= set_num <= 5):
+        if not (1 <= set_num <= 7):
             return
         slots = (
             self._state.team1_timeouts_by_set if team == 1
@@ -278,7 +294,7 @@ class State:
             self._state.team1_timeouts_by_set if team == 1
             else self._state.team2_timeouts_by_set
         )
-        return {i: slots[i] for i in range(1, 6)}
+        return {i: slots[i] for i in range(1, 8)}
 
     def get_sets(self, team):
         if team not in (1, 2):
@@ -296,7 +312,7 @@ class State:
     def get_game(self, team, set_num):
         if team not in (1, 2):
             raise KeyError(f'Team {team} Game {set_num} Score')
-        if not (1 <= set_num <= 5):
+        if not (1 <= set_num <= 7):
             raise KeyError(f'Team {team} Game {set_num} Score')
         scores = self._state.team1_scores if team == 1 else self._state.team2_scores
         return scores[set_num]
@@ -304,7 +320,7 @@ class State:
     def set_game(self, set_num, team, value):
         if team not in (1, 2):
             raise KeyError(f'Team {team} Game {set_num} Score')
-        if not (1 <= set_num <= 5):
+        if not (1 <= set_num <= 7):
             raise KeyError(f'Team {team} Game {set_num} Score')
         scores = self._state.team1_scores if team == 1 else self._state.team2_scores
         scores[set_num] = int(value)
