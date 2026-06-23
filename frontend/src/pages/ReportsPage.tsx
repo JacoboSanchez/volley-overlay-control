@@ -17,7 +17,14 @@ export default function ReportsPage() {
       try {
         const ovs = await api.getOverlays();
         setOverlays(ovs);
-        if (ovs[0]) setOid(ovs[0].oid);
+        if (ovs[0]) {
+          // Honour a ``?oid=`` deep link (e.g. the board's "All reports"
+          // share link) when it matches one of the user's overlays;
+          // otherwise default to the first.
+          const wanted = new URLSearchParams(window.location.search).get('oid');
+          const match = wanted && ovs.find((o) => o.oid === wanted);
+          setOid(match ? match.oid : ovs[0].oid);
+        }
       } catch {
         setError(t('acc.reports.errorOverlays'));
       } finally {

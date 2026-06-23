@@ -46,4 +46,39 @@ describe('LinksDialog', () => {
     renderWithI18n(<LinksDialog links={{}} onClose={() => {}} />);
     expect(screen.getByText(/no links available/i)).toBeInTheDocument();
   });
+
+  it('renders the read-only report links (locale-tagged) when present', () => {
+    renderWithI18n(
+      <LinksDialog
+        links={{
+          latest_match_report: '/match/m1/report',
+          match_history: '/matches/index.html?oid=abc',
+        }}
+        onClose={() => {}}
+      />,
+    );
+    const report = screen.getByRole('link', { name: /latest match report/i }) as HTMLAnchorElement;
+    const history = screen.getByRole('link', { name: /match history/i }) as HTMLAnchorElement;
+    expect(report.href).toContain('/match/m1/report');
+    expect(report.href).toContain('lang=en');
+    expect(history.href).toContain('/matches/index.html');
+    expect(history.href).toContain('lang=en');
+  });
+
+  it('hides the owner reports link for unauthenticated viewers (no reportsUrl)', () => {
+    renderWithI18n(<LinksDialog links={{ overlay: 'https://o/x' }} onClose={() => {}} />);
+    expect(screen.queryByRole('link', { name: /all reports/i })).toBeNull();
+  });
+
+  it('shows the owner reports link when reportsUrl is provided', () => {
+    renderWithI18n(
+      <LinksDialog
+        links={{ overlay: 'https://o/x' }}
+        reportsUrl="/reports?oid=abc"
+        onClose={() => {}}
+      />,
+    );
+    const reports = screen.getByRole('link', { name: /all reports/i }) as HTMLAnchorElement;
+    expect(reports.href).toContain('/reports?oid=abc');
+  });
 });

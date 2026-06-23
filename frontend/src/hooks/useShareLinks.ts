@@ -6,6 +6,14 @@ export interface ShareLinks {
   overlay?: string;
   preview?: string;
   follow?: string;
+  /**
+   * Read-only match-report links. The backend only emits these when
+   * reports are publicly readable (``MATCH_REPORT_PUBLIC``), so they're
+   * the spectator-safe surface — anyone the operator shares the board
+   * with can open them.
+   */
+  latest_match_report?: string;
+  match_history?: string;
 }
 
 export interface UseShareLinksResult {
@@ -31,11 +39,14 @@ export function useShareLinks(oid: string): UseShareLinksResult {
     if (!shareLinks) {
       try {
         const links = await api.getLinks(oid);
+        const str = (v: unknown) => (typeof v === 'string' ? v : '');
         setShareLinks({
-          control: typeof links?.control === 'string' ? links.control : '',
-          overlay: typeof links?.overlay === 'string' ? links.overlay : '',
-          preview: typeof links?.preview === 'string' ? links.preview : '',
-          follow: typeof links?.follow === 'string' ? links.follow : '',
+          control: str(links?.control),
+          overlay: str(links?.overlay),
+          preview: str(links?.preview),
+          follow: str(links?.follow),
+          latest_match_report: str(links?.latest_match_report),
+          match_history: str(links?.match_history),
         });
       } catch {
         // Empty links surface as the "No links available" fallback

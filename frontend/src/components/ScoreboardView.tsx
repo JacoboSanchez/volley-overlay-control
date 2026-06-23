@@ -211,6 +211,8 @@ export default function ScoreboardView({
               btnTextA={btnTextA}
               btnColorB={btnColorB}
               btnTextB={btnTextB}
+              team1Logo={iconLogoA}
+              team2Logo={iconLogoB}
               fontStyle={fontStyle}
               setSummaryActive={setSummaryActive}
               setSummarySetNum={setSummarySetNum}

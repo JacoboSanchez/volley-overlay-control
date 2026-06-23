@@ -152,4 +152,52 @@ describe('MatchAlertIndicator', () => {
       unmount();
     }
   });
+
+  // ── Side-swap awareness (the marker follows the physical side) ──────
+
+  it('points team 1 to the right when sides are swapped (landscape)', () => {
+    renderWithI18n(
+      <MatchAlertIndicator
+        state={withInfo({}, { team_1_set_point: true })}
+        isPortrait={false}
+        sidesSwapped
+      />,
+    );
+    const el = screen.getByTestId('match-alert-indicator');
+    const icon = el.querySelector('.material-icons');
+    expect(icon?.textContent).toBe('arrow_right');
+    // …and the icon sits after the label, on the right.
+    const children = Array.from(el.children) as HTMLElement[];
+    const iconIdx = children.findIndex((c) => c.classList.contains('material-icons'));
+    const labelIdx = children.findIndex((c) => !c.classList.contains('material-icons'));
+    expect(iconIdx).toBeGreaterThan(labelIdx);
+  });
+
+  it('points team 2 to the left when sides are swapped (landscape)', () => {
+    renderWithI18n(
+      <MatchAlertIndicator
+        state={withInfo({}, { team_2_match_point: true })}
+        isPortrait={false}
+        sidesSwapped
+      />,
+    );
+    const el = screen.getByTestId('match-alert-indicator');
+    expect(el.querySelector('.material-icons')?.textContent).toBe('arrow_left');
+    const children = Array.from(el.children) as HTMLElement[];
+    const iconIdx = children.findIndex((c) => c.classList.contains('material-icons'));
+    const labelIdx = children.findIndex((c) => !c.classList.contains('material-icons'));
+    expect(iconIdx).toBeLessThan(labelIdx);
+  });
+
+  it('flips the team 1 portrait triangle to down when swapped', () => {
+    renderWithI18n(
+      <MatchAlertIndicator
+        state={withInfo({}, { team_1_set_point: true })}
+        isPortrait
+        sidesSwapped
+      />,
+    );
+    const icon = screen.getByTestId('match-alert-indicator').querySelector('.material-icons');
+    expect(icon?.textContent).toBe('arrow_drop_down');
+  });
 });

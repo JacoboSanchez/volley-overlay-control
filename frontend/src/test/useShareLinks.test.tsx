@@ -15,6 +15,8 @@ describe('useShareLinks', () => {
       overlay: 'https://x/overlay',
       preview: 'https://x/preview',
       follow: 'https://x/follow',
+      latest_match_report: 'https://x/report',
+      match_history: 'https://x/history',
     });
   });
 
@@ -37,6 +39,8 @@ describe('useShareLinks', () => {
       overlay: 'https://x/overlay',
       preview: 'https://x/preview',
       follow: 'https://x/follow',
+      latest_match_report: 'https://x/report',
+      match_history: 'https://x/history',
     });
   });
 
@@ -55,6 +59,8 @@ describe('useShareLinks', () => {
       overlay: '',
       preview: '',
       follow: '',
+      latest_match_report: '',
+      match_history: '',
     });
   });
 

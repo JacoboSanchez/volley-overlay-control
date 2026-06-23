@@ -437,6 +437,13 @@ export default function App(
         onStaleClose={() => setStalePromptOpen(false)}
         shareOpen={shareOpen}
         shareLinks={shareLinks}
+        reportsUrl={
+          // Only the signed-in owner (cookie session — never an operator
+          // token or public bookmark) gets the full reports page, deep-linked
+          // to this board's overlay. Spectators fall back to the read-only
+          // public report links the backend includes in ``shareLinks``.
+          unauthenticated || !oid ? null : `/reports?oid=${encodeURIComponent(oid)}`
+        }
         onShareClose={() => setShareOpen(false)}
         oid={oid}
         historyOpen={historyOpen}
