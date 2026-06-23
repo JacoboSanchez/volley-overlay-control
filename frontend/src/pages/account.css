@@ -524,19 +524,28 @@
   margin-top: 12px;
 }
 
-/* Native colour swatch input, used in the admin team catalog. */
-.acc-color {
-  width: 48px;
-  height: 38px;
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
+/* Live filter box above long team lists. */
+.acc-teams-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 12px;
 }
-
-.acc-color.sm {
-  width: 42px;
-  height: 32px;
+.acc-teams-filter .acc-input {
+  max-width: 320px;
+}
+.acc-teams-count {
+  white-space: nowrap;
+}
+/* Colour fields shrink to their picker swatch instead of stretching. */
+.acc-field-color {
+  flex: 0 0 auto;
+}
+/* Swatch preview + editable name in the admin catalog's first cell. */
+.acc-team-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 @media (max-width: 720px) {

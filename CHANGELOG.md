@@ -10,6 +10,21 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Reworked the Teams page for large rosters and consistent colour editing.**
+  Three improvements aimed at operators juggling dozens of teams:
+  - **Live name filter** above the *My teams*, *Catalog*, and admin-catalog
+    lists (shown once a list passes ~8 entries), each with a "shown of total"
+    counter and a "select all" that now acts on the filtered subset — so finding
+    one team out of fifty is a quick type instead of a long scroll.
+  - **Catalog teams can be renamed**, not just recoloured/re-iconed: the admin
+    catalog rows gained an inline editable name field (the backend already
+    accepted it; the UI just never exposed it). Custom teams could already be
+    renamed.
+  - **Browser-independent colour picker.** The team colour/text inputs now use
+    the app's own picker (presets, recent colours, spectrum, hex) — the same one
+    as the scoreboard — instead of the inconsistent native `<input type="color">`
+    that varied per browser/OS.
+
 - **Rebuilt the "My overlays" screen around the action you take every match.**
   The page was a flat table that gave equal weight to four different
   destinations and labelled the control board with an ambiguous "Open" button,
