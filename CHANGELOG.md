@@ -15,8 +15,9 @@ once a first tagged release ships.
   destinations and labelled the control board with an ambiguous "Open" button,
   while the copy-once browser-source URL dominated each row. Each overlay is now
   a **card** led by a single prominent **Open scoreboard** button (opens the
-  control board in a new tab); the OBS browser-source URL is demoted to a
-  labelled, copy-once detail with a hint; and the operator/bookmark sharing
+  control board in a new tab); the browser-source URL (consumable by any
+  streaming program, not just OBS) is demoted to a labelled, copy-once detail
+  with a hint; and the operator/bookmark sharing
   links plus rename now live behind tidy **Share control** / **Rename**
   expanders. Reworked the layout to cards also fixes the cramped four-button
   row on phones. Regenerated `docs/screenshots/05-manage-page.png`.
