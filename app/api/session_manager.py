@@ -99,6 +99,10 @@ class GameSession:
         # alternates each game. Unused by volleyball modes (serve there
         # follows the rally winner). Persisted in session_meta.
         self.first_server: int = 1
+        # The team group selected in the board's team picker (None = the "All"
+        # group). Per-overlay; persisted in session_meta. Does not affect the
+        # rendered overlay — only which teams the control selectors offer.
+        self.selected_team_group_id: int | None = None
         # Cached count of undoable forward records in the audit log.
         # Updated by GameService._audit on every undoable mutation so
         # ``get_state`` can answer ``can_undo`` in O(1) without re-reading
@@ -201,6 +205,10 @@ class GameSession:
             ),
             "mode": str(self.mode),
             "first_server": int(self.first_server),
+            "selected_team_group_id": (
+                int(self.selected_team_group_id)
+                if self.selected_team_group_id is not None else None
+            ),
         }
 
     def apply_meta(self, meta: dict) -> None:
@@ -241,6 +249,15 @@ class GameSession:
             self.mode = meta["mode"]
         if meta.get("first_server") in (1, 2):
             self.first_server = int(meta["first_server"])
+        if "selected_team_group_id" in meta:
+            raw = meta["selected_team_group_id"]
+            if raw is None:
+                self.selected_team_group_id = None
+            else:
+                try:
+                    self.selected_team_group_id = int(raw)
+                except (TypeError, ValueError):
+                    pass
 
     def _restore_optional_float(self, meta: dict, key: str) -> None:
         """Restore an optional ``float | None`` attribute from *meta*.

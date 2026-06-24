@@ -1,9 +1,20 @@
-"""Teams catalog, admin team-groups, and per-user team lists.
+"""Teams catalog, team-groups, and per-user team lists.
 
 Replaces the env-driven ``APP_TEAMS`` / ``Customization.predefined_teams``.
 A team is either global (``is_global=True``, ``owner_user_id=None``) or a
-user-owned clone. Admins curate global ``TeamGroup``s (e.g. "Liga Gallega");
-a user copies a group's members into their personal ``UserTeamListItem`` list.
+user-owned custom team.
+
+Groups are the primary unit of team selection. A ``TeamGroup`` is either
+**shared** (``owner_user_id is None`` — admin-curated, visible to everyone once
+``is_active``) or **private** (``owner_user_id`` set — visible only to its
+owner). Shared-group members are global teams in ``TeamGroupMember``. Per-user
+membership — a user's additions to a shared group *and* every member of a
+user's private group — lives in ``UserGroupTeam``. The virtual "All" group
+(global catalog ∪ the user's custom teams) has no rows.
+
+``UserTeamListItem`` is the legacy flat roster, retained for back-compat /
+rollback after the 0007 migration copies each user's list into a private
+"My teams" group; it is no longer the source of truth for the board.
 """
 
 from __future__ import annotations
@@ -38,6 +49,11 @@ class TeamGroup(Base, TimestampMixin):
     created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
     )
+    # Null = shared/admin group (visibility gated by ``is_active``); set = a
+    # private group visible only to that owner (``is_active`` is irrelevant).
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
 
     members: Mapped[list[TeamGroupMember]] = relationship(
         back_populates="group", cascade="all, delete-orphan", passive_deletes=True,
@@ -59,6 +75,35 @@ class TeamGroupMember(Base):
     )
 
     group: Mapped[TeamGroup] = relationship(back_populates="members")
+
+
+class UserGroupTeam(Base, TimestampMixin):
+    """Per-user team membership inside a group.
+
+    Holds two cases: a user's *additions* to a shared admin group (visible only
+    to that user), and *all* members of a user's private group. Members may be
+    global teams or the user's own custom teams.
+    """
+
+    __tablename__ = "user_group_teams"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "group_id", "team_id",
+            name="uq_user_group_teams_user_id_group_id_team_id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("team_groups.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    team_id: Mapped[int] = mapped_column(
+        ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
 class UserTeamListItem(Base, TimestampMixin):

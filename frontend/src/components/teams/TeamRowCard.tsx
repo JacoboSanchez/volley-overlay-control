@@ -8,7 +8,7 @@ import { SwatchBox } from './TeamSwatch';
  *  "custom"), and an optional Edit toggle; the expandable editor (passed as
  *  `children`) drops below the row full-width when `editing` is true. */
 export default function TeamRowCard({
-  team, selected, onToggleSelect, pill, editable, editing, onToggleEdit, children,
+  team, selected, onToggleSelect, pill, editable, editing, onToggleEdit, trailing, children,
 }: {
   team: TeamOut;
   selected?: boolean;
@@ -17,6 +17,8 @@ export default function TeamRowCard({
   editable?: boolean;
   editing?: boolean;
   onToggleEdit?: () => void;
+  /** Extra trailing controls (e.g. a remove button), rendered after Edit. */
+  trailing?: ReactNode;
   children?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -46,6 +48,7 @@ export default function TeamRowCard({
             {editing ? t('acc.common.close') : t('acc.common.edit')}
           </button>
         )}
+        {trailing}
       </div>
       {editing && children && <div className="acc-tcard__editor">{children}</div>}
     </div>

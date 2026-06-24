@@ -10,7 +10,13 @@ from app.db.models.overlay import OverlaySessionMeta, UserOverlay
 from app.db.models.preset import Preset
 from app.db.models.report import MatchReport
 from app.db.models.setting import Setting
-from app.db.models.team import Team, TeamGroup, TeamGroupMember, UserTeamListItem
+from app.db.models.team import (
+    Team,
+    TeamGroup,
+    TeamGroupMember,
+    UserGroupTeam,
+    UserTeamListItem,
+)
 from app.db.models.user import AuthSession, User
 
 __all__ = [
@@ -23,6 +29,7 @@ __all__ = [
     "TeamGroup",
     "TeamGroupMember",
     "User",
+    "UserGroupTeam",
     "UserOverlay",
     "UserTeamListItem",
 ]

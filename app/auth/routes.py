@@ -85,8 +85,9 @@ def register(
         )
     except UserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    # Seed the new account with the full global team catalog (one-time).
-    teams_service.seed_user_with_global_teams(db, user.id)
+    # Seed the new account with a private "My teams" group holding the full
+    # global catalog (one-time; mirrors the 0007 migration for existing users).
+    teams_service.seed_user_default_group(db, user.id)
     _start_session(db, response, request, user)
     db.commit()
     return LoginResponse(user=UserOut.from_user(user), must_change_password=False)

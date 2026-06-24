@@ -22,7 +22,9 @@ vi.mock('../api/client', () => ({
   resetGame: vi.fn(),
   setVisibility: vi.fn(),
   setSimpleMode: vi.fn(),
-  getTeams: vi.fn(),
+  getBoardGroups: vi.fn().mockResolvedValue({ groups: [], selected_id: null }),
+  getBoardGroupTeams: vi.fn().mockResolvedValue({}),
+  setBoardSelectedGroup: vi.fn().mockResolvedValue({ ok: true, selected_id: null }),
   getStyles: vi.fn(),
   getStyleCapabilities: vi.fn(),
   updateCustomization: vi.fn(),
@@ -132,7 +134,8 @@ describe('App', () => {
     });
 
     // Mock additional API calls that ConfigPanel makes
-    vi.mocked(api.getTeams).mockResolvedValue({});
+    vi.mocked(api.getBoardGroups).mockResolvedValue({ groups: [], selected_id: null });
+    vi.mocked(api.getBoardGroupTeams).mockResolvedValue({});
     vi.mocked(api.getStyles).mockResolvedValue([]);
     vi.mocked(api.getStyleCapabilities).mockResolvedValue({});
 

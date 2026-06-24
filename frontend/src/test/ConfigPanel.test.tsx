@@ -6,9 +6,13 @@ import { renderWithI18n, mockCustomization } from './helpers';
 
 // Mock the API module
 vi.mock('../api/client', () => ({
-  getTeams: vi
+  getBoardGroups: vi
+    .fn()
+    .mockResolvedValue({ groups: [{ id: null, name: 'All teams', kind: 'all', count: 1 }], selected_id: null }),
+  getBoardGroupTeams: vi
     .fn()
     .mockResolvedValue({ Home: { icon: '', color: '#0000ff', text_color: '#ffffff' } }),
+  setBoardSelectedGroup: vi.fn().mockResolvedValue({ ok: true, selected_id: null }),
   getStyles: vi.fn().mockResolvedValue([]),
   getStyleCapabilities: vi.fn().mockResolvedValue({}),
   getLinks: vi.fn().mockResolvedValue({ control: '', overlay: '', preview: '' }),

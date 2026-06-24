@@ -81,3 +81,46 @@ def test_sqlite_foreign_keys_are_enforced(db_session):
         pytest.skip("FK pragma is SQLite-specific")
     result = db_session.execute(text("PRAGMA foreign_keys")).scalar()
     assert result == 1
+
+
+def test_0007_migrates_flat_roster_into_private_my_teams_group(tmp_path, monkeypatch):
+    """The 0007 data step copies each user's legacy ``user_team_list`` into a
+    private "My teams" group, is idempotent, and leaves the source data intact."""
+    db_file = tmp_path / "roster.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    cfg = _alembic_config(url)
+
+    command.upgrade(cfg, "0006_drop_overlay_match_defaults")
+    engine = create_engine(url)
+    with engine.begin() as c:
+        c.execute(text(
+            "INSERT INTO users (id, username, password_hash, role, is_active, "
+            "must_change_password) VALUES "
+            "(1,'alice','x','user',1,0),(2,'bob','x','user',1,0)"
+        ))
+        c.execute(text(
+            "INSERT INTO teams (id,name,is_global,owner_user_id) VALUES "
+            "(10,'Breogan',1,NULL),(11,'Estudiantes',1,NULL),(12,'MyClub',0,1)"
+        ))
+        c.execute(text(
+            "INSERT INTO user_team_list (user_id,team_id,sort_order) VALUES "
+            "(1,10,0),(1,12,1),(2,11,0)"
+        ))
+
+    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "head")  # idempotent — must not duplicate groups
+
+    with engine.connect() as c:
+        groups = c.execute(text(
+            "SELECT owner_user_id, name FROM team_groups WHERE owner_user_id IS NOT NULL"
+        )).fetchall()
+        assert {(g[0], g[1]) for g in groups} == {(1, "My teams"), (2, "My teams")}
+        alice_teams = c.execute(text(
+            "SELECT t.team_id FROM user_group_teams t "
+            "JOIN team_groups g ON g.id = t.group_id WHERE t.user_id = 1"
+        )).scalars().all()
+        assert set(alice_teams) == {10, 12}
+        # The legacy roster is preserved as a rollback safety net.
+        assert c.execute(text("SELECT COUNT(*) FROM user_team_list")).scalar() == 3
+    engine.dispose()

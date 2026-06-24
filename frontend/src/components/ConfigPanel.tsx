@@ -182,6 +182,8 @@ export default function ConfigPanel({
   }, [isDirty]);
 
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
+  const [teamGroups, setTeamGroups] = useState<api.BoardGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [styles, setStyles] = useState<string[]>([]);
   const [styleCaps, setStyleCaps] = useState<Record<string, api.StyleCapabilities>>({});
   const [links, setLinks] = useState<LinksData>(null);
@@ -190,10 +192,14 @@ export default function ConfigPanel({
 
   useEffect(() => {
     let cancelled = false;
+    // The team picker is group-scoped: load the owner's groups (+ remembered
+    // selection); a second effect fetches the chosen group's teams.
     api
-      .getTeams()
+      .getBoardGroups(oid)
       .then((d) => {
-        if (!cancelled) setPredefinedTeams(d as PredefinedTeams);
+        if (cancelled) return;
+        setTeamGroups(d.groups);
+        setSelectedGroupId(d.selected_id);
       })
       .catch(console.warn);
     api
@@ -218,6 +224,28 @@ export default function ConfigPanel({
       cancelled = true;
     };
   }, [oid]);
+
+  // Re-fetch the team options whenever the selected group changes.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getBoardGroupTeams(oid, selectedGroupId)
+      .then((d) => {
+        if (!cancelled) setPredefinedTeams(d as PredefinedTeams);
+      })
+      .catch(console.warn);
+    return () => {
+      cancelled = true;
+    };
+  }, [oid, selectedGroupId]);
+
+  const handleSelectGroup = useCallback(
+    (id: number | null) => {
+      setSelectedGroupId(id);
+      api.setBoardSelectedGroup(oid, id).catch(console.warn);
+    },
+    [oid],
+  );
 
   const updateField = useCallback((key: string, value: unknown) => {
     setModel((m) => ({ ...m, [key]: value }));
@@ -308,7 +336,14 @@ export default function ConfigPanel({
         return <PresetPicker model={model} onApplyPatch={handleApplyPatch} />;
       case 'teams':
         return (
-          <TeamsSection model={model} updateField={updateField} predefinedTeams={predefinedTeams} />
+          <TeamsSection
+            model={model}
+            updateField={updateField}
+            predefinedTeams={predefinedTeams}
+            groups={teamGroups}
+            selectedGroupId={selectedGroupId}
+            onSelectGroup={handleSelectGroup}
+          />
         );
       case 'overlay':
         return (

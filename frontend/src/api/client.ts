@@ -303,8 +303,47 @@ export function updateCustomization(
 }
 
 // Predefined data
+// Legacy: the caller's flat team list. Superseded on the board by the
+// group-scoped picker below (getBoardGroups + getBoardGroupTeams), which also
+// works for operators/public bookmarks. Kept for back-compat.
 export function getTeams(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('GET', '/teams');
+}
+
+// ---- Board team-group picker ----------------------------------------------
+// Resolved against the overlay OWNER's universe via the board credential
+// (control token / public bookmark / owner cookie) — so an operator running the
+// match sees the owner's groups. `id === null` is the virtual "All" group.
+
+export type BoardGroupKind = 'all' | 'shared' | 'private';
+
+export interface BoardGroup {
+  id: number | null;
+  name: string;
+  kind: BoardGroupKind;
+  count: number;
+}
+
+export interface BoardGroupList {
+  groups: BoardGroup[];
+  selected_id: number | null;
+}
+
+export function getBoardGroups(oid: string): Promise<BoardGroupList> {
+  return request<BoardGroupList>('GET', `/board/team-groups${withOid(oid)}`);
+}
+
+export function getBoardGroupTeams(
+  oid: string, groupId: number | null,
+): Promise<Record<string, unknown>> {
+  const key = groupId === null ? 'all' : String(groupId);
+  return request<Record<string, unknown>>('GET', `/board/team-groups/${key}/teams${withOid(oid)}`);
+}
+
+export function setBoardSelectedGroup(
+  oid: string, groupId: number | null,
+): Promise<{ ok: boolean; selected_id: number | null }> {
+  return request('PUT', `/board/selected-group${withOid(oid)}`, { group_id: groupId });
 }
 
 // Operator-saved and env-driven presets (CRUD lives at
@@ -438,6 +477,46 @@ export function getTeamGroups(): Promise<TeamGroupOut[]> {
 
 export function copyGroupToMine(groupId: number): Promise<{ added: number }> {
   return request('POST', `/team-groups/${groupId}/copy-to-mine`, {});
+}
+
+// ---- Account: my groups (groups-as-primary-unit) ---------------------------
+// A group's `id` is null only for the synthetic "All" group. `removable_ids`
+// are the teams the caller added themselves and may remove (admin-intrinsic
+// members of a shared group, and the "All" group, are not removable).
+
+export interface GroupDetail {
+  id: number | null;
+  name: string;
+  kind: BoardGroupKind;
+  is_private: boolean;
+  teams: TeamOut[];
+  removable_ids: number[];
+}
+
+export function getMyGroups(): Promise<GroupDetail[]> {
+  return request<GroupDetail[]>('GET', '/my/groups');
+}
+
+export function createMyGroup(name: string): Promise<GroupDetail> {
+  return request<GroupDetail>('POST', '/my/groups', { name });
+}
+
+export function renameMyGroup(groupId: number, name: string): Promise<GroupDetail> {
+  return request<GroupDetail>('PATCH', `/my/groups/${groupId}`, { name });
+}
+
+export function deleteMyGroup(groupId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/my/groups/${groupId}`);
+}
+
+export function addTeamsToMyGroup(groupId: number, teamIds: number[]): Promise<{ added: number }> {
+  return request('POST', `/my/groups/${groupId}/teams`, { team_ids: teamIds });
+}
+
+export function removeTeamFromMyGroup(
+  groupId: number, teamId: number,
+): Promise<{ ok: boolean; removed: boolean }> {
+  return request('DELETE', `/my/groups/${groupId}/teams/${teamId}`);
 }
 
 export interface TeamFields {

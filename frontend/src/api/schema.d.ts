@@ -548,6 +548,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/board/selected-group": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Board Select Group */
+        put: operations["board_select_group_api_v1_board_selected_group_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/board/team-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Board Team Groups */
+        get: operations["board_team_groups_api_v1_board_team_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/board/team-groups/{group_key}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Board Group Teams
+         * @description The APP_TEAMS map for one group, consumed by the board team selectors.
+         */
+        get: operations["board_group_teams_api_v1_board_team_groups__group_key__teams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/config": {
         parameters: {
             query?: never;
@@ -1016,6 +1070,80 @@ export interface paths {
          */
         post: operations["sign_match_url_api_v1_matches__match_id__sign_url_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/my/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Visible Groups
+         * @description The caller's selectable groups: the synthetic "All" first, then shared
+         *     published groups and the user's own private groups, each with their teams.
+         */
+        get: operations["my_visible_groups_api_v1_my_groups_get"];
+        put?: never;
+        /** Create My Group */
+        post: operations["create_my_group_api_v1_my_groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/my/groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete My Group */
+        delete: operations["delete_my_group_api_v1_my_groups__group_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename My Group */
+        patch: operations["rename_my_group_api_v1_my_groups__group_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/my/groups/{group_id}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Teams To My Group */
+        post: operations["add_teams_to_my_group_api_v1_my_groups__group_id__teams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/my/groups/{group_id}/teams/{team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Team From My Group */
+        delete: operations["remove_team_from_my_group_api_v1_my_groups__group_id__teams__team_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1712,6 +1840,24 @@ export interface components {
             /** Points Until Switch */
             points_until_switch: number;
         };
+        /** BoardGroupListOut */
+        BoardGroupListOut: {
+            /** Groups */
+            groups: components["schemas"]["BoardGroupOut"][];
+            /** Selected Id */
+            selected_id: number | null;
+        };
+        /** BoardGroupOut */
+        BoardGroupOut: {
+            /** Count */
+            count: number;
+            /** Id */
+            id: number | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+        };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
             /** Current Password */
@@ -1753,6 +1899,11 @@ export interface components {
         };
         /** CreateGroupRequest */
         CreateGroupRequest: {
+            /** Name */
+            name: string;
+        };
+        /** CreateMyGroupRequest */
+        CreateMyGroupRequest: {
             /** Name */
             name: string;
         };
@@ -1849,10 +2000,30 @@ export interface components {
             /** Visible */
             visible: boolean;
         };
+        /** GroupDetailOut */
+        GroupDetailOut: {
+            /** Id */
+            id: number | null;
+            /** Is Private */
+            is_private: boolean;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Removable Ids */
+            removable_ids?: number[];
+            /** Teams */
+            teams: components["schemas"]["TeamOut"][];
+        };
         /** GroupMemberRequest */
         GroupMemberRequest: {
             /** Team Id */
             team_id: number;
+        };
+        /** GroupTeamsRequest */
+        GroupTeamsRequest: {
+            /** Team Ids */
+            team_ids?: number[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2039,6 +2210,16 @@ export interface components {
         RemoveTeamsRequest: {
             /** Team Ids */
             team_ids?: number[];
+        };
+        /** RenameMyGroupRequest */
+        RenameMyGroupRequest: {
+            /** Name */
+            name: string;
+        };
+        /** SelectGroupRequest */
+        SelectGroupRequest: {
+            /** Group Id */
+            group_id?: number | null;
         };
         /** ServeRequest */
         ServeRequest: {
@@ -3537,6 +3718,141 @@ export interface operations {
             };
         };
     };
+    board_select_group_api_v1_board_selected_group_put: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` for backward compatibility */
+                control?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
+            };
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    board_team_groups_api_v1_board_team_groups_get: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` */
+                control?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
+            };
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardGroupListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    board_group_teams_api_v1_board_team_groups__group_key__teams_get: {
+        parameters: {
+            query?: {
+                /** @description Overlay ID */
+                oid?: string | null;
+                /** @description Alias of `oid` */
+                control?: string | null;
+                /** @description Username for a public ?u=&oid= board URL */
+                u?: string | null;
+                /** @description Control capability token (shareable board link) */
+                c?: string | null;
+            };
+            header?: {
+                /** @description Control capability token (alternative to ?c=) */
+                "x-control-token"?: string | null;
+            };
+            path: {
+                group_key: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_config_api_v1_config_get: {
         parameters: {
             query?: {
@@ -4657,6 +4973,213 @@ export interface operations {
             header?: never;
             path: {
                 match_id: string;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_visible_groups_api_v1_my_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupDetailOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_my_group_api_v1_my_groups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMyGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_group_api_v1_my_groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_my_group_api_v1_my_groups__group_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameMyGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_teams_to_my_group_api_v1_my_groups__group_id__teams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupTeamsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_team_from_my_group_api_v1_my_groups__group_id__teams__team_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+                team_id: number;
             };
             cookie?: {
                 vsession?: string | null;

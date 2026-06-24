@@ -2206,6 +2206,20 @@ body {
   margin: 0.75rem 0;
 }
 
+/* Team-group picker above the two team cards: choosing a group narrows the
+   team selectors' options. Spans the full width on phone + desktop. */
+.config-group-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.config-group-picker .config-select {
+  width: 100%;
+}
+
 .config-separator {
   border-top: 1px solid var(--border);
   margin: 0.75rem 0;

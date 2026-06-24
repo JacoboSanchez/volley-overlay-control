@@ -333,7 +333,7 @@ def test_batch_remove(db_session):
 # ---- seed-on-creation ------------------------------------------------------
 
 
-def test_register_seeds_global_teams(db_session):
+def test_register_seeds_my_teams_group(db_session):
     admin = _admin(db_session)
     admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
 
@@ -343,12 +343,16 @@ def test_register_seeds_global_teams(db_session):
         json={"username": "newbie", "password": "password123"},
     )
     assert r.status_code == 200, r.text
-    # The freshly-registered (and now logged-in) user starts with the catalog.
-    assert set(fresh.get("/api/v1/teams").json()) == set(APP_TEAMS)
+    # The freshly-registered user starts with a private "My teams" group holding
+    # the full catalog, and the "All" group also surfaces the catalog.
+    groups = {g["name"]: g for g in fresh.get("/api/v1/my/groups").json()}
+    assert {t["name"] for t in groups["My teams"]["teams"]} == set(APP_TEAMS)
+    assert groups["My teams"]["kind"] == "private"
+    assert {t["name"] for t in groups["All teams"]["teams"]} == set(APP_TEAMS)
 
 
 def test_admin_created_user_is_seeded(db_session):
-    from app.db.models.team import UserTeamListItem
+    from app.db.models.team import TeamGroup, UserGroupTeam
 
     admin = _admin(db_session)
     admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
@@ -356,5 +360,161 @@ def test_admin_created_user_is_seeded(db_session):
     assert res.status_code in (200, 201), res.text
     uid = res.json()["user"]["id"]
 
-    seeded = db_session.query(UserTeamListItem).filter_by(user_id=uid).count()
+    group = db_session.query(TeamGroup).filter_by(owner_user_id=uid, name="My teams").one()
+    seeded = db_session.query(UserGroupTeam).filter_by(user_id=uid, group_id=group.id).count()
     assert seeded == len(APP_TEAMS)
+
+
+# ---- groups as the primary unit: private groups, extensions, board picker --
+
+
+def _catalog_ids(client) -> dict[str, int]:
+    return {t["name"]: t["id"] for t in client.get("/api/v1/teams/catalog").json()}
+
+
+def _seed_catalog(admin) -> dict[str, int]:
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    return _catalog_ids(admin)
+
+
+def test_create_private_group_with_global_and_custom(db_session):
+    admin = _admin(db_session)
+    cat = _seed_catalog(admin)
+    custom = admin.post("/api/v1/teams/mine/custom", json={"name": "My Club"}).json()
+
+    gid = admin.post("/api/v1/my/groups", json={"name": "My league"}).json()["id"]
+    r = admin.post(
+        f"/api/v1/my/groups/{gid}/teams",
+        json={"team_ids": [cat["Breogán"], custom["id"]]},
+    )
+    assert r.status_code == 200 and r.json()["added"] == 2
+
+    groups = {g["name"]: g for g in admin.get("/api/v1/my/groups").json()}
+    assert groups["My league"]["kind"] == "private"
+    assert groups["My league"]["is_private"] is True
+    assert {t["name"] for t in groups["My league"]["teams"]} == {"Breogán", "My Club"}
+
+
+def test_all_group_is_catalog_union_customs(db_session):
+    admin = _admin(db_session)
+    _seed_catalog(admin)
+    admin.post("/api/v1/teams/mine/custom", json={"name": "My Club"})
+    groups = {g["name"]: g for g in admin.get("/api/v1/my/groups").json()}
+    assert groups["All teams"]["kind"] == "all"
+    assert {t["name"] for t in groups["All teams"]["teams"]} == set(APP_TEAMS) | {"My Club"}
+
+
+def test_private_group_invisible_to_other_user(db_session):
+    admin = _admin(db_session)
+    _seed_catalog(admin)
+    gid = admin.post("/api/v1/my/groups", json={"name": "Secret"}).json()["id"]
+
+    bob = login_client(TestClient(create_app()), db_session, "bob")
+    assert "Secret" not in {g["name"] for g in bob.get("/api/v1/my/groups").json()}
+    # bob cannot read, rename, delete, or add to alice's private group.
+    assert bob.post(f"/api/v1/my/groups/{gid}/teams", json={"team_ids": []}).status_code == 404
+    assert bob.patch(f"/api/v1/my/groups/{gid}", json={"name": "x"}).status_code == 404
+    assert bob.delete(f"/api/v1/my/groups/{gid}").status_code == 404
+
+
+def test_user_extension_of_shared_group_is_private_to_them(db_session):
+    admin = _admin(db_session)
+    cat = _seed_catalog(admin)
+    gid = admin.post("/api/v1/admin/team-groups", json={"name": "Liga"}).json()["id"]
+    admin.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": cat["Breogán"]})
+    admin.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": True})
+
+    alice = login_client(TestClient(create_app()), db_session, "alice")
+    mine = alice.post("/api/v1/teams/mine/custom", json={"name": "Alice FC"}).json()
+    alice.post(f"/api/v1/my/groups/{gid}/teams", json={"team_ids": [mine["id"]]})
+
+    a_groups = {g["name"]: g for g in alice.get("/api/v1/my/groups").json()}
+    assert {t["name"] for t in a_groups["Liga"]["teams"]} == {"Breogán", "Alice FC"}
+
+    bob = login_client(TestClient(create_app()), db_session, "bob")
+    b_groups = {g["name"]: g for g in bob.get("/api/v1/my/groups").json()}
+    assert {t["name"] for t in b_groups["Liga"]["teams"]} == {"Breogán"}  # no Alice FC
+
+
+def test_cannot_add_other_users_custom_team_to_group(db_session):
+    admin = _admin(db_session)
+    _seed_catalog(admin)
+    alice = login_client(TestClient(create_app()), db_session, "alice")
+    secret = alice.post("/api/v1/teams/mine/custom", json={"name": "Alice Secret"}).json()
+
+    bob = login_client(TestClient(create_app()), db_session, "bob")
+    gid = bob.post("/api/v1/my/groups", json={"name": "Bob group"}).json()["id"]
+    r = bob.post(f"/api/v1/my/groups/{gid}/teams", json={"team_ids": [secret["id"]]})
+    # alice's private team is rejected as if it did not exist — no leak.
+    assert r.status_code == 404
+    grp = next(g for g in bob.get("/api/v1/my/groups").json() if g["id"] == gid)
+    assert grp["teams"] == []
+
+
+def test_remove_group_team_keeps_the_team(db_session):
+    admin = _admin(db_session)
+    cat = _seed_catalog(admin)
+    gid = admin.post("/api/v1/my/groups", json={"name": "G"}).json()["id"]
+    admin.post(f"/api/v1/my/groups/{gid}/teams", json={"team_ids": [cat["Breogán"]]})
+    r = admin.delete(f"/api/v1/my/groups/{gid}/teams/{cat['Breogán']}")
+    assert r.status_code == 200 and r.json()["removed"] is True
+    # The team is gone from the group but still in the catalog.
+    grp = next(g for g in admin.get("/api/v1/my/groups").json() if g["id"] == gid)
+    assert grp["teams"] == []
+    assert "Breogán" in _catalog_ids(admin)
+
+
+def test_board_picker_via_control_token(db_session):
+    """The board picker resolves the OWNER's groups for an operator holding the
+    control token (the old GET /teams left operators with an empty picker)."""
+    owner = _admin(db_session)
+    cat = _seed_catalog(owner)
+    gid = owner.post("/api/v1/admin/team-groups", json={"name": "Liga"}).json()["id"]
+    owner.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": cat["Breogán"]})
+    owner.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": True})
+    priv = owner.post("/api/v1/my/groups", json={"name": "My league"}).json()["id"]
+    owner.post(f"/api/v1/my/groups/{priv}/teams", json={"team_ids": [cat["Estudiantes"]]})
+
+    ctrl = owner.post("/api/v1/overlays", json={"oid": "liga"}).json()["control_token"]
+    op = TestClient(create_app())  # operator: no cookie
+    bg = op.get(f"/api/v1/board/team-groups?c={ctrl}").json()
+    names = {g["name"] for g in bg["groups"]}
+    assert {"All teams", "Liga", "My league"} <= names  # incl. owner's private group
+
+    liga_teams = op.get(f"/api/v1/board/team-groups/{gid}/teams?c={ctrl}").json()
+    assert set(liga_teams) == {"Breogán"}
+    all_teams = op.get(f"/api/v1/board/team-groups/all/teams?c={ctrl}").json()
+    assert set(all_teams) == set(APP_TEAMS)
+
+
+def test_board_picker_via_public_bookmark(db_session):
+    owner = _admin(db_session)
+    _seed_catalog(owner)
+    owner.post("/api/v1/overlays", json={"oid": "liga"})
+    owner.patch("/api/v1/overlays/liga", json={"public_control": True})
+
+    op = TestClient(create_app())
+    bg = op.get("/api/v1/board/team-groups?u=root&oid=liga")
+    assert bg.status_code == 200, bg.text
+    assert "All teams" in {g["name"] for g in bg.json()["groups"]}
+
+
+def test_board_selected_group_persists_per_overlay(db_session):
+    owner = _admin(db_session)
+    _seed_catalog(owner)
+    gid = owner.post("/api/v1/admin/team-groups", json={"name": "Liga"}).json()["id"]
+    owner.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": True})
+    ctrl = owner.post("/api/v1/overlays", json={"oid": "liga"}).json()["control_token"]
+
+    op = TestClient(create_app())
+    op.post(f"/api/v1/session/init?c={ctrl}", json={"oid": "liga"})
+    r = op.put(f"/api/v1/board/selected-group?c={ctrl}", json={"group_id": gid})
+    assert r.status_code == 200 and r.json()["selected_id"] == gid
+    assert op.get(f"/api/v1/board/team-groups?c={ctrl}").json()["selected_id"] == gid
+
+    # Selecting "All" clears it; an unknown group id is rejected.
+    op.put(f"/api/v1/board/selected-group?c={ctrl}", json={"group_id": None})
+    assert op.get(f"/api/v1/board/team-groups?c={ctrl}").json()["selected_id"] is None
+    assert op.put(
+        f"/api/v1/board/selected-group?c={ctrl}", json={"group_id": 999999},
+    ).status_code == 404

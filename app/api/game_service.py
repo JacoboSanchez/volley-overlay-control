@@ -1012,6 +1012,14 @@ class GameService:
         return ActionResponse(success=True, state=state_response)
 
     @staticmethod
+    def set_selected_team_group(session, group_id: int | None) -> None:
+        """Remember the board's selected team group (``None`` = the "All"
+        group). Persist-only — the selection changes which teams the control
+        selectors offer, not the rendered overlay, so no broadcast is needed."""
+        session.selected_team_group_id = group_id
+        session.persist_meta()
+
+    @staticmethod
     def _current_set_started_at(
         session, points_by_set: dict | None = None,
     ) -> float | None:

@@ -10,6 +10,26 @@ once a first tagged release ships.
 
 ### Added
 
+- **Team groups are now the primary unit of team selection.** The control board
+  gained a **group picker** above the two team selectors: choose a group and the
+  selectors only offer that group's teams (remembered per overlay). The picker
+  always offers **"All teams"** (the whole catalog plus your custom teams), the
+  shared groups an admin has published, and your own **private groups**. On the
+  account **Teams** page you can now create private groups, add catalog *or*
+  custom teams to any group, extend a shared admin group with your own teams
+  (visible only to you), and rename/delete your private groups. New endpoints
+  back it: account `GET/POST /api/v1/my/groups`, `PATCH|DELETE /my/groups/{id}`,
+  `POST|DELETE /my/groups/{id}/teams`, and board `GET /board/team-groups`,
+  `GET /board/team-groups/{key}/teams`, `PUT /board/selected-group`.
+  - **The board team picker now works for operators, not just the owner.** It is
+    resolved against the overlay owner's groups via the board credential
+    (control-token / public bookmark / owner cookie), fixing the old
+    `GET /teams` which only authorised the owner cookie and left operators with
+    an empty team list.
+  - A new `0007` migration copies each user's previous team list into a private
+    **"My teams"** group so nothing is lost (the legacy `user_team_list` table is
+    kept as a rollback safety net). New accounts are seeded the same way.
+
 - **Admin team catalog & group manager on its own page.** Global team
   authoring moved off the user's **Teams** page to a dedicated, admin-only
   **Team catalog** page (`/admin/teams`, linked under a new *Admin* nav
