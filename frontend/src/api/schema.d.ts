@@ -1629,6 +1629,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/matches/{public_token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public per-overlay archived-match listing */
+        get: operations["match_history_matches__public_token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -6053,6 +6070,44 @@ export interface operations {
             };
             path: {
                 match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    match_history_matches__public_token__get: {
+        parameters: {
+            query?: {
+                sort?: string;
+                dir?: string;
+                page?: number;
+                lang?: string | null;
+            };
+            header?: {
+                "accept-language"?: string | null;
+            };
+            path: {
+                public_token: string;
             };
             cookie?: never;
         };

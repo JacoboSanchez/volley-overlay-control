@@ -35,6 +35,7 @@ from app.app_config import get_app_title
 from app.auth.bootstrap import ensure_admin_bootstrap
 from app.auth.routes import auth_router
 from app.db import migrate as db_migrate
+from app.match_history import match_history_router
 from app.match_report import match_report_router
 from app.security_bootstrap import run_security_bootstrap
 
@@ -234,6 +235,9 @@ def _register_api_routes(application: FastAPI) -> None:
     # Print-friendly per-match HTML report. Mounted before the SPA
     # catch-all so /match/{id}/report is served by FastAPI.
     application.include_router(match_report_router)
+    # Public per-overlay match-history listing (/matches/{public_token}).
+    # Before the SPA mount for the same catch-all reason as the report.
+    application.include_router(match_history_router)
     # Prometheus exposition. Must be registered before the SPA mount
     # for the same reason as ``/match/{id}/report``: otherwise the SPA
     # catch-all serves index.html for /metrics in any deployment that

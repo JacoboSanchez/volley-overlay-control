@@ -230,6 +230,12 @@ async def get_links(request: Request,
         if latest is not None:
             base_url = str(request.base_url).rstrip('/')
             links["latest_match_report"] = f"{base_url}/match/{latest}/report"
+            # Public per-overlay history page, keyed by the unguessable
+            # public_token (same capability as the overlay/follow links).
+            if session.public_token:
+                links["match_history"] = (
+                    f"{base_url}/matches/{session.public_token}"
+                )
 
     return links
 

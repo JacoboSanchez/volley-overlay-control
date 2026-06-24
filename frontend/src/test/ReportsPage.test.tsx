@@ -76,6 +76,15 @@ describe('ReportsPage', () => {
     confirmSpy.mockRestore();
   });
 
+  it('paginates when there are more than one page of matches', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => match(`m${i}`, 1000 + i, 600));
+    vi.mocked(api.listReports).mockResolvedValue({ count: 25, matches: many });
+    renderWithI18n(<ReportsPage />);
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(20)); // PAGE_SIZE
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(5)); // remainder
+  });
+
   it('select-all picks every shown report', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithI18n(<ReportsPage />);

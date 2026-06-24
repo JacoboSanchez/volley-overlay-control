@@ -10,6 +10,16 @@ once a first tagged release ships.
 
 ### Added
 
+- **Public match-history page.** The board's Share menu "match history" link now
+  opens a real, server-rendered listing at `/matches/{public_token}` (gated like
+  the match report: open when `MATCH_REPORT_PUBLIC`, otherwise the overlay
+  owner). It is sortable by **date** or **duration** (ascending/descending) and
+  **paginated**, with a link to each match's full report. No login or SPA
+  needed — it is the spectator-facing index the previously-broken link aimed at.
+
+- **The account Reports page is now paginated** (20 per page) on top of the
+  existing sort and bulk-delete, so a long archive stays manageable.
+
 - **Team groups are now the primary unit of team selection.** The control board
   gained a **group picker** above the two team selectors: choose a group and the
   selectors only offer that group's teams (remembered per overlay). The picker
@@ -130,9 +140,7 @@ once a first tagged release ships.
 - **The Share menu's "match history" link no longer dead-ends on the account
   dashboard.** It pointed at a `/matches/index.html` listing page that was
   removed in the multi-user refactor, so it fell through to the SPA and landed
-  on the dashboard. The dead link is no longer emitted (the latest-report link,
-  which points at a real route, stays); owners reach the full history from the
-  account **Reports** page.
+  on the dashboard. It now opens the new public match-history page (see Added).
 
 - **The control HUD now expands the moment a match finishes.** If the bar had
   auto-hidden during the final rally, the operator no longer has to un-hide it

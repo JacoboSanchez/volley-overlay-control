@@ -113,12 +113,12 @@ class TestLatestMatchReportLink:
         assert "latest_match_report" not in response.json()
         assert "match_history" not in response.json()
 
-    def test_match_history_link_removed_even_when_public_and_archived(
+    def test_match_history_link_present_when_public_and_archived(
             self, client, fake_backend_cls, monkeypatch):
-        # The old ``/matches/index.html`` listing page no longer exists after
-        # the multi-user refactor (it fell through to the SPA dashboard), so
-        # the dead link is no longer emitted. The latest-report link, which
-        # points at a real route, still is.
+        # The public history page is keyed by the overlay's unguessable
+        # public_token and points at the real ``/matches/{token}`` route
+        # (the old ``/matches/index.html`` page was removed in the
+        # multi-user refactor).
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
         _init_session(client, oid="links-history")
         match_archive.archive_match(
@@ -126,8 +126,10 @@ class TestLatestMatchReportLink:
         )
         response = client.get("/api/v1/links?oid=links-history")
         body = response.json()
-        assert "match_history" not in body
         assert body.get("latest_match_report") is not None
+        history = body.get("match_history")
+        assert history is not None
+        assert "/matches/" in history
 
     def test_match_history_link_omitted_when_no_archives(
             self, client, fake_backend_cls, monkeypatch):

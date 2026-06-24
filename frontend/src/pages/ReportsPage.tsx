@@ -9,6 +9,8 @@ import { useI18n } from '../i18n';
 type SortKey = 'ended' | 'duration';
 type SortDir = 'asc' | 'desc';
 
+const PAGE_SIZE = 20;
+
 export default function ReportsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -20,6 +22,7 @@ export default function ReportsPage() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>('ended');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [overlaysLoaded, setOverlaysLoaded] = useState(false);
   const [error, setError] = useState('');
@@ -80,6 +83,14 @@ export default function ReportsPage() {
     const val = (m: api.MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
     return [...dayFiltered].sort((a, b) => sign * (val(a) - val(b)));
   }, [dayFiltered, sortKey, sortDir]);
+
+  // Reset to the first page whenever the visible set changes (filter, sort,
+  // overlay) so the operator never lands on a now-empty page.
+  useEffect(() => { setPage(0); }, [oid, day, sortKey, sortDir]);
+
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = shown.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -218,7 +229,7 @@ export default function ReportsPage() {
                     <th scope="col"></th>
                   </tr></thead>
                   <tbody>
-                    {shown.map((m) => (
+                    {paged.map((m) => (
                       <tr key={m.match_id}>
                         <td>
                           <input
@@ -251,6 +262,29 @@ export default function ReportsPage() {
                     ))}
                   </tbody>
                 </table>
+              )}
+              {pageCount > 1 && (
+                <div className="acc-row" style={{ alignItems: 'center', gap: 10, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="acc-btn ghost"
+                    disabled={safePage <= 0}
+                    onClick={() => setPage(safePage - 1)}
+                  >
+                    {t('acc.reports.prevPage')}
+                  </button>
+                  <span className="acc-muted">
+                    {t('acc.reports.pageOf', { page: safePage + 1, pages: pageCount })}
+                  </span>
+                  <button
+                    type="button"
+                    className="acc-btn ghost"
+                    disabled={safePage >= pageCount - 1}
+                    onClick={() => setPage(safePage + 1)}
+                  >
+                    {t('acc.reports.nextPage')}
+                  </button>
+                </div>
               )}
             </>
           )}
