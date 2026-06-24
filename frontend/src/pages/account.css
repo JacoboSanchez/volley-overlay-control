@@ -298,6 +298,24 @@
   font-weight: 600;
 }
 
+/* Sortable column header rendered as a borderless button so it inherits the
+   header look but toggles the sort on click. */
+.acc-sort-th {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.acc-sort-th:hover {
+  color: #e6e9ef;
+}
+
 .acc-row {
   display: flex;
   gap: 10px;

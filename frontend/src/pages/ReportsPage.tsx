@@ -1,15 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '../api/client';
 import EmptyState from '../components/EmptyState';
 import MatchCalendar, { dayKey } from '../components/MatchCalendar';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmProvider';
 import { useI18n } from '../i18n';
+
+type SortKey = 'ended' | 'duration';
+type SortDir = 'asc' | 'desc';
 
 export default function ReportsPage() {
   const { t } = useI18n();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
   const [matches, setMatches] = useState<api.MatchSummary[]>([]);
   const [day, setDay] = useState<string | null>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey>('ended');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [loading, setLoading] = useState(false);
   const [overlaysLoaded, setOverlaysLoaded] = useState(false);
   const [error, setError] = useState('');
@@ -54,12 +64,90 @@ export default function ReportsPage() {
 
   useEffect(() => {
     // Switching overlays starts from "all days" — the prior day rarely maps
-    // onto another overlay's match dates.
+    // onto another overlay's match dates. Selection resets too.
     setDay(null);
+    setSel(new Set());
     void load(oid);
   }, [oid, load]);
 
-  const shown = day ? matches.filter((m) => m.ended_at != null && dayKey(m.ended_at) === day) : matches;
+  const dayFiltered = useMemo(
+    () => (day ? matches.filter((m) => m.ended_at != null && dayKey(m.ended_at) === day) : matches),
+    [matches, day],
+  );
+
+  const shown = useMemo(() => {
+    const sign = sortDir === 'asc' ? 1 : -1;
+    const val = (m: api.MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
+    return [...dayFiltered].sort((a, b) => sign * (val(a) - val(b)));
+  }, [dayFiltered, sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      // Dates default newest-first; durations default longest-first.
+      setSortDir('desc');
+    }
+  }
+
+  function sortArrow(key: SortKey) {
+    if (key !== sortKey) return '';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
+
+  function toggleOne(id: string) {
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const shownIds = shown.map((m) => m.match_id);
+  const allSelected = shownIds.length > 0 && shownIds.every((id) => sel.has(id));
+  const someSelected = shownIds.some((id) => sel.has(id));
+
+  function toggleAll() {
+    setSel(() => (allSelected ? new Set() : new Set(shownIds)));
+  }
+
+  async function deleteIds(ids: string[]) {
+    // The backend exposes a single-match delete; fan out and tolerate
+    // partial failures so one stale row can't block the rest.
+    const results = await Promise.allSettled(ids.map((id) => api.deleteMatch(id)));
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - ok;
+    await load(oid);
+    setSel(new Set());
+    if (ok > 0) toast(t('acc.reports.toastDeleted', { n: ok }));
+    if (failed > 0) toast(t('acc.reports.errorDelete'), 'error');
+  }
+
+  async function onDeleteOne(m: api.MatchSummary) {
+    const ok = await confirm({
+      title: t('acc.reports.confirmDeleteTitle'),
+      message: t('acc.reports.confirmDeleteMsg'),
+      confirmLabel: t('acc.common.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    await deleteIds([m.match_id]);
+  }
+
+  async function onDeleteSelected() {
+    const ids = shownIds.filter((id) => sel.has(id));
+    if (ids.length === 0) return;
+    const ok = await confirm({
+      title: t('acc.reports.confirmDeleteSelectedTitle'),
+      message: t('acc.reports.confirmDeleteSelectedMsg', { n: ids.length }),
+      confirmLabel: t('acc.common.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    await deleteIds(ids);
+  }
 
   return (
     <div>
@@ -88,7 +176,7 @@ export default function ReportsPage() {
             <EmptyState>{t('acc.reports.emptyNoMatches')}</EmptyState>
           ) : (
             <>
-              <div className="acc-row" style={{ margin: '12px 0', alignItems: 'center' }}>
+              <div className="acc-row" style={{ margin: '12px 0', alignItems: 'center', gap: 12 }}>
                 <MatchCalendar
                   key={oid}
                   matchTimes={matches.map((m) => m.ended_at).filter((x): x is number => x != null)}
@@ -96,27 +184,68 @@ export default function ReportsPage() {
                   onSelect={setDay}
                 />
                 <span className="acc-muted">{t('acc.reports.showing', { shown: shown.length, total: matches.length })}</span>
+                {someSelected && (
+                  <button type="button" className="acc-btn danger" onClick={onDeleteSelected}>
+                    {t('acc.reports.deleteSelected', { n: shownIds.filter((id) => sel.has(id)).length })}
+                  </button>
+                )}
               </div>
               {shown.length === 0 ? (
                 <EmptyState>{t('acc.reports.emptyNoMatchesDay')}</EmptyState>
               ) : (
                 <table className="acc-table">
                   <thead><tr>
-                    <th scope="col">{t('acc.reports.colEnded')}</th>
+                    <th scope="col" style={{ width: 32 }}>
+                      <input
+                        type="checkbox"
+                        aria-label={allSelected ? t('acc.common.deselectAll') : t('acc.common.selectAll')}
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                        onChange={toggleAll}
+                      />
+                    </th>
+                    <th scope="col">
+                      <button type="button" className="acc-sort-th" onClick={() => toggleSort('ended')}>
+                        {t('acc.reports.colEnded')}{sortArrow('ended')}
+                      </button>
+                    </th>
                     <th scope="col">{t('acc.reports.colMatch')}</th>
-                    <th scope="col">{t('acc.reports.colDuration')}</th>
+                    <th scope="col">
+                      <button type="button" className="acc-sort-th" onClick={() => toggleSort('duration')}>
+                        {t('acc.reports.colDuration')}{sortArrow('duration')}
+                      </button>
+                    </th>
                     <th scope="col"></th>
                   </tr></thead>
                   <tbody>
                     {shown.map((m) => (
                       <tr key={m.match_id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label={t('acc.reports.selectMatch')}
+                            checked={sel.has(m.match_id)}
+                            onChange={() => toggleOne(m.match_id)}
+                          />
+                        </td>
                         <td data-label={t('acc.reports.colEnded')}>{m.ended_at ? new Date(m.ended_at * 1000).toLocaleString() : '—'}</td>
                         <td data-label={t('acc.reports.colMatch')}><MatchTeams m={m} /></td>
                         <td data-label={t('acc.reports.colDuration')}>{m.duration_s ? t('acc.reports.minutes', { n: Math.round(m.duration_s / 60) }) : '—'}</td>
                         <td>
-                          <a className="acc-btn ghost" href={`/match/${m.match_id}/report`} target="_blank" rel="noreferrer">
-                            {t('acc.reports.openReport')}
-                          </a>
+                          <div className="acc-row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+                            <a className="acc-btn ghost" href={`/match/${m.match_id}/report`} target="_blank" rel="noreferrer">
+                              {t('acc.reports.openReport')}
+                            </a>
+                            <button
+                              type="button"
+                              className="acc-btn danger ghost"
+                              aria-label={t('acc.reports.deleteOne')}
+                              title={t('acc.reports.deleteOne')}
+                              onClick={() => onDeleteOne(m)}
+                            >
+                              <span className="material-icons">delete</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

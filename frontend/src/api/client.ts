@@ -478,6 +478,10 @@ export function listReports(oid?: string): Promise<{ count: number; matches: Mat
   return request('GET', `/matches${q}`);
 }
 
+export function deleteMatch(matchId: string): Promise<void> {
+  return request('DELETE', `/matches/${encodeURIComponent(matchId)}`);
+}
+
 // ---- Admin -----------------------------------------------------------------
 
 export function adminListUsers(): Promise<UserOut[]> {

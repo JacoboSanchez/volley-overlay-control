@@ -10,6 +10,12 @@ once a first tagged release ships.
 
 ### Added
 
+- **Delete and sort match reports.** The account **Reports** page now lets
+  you delete an archived report — one at a time, or select several (or all)
+  and delete them in bulk — with a confirmation step. The table is also
+  sortable by **date** or **duration**, ascending or descending. Backed by
+  the existing `DELETE /api/v1/matches/{match_id}` endpoint.
+
 - **The reports list shows who played and filters by day.** Each row now reads
   the two teams and the set score (e.g. "Lions **3–1** Bears") with the winner
   highlighted, instead of a bare "Team 1" winner number. A new **Filter by day**
@@ -55,6 +61,13 @@ once a first tagged release ships.
   row on phones. Regenerated `docs/screenshots/05-manage-page.png`.
 
 ### Fixed
+
+- **The Share menu's "match history" link no longer dead-ends on the account
+  dashboard.** It pointed at a `/matches/index.html` listing page that was
+  removed in the multi-user refactor, so it fell through to the SPA and landed
+  on the dashboard. The dead link is no longer emitted (the latest-report link,
+  which points at a real route, stays); owners reach the full history from the
+  account **Reports** page.
 
 - **The control HUD now expands the moment a match finishes.** If the bar had
   auto-hidden during the final rally, the operator no longer has to un-hide it

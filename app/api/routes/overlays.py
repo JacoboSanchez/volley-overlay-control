@@ -230,13 +230,6 @@ async def get_links(request: Request,
         if latest is not None:
             base_url = str(request.base_url).rstrip('/')
             links["latest_match_report"] = f"{base_url}/match/{latest}/report"
-            # The index is a per-overlay listing; only emit when there
-            # *is* something to list, so the UI doesn't show a link
-            # to an empty page.
-            links["match_history"] = (
-                f"{base_url}/matches/index.html?oid="
-                + urllib.parse.quote(skey, safe="")
-            )
 
     return links
 
