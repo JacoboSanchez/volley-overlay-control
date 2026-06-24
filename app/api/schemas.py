@@ -168,6 +168,11 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     # Output-wide zoom (%) and symmetric outer margin (% of canvas) for
     # the built-in overlay engine. Applied as a global transform by app.js.
     'Scale', 'Margin',
+    # Placement anchor: 'free' (legacy absolute xpos/ypos) or one of the
+    # nine zone values ('top-left' … 'bottom-right'). In zone mode app.js
+    # pins the matching corner/edge against the box's measured size and
+    # treats Left-Right/Up-Down as a fine nudge (% of canvas).
+    'Anchor',
     'preferredStyle',
     # Overlay surface theme: '' (per-style default), 'dark' or 'light'.
     # Applied by app.js as a body class on styles that define the
@@ -188,6 +193,19 @@ ALLOWED_CUSTOMIZATION_KEYS = {
 # generous and keeps a malicious operator from stuffing megabyte
 # strings into the broadcast state.
 LOGO_KEYS = frozenset({'Team 1 Logo', 'Team 2 Logo'})
+
+# Accepted values for the ``Anchor`` placement field. ``free`` is the
+# legacy absolute-coordinate mode; the nine zone values pin the overlay
+# to a screen zone. ``update_customization`` rejects anything else so a
+# bad value can never reach the broadcast state (the overlay client also
+# treats unknown anchors as ``free``, but we validate up front).
+VALID_ANCHORS = frozenset({
+    'free',
+    'top-left', 'top-center', 'top-right',
+    'middle-left', 'middle-center', 'middle-right',
+    'bottom-left', 'bottom-center', 'bottom-right',
+})
+
 MAX_LOGO_VALUE_LENGTH = 8192
 MAX_STRING_VALUE_LENGTH = 256
 MAX_CUSTOMIZATION_KEYS = 64

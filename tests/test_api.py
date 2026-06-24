@@ -286,6 +286,18 @@ class TestGameService:
         assert result.success is True
         assert session.customization.get_model().get("verticalAnchor") == "top"
 
+    def test_update_customization_accepts_zone_anchor(self, session):
+        # A zone anchor must survive the allow-list filter so the overlay
+        # can pin the box to that screen zone.
+        result = GameService.update_customization(session, {"Anchor": "top-right"})
+        assert result.success is True
+        assert session.customization.get_model().get("Anchor") == "top-right"
+
+    def test_update_customization_rejects_unknown_anchor(self, session):
+        result = GameService.update_customization(session, {"Anchor": "diagonal"})
+        assert result.success is False
+        assert "Anchor" in (result.message or "")
+
     def test_update_customization_accepts_supported_locale(self, session):
         result = GameService.update_customization(session, {"locale": "es"})
         assert result.success is True

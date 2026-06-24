@@ -73,6 +73,47 @@ describe('PresetPicker', () => {
     expect(onApplyPatch).toHaveBeenCalledWith({ Height: 12, Width: 35 });
   });
 
+  it('forces Free when applying a legacy absolute preset with no anchor', async () => {
+    const legacy: PresetSummary = {
+      slug: 'legacy-tr',
+      name: 'Top right (legacy)',
+      source: 'global',
+      categories: ['position'],
+      values: { 'Left-Right': 33, 'Up-Down': -41, Width: 30 },
+    };
+    vi.mocked(api.listPresets).mockResolvedValue({ items: [legacy] });
+    const onApplyPatch = vi.fn();
+    renderWithI18n(<PresetPicker model={{}} onApplyPatch={onApplyPatch} />);
+    await waitFor(() => expect(screen.getByTestId('preset-apply-legacy-tr')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('preset-apply-legacy-tr'));
+    expect(onApplyPatch).toHaveBeenCalledWith({
+      'Left-Right': 33,
+      'Up-Down': -41,
+      Width: 30,
+      Anchor: 'free',
+    });
+  });
+
+  it('leaves an explicit anchor untouched when applying a zone preset', async () => {
+    const zone: PresetSummary = {
+      slug: 'zone-tr',
+      name: 'Top right',
+      source: 'global',
+      categories: ['position'],
+      values: { Anchor: 'top-right', 'Left-Right': 0, 'Up-Down': 0 },
+    };
+    vi.mocked(api.listPresets).mockResolvedValue({ items: [zone] });
+    const onApplyPatch = vi.fn();
+    renderWithI18n(<PresetPicker model={{}} onApplyPatch={onApplyPatch} />);
+    await waitFor(() => expect(screen.getByTestId('preset-apply-zone-tr')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('preset-apply-zone-tr'));
+    expect(onApplyPatch).toHaveBeenCalledWith({
+      Anchor: 'top-right',
+      'Left-Right': 0,
+      'Up-Down': 0,
+    });
+  });
+
   it('deletes a preset and refreshes the list', async () => {
     vi.mocked(api.listPresets)
       .mockResolvedValueOnce({ items: [POSITION_PRESET] })

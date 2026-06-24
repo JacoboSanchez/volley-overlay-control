@@ -19,6 +19,7 @@ from app.api.schemas import (
     LOGO_KEYS,
     MAX_CUSTOMIZATION_KEYS,
     MAX_STRING_VALUE_LENGTH,
+    VALID_ANCHORS,
     ActionResponse,
     BeachSideSwitch,
     GameStateResponse,
@@ -1152,6 +1153,21 @@ class GameService:
                         message=(
                             f"Value for 'locale' must be one of "
                             f"{list(_SUPPORTED_LOCALES)}."
+                        ),
+                    )
+            elif key == 'Anchor':
+                if value is None:
+                    continue
+                if (
+                    not isinstance(value, str)
+                    or value.strip().lower() not in VALID_ANCHORS
+                ):
+                    return ActionResponse(
+                        success=False,
+                        state=GameService.get_state(session),
+                        message=(
+                            f"Value for 'Anchor' must be one of "
+                            f"{sorted(VALID_ANCHORS)}."
                         ),
                     )
             elif isinstance(value, str):

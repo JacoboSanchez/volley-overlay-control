@@ -372,6 +372,10 @@ class Backend:
                     "ypos": cust.get_vpos(),
                     "scale": cust.get_scale(),
                     "margin": cust.get_margin(),
+                    # ``free`` keeps xpos/ypos as absolute top-left
+                    # coordinates; a zone value pins the matching
+                    # corner/edge and turns xpos/ypos into a nudge.
+                    "anchor": cust.get_anchor(),
                 },
                 "colors": {
                     "set_bg": cust.get_set_color(),

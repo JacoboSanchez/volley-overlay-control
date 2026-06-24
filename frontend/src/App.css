@@ -2241,6 +2241,88 @@ body {
 
 /* ── Stepper inputs (Position & Size) ───────────────────────────────── */
 
+/* ── Position anchor grid ───────────────────────────────────────────── */
+
+.config-anchor {
+  margin-bottom: 0.75rem;
+}
+
+.config-anchor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 6px;
+}
+
+.config-anchor-free {
+  padding: 4px 12px;
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.config-anchor-free.is-active {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* A mini 16:9 stand-in for the 1920×1080 canvas: each cell maps to the
+   screen zone the overlay will anchor to. */
+.config-anchor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+  width: 132px;
+  aspect-ratio: 16 / 9;
+}
+
+.config-anchor-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+}
+
+.config-anchor-cell:hover {
+  background: var(--surface-light);
+}
+
+.config-anchor-cell.is-active {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+}
+
+.config-anchor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text);
+  opacity: 0.4;
+}
+
+.config-anchor-cell.is-active .config-anchor-dot {
+  background: var(--blue);
+  opacity: 1;
+}
+
+.config-anchor-hint {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--text);
+  opacity: 0.65;
+}
+
 .config-stepper-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

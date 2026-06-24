@@ -453,6 +453,100 @@ function updateCSSVariables(teamHome, teamAway, colors = null) {
     }
 }
 
+// The overlay canvas is authored at a fixed 1920x1080 reference.
+const CANVAS_W = 1920;
+const CANVAS_H = 1080;
+const BASE_WIDTH_PERCENTAGE = 30.0;
+
+// Maps an ``Anchor`` value to its [vertical, horizontal] zone. Anything
+// not in this table (``free``, ``''``, unknown) means "absolute" — the
+// legacy behaviour where xpos/ypos are the top-left coordinate.
+const ANCHOR_ZONES = {
+    "top-left": ["top", "left"],
+    "top-center": ["top", "center"],
+    "top-right": ["top", "right"],
+    "middle-left": ["middle", "left"],
+    "middle-center": ["middle", "center"],
+    "middle-right": ["middle", "right"],
+    "bottom-left": ["bottom", "left"],
+    "bottom-center": ["bottom", "center"],
+    "bottom-right": ["bottom", "right"],
+};
+
+function normalizeAnchor(value) {
+    if (typeof value !== "string") return null;
+    return ANCHOR_ZONES[value.trim().toLowerCase()] || null;
+}
+
+// The most recent geometry we were told to apply, kept so the
+// ResizeObserver can re-anchor when the box's measured size changes
+// (long team name, fonts finishing load, logos toggling, etc.).
+let _lastGeometry = null;
+let _geometryContainer = null;
+let _geometryResizeObserver = null;
+
+function applyGeometry(container, geometry) {
+    // ``Width`` is a percentage of the canvas; the layout is authored at
+    // 30% == scale 1.0, so larger widths zoom the whole box up. Scale
+    // grows the box from its top-left origin (see ``transform-origin:
+    // top left`` in the per-style CSS), so the rendered footprint is
+    // ``offset{Width,Height} * scale``.
+    const scale = (Number(geometry.width) || BASE_WIDTH_PERCENTAGE) / BASE_WIDTH_PERCENTAGE;
+    const zone = normalizeAnchor(geometry.anchor);
+    const xpos = Number(geometry.xpos) || 0;
+    const ypos = Number(geometry.ypos) || 0;
+
+    if (!zone) {
+        // Legacy absolute mode: xpos/ypos (-50..50) are the top-left
+        // coordinate of the box on the 1920x1080 canvas.
+        gsap.set(container, {
+            scale,
+            left: ((xpos + 50) / 100) * CANVAS_W,
+            top: ((ypos + 50) / 100) * CANVAS_H,
+        });
+        return;
+    }
+
+    // Zone mode: pin the box's matching corner/edge to the screen zone,
+    // measured against its real footprint so it lands flush for any
+    // style/size. ``offsetWidth`` is the *unscaled* layout width, so we
+    // multiply by ``scale`` to get the on-screen footprint.
+    const fw = container.offsetWidth * scale;
+    const fh = container.offsetHeight * scale;
+    if (!fw || !fh) {
+        // Not laid out yet (hidden, or measured before content/fonts).
+        // Apply the scale and let the ResizeObserver re-anchor once the
+        // box has a real size.
+        gsap.set(container, { scale });
+        return;
+    }
+
+    const [vAnchor, hAnchor] = zone;
+    let left = hAnchor === "left" ? 0 : hAnchor === "right" ? CANVAS_W - fw : (CANVAS_W - fw) / 2;
+    let top = vAnchor === "top" ? 0 : vAnchor === "bottom" ? CANVAS_H - fh : (CANVAS_H - fh) / 2;
+
+    // In zone mode xpos/ypos are a fine nudge off the anchor, expressed
+    // as a percentage of the canvas (the same unit the operator already
+    // edits), so the steppers keep working for manual fine-tuning.
+    left += (xpos / 100) * CANVAS_W;
+    top += (ypos / 100) * CANVAS_H;
+
+    gsap.set(container, { scale, left, top });
+}
+
+function ensureGeometryResizeObserver(container) {
+    if (typeof ResizeObserver === "undefined") return;
+    if (_geometryResizeObserver && _geometryContainer === container) return;
+    if (_geometryResizeObserver) _geometryResizeObserver.disconnect();
+    _geometryContainer = container;
+    _geometryResizeObserver = new ResizeObserver(() => {
+        // Re-anchoring only changes transforms / left / top, never the
+        // element's layout size, so this cannot feed back into itself.
+        if (_lastGeometry) applyGeometry(container, _lastGeometry);
+    });
+    _geometryResizeObserver.observe(container);
+}
+
 function updateGeometry(geometry) {
     const container = document.getElementById("pill-wrapper") || document.getElementById("scoreboard-container");
     if (!container || !geometry) return;
@@ -463,32 +557,11 @@ function updateGeometry(geometry) {
     // scaling a full-frame layout would break the edge pinning.
     if (container.dataset.fixedGeometry !== undefined) return;
 
-    // Use a reference width. The overlay is designed at 1920x1080.
-    // The "width" from customization is typically a percentage (e.g., 30 for 30%)
-    const targetWidth = (geometry.width / 100) * 1920;
-
-    // Calculate the scale needed. Because the container has a min-width (e.g., 600px),
-    // and its actual width depends on the content, we'll scale it down/up based on a
-    // baseline width (let's assume the baseline is ~800px or use the dynamic clientWidth)
-    // A simpler approach is to apply the scale directly based on the percentage requested.
-    // Let's assume a default scale of 1.0 for width=30%. 
-    const baseWidthPercentage = 30.0;
-    const scale = geometry.width / baseWidthPercentage;
-
-    // The customization page sends x/y offset from -50 to +50 roughly.
-    // Let's map these to pixels or vw/vh.
-    // Xpos: -50 means left edge, 50 means right edge
-    // Ypos: -50 means top edge, 50 means bottom edge
-
-    // Convert -50..50 to 0..100vw/vh roughly.
-    const leftPx = ((geometry.xpos + 50) / 100) * 1920;
-    const topPx = ((geometry.ypos + 50) / 100) * 1080;
-
-    gsap.set(container, {
-        scale: scale,
-        left: leftPx,
-        top: topPx
-    });
+    _lastGeometry = geometry;
+    applyGeometry(container, geometry);
+    // Zone anchoring depends on the measured footprint, which can change
+    // after this call (fonts, logos, longer names). Keep it flush.
+    ensureGeometryResizeObserver(container);
 }
 
 // Output-wide zoom + outer margin, applied to the whole overlay body so

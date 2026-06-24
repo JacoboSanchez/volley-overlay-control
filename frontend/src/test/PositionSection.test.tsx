@@ -27,4 +27,38 @@ describe('PositionSection', () => {
     fireEvent.change(screen.getByTestId('margin-input'), { target: { value: '7.5' } });
     expect(updateField).toHaveBeenCalledWith('Margin', 7.5);
   });
+
+  it('picking an anchor zone sets Anchor and zeroes the nudge', () => {
+    const updateField = vi.fn();
+    renderWithI18n(<PositionSection model={{}} updateField={updateField} />);
+
+    fireEvent.click(screen.getByTestId('anchor-top-right'));
+
+    expect(updateField).toHaveBeenCalledWith('Anchor', 'top-right');
+    // The legacy absolute defaults would read as a huge offset in zone
+    // mode, so a freshly picked zone resets the fine nudge to 0.
+    expect(updateField).toHaveBeenCalledWith('Left-Right', 0);
+    expect(updateField).toHaveBeenCalledWith('Up-Down', 0);
+  });
+
+  it('relabels the H/V steppers as a nudge while a zone is active', () => {
+    renderWithI18n(
+      <PositionSection model={{ Anchor: 'bottom-left' }} updateField={vi.fn()} />,
+    );
+
+    // The active zone cell is pressed; the absolute "Free" mode is not.
+    expect(screen.getByTestId('anchor-bottom-left')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('anchor-free')).toHaveAttribute('aria-pressed', 'false');
+    // H/V fields now read as a nudge rather than absolute coordinates.
+    expect(screen.getByText('Nudge H')).toBeInTheDocument();
+    expect(screen.getByText('Nudge V')).toBeInTheDocument();
+  });
+
+  it('defaults to Free mode with absolute H/V labels', () => {
+    renderWithI18n(<PositionSection model={{}} updateField={vi.fn()} />);
+
+    expect(screen.getByTestId('anchor-free')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('H Pos')).toBeInTheDocument();
+    expect(screen.getByText('V Pos')).toBeInTheDocument();
+  });
 });

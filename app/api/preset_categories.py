@@ -46,7 +46,9 @@ _KEYS_BY_CATEGORY: dict[str, tuple[str, ...]] = {
     "team1_color": ("Team 1 Color", "Team 1 Text Color", "Team 1 Logo"),
     "team2_name": ("Team 2 Name", "Team 2 Text Name"),
     "team2_color": ("Team 2 Color", "Team 2 Text Color", "Team 2 Logo"),
-    "position": ("Height", "Width", "Left-Right", "Up-Down", "Scale", "Margin"),
+    "position": (
+        "Anchor", "Height", "Width", "Left-Right", "Up-Down", "Scale", "Margin"
+    ),
     "style": (
         "preferredStyle",
         "overlayTheme",

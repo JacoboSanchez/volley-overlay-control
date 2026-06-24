@@ -10,6 +10,21 @@ once a first tagged release ships.
 
 ### Added
 
+- **Size-independent overlay placement ("anchor zones").** The Config panel's
+  Position section gained a 3×3 **anchor grid** (plus a *Free* fallback). Picking
+  a zone (e.g. top-right) pins the overlay's matching corner/edge to that screen
+  zone — computed against the overlay's *measured* size in the browser, so the
+  same zone lands flush for any style regardless of width (the wide beach board
+  or the tiny micro capsule alike). This fixes presets that stored fixed
+  coordinates pushing wider overlays off-screen. In zone mode the Left-Right /
+  Up-Down steppers act as a fine **nudge** (% of canvas) off the anchor;
+  *Free* keeps the legacy absolute-coordinate behaviour and is the default, so
+  existing overlays and presets render unchanged. The new `Anchor` field is part
+  of the `position` preset category, so a single global "top-right" preset now
+  works across every overlay style. Edge-pinned styles (pylons, corners) are
+  unaffected. The overlay re-anchors on content/size changes via a
+  `ResizeObserver`.
+
 - **Public match-history page.** The board's Share menu "match history" link now
   opens a real, server-rendered listing at `/matches/{public_token}` (gated like
   the match report: open when `MATCH_REPORT_PUBLIC`, otherwise the overlay

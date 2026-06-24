@@ -224,6 +224,18 @@ export const translations: Record<string, TranslationDict> = {
     'position.decrease': 'Decrease',
     'position.increase': 'Increase',
     'position.links': 'Links',
+    'position.anchorTitle': 'Anchor zone',
+    'position.anchorFree': 'Free',
+    'position.anchorHint':
+      'Pin the overlay to a screen zone so it stays flush at any size; the H/V steppers nudge it. Free uses absolute coordinates.',
+    'position.nudgeH': 'Nudge H',
+    'position.nudgeV': 'Nudge V',
+    'position.zone.top': 'Top',
+    'position.zone.middle': 'Middle',
+    'position.zone.bottom': 'Bottom',
+    'position.zone.left': 'Left',
+    'position.zone.center': 'Center',
+    'position.zone.right': 'Right',
 
     // Links dialog
     'links.title': 'Links',
@@ -889,6 +901,18 @@ export const translations: Record<string, TranslationDict> = {
     'position.decrease': 'Disminuir',
     'position.increase': 'Aumentar',
     'position.links': 'Enlaces',
+    'position.anchorTitle': 'Zona de anclaje',
+    'position.anchorFree': 'Libre',
+    'position.anchorHint':
+      'Ancla el overlay a una zona de la pantalla para que quede a ras en cualquier tamaño; los pasos H/V lo ajustan. «Libre» usa coordenadas absolutas.',
+    'position.nudgeH': 'Ajuste H',
+    'position.nudgeV': 'Ajuste V',
+    'position.zone.top': 'Arriba',
+    'position.zone.middle': 'Medio',
+    'position.zone.bottom': 'Abajo',
+    'position.zone.left': 'Izquierda',
+    'position.zone.center': 'Centro',
+    'position.zone.right': 'Derecha',
 
     // Links dialog
     'links.title': 'Enlaces',
@@ -1553,6 +1577,18 @@ export const translations: Record<string, TranslationDict> = {
     'position.decrease': 'Diminuir',
     'position.increase': 'Aumentar',
     'position.links': 'Ligações',
+    'position.anchorTitle': 'Zona de ancoragem',
+    'position.anchorFree': 'Livre',
+    'position.anchorHint':
+      'Fixa o overlay numa zona do ecrã para ficar rente em qualquer tamanho; os passos H/V ajustam-no. «Livre» usa coordenadas absolutas.',
+    'position.nudgeH': 'Ajuste H',
+    'position.nudgeV': 'Ajuste V',
+    'position.zone.top': 'Topo',
+    'position.zone.middle': 'Meio',
+    'position.zone.bottom': 'Fundo',
+    'position.zone.left': 'Esquerda',
+    'position.zone.center': 'Centro',
+    'position.zone.right': 'Direita',
 
     // Links dialog
     'links.title': 'Ligações',
@@ -2207,6 +2243,18 @@ export const translations: Record<string, TranslationDict> = {
     'position.decrease': 'Diminuisci',
     'position.increase': 'Aumenta',
     'position.links': 'Link',
+    'position.anchorTitle': 'Zona di ancoraggio',
+    'position.anchorFree': 'Libero',
+    'position.anchorHint':
+      'Ancora l’overlay a una zona dello schermo così resta a filo a qualsiasi dimensione; i passi O/V lo regolano. «Libero» usa coordinate assolute.',
+    'position.nudgeH': 'Spost. O',
+    'position.nudgeV': 'Spost. V',
+    'position.zone.top': 'Alto',
+    'position.zone.middle': 'Mezzo',
+    'position.zone.bottom': 'Basso',
+    'position.zone.left': 'Sinistra',
+    'position.zone.center': 'Centro',
+    'position.zone.right': 'Destra',
 
     // Links dialog
     'links.title': 'Link',
@@ -2862,6 +2910,18 @@ export const translations: Record<string, TranslationDict> = {
     'position.decrease': 'Diminuer',
     'position.increase': 'Augmenter',
     'position.links': 'Liens',
+    'position.anchorTitle': 'Zone d’ancrage',
+    'position.anchorFree': 'Libre',
+    'position.anchorHint':
+      'Ancrez l’overlay à une zone de l’écran pour qu’il reste au bord à toute taille ; les pas H/V l’ajustent. « Libre » utilise des coordonnées absolues.',
+    'position.nudgeH': 'Décalage H',
+    'position.nudgeV': 'Décalage V',
+    'position.zone.top': 'Haut',
+    'position.zone.middle': 'Milieu',
+    'position.zone.bottom': 'Bas',
+    'position.zone.left': 'Gauche',
+    'position.zone.center': 'Centre',
+    'position.zone.right': 'Droite',
 
     // Links dialog
     'links.title': 'Liens',
@@ -3517,6 +3577,18 @@ export const translations: Record<string, TranslationDict> = {
     'position.decrease': 'Verringern',
     'position.increase': 'Erhöhen',
     'position.links': 'Links',
+    'position.anchorTitle': 'Ankerzone',
+    'position.anchorFree': 'Frei',
+    'position.anchorHint':
+      'Verankere das Overlay an einer Bildschirmzone, damit es bei jeder Größe bündig bleibt; die H/V-Schritte verschieben es. „Frei“ nutzt absolute Koordinaten.',
+    'position.nudgeH': 'Versatz H',
+    'position.nudgeV': 'Versatz V',
+    'position.zone.top': 'Oben',
+    'position.zone.middle': 'Mitte',
+    'position.zone.bottom': 'Unten',
+    'position.zone.left': 'Links',
+    'position.zone.center': 'Zentriert',
+    'position.zone.right': 'Rechts',
 
     // Links dialog
     'links.title': 'Links',
