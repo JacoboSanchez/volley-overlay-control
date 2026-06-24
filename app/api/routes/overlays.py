@@ -53,7 +53,8 @@ def _overlay_out(request: Request, overlay, *, username: str | None = None) -> O
         f"{base}/board?c={overlay.control_token}" if overlay.control_token else None
     )
     public_control_url = (
-        f"{base}/board?u={username}&oid={urllib.parse.quote(overlay.oid, safe='')}"
+        f"{base}/board?u={urllib.parse.quote(username, safe='')}"
+        f"&oid={urllib.parse.quote(overlay.oid, safe='')}"
         if (overlay.public_control and username) else None
     )
     return OverlayOut(

@@ -100,6 +100,20 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Redesigned the Overlays management page around each overlay's two jobs.**
+  Every overlay card is now split into two clearly labelled sections so it is
+  obvious what each link/button is for: **"For OBS · video output"** (the
+  browser-source URL you paste into OBS once) and **"To control · scoreboard"**
+  (open your own board, or copy a no-login link to hand to whoever keeps score).
+  The shareable operator control link is now shown inline with a Copy button and
+  a small regenerate (↻) action — no longer buried behind a "Share control"
+  expander and a separate "Generate" step. The guessable username+id bookmark
+  moved into a collapsed **"Advanced"** disclosure so it is never confused with
+  the link you share. Each card leads with the overlay's name, shows its id as a
+  pill and a chip when the public bookmark is on, and demotes Rename/Delete to
+  small header icons. Backend: the username in the `/board?u=` bookmark URL is
+  now URL-encoded (matching the oid). Screenshot refreshed.
+
 - **Reimplemented the team configuration panels for phone portrait.** Both the
   user roster (`/teams`) and the new admin catalog now share a card-based
   layout built for one-handed use on a phone: each team is a tap-friendly card

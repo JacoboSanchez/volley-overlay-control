@@ -565,6 +565,139 @@
   margin-top: 12px;
 }
 
+/* ── Overlay card: purpose-first layout ──────────────────────────────────
+   Each card is split into two clearly labelled jobs — OUTPUT (the OBS
+   graphic) and CONTROL (the scoring board) — so it is obvious what every
+   URL/button is for. Rename/Delete are small icon buttons in the header. */
+.acc-overlay-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.acc-overlay-manage {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+}
+.acc-iconbtn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2b313c;
+  border-radius: 8px;
+  background: #1d212a;
+  color: #c2c8d2;
+  cursor: pointer;
+}
+.acc-iconbtn .material-icons {
+  font-size: 20px;
+}
+.acc-iconbtn:hover {
+  background: #232833;
+}
+.acc-iconbtn.is-active {
+  border-color: #4f8cff;
+  color: #fff;
+}
+.acc-iconbtn.danger {
+  color: #e07d6f;
+  border-color: #5a2f2a;
+}
+.acc-iconbtn.danger:hover {
+  background: #2a1c1a;
+}
+.acc-iconbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The two job blocks; the second is divided off from the first. */
+.acc-overlay-job {
+  margin-top: 16px;
+}
+.acc-overlay-job + .acc-overlay-job {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #232833;
+}
+.acc-overlay-job__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c2c8d2;
+}
+.acc-overlay-job__label .material-icons {
+  font-size: 18px;
+  color: #8b93a7;
+}
+.acc-overlay-job__desc {
+  margin: 4px 0 10px;
+}
+
+/* "Open my board" sits at the top of the control job as the every-match
+   action; the share link follows it. */
+.acc-overlay-job .acc-overlay-open {
+  margin-bottom: 12px;
+}
+
+.acc-overlay-share__label {
+  font-size: 0.78rem;
+  color: #98a2b3;
+  margin-bottom: 6px;
+}
+.acc-overlay-share__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.acc-overlay-share__row .acc-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Permanent-bookmark disclosure: collapsed by default, opened when the
+   guessable URL is already enabled. */
+.acc-overlay-advanced {
+  margin-top: 14px;
+}
+.acc-overlay-advanced__summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #98a2b3;
+  list-style: none;
+}
+.acc-overlay-advanced__summary::-webkit-details-marker {
+  display: none;
+}
+.acc-overlay-advanced__summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 6px;
+  color: #6b7689;
+}
+.acc-overlay-advanced[open] .acc-overlay-advanced__summary::before {
+  content: "▾";
+}
+.acc-overlay-advanced__body {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #14171d;
+  border-radius: 10px;
+}
+.acc-overlay-advanced__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ── Team management: cards, fieldset, toolbar, bulk bar ──────────────────
    A phone-portrait-first language shared by the user roster (/teams) and the
    admin catalog + groups (/admin/teams). Each team is a tap-friendly card that
@@ -995,12 +1128,9 @@
     grid-template-columns: 1fr;
   }
 
-  /* On phones the hero ``Open scoreboard`` button drops below the id and spans
-     the full card so it stays the obvious primary tap target. */
-  .acc-overlay-card__head {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  /* On phones the "Open my board" button spans the full width of the control
+     job so it stays the obvious primary tap target. The header keeps the id +
+     management icons on one row. */
   .acc-overlay-open {
     width: 100%;
   }
