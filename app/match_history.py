@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import html
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -136,15 +136,18 @@ _DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 def _fmt_date(ended_at: object) -> str:
     if not isinstance(ended_at, (int, float)):
         return "—"
-    return datetime.fromtimestamp(ended_at, tz=UTC).strftime("%Y-%m-%d %H:%M")
+    # Server-local time, to match the account Reports page (which formats in
+    # the viewer's local zone) — a self-hosted league usually runs in the
+    # operator's timezone.
+    return datetime.fromtimestamp(ended_at).strftime("%Y-%m-%d %H:%M")
 
 
 def _day_key(ended_at: object) -> str | None:
-    """UTC ``YYYY-MM-DD`` for *ended_at*, or ``None`` — matches the date the
-    day-filter input submits."""
+    """Server-local ``YYYY-MM-DD`` for *ended_at*, or ``None`` — matches the
+    date the day-filter input submits."""
     if not isinstance(ended_at, (int, float)):
         return None
-    return datetime.fromtimestamp(ended_at, tz=UTC).strftime("%Y-%m-%d")
+    return datetime.fromtimestamp(ended_at).strftime("%Y-%m-%d")
 
 
 def _fmt_duration(locale: str, duration_s: object) -> str:

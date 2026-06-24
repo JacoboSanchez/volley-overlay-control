@@ -131,7 +131,7 @@ class TestMatchHistoryPage:
 
     def test_filters_by_day(
             self, client, db_session, fake_backend_cls, monkeypatch):
-        from datetime import UTC, datetime
+        from datetime import datetime
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
         client.post("/api/v1/session/init", json={"oid": "hist-day"})
         skey = make_skey(client.test_user_id, "hist-day")
@@ -140,7 +140,8 @@ class TestMatchHistoryPage:
             final_state={"team_1": {"sets": 2}, "team_2": {"sets": 0}},
         )
         token = _token(db_session, client.test_user_id, "hist-day")
-        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        # Server-local "today" — matches the page's local-time day key.
+        today = datetime.now().strftime("%Y-%m-%d")
         # The archived match's day → 1 result; a different day → none.
         assert client.get(
             f"/matches/{token}?day={today}"
