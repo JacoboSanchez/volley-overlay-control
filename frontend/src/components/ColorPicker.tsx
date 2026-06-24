@@ -49,6 +49,10 @@ export interface ColorPickerProps {
   onChange: (color: string) => void;
   className?: string;
   'data-testid'?: string;
+  /** Accessible name for the swatch trigger. Defaults to a generic "Pick color"
+   *  — pass a specific name (e.g. "Background colour") when several pickers sit
+   *  together so a screen reader can tell them apart. */
+  'aria-label'?: string;
 }
 
 /**
@@ -61,6 +65,7 @@ export default function ColorPicker({
   onChange,
   className,
   'data-testid': testId,
+  'aria-label': ariaLabel,
 }: ColorPickerProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -191,7 +196,7 @@ export default function ColorPicker({
         style={{ backgroundColor: color ?? '#000000' }}
         onClick={() => setOpen(!open)}
         data-testid={testId}
-        aria-label="Pick color"
+        aria-label={ariaLabel ?? 'Pick color'}
       />
       {open && (
         <div ref={popover} className="color-picker-popover" style={popoverStyle}>

@@ -10,6 +10,20 @@ once a first tagged release ships.
 
 ### Added
 
+- **Admin team catalog & group manager on its own page.** Global team
+  authoring moved off the user's **Teams** page to a dedicated, admin-only
+  **Team catalog** page (`/admin/teams`, linked under a new *Admin* nav
+  group), so an operator who manages the shared catalog no longer scrolls
+  past their personal roster to reach it. It edits the catalog as cards —
+  search, multi-select, bulk delete, and edit-on-demand — and adds a
+  **group manager** the backend already supported but never exposed in the
+  UI: create a group, add/remove catalog teams, publish/unpublish it (only
+  published groups appear in users' one-tap "copy a group" shortcut), and
+  delete it. Three new admin endpoints back the manager:
+  `GET /api/v1/admin/team-groups` (every group, active or not, with its
+  members), `DELETE /api/v1/admin/team-groups/{group_id}/members/{team_id}`,
+  and `DELETE /api/v1/admin/team-groups/{group_id}`.
+
 - **Delete and sort match reports.** The account **Reports** page now lets
   you delete an archived report — one at a time, or select several (or all)
   and delete them in bulk — with a confirmation step. The table is also
@@ -32,6 +46,19 @@ once a first tagged release ships.
   longer dead-ends at "open your account screen" to reach a report.
 
 ### Changed
+
+- **Reimplemented the team configuration panels for phone portrait.** Both the
+  user roster (`/teams`) and the new admin catalog now share a card-based
+  layout built for one-handed use on a phone: each team is a tap-friendly card
+  that reads at a glance and expands its name/logo/colours editor on demand —
+  instead of a wide, always-editable table that needed horizontal panning to
+  reach the colours and actions — with a sticky bulk-action bar that floats
+  within thumb reach only while a selection is active. The user's personal
+  roster is now cleanly separated from admin-only catalog and group authoring
+  (see *Added*). The per-list name filter, "shown of total" counter, and
+  app-native colour picker introduced below are carried over into the cards.
+  The account sidebar now groups admin-only links under an **Admin** heading
+  (My overlays screenshot refreshed to show it).
 
 - **Reworked the Teams page for large rosters and consistent colour editing.**
   Three improvements aimed at operators juggling dozens of teams:

@@ -542,28 +542,303 @@
   margin-top: 12px;
 }
 
-/* Live filter box above long team lists. */
-.acc-teams-filter {
+/* ── Team management: cards, fieldset, toolbar, bulk bar ──────────────────
+   A phone-portrait-first language shared by the user roster (/teams) and the
+   admin catalog + groups (/admin/teams). Each team is a tap-friendly card that
+   reads at a glance and expands its editor on demand, rather than a wide table
+   that needs horizontal panning to reach the colours and actions. */
+.acc-tlist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.acc-tswatch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid #333;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+}
+.acc-tswatch img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.acc-tcard {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #232833;
+  border-radius: 12px;
+  background: #181b22;
+  padding: 10px 12px;
+}
+.acc-tcard.is-selected {
+  border-color: #4f8cff;
+  background: #16203a;
+}
+.acc-tcard__main {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 6px 0 12px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
 }
-.acc-teams-filter .acc-input {
-  max-width: 320px;
+/* Enlarge the checkbox to a ~40px thumb target without growing the visual box:
+   the padded label is the hit area, the input keeps its 20px look. */
+.acc-tcard__check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  margin: -8px -6px;
+  cursor: pointer;
 }
-.acc-teams-count {
-  white-space: nowrap;
+.acc-tcard__check input {
+  width: 20px;
+  height: 20px;
 }
-/* Colour fields shrink to their picker swatch instead of stretching. */
-.acc-field-color {
+.acc-tcard__name {
+  /* Keep a usable width (≥140px) before the trailing controls wrap below. */
+  flex: 1 1 140px;
+  min-width: 0;
+  word-break: break-word;
+  font-weight: 600;
+}
+.acc-tcard__spacer {
+  flex: 1 1 0;
+}
+.acc-tcard__edit {
   flex: 0 0 auto;
 }
-/* Swatch preview + editable name in the admin catalog's first cell. */
-.acc-team-id {
+/* The on-demand editor drops full-width below the row. */
+.acc-tcard__editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #232833;
+}
+.acc-tcard__editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Shared create/edit field set — one field per row in portrait. */
+.acc-tfields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.acc-tfield {
+  margin-bottom: 0;
+}
+.acc-tfields__colors {
+  display: flex;
+  gap: 18px;
+}
+.acc-tfield-color {
+  flex: 0 0 auto;
+}
+
+.acc-tcreate {
+  margin-top: 4px;
+}
+.acc-tcreate__actions {
+  margin-top: 14px;
+}
+.acc-tcreate__actions .acc-btn {
+  width: 100%;
+}
+
+/* List toolbar: select-all + filter. */
+.acc-tlist-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 10px 0;
+}
+.acc-tlist-selall {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.acc-tlist-selall input {
+  width: 20px;
+  height: 20px;
+}
+.acc-tfilter {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1 1 240px;
+}
+.acc-tfilter .acc-input {
+  flex: 1 1 auto;
+  max-width: 360px;
+}
+.acc-tfilter__count {
+  white-space: nowrap;
+}
+
+/* Sticky bulk-action bar: floats just above the bottom edge, in thumb reach.
+   Pages keep one selection active at a time so two bars never overlap. */
+.acc-bulkbar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid #2c333f;
+  border-radius: 12px;
+  background: #1d2330;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.acc-bulkbar__count {
+  font-weight: 600;
+}
+.acc-bulkbar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+/* While a bulk bar is mounted (a selection is active) reserve scroll slack at
+   the bottom of the content so the floating bar never hides the last rows or
+   the page's bottom-most action. Only applies when a bar is present. */
+.acc-main:has(.acc-bulkbar) {
+  padding-bottom: 88px;
+}
+@supports not selector(:has(*)) {
+  /* Fallback for engines without :has(): always reserve the slack. */
+  .acc-main {
+    padding-bottom: 88px;
+  }
+}
+
+/* Section header with a trailing action (e.g. "Add team"). */
+.acc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.acc-section-head h3 {
+  margin: 0;
+}
+
+/* Quick "copy a group" buttons on the user roster. */
+.acc-group-copies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Group manager (admin). */
+.acc-group-create {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+.acc-group-create .acc-input {
+  flex: 1 1 auto;
+  max-width: 360px;
+}
+.acc-group-create .acc-btn {
+  flex: 0 0 auto;
+}
+.acc-gcard__count {
+  white-space: nowrap;
+}
+.acc-pill.is-on {
+  background: #18301f;
+  color: #7fd1a4;
+}
+.acc-gcard__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.acc-gcard__members-label {
+  margin: 14px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.68rem;
+}
+.acc-gcard__members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.acc-gchip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid #232833;
+  border-radius: 8px;
+}
+.acc-gchip__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+.acc-gchip__x {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #e07d6f;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.acc-gchip__x:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.acc-gcard__add {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.acc-gcard__add .acc-input {
+  flex: 1 1 auto;
+  max-width: 360px;
+}
+.acc-gcard__add .acc-btn {
+  flex: 0 0 auto;
+}
+
+/* Admin grouping label in the side nav. */
+.acc-nav-section {
+  margin: 14px 10px 2px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #6b7283;
 }
 
 /* ── Reports: match-day calendar + teams cell ─────────────────────────── */
@@ -849,41 +1124,34 @@
     color: #8b93a7;
   }
 
-  /* Selectable lists (Teams: My teams / Catalog) are checkbox + swatch rows,
-     not data cards. Keep the whole row on one line — a checkbox stranded on its
-     own line above the team name looks broken. Each <td> becomes an inline flex
-     cell; the name cell takes the slack and the trailing action (Edit) sits at
-     the end. */
-  .acc-table.acc-checklist tr {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 10px;
-    padding: 8px 12px;
+  /* Team management on phones: forms and add-row controls stack full-width, and
+     the bulk bar's actions span the row so each is an easy thumb target. */
+  .acc-group-create,
+  .acc-gcard__add {
+    flex-direction: column;
+    align-items: stretch;
   }
-  .acc-table.acc-checklist td {
-    display: flex;
-    align-items: center;
-    width: auto;
-    padding: 0;
+  .acc-group-create .acc-input,
+  .acc-gcard__add .acc-input {
+    max-width: none;
   }
-  /* The team-name cell absorbs the remaining width (and may wrap a long name). */
-  .acc-table.acc-checklist td:nth-child(2) {
-    flex: 1 1 0;
-    min-width: 0;
+  .acc-group-create .acc-btn,
+  .acc-gcard__add .acc-btn {
+    width: 100%;
   }
-  .acc-table.acc-checklist td .acc-btn {
-    margin: 0;
+  .acc-tfilter .acc-input {
+    max-width: none;
   }
-  /* Keep the "custom" pill intact (never break it to "custo / m") and let it
-     sit at its natural size next to the name. */
-  .acc-table.acc-checklist .acc-pill {
-    flex: 0 0 auto;
-    white-space: nowrap;
+  .acc-bulkbar {
+    /* Full-bleed-ish bar that clears the home indicator on iOS. */
+    bottom: calc(8px + env(safe-area-inset-bottom));
   }
-  /* The expanded custom-team editor spans the full row width. */
-  .acc-table.acc-checklist td[colspan] {
-    flex: 1 1 100%;
+  .acc-bulkbar__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  .acc-bulkbar__actions .acc-btn {
+    flex: 1 1 auto;
   }
 }
 

@@ -46,10 +46,12 @@ describe('TeamsPage', () => {
   it('only lists catalog teams not already in my list', async () => {
     render(<TeamsPage />);
     await waitFor(() => expect(screen.getByText('Estudiantes')).toBeInTheDocument());
-    // Breogán is already mine → it appears under "My teams" but not as an addable catalog row.
-    // "Estudiantes" is the only addable catalog entry.
-    const addBtn = screen.getByRole('button', { name: /Add selected/ });
-    expect(addBtn).toBeDisabled();
+    // Breogán is already mine → it appears under "My teams" but not as an
+    // addable catalog card. The bulk "Add selected" action only surfaces once a
+    // team is selected, so it is absent on first render.
+    expect(screen.queryByRole('button', { name: /Add selected/ })).toBeNull();
+    fireEvent.click(screen.getByLabelText('Select Estudiantes'));
+    expect(screen.getByRole('button', { name: /Add selected \(1\)/ })).toBeInTheDocument();
   });
 
   it('batch-removes the selected teams from my list', async () => {
@@ -88,11 +90,35 @@ describe('TeamsPage', () => {
     fireEvent.change(within(form).getByLabelText('Name', { selector: 'input' }) as HTMLInputElement, {
       target: { value: 'Lugo CV' },
     });
+    // The two colour pickers carry distinct accessible names (a11y).
+    expect(within(form).getByLabelText('Colour')).toBeInTheDocument();
+    expect(within(form).getByLabelText('Text')).toBeInTheDocument();
     fireEvent.click(within(form).getByRole('button', { name: 'Add team' }));
     await waitFor(() =>
       expect(api.createMyTeam).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Lugo CV' }),
       ),
     );
+  });
+
+  it('a filtered bulk-remove only deletes the visible selection, not hidden selected rows', async () => {
+    // >8 teams so the filter box renders; all global so removal needs no confirm.
+    const many = Array.from({ length: 9 }, (_, i) =>
+      team(100 + i, i === 0 ? 'Breogán' : `Team ${i}`));
+    vi.mocked(api.getMyTeams).mockResolvedValue(many);
+    vi.mocked(api.getTeamCatalog).mockResolvedValue(many); // all already mine → no catalog list/filter
+    render(<TeamsPage />);
+    await waitFor(() => expect(screen.getByText('Breogán')).toBeInTheDocument());
+
+    // Select all 9, then narrow the filter to just Breogán.
+    fireEvent.click(screen.getByLabelText('Select all'));
+    expect(screen.getByRole('button', { name: 'Remove selected (9)' })).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Filter by name…'), { target: { value: 'Breog' } });
+
+    // The bulk action now matches the single visible row — the 8 hidden-but-still
+    // -selected teams are NOT removed.
+    expect(screen.getByRole('button', { name: 'Remove selected (1)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove selected (1)' }));
+    await waitFor(() => expect(api.removeTeamsFromMine).toHaveBeenCalledWith([100]));
   });
 });

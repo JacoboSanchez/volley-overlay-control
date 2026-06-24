@@ -459,6 +459,40 @@ export function adminDeleteTeam(id: number): Promise<{ ok: boolean }> {
   return request('DELETE', `/admin/teams/${id}`);
 }
 
+// ---- Admin: team-group authoring ------------------------------------------
+// Users only ever read active groups (getTeamGroups); the admin manager works
+// against every group, active or not, and can build/publish/delete them.
+
+export function adminListGroups(): Promise<TeamGroupOut[]> {
+  return request<TeamGroupOut[]>('GET', '/admin/team-groups');
+}
+
+export function adminCreateGroup(name: string): Promise<TeamGroupOut> {
+  return request<TeamGroupOut>('POST', '/admin/team-groups', { name });
+}
+
+export function adminAddGroupMember(groupId: number, teamId: number): Promise<{ ok: boolean }> {
+  return request('POST', `/admin/team-groups/${groupId}/members`, { team_id: teamId });
+}
+
+export function adminRemoveGroupMember(
+  groupId: number,
+  teamId: number,
+): Promise<{ ok: boolean; removed: boolean }> {
+  return request('DELETE', `/admin/team-groups/${groupId}/members/${teamId}`);
+}
+
+export function adminSetGroupActive(
+  groupId: number,
+  isActive: boolean,
+): Promise<{ id: number; is_active: boolean }> {
+  return request('PATCH', `/admin/team-groups/${groupId}`, { is_active: isActive });
+}
+
+export function adminDeleteGroup(groupId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/admin/team-groups/${groupId}`);
+}
+
 // ---- Match reports (per overlay) ------------------------------------------
 
 export interface MatchSummary {

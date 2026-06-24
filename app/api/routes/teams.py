@@ -295,6 +295,19 @@ async def admin_import_teams(
     return {"imported": count}
 
 
+@router.get("/admin/team-groups", response_model=list[TeamGroupOut])
+async def admin_list_groups(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db),
+):
+    """Every group (active and inactive) with its members — drives the admin
+    group manager. Users only ever see active groups via ``GET /team-groups``."""
+    out = []
+    for g in teams_service.list_all_groups(db):
+        teams = [TeamOut.of(t) for t in teams_service.group_member_teams(db, g.id)]
+        out.append(TeamGroupOut(id=g.id, name=g.name, is_active=g.is_active, teams=teams))
+    return out
+
+
 @router.post("/admin/team-groups", response_model=TeamGroupOut, status_code=201)
 async def admin_create_group(
     body: CreateGroupRequest,
@@ -318,11 +331,29 @@ async def admin_add_group_member(
 ):
     if db.get(TeamGroup, group_id) is None:
         raise HTTPException(status_code=404, detail="Group not found.")
-    if db.get(Team, body.team_id) is None:
+    team = db.get(Team, body.team_id)
+    # Groups are a curated catalog of GLOBAL teams; a user-owned custom team must
+    # never be linked (it would leak that user's private team into everyone's
+    # roster via copy-to-mine). Mirror the global-only guard on update/delete.
+    if team is None or not team.is_global:
         raise HTTPException(status_code=404, detail="Team not found.")
     teams_service.add_group_member(db, group_id, body.team_id)
     db.commit()
     return {"ok": True}
+
+
+@router.delete("/admin/team-groups/{group_id}/members/{team_id}")
+async def admin_remove_group_member(
+    group_id: int,
+    team_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if db.get(TeamGroup, group_id) is None:
+        raise HTTPException(status_code=404, detail="Group not found.")
+    removed = teams_service.remove_group_member(db, group_id, team_id)
+    db.commit()
+    return {"ok": True, "removed": removed}
 
 
 @router.patch("/admin/team-groups/{group_id}")
@@ -338,3 +369,15 @@ async def admin_set_group_active(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     db.commit()
     return {"id": group.id, "is_active": group.is_active}
+
+
+@router.delete("/admin/team-groups/{group_id}")
+async def admin_delete_group(
+    group_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if not teams_service.delete_group(db, group_id):
+        raise HTTPException(status_code=404, detail="Group not found.")
+    db.commit()
+    return {"ok": True}

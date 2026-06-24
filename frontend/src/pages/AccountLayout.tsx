@@ -88,7 +88,13 @@ export default function AccountLayout() {
           <NavLink to="/presets">{t('acc.nav.presets')}</NavLink>
           <NavLink to="/reports">{t('acc.nav.reports')}</NavLink>
           <NavLink to="/account">{t('acc.nav.account')}</NavLink>
-          {isAdmin && <NavLink to="/admin">{t('acc.nav.admin')}</NavLink>}
+          {isAdmin && (
+            <>
+              <div className="acc-nav-section">{t('acc.nav.adminSection')}</div>
+              <NavLink to="/admin">{t('acc.nav.admin')}</NavLink>
+              <NavLink to="/admin/teams">{t('acc.nav.adminTeams')}</NavLink>
+            </>
+          )}
           <div className="spacer" />
           <div className="acc-nav-user">
             <span className="acc-muted">{displayName}</span>

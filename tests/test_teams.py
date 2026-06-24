@@ -163,6 +163,102 @@ def test_add_member_to_missing_group_is_404(db_session):
     assert r.status_code == 404
 
 
+# ---- admin group manager (list-all / remove member / delete group) ---------
+
+
+def test_admin_lists_all_groups_including_inactive(db_session):
+    """The admin manager sees inactive groups (with members); users do not."""
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    catalog = admin.get("/api/v1/teams/catalog").json()
+    gid = admin.post("/api/v1/admin/team-groups", json={"name": "Borrador"}).json()["id"]
+    for t in catalog:
+        admin.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": t["id"]})
+
+    # Still inactive → invisible to users, visible to admin with its members.
+    user = _user(db_session)
+    assert user.get("/api/v1/team-groups").json() == []
+
+    groups = admin.get("/api/v1/admin/team-groups").json()
+    assert [g["name"] for g in groups] == ["Borrador"]
+    assert groups[0]["is_active"] is False
+    assert {t["name"] for t in groups[0]["teams"]} == set(APP_TEAMS)
+
+
+def test_admin_group_list_requires_admin(db_session):
+    user = _user(db_session)
+    assert user.get("/api/v1/admin/team-groups").status_code == 403
+
+
+def test_admin_removes_a_group_member(db_session):
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    catalog = admin.get("/api/v1/teams/catalog").json()
+    gid = admin.post("/api/v1/admin/team-groups", json={"name": "Liga"}).json()["id"]
+    for t in catalog:
+        admin.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": t["id"]})
+    drop = catalog[0]["id"]
+
+    r = admin.delete(f"/api/v1/admin/team-groups/{gid}/members/{drop}")
+    assert r.status_code == 200, r.text
+    assert r.json()["removed"] is True
+
+    groups = {g["id"]: g for g in admin.get("/api/v1/admin/team-groups").json()}
+    assert drop not in {t["id"] for t in groups[gid]["teams"]}
+    # Idempotent: removing it again still succeeds but reports nothing removed.
+    assert admin.delete(f"/api/v1/admin/team-groups/{gid}/members/{drop}").json()["removed"] is False
+
+
+def test_admin_remove_member_from_missing_group_is_404(db_session):
+    admin = _admin(db_session)
+    assert admin.delete("/api/v1/admin/team-groups/999999/members/1").status_code == 404
+
+
+def test_admin_deletes_a_group_keeping_catalog_teams(db_session):
+    admin = _admin(db_session)
+    admin.post("/api/v1/admin/teams/import", json={"teams": APP_TEAMS})
+    catalog = admin.get("/api/v1/teams/catalog").json()
+    gid = admin.post("/api/v1/admin/team-groups", json={"name": "Temporal"}).json()["id"]
+    for t in catalog:
+        admin.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": t["id"]})
+
+    assert admin.delete(f"/api/v1/admin/team-groups/{gid}").status_code == 200
+    assert admin.get("/api/v1/admin/team-groups").json() == []
+    # The member teams survive in the catalog.
+    assert {t["name"] for t in admin.get("/api/v1/teams/catalog").json()} == set(APP_TEAMS)
+    # Deleting again is a 404.
+    assert admin.delete(f"/api/v1/admin/team-groups/{gid}").status_code == 404
+
+
+def test_admin_group_delete_requires_admin(db_session):
+    user = _user(db_session)
+    assert user.delete("/api/v1/admin/team-groups/1").status_code == 403
+    assert user.delete("/api/v1/admin/team-groups/1/members/1").status_code == 403
+
+
+def test_admin_cannot_add_a_private_custom_team_to_a_group(db_session):
+    """Data-isolation: a user's private custom team must never be linked to a
+    group, or copy-to-mine would leak it into every other user's roster."""
+    admin = _admin(db_session)
+    alice = _user(db_session)
+    secret = alice.post(
+        "/api/v1/teams/mine/custom",
+        json={"name": "Alice Secret", "color": "#abcdef"},
+    ).json()
+    assert secret["is_global"] is False
+
+    gid = admin.post("/api/v1/admin/team-groups", json={"name": "Liga"}).json()["id"]
+    # The private team id is rejected as if it did not exist.
+    r = admin.post(f"/api/v1/admin/team-groups/{gid}/members", json={"team_id": secret["id"]})
+    assert r.status_code == 404
+
+    admin.patch(f"/api/v1/admin/team-groups/{gid}", json={"is_active": True})
+    # Even after publishing, another user never sees or copies the private team.
+    bob = login_client(TestClient(create_app()), db_session, "bob")
+    groups = bob.get("/api/v1/team-groups").json()
+    assert all("Alice Secret" not in {t["name"] for t in g["teams"]} for g in groups)
+
+
 # ---- custom (user-owned) teams ---------------------------------------------
 
 

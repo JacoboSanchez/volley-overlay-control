@@ -173,12 +173,52 @@ def list_active_groups(db: Session) -> list[TeamGroup]:
     )
 
 
+def list_all_groups(db: Session) -> list[TeamGroup]:
+    """Every group, active or not — for the admin group manager (users only ever
+    see active ones via ``list_active_groups``)."""
+    return list(
+        db.execute(select(TeamGroup).order_by(TeamGroup.name)).scalars().all()
+    )
+
+
+def remove_group_member(db: Session, group_id: int, team_id: int) -> bool:
+    """Unlink a team from a group (idempotent). Returns True if a row was removed."""
+    member = db.execute(
+        select(TeamGroupMember).where(
+            TeamGroupMember.group_id == group_id, TeamGroupMember.team_id == team_id,
+        )
+    ).scalar_one_or_none()
+    if member is None:
+        return False
+    db.delete(member)
+    db.flush()
+    return True
+
+
+def delete_group(db: Session, group_id: int) -> bool:
+    """Delete a group and its membership rows (idempotent). Member teams stay in
+    the catalog and in any user list they were already copied into."""
+    group = db.get(TeamGroup, group_id)
+    if group is None:
+        return False
+    for member in db.execute(
+        select(TeamGroupMember).where(TeamGroupMember.group_id == group_id)
+    ).scalars().all():
+        db.delete(member)
+    db.delete(group)
+    db.flush()
+    return True
+
+
 def group_member_teams(db: Session, group_id: int) -> list[Team]:
+    # is_global filter is defence-in-depth: the add-member route already rejects
+    # non-global teams, so any non-global membership row is stale/bad data and
+    # must never be surfaced (it would otherwise be copied into user rosters).
     return list(
         db.execute(
             select(Team)
             .join(TeamGroupMember, TeamGroupMember.team_id == Team.id)
-            .where(TeamGroupMember.group_id == group_id)
+            .where(TeamGroupMember.group_id == group_id, Team.is_global.is_(True))
             .order_by(Team.name)
         ).scalars().all()
     )

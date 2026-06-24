@@ -2413,6 +2413,58 @@
       }
     },
     "/api/v1/admin/team-groups": {
+      "get": {
+        "description": "Every group (active and inactive) with its members \u2014 drives the admin\ngroup manager. Users only ever see active groups via ``GET /team-groups``.",
+        "operationId": "admin_list_groups_api_v1_admin_team_groups_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamGroupOut"
+                  },
+                  "title": "Response Admin List Groups Api V1 Admin Team Groups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin List Groups",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
       "post": {
         "operationId": "admin_create_group_api_v1_admin_team_groups_post",
         "parameters": [
@@ -2472,6 +2524,60 @@
       }
     },
     "/api/v1/admin/team-groups/{group_id}": {
+      "delete": {
+        "operationId": "admin_delete_group_api_v1_admin_team_groups__group_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Delete Group",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      },
       "patch": {
         "operationId": "admin_set_group_active_api_v1_admin_team_groups__group_id__patch",
         "parameters": [
@@ -2598,6 +2704,71 @@
           }
         },
         "summary": "Admin Add Group Member",
+        "tags": [
+          "Scoreboard API v1"
+        ]
+      }
+    },
+    "/api/v1/admin/team-groups/{group_id}/members/{team_id}": {
+      "delete": {
+        "operationId": "admin_remove_group_member_api_v1_admin_team_groups__group_id__members__team_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "vsession",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Vsession"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Remove Group Member",
         "tags": [
           "Scoreboard API v1"
         ]

@@ -21,6 +21,7 @@ import AccountHome from './pages/AccountHome';
 import OverlaysPage from './pages/OverlaysPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import TeamsPage from './pages/TeamsPage';
+import AdminTeamsPage from './pages/AdminTeamsPage';
 import PresetsPage from './pages/PresetsPage';
 import ReportsPage from './pages/ReportsPage';
 import AdminPage from './pages/AdminPage';
@@ -118,6 +119,7 @@ export default function AppRouter() {
                   <Route path="/" element={<AccountHome />} />
                   <Route path="/overlays" element={<OverlaysPage />} />
                   <Route path="/teams" element={<TeamsPage />} />
+                  <Route path="/admin/teams" element={<AdminTeamsPage />} />
                   <Route path="/presets" element={<PresetsPage />} />
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/account" element={<AccountSettingsPage />} />

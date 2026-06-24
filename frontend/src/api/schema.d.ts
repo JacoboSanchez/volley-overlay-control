@@ -138,7 +138,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Admin List Groups
+         * @description Every group (active and inactive) with its members — drives the admin
+         *     group manager. Users only ever see active groups via ``GET /team-groups``.
+         */
+        get: operations["admin_list_groups_api_v1_admin_team_groups_get"];
         put?: never;
         /** Admin Create Group */
         post: operations["admin_create_group_api_v1_admin_team_groups_post"];
@@ -158,7 +163,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** Admin Delete Group */
+        delete: operations["admin_delete_group_api_v1_admin_team_groups__group_id__delete"];
         options?: never;
         head?: never;
         /** Admin Set Group Active */
@@ -177,6 +183,23 @@ export interface paths {
         /** Admin Add Group Member */
         post: operations["admin_add_group_member_api_v1_admin_team_groups__group_id__members_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/team-groups/{group_id}/members/{team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Admin Remove Group Member */
+        delete: operations["admin_remove_group_member_api_v1_admin_team_groups__group_id__members__team_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2568,6 +2591,37 @@ export interface operations {
             };
         };
     };
+    admin_list_groups_api_v1_admin_team_groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamGroupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_create_group_api_v1_admin_team_groups_post: {
         parameters: {
             query?: never;
@@ -2590,6 +2644,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamGroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_delete_group_api_v1_admin_team_groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -2656,6 +2743,40 @@ export interface operations {
                 "application/json": components["schemas"]["GroupMemberRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_remove_group_member_api_v1_admin_team_groups__group_id__members__team_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+                team_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
