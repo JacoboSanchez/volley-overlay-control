@@ -184,4 +184,31 @@ describe('TeamPanel', () => {
     render(<TeamPanel {...defaultProps} teamState={{ ...baseTeamState, scores: { set_2: 3 } }} />);
     expect(screen.getByTestId('team-1-score')).toHaveTextContent('03');
   });
+
+  it('portrait: hides the team logo when icons are disabled (iconLogo null)', () => {
+    // Even if customization carries a logo, the portrait history column
+    // must honour the "show icons" setting (which nulls iconLogo) — the
+    // bug was that it read the logo straight from customization.
+    render(
+      <TeamPanel
+        {...defaultProps}
+        isPortrait={true}
+        iconLogo={null}
+        customization={{ 'Team 1 Logo': 'https://example.com/logo.png' }}
+      />,
+    );
+    expect(screen.queryByTestId('team-1-logo')).toBeNull();
+  });
+
+  it('portrait: shows the team logo from iconLogo when icons are enabled', () => {
+    render(
+      <TeamPanel
+        {...defaultProps}
+        isPortrait={true}
+        iconLogo="https://example.com/logo.png"
+      />,
+    );
+    const img = screen.getByTestId('team-1-logo') as HTMLImageElement;
+    expect(img.src).toContain('https://example.com/logo.png');
+  });
 });

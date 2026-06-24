@@ -63,6 +63,11 @@ once a first tagged release ships.
 - **Disabled team logos no longer leak into the set-score columns or the
   points-history strip.** They now follow the same "show logos" toggle as the
   score buttons, instead of being read straight from the customization.
+- **Disabled team logos no longer show in the portrait score column.** The
+  portrait per-team history column read the logo straight from the
+  customization, so it stayed visible next to the score buttons even with the
+  "show logos" toggle off; it now follows the same toggle as every other
+  scoreboard surface.
 - **Set-point / match-point markers point to the correct side after a court
   switch.** The triangle now tracks each team's *physical* side, so when the
   teams swap ends the arrow flips with them instead of pointing at the wrong

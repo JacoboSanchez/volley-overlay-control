@@ -147,8 +147,6 @@ function TeamPanel({
     iconStyle.backgroundPosition = 'center';
   }
 
-  const teamLogo = asString(customization?.[`Team ${teamId} Logo`]);
-
   return (
     <div
       className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}
@@ -157,9 +155,9 @@ function TeamPanel({
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
         {isPortrait && state && (
           <div className="team-history-col">
-            {teamLogo && (
+            {safeIconLogo && (
               <img
-                src={teamLogo}
+                src={safeIconLogo}
                 alt={`Team ${teamId}`}
                 className="team-logo"
                 data-testid={`team-${teamId}-logo`}
