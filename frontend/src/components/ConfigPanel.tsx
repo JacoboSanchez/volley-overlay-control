@@ -184,6 +184,9 @@ export default function ConfigPanel({
   const [predefinedTeams, setPredefinedTeams] = useState<PredefinedTeams>({});
   const [teamGroups, setTeamGroups] = useState<api.BoardGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  // Gates the team-options fetch until the remembered selection is known, so a
+  // board with a non-null group remembered doesn't first fetch "All" teams.
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [styles, setStyles] = useState<string[]>([]);
   const [styleCaps, setStyleCaps] = useState<Record<string, api.StyleCapabilities>>({});
   const [links, setLinks] = useState<LinksData>(null);
@@ -192,6 +195,7 @@ export default function ConfigPanel({
 
   useEffect(() => {
     let cancelled = false;
+    setGroupsLoaded(false);
     // The team picker is group-scoped: load the owner's groups (+ remembered
     // selection); a second effect fetches the chosen group's teams.
     api
@@ -200,6 +204,7 @@ export default function ConfigPanel({
         if (cancelled) return;
         setTeamGroups(d.groups);
         setSelectedGroupId(d.selected_id);
+        setGroupsLoaded(true);
       })
       .catch(console.warn);
     api
@@ -225,8 +230,10 @@ export default function ConfigPanel({
     };
   }, [oid]);
 
-  // Re-fetch the team options whenever the selected group changes.
+  // Fetch the team options for the selected group — but only once the groups
+  // (and the remembered selection) have loaded, then on every later change.
   useEffect(() => {
+    if (!groupsLoaded) return undefined;
     let cancelled = false;
     api
       .getBoardGroupTeams(oid, selectedGroupId)
@@ -237,7 +244,7 @@ export default function ConfigPanel({
     return () => {
       cancelled = true;
     };
-  }, [oid, selectedGroupId]);
+  }, [oid, selectedGroupId, groupsLoaded]);
 
   const handleSelectGroup = useCallback(
     (id: number | null) => {

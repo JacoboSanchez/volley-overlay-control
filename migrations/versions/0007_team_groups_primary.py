@@ -91,10 +91,14 @@ def _migrate_rosters_to_private_groups() -> None:
     dialect-agnostic (SELECT-back of the new id rather than ``lastrowid``).
     """
     bind = op.get_bind()
+    # JOIN teams so an already-orphaned roster row (a team_id with no team — only
+    # reachable if the source DB was corrupted with FK enforcement off) is
+    # dropped rather than copied into the new table.
     rows = bind.execute(
         sa.text(
-            "SELECT user_id, team_id, sort_order FROM user_team_list "
-            "ORDER BY user_id, sort_order, id"
+            "SELECT utl.user_id, utl.team_id, utl.sort_order FROM user_team_list utl "
+            "JOIN teams t ON t.id = utl.team_id "
+            "ORDER BY utl.user_id, utl.sort_order, utl.id"
         )
     ).fetchall()
     by_user: dict[int, list[tuple[int, int]]] = defaultdict(list)

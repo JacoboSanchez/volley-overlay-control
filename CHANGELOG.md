@@ -29,6 +29,7 @@ once a first tagged release ships.
   - A new `0007` migration copies each user's previous team list into a private
     **"My teams"** group so nothing is lost (the legacy `user_team_list` table is
     kept as a rollback safety net). New accounts are seeded the same way.
+  - Refreshed `docs/screenshots/04-config-panel.png` to show the group picker.
 
 - **Admin team catalog & group manager on its own page.** Global team
   authoring moved off the user's **Teams** page to a dedicated, admin-only
