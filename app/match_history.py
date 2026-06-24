@@ -211,14 +211,14 @@ def _filter_links(token: str, locale: str, active_mode: str,
 
 
 def _day_form(token: str, locale: str, sort: str, direction: str,
-              mode: str, day: str) -> str:
-    """Date picker (GET form) + an 'all days' reset link."""
-    clear = ""
-    if day:
-        href = _url(token, sort=sort, direction=direction, mode=mode, day="",
-                    locale=locale)
-        clear = (f"<a class='btn' href='{html.escape(href)}'>"
-                 f"{html.escape(_t(locale, 'allDays'))}</a>")
+              mode: str, day: str, available_days: list[str]) -> str:
+    """Day filter as a dropdown of only the days that actually have matches
+    (mirrors the account calendar, which dots days with data). Auto-submits
+    on change; the button is the no-JS fallback."""
+    opts = [f"<option value=''>{html.escape(_t(locale, 'allDays'))}</option>"]
+    for d in available_days:
+        sel = " selected" if d == day else ""
+        opts.append(f"<option value='{html.escape(d)}'{sel}>{html.escape(d)}</option>")
     return (
         "<form class='dayform' method='get'>"
         f"<input type='hidden' name='sort' value='{html.escape(sort)}'>"
@@ -226,19 +226,20 @@ def _day_form(token: str, locale: str, sort: str, direction: str,
         f"<input type='hidden' name='mode' value='{html.escape(mode)}'>"
         f"<input type='hidden' name='lang' value='{html.escape(locale)}'>"
         f"<label>{html.escape(_t(locale, 'day'))} "
-        f"<input type='date' name='day' value='{html.escape(day)}'></label>"
+        "<select name='day' onchange='this.form.submit()'>"
+        + "".join(opts) + "</select></label>"
         f"<button class='btn' type='submit'>{html.escape(_t(locale, 'filter'))}</button>"
-        + clear + "</form>"
+        "</form>"
     )
 
 
 def _render(token: str, locale: str, label: str, rows: list[dict],
             sort: str, direction: str, active_mode: str, day: str,
-            page: int, pages: int) -> str:
+            available_days: list[str], page: int, pages: int) -> str:
     title = _t(locale, "title", label=label)
     controls = (
         _filter_links(token, locale, active_mode, sort, direction, day)
-        + _day_form(token, locale, sort, direction, active_mode, day)
+        + _day_form(token, locale, sort, direction, active_mode, day, available_days)
     )
     if not rows:
         body = controls + f"<p class='empty'>{html.escape(_t(locale, 'empty'))}</p>"
@@ -295,7 +296,7 @@ h1 {{ font-size:1.3rem; margin:0 0 16px; }}
 .filters a:hover {{ background:#20262f; }}
 .filters a.active {{ background:#4f8cff; border-color:#4f8cff; color:#fff; }}
 .dayform {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; color:#98a2b3; font-size:0.85rem; }}
-.dayform input[type=date] {{ background:#0f1115; border:1px solid #2c333f; border-radius:8px; color:#e7e9ee; padding:5px 8px; color-scheme:dark; }}
+.dayform select {{ background:#0f1115; border:1px solid #2c333f; border-radius:8px; color:#e7e9ee; padding:5px 8px; color-scheme:dark; }}
 .dayform button {{ cursor:pointer; }}
 table {{ width:100%; border-collapse:collapse; }}
 th,td {{ text-align:left; padding:9px 10px; border-bottom:1px solid #232833; font-size:0.92rem; }}
@@ -351,6 +352,12 @@ async def match_history(
     matches = match_archive.list_matches(oid=skey)
     if active_mode:
         matches = [m for m in matches if m.get("mode") == active_mode]
+    # Days that actually have matches (for the current type filter) — the
+    # day dropdown only offers these, like the account calendar dots them.
+    available_days = sorted(
+        {d for m in matches if (d := _day_key(m.get("ended_at")))},
+        reverse=True,
+    )
     if active_day:
         matches = [m for m in matches if _day_key(m.get("ended_at")) == active_day]
     matches = _sorted(matches, sort, direction)
@@ -360,5 +367,5 @@ async def match_history(
 
     return HTMLResponse(
         _render(public_token, locale, label, rows, sort, direction,
-                active_mode, active_day, page, pages)
+                active_mode, active_day, available_days, page, pages)
     )

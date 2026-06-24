@@ -153,8 +153,10 @@ class TestMatchHistoryPage:
         assert client.get(
             f"/matches/{token}?day=not-a-date"
         ).text.count("/report?lang=") == 1
-        # The page renders a date picker.
-        assert "type='date'" in client.get(f"/matches/{token}").text
+        # The page renders a day dropdown that offers only days with data.
+        page = client.get(f"/matches/{token}").text
+        assert "<select name='day'" in page
+        assert f"<option value='{today}'" in page
 
     def test_empty_history_renders(
             self, client, db_session, fake_backend_cls, monkeypatch):
