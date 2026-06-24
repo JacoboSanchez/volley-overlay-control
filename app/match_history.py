@@ -16,6 +16,7 @@ delete — that lives on the owner's account Reports page.
 from __future__ import annotations
 
 import html
+import re
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
@@ -40,6 +41,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "prev": "Previous", "next": "Next", "pageOf": "Page {page} of {pages}",
         "allTypes": "All types", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Table tennis",
+        "day": "Day", "filter": "Filter", "allDays": "All days",
     },
     "es": {
         "title": "Historial de partidos — {label}", "date": "Fecha", "match": "Partido",
@@ -48,6 +50,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "prev": "Anterior", "next": "Siguiente", "pageOf": "Página {page} de {pages}",
         "allTypes": "Todas", "indoor": "Pista", "beach": "Playa",
         "table_tennis": "Tenis de mesa",
+        "day": "Día", "filter": "Filtrar", "allDays": "Todos los días",
     },
     "pt": {
         "title": "Histórico de jogos — {label}", "date": "Data", "match": "Jogo",
@@ -56,6 +59,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "prev": "Anterior", "next": "Seguinte", "pageOf": "Página {page} de {pages}",
         "allTypes": "Todas", "indoor": "Pista", "beach": "Praia",
         "table_tennis": "Tênis de mesa",
+        "day": "Dia", "filter": "Filtrar", "allDays": "Todos os dias",
     },
     "it": {
         "title": "Storico partite — {label}", "date": "Data", "match": "Partita",
@@ -64,6 +68,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "prev": "Precedente", "next": "Successivo", "pageOf": "Pagina {page} di {pages}",
         "allTypes": "Tutti", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Ping pong",
+        "day": "Giorno", "filter": "Filtra", "allDays": "Tutti i giorni",
     },
     "fr": {
         "title": "Historique des matchs — {label}", "date": "Date", "match": "Match",
@@ -72,6 +77,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "prev": "Précédent", "next": "Suivant", "pageOf": "Page {page} sur {pages}",
         "allTypes": "Tous", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Tennis de table",
+        "day": "Jour", "filter": "Filtrer", "allDays": "Tous les jours",
     },
     "de": {
         "title": "Spielverlauf — {label}", "date": "Datum", "match": "Spiel",
@@ -80,6 +86,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "prev": "Zurück", "next": "Weiter", "pageOf": "Seite {page} von {pages}",
         "allTypes": "Alle", "indoor": "Halle", "beach": "Beach",
         "table_tennis": "Tischtennis",
+        "day": "Tag", "filter": "Filtern", "allDays": "Alle Tage",
     },
 }
 
@@ -123,10 +130,21 @@ def _sorted(matches: list[dict], sort: str, direction: str) -> list[dict]:
     return sorted(matches, key=lambda m: m.get(key) or 0, reverse=reverse)
 
 
+_DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
 def _fmt_date(ended_at: object) -> str:
     if not isinstance(ended_at, (int, float)):
         return "—"
     return datetime.fromtimestamp(ended_at, tz=UTC).strftime("%Y-%m-%d %H:%M")
+
+
+def _day_key(ended_at: object) -> str | None:
+    """UTC ``YYYY-MM-DD`` for *ended_at*, or ``None`` — matches the date the
+    day-filter input submits."""
+    if not isinstance(ended_at, (int, float)):
+        return None
+    return datetime.fromtimestamp(ended_at, tz=UTC).strftime("%Y-%m-%d")
 
 
 def _fmt_duration(locale: str, duration_s: object) -> str:
@@ -147,38 +165,80 @@ def _teams_cell(locale: str, m: dict) -> str:
 
 
 def _sort_link(token: str, locale: str, label: str, col: str,
-               sort: str, direction: str, mode: str) -> str:
+               sort: str, direction: str, mode: str, day: str) -> str:
     # Toggle direction when re-clicking the active column; otherwise default
     # to descending. Always jump back to page 1 on a sort change.
     nxt = "asc" if (sort == col and direction != "asc") else "desc"
     arrow = ""
     if sort == col:
         arrow = " ▲" if direction == "asc" else " ▼"
-    href = f"/matches/{token}?sort={col}&dir={nxt}&mode={mode}&page=1&lang={locale}"
+    href = _url(token, sort=col, direction=nxt, mode=mode, day=day, locale=locale)
     return f"<a href='{html.escape(href)}'>{html.escape(label)}{arrow}</a>"
 
 
+def _url(token: str, *, sort: str, direction: str, mode: str, day: str,
+         locale: str, page: int = 1) -> str:
+    """Build a ``/matches/{token}`` URL carrying the active view state."""
+    from urllib.parse import urlencode
+
+    params: dict[str, object] = {"sort": sort, "dir": direction}
+    if mode:
+        params["mode"] = mode
+    if day:
+        params["day"] = day
+    if page and page != 1:
+        params["page"] = page
+    params["lang"] = locale
+    return f"/matches/{token}?{urlencode(params)}"
+
+
 def _filter_links(token: str, locale: str, active_mode: str,
-                  sort: str, direction: str) -> str:
+                  sort: str, direction: str, day: str) -> str:
     """Match-type filter row: All types · Indoor · Beach · Table tennis."""
     items = [("", _t(locale, "allTypes"))] + [
         (m, _t(locale, m)) for m in _VALID_MODES
     ]
     out = []
     for value, label in items:
-        href = f"/matches/{token}?sort={sort}&dir={direction}&mode={value}&page=1&lang={locale}"
+        href = _url(token, sort=sort, direction=direction, mode=value, day=day,
+                    locale=locale)
         cls = " class='active'" if value == active_mode else ""
         out.append(f"<a{cls} href='{html.escape(href)}'>{html.escape(label)}</a>")
     return "<div class='filters'>" + "".join(out) + "</div>"
 
 
+def _day_form(token: str, locale: str, sort: str, direction: str,
+              mode: str, day: str) -> str:
+    """Date picker (GET form) + an 'all days' reset link."""
+    clear = ""
+    if day:
+        href = _url(token, sort=sort, direction=direction, mode=mode, day="",
+                    locale=locale)
+        clear = (f"<a class='btn' href='{html.escape(href)}'>"
+                 f"{html.escape(_t(locale, 'allDays'))}</a>")
+    return (
+        "<form class='dayform' method='get'>"
+        f"<input type='hidden' name='sort' value='{html.escape(sort)}'>"
+        f"<input type='hidden' name='dir' value='{html.escape(direction)}'>"
+        f"<input type='hidden' name='mode' value='{html.escape(mode)}'>"
+        f"<input type='hidden' name='lang' value='{html.escape(locale)}'>"
+        f"<label>{html.escape(_t(locale, 'day'))} "
+        f"<input type='date' name='day' value='{html.escape(day)}'></label>"
+        f"<button class='btn' type='submit'>{html.escape(_t(locale, 'filter'))}</button>"
+        + clear + "</form>"
+    )
+
+
 def _render(token: str, locale: str, label: str, rows: list[dict],
-            sort: str, direction: str, active_mode: str,
+            sort: str, direction: str, active_mode: str, day: str,
             page: int, pages: int) -> str:
     title = _t(locale, "title", label=label)
-    filters = _filter_links(token, locale, active_mode, sort, direction)
+    controls = (
+        _filter_links(token, locale, active_mode, sort, direction, day)
+        + _day_form(token, locale, sort, direction, active_mode, day)
+    )
     if not rows:
-        body = filters + f"<p class='empty'>{html.escape(_t(locale, 'empty'))}</p>"
+        body = controls + f"<p class='empty'>{html.escape(_t(locale, 'empty'))}</p>"
     else:
         trs = []
         for m in rows:
@@ -195,23 +255,27 @@ def _render(token: str, locale: str, label: str, rows: list[dict],
             )
         head = (
             "<tr>"
-            f"<th>{_sort_link(token, locale, _t(locale, 'date'), 'ended', sort, direction, active_mode)}</th>"
+            f"<th>{_sort_link(token, locale, _t(locale, 'date'), 'ended', sort, direction, active_mode, day)}</th>"
             f"<th>{html.escape(_t(locale, 'match'))}</th>"
-            f"<th>{_sort_link(token, locale, _t(locale, 'duration'), 'duration', sort, direction, active_mode)}</th>"
+            f"<th>{_sort_link(token, locale, _t(locale, 'duration'), 'duration', sort, direction, active_mode, day)}</th>"
             "<th></th></tr>"
         )
         pager = ""
         if pages > 1:
-            base = f"/matches/{token}?sort={sort}&dir={direction}&mode={active_mode}&lang={locale}"
-            prev_d = f"<a class='btn' href='{html.escape(base + f'&page={page - 1}')}'>{html.escape(_t(locale, 'prev'))}</a>" if page > 1 else "<span class='btn disabled'>" + html.escape(_t(locale, "prev")) + "</span>"
-            next_d = f"<a class='btn' href='{html.escape(base + f'&page={page + 1}')}'>{html.escape(_t(locale, 'next'))}</a>" if page < pages else "<span class='btn disabled'>" + html.escape(_t(locale, "next")) + "</span>"
+            def _page_btn(target: int, key: str, on: bool) -> str:
+                if not on:
+                    return f"<span class='btn disabled'>{html.escape(_t(locale, key))}</span>"
+                href = _url(token, sort=sort, direction=direction, mode=active_mode,
+                            day=day, locale=locale, page=target)
+                return f"<a class='btn' href='{html.escape(href)}'>{html.escape(_t(locale, key))}</a>"
             pager = (
-                "<div class='pager'>" + prev_d
+                "<div class='pager'>"
+                + _page_btn(page - 1, "prev", page > 1)
                 + f"<span>{html.escape(_t(locale, 'pageOf', page=page, pages=pages))}</span>"
-                + next_d + "</div>"
+                + _page_btn(page + 1, "next", page < pages) + "</div>"
             )
         body = (
-            filters + "<table><thead>" + head + "</thead><tbody>"
+            controls + "<table><thead>" + head + "</thead><tbody>"
             + "".join(trs) + "</tbody></table>" + pager
         )
     return f"""<!DOCTYPE html>
@@ -227,6 +291,9 @@ h1 {{ font-size:1.3rem; margin:0 0 16px; }}
 .filters a {{ border:1px solid #2c333f; border-radius:999px; padding:4px 12px; color:#cfd4dd; text-decoration:none; font-size:0.85rem; }}
 .filters a:hover {{ background:#20262f; }}
 .filters a.active {{ background:#4f8cff; border-color:#4f8cff; color:#fff; }}
+.dayform {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; color:#98a2b3; font-size:0.85rem; }}
+.dayform input[type=date] {{ background:#0f1115; border:1px solid #2c333f; border-radius:8px; color:#e7e9ee; padding:5px 8px; color-scheme:dark; }}
+.dayform button {{ cursor:pointer; }}
 table {{ width:100%; border-collapse:collapse; }}
 th,td {{ text-align:left; padding:9px 10px; border-bottom:1px solid #232833; font-size:0.92rem; }}
 th {{ color:#98a2b3; }}
@@ -254,6 +321,7 @@ async def match_history(
     sort: str = Query(default="ended"),
     dir: str = Query(default="desc"),
     mode: str = Query(default=""),
+    day: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     lang: str | None = Query(default=None),
     accept_language: str | None = Header(default=None),
@@ -275,10 +343,13 @@ async def match_history(
     sort = "duration" if sort == "duration" else "ended"
     direction = "asc" if dir == "asc" else "desc"
     active_mode = mode if mode in _VALID_MODES else ""
+    active_day = day if _DAY_RE.match(day or "") else ""
 
     matches = match_archive.list_matches(oid=skey)
     if active_mode:
         matches = [m for m in matches if m.get("mode") == active_mode]
+    if active_day:
+        matches = [m for m in matches if _day_key(m.get("ended_at")) == active_day]
     matches = _sorted(matches, sort, direction)
     pages = max(1, (len(matches) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, pages)
@@ -286,5 +357,5 @@ async def match_history(
 
     return HTMLResponse(
         _render(public_token, locale, label, rows, sort, direction,
-                active_mode, page, pages)
+                active_mode, active_day, page, pages)
     )

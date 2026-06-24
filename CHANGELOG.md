@@ -20,10 +20,11 @@ once a first tagged release ships.
 - **The account Reports page is now paginated** (20 per page) on top of the
   existing sort and bulk-delete, so a long archive stays manageable.
 
-- **Filter match reports by type** (indoor / beach / table tennis), alongside
-  the existing day filter, on both the account Reports page and the public
-  match-history page. The match's mode is read from the archived state, so it
-  works for any match recorded since modes were introduced.
+- **Filter match reports by type** (indoor / beach / table tennis) and by
+  **day**, on both the account Reports page and the public match-history page
+  (the public page gained a date picker to match). The match's mode is read
+  from the archived state, so it works for any match recorded since modes were
+  introduced.
 
 - **Team groups are now the primary unit of team selection.** The control board
   gained a **group picker** above the two team selectors: choose a group and the
@@ -135,6 +136,11 @@ once a first tagged release ships.
   reports 0 vulnerabilities.
 
 ### Fixed
+
+- **The Reports page filter row lines up.** The match-type dropdown carried a
+  stacked label that made it taller than the day-filter button and the count
+  beside it, so the row looked ragged on a phone. The type filter is now a
+  compact inline control aligned with the rest of the row.
 
 - **The match-mode selector fits one row in phone portrait.** The
   indoor / beach / table-tennis toggle used a two-column grid, so the third

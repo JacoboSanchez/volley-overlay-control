@@ -129,6 +129,32 @@ class TestMatchHistoryPage:
             f"/matches/{token}?mode=bogus"
         ).text.count("/report?lang=") == 2
 
+    def test_filters_by_day(
+            self, client, db_session, fake_backend_cls, monkeypatch):
+        from datetime import UTC, datetime
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        client.post("/api/v1/session/init", json={"oid": "hist-day"})
+        skey = make_skey(client.test_user_id, "hist-day")
+        match_archive.archive_match(
+            oid=skey, winning_team=1,
+            final_state={"team_1": {"sets": 2}, "team_2": {"sets": 0}},
+        )
+        token = _token(db_session, client.test_user_id, "hist-day")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        # The archived match's day → 1 result; a different day → none.
+        assert client.get(
+            f"/matches/{token}?day={today}"
+        ).text.count("/report?lang=") == 1
+        assert client.get(
+            f"/matches/{token}?day=2000-01-01"
+        ).text.count("/report?lang=") == 0
+        # Malformed day is ignored (shows everything).
+        assert client.get(
+            f"/matches/{token}?day=not-a-date"
+        ).text.count("/report?lang=") == 1
+        # The page renders a date picker.
+        assert "type='date'" in client.get(f"/matches/{token}").text
+
     def test_empty_history_renders(
             self, client, db_session, fake_backend_cls, monkeypatch):
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")

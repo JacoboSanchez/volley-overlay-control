@@ -6101,6 +6101,7 @@ export interface operations {
                 sort?: string;
                 dir?: string;
                 mode?: string;
+                day?: string;
                 page?: number;
                 lang?: string | null;
             };

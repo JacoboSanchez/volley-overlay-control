@@ -316,6 +316,29 @@
   color: #e6e9ef;
 }
 
+/* Reports filter row: keep the match-type select, the day-filter button and
+   the count on one centred line. The select uses an inline label (rather than
+   the stacked ``.acc-field``) so it's the same height as the day button. */
+.acc-reports-filters {
+  margin: 12px 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.acc-filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #98a2b3;
+}
+
+.acc-filter-select {
+  width: auto;
+  padding: 8px 10px;
+}
+
 .acc-row {
   display: flex;
   gap: 10px;

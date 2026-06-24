@@ -10163,6 +10163,16 @@
           },
           {
             "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Day",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "page",
             "required": false,
             "schema": {

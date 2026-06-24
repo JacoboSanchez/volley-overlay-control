@@ -196,11 +196,11 @@ export default function ReportsPage() {
             <EmptyState>{t('acc.reports.emptyNoMatches')}</EmptyState>
           ) : (
             <>
-              <div className="acc-row" style={{ margin: '12px 0', alignItems: 'center', gap: 12 }}>
-                <label className="acc-field" style={{ margin: 0, maxWidth: 200 }}>
+              <div className="acc-row acc-reports-filters">
+                <label className="acc-filter-inline">
                   <span>{t('acc.reports.matchType')}</span>
                   <select
-                    className="acc-input"
+                    className="acc-input acc-filter-select"
                     value={modeFilter}
                     onChange={(e) => setModeFilter(e.target.value)}
                     data-testid="reports-mode-filter"
