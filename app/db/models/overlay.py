@@ -46,7 +46,9 @@ class UserOverlay(Base, TimestampMixin):
     public_control: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="0",
     )
-    display_name: Mapped[str | None] = mapped_column(String(120))
+    # Optional free-text description shown under the overlay's id (its name)
+    # in the account UI. Not an alternative name — the ``oid`` is the name.
+    description: Mapped[str | None] = mapped_column(String(120))
 
     meta: Mapped[OverlaySessionMeta | None] = relationship(
         back_populates="overlay", cascade="all, delete-orphan",

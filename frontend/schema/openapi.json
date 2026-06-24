@@ -690,7 +690,7 @@
       },
       "CreateOverlayRequest": {
         "properties": {
-          "display_name": {
+          "description": {
             "anyOf": [
               {
                 "maxLength": 120,
@@ -700,7 +700,7 @@
                 "type": "null"
               }
             ],
-            "title": "Display Name"
+            "title": "Description"
           },
           "oid": {
             "maxLength": 64,
@@ -1270,7 +1270,7 @@
             "description": "Ready-made shareable control-board link",
             "title": "Control Url"
           },
-          "display_name": {
+          "description": {
             "anyOf": [
               {
                 "type": "string"
@@ -1279,11 +1279,11 @@
                 "type": "null"
               }
             ],
-            "description": "Friendly label",
-            "title": "Display Name"
+            "description": "Optional free-text description",
+            "title": "Description"
           },
           "oid": {
-            "description": "Overlay identifier (unique per user)",
+            "description": "Overlay identifier (unique per user) \u2014 the name",
             "title": "Oid",
             "type": "string"
           },
@@ -1920,7 +1920,7 @@
       },
       "UpdateOverlayRequest": {
         "properties": {
-          "display_name": {
+          "description": {
             "anyOf": [
               {
                 "maxLength": 120,
@@ -1930,7 +1930,7 @@
                 "type": "null"
               }
             ],
-            "title": "Display Name"
+            "title": "Description"
           },
           "public_control": {
             "anyOf": [

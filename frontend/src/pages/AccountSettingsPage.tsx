@@ -20,6 +20,7 @@ export default function AccountSettingsPage() {
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const [pwMsg, setPwMsg] = useState('');
   const [pwErr, setPwErr] = useState('');
 
@@ -44,10 +45,15 @@ export default function AccountSettingsPage() {
     e.preventDefault();
     setPwMsg('');
     setPwErr('');
+    if (next !== confirmPw) {
+      setPwErr(t('acc.account.errorPasswordMismatch'));
+      return;
+    }
     try {
       await api.changePassword(current, next);
       setCurrent('');
       setNext('');
+      setConfirmPw('');
       setPwMsg(t('acc.account.passwordChanged'));
       toast(t('acc.account.toastPasswordChanged'));
     } catch (err) {
@@ -110,6 +116,11 @@ export default function AccountSettingsPage() {
           <span>{t('acc.account.newPassword')}</span>
           <input className="acc-input" type="password" value={next}
             autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
+        </label>
+        <label className="acc-field">
+          <span>{t('acc.account.confirmPassword')}</span>
+          <input className="acc-input" type="password" value={confirmPw}
+            autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
         </label>
         <button className="acc-btn" type="submit">{t('acc.account.password')}</button>
       </form>

@@ -12,12 +12,17 @@ export default function ChangePasswordPage() {
   const navigate = useNavigate();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    if (next !== confirmPw) {
+      setError('New passwords do not match.');
+      return;
+    }
     setBusy(true);
     try {
       await api.changePassword(current, next);
@@ -50,6 +55,11 @@ export default function ChangePasswordPage() {
             <span>New password (min 8 characters)</span>
             <input className="acc-input" type="password" value={next}
               autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
+          </label>
+          <label className="acc-field">
+            <span>Confirm new password</span>
+            <input className="acc-input" type="password" value={confirmPw}
+              autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>

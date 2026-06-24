@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -43,6 +44,10 @@ export default function RegisterPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    if (password !== confirmPw) {
+      setError('Passwords do not match.');
+      return;
+    }
     setBusy(true);
     try {
       await api.registerAccount(username.trim(), password, undefined, email.trim() || undefined);
@@ -78,6 +83,11 @@ export default function RegisterPage() {
             <span>Password (min 8 characters)</span>
             <input className="acc-input" type="password" value={password}
               autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          <label className="acc-field">
+            <span>Confirm password</span>
+            <input className="acc-input" type="password" value={confirmPw}
+              autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>

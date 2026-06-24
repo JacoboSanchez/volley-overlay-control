@@ -1926,8 +1926,8 @@ export interface components {
         };
         /** CreateOverlayRequest */
         CreateOverlayRequest: {
-            /** Display Name */
-            display_name?: string | null;
+            /** Description */
+            description?: string | null;
             /** Oid */
             oid: string;
         };
@@ -2134,13 +2134,13 @@ export interface components {
              */
             control_url?: string | null;
             /**
-             * Display Name
-             * @description Friendly label
+             * Description
+             * @description Optional free-text description
              */
-            display_name?: string | null;
+            description?: string | null;
             /**
              * Oid
-             * @description Overlay identifier (unique per user)
+             * @description Overlay identifier (unique per user) — the name
              */
             oid: string;
             /**
@@ -2413,8 +2413,8 @@ export interface components {
         };
         /** UpdateOverlayRequest */
         UpdateOverlayRequest: {
-            /** Display Name */
-            display_name?: string | null;
+            /** Description */
+            description?: string | null;
             /**
              * Public Control
              * @description Toggle no-login username+oid control

@@ -109,10 +109,27 @@ once a first tagged release ships.
   a small regenerate (↻) action — no longer buried behind a "Share control"
   expander and a separate "Generate" step. The guessable username+id bookmark
   moved into a collapsed **"Advanced"** disclosure so it is never confused with
-  the link you share. Each card leads with the overlay's name, shows its id as a
-  pill and a chip when the public bookmark is on, and demotes Rename/Delete to
-  small header icons. Backend: the username in the `/board?u=` bookmark URL is
-  now URL-encoded (matching the oid). Screenshot refreshed.
+  the link you share. Cards are now a **collapsible accordion** (collapsed by
+  default) so a long list stays scannable — you expand just the one you need;
+  the collapsed header identifies it and shows a chip when the public bookmark
+  is on, with Rename/Delete as small header icons. The per-overlay
+  **"display name" is now a "description"**: the overlay's `oid` is its name
+  (primary text) and the optional description is a small subtitle, instead of
+  two competing names. The `user_overlays.display_name` column is renamed to
+  `description` by migration `0008` (data preserved). Backend: the username in
+  the `/board?u=` bookmark URL is now URL-encoded (matching the oid). Screenshot
+  refreshed.
+
+- **The account Reports "select all" now scopes to the current page.** The
+  table header checkbox selects/clears just the rows on the visible page (adding
+  to selections made on other pages), so the operator can pick a page at a time
+  instead of only all-or-nothing across the whole filtered set.
+
+- **Setting a password now requires confirming it twice.** Registration, the
+  forced/standalone password change, the self-service password change on the
+  Account page, and the first-admin claim each gained a "confirm password"
+  field; the form refuses to submit until the two entries match — a guard
+  against a typo in a field whose characters are hidden.
 
 - **Reimplemented the team configuration panels for phone portrait.** Both the
   user roster (`/teams`) and the new admin catalog now share a card-based

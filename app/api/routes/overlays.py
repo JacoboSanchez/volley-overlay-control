@@ -25,8 +25,8 @@ router = APIRouter()
 class OverlayOut(BaseModel):
     """One of the caller's overlays."""
 
-    oid: str = Field(..., description="Overlay identifier (unique per user)")
-    display_name: str | None = Field(None, description="Friendly label")
+    oid: str = Field(..., description="Overlay identifier (unique per user) — the name")
+    description: str | None = Field(None, description="Optional free-text description")
     public_token: str = Field(..., description="Public overlay-output capability token")
     output_url: str = Field(..., description="Built-in overlay output URL (the local /overlay/<token>)")
     control_token: str | None = Field(None, description="Shareable control capability token")
@@ -37,11 +37,11 @@ class OverlayOut(BaseModel):
 
 class CreateOverlayRequest(BaseModel):
     oid: str = Field(..., min_length=1, max_length=64)
-    display_name: str | None = Field(None, max_length=120)
+    description: str | None = Field(None, max_length=120)
 
 
 class UpdateOverlayRequest(BaseModel):
-    display_name: str | None = Field(None, max_length=120)
+    description: str | None = Field(None, max_length=120)
     public_control: bool | None = Field(None, description="Toggle no-login username+oid control")
 
 
@@ -59,7 +59,7 @@ def _overlay_out(request: Request, overlay, *, username: str | None = None) -> O
     )
     return OverlayOut(
         oid=overlay.oid,
-        display_name=overlay.display_name,
+        description=overlay.description,
         public_token=overlay.public_token,
         output_url=local_url,
         control_token=overlay.control_token,
@@ -93,7 +93,7 @@ async def create_my_overlay(
     try:
         overlay = overlays_service.create_overlay(
             db, user.id, body.oid,
-            display_name=body.display_name,
+            description=body.description,
         )
     except overlays_service.OverlayError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

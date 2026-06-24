@@ -57,7 +57,7 @@ def create_overlay(
     user_id: int,
     oid: str,
     *,
-    display_name: str | None = None,
+    description: str | None = None,
 ) -> UserOverlay:
     """Create a ``user_overlays`` row. Raises on duplicate/invalid oid."""
     oid = normalize_oid(oid)
@@ -68,7 +68,7 @@ def create_overlay(
         oid=oid,
         public_token=_generate_public_token(db),
         control_token=_generate_control_token(db),
-        display_name=(display_name or "").strip() or None,
+        description=(description or "").strip() or None,
     )
     db.add(overlay)
     db.flush()
@@ -83,15 +83,15 @@ def update_overlay(
     user_id: int,
     oid: str,
     *,
-    display_name: object = _UNSET,
+    description: object = _UNSET,
     public_control: object = _UNSET,
 ) -> UserOverlay:
     """Update an overlay's editable settings. Only provided fields change."""
     overlay = get_overlay(db, user_id, oid)
     if overlay is None:
         raise OverlayError("Overlay not found.")
-    if display_name is not _UNSET:
-        overlay.display_name = (str(display_name or "").strip()) or None
+    if description is not _UNSET:
+        overlay.description = (str(description or "").strip()) or None
     if public_control is not _UNSET:
         overlay.public_control = bool(public_control)
     db.flush()

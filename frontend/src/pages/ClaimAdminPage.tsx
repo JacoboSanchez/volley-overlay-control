@@ -10,6 +10,7 @@ export default function ClaimAdminPage() {
   const [token, setToken] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -21,6 +22,10 @@ export default function ClaimAdminPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    if (password !== confirmPw) {
+      setError('Passwords do not match.');
+      return;
+    }
     setBusy(true);
     try {
       await api.claimAdmin(token.trim(), username.trim(), password);
@@ -63,6 +68,11 @@ export default function ClaimAdminPage() {
             <span>Password (min 8 characters)</span>
             <input className="acc-input" type="password" value={password}
               autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          <label className="acc-field">
+            <span>Confirm password</span>
+            <input className="acc-input" type="password" value={confirmPw}
+              autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>

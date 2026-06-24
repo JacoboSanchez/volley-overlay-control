@@ -12,7 +12,7 @@ vi.mock('../api/client', () => ({
 
 import * as api from '../api/client';
 
-const overlay = (oid: string) => ({ oid, display_name: oid }) as unknown as api.OverlayPayload;
+const overlay = (oid: string) => ({ oid, description: null }) as unknown as api.OverlayPayload;
 const match = (id: string, ended: number, dur: number) =>
   ({
     match_id: id,
@@ -101,13 +101,26 @@ describe('ReportsPage', () => {
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(5)); // remainder
   });
 
-  it('select-all picks every shown report', async () => {
+  it('select-all-on-page picks every report on the current page', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithI18n(<ReportsPage />);
     await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
-    fireEvent.click(screen.getByLabelText('Select all'));
+    fireEvent.click(screen.getByLabelText('Select all on this page'));
     fireEvent.click(screen.getByRole('button', { name: /Delete selected \(2\)/ }));
     await waitFor(() => expect(api.deleteMatch).toHaveBeenCalledTimes(2));
+    confirmSpy.mockRestore();
+  });
+
+  it('select-all-on-page only selects the visible page, not every page', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const many = Array.from({ length: 25 }, (_, i) => match(`m${i}`, 1000 + i, 600));
+    vi.mocked(api.listReports).mockResolvedValue({ count: 25, matches: many });
+    renderWithI18n(<ReportsPage />);
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(20)); // PAGE_SIZE
+    fireEvent.click(screen.getByLabelText('Select all on this page'));
+    // Only the 20 rows on this page are selected, not all 25.
+    fireEvent.click(screen.getByRole('button', { name: /Delete selected \(20\)/ }));
+    await waitFor(() => expect(api.deleteMatch).toHaveBeenCalledTimes(20));
     confirmSpy.mockRestore();
   });
 });

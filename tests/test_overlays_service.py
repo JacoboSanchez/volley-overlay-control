@@ -40,7 +40,7 @@ def test_two_users_can_create_same_oid(db_session):
     b = _user(db_session, "bob")
     db_session.flush()
 
-    oa = overlays_service.create_overlay(db_session, a.id, "liga", display_name="A liga")
+    oa = overlays_service.create_overlay(db_session, a.id, "liga", description="A liga")
     ob = overlays_service.create_overlay(db_session, b.id, "liga")
     db_session.commit()
 
@@ -86,22 +86,22 @@ def test_create_and_update_overlay_settings(db_session):
     db_session.flush()
     o = overlays_service.create_overlay(
         db_session, a.id, "liga",
-        display_name="Liga",
+        description="Liga",
     )
     db_session.commit()
-    assert o.display_name == "Liga"
+    assert o.description == "Liga"
 
-    # Partial update: toggling public_control leaves display_name untouched.
+    # Partial update: toggling public_control leaves description untouched.
     overlays_service.update_overlay(db_session, a.id, "liga", public_control=True)
     db_session.commit()
     refreshed = overlays_service.get_overlay(db_session, a.id, "liga")
     assert refreshed.public_control is True
-    assert refreshed.display_name == "Liga"
+    assert refreshed.description == "Liga"
 
     # Clearing a field with an empty string nulls it.
-    overlays_service.update_overlay(db_session, a.id, "liga", display_name="")
+    overlays_service.update_overlay(db_session, a.id, "liga", description="")
     db_session.commit()
-    assert overlays_service.get_overlay(db_session, a.id, "liga").display_name is None
+    assert overlays_service.get_overlay(db_session, a.id, "liga").description is None
 
 
 def test_overlays_deleted_when_user_deleted(db_session):

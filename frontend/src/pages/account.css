@@ -499,9 +499,9 @@
 }
 .acc-overlay-card__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
 }
 .acc-overlay-card__id {
   min-width: 0;
@@ -509,6 +509,51 @@
 .acc-overlay-card__title {
   font-size: 1.15rem;
   word-break: break-word;
+}
+
+/* Collapsible header: the whole left block is one toggle button so a long
+   overlay list stays scannable and you expand just the one you need. */
+.acc-overlay-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.acc-overlay-chevron {
+  flex: 0 0 auto;
+  color: #8b93a7;
+  font-size: 24px;
+}
+.acc-overlay-toggle:hover .acc-overlay-chevron {
+  color: #c2c8d2;
+}
+.acc-overlay-headtext {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.acc-overlay-titlerow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.acc-overlay-card__desc {
+  color: #98a2b3;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+/* The expanded body holds the two job blocks + the rename panel. */
+.acc-overlay-body {
+  margin-top: 4px;
 }
 /* The hero action: visually the heaviest thing on the card. */
 .acc-overlay-open {

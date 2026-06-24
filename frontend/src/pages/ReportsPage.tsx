@@ -126,11 +126,22 @@ export default function ReportsPage() {
   }
 
   const shownIds = shown.map((m) => m.match_id);
-  const allSelected = shownIds.length > 0 && shownIds.every((id) => sel.has(id));
   const someSelected = shownIds.some((id) => sel.has(id));
 
-  function toggleAll() {
-    setSel(() => (allSelected ? new Set() : new Set(shownIds)));
+  // The header checkbox selects/clears just the rows on the *current page*,
+  // adding to (or removing from) any selection made on other pages — so a
+  // multi-page delete still works by paging and selecting each page in turn.
+  const pageIds = paged.map((m) => m.match_id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => sel.has(id));
+  const somePageSelected = pageIds.some((id) => sel.has(id));
+
+  function toggleAllPage() {
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
   }
 
   async function deleteIds(ids: string[]) {
@@ -185,7 +196,9 @@ export default function ReportsPage() {
             <span>{t('acc.reports.scoreboard')}</span>
             <select className="acc-input" value={oid} onChange={(e) => setOid(e.target.value)}>
               {overlays.map((o) => (
-                <option key={o.oid} value={o.oid}>{o.display_name || o.oid}</option>
+                <option key={o.oid} value={o.oid}>
+                  {o.description ? `${o.oid} — ${o.description}` : o.oid}
+                </option>
               ))}
             </select>
           </label>
@@ -234,10 +247,11 @@ export default function ReportsPage() {
                     <th scope="col" style={{ width: 32 }}>
                       <input
                         type="checkbox"
-                        aria-label={allSelected ? t('acc.common.deselectAll') : t('acc.common.selectAll')}
-                        checked={allSelected}
-                        ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                        onChange={toggleAll}
+                        aria-label={allPageSelected ? t('acc.reports.deselectPage') : t('acc.reports.selectPage')}
+                        title={allPageSelected ? t('acc.reports.deselectPage') : t('acc.reports.selectPage')}
+                        checked={allPageSelected}
+                        ref={(el) => { if (el) el.indeterminate = somePageSelected && !allPageSelected; }}
+                        onChange={toggleAllPage}
                       />
                     </th>
                     <th scope="col">

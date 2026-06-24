@@ -410,6 +410,10 @@ async function captureOverlaysPage(page) {
     DEMO_OID,
     { timeout: 8000 },
   ).catch(() => {});
+  // Cards are collapsed by default; expand the first one so the screenshot
+  // shows the full anatomy (output URL + control links) rather than just the
+  // collapsed header list.
+  await page.click('.acc-overlay-toggle').catch(() => {});
   await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);

@@ -12,7 +12,7 @@ export default function OverlaysPage() {
   const confirm = useConfirm();
   const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
   const [oid, setOid] = useState('');
-  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -36,10 +36,10 @@ export default function OverlaysPage() {
     try {
       const created = oid.trim();
       await api.createOverlay(created, {
-        display_name: name.trim() || null,
+        description: description.trim() || null,
       });
       setOid('');
-      setName('');
+      setDescription('');
       await load();
       toast(t('acc.overlays.toastCreated', { oid: created }));
     } catch (err) {
@@ -77,8 +77,8 @@ export default function OverlaysPage() {
           <small className="acc-muted">{t('acc.overlays.field.oidHelp')}</small>
         </label>
         <label className="acc-field">
-          <span>{t('acc.overlays.field.displayName')}</span>
-          <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
+          <span>{t('acc.overlays.field.description')}</span>
+          <input className="acc-input" value={description} onChange={(e) => setDescription(e.target.value)} />
         </label>
         <div className="acc-form-actions">
           <span className="acc-form-spacer" aria-hidden="true">&nbsp;</span>
@@ -102,12 +102,15 @@ export default function OverlaysPage() {
   );
 }
 
-/** One scoreboard, organised around its TWO jobs so each action's purpose is
- *  obvious at a glance:
+/** One scoreboard, rendered as a collapsible row so a long list stays
+ *  scannable — you expand just the one you need. The collapsed header
+ *  identifies it (the oid is the name; the optional description is a small
+ *  subtitle, plus a chip when the public bookmark is on). Expanding reveals
+ *  its two jobs:
  *   - OUTPUT — the `/overlay` graphic you paste into OBS once.
  *   - CONTROL — the board where the match is scored: open it yourself, or hand
  *     a no-login link to whoever keeps score.
- *  Rename/Delete are demoted to small management icons in the header. */
+ *  Rename/Delete are small management icons in the header. */
 function OverlayCard({
   o, onChanged, onDelete,
 }: {
@@ -116,22 +119,33 @@ function OverlayCard({
   onDelete: () => void;
 }) {
   const { t } = useI18n();
+  const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
 
   return (
-    <section className="acc-overlay-card">
+    <section className={`acc-overlay-card${open ? ' is-open' : ''}`}>
       <header className="acc-overlay-card__head">
-        <div className="acc-overlay-card__id">
-          <strong className="acc-overlay-card__title">{o.display_name || o.oid}</strong>
-          <div className="acc-overlay-card__meta">
-            <span className="acc-pill">{o.oid}</span>
-            {o.public_control && (
-              <span className="acc-pill is-on" title={t('acc.overlays.bookmarkTitle')}>
-                {t('acc.overlays.chipBookmark')}
-              </span>
-            )}
-          </div>
-        </div>
+        <button
+          type="button"
+          className="acc-overlay-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className="material-icons acc-overlay-chevron" aria-hidden="true">
+            {open ? 'expand_less' : 'expand_more'}
+          </span>
+          <span className="acc-overlay-headtext">
+            <span className="acc-overlay-titlerow">
+              <strong className="acc-overlay-card__title">{o.oid}</strong>
+              {o.public_control && (
+                <span className="acc-pill is-on" title={t('acc.overlays.bookmarkTitle')}>
+                  {t('acc.overlays.chipBookmark')}
+                </span>
+              )}
+            </span>
+            {o.description && <span className="acc-overlay-card__desc">{o.description}</span>}
+          </span>
+        </button>
         <div className="acc-overlay-manage">
           <button
             type="button"
@@ -139,7 +153,7 @@ function OverlayCard({
             aria-pressed={renaming}
             aria-label={t('acc.overlays.rename')}
             title={t('acc.overlays.rename')}
-            onClick={() => setRenaming((v) => !v)}
+            onClick={() => { setOpen(true); setRenaming((v) => !v); }}
           >
             <span className="material-icons" aria-hidden="true">edit</span>
           </button>
@@ -155,38 +169,42 @@ function OverlayCard({
         </div>
       </header>
 
-      {renaming && (
-        <RenamePanel o={o} onSaved={() => { setRenaming(false); onChanged(); }} />
+      {open && (
+        <div className="acc-overlay-body">
+          {renaming && (
+            <RenamePanel o={o} onSaved={() => { setRenaming(false); onChanged(); }} />
+          )}
+
+          {/* JOB 1 — the on-stream graphic (paste into OBS once). */}
+          <div className="acc-overlay-job">
+            <div className="acc-overlay-job__label">
+              <span className="material-icons" aria-hidden="true">tv</span>
+              {t('acc.overlays.outputLabel')}
+            </div>
+            <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.outputDesc')}</p>
+            <CopyField value={o.output_url} label={t('acc.overlays.outputLabel')} />
+          </div>
+
+          {/* JOB 2 — the scoring board (open mine / share a link). */}
+          <div className="acc-overlay-job">
+            <div className="acc-overlay-job__label">
+              <span className="material-icons" aria-hidden="true">sports_esports</span>
+              {t('acc.overlays.controlLabel')}
+            </div>
+            <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.controlGroupDesc')}</p>
+            <a
+              className="acc-btn acc-overlay-open"
+              href={`/board?oid=${encodeURIComponent(o.oid)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('acc.overlays.openBoard')}<span aria-hidden="true"> ↗</span>
+            </a>
+            <ShareControl o={o} onChanged={onChanged} />
+            <BookmarkAdvanced o={o} onChanged={onChanged} />
+          </div>
+        </div>
       )}
-
-      {/* JOB 1 — the on-stream graphic (paste into OBS once). */}
-      <div className="acc-overlay-job">
-        <div className="acc-overlay-job__label">
-          <span className="material-icons" aria-hidden="true">tv</span>
-          {t('acc.overlays.outputLabel')}
-        </div>
-        <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.outputDesc')}</p>
-        <CopyField value={o.output_url} label={t('acc.overlays.outputLabel')} />
-      </div>
-
-      {/* JOB 2 — the scoring board (open mine / share a link). */}
-      <div className="acc-overlay-job">
-        <div className="acc-overlay-job__label">
-          <span className="material-icons" aria-hidden="true">sports_esports</span>
-          {t('acc.overlays.controlLabel')}
-        </div>
-        <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.controlGroupDesc')}</p>
-        <a
-          className="acc-btn acc-overlay-open"
-          href={`/board?oid=${encodeURIComponent(o.oid)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t('acc.overlays.openBoard')}<span aria-hidden="true"> ↗</span>
-        </a>
-        <ShareControl o={o} onChanged={onChanged} />
-        <BookmarkAdvanced o={o} onChanged={onChanged} />
-      </div>
     </section>
   );
 }
@@ -194,11 +212,11 @@ function OverlayCard({
 function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [name, setName] = useState(o.display_name || '');
+  const [description, setDescription] = useState(o.description || '');
 
   async function save() {
     try {
-      await api.updateOverlay(o.oid, { display_name: name.trim() || null });
+      await api.updateOverlay(o.oid, { description: description.trim() || null });
       onSaved();
       toast(t('acc.overlays.toastSaved'));
     } catch (err) {
@@ -209,8 +227,8 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => voi
   return (
     <div className="acc-overlay-panel">
       <label className="acc-field" style={{ marginBottom: 8 }}>
-        <span>{t('acc.overlays.editDisplayName')}</span>
-        <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
+        <span>{t('acc.overlays.editDescription')}</span>
+        <input className="acc-input" value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
       <button className="acc-btn" onClick={save}>{t('acc.overlays.editSave')}</button>
     </div>

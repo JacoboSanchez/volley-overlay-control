@@ -31,12 +31,13 @@ export type GameState = Schemas['GameStateResponse'];
 export type ActionResponse = Schemas['ActionResponse'];
 export type AppConfig = Schemas['AppConfigResponse'];
 export type InitRequest = Schemas['InitRequest'];
-/** One of the caller's overlays (DB-backed, per-user). ``name`` is a
- *  board-friendly label derived from ``display_name`` or the oid. */
+/** One of the caller's overlays (DB-backed, per-user). The ``oid`` is the
+ *  overlay's name; ``description`` is an optional free-text subtitle. ``name``
+ *  is a convenience label kept equal to the oid. */
 export interface OverlayPayload {
   name: string;
   oid: string;
-  display_name: string | null;
+  description: string | null;
   public_token: string;
   output_url: string;
   control_token: string | null;
@@ -46,7 +47,7 @@ export interface OverlayPayload {
 }
 
 export interface OverlaySettings {
-  display_name?: string | null;
+  description?: string | null;
   public_control?: boolean;
 }
 export type TeamState = Schemas['TeamState'];
@@ -655,7 +656,8 @@ export function getStyleCapabilities(oid: string): Promise<Record<string, StyleC
 type OverlayRow = Omit<OverlayPayload, 'name'>;
 
 function withName(r: OverlayRow): OverlayPayload {
-  return { name: r.display_name || r.oid, ...r };
+  // The oid is the overlay's name; ``name`` is kept as a convenience alias.
+  return { name: r.oid, ...r };
 }
 
 export async function getOverlays(): Promise<OverlayPayload[]> {

@@ -160,7 +160,7 @@ def _resolve_overlay(public_token: str) -> tuple[int, str, str] | None:
         ov = overlays_service.get_by_public_token(db, public_token)
         if ov is None:
             return None
-        label = ov.display_name or ov.oid
+        label = ov.description or ov.oid
         return ov.user_id, make_skey(ov.user_id, ov.oid), label
 
 
