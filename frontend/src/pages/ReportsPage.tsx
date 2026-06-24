@@ -10,6 +10,7 @@ type SortKey = 'ended' | 'duration';
 type SortDir = 'asc' | 'desc';
 
 const PAGE_SIZE = 20;
+const MATCH_MODES = ['indoor', 'beach', 'table_tennis'] as const;
 
 export default function ReportsPage() {
   const { t } = useI18n();
@@ -19,6 +20,7 @@ export default function ReportsPage() {
   const [oid, setOid] = useState('');
   const [matches, setMatches] = useState<api.MatchSummary[]>([]);
   const [day, setDay] = useState<string | null>(null);
+  const [modeFilter, setModeFilter] = useState<string>('');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>('ended');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -66,27 +68,34 @@ export default function ReportsPage() {
   }, [t]);
 
   useEffect(() => {
-    // Switching overlays starts from "all days" — the prior day rarely maps
-    // onto another overlay's match dates. Selection resets too.
+    // Switching overlays starts from "all days" / "all types" — the prior
+    // filters rarely map onto another overlay's matches. Selection resets too.
     setDay(null);
+    setModeFilter('');
     setSel(new Set());
     void load(oid);
   }, [oid, load]);
 
-  const dayFiltered = useMemo(
-    () => (day ? matches.filter((m) => m.ended_at != null && dayKey(m.ended_at) === day) : matches),
-    [matches, day],
+  // Match-type filter first (feeds the calendar so it only dots days with
+  // matches of the chosen type), then the day filter on top.
+  const modeFiltered = useMemo(
+    () => (modeFilter ? matches.filter((m) => (m.mode ?? '') === modeFilter) : matches),
+    [matches, modeFilter],
+  );
+  const filtered = useMemo(
+    () => (day ? modeFiltered.filter((m) => m.ended_at != null && dayKey(m.ended_at) === day) : modeFiltered),
+    [modeFiltered, day],
   );
 
   const shown = useMemo(() => {
     const sign = sortDir === 'asc' ? 1 : -1;
     const val = (m: api.MatchSummary) => (sortKey === 'ended' ? m.ended_at : m.duration_s) ?? 0;
-    return [...dayFiltered].sort((a, b) => sign * (val(a) - val(b)));
-  }, [dayFiltered, sortKey, sortDir]);
+    return [...filtered].sort((a, b) => sign * (val(a) - val(b)));
+  }, [filtered, sortKey, sortDir]);
 
   // Reset to the first page whenever the visible set changes (filter, sort,
   // overlay) so the operator never lands on a now-empty page.
-  useEffect(() => { setPage(0); }, [oid, day, sortKey, sortDir]);
+  useEffect(() => { setPage(0); }, [oid, day, modeFilter, sortKey, sortDir]);
 
   const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -188,9 +197,23 @@ export default function ReportsPage() {
           ) : (
             <>
               <div className="acc-row" style={{ margin: '12px 0', alignItems: 'center', gap: 12 }}>
+                <label className="acc-field" style={{ margin: 0, maxWidth: 200 }}>
+                  <span>{t('acc.reports.matchType')}</span>
+                  <select
+                    className="acc-input"
+                    value={modeFilter}
+                    onChange={(e) => setModeFilter(e.target.value)}
+                    data-testid="reports-mode-filter"
+                  >
+                    <option value="">{t('acc.reports.allTypes')}</option>
+                    {MATCH_MODES.map((m) => (
+                      <option key={m} value={m}>{t(`rules.mode.${m}`)}</option>
+                    ))}
+                  </select>
+                </label>
                 <MatchCalendar
-                  key={oid}
-                  matchTimes={matches.map((m) => m.ended_at).filter((x): x is number => x != null)}
+                  key={oid + modeFilter}
+                  matchTimes={modeFiltered.map((m) => m.ended_at).filter((x): x is number => x != null)}
                   selected={day}
                   onSelect={setDay}
                 />
@@ -202,7 +225,9 @@ export default function ReportsPage() {
                 )}
               </div>
               {shown.length === 0 ? (
-                <EmptyState>{t('acc.reports.emptyNoMatchesDay')}</EmptyState>
+                <EmptyState>
+                  {day ? t('acc.reports.emptyNoMatchesDay') : t('acc.reports.emptyNoMatchesFilter')}
+                </EmptyState>
               ) : (
                 <table className="acc-table">
                   <thead><tr>

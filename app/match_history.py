@@ -38,38 +38,52 @@ _STRINGS: dict[str, dict[str, str]] = {
         "duration": "Duration", "open": "Open report",
         "empty": "No archived matches yet.", "minutes": "{n} min",
         "prev": "Previous", "next": "Next", "pageOf": "Page {page} of {pages}",
+        "allTypes": "All types", "indoor": "Indoor", "beach": "Beach",
+        "table_tennis": "Table tennis",
     },
     "es": {
         "title": "Historial de partidos — {label}", "date": "Fecha", "match": "Partido",
         "duration": "Duración", "open": "Abrir informe",
         "empty": "Aún no hay partidos archivados.", "minutes": "{n} min",
         "prev": "Anterior", "next": "Siguiente", "pageOf": "Página {page} de {pages}",
+        "allTypes": "Todas", "indoor": "Pista", "beach": "Playa",
+        "table_tennis": "Tenis de mesa",
     },
     "pt": {
         "title": "Histórico de jogos — {label}", "date": "Data", "match": "Jogo",
         "duration": "Duração", "open": "Abrir relatório",
         "empty": "Ainda não há jogos arquivados.", "minutes": "{n} min",
         "prev": "Anterior", "next": "Seguinte", "pageOf": "Página {page} de {pages}",
+        "allTypes": "Todas", "indoor": "Pista", "beach": "Praia",
+        "table_tennis": "Tênis de mesa",
     },
     "it": {
         "title": "Storico partite — {label}", "date": "Data", "match": "Partita",
         "duration": "Durata", "open": "Apri report",
         "empty": "Nessuna partita archiviata.", "minutes": "{n} min",
         "prev": "Precedente", "next": "Successivo", "pageOf": "Pagina {page} di {pages}",
+        "allTypes": "Tutti", "indoor": "Indoor", "beach": "Beach",
+        "table_tennis": "Ping pong",
     },
     "fr": {
         "title": "Historique des matchs — {label}", "date": "Date", "match": "Match",
         "duration": "Durée", "open": "Ouvrir le rapport",
         "empty": "Aucun match archivé.", "minutes": "{n} min",
         "prev": "Précédent", "next": "Suivant", "pageOf": "Page {page} sur {pages}",
+        "allTypes": "Tous", "indoor": "Indoor", "beach": "Beach",
+        "table_tennis": "Tennis de table",
     },
     "de": {
         "title": "Spielverlauf — {label}", "date": "Datum", "match": "Spiel",
         "duration": "Dauer", "open": "Bericht öffnen",
         "empty": "Noch keine archivierten Spiele.", "minutes": "{n} Min",
         "prev": "Zurück", "next": "Weiter", "pageOf": "Seite {page} von {pages}",
+        "allTypes": "Alle", "indoor": "Halle", "beach": "Beach",
+        "table_tennis": "Tischtennis",
     },
 }
+
+_VALID_MODES = ("indoor", "beach", "table_tennis")
 
 
 def _t(locale: str, key: str, **kwargs: object) -> str:
@@ -133,22 +147,38 @@ def _teams_cell(locale: str, m: dict) -> str:
 
 
 def _sort_link(token: str, locale: str, label: str, col: str,
-               sort: str, direction: str) -> str:
+               sort: str, direction: str, mode: str) -> str:
     # Toggle direction when re-clicking the active column; otherwise default
     # to descending. Always jump back to page 1 on a sort change.
     nxt = "asc" if (sort == col and direction != "asc") else "desc"
     arrow = ""
     if sort == col:
         arrow = " ▲" if direction == "asc" else " ▼"
-    href = f"/matches/{token}?sort={col}&dir={nxt}&page=1&lang={locale}"
+    href = f"/matches/{token}?sort={col}&dir={nxt}&mode={mode}&page=1&lang={locale}"
     return f"<a href='{html.escape(href)}'>{html.escape(label)}{arrow}</a>"
 
 
+def _filter_links(token: str, locale: str, active_mode: str,
+                  sort: str, direction: str) -> str:
+    """Match-type filter row: All types · Indoor · Beach · Table tennis."""
+    items = [("", _t(locale, "allTypes"))] + [
+        (m, _t(locale, m)) for m in _VALID_MODES
+    ]
+    out = []
+    for value, label in items:
+        href = f"/matches/{token}?sort={sort}&dir={direction}&mode={value}&page=1&lang={locale}"
+        cls = " class='active'" if value == active_mode else ""
+        out.append(f"<a{cls} href='{html.escape(href)}'>{html.escape(label)}</a>")
+    return "<div class='filters'>" + "".join(out) + "</div>"
+
+
 def _render(token: str, locale: str, label: str, rows: list[dict],
-            sort: str, direction: str, page: int, pages: int) -> str:
+            sort: str, direction: str, active_mode: str,
+            page: int, pages: int) -> str:
     title = _t(locale, "title", label=label)
+    filters = _filter_links(token, locale, active_mode, sort, direction)
     if not rows:
-        body = f"<p class='empty'>{html.escape(_t(locale, 'empty'))}</p>"
+        body = filters + f"<p class='empty'>{html.escape(_t(locale, 'empty'))}</p>"
     else:
         trs = []
         for m in rows:
@@ -165,22 +195,23 @@ def _render(token: str, locale: str, label: str, rows: list[dict],
             )
         head = (
             "<tr>"
-            f"<th>{_sort_link(token, locale, _t(locale, 'date'), 'ended', sort, direction)}</th>"
+            f"<th>{_sort_link(token, locale, _t(locale, 'date'), 'ended', sort, direction, active_mode)}</th>"
             f"<th>{html.escape(_t(locale, 'match'))}</th>"
-            f"<th>{_sort_link(token, locale, _t(locale, 'duration'), 'duration', sort, direction)}</th>"
+            f"<th>{_sort_link(token, locale, _t(locale, 'duration'), 'duration', sort, direction, active_mode)}</th>"
             "<th></th></tr>"
         )
         pager = ""
         if pages > 1:
-            prev_d = f"<a class='btn' href='/matches/{token}?sort={sort}&dir={direction}&page={page - 1}&lang={locale}'>{html.escape(_t(locale, 'prev'))}</a>" if page > 1 else "<span class='btn disabled'>" + html.escape(_t(locale, "prev")) + "</span>"
-            next_d = f"<a class='btn' href='/matches/{token}?sort={sort}&dir={direction}&page={page + 1}&lang={locale}'>{html.escape(_t(locale, 'next'))}</a>" if page < pages else "<span class='btn disabled'>" + html.escape(_t(locale, "next")) + "</span>"
+            base = f"/matches/{token}?sort={sort}&dir={direction}&mode={active_mode}&lang={locale}"
+            prev_d = f"<a class='btn' href='{html.escape(base + f'&page={page - 1}')}'>{html.escape(_t(locale, 'prev'))}</a>" if page > 1 else "<span class='btn disabled'>" + html.escape(_t(locale, "prev")) + "</span>"
+            next_d = f"<a class='btn' href='{html.escape(base + f'&page={page + 1}')}'>{html.escape(_t(locale, 'next'))}</a>" if page < pages else "<span class='btn disabled'>" + html.escape(_t(locale, "next")) + "</span>"
             pager = (
                 "<div class='pager'>" + prev_d
                 + f"<span>{html.escape(_t(locale, 'pageOf', page=page, pages=pages))}</span>"
                 + next_d + "</div>"
             )
         body = (
-            "<table><thead>" + head + "</thead><tbody>"
+            filters + "<table><thead>" + head + "</thead><tbody>"
             + "".join(trs) + "</tbody></table>" + pager
         )
     return f"""<!DOCTYPE html>
@@ -192,6 +223,10 @@ def _render(token: str, locale: str, label: str, rows: list[dict],
 :root {{ color-scheme: dark; }}
 body {{ background:#0f1115; color:#e7e9ee; font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; margin:0; padding:24px; }}
 h1 {{ font-size:1.3rem; margin:0 0 16px; }}
+.filters {{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }}
+.filters a {{ border:1px solid #2c333f; border-radius:999px; padding:4px 12px; color:#cfd4dd; text-decoration:none; font-size:0.85rem; }}
+.filters a:hover {{ background:#20262f; }}
+.filters a.active {{ background:#4f8cff; border-color:#4f8cff; color:#fff; }}
 table {{ width:100%; border-collapse:collapse; }}
 th,td {{ text-align:left; padding:9px 10px; border-bottom:1px solid #232833; font-size:0.92rem; }}
 th {{ color:#98a2b3; }}
@@ -218,6 +253,7 @@ async def match_history(
     request: Request,
     sort: str = Query(default="ended"),
     dir: str = Query(default="desc"),
+    mode: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     lang: str | None = Query(default=None),
     accept_language: str | None = Header(default=None),
@@ -238,12 +274,17 @@ async def match_history(
     locale = resolve_locale(lang if lang else accept_language)
     sort = "duration" if sort == "duration" else "ended"
     direction = "asc" if dir == "asc" else "desc"
+    active_mode = mode if mode in _VALID_MODES else ""
 
-    matches = _sorted(match_archive.list_matches(oid=skey), sort, direction)
+    matches = match_archive.list_matches(oid=skey)
+    if active_mode:
+        matches = [m for m in matches if m.get("mode") == active_mode]
+    matches = _sorted(matches, sort, direction)
     pages = max(1, (len(matches) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, pages)
     rows = matches[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
 
     return HTMLResponse(
-        _render(public_token, locale, label, rows, sort, direction, page, pages)
+        _render(public_token, locale, label, rows, sort, direction,
+                active_mode, page, pages)
     )

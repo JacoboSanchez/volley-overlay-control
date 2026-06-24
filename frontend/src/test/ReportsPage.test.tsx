@@ -76,6 +76,22 @@ describe('ReportsPage', () => {
     confirmSpy.mockRestore();
   });
 
+  it('filters reports by match type', async () => {
+    vi.mocked(api.listReports).mockResolvedValue({
+      count: 2,
+      matches: [
+        { ...match('m1', 2000, 600), mode: 'beach' },
+        { ...match('m2', 1000, 1200), mode: 'table_tennis' },
+      ],
+    });
+    renderWithI18n(<ReportsPage />);
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(2));
+    fireEvent.change(screen.getByTestId('reports-mode-filter'), { target: { value: 'beach' } });
+    await waitFor(() => expect(screen.getAllByText(/min/).length).toBe(1));
+    // The remaining row is the beach match (10 min).
+    expect(screen.getByText('10 min')).toBeInTheDocument();
+  });
+
   it('paginates when there are more than one page of matches', async () => {
     const many = Array.from({ length: 25 }, (_, i) => match(`m${i}`, 1000 + i, 600));
     vi.mocked(api.listReports).mockResolvedValue({ count: 25, matches: many });

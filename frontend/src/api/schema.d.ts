@@ -6100,6 +6100,7 @@ export interface operations {
             query?: {
                 sort?: string;
                 dir?: string;
+                mode?: string;
                 page?: number;
                 lang?: string | null;
             };

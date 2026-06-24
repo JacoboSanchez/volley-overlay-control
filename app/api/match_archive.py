@@ -78,6 +78,11 @@ def _summary(r: MatchReport) -> dict:
         "team_1_name": (cust.get("Team 1 Name") or None),
         "team_2_name": (cust.get("Team 2 Name") or None),
         "current_set": fs.get("current_set"),
+        # Match mode (indoor / beach / table_tennis) is captured inside the
+        # archived ``final_state.config`` (GameStateResponse.config). Surface
+        # it so the reports list can filter by match type. ``None`` for
+        # matches archived before the mode was recorded.
+        "mode": (fs.get("config") or {}).get("mode"),
     }
 
 

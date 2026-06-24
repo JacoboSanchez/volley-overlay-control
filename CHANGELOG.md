@@ -20,6 +20,11 @@ once a first tagged release ships.
 - **The account Reports page is now paginated** (20 per page) on top of the
   existing sort and bulk-delete, so a long archive stays manageable.
 
+- **Filter match reports by type** (indoor / beach / table tennis), alongside
+  the existing day filter, on both the account Reports page and the public
+  match-history page. The match's mode is read from the archived state, so it
+  works for any match recorded since modes were introduced.
+
 - **Team groups are now the primary unit of team selection.** The control board
   gained a **group picker** above the two team selectors: choose a group and the
   selectors only offer that group's teams (remembered per overlay). The picker

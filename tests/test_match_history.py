@@ -98,6 +98,37 @@ class TestMatchHistoryPage:
         )
         assert resp.status_code == 200
 
+    def test_filters_by_mode(
+            self, client, db_session, fake_backend_cls, monkeypatch):
+        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
+        client.post("/api/v1/session/init", json={"oid": "hist-mode"})
+        skey = make_skey(client.test_user_id, "hist-mode")
+        match_archive.archive_match(
+            oid=skey, winning_team=1,
+            final_state={"config": {"mode": "beach"},
+                         "team_1": {"sets": 2}, "team_2": {"sets": 0}},
+        )
+        match_archive.archive_match(
+            oid=skey, winning_team=1,
+            final_state={"config": {"mode": "table_tennis"},
+                         "team_1": {"sets": 3}, "team_2": {"sets": 1}},
+        )
+        token = _token(db_session, client.test_user_id, "hist-mode")
+        # No filter → both matches.
+        assert client.get(f"/matches/{token}").text.count("/report?lang=") == 2
+        # Beach only.
+        assert client.get(
+            f"/matches/{token}?mode=beach"
+        ).text.count("/report?lang=") == 1
+        # Table tennis only.
+        assert client.get(
+            f"/matches/{token}?mode=table_tennis"
+        ).text.count("/report?lang=") == 1
+        # Unknown mode falls back to "all".
+        assert client.get(
+            f"/matches/{token}?mode=bogus"
+        ).text.count("/report?lang=") == 2
+
     def test_empty_history_renders(
             self, client, db_session, fake_backend_cls, monkeypatch):
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")

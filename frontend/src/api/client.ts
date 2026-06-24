@@ -584,6 +584,7 @@ export interface MatchSummary {
   team_2_sets?: number | null;
   team_1_name?: string | null;
   team_2_name?: string | null;
+  mode?: string | null;
 }
 
 export function listReports(oid?: string): Promise<{ count: number; matches: MatchSummary[] }> {
