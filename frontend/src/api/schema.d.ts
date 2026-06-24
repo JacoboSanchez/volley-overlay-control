@@ -6102,6 +6102,7 @@ export interface operations {
                 dir?: string;
                 mode?: string;
                 day?: string;
+                cal?: string;
                 page?: number;
                 lang?: string | null;
             };

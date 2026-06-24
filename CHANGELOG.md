@@ -21,10 +21,11 @@ once a first tagged release ships.
   existing sort and bulk-delete, so a long archive stays manageable.
 
 - **Filter match reports by type** (indoor / beach / table tennis) and by
-  **day**, on both the account Reports page and the public match-history page
-  (the public page gained a date picker to match). The match's mode is read
-  from the archived state, so it works for any match recorded since modes were
-  introduced.
+  **day**, on both the account Reports page and the public match-history page.
+  The public page gained a server-rendered month **calendar** that highlights
+  the days with matches (mirroring the account calendar) plus the type filter.
+  The match's mode is read from the archived state, so it works for any match
+  recorded since modes were introduced.
 
 - **Team groups are now the primary unit of team selection.** The control board
   gained a **group picker** above the two team selectors: choose a group and the

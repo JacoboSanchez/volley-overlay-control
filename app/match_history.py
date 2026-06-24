@@ -15,9 +15,10 @@ delete — that lives on the owner's account Reports page.
 
 from __future__ import annotations
 
+import calendar as _calmod
 import html
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -42,6 +43,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "All types", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Table tennis",
         "day": "Day", "filter": "Filter", "allDays": "All days",
+        "prevMonth": "Previous month", "nextMonth": "Next month",
     },
     "es": {
         "title": "Historial de partidos — {label}", "date": "Fecha", "match": "Partido",
@@ -51,6 +53,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Todas", "indoor": "Pista", "beach": "Playa",
         "table_tennis": "Tenis de mesa",
         "day": "Día", "filter": "Filtrar", "allDays": "Todos los días",
+        "prevMonth": "Mes anterior", "nextMonth": "Mes siguiente",
     },
     "pt": {
         "title": "Histórico de jogos — {label}", "date": "Data", "match": "Jogo",
@@ -60,6 +63,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Todas", "indoor": "Pista", "beach": "Praia",
         "table_tennis": "Tênis de mesa",
         "day": "Dia", "filter": "Filtrar", "allDays": "Todos os dias",
+        "prevMonth": "Mês anterior", "nextMonth": "Mês seguinte",
     },
     "it": {
         "title": "Storico partite — {label}", "date": "Data", "match": "Partita",
@@ -69,6 +73,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Tutti", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Ping pong",
         "day": "Giorno", "filter": "Filtra", "allDays": "Tutti i giorni",
+        "prevMonth": "Mese precedente", "nextMonth": "Mese successivo",
     },
     "fr": {
         "title": "Historique des matchs — {label}", "date": "Date", "match": "Match",
@@ -78,6 +83,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Tous", "indoor": "Indoor", "beach": "Beach",
         "table_tennis": "Tennis de table",
         "day": "Jour", "filter": "Filtrer", "allDays": "Tous les jours",
+        "prevMonth": "Mois précédent", "nextMonth": "Mois suivant",
     },
     "de": {
         "title": "Spielverlauf — {label}", "date": "Datum", "match": "Spiel",
@@ -87,10 +93,56 @@ _STRINGS: dict[str, dict[str, str]] = {
         "allTypes": "Alle", "indoor": "Halle", "beach": "Beach",
         "table_tennis": "Tischtennis",
         "day": "Tag", "filter": "Filtern", "allDays": "Alle Tage",
+        "prevMonth": "Voriger Monat", "nextMonth": "Nächster Monat",
     },
 }
 
 _VALID_MODES = ("indoor", "beach", "table_tennis")
+
+# Localized month names and Monday-first short weekday names for the
+# server-rendered calendar (no ``babel`` dependency available).
+_MONTHS: dict[str, list[str]] = {
+    "en": ["January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December"],
+    "es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+           "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+    "pt": ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+           "agosto", "setembro", "outubro", "novembro", "dezembro"],
+    "it": ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+           "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+           "août", "septembre", "octobre", "novembre", "décembre"],
+    "de": ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+           "August", "September", "Oktober", "November", "Dezember"],
+}
+_WEEKDAYS: dict[str, list[str]] = {
+    "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "es": ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"],
+    "pt": ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"],
+    "it": ["lun", "mar", "mer", "gio", "ven", "sab", "dom"],
+    "fr": ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"],
+    "de": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+}
+
+_CAL_RE = re.compile(r"^\d{4}-\d{2}$")
+
+
+def _month_shift(year: int, month: int, delta: int) -> tuple[int, int]:
+    m = month - 1 + delta
+    return year + m // 12, m % 12 + 1
+
+
+def _view_month(cal: str, selected_day: str, available_days: list[str]) -> tuple[int, int]:
+    """Year/month the calendar should display."""
+    if cal and _CAL_RE.match(cal):
+        y, m = int(cal[:4]), int(cal[5:7])
+        if 1 <= m <= 12:
+            return y, m
+    anchor = selected_day or (available_days[0] if available_days else "")
+    if anchor:
+        return int(anchor[:4]), int(anchor[5:7])
+    now = datetime.now()
+    return now.year, now.month
 
 
 def _t(locale: str, key: str, **kwargs: object) -> str:
@@ -180,7 +232,7 @@ def _sort_link(token: str, locale: str, label: str, col: str,
 
 
 def _url(token: str, *, sort: str, direction: str, mode: str, day: str,
-         locale: str, page: int = 1) -> str:
+         locale: str, page: int = 1, cal: str = "") -> str:
     """Build a ``/matches/{token}`` URL carrying the active view state."""
     from urllib.parse import urlencode
 
@@ -189,6 +241,8 @@ def _url(token: str, *, sort: str, direction: str, mode: str, day: str,
         params["mode"] = mode
     if day:
         params["day"] = day
+    if cal:
+        params["cal"] = cal
     if page and page != 1:
         params["page"] = page
     params["lang"] = locale
@@ -210,36 +264,70 @@ def _filter_links(token: str, locale: str, active_mode: str,
     return "<div class='filters'>" + "".join(out) + "</div>"
 
 
-def _day_form(token: str, locale: str, sort: str, direction: str,
-              mode: str, day: str, available_days: list[str]) -> str:
-    """Day filter as a dropdown of only the days that actually have matches
-    (mirrors the account calendar, which dots days with data). Auto-submits
-    on change; the button is the no-JS fallback."""
-    opts = [f"<option value=''>{html.escape(_t(locale, 'allDays'))}</option>"]
-    for d in available_days:
-        sel = " selected" if d == day else ""
-        opts.append(f"<option value='{html.escape(d)}'{sel}>{html.escape(d)}</option>")
-    return (
-        "<form class='dayform' method='get'>"
-        f"<input type='hidden' name='sort' value='{html.escape(sort)}'>"
-        f"<input type='hidden' name='dir' value='{html.escape(direction)}'>"
-        f"<input type='hidden' name='mode' value='{html.escape(mode)}'>"
-        f"<input type='hidden' name='lang' value='{html.escape(locale)}'>"
-        f"<label>{html.escape(_t(locale, 'day'))} "
-        "<select name='day' onchange='this.form.submit()'>"
-        + "".join(opts) + "</select></label>"
-        f"<button class='btn' type='submit'>{html.escape(_t(locale, 'filter'))}</button>"
-        "</form>"
+def _calendar(token: str, locale: str, available_days: list[str],
+              selected_day: str, cal: str, sort: str, direction: str,
+              mode: str) -> str:
+    """A month calendar rendered server-side: days with matches are clickable
+    links (others are dimmed), month navigation is plain links — the
+    no-JS equivalent of the account page's calendar."""
+    have = set(available_days)
+    year, month = _view_month(cal, selected_day, available_days)
+    months = _MONTHS.get(locale, _MONTHS["en"])
+    weekdays = _WEEKDAYS.get(locale, _WEEKDAYS["en"])
+    this_cal = f"{year:04d}-{month:02d}"
+
+    py, pm = _month_shift(year, month, -1)
+    ny, nm = _month_shift(year, month, 1)
+
+    def _nav(y: int, m: int, sym: str, key: str) -> str:
+        href = _url(token, sort=sort, direction=direction, mode=mode,
+                    day=selected_day, locale=locale, cal=f"{y:04d}-{m:02d}")
+        return (f"<a class='cal-nav' href='{html.escape(href)}' "
+                f"title='{html.escape(_t(locale, key))}'>{sym}</a>")
+
+    head = (
+        "<div class='cal-head'>"
+        + _nav(py, pm, "‹", "prevMonth")
+        + f"<span class='cal-month'>{html.escape(months[month - 1])} {year}</span>"
+        + _nav(ny, nm, "›", "nextMonth")
+        + "</div>"
     )
+    week = ("<div class='cal-grid cal-week'>"
+            + "".join(f"<span>{html.escape(w)}</span>" for w in weekdays)
+            + "</div>")
+
+    offset = date(year, month, 1).weekday()  # 0 = Monday
+    cells = ["<span class='cal-cell blank'></span>"] * offset
+    for d in range(1, _calmod.monthrange(year, month)[1] + 1):
+        key = f"{year:04d}-{month:02d}-{d:02d}"
+        if key in have:
+            sel = key == selected_day
+            href = _url(token, sort=sort, direction=direction, mode=mode,
+                        day=("" if sel else key), locale=locale, cal=this_cal)
+            cls = "cal-cell has" + (" sel" if sel else "")
+            cells.append(f"<a class='{cls}' href='{html.escape(href)}'>{d}</a>")
+        else:
+            cells.append(f"<span class='cal-cell'>{d}</span>")
+    grid = "<div class='cal-grid'>" + "".join(cells) + "</div>"
+
+    reset = ""
+    if selected_day:
+        href = _url(token, sort=sort, direction=direction, mode=mode, day="",
+                    locale=locale, cal=this_cal)
+        reset = (f"<a class='btn' href='{html.escape(href)}'>"
+                 f"{html.escape(_t(locale, 'allDays'))}</a>")
+
+    return "<div class='cal'>" + head + week + grid + reset + "</div>"
 
 
 def _render(token: str, locale: str, label: str, rows: list[dict],
             sort: str, direction: str, active_mode: str, day: str,
-            available_days: list[str], page: int, pages: int) -> str:
+            available_days: list[str], cal: str, page: int, pages: int) -> str:
     title = _t(locale, "title", label=label)
     controls = (
         _filter_links(token, locale, active_mode, sort, direction, day)
-        + _day_form(token, locale, sort, direction, active_mode, day, available_days)
+        + _calendar(token, locale, available_days, day, cal, sort, direction,
+                    active_mode)
     )
     if not rows:
         body = controls + f"<p class='empty'>{html.escape(_t(locale, 'empty'))}</p>"
@@ -295,9 +383,19 @@ h1 {{ font-size:1.3rem; margin:0 0 16px; }}
 .filters a {{ border:1px solid #2c333f; border-radius:999px; padding:4px 12px; color:#cfd4dd; text-decoration:none; font-size:0.85rem; }}
 .filters a:hover {{ background:#20262f; }}
 .filters a.active {{ background:#4f8cff; border-color:#4f8cff; color:#fff; }}
-.dayform {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; color:#98a2b3; font-size:0.85rem; }}
-.dayform select {{ background:#0f1115; border:1px solid #2c333f; border-radius:8px; color:#e7e9ee; padding:5px 8px; color-scheme:dark; }}
-.dayform button {{ cursor:pointer; }}
+.cal {{ margin-bottom:18px; max-width:280px; }}
+.cal-head {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }}
+.cal-month {{ font-weight:600; text-transform:capitalize; }}
+.cal-nav {{ color:#cfd4dd; text-decoration:none; border:1px solid #2c333f; border-radius:8px; padding:0 10px; font-size:1.1rem; line-height:1.7; }}
+.cal-nav:hover {{ background:#20262f; }}
+.cal-grid {{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }}
+.cal-week span {{ text-align:center; color:#98a2b3; font-size:0.72rem; padding:2px 0; }}
+.cal-cell {{ display:flex; align-items:center; justify-content:center; aspect-ratio:1; border-radius:8px; font-size:0.82rem; color:#5b6472; text-decoration:none; }}
+.cal-cell.blank {{ visibility:hidden; }}
+.cal-cell.has {{ color:#e7e9ee; border:1px solid #2c5a3c; background:#142a1c; }}
+.cal-cell.has:hover {{ background:#1c3a28; }}
+.cal-cell.sel {{ background:#4f8cff; border-color:#4f8cff; color:#fff; }}
+.cal .btn {{ margin-top:10px; }}
 table {{ width:100%; border-collapse:collapse; }}
 th,td {{ text-align:left; padding:9px 10px; border-bottom:1px solid #232833; font-size:0.92rem; }}
 th {{ color:#98a2b3; }}
@@ -326,6 +424,7 @@ async def match_history(
     dir: str = Query(default="desc"),
     mode: str = Query(default=""),
     day: str = Query(default=""),
+    cal: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     lang: str | None = Query(default=None),
     accept_language: str | None = Header(default=None),
@@ -365,7 +464,8 @@ async def match_history(
     page = min(page, pages)
     rows = matches[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
 
+    active_cal = cal if _CAL_RE.match(cal or "") else ""
     return HTMLResponse(
         _render(public_token, locale, label, rows, sort, direction,
-                active_mode, active_day, available_days, page, pages)
+                active_mode, active_day, available_days, active_cal, page, pages)
     )

@@ -10173,6 +10173,16 @@
           },
           {
             "in": "query",
+            "name": "cal",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Cal",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "page",
             "required": false,
             "schema": {
