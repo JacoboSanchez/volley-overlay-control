@@ -87,7 +87,24 @@ once a first tagged release ships.
   expanders. Reworked the layout to cards also fixes the cramped four-button
   row on phones. Regenerated `docs/screenshots/05-manage-page.png`.
 
+### Security
+
+- **Patched three transitive dev-dependency advisories (build-time only).**
+  Bumped `js-yaml` to ≥ 4.2.0 — via an npm `override`, since
+  `@redocly/openapi-core` pinned the vulnerable 4.1.1 — and `@babel/core` to
+  7.29.7, and let `npm audit fix` patch `brace-expansion`. This clears a
+  quadratic-complexity YAML DoS, an arbitrary-file-read via `sourceMappingURL`,
+  and a `max`-bypass DoS. None of these ship to users (they are eslint /
+  openapi-typescript / vite-plugin-pwa build dependencies); `npm audit` now
+  reports 0 vulnerabilities.
+
 ### Fixed
+
+- **The match-mode selector fits one row in phone portrait.** The
+  indoor / beach / table-tennis toggle used a two-column grid, so the third
+  mode dropped onto its own half-width second row. It is now a single row of
+  three equal buttons, with a slightly smaller label so even the longest names
+  ("Table tennis" / "Tenis de mesa" / "Tennis de table") stay on one line.
 
 - **The Share menu's "match history" link no longer dead-ends on the account
   dashboard.** It pointed at a `/matches/index.html` listing page that was

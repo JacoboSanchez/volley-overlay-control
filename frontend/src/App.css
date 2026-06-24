@@ -2343,8 +2343,10 @@ body {
 
 .config-mode-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  /* One row of three: indoor / beach / table-tennis. A 2-column grid pushed the
+     third mode onto its own line — unbalanced and tall in phone portrait. */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
   margin-bottom: 0.75rem;
 }
 
@@ -2353,14 +2355,18 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  min-height: 64px;
-  padding: 0.5rem;
+  gap: 0.2rem;
+  min-height: 60px;
+  padding: 0.45rem 0.3rem;
   border: 2px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 0.875rem;
+  /* Smaller so a two-word label ("Table tennis" / "Tenis de mesa") wraps to two
+     tidy centred lines inside its cell instead of forcing the row apart. */
+  font-size: 0.78rem;
+  line-height: 1.15;
+  text-align: center;
   font-weight: 500;
   cursor: pointer;
   transition:
