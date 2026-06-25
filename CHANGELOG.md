@@ -100,6 +100,15 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Further internal cleanup (review follow-up).** A `useOverlays()` hook now
+  backs the account dashboard, the Overlays manager and the board init screen
+  (one fetch/cancel/error path instead of four), and the board Share dialog and
+  Config "Links" section share a `LinkRow` component plus a `utils/links` module
+  (link metadata, `withLang`) instead of duplicated rows and helpers. The team
+  serve indicator and the team-list "select all" control became real,
+  consistently-labelled controls (accessibility), and the Account page profile
+  fields now re-sync when the auth context refreshes.
+
 - **Account match list scales better.** `GET /api/v1/matches` (no `oid`) now
   filters by `user_id` in SQL instead of scanning the whole `match_report`
   table and narrowing in Python. Internal cleanup from the same review pass:

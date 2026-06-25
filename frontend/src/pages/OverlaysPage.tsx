@@ -1,38 +1,26 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import * as api from '../api/client';
 import CopyField from '../components/CopyField';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmProvider';
+import { useOverlays } from '../hooks/useOverlays';
 import { useI18n } from '../i18n';
 
 export default function OverlaysPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [overlays, setOverlays] = useState<api.OverlayPayload[]>([]);
+  const { overlays, loading, error: loadError, reload } = useOverlays();
   const [oid, setOid] = useState('');
   const [description, setDescription] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
-      setOverlays(await api.getOverlays());
-    } catch {
-      setError(t('acc.reports.errorOverlays'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // Create errors are shown inline above the list but must not hide the list
+  // (it is still valid); load errors are handled separately via ``loadError``.
+  const [createError, setCreateError] = useState('');
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
-    setError('');
+    setCreateError('');
     try {
       const created = oid.trim();
       await api.createOverlay(created, {
@@ -40,10 +28,10 @@ export default function OverlaysPage() {
       });
       setOid('');
       setDescription('');
-      await load();
+      await reload();
       toast(t('acc.overlays.toastCreated', { oid: created }));
     } catch (err) {
-      setError(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorCreate'));
+      setCreateError(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorCreate'));
     }
   }
 
@@ -57,7 +45,7 @@ export default function OverlaysPage() {
     if (!ok) return;
     try {
       await api.deleteOverlay(o.oid);
-      await load();
+      await reload();
       toast(t('acc.overlays.toastDeleted', { oid: o.oid }));
     } catch (err) {
       toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorDelete'), 'error');
@@ -85,16 +73,18 @@ export default function OverlaysPage() {
           <button className="acc-btn" type="submit" disabled={!oid.trim()}>{t('acc.overlays.add')}</button>
         </div>
       </form>
-      {error && <div className="acc-error">{error}</div>}
+      {(createError || loadError) && (
+        <div className="acc-error">{createError || t('acc.reports.errorOverlays')}</div>
+      )}
 
       {loading ? (
         <p className="acc-muted">{t('acc.common.loading')}</p>
-      ) : error ? null /* the error banner above already explains the failure */ : overlays.length === 0 ? (
+      ) : loadError ? null /* the error banner above already explains the failure */ : overlays.length === 0 ? (
         <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
         <div className="acc-overlay-cards">
           {overlays.map((o) => (
-            <OverlayCard key={o.oid} o={o} onChanged={load} onDelete={() => onDelete(o)} />
+            <OverlayCard key={o.oid} o={o} onChanged={reload} onDelete={() => onDelete(o)} />
           ))}
         </div>
       )}

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -17,6 +17,14 @@ export default function AccountSettingsPage() {
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [profileMsg, setProfileMsg] = useState('');
+
+  // The auth context resolves asynchronously (and can refresh), so seed the
+  // editable fields once the user lands / changes — useState only reads the
+  // initial value.
+  useEffect(() => {
+    setDisplayName(user?.display_name || '');
+    setEmail(user?.email || '');
+  }, [user?.display_name, user?.email]);
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, ChangeEvent, FormEvent } from 'react';
+import { useMemo, useCallback, ChangeEvent, FormEvent } from 'react';
 import { useI18n } from '../i18n';
-import * as api from '../api/client';
+import { useOverlays } from '../hooks/useOverlays';
 
 export interface InitScreenProps {
   oidInput: string;
@@ -48,18 +48,8 @@ export default function InitScreen({
   title,
 }: InitScreenProps) {
   const { t } = useI18n();
-  const [predefinedOverlays, setPredefinedOverlays] = useState<PredefinedOverlay[]>([]);
-
-  useEffect(() => {
-    api
-      .getOverlays()
-      .then((data) => {
-        setPredefinedOverlays(normalizeOverlays(data));
-      })
-      .catch((err: unknown) => {
-        console.warn('Failed to fetch predefined overlays:', err);
-      });
-  }, []);
+  const { overlays } = useOverlays();
+  const predefinedOverlays = useMemo(() => normalizeOverlays(overlays), [overlays]);
 
   const handleOverlaySelect = useCallback(
     (e: ChangeEvent<HTMLSelectElement>) => {

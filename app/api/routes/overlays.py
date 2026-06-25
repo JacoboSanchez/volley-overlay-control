@@ -109,7 +109,7 @@ async def update_my_overlay(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Edit an overlay's label, output URL, and default match rules.
+    """Edit an overlay's description and no-login control toggle.
 
     Only the fields present in the request body are changed (``exclude_unset``),
     so a partial PATCH never clobbers settings the caller didn't mention.

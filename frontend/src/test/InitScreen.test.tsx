@@ -122,12 +122,12 @@ describe('InitScreen', () => {
   });
 
   it('keeps the manual form usable when the overlays fetch fails', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.mocked(api.getOverlays).mockRejectedValue(new Error('boom'));
     renderWithI18n(<InitScreen {...makeProps()} />);
-    await waitFor(() => expect(warn).toHaveBeenCalled());
+    // The fetch failure is swallowed (no selector), but the manual id form
+    // stays usable.
+    await waitFor(() => expect(api.getOverlays).toHaveBeenCalled());
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.getByPlaceholderText('my-overlay')).toBeInTheDocument();
-    warn.mockRestore();
   });
 });

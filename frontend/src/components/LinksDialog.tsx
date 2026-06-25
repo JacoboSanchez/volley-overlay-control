@@ -1,15 +1,10 @@
 import { useI18n } from '../i18n';
-import { writeToClipboard } from '../utils/clipboard';
 import Dialog from './Dialog';
+import LinkRow from './LinkRow';
+import { LINK_KEYS, LOCALE_AWARE_KEYS, type ShareLinks, withLang } from '../utils/links';
 
-export interface LinksDialogLinks {
-  control?: string;
-  overlay?: string;
-  preview?: string;
-  follow?: string;
-  latest_match_report?: string;
-  match_history?: string;
-}
+/** Kept as a named alias so existing importers don't churn. */
+export type LinksDialogLinks = ShareLinks;
 
 export interface LinksDialogProps {
   links: LinksDialogLinks;
@@ -23,42 +18,24 @@ export interface LinksDialogProps {
   onClose: () => void;
 }
 
-// The spectator (follow) page reads ``?lang=`` to pick its UI
-// locale (see ``overlay_static/js/spectator.js``). Append the
-// operator's active app locale so a shared link opens in the same
-// language they were using, instead of falling back to the
-// spectator browser's ``navigator.language``.
-function withLang(url: string, lang: string): string {
-  try {
-    const parsed = new URL(url, window.location.origin);
-    parsed.searchParams.set('lang', lang);
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
-
 /**
- * Links dialog — control, overlay, and preview links with copy buttons.
+ * Links dialog — control, overlay, preview, spectator and report links with
+ * copy buttons.
  */
 export default function LinksDialog({ links, reportsUrl, onClose }: LinksDialogProps) {
   const { t, lang } = useI18n();
-  const copyToClipboard = (text: string) => { void writeToClipboard(text); };
-  const followUrl = links.follow ? withLang(links.follow, lang) : undefined;
-  // The report surfaces are locale-aware HTML pages — share them in the
-  // operator's current language (see LinksSection for the rationale).
-  const latestReportUrl = links.latest_match_report
-    ? withLang(links.latest_match_report, lang)
-    : undefined;
-  const matchHistoryUrl = links.match_history ? withLang(links.match_history, lang) : undefined;
-  const hasAnyLink =
-    !!links.control ||
-    !!links.overlay ||
-    !!links.preview ||
-    !!followUrl ||
-    !!latestReportUrl ||
-    !!matchHistoryUrl ||
-    !!reportsUrl;
+  const rows = LINK_KEYS.filter((key) => links[key]).map((key) => {
+    const raw = links[key] as string;
+    return {
+      key: key as string,
+      label: t(`links.${key}`),
+      // Locale-aware HTML surfaces (follow / report / history) carry the
+      // operator's app locale; control / overlay / preview pass through.
+      url: LOCALE_AWARE_KEYS.has(key) ? withLang(raw, lang) : raw,
+    };
+  });
+  // The owner-only "all reports" page is not part of the shared link set.
+  if (reportsUrl) rows.push({ key: 'reports', label: t('links.reports'), url: reportsUrl });
 
   return (
     <Dialog open onClose={onClose} ariaLabelledBy="links-dialog-title">
@@ -66,108 +43,12 @@ export default function LinksDialog({ links, reportsUrl, onClose }: LinksDialogP
         {t('links.title')}
       </h3>
       <div className="links-list">
-        {links.control && (
-          <div className="link-row">
-            <a href={links.control} target="_blank" rel="noopener noreferrer" className="link-text">
-              {t('links.control')}
-            </a>
-            <button
-              className="link-copy-btn"
-              onClick={() => copyToClipboard(links.control!)}
-              title={t('links.copyToClipboard')}
-            >
-              <span className="material-icons">content_copy</span>
-            </button>
-          </div>
-        )}
-        {links.overlay && (
-          <div className="link-row">
-            <a href={links.overlay} target="_blank" rel="noopener noreferrer" className="link-text">
-              {t('links.overlay')}
-            </a>
-            <button
-              className="link-copy-btn"
-              onClick={() => copyToClipboard(links.overlay!)}
-              title={t('links.copyToClipboard')}
-            >
-              <span className="material-icons">content_copy</span>
-            </button>
-          </div>
-        )}
-        {links.preview && (
-          <div className="link-row">
-            <a href={links.preview} target="_blank" rel="noopener noreferrer" className="link-text">
-              {t('links.preview')}
-            </a>
-            <button
-              className="link-copy-btn"
-              onClick={() => copyToClipboard(links.preview!)}
-              title={t('links.copyToClipboard')}
-            >
-              <span className="material-icons">content_copy</span>
-            </button>
-          </div>
-        )}
-        {followUrl && (
-          <div className="link-row">
-            <a href={followUrl} target="_blank" rel="noopener noreferrer" className="link-text">
-              {t('links.follow')}
-            </a>
-            <button
-              className="link-copy-btn"
-              onClick={() => copyToClipboard(followUrl)}
-              title={t('links.copyToClipboard')}
-            >
-              <span className="material-icons">content_copy</span>
-            </button>
-          </div>
-        )}
-        {latestReportUrl && (
-          <div className="link-row">
-            <a href={latestReportUrl} target="_blank" rel="noopener noreferrer" className="link-text">
-              {t('links.latest_match_report')}
-            </a>
-            <button
-              className="link-copy-btn"
-              onClick={() => copyToClipboard(latestReportUrl)}
-              title={t('links.copyToClipboard')}
-            >
-              <span className="material-icons">content_copy</span>
-            </button>
-          </div>
-        )}
-        {matchHistoryUrl && (
-          <div className="link-row">
-            <a href={matchHistoryUrl} target="_blank" rel="noopener noreferrer" className="link-text">
-              {t('links.match_history')}
-            </a>
-            <button
-              className="link-copy-btn"
-              onClick={() => copyToClipboard(matchHistoryUrl)}
-              title={t('links.copyToClipboard')}
-            >
-              <span className="material-icons">content_copy</span>
-            </button>
-          </div>
-        )}
-        {reportsUrl && (
-          <div className="link-row">
-            <a href={reportsUrl} target="_blank" rel="noopener noreferrer" className="link-text">
-              {t('links.reports')}
-            </a>
-            <button
-              className="link-copy-btn"
-              onClick={() => copyToClipboard(reportsUrl)}
-              title={t('links.copyToClipboard')}
-            >
-              <span className="material-icons">content_copy</span>
-            </button>
-          </div>
-        )}
-        {!hasAnyLink && (
+        {rows.length === 0 ? (
           <p className="config-label" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
             {t('links.noLinks')}
           </p>
+        ) : (
+          rows.map((r) => <LinkRow key={r.key} url={r.url} label={r.label} />)
         )}
       </div>
       <div className="dialog-actions">

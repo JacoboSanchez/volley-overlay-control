@@ -44,9 +44,10 @@ export default function TeamListToolbar({
           type="checkbox"
           checked={all}
           disabled={shownCount === 0}
-          aria-label={all ? t('acc.common.deselectAll') : t('acc.common.selectAll')}
           onChange={() => (all ? onClearSelection() : onSelectAll())}
         />
+        {/* The wrapping <label>'s text is the accessible name; the checked
+            state is announced separately, so no (conflicting) aria-label. */}
         <span className="acc-muted">{t('acc.common.selectAll')}</span>
       </label>
       {showFilter && (

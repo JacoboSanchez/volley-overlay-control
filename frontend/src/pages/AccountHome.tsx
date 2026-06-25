@@ -1,34 +1,20 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n } from '../i18n';
+import { useOverlays } from '../hooks/useOverlays';
 
 export default function AccountHome() {
   const { ctx } = useAuth();
   const { t } = useI18n();
   const isAdmin = ctx?.user?.role === 'admin';
   const name = ctx?.user?.display_name || ctx?.user?.username;
-  const [overlayCount, setOverlayCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const ovs = await api.getOverlays();
-        if (!cancelled) setOverlayCount(ovs.length);
-      } catch {
-        /* leave unknown — don't push an error onto the dashboard */
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const { overlays, loading } = useOverlays();
 
   return (
     <div>
       <h2>{t('acc.home.welcome', { name: name ?? '' })}</h2>
       <p className="acc-muted">{t('acc.home.intro')}</p>
-      {overlayCount === 0 && (
+      {!loading && overlays.length === 0 && (
         <div className="acc-info" style={{ marginTop: 16 }}>
           <strong>{t('acc.home.getStarted')}</strong> {t('acc.home.getStartedBody')}{' '}
           <Link to="/overlays">{t('acc.cta.createScoreboard')}</Link>

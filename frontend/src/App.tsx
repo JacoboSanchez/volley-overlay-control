@@ -39,7 +39,7 @@ export default function App(
   // request fires. ``useLayoutEffect`` runs before paint and before the passive
   // session-init effect below, so the credential is set in time — without the
   // side-effect-in-render smell (and StrictMode double-invoke) of ``useMemo``.
-  const unauthenticated = !!controlToken || !!publicUser;
+  const isCapabilityMode = !!controlToken || !!publicUser;
   useLayoutEffect(() => {
     setControlToken(controlToken ?? null);
     setPublicUser(publicUser ?? null);
@@ -79,10 +79,10 @@ export default function App(
   // from ``useGameState(oid)``, which needs the hook's ``oid`` first.
   useEffect(() => {
     if (oid) {
-      // Don't persist a capability handle to localStorage in an unauthenticated
+      // Don't persist a capability handle to localStorage in capability-link
       // board mode — it's a shared-device credential and a stale value would
       // hijack a later owner visit to /board.
-      if (!unauthenticated) {
+      if (!isCapabilityMode) {
         try {
           localStorage.setItem('volley_oid', oid);
         } catch (e) {
@@ -91,7 +91,7 @@ export default function App(
       }
       initialize();
     }
-  }, [oid, initialize, unauthenticated]);
+  }, [oid, initialize, isCapabilityMode]);
 
   useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
 
@@ -402,7 +402,7 @@ export default function App(
             autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
-            operator={unauthenticated}
+            operator={isCapabilityMode}
             onCustomizationSaved={refreshCustomization}
             darkMode={settings.darkMode}
             isFullscreen={isFullscreen}
@@ -443,7 +443,7 @@ export default function App(
           // token or public bookmark) gets the full reports page, deep-linked
           // to this board's overlay. Spectators fall back to the read-only
           // public report links the backend includes in ``shareLinks``.
-          unauthenticated || !oid ? null : `/reports?oid=${encodeURIComponent(oid)}`
+          isCapabilityMode || !oid ? null : `/reports?oid=${encodeURIComponent(oid)}`
         }
         onShareClose={() => setShareOpen(false)}
         oid={oid}

@@ -1,20 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import * as api from '../api/client';
+import type { ShareLinks } from '../utils/links';
 
-export interface ShareLinks {
-  control?: string;
-  overlay?: string;
-  preview?: string;
-  follow?: string;
-  /**
-   * Read-only match-report links. The backend only emits these when
-   * reports are publicly readable (``MATCH_REPORT_PUBLIC``), so they're
-   * the spectator-safe surface — anyone the operator shares the board
-   * with can open them.
-   */
-  latest_match_report?: string;
-  match_history?: string;
-}
+export type { ShareLinks };
 
 export interface UseShareLinksResult {
   shareOpen: boolean;
