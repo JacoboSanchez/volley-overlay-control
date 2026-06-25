@@ -39,7 +39,7 @@ jobs:
           echo "also_latest=$latest" >> "$GITHUB_OUTPUT"
 
       - name: Check out the repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.rel.outputs.tag }}
 
