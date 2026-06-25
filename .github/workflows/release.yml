@@ -32,7 +32,7 @@ jobs:
       actions: write    # chain docker-publish.yml via workflow_dispatch
     steps:
       - name: Check out main
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
 
