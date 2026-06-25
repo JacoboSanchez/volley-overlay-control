@@ -20,6 +20,12 @@ from app.id_validation import OVERLAY_ID_PATTERN
 
 MIN_PASSWORD_LENGTH = 8
 
+# A structurally-real dummy scrypt record (16-byte salt, 32-byte derived key,
+# default cost) used on the account-not-found path so it performs the same
+# scrypt work as a genuine verify — closing the login timing side-channel.
+# Built as a literal so we never pay an scrypt run at import time.
+_DUMMY_PASSWORD_HASH = "scrypt$n=16384,r=8,p=1$" + "0" * 32 + "$" + "0" * 64
+
 
 class UserError(ValueError):
     """A caller-fixable account error (duplicate, invalid input, ...)."""
@@ -107,7 +113,7 @@ def authenticate(db: Session, username: str, password: str) -> User | None:
     user = get_by_username(db, username)
     if user is None or not user.is_active:
         # Still verify against a dummy hash to keep timing roughly uniform.
-        verify_password(password, "scrypt$n=16384,r=8,p=1$00$00")
+        verify_password(password, _DUMMY_PASSWORD_HASH)
         return None
     if not verify_password(password, user.password_hash):
         return None

@@ -164,6 +164,13 @@ def delete_me(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ) -> dict[str, bool]:
+    # Mirror the admin delete guard: a sole administrator self-deleting would
+    # lock the instance out of administration entirely.
+    if service.is_last_active_admin(db, user):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete the last administrator account.",
+        )
     service.delete_user(db, user)
     db.commit()
     sessions.clear_session_cookie(response)

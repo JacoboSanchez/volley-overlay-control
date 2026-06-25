@@ -537,10 +537,13 @@ class OverlayStateStore:
         except ValueError:
             logger.warning("create_overlay rejected invalid id: %r", overlay_id)
             return False
-        if os.path.exists(path):
-            return False
-        self.save_persisted_state(overlay_id, get_default_state())
         with self._lock:
+            # Hold the (reentrant) lock across the existence check AND the
+            # write so two concurrent first-touches can't both write default
+            # state (the check-then-write was previously a TOCTOU race).
+            if os.path.exists(path):
+                return False
+            self.save_persisted_state(overlay_id, get_default_state())
             self._output_key_cache[overlay_id] = overlay_id
             self._output_key_cache[self.get_output_key(overlay_id)] = overlay_id
         logger.info("Overlay '%s' created", overlay_id)

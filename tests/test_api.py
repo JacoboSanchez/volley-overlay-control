@@ -128,6 +128,15 @@ class TestGameService:
         assert result.success is True
         assert result.state.team_1.timeouts == 0
 
+    def test_add_timeout_table_tennis_cap_returns_failure(self, session):
+        # Table tennis allows one timeout per team per match; the second must
+        # be rejected with success=False (not silently swallowed as success).
+        session.mode = "table_tennis"
+        assert GameService.add_timeout(session, team=1).success is True
+        blocked = GameService.add_timeout(session, team=1)
+        assert blocked.success is False
+        assert "limit" in (blocked.message or "").lower()
+
     def test_change_serve(self, session):
         result = GameService.change_serve(session, team=2)
         assert result.success is True

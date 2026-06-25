@@ -61,4 +61,31 @@ describe('PositionSection', () => {
     expect(screen.getByText('H Pos')).toBeInTheDocument();
     expect(screen.getByText('V Pos')).toBeInTheDocument();
   });
+
+  it('does not write a value when a position input is cleared (no NaN/null)', () => {
+    const updateField = vi.fn();
+    renderWithI18n(<PositionSection model={{ Scale: 120 }} updateField={updateField} />);
+
+    fireEvent.change(screen.getByTestId('scale-input'), { target: { value: '' } });
+    // Clearing yields NaN; writing it would persist null for the coordinate.
+    expect(updateField).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByTestId('scale-input'), { target: { value: '90' } });
+    expect(updateField).toHaveBeenCalledWith('Scale', 90);
+  });
+
+  it('restores absolute coordinate defaults when leaving zone mode', () => {
+    const updateField = vi.fn();
+    renderWithI18n(
+      <PositionSection model={{ Anchor: 'top-right' }} updateField={updateField} />,
+    );
+
+    fireEvent.click(screen.getByTestId('anchor-free'));
+
+    expect(updateField).toHaveBeenCalledWith('Anchor', 'free');
+    // The 0/0 nudge would read as canvas-centre in free mode, so the absolute
+    // defaults are restored instead.
+    expect(updateField).toHaveBeenCalledWith('Left-Right', -33);
+    expect(updateField).toHaveBeenCalledWith('Up-Down', -41.1);
+  });
 });

@@ -52,7 +52,10 @@ async def get_audit_log(
         session.oid, limit=limit, before_ts=before_ts,
     )
     return {
-        "oid": session.oid,
+        # Present the human-facing oid, never the internal "<user_id>:<oid>"
+        # storage key — returning the skey would leak the owner's user_id to
+        # any control-link operator (mirrors matches.py ``_present``).
+        "oid": session.raw_oid,
         "count": len(records),
         "records": records,
         "next_cursor": next_cursor,

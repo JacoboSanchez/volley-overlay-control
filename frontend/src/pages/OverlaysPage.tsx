@@ -89,7 +89,7 @@ export default function OverlaysPage() {
 
       {loading ? (
         <p className="acc-muted">{t('acc.common.loading')}</p>
-      ) : overlays.length === 0 ? (
+      ) : error ? null /* the error banner above already explains the failure */ : overlays.length === 0 ? (
         <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
         <div className="acc-overlay-cards">
@@ -213,14 +213,19 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => voi
   const { t } = useI18n();
   const { toast } = useToast();
   const [description, setDescription] = useState(o.description || '');
+  const [busy, setBusy] = useState(false);
 
   async function save() {
+    if (busy) return;
+    setBusy(true);
     try {
       await api.updateOverlay(o.oid, { description: description.trim() || null });
       onSaved();
       toast(t('acc.overlays.toastSaved'));
     } catch (err) {
       toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.errorSave'), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -230,7 +235,9 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => voi
         <span>{t('acc.overlays.editDescription')}</span>
         <input className="acc-input" value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
-      <button className="acc-btn" onClick={save}>{t('acc.overlays.editSave')}</button>
+      <button className="acc-btn" onClick={save} disabled={busy}>
+        {busy ? t('acc.common.working') : t('acc.overlays.editSave')}
+      </button>
     </div>
   );
 }

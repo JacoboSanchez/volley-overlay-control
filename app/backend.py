@@ -384,7 +384,9 @@ class Backend:
                     "game_text": cust.get_game_text_color(),
                 },
                 "preferredStyle": cust.get_preferred_style(),
-                "show_logos": cust.is_show_logos() not in (False, "false", "False"),
+                "show_logos": cust.is_show_logos() not in (
+                    False, "false", "False", 0, "0", None, "",
+                ),
                 "show_stats": cust.is_show_stats(),
                 "show_points_history": cust.is_show_points_history(),
             },

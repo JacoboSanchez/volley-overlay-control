@@ -106,7 +106,7 @@ function GroupCard({
 }: {
   group: api.GroupDetail;
   universe: api.TeamOut[];
-  onChange: () => void;
+  onChange: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -126,7 +126,10 @@ function GroupCard({
     setBusy(true);
     try {
       await fn();
-      onChange();
+      // Await the parent reload so ``busy`` (and the disabled buttons) stay
+      // set until the refetch settles — otherwise a second mutation can fire
+      // against stale data.
+      await onChange();
     } catch (err) {
       toast(err instanceof api.ApiError ? err.detail : t(errKey), 'error');
     } finally {

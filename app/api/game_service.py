@@ -612,7 +612,7 @@ class GameService:
             taken = sum(state.get_timeouts_by_set(team).values())
             if taken >= 1:
                 return ActionResponse(
-                    success=True, state=GameService.get_state(session),
+                    success=False, state=GameService.get_state(session),
                     message="Timeout limit reached for this match.",
                 )
 
@@ -832,8 +832,12 @@ class GameService:
         # A smaller sets_limit may invalidate the current set.
         session.current_set = session._compute_current_set()
         session.persist_meta()
+        # ``get_state`` re-derives the table-tennis server into the match state;
+        # persist (not just WS-broadcast) so the OBS overlay's stored state
+        # reflects the new server immediately instead of only after the next
+        # scoring action.
         state_response = GameService.get_state(session)
-        GameService._broadcast(session, state_response)
+        GameService._save_and_broadcast(session, state_response)
         GameService._audit(session, "set_rules", {
             "mode": session.mode,
             "points_limit": session.points_limit,

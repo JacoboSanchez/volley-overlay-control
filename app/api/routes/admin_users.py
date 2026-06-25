@@ -120,8 +120,25 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found.")
     if service.is_last_active_admin(db, user):
         raise HTTPException(status_code=400, detail="Cannot delete the last administrator.")
+    # FK cascade clears the user's DB rows, but the in-process session objects
+    # and overlay state files linger until the hourly reaper. Capture the
+    # user's overlays first, then evict their runtime state after the delete
+    # commits — mirroring ``delete_my_overlay``.
+    from app import overlays_service
+    from app.api import match_archive
+    from app.api.session_manager import SessionManager
+    from app.auth import sessions
+    from app.overlay import overlay_state_store
+    from app.overlay_key import make_skey
+
+    skeys = [make_skey(user.id, o.oid) for o in overlays_service.list_overlays(db, user.id)]
+    sessions.revoke_all_for_user(db, user.id)
     service.delete_user(db, user)
     db.commit()
+    for skey in skeys:
+        SessionManager.remove(skey)
+        overlay_state_store.delete_overlay(skey)
+        match_archive.delete_for_oid(skey)
     return {"ok": True}
 
 

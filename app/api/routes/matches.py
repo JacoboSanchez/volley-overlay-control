@@ -44,7 +44,7 @@ async def list_matches(
     # (defense-in-depth then narrows it). Either way the caller only ever sees
     # rows whose skey starts with ``"<their id>:"``.
     raw = match_archive.list_matches(oid=make_skey(user.id, oid)) if oid \
-        else match_archive.list_matches()
+        else match_archive.list_matches(user_id=user.id)
     summaries = [s for s in raw if _owns(s.get("oid"), user)]
     return {"count": len(summaries), "matches": [_present(s) for s in summaries]}
 

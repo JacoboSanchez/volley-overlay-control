@@ -98,6 +98,8 @@ export default function PositionSection({ model, updateField }: PositionSectionP
     typeof rawAnchor === 'string' && rawAnchor.trim() ? rawAnchor.trim().toLowerCase() : 'free';
   const isZone = anchor !== 'free';
 
+  const defOf = (key: string) => FIELDS.find((f) => f.key === key)?.def ?? 0;
+
   function selectAnchor(value: string) {
     updateField('Anchor', value);
     // Reset the fine nudge so a freshly picked zone lands flush — the
@@ -105,6 +107,18 @@ export default function PositionSection({ model, updateField }: PositionSectionP
     // large offset once the field switches to nudge semantics.
     updateField('Left-Right', 0);
     updateField('Up-Down', 0);
+  }
+
+  function selectFree() {
+    updateField('Anchor', 'free');
+    // Leaving zone mode: the nudge values (0/0) would be reinterpreted as an
+    // absolute coordinate (canvas centre). Restore the absolute defaults so
+    // the overlay doesn't jump. Only when actually transitioning out of a
+    // zone, so re-clicking "free" never clobbers a custom position.
+    if (isZone) {
+      updateField('Left-Right', defOf('Left-Right'));
+      updateField('Up-Down', defOf('Up-Down'));
+    }
   }
 
   return (
@@ -116,7 +130,7 @@ export default function PositionSection({ model, updateField }: PositionSectionP
             type="button"
             className={`config-anchor-free${!isZone ? ' is-active' : ''}`}
             aria-pressed={!isZone}
-            onClick={() => updateField('Anchor', 'free')}
+            onClick={selectFree}
             data-testid="anchor-free"
           >
             {t('position.anchorFree')}
@@ -178,7 +192,12 @@ export default function PositionSection({ model, updateField }: PositionSectionP
                   min={f.min}
                   max={f.max}
                   step={f.step}
-                  onChange={(e) => updateField(f.key, parseFloat(e.target.value))}
+                  onChange={(e) => {
+                    // Guard NaN (empty/partial input): writing it would persist
+                    // ``null`` for the coordinate (JSON.stringify(NaN) === "null").
+                    const n = parseFloat(e.target.value);
+                    if (!Number.isNaN(n)) updateField(f.key, n);
+                  }}
                   data-testid={f.testId}
                 />
                 <button

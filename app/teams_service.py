@@ -162,8 +162,19 @@ def create_group(db: Session, name: str, *, created_by_user_id: int | None = Non
     return group
 
 
-def set_group_active(db: Session, group_id: int, active: bool) -> TeamGroup:
+def get_shared_group(db: Session, group_id: int) -> TeamGroup | None:
+    """Return the SHARED (admin-curated, ``owner_user_id IS NULL``) group with
+    *group_id*, or None. Admin group mutations must resolve groups through this
+    so they can never reach a user's *private* group by guessing its id — read
+    paths are already owner-scoped, this closes the matching write-path gap."""
     group = db.get(TeamGroup, group_id)
+    if group is None or group.owner_user_id is not None:
+        return None
+    return group
+
+
+def set_group_active(db: Session, group_id: int, active: bool) -> TeamGroup:
+    group = get_shared_group(db, group_id)
     if group is None:
         raise TeamError("Group not found.")
     group.is_active = active
@@ -221,9 +232,11 @@ def remove_group_member(db: Session, group_id: int, team_id: int) -> bool:
 
 
 def delete_group(db: Session, group_id: int) -> bool:
-    """Delete a group and its membership rows (idempotent). Member teams stay in
-    the catalog and in any user list they were already copied into."""
-    group = db.get(TeamGroup, group_id)
+    """Delete a SHARED group and its membership rows (idempotent). Member teams
+    stay in the catalog and in any user list they were already copied into.
+    Private (user-owned) groups are never reachable here — use
+    :func:`delete_private_group`."""
+    group = get_shared_group(db, group_id)
     if group is None:
         return False
     for member in db.execute(

@@ -683,6 +683,20 @@ function applyScoreboardVisibility(container, show) {
     }
 }
 
+// Set (or hide) a team logo image from a possibly-unsafe URL. Shared by the
+// full render and the diff path so the sanitize + show/hide rule lives once.
+function applyTeamLogo(elId, logoUrl) {
+    withEl(elId, logo => {
+        const url = sanitizeImageUrl(logoUrl);
+        if (url) {
+            logo.src = url;
+            logo.style.display = 'block';
+        } else {
+            logo.style.display = 'none';
+        }
+    });
+}
+
 function renderFullState(state, rawState) {
     rawState = rawState || state;
     // 1. Overlay Visibility & Geometry
@@ -727,25 +741,8 @@ function renderFullState(state, rawState) {
     const showLogos = state.overlay_control.show_logos !== false;
     updateLogoVisibility(showLogos);
 
-    withEl("home-logo", logo => {
-        const url = sanitizeImageUrl(state.team_home.logo_url);
-        if (url) {
-            logo.src = url;
-            logo.style.display = 'block';
-        } else {
-            logo.style.display = 'none';
-        }
-    });
-
-    withEl("away-logo", logo => {
-        const url = sanitizeImageUrl(state.team_away.logo_url);
-        if (url) {
-            logo.src = url;
-            logo.style.display = 'block';
-        } else {
-            logo.style.display = 'none';
-        }
-    });
+    applyTeamLogo("home-logo", state.team_home.logo_url);
+    applyTeamLogo("away-logo", state.team_away.logo_url);
 
     // 5. Points & Sets
     withEl("home-points", el => { el.textContent = state.team_home.points; });
@@ -856,26 +853,10 @@ function updateStateDiff(oldState, newState, oldRawState, newRawState) {
 
     // Logos
     if (oldState.team_home.logo_url !== newState.team_home.logo_url) {
-        withEl("home-logo", logo => {
-            const safeUrl = sanitizeImageUrl(newState.team_home.logo_url);
-            if (safeUrl) {
-                logo.src = safeUrl;
-                logo.style.display = 'block';
-            } else {
-                logo.style.display = 'none';
-            }
-        });
+        applyTeamLogo("home-logo", newState.team_home.logo_url);
     }
     if (oldState.team_away.logo_url !== newState.team_away.logo_url) {
-        withEl("away-logo", logo => {
-            const safeUrl = sanitizeImageUrl(newState.team_away.logo_url);
-            if (safeUrl) {
-                logo.src = safeUrl;
-                logo.style.display = 'block';
-            } else {
-                logo.style.display = 'none';
-            }
-        });
+        applyTeamLogo("away-logo", newState.team_away.logo_url);
     }
 
     // Points

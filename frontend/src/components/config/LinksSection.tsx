@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
+import { writeToClipboard } from '../../utils/clipboard';
 
 export interface LinksSectionLinks {
   control?: string;
@@ -47,16 +48,7 @@ function withLang(url: string, lang: string): string {
 }
 
 function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  });
+  void writeToClipboard(text);
 }
 
 export default function LinksSection({ links }: LinksSectionProps) {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from '../i18n';
+import { writeToClipboard } from '../utils/clipboard';
 
 /** Read-only value paired with a Copy button. The input is fully selectable
  *  (and selects itself on focus) so a credential like a temporary password can
@@ -9,13 +10,9 @@ export default function CopyField({ value, label }: { value: string; label?: str
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable — the input is still selectable manually */
-    }
+    await writeToClipboard(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   return (

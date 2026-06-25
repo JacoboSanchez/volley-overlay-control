@@ -14,7 +14,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.db import Base
-from app.db.engine import database_url
+from app.db.engine import _enable_sqlite_fk, database_url
 
 config = context.config
 
@@ -49,6 +49,11 @@ def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    # The app engine turns on ``PRAGMA foreign_keys`` per connection; this
+    # standalone migration engine must too, or FK-reliant data migrations would
+    # silently run with FK enforcement off on SQLite.
+    if connectable.dialect.name == "sqlite":
+        _enable_sqlite_fk(connectable)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,

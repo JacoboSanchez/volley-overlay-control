@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import threading
 import time
 
 import requests
@@ -21,6 +22,9 @@ class EnvVarsManager:
     _remote_config_cache: dict[str, str] = {}
     _cache_timestamp: float = 0
     _CACHE_EXPIRATION_SECONDS = 10
+    # Serialises the refetch so concurrent callers (request pool + webhook
+    # executor) don't each fire a duplicate HTTP fetch and race on the cache.
+    _lock = threading.Lock()
 
     @classmethod
     def get_env_var(cls, key, default=None):
@@ -40,19 +44,25 @@ class EnvVarsManager:
         remote_config_url = os.environ.get('REMOTE_CONFIG_URL', None)
         if remote_config_url is None:
             cls._remote_config_cache = {}
-        else:
-            now = time.time()
-            if now - cls._cache_timestamp > cls._CACHE_EXPIRATION_SECONDS:
-                cls._cache_timestamp = now
-                try:
-                    logger.info("Fetching remote config from %s", redact_url(remote_config_url))
-                    response = requests.get(remote_config_url, timeout=5)
-                    logger.debug("Remote config response status: %s", response.status_code)
-                    response.raise_for_status()
-                    cls._remote_config_cache = cls._unwrap_remote_config(response.json())
-                except (requests.exceptions.RequestException, json.JSONDecodeError):
-                    logger.exception("Error loading remote configuration")
-                    cls._remote_config_cache = {}
+            return
+        # Fast path: serve the cache without locking while it is still fresh.
+        if time.time() - cls._cache_timestamp <= cls._CACHE_EXPIRATION_SECONDS:
+            return
+        with cls._lock:
+            # Re-check under the lock so only the first waiter refetches; the
+            # rest fall through to the now-fresh cache.
+            if time.time() - cls._cache_timestamp <= cls._CACHE_EXPIRATION_SECONDS:
+                return
+            cls._cache_timestamp = time.time()
+            try:
+                logger.info("Fetching remote config from %s", redact_url(remote_config_url))
+                response = requests.get(remote_config_url, timeout=5)
+                logger.debug("Remote config response status: %s", response.status_code)
+                response.raise_for_status()
+                cls._remote_config_cache = cls._unwrap_remote_config(response.json())
+            except (requests.exceptions.RequestException, json.JSONDecodeError):
+                logger.exception("Error loading remote configuration")
+                cls._remote_config_cache = {}
 
     @staticmethod
     def _unwrap_remote_config(payload):

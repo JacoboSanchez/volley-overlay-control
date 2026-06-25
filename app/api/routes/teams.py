@@ -404,7 +404,7 @@ async def admin_add_group_member(
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    if db.get(TeamGroup, group_id) is None:
+    if teams_service.get_shared_group(db, group_id) is None:
         raise HTTPException(status_code=404, detail="Group not found.")
     team = db.get(Team, body.team_id)
     # Groups are a curated catalog of GLOBAL teams; a user-owned custom team must
@@ -424,7 +424,7 @@ async def admin_remove_group_member(
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    if db.get(TeamGroup, group_id) is None:
+    if teams_service.get_shared_group(db, group_id) is None:
         raise HTTPException(status_code=404, detail="Group not found.")
     removed = teams_service.remove_group_member(db, group_id, team_id)
     db.commit()

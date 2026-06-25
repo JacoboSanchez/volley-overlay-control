@@ -320,9 +320,11 @@ def compute_serve_switch(
         next_change_at = ((points // 2) + 1) * 2
         is_pending = points > 0 and points % 2 == 0
     else:
-        # Past deuce every point flips the serve.
+        # Past deuce every point flips the serve. Guard against the degenerate
+        # ``points_limit=1`` case where ``deuce_at`` collapses to 0 and 0-0
+        # would otherwise flash "serve changes now" before any point is played.
         next_change_at = points + 1
-        is_pending = True
+        is_pending = points > 0
     server = table_tennis_server(
         first_server=first_server, current_set=current_set,
         sets_limit=sets_limit, team1_score=team1_score, team2_score=team2_score,

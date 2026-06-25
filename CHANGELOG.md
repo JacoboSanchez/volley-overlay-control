@@ -100,6 +100,13 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Account match list scales better.** `GET /api/v1/matches` (no `oid`) now
+  filters by `user_id` in SQL instead of scanning the whole `match_report`
+  table and narrowing in Python. Internal cleanup from the same review pass:
+  a shared clipboard helper, a shared `teamScoreSum`, and a shared overlay
+  logo-apply helper replace copy-pasted blocks; the board credential is now set
+  in a layout effect rather than via a side-effecting `useMemo`.
+
 - **Redesigned the Overlays management page around each overlay's two jobs.**
   Every overlay card is now split into two clearly labelled sections so it is
   obvious what each link/button is for: **"For OBS · video output"** (the
@@ -173,6 +180,27 @@ once a first tagged release ships.
 
 ### Security
 
+- **Branch code-review hardening pass.** Fixed a cluster of authorization /
+  hardening gaps found reviewing the multi-user branch:
+  - **Webhook SSRF via redirect.** Outbound webhook POSTs now use
+    `allow_redirects=False`, so a public target can no longer 30x-redirect the
+    client to a private/loopback/cloud-metadata address past the host guard.
+  - **Admin group routes could reach a user's private group.** The admin
+    `/admin/team-groups/*` delete / set-active / add-member / remove-member
+    paths now resolve groups through a shared-only helper (`owner_user_id IS
+    NULL`), so an admin can no longer mutate or delete a user's *private* group
+    by id (read paths were already scoped; this closes the write-path gap).
+  - **Audit endpoint leaked the internal storage key.** `GET /api/v1/audit`
+    now returns the human-facing `oid`, not the `"<user_id>:<oid>"` skey, so a
+    shared control-link operator can't read the owner's internal user id.
+  - **Last-admin self-delete lockout.** `DELETE /api/v1/auth/me` now refuses
+    when the caller is the only active administrator (mirroring the admin
+    delete/demote/deactivate guards), so an instance can't be locked out of
+    administration.
+  - **Login timing.** The account-not-found path now verifies against a
+    structurally-real dummy scrypt record (full-cost derive) instead of a
+    1-byte stub, keeping login timing uniform.
+
 - **Patched three transitive dev-dependency advisories (build-time only).**
   Bumped `js-yaml` to ≥ 4.2.0 — via an npm `override`, since
   `@redocly/openapi-core` pinned the vulnerable 4.1.1 — and `@babel/core` to
@@ -183,6 +211,35 @@ once a first tagged release ships.
   reports 0 vulnerabilities.
 
 ### Fixed
+
+- **Branch code-review correctness pass.** A batch of bug fixes surfaced by the
+  multi-user branch review:
+  - **Table-tennis timeout cap** now returns a failed `ActionResponse` (with a
+    message) instead of a silent success when the one-per-match cap is hit.
+  - **Rules change now persists the served side.** Switching rules recomputes
+    the table-tennis server; it is now saved (not just WS-broadcast), so the OBS
+    overlay reflects it immediately rather than only after the next point.
+  - **Deleting a user evicts runtime state.** The admin delete now revokes the
+    user's sessions and removes their overlays' in-process session/state/archives
+    instead of leaving them until the hourly reaper.
+  - **Overlay first-touch race.** `create_overlay` holds the store's lock across
+    the existence check and the write, so two concurrent first-touches can't both
+    write default state.
+  - **Remote-config cache** is now refetched under a lock (no duplicate fetches /
+    transient empty-cache races), and **migrations** enable the SQLite foreign-key
+    PRAGMA like the app engine does.
+  - **Serve-switch pill** no longer flashes "serve changes now" at 0-0 in the
+    degenerate `points_limit=1` case.
+  - **Position inputs** no longer persist `null` when a field is cleared (NaN is
+    ignored), and switching the anchor back to **Free** restores the absolute
+    coordinate defaults instead of leaving a 0/0 nudge that jumps the overlay to
+    centre.
+  - **Control board reconnect/links.** The board WebSocket now treats 4xxx close
+    codes (revoked token, bad request) as terminal instead of reconnect-looping,
+    resets its backoff per overlay, and the share dialog drops its cached links
+    when the overlay changes (no stale URLs). The overlay rename panel guards
+    against double-submit, and the Overlays/Reports pages no longer show the
+    "nothing here" empty state on top of a load error.
 
 - **The Reports page filter row lines up.** The match-type dropdown carried a
   stacked label that made it taller than the day-filter button and the count

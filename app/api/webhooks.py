@@ -383,6 +383,10 @@ class WebhookDispatcher:
                     data=body,
                     headers=headers,
                     timeout=target.timeout_s,
+                    # Never follow redirects: ``_ssrf_check`` only validated the
+                    # configured host, so a 30x to 169.254.169.254/loopback would
+                    # otherwise bypass the guard (cloud-metadata SSRF).
+                    allow_redirects=False,
                 )
             except requests.RequestException as exc:
                 last_err = f"{type(exc).__name__}: {exc}"

@@ -1,4 +1,5 @@
 import { useI18n } from '../i18n';
+import { writeToClipboard } from '../utils/clipboard';
 import Dialog from './Dialog';
 
 export interface LinksDialogLinks {
@@ -42,18 +43,7 @@ function withLang(url: string, lang: string): string {
  */
 export default function LinksDialog({ links, reportsUrl, onClose }: LinksDialogProps) {
   const { t, lang } = useI18n();
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    });
-  };
+  const copyToClipboard = (text: string) => { void writeToClipboard(text); };
   const followUrl = links.follow ? withLang(links.follow, lang) : undefined;
   // The report surfaces are locale-aware HTML pages — share them in the
   // operator's current language (see LinksSection for the rationale).

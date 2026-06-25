@@ -150,15 +150,23 @@ def archive_match(
     return match_id
 
 
-def list_matches(oid: str | None = None) -> list[dict]:
-    """Return newest-first match summaries, optionally scoped to a storage key."""
+def list_matches(oid: str | None = None, *, user_id: int | None = None) -> list[dict]:
+    """Return newest-first match summaries.
+
+    Scope with either a full storage key (*oid* = ``"<user_id>:<oid>"``) for a
+    single overlay, or *user_id* for all of one user's matches — both push a
+    ``WHERE`` predicate into SQL so a per-user listing never falls back to the
+    full-table scan.
+    """
     with session_scope() as db:
         stmt = select(MatchReport)
         if oid and is_valid_skey(oid):
-            user_id, raw_oid = split_skey(oid)
-            stmt = stmt.where(MatchReport.user_id == user_id, MatchReport.oid == raw_oid)
+            uid, raw_oid = split_skey(oid)
+            stmt = stmt.where(MatchReport.user_id == uid, MatchReport.oid == raw_oid)
         elif oid:
             return []  # a provided-but-invalid key matches nothing (fail closed)
+        elif user_id is not None:
+            stmt = stmt.where(MatchReport.user_id == user_id)
         stmt = stmt.order_by(MatchReport.ended_at.desc().nullslast())
         return [_summary(r) for r in db.execute(stmt).scalars().all()]
 

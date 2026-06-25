@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import { setControlToken, setPublicUser } from './api/client';
 import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
@@ -36,10 +36,11 @@ export default function App(
   { controlToken, publicUser }: { controlToken?: string; publicUser?: string } = {},
 ) {
   // Register the board capability (operator token or public username) before any
-  // request fires (the session-init effect below runs after this render).
-  // ``useMemo`` sets them synchronously during render; owner mode clears both.
+  // request fires. ``useLayoutEffect`` runs before paint and before the passive
+  // session-init effect below, so the credential is set in time — without the
+  // side-effect-in-render smell (and StrictMode double-invoke) of ``useMemo``.
   const unauthenticated = !!controlToken || !!publicUser;
-  useMemo(() => {
+  useLayoutEffect(() => {
     setControlToken(controlToken ?? null);
     setPublicUser(publicUser ?? null);
   }, [controlToken, publicUser]);

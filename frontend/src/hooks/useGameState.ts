@@ -150,18 +150,23 @@ export function useGameState(oid: string | null): UseGameStateResult {
       },
       onClose: (event) => {
         setConnected(false);
-        if (event.code !== 4004) {
-          // Exponential backoff with jitter: prevents reconnect storms
-          // when many clients lose the server simultaneously, and avoids
-          // hammering an unreachable server during long outages.
-          const attempt = reconnectAttempts.current;
-          reconnectAttempts.current = attempt + 1;
-          const exp = WS_RECONNECT_BASE_MS * Math.pow(WS_RECONNECT_FACTOR, attempt);
-          const capped = Math.min(exp, WS_RECONNECT_MAX_MS);
-          const jitter = Math.random() * 0.3 * capped;
-          const delay = capped + jitter;
-          reconnectTimer.current = setTimeout(connectWs, delay);
+        // Application-level close codes (4xxx) are terminal: bad request
+        // (4400), invalid/revoked credentials (4003) or no session (4004).
+        // Reconnecting would just re-fail forever, so stop and surface why.
+        if (event.code >= 4000 && event.code <= 4999) {
+          if (event.reason) setError(event.reason);
+          return;
         }
+        // Exponential backoff with jitter: prevents reconnect storms
+        // when many clients lose the server simultaneously, and avoids
+        // hammering an unreachable server during long outages.
+        const attempt = reconnectAttempts.current;
+        reconnectAttempts.current = attempt + 1;
+        const exp = WS_RECONNECT_BASE_MS * Math.pow(WS_RECONNECT_FACTOR, attempt);
+        const capped = Math.min(exp, WS_RECONNECT_MAX_MS);
+        const jitter = Math.random() * 0.3 * capped;
+        const delay = capped + jitter;
+        reconnectTimer.current = setTimeout(connectWs, delay);
       },
       onError: () => setConnected(false),
     });
@@ -178,6 +183,9 @@ export function useGameState(oid: string | null): UseGameStateResult {
     if (abortRef.current) {
       abortRef.current.abort();
     }
+    // A new overlay starts its reconnect backoff fresh — otherwise a counter
+    // left high by the previous overlay's outage would delay the first connect.
+    reconnectAttempts.current = 0;
     const controller = new AbortController();
     abortRef.current = controller;
 

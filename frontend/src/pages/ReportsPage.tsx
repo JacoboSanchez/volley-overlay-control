@@ -186,7 +186,7 @@ export default function ReportsPage() {
       <p className="acc-muted">{t('acc.reports.intro')}</p>
       {error && <div className="acc-error">{error}</div>}
 
-      {overlaysLoaded && overlays.length === 0 ? (
+      {overlaysLoaded && !error && overlays.length === 0 ? (
         <EmptyState action={{ to: '/overlays', label: t('acc.cta.createScoreboard') }}>
           {t('acc.reports.emptyNoOverlays')}
         </EmptyState>

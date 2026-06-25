@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import * as api from '../api/client';
 
 export interface ShareLinks {
@@ -32,6 +32,13 @@ export interface UseShareLinksResult {
 export function useShareLinks(oid: string): UseShareLinksResult {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState<ShareLinks | null>(null);
+
+  // Drop the cached links when the overlay changes — ``App`` stays mounted
+  // across owner overlay switches, so without this, reopening the dialog would
+  // show the previously-selected overlay's URLs.
+  useEffect(() => {
+    setShareLinks(null);
+  }, [oid]);
 
   const handleOpenShare = useCallback(async () => {
     if (!oid) return;
