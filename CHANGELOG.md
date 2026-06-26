@@ -10,6 +10,13 @@ once a first tagged release ships.
 
 ### Added
 
+- **Postgres-ready image.** The published image now bundles the psycopg 3
+  driver (`psycopg[binary]`), so pointing `DATABASE_URL` at Postgres
+  (`postgresql+psycopg://user:pass@host:5432/db`) works with **no rebuild** —
+  previously the driver had to be installed by hand. SQLite stays the default;
+  this is a small unconditional dependency that keeps the prebuilt image
+  Postgres-ready out of the box.
+
 - **README screenshot of the admin global-configuration page.** The
   Administration page (`/admin`) — the self-registration toggle plus user
   management — is now documented with `docs/screenshots/12-admin-page.png`. The
@@ -226,6 +233,16 @@ once a first tagged release ships.
   reports 0 vulnerabilities.
 
 ### Fixed
+
+- **Postgres migrations no longer overflow the Alembic version table.** Alembic
+  defaults `alembic_version.version_num` to `VARCHAR(32)`; this project uses
+  longer, human-readable revision ids (e.g. the 40-char
+  `0008_overlay_display_name_to_description`). SQLite ignores the declared
+  length so it never surfaced, but Postgres enforces it and the upgrade aborted
+  with `value too long for type character varying(32)`. `migrations/env.py` now
+  pre-provisions (and widens) the column to `VARCHAR(255)` before stamping —
+  idempotent, so existing SQLite/Postgres databases are unaffected. With this
+  and the bundled psycopg driver, the app migrates cleanly on a fresh Postgres.
 
 - **Match-report charts stay readable for light team colours.** The per-set
   score charts picked the team's polyline colour with a bare luminance cap that

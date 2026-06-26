@@ -11,7 +11,7 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from app.db import Base
 from app.db.engine import _enable_sqlite_fk, database_url
@@ -43,6 +43,30 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _ensure_wide_version_table(connection) -> None:
+    """Provision ``alembic_version`` with a column wide enough for this
+    project's long, human-readable revision ids.
+
+    Alembic defaults ``version_num`` to ``VARCHAR(32)``. SQLite ignores the
+    declared length, but Postgres enforces it, so a revision id like
+    ``0008_overlay_display_name_to_description`` (40 chars) overflows the
+    ``UPDATE alembic_version`` and aborts the upgrade on Postgres. Pre-create
+    the table wide when absent, and widen an already-narrow column on enforcing
+    backends; both are idempotent, so existing SQLite/Postgres DBs are
+    unaffected.
+    """
+    connection.execute(text(
+        "CREATE TABLE IF NOT EXISTS alembic_version ("
+        "version_num VARCHAR(255) NOT NULL, "
+        "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+    ))
+    if connection.dialect.name != "sqlite":
+        connection.execute(text(
+            "ALTER TABLE alembic_version "
+            "ALTER COLUMN version_num TYPE VARCHAR(255)"
+        ))
+
+
 def run_migrations_online() -> None:
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
@@ -55,6 +79,10 @@ def run_migrations_online() -> None:
     if connectable.dialect.name == "sqlite":
         _enable_sqlite_fk(connectable)
     with connectable.connect() as connection:
+        # Widen the version table before Alembic stamps it (committed in its own
+        # transaction so the subsequent migration run sees the wider column).
+        with connection.begin():
+            _ensure_wide_version_table(connection)
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

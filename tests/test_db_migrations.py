@@ -56,6 +56,44 @@ def test_alembic_upgrade_head_matches_models(tmp_path, monkeypatch):
     engine.dispose()
 
 
+def test_alembic_version_table_fits_long_revision_ids(tmp_path, monkeypatch):
+    """Regression: Alembic's default ``version_num VARCHAR(32)`` is too narrow
+    for this project's long, human-readable revision ids (e.g. the 40-char
+    ``0008_overlay_display_name_to_description``). SQLite ignores the declared
+    length, but Postgres enforces it, so the upgrade aborted on Postgres.
+    ``env.py`` pre-provisions a wide column — assert it is at least as wide as
+    the longest revision id in the tree.
+    """
+    import re
+
+    rev_ids = []
+    for f in (REPO_ROOT / "migrations" / "versions").glob("*.py"):
+        m = re.search(r"^revision\b.*?['\"]([^'\"]+)['\"]", f.read_text(), re.M)
+        if m:
+            rev_ids.append(m.group(1))
+    longest = max(len(r) for r in rev_ids)
+    # Premise of the regression: at least one id must exceed Alembic's default
+    # 32, otherwise this test would pass even with the bug present.
+    assert longest > 32
+
+    db_file = tmp_path / "wide.db"
+    url = f"sqlite:///{db_file}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    command.upgrade(_alembic_config(url), "head")
+
+    engine = create_engine(url)
+    col = next(
+        c for c in inspect(engine).get_columns("alembic_version")
+        if c["name"] == "version_num"
+    )
+    length = getattr(col["type"], "length", None)
+    assert length is not None and length >= longest, (
+        f"alembic_version.version_num is {length} wide but the longest "
+        f"revision id is {longest} chars — Postgres would overflow"
+    )
+    engine.dispose()
+
+
 def test_two_users_can_share_an_oid_but_one_user_cannot(db_session):
     """``UniqueConstraint(user_id, oid)`` — same oid across users is allowed."""
     from app.db.models import User, UserOverlay

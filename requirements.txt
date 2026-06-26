@@ -6,10 +6,14 @@ websocket-client>=1.9.0
 jinja2>=3.1.6
 prometheus-client>=0.25.0
 # Database layer (multi-user refactor): SQLAlchemy ORM + Alembic migrations.
-# DATABASE_URL selects the backend; SQLite is the default, Postgres is
-# supported by changing the URL (install ``psycopg[binary]`` for that).
+# DATABASE_URL selects the backend: SQLite (the default) or Postgres via
+# ``postgresql+psycopg://...``. The psycopg 3 driver below ships in the image
+# (``[binary]`` bundles libpq), so Postgres works with no rebuild — just point
+# DATABASE_URL at a server. It is a small unconditional add even for the
+# SQLite-only default; that keeps the published image Postgres-ready.
 sqlalchemy>=2.0
 alembic>=1.13
+psycopg[binary]>=3.2
 # Security floor — patches CVE-2026-44431 / CVE-2026-44432 (urllib3 2.6.x).
 # ``requests`` allows urllib3 < 3, so this constraint just pulls the
 # transitive dep up to the fixed minor without touching API surface.

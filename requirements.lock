@@ -38,6 +38,10 @@ markupsafe==3.0.3
     #   mako
 prometheus-client==0.25.0
     # via -r requirements.txt
+psycopg==3.3.4
+    # via -r requirements.txt
+psycopg-binary==3.3.4
+    # via psycopg
 pydantic==2.13.2
     # via fastapi
 pydantic-core==2.46.2
