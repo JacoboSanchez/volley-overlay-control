@@ -134,6 +134,27 @@ async function bootstrapAdmin() {
   }
 }
 
+async function seedDemoUsers() {
+  // Extra accounts so the admin "global configuration" page shows a
+  // representative roster rather than the lone bootstrap admin. Explicit
+  // passwords keep the table clean (no "must change password" pills).
+  const roster = [
+    { username: 'coach-martinez', role: 'user' },
+    { username: 'scorekeeper', role: 'user' },
+    { username: 'club-admin', role: 'admin' },
+  ];
+  for (const u of roster) {
+    const res = await apiFetch('/api/v1/admin/users', {
+      method: 'POST',
+      body: { username: u.username, password: ADMIN_PW, role: u.role },
+    });
+    // 400 → username already exists on a warm re-run; keep the run idempotent.
+    if (!res.ok && res.status !== 400) {
+      throw new Error(`seed user ${u.username} failed: ${res.status} ${await res.text()}`);
+    }
+  }
+}
+
 async function createOverlay(oid) {
   const res = await apiFetch('/api/v1/overlays', { method: 'POST', body: { oid } });
   if (res.status === 201) {
@@ -419,6 +440,21 @@ async function captureOverlaysPage(page) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureAdminPage(page) {
+  // The "Administration" page is the app's global-configuration surface:
+  // the self-registration toggle plus user management (create, reset
+  // password, activate/deactivate, delete). Admin-only — the demo session is
+  // the bootstrap admin, so it renders. seedDemoUsers() populated the roster.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/admin`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  // Wait until the users table has rendered its rows (the async load resolved).
+  await page.waitForSelector('.acc-table tbody tr', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: resolve(OUT_DIR, '12-admin-page.png'), fullPage: false });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureMatchReport(page, matchId) {
   // MATCH_REPORT_PUBLIC=true is set by run.sh, and the browser also carries the
   // owner's session cookie — so the report renders without any ?token=.
@@ -506,7 +542,9 @@ async function main() {
 
   // 1. Authenticate (claim the first admin → session cookie).
   await bootstrapAdmin();
-  // 2. Seed demo overlays + match state via the cookie-authenticated API.
+  // 2. Seed a small user roster so the admin global-config page is realistic.
+  await seedDemoUsers();
+  // 3. Seed demo overlays + match state via the cookie-authenticated API.
   await seedDemoOverlay();
   await seedFinishedMatchForReport();
   const reportMatchId = await fetchLatestMatchId();
@@ -566,6 +604,7 @@ async function main() {
     await step('11 point-type-picker', () => capturePointTypePicker(page));
     await step('04 config-panel', () => captureConfigPanel(page));
     await step('05 overlays-page', () => captureOverlaysPage(page));
+    await step('12 admin-page', () => captureAdminPage(page));
 
     await setSimpleMode(false);
     await step('06 mosaic-full', () => captureOverlayMosaic(page, '06-overlay-mosaic-full.png', 'theme=light'));

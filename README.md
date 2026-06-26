@@ -32,9 +32,9 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 |---|---|
 | ![Account overlays page listing the signed-in user's overlays with copyable OBS output URLs](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
-| Public spectator page (`/follow/{public_token}`) |
-|---|
-| <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> |
+| Public spectator page (`/follow/{public_token}`) | Admin — global configuration (`/admin`) |
+|---|---|
+| <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> | ![Admin Administration page: the self-registration toggle and user management table](docs/screenshots/12-admin-page.png) |
 
 **Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{public_token}`. All 27 selectable styles laid out side-by-side in a single preview grid via `/overlay/{public_token}?style=mosaic`. The pair below doubles as the theme demo — full data is captured with the forced light theme (`?theme=light`), simple mode with the forced dark one (`?theme=dark`); styles without the matching palette keep their native look:
 

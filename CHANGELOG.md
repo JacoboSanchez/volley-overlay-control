@@ -10,6 +10,12 @@ once a first tagged release ships.
 
 ### Added
 
+- **README screenshot of the admin global-configuration page.** The
+  Administration page (`/admin`) — the self-registration toggle plus user
+  management — is now documented with `docs/screenshots/12-admin-page.png`. The
+  screenshot pipeline (`scripts/screenshots/capture.mjs`) seeds a small demo
+  user roster so the table is representative.
+
 - **Size-independent overlay placement ("anchor zones").** The Config panel's
   Position section gained a 3×3 **anchor grid** (plus a *Free* fallback). Picking
   a zone (e.g. top-right) pins the overlay's matching corner/edge to that screen

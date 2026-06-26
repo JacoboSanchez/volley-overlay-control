@@ -79,6 +79,7 @@ the account overlays page.)
 | `09-spectator-page.png` | Public spectator (follow) page at `/follow/{public_token}` — header, scoreboard, set chart, history table, and live stats. Captured `fullPage` so every section is in-frame. | 414×896 (phone portrait) |
 | `10-overlay-set-summary.png` | Set-summary recap overlay (`brand_columns` variant) at `/overlay/{public_token}`, at the canonical OBS browser-source size. | 1280×720 (overlay HD) |
 | `11-point-type-picker.png` | Control board with the opt-in per-point classification dialog open (ace / kill / block / opponent error / quick point), shown after tapping a team's score with "Track point types" enabled. | 844×390 (mobile-landscape) |
+| `12-admin-page.png` | Admin **Administration** page at `/admin` (admin-only) — the global configuration surface: the self-registration toggle plus user management (create / reset password / activate / delete). `seedDemoUsers()` seeds a small roster so the table is representative. | 1024×700 (compact desktop) |
 
 The control board shots default to **844×390** because the operator's
 primary use case is a phone held sideways during a match. The account pages
