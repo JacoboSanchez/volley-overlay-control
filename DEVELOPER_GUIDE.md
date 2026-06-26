@@ -63,7 +63,7 @@ dependency.
 ├── alembic.ini              # Alembic configuration (migration scripts dir, logging).
 ├── migrations/              # Alembic environment + versioned migration scripts.
 │   ├── env.py               # Resolves DATABASE_URL, targets Base.metadata.
-│   └── versions/            # Migration revisions (0001_initial, 0002_overlay_settings, ...).
+│   └── versions/            # Migration revisions (starts at 0001_initial; the schema baseline).
 ├── Dockerfile               # Multi-stage build (Node.js + Python).
 ├── docker-compose.yml       # Docker Compose configuration.
 ├── frontend/                # React control UI (built with Vite, TypeScript).

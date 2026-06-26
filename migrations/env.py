@@ -48,11 +48,11 @@ def _ensure_wide_version_table(connection) -> None:
     project's long, human-readable revision ids.
 
     Alembic defaults ``version_num`` to ``VARCHAR(32)``. SQLite ignores the
-    declared length, but Postgres enforces it, so a revision id like
-    ``0008_overlay_display_name_to_description`` (40 chars) overflows the
-    ``UPDATE alembic_version`` and aborts the upgrade on Postgres. Pre-create
-    the table wide when absent, and widen an already-narrow column on enforcing
-    backends; both are idempotent, so existing SQLite/Postgres DBs are
+    declared length, but Postgres enforces it, so a revision id longer than 32
+    characters (this project favours descriptive ``NNNN_slug`` ids) would
+    overflow the ``UPDATE alembic_version`` and abort the upgrade on Postgres.
+    Pre-create the table wide when absent, and widen an already-narrow column on
+    enforcing backends; both are idempotent, so existing SQLite/Postgres DBs are
     unaffected.
     """
     connection.execute(text(

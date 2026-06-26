@@ -2,7 +2,7 @@
 
 Revision ID: 0001_initial
 Revises:
-Create Date: 2026-06-19 17:21:47.803481
+Create Date: 2026-06-27 00:36:48.222486
 """
 from __future__ import annotations
 
@@ -109,11 +109,16 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=120), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_by_user_id', sa.Integer(), nullable=True),
+    sa.Column('owner_user_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['created_by_user_id'], ['users.id'], name=op.f('fk_team_groups_created_by_user_id_users'), ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['owner_user_id'], ['users.id'], name=op.f('fk_team_groups_owner_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_team_groups'))
     )
+    with op.batch_alter_table('team_groups', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_team_groups_owner_user_id'), ['owner_user_id'], unique=False)
+
     op.create_table('teams',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=120), nullable=False),
@@ -135,7 +140,9 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('oid', sa.String(length=64), nullable=False),
     sa.Column('public_token', sa.String(length=64), nullable=False),
-    sa.Column('display_name', sa.String(length=120), nullable=True),
+    sa.Column('control_token', sa.String(length=64), nullable=True),
+    sa.Column('public_control', sa.Boolean(), server_default='0', nullable=False),
+    sa.Column('description', sa.String(length=120), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_user_overlays_user_id_users'), ondelete='CASCADE'),
@@ -144,6 +151,7 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id', 'oid', name='uq_user_overlays_user_id_oid')
     )
     with op.batch_alter_table('user_overlays', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_user_overlays_control_token'), ['control_token'], unique=True)
         batch_op.create_index(batch_op.f('ix_user_overlays_user_id'), ['user_id'], unique=False)
 
     op.create_table('overlay_session_meta',
@@ -166,6 +174,25 @@ def upgrade() -> None:
     with op.batch_alter_table('team_group_members', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_team_group_members_group_id'), ['group_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_team_group_members_team_id'), ['team_id'], unique=False)
+
+    op.create_table('user_group_teams',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('group_id', sa.Integer(), nullable=False),
+    sa.Column('team_id', sa.Integer(), nullable=False),
+    sa.Column('sort_order', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.ForeignKeyConstraint(['group_id'], ['team_groups.id'], name=op.f('fk_user_group_teams_group_id_team_groups'), ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['team_id'], ['teams.id'], name=op.f('fk_user_group_teams_team_id_teams'), ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_user_group_teams_user_id_users'), ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_user_group_teams')),
+    sa.UniqueConstraint('user_id', 'group_id', 'team_id', name='uq_user_group_teams_user_id_group_id_team_id')
+    )
+    with op.batch_alter_table('user_group_teams', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_user_group_teams_group_id'), ['group_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_user_group_teams_team_id'), ['team_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_user_group_teams_user_id'), ['user_id'], unique=False)
 
     op.create_table('user_team_list',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -193,6 +220,12 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_user_team_list_team_id'))
 
     op.drop_table('user_team_list')
+    with op.batch_alter_table('user_group_teams', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_user_group_teams_user_id'))
+        batch_op.drop_index(batch_op.f('ix_user_group_teams_team_id'))
+        batch_op.drop_index(batch_op.f('ix_user_group_teams_group_id'))
+
+    op.drop_table('user_group_teams')
     with op.batch_alter_table('team_group_members', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_team_group_members_team_id'))
         batch_op.drop_index(batch_op.f('ix_team_group_members_group_id'))
@@ -201,12 +234,16 @@ def downgrade() -> None:
     op.drop_table('overlay_session_meta')
     with op.batch_alter_table('user_overlays', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_user_overlays_user_id'))
+        batch_op.drop_index(batch_op.f('ix_user_overlays_control_token'))
 
     op.drop_table('user_overlays')
     with op.batch_alter_table('teams', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_teams_owner_user_id'))
 
     op.drop_table('teams')
+    with op.batch_alter_table('team_groups', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_team_groups_owner_user_id'))
+
     op.drop_table('team_groups')
     with op.batch_alter_table('presets', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_presets_owner_user_id'))
