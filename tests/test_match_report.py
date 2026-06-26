@@ -523,6 +523,58 @@ class TestMatchReport:
         assert 'src="http://ok.example/img.png"' in response.text
 
 
+class TestChartColorContrast:
+    """``_chart_color`` must keep every polyline readable on the chart surface.
+
+    The old luminance cap waved through light-but-not-white brand colours
+    (e.g. ``#d3d3d3``) that then sat at ~1.3:1 against the grey ``#fafafa``
+    surface — effectively invisible. The contrast-ratio model guarantees a
+    floor and preserves hue by darkening rather than discarding the colour.
+    """
+
+    @staticmethod
+    def _contrast(c1, c2):
+        from app.match_report_render import _relative_luminance
+        l1, l2 = _relative_luminance(c1), _relative_luminance(c2)
+        lo, hi = sorted((l1, l2))
+        return (hi + 0.05) / (lo + 0.05)
+
+    @pytest.mark.parametrize(
+        "brand,fg",
+        [
+            ("#ffffff", "#000000"),  # white brand, dark text
+            ("#ffffff", "#f5f5f5"),  # white brand, light text (worst case)
+            ("#e0e0e0", "#ffffff"),  # light grey brand + light text
+            ("#d3d3d3", "#ffffff"),  # lightgrey brand
+            ("#cccccc", "#eeeeee"),  # silver brand + light text
+            ("#90ee90", "#ffffff"),  # pale green
+            ("#0047ab", "#ffffff"),  # already-strong brand
+        ],
+    )
+    def test_every_resolved_colour_clears_the_contrast_floor(self, brand, fg):
+        from app.match_report_render import (
+            _CHART_SURFACE,
+            _MIN_CHART_CONTRAST,
+            _chart_color,
+        )
+        for team in (1, 2):
+            resolved = _chart_color(team, brand, fg)
+            assert self._contrast(resolved, _CHART_SURFACE) >= _MIN_CHART_CONTRAST
+
+    def test_light_coloured_brand_keeps_its_hue(self):
+        # A pale green that fails the floor is darkened (green channel stays
+        # dominant), not swapped for the generic blue/red fallback.
+        from app.match_report_render import _CHART_FALLBACK, _chart_color, _hex_to_rgb
+        resolved = _chart_color(1, "#90ee90", "#ffffff")
+        assert resolved not in _CHART_FALLBACK
+        r, g, b = _hex_to_rgb(resolved)
+        assert g > r and g > b
+
+    def test_strong_brand_colour_is_left_untouched(self):
+        from app.match_report_render import _chart_color
+        assert _chart_color(1, "#0047AB", "#ffffff") == "#0047AB"
+
+
 class TestMatchReportI18n:
     """Locale resolution from ``Accept-Language`` header."""
 

@@ -34,7 +34,6 @@ from app.api._persistence_paths import DEFAULT_HASH_LEN, hashed_filename
 from app.api._persistence_paths import data_dir as _shared_data_dir
 from app.db.engine import session_scope
 from app.db.models.report import MatchReport
-from app.match_report_render import _team_name
 from app.overlay_key import is_valid_skey, make_skey, split_skey
 
 logger = logging.getLogger(__name__)
@@ -73,6 +72,12 @@ def _summary(r: MatchReport) -> dict:
     # rendered the real name. ``_team_name`` returns the "Team N" sentinel when
     # truly unnamed; map that back to ``None`` to keep the contract that lets
     # the UI localize the placeholder ("Team 1" / "Equipo 1").
+    # Function-local import: ``match_report_render`` imports ``app.api.schemas``
+    # at module load, so a top-level import here would create an
+    # ``app.api`` <-> ``match_report_render`` cycle that breaks whenever the
+    # render module is imported before the ``app.api`` package finishes
+    # initializing. By call time both modules are fully loaded.
+    from app.match_report_render import _team_name
     cust = r.customization or {}
     name1 = _team_name(cust, 1)
     name2 = _team_name(cust, 2)

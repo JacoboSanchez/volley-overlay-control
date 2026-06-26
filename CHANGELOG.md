@@ -221,6 +221,17 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Match-report charts stay readable for light team colours.** The per-set
+  score charts picked the team's polyline colour with a bare luminance cap that
+  waved through light-but-not-white brand colours (e.g. a light grey), which
+  then sat at ~1.3:1 against the report's grey `#fafafa` surface — the points
+  evolution was effectively invisible. The picker now measures a real WCAG
+  contrast ratio against the surface and, when a brand colour falls below the
+  3:1 floor, uses the team's text colour or **darkens the brand colour while
+  keeping its hue** so a pale-green team stays green and a white/grey team
+  becomes a visible neutral. Strong brand colours are unchanged. (Report
+  screenshot refreshed.)
+
 - **Reports list now shows the real winner / team names.** The account Reports
   page (and the public match-history list) showed the literal "Team 1" / "Team 2"
   placeholder for matches whose team names were stored under a non-canonical

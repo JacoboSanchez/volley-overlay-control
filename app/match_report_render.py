@@ -251,15 +251,21 @@ def _logo_url(customization: dict, team: int) -> str | None:
 # ---------------------------------------------------------------------------
 
 # Distinguishable fallback palette for teams whose own brand colour is
-# either too light to read on the report's white surface or
-# indistinguishable from the other team's colour. ``team_index`` is
-# 0-based so callers can use ``[team-1]``.
+# either too light to read on the report's surface or indistinguishable
+# from the other team's colour. ``team_index`` is 0-based so callers can
+# use ``[team-1]``.
 _CHART_FALLBACK = ("#0047AB", "#E21836")
-# Luminance threshold above which the colour is "too light" for the
-# white-ish report background. Computed as relative luminance per
-# WCAG so 0.0 == black, 1.0 == white. ~0.85 keeps pastels usable but
-# rejects pure white / very light yellows.
-_LIGHTNESS_REJECT = 0.85
+# The neutral surface the charts / highlights are drawn on — must track
+# ``--surface`` in ``app/match_report_template.py`` (the ``.chart-card``
+# background). Team colours are accepted for the polyline layer only when
+# they clear a real contrast ratio against *this* colour; a bare luminance
+# cap used to wave through light greys (e.g. ``#d3d3d3``) that then melted
+# into the surface.
+_CHART_SURFACE = "#fafafa"
+# WCAG 1.4.11 (non-text contrast) minimum for graphical objects. A chart
+# polyline below this against the surface is treated as invisible, so we
+# darken the brand colour (or fall back) until it clears the floor.
+_MIN_CHART_CONTRAST = 3.0
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
@@ -286,22 +292,68 @@ def _relative_luminance(hex_color: str) -> float | None:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def _contrast_ratio(c1: str, c2: str) -> float | None:
+    """WCAG contrast ratio between two hex colours (>= 1), or ``None``."""
+    l1 = _relative_luminance(c1)
+    l2 = _relative_luminance(c2)
+    if l1 is None or l2 is None:
+        return None
+    lighter, darker = (l1, l2) if l1 >= l2 else (l2, l1)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _darken_to_contrast(hex_color: str, surface: str, min_ratio: float) -> str | None:
+    """Darken *hex_color* toward black until it clears *min_ratio* on *surface*.
+
+    Hue is preserved (RGB is scaled toward black), so a light-but-coloured
+    brand — a pale green, a sky blue — stays recognisably itself instead of
+    snapping to the generic blue/red palette; an achromatic colour (white,
+    grey) becomes a visible neutral. Against a *light* surface, contrast
+    rises monotonically as the colour darkens, so a binary search finds the
+    lightest scale (closest to the original) that still reads. Returns
+    ``None`` only when *hex_color* doesn't parse. Black (the limit) always
+    clears the floor on a light surface, so a parseable colour always
+    resolves to something visible.
+    """
+    rgb = _hex_to_rgb(hex_color)
+    if rgb is None:
+        return None
+    lo, hi = 0.0, 1.0
+    best = "#000000"  # the dark limit always clears the floor on a light surface
+    for _ in range(8):
+        mid = (lo + hi) / 2.0
+        scaled = "#{:02x}{:02x}{:02x}".format(*(round(c * mid) for c in rgb))
+        ratio = _contrast_ratio(scaled, surface)
+        if ratio is not None and ratio >= min_ratio:
+            best = scaled   # readable — try lighter (nearer the brand colour)
+            lo = mid
+        else:
+            hi = mid        # too light — darken further
+    return best
+
+
 def _chart_color(team: int, primary: str, fg: str) -> str:
     """Pick a chart-/highlight-safe colour for *team*.
 
-    The team's primary brand colour is used when it has acceptable
-    contrast against the report's white background. Otherwise we
-    fall back to the team's text colour (which is, by design,
-    high-contrast against the brand colour and usually against
-    the page too) and finally to a fixed palette. This keeps every
-    rendered datapoint visible without losing team identity.
+    Priority, all measured as a real WCAG contrast ratio against the
+    report's neutral ``_CHART_SURFACE`` (not a bare luminance cap):
+
+    1. the team's primary brand colour, when it already reads on the surface;
+    2. otherwise the team's text colour, which is high-contrast against the
+       brand by design and usually against the page too;
+    3. otherwise the brand colour darkened just enough to read — keeping the
+       team's hue rather than discarding its identity;
+    4. and finally the fixed fallback palette (only when nothing parses).
+
+    This keeps every datapoint visible regardless of how light the brand
+    colour is: a white or pale team no longer melts into the grey surface.
     """
-    candidates = [primary, fg, _CHART_FALLBACK[(team - 1) % 2]]
-    for candidate in candidates:
-        lum = _relative_luminance(candidate)
-        if lum is not None and lum < _LIGHTNESS_REJECT:
+    for candidate in (primary, fg):
+        ratio = _contrast_ratio(candidate, _CHART_SURFACE)
+        if ratio is not None and ratio >= _MIN_CHART_CONTRAST:
             return candidate
-    return _CHART_FALLBACK[(team - 1) % 2]
+    darkened = _darken_to_contrast(primary, _CHART_SURFACE, _MIN_CHART_CONTRAST)
+    return darkened if darkened is not None else _CHART_FALLBACK[(team - 1) % 2]
 
 
 def _ensure_distinct_chart_colors(c1: str, c2: str) -> tuple[str, str]:
