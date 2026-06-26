@@ -221,6 +221,16 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Reports list now shows the real winner / team names.** The account Reports
+  page (and the public match-history list) showed the literal "Team 1" / "Team 2"
+  placeholder for matches whose team names were stored under a non-canonical
+  customization key (e.g. seeded from a preset or predefined team), even though
+  the match report itself rendered the correct names. The list summary now
+  resolves names through the same multi-key fallback the printed report uses
+  (`Team N Name` → legacy `Team N Text Name` → `team_N_name` → `nameN`), so the
+  list and the report always agree. This is a read-time fix — existing archived
+  matches display correctly too, with no data migration.
+
 - **Branch code-review correctness pass.** A batch of bug fixes surfaced by the
   multi-user branch review:
   - **Table-tennis timeout cap** now returns a failed `ActionResponse` (with a

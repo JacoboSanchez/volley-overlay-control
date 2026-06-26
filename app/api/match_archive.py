@@ -34,6 +34,7 @@ from app.api._persistence_paths import DEFAULT_HASH_LEN, hashed_filename
 from app.api._persistence_paths import data_dir as _shared_data_dir
 from app.db.engine import session_scope
 from app.db.models.report import MatchReport
+from app.match_report_render import _team_name
 from app.overlay_key import is_valid_skey, make_skey, split_skey
 
 logger = logging.getLogger(__name__)
@@ -62,11 +63,19 @@ def _summary(r: MatchReport) -> dict:
     fs = r.final_state or {}
     t1 = fs.get("team_1", {}) or {}
     t2 = fs.get("team_2", {}) or {}
-    # Team names live in the captured customization (same keys the overlay
-    # uses); surface them so the reports list can show who played without a
-    # second per-match fetch. ``None`` when unnamed — the UI falls back to
-    # "Team 1" / "Team 2".
+    # Team names live in the captured customization. Resolve them through the
+    # same multi-key fallback the printed report uses (``_team_name``:
+    # canonical "Team N Name", the legacy "Team N Text Name" alias, snake_case
+    # and "nameN") so the list and the report always agree on who played.
+    # Reading only "Team N Name" here meant any match whose names were stored
+    # under a non-canonical key (e.g. seeded from a preset / predefined team)
+    # showed the literal "Team 1" / "Team 2" in the list while the report
+    # rendered the real name. ``_team_name`` returns the "Team N" sentinel when
+    # truly unnamed; map that back to ``None`` to keep the contract that lets
+    # the UI localize the placeholder ("Team 1" / "Equipo 1").
     cust = r.customization or {}
+    name1 = _team_name(cust, 1)
+    name2 = _team_name(cust, 2)
     return {
         "match_id": r.match_id,
         "oid": make_skey(r.user_id, r.oid),
@@ -75,8 +84,8 @@ def _summary(r: MatchReport) -> dict:
         "winning_team": r.winning_team,
         "team_1_sets": t1.get("sets"),
         "team_2_sets": t2.get("sets"),
-        "team_1_name": (cust.get("Team 1 Name") or None),
-        "team_2_name": (cust.get("Team 2 Name") or None),
+        "team_1_name": (None if name1 == "Team 1" else name1),
+        "team_2_name": (None if name2 == "Team 2" else name2),
         "current_set": fs.get("current_set"),
         # Match mode (indoor / beach / table_tennis) is captured inside the
         # archived ``final_state.config`` (GameStateResponse.config). Surface

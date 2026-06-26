@@ -57,6 +57,34 @@ class TestMatchArchive:
         assert loaded["config"]["points_limit"] == 25
         assert loaded["duration_s"] is not None and loaded["duration_s"] > 0
 
+    def test_summary_resolves_legacy_team_name_key(self, db_session):
+        # Names stored under the legacy "Team N Text Name" alias (e.g. seeded
+        # from a preset / predefined team) must surface in the reports list the
+        # same way the printed report renders them — not as the literal
+        # "Team 1" / "Team 2" placeholder.
+        _uid, skey = _user_skey(db_session, "oid-legacy-name")
+        match_archive.archive_match(
+            oid=skey,
+            final_state={"team_1": {"sets": 3}, "team_2": {"sets": 1}},
+            customization={"Team 1 Text Name": "Lions", "name2": "Tigers"},
+            winning_team=1,
+        )
+        summary = match_archive.list_matches(oid=skey)[0]
+        assert summary["team_1_name"] == "Lions"
+        assert summary["team_2_name"] == "Tigers"
+
+    def test_summary_leaves_unnamed_teams_null(self, db_session):
+        # No name under any known key → ``None`` so the UI can localize the
+        # "Team 1" / "Team 2" placeholder itself.
+        _uid, skey = _user_skey(db_session, "oid-unnamed")
+        match_archive.archive_match(
+            oid=skey, final_state={"current_set": 1}, customization={},
+            winning_team=1,
+        )
+        summary = match_archive.list_matches(oid=skey)[0]
+        assert summary["team_1_name"] is None
+        assert summary["team_2_name"] is None
+
     def test_non_storage_key_returns_none(self, db_session):
         # A bare oid (no owning user) cannot be archived.
         assert match_archive.archive_match(
