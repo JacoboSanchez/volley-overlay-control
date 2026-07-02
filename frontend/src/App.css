@@ -1581,6 +1581,10 @@ body {
   color: var(--blue, #2196f3);
 }
 
+.config-save-status-saved {
+  color: var(--green, #4caf50);
+}
+
 /* ── Save error banner ──────────────────────────────────────────────── */
 
 .config-save-error {
@@ -1633,7 +1637,29 @@ body {
   cursor: not-allowed;
 }
 
+.config-save-error-dismiss {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--red, #f44336);
+  cursor: pointer;
+}
+
+.config-save-error-dismiss:hover,
+.config-save-error-dismiss:focus-visible {
+  background: rgba(244, 67, 54, 0.08);
+  outline: none;
+}
+
 /* ── Shared config form elements ────────────────────────────────────── */
+
+/* Indents a control that depends on the toggle above it (nested option). */
+.config-suboption {
+  padding-left: 1.5rem;
+}
 
 .config-label {
   display: block;
@@ -1775,6 +1801,38 @@ body {
   gap: 0.75rem;
   margin-bottom: 0.25rem;
   flex-wrap: wrap;
+}
+
+/* The logo preview doubles as the button that opens the logo-URL editor
+   dialog. ``overflow: visible`` lets the little edit badge sit on the
+   corner; the inner img still clips via border-radius. */
+.config-logo-preview-btn {
+  position: relative;
+  padding: 0;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.config-logo-preview-btn .config-logo-img {
+  border-radius: 7px;
+}
+
+.config-logo-edit-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+/* Inline per-field validation message (logo URL, rules points…). */
+.config-field-error {
+  color: var(--red, #f44336);
 }
 
 .config-color-group {
@@ -2271,21 +2329,23 @@ body {
   color: var(--blue);
 }
 
-/* A mini 16:9 stand-in for the 1920×1080 canvas: each cell maps to the
-   screen zone the overlay will anchor to. */
+/* A mini stand-in for the 1920×1080 canvas: each cell maps to the screen
+   zone the overlay will anchor to. Sized for fingers — every cell keeps
+   the 44px minimum touch target used elsewhere in the panel. */
 .config-anchor-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: 4px;
-  width: 132px;
-  aspect-ratio: 16 / 9;
+  width: 220px;
+  max-width: 100%;
 }
 
 .config-anchor-cell {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 44px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
@@ -3683,6 +3743,18 @@ body {
   font-size: 12px;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.55);
+}
+
+/* Section-top notice: these controls persist as soon as they are touched
+   (vs the staged sections that wait for the Save button). */
+.config-instant-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+.config-instant-hint .material-icons {
+  font-size: 14px;
 }
 .config-auto-swap-row {
   margin-top: 10px;

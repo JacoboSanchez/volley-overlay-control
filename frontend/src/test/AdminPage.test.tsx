@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import AdminPage from '../pages/AdminPage';
 import * as api from '../api/client';
+import { ToastProvider } from '../components/Toast';
 import { renderWithI18n } from './helpers';
 
 const refreshMock = vi.fn();
@@ -156,6 +157,53 @@ describe('AdminPage user management', () => {
       expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/your own account/i));
     });
     expect(api.adminDeleteUser).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('opening registration asks for confirmation and toasts on success', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.adminGetRegistration).mockResolvedValue({ registration_open: false });
+    vi.mocked(api.adminSetRegistration).mockResolvedValue({ registration_open: true });
+    renderWithI18n(<ToastProvider><AdminPage /></ToastProvider>);
+    await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open registration' }));
+    await waitFor(() => {
+      expect(api.adminSetRegistration).toHaveBeenCalledWith(true);
+    });
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/create an account/i));
+    await waitFor(() => {
+      expect(screen.getByText('Public registration is now open.')).toBeInTheDocument();
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it('declining the open-registration confirm changes nothing', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    vi.mocked(api.adminGetRegistration).mockResolvedValue({ registration_open: false });
+    renderWithI18n(<AdminPage />);
+    await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open registration' }));
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(api.adminSetRegistration).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('closing registration skips the confirm and toasts', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    vi.mocked(api.adminSetRegistration).mockResolvedValue({ registration_open: false });
+    renderWithI18n(<ToastProvider><AdminPage /></ToastProvider>);
+    await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close registration' }));
+    await waitFor(() => {
+      expect(api.adminSetRegistration).toHaveBeenCalledWith(false);
+    });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByText('Public registration is now closed.')).toBeInTheDocument();
+    });
     confirmSpy.mockRestore();
   });
 });

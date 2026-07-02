@@ -190,7 +190,9 @@ export default function ConfigPanel({
   const [styles, setStyles] = useState<string[]>([]);
   const [styleCaps, setStyleCaps] = useState<Record<string, api.StyleCapabilities>>({});
   const [links, setLinks] = useState<LinksData>(null);
-  const [activeSection, setActiveSection] = useState<Section | null>('teams');
+  // ``presets`` matches the deliberate SECTIONS ordering above — the saved-
+  // configuration entry point is what the operator should see first.
+  const [activeSection, setActiveSection] = useState<Section | null>('presets');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -254,12 +256,35 @@ export default function ConfigPanel({
     [oid],
   );
 
+  // Transient "Saved ✓" confirmation after a successful save. Cleared by a
+  // timer or as soon as the panel goes dirty again.
+  const [justSaved, setJustSaved] = useState(false);
+  const justSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showJustSaved = useCallback(() => {
+    setJustSaved(true);
+    if (justSavedTimerRef.current) clearTimeout(justSavedTimerRef.current);
+    justSavedTimerRef.current = setTimeout(() => setJustSaved(false), 2500);
+  }, []);
+  const clearJustSaved = useCallback(() => {
+    if (justSavedTimerRef.current) {
+      clearTimeout(justSavedTimerRef.current);
+      justSavedTimerRef.current = null;
+    }
+    setJustSaved(false);
+  }, []);
+  useEffect(
+    () => () => {
+      if (justSavedTimerRef.current) clearTimeout(justSavedTimerRef.current);
+    },
+    [],
+  );
+
   const updateField = useCallback((key: string, value: unknown) => {
     setModel((m) => ({ ...m, [key]: value }));
     setIsDirty(true);
-  }, []);
+    clearJustSaved();
+  }, [clearJustSaved]);
 
-  const bypassConfirmRef = useRef(false);
   const ignoreNextPopRef = useRef(false);
 
   const confirmExitIfDirty = useCallback(
@@ -288,16 +313,19 @@ export default function ConfigPanel({
     run: handleSave,
     pending: saving,
     error: saveError,
+    clearError: clearSaveError,
   } = useAsyncAction(
     async () => {
       await api.updateCustomization(oid, model);
       setIsDirty(false);
       if (onCustomizationSaved) await onCustomizationSaved();
-      bypassConfirmRef.current = true;
-      window.history.back();
+      // Stay in the panel so the operator can keep iterating; the "Saved ✓"
+      // status is the confirmation. Leaving remains an explicit back action.
+      showJustSaved();
     },
     {
-      formatError: (e) => (e instanceof Error ? e.message : t('config.failedToSave')),
+      formatError: (e) =>
+        e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : t('config.failedToSave'),
     },
   );
 
@@ -306,11 +334,6 @@ export default function ConfigPanel({
     const handlePopState = () => {
       if (ignoreNextPopRef.current) {
         ignoreNextPopRef.current = false;
-        return;
-      }
-      if (bypassConfirmRef.current) {
-        bypassConfirmRef.current = false;
-        onBackRef.current();
         return;
       }
       if (!confirmExitIfDirtyRef.current()) {
@@ -333,9 +356,10 @@ export default function ConfigPanel({
   // the panel dirty, and let the existing Save button persist. Avoids
   // racing the operator's unsaved changes.
   const handleApplyPatch = useCallback((patch: ConfigModel) => {
+    clearJustSaved();
     setModel((m) => ({ ...m, ...patch }));
     setIsDirty(true);
-  }, []);
+  }, [clearJustSaved]);
 
   function renderSection(sec: Section | null) {
     switch (sec) {
@@ -426,6 +450,7 @@ export default function ConfigPanel({
           className="config-top-btn"
           onClick={handleBack}
           title={t('config.backToScoreboard')}
+          aria-label={t('config.backToScoreboard')}
           data-testid="scoreboard-tab-button"
         >
           <span className="material-icons">arrow_back</span>
@@ -513,11 +538,23 @@ export default function ConfigPanel({
             {t('config.saving')}
           </span>
         )}
+        {!saving && justSaved && (
+          <span
+            className="config-save-status config-save-status-saved"
+            role="status"
+            aria-live="polite"
+            data-testid="save-status-saved"
+          >
+            <span className="material-icons">check_circle</span>
+            {t('config.saved')}
+          </span>
+        )}
         <div className="spacer" />
         <button
           className="config-bottom-btn config-bottom-btn-fullscreen"
           onClick={onToggleFullscreen}
           title={isFullscreen ? t('ctrl.exitFullscreen') : t('ctrl.fullscreen')}
+          aria-label={isFullscreen ? t('ctrl.exitFullscreen') : t('ctrl.fullscreen')}
           data-testid="fullscreen-button"
         >
           <span className="material-icons">{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}</span>
@@ -526,6 +563,7 @@ export default function ConfigPanel({
           className="config-bottom-btn config-bottom-btn-theme"
           onClick={onToggleDarkMode}
           title={themeTitle(darkMode, t)}
+          aria-label={themeTitle(darkMode, t)}
           data-testid="dark-mode-button"
         >
           <span className="material-icons">{themeIcon(darkMode)}</span>
@@ -535,6 +573,7 @@ export default function ConfigPanel({
             className="config-bottom-btn config-bottom-btn-logout"
             onClick={() => setLogoutConfirmOpen(true)}
             title={t('config.logout')}
+            aria-label={t('config.logout')}
             data-testid="logout-button"
           >
             <span className="material-icons">logout</span>
@@ -559,6 +598,18 @@ export default function ConfigPanel({
               refresh
             </span>
             {t('config.retry')}
+          </button>
+          <button
+            type="button"
+            className="config-save-error-dismiss"
+            onClick={clearSaveError}
+            aria-label={t('config.dismiss')}
+            title={t('config.dismiss')}
+            data-testid="save-error-dismiss"
+          >
+            <span className="material-icons" aria-hidden="true">
+              close
+            </span>
           </button>
         </div>
       )}

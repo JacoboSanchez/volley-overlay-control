@@ -1,5 +1,5 @@
 import { useI18n } from '../../i18n';
-import { ConfigSwitch } from './fields';
+import { ConfigSwitch, InstantHint } from './fields';
 
 export interface GeneralSettings {
   haptics: boolean;
@@ -22,6 +22,7 @@ export default function GeneralSection({
   const { t } = useI18n();
   return (
     <div className="config-section-general">
+      <InstantHint />
       <ConfigSwitch
         label={t('behavior.haptics')}
         checked={settings.haptics}
@@ -33,7 +34,7 @@ export default function GeneralSection({
         onChange={(v) => setSetting('keyboardShortcuts', v)}
       />
       {settings.keyboardShortcuts && onShowShortcuts && (
-        <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
+        <div className="config-switch-row config-suboption">
           <button type="button" className="dialog-btn" onClick={onShowShortcuts}>
             {t('behavior.showShortcuts')}
           </button>

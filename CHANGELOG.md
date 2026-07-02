@@ -10,6 +10,33 @@ once a first tagged release ships.
 
 ### Added
 
+- **Team logos are editable from the board Config panel.** Clicking a team
+  card's logo preview opens a small editor dialog with a *Logo URL* field
+  and a clear button — previously a logo could only arrive by picking a
+  predefined team, so a custom team could never get one and a broken logo
+  could not be removed. The rarely-used control stays out of the card
+  itself; a small edit badge on the preview marks it as clickable. A
+  failed logo shows a broken-image placeholder (with an "image failed to
+  load" note in the editor) instead of silently disappearing.
+
+- **"Applies immediately" hints on the instant Config sections.** The
+  sections that persist on touch (Buttons, Display, Stats, Recap, General,
+  Match rules) now say so, making the split against the staged sections
+  (Teams / Overlay / Position / Presets, which wait for **Save**) visible.
+
+- **Position & Size: labeled "Reset to defaults"** (staged through Save
+  like any other edit, disabled when already at defaults) plus a
+  values-are-percent units hint. The Buttons colour reset gained a visible
+  label to match.
+
+- **Catalog import/export: file download and upload.** The admin teams /
+  presets JSON panel can now download the export as a `.json` file and
+  import from a chosen file, alongside the existing copy-paste textarea.
+
+- **Inline overlay-id validation.** Creating an overlay checks the id
+  against the server rule (1–64 chars; letters, digits, `._-`) in the
+  form itself instead of round-tripping to an error.
+
 - **Postgres-ready image.** The published image now bundles the psycopg 3
   driver (`psycopg[binary]`), so pointing `DATABASE_URL` at Postgres
   (`postgresql+psycopg://user:pass@host:5432/db`) works with **no rebuild** —
@@ -115,6 +142,31 @@ once a first tagged release ships.
   longer dead-ends at "open your account screen" to reach a report.
 
 ### Changed
+
+- **Saving board customization keeps you in the Config panel.** Save no
+  longer bounces the operator back to the scoreboard: the panel stays
+  open, a transient "Saved" status confirms the write, and leaving stays
+  an explicit back action (the unsaved-changes prompt is unchanged).
+  Iterating on colors/position no longer means reopening Config each time.
+
+- **The Config panel opens on the Presets section** (its deliberate first
+  position in the section list), so the saved-configuration entry point is
+  what an operator sees first.
+
+- **Anchor-zone grid sized for fingers.** The 3×3 position-anchor cells
+  grew from ~40×22 px to the 44 px minimum touch target used elsewhere,
+  and the fractional position steppers move in 0.5 steps instead of 0.1
+  (a full range crossing previously took ~1000 taps).
+
+- **Opening public self-registration now asks for confirmation**, and the
+  registration toggle confirms both directions with a toast — previously
+  the most security-sensitive switch on the admin page flipped silently.
+
+- **The overlay card's pencil is labelled "Edit settings"** instead of
+  "Rename" — the overlay id is immutable; the panel edits the description.
+
+- Refreshed `docs/screenshots/04-config-panel.png` for the new team-card
+  logo field and default Presets section.
 
 - **Admin page: change a user's role from the UI.** Each user row gained a
   *Make admin / Make user* action (backed by the existing
@@ -286,6 +338,27 @@ once a first tagged release ships.
   reports 0 vulnerabilities.
 
 ### Fixed
+
+- **Invalid match-rules points are called out inline.** Entering 0, a
+  negative number, or clearing the points fields previously did nothing
+  silently (the value just reverted on the next refresh); an inline
+  message now explains the constraint.
+
+- **Catalog JSON imports surface the server's error detail** instead of a
+  generic "Import failed.", and a *Replace existing* import now requires a
+  danger-confirm before wiping the catalog; import/export buttons disable
+  while a request is in flight.
+
+- **Config-panel accessibility.** Every colour swatch announces its field
+  (and team) instead of nine identical "Pick color" buttons; range sliders
+  are label-associated; the icon-only chrome buttons (back, fullscreen,
+  theme, logout) and team-card icon buttons gained aria-labels; the
+  save-error banner can be dismissed and shows the clean API error message.
+
+- **Account settings feedback.** Profile/password/delete buttons disable
+  while submitting (no more accidental double submissions), success is a
+  single toast instead of a duplicate banner+toast, and profile errors
+  render as errors rather than in the info banner.
 
 - **A revoked control link now explains itself instead of dumping the
   operator on the owner-only connect screen.** Opening a `/board?c=…` link

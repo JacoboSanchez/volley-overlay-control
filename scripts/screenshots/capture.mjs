@@ -416,6 +416,13 @@ async function captureConfigPanel(page) {
     if (el) { await el.click(); break; }
   }
   await page.waitForTimeout(800);
+  // The panel opens on Presets by default; this screenshot documents the
+  // Teams section (group picker + team cards), so navigate there first.
+  const teamsBtn = await page.$('button:has-text("Teams")');
+  if (teamsBtn) {
+    await teamsBtn.click();
+    await page.waitForTimeout(500);
+  }
   await page.screenshot({ path: resolve(OUT_DIR, '04-config-panel.png'), fullPage: false });
 }
 
