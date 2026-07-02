@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * Guards against translation-catalog drift:
  *
@@ -9,29 +10,21 @@
  *    by their components' own tests).
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { translations } from '../i18n/translations';
 
-const SRC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      return name === 'test' ? [] : sourceFiles(full);
-    }
-    return /\.(ts|tsx)$/.test(name) && !name.endsWith('.d.ts') ? [full] : [];
-  });
-}
+// Raw source of everything under src/ except the tests themselves and
+// generated type declarations.
+const sources = import.meta.glob(
+  ['../**/*.ts', '../**/*.tsx', '!../test/**', '!../**/*.d.ts'],
+  { query: '?raw', import: 'default', eager: true },
+) as Record<string, string>;
 
 describe('translation catalog', () => {
   const langs = Object.keys(translations);
-  const enKeys = new Set(Object.keys(translations.en));
+  const enKeys = new Set(Object.keys(translations.en ?? {}));
 
   it.each(langs.filter((l) => l !== 'en'))('%s has key parity with en', (lang) => {
-    const keys = new Set(Object.keys(translations[lang]));
+    const keys = new Set(Object.keys(translations[lang] ?? {}));
     const missing = [...enKeys].filter((k) => !keys.has(k));
     const extra = [...keys].filter((k) => !enKeys.has(k));
     expect({ missing, extra }).toEqual({ missing: [], extra: [] });
@@ -39,10 +32,10 @@ describe('translation catalog', () => {
 
   it('every static t(...) key used in src/ exists in the en catalog', () => {
     const used = new Set<string>();
-    for (const file of sourceFiles(SRC_DIR)) {
-      const text = readFileSync(file, 'utf-8');
+    expect(Object.keys(sources).length).toBeGreaterThan(50); // sanity: glob found the app
+    for (const text of Object.values(sources)) {
       for (const m of text.matchAll(/\bt\(\s*'([^']+)'/g)) {
-        used.add(m[1]);
+        if (m[1]) used.add(m[1]);
       }
     }
     expect(used.size).toBeGreaterThan(100); // sanity: the scan found real usage

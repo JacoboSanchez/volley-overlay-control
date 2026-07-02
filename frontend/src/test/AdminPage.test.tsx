@@ -91,7 +91,7 @@ describe('AdminPage user management', () => {
     vi.mocked(api.adminListUsers).mockResolvedValue([
       ROOT, OTHER_ADMIN, { ...PLAIN, must_change_password: true },
     ]);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Reset pw' })[2]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reset pw' })[2]!);
     // The pill can only appear because resetPw reloaded the user list.
     await waitFor(() => {
       expect(screen.getByText('must change pw')).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe('AdminPage user management', () => {
     renderWithI18n(<AdminPage />);
     await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]!);
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/your own account/i));
     });
