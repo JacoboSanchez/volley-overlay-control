@@ -1803,9 +1803,31 @@ body {
   flex-wrap: wrap;
 }
 
-/* Team logo URL field between the name row and the colors. */
-.config-logo-row {
-  margin: 0.25rem 0 0.5rem;
+/* The logo preview doubles as the button that opens the logo-URL editor
+   dialog. ``overflow: visible`` lets the little edit badge sit on the
+   corner; the inner img still clips via border-radius. */
+.config-logo-preview-btn {
+  position: relative;
+  padding: 0;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.config-logo-preview-btn .config-logo-img {
+  border-radius: 7px;
+}
+
+.config-logo-edit-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
 /* Inline per-field validation message (logo URL, rules points…). */

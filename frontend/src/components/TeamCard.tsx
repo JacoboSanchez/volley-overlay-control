@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useI18n } from '../i18n';
 import ColorPicker from './ColorPicker';
+import Dialog from './Dialog';
 import { asString } from '../utils/coerce';
 
 export type ConfigModel = Record<string, unknown>;
@@ -35,6 +36,9 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
   const logoUrl = asString(model[logoKey], '');
   const currentName = asString(model[nameKey], '');
   const [editing, setEditing] = useState(false);
+  // The logo URL editor is a rarely-needed control — it lives behind the
+  // logo preview (click to open) instead of adding a row to every card.
+  const [logoDialogOpen, setLogoDialogOpen] = useState(false);
   // A broken logo URL must stay visible as a problem (placeholder + hint),
   // not silently vanish. Reset whenever the URL changes.
   const [logoError, setLogoError] = useState(false);
@@ -62,7 +66,14 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
   return (
     <div className="config-team-block">
       <div className="config-team-header">
-        <div className="config-logo-preview" data-testid={`team-${teamId}-logo-preview`}>
+        <button
+          type="button"
+          className="config-logo-preview config-logo-preview-btn"
+          data-testid={`team-${teamId}-logo-preview`}
+          onClick={() => setLogoDialogOpen(true)}
+          title={t('teams.editLogo')}
+          aria-label={`${t('teams.editLogo')} — ${currentName || prefix}`}
+        >
           {logoUrl && !logoError ? (
             <img
               src={logoUrl}
@@ -75,7 +86,10 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
               {logoError ? 'broken_image' : 'image'}
             </span>
           )}
-        </div>
+          <span className="material-icons config-logo-edit-badge" aria-hidden="true">
+            edit
+          </span>
+        </button>
         <div className="config-team-header-fields">
           {editing ? (
             <div className="config-combobox-row">
@@ -129,7 +143,14 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
           )}
         </div>
       </div>
-      <div className="config-logo-row">
+      <Dialog
+        open={logoDialogOpen}
+        onClose={() => setLogoDialogOpen(false)}
+        ariaLabelledBy={`team-${teamId}-logo-dialog-title`}
+      >
+        <h3 className="dialog-title" id={`team-${teamId}-logo-dialog-title`}>
+          {t('teams.editLogo')} — {currentName || prefix}
+        </h3>
         <label className="config-label" htmlFor={`team-${teamId}-logo-url`}>
           {t('teams.logoUrl')}
         </label>
@@ -159,7 +180,17 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
             {t('teams.logoError')}
           </p>
         )}
-      </div>
+        <div className="dialog-actions">
+          <button
+            type="button"
+            className="dialog-btn dialog-btn-ok"
+            onClick={() => setLogoDialogOpen(false)}
+            data-testid={`team-${teamId}-logo-done`}
+          >
+            {t('dialog.ok')}
+          </button>
+        </div>
+      </Dialog>
       <div className="config-color-row">
         <div className="config-color-group">
           <label className="config-label">{t('teams.color')}</label>

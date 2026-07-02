@@ -30,13 +30,25 @@ describe('TeamCard', () => {
     const img = screen.getByAltText('Team 2 logo') as HTMLImageElement;
     expect(img).toHaveAttribute('src', 'https://example.com/away.png');
     fireEvent.error(img);
-    // The failure stays visible instead of silently vanishing.
+    // The failure stays visible instead of silently vanishing…
     expect(screen.queryByAltText('Team 2 logo')).toBeNull();
     expect(screen.getByTestId('team-2-logo-preview')).toHaveTextContent('broken_image');
+    // …and the editor dialog explains it.
+    fireEvent.click(screen.getByTestId('team-2-logo-preview'));
     expect(screen.getByText('Image failed to load')).toBeInTheDocument();
   });
 
-  it('edits the logo URL through the new field and clears it', () => {
+  it('keeps the logo editor tucked behind the preview until clicked', () => {
+    renderWithI18n(
+      <TeamCard teamId={1} model={{}} updateField={() => {}} predefinedTeams={predefinedTeams} />,
+    );
+    // No URL field cluttering the card at rest.
+    expect(screen.queryByTestId('team-1-logo-url')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('team-1-logo-preview'));
+    expect(screen.getByTestId('team-1-logo-url')).toBeInTheDocument();
+  });
+
+  it('edits the logo URL through the dialog and clears it', () => {
     const updateField = vi.fn();
     renderWithI18n(
       <TeamCard
@@ -46,6 +58,7 @@ describe('TeamCard', () => {
         predefinedTeams={predefinedTeams}
       />,
     );
+    fireEvent.click(screen.getByTestId('team-1-logo-preview'));
     fireEvent.change(screen.getByTestId('team-1-logo-url'), {
       target: { value: 'https://example.com/new.png' },
     });
@@ -53,12 +66,17 @@ describe('TeamCard', () => {
 
     fireEvent.click(screen.getByTestId('team-1-logo-clear'));
     expect(updateField).toHaveBeenCalledWith('Team 1 Logo', '');
+
+    // Done closes the editor again.
+    fireEvent.click(screen.getByTestId('team-1-logo-done'));
+    expect(screen.queryByTestId('team-1-logo-url')).not.toBeInTheDocument();
   });
 
   it('disables the clear button when there is no logo', () => {
     renderWithI18n(
       <TeamCard teamId={1} model={{}} updateField={() => {}} predefinedTeams={predefinedTeams} />,
     );
+    fireEvent.click(screen.getByTestId('team-1-logo-preview'));
     expect(screen.getByTestId('team-1-logo-clear')).toBeDisabled();
   });
 

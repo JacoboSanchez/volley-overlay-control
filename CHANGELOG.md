@@ -10,12 +10,14 @@ once a first tagged release ships.
 
 ### Added
 
-- **Team logos are editable from the board Config panel.** Each team card
-  gained a *Logo URL* field with a clear button — previously a logo could
-  only arrive by picking a predefined team, so a custom team could never
-  get one and a broken logo could not be removed. A failed logo now shows
-  a broken-image placeholder with an inline "image failed to load" note
-  instead of silently disappearing.
+- **Team logos are editable from the board Config panel.** Clicking a team
+  card's logo preview opens a small editor dialog with a *Logo URL* field
+  and a clear button — previously a logo could only arrive by picking a
+  predefined team, so a custom team could never get one and a broken logo
+  could not be removed. The rarely-used control stays out of the card
+  itself; a small edit badge on the preview marks it as clickable. A
+  failed logo shows a broken-image placeholder (with an "image failed to
+  load" note in the editor) instead of silently disappearing.
 
 - **"Applies immediately" hints on the instant Config sections.** The
   sections that persist on touch (Buttons, Display, Stats, Recap, General,
