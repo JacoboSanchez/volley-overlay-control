@@ -160,7 +160,7 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
               <tr key={p.slug}>
                 <td>{p.name}</td>
                 <td data-label={t('acc.presets.colActive')}>
-                  <span className="acc-pill" style={{ background: p.is_active ? '#1e4031' : '#3a2b1d' }}>
+                  <span className={`acc-pill${p.is_active ? ' is-on' : ''}`}>
                     {p.is_active ? t('acc.presets.active') : t('acc.presets.inactive')}
                   </span>
                 </td>

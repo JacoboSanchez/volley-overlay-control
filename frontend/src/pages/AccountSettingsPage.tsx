@@ -16,7 +16,8 @@ export default function AccountSettingsPage() {
 
   const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [profileMsg, setProfileMsg] = useState('');
+  const [profileErr, setProfileErr] = useState('');
+  const [profileBusy, setProfileBusy] = useState(false);
 
   // The auth context resolves asynchronously (and can refresh), so seed the
   // editable fields once the user lands / changes — useState only reads the
@@ -29,40 +30,43 @@ export default function AccountSettingsPage() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
-  const [pwMsg, setPwMsg] = useState('');
   const [pwErr, setPwErr] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault();
-    setProfileMsg('');
+    setProfileErr('');
+    setProfileBusy(true);
     try {
       await api.updateMe({ display_name: displayName, email });
       await refresh();
-      setProfileMsg(t('acc.account.profileSaved'));
+      // Success is transient (toast); the inline banner is for errors only.
       toast(t('acc.account.profileSaved'));
     } catch (err) {
-      setProfileMsg(
+      setProfileErr(
         err instanceof api.ApiError && err.detail
           ? err.detail
           : t('acc.account.errorProfile'),
       );
+    } finally {
+      setProfileBusy(false);
     }
   }
 
   async function savePassword(e: FormEvent) {
     e.preventDefault();
-    setPwMsg('');
     setPwErr('');
     if (next !== confirmPw) {
       setPwErr(t('acc.account.errorPasswordMismatch'));
       return;
     }
+    setPwBusy(true);
     try {
       await api.changePassword(current, next);
       setCurrent('');
       setNext('');
       setConfirmPw('');
-      setPwMsg(t('acc.account.passwordChanged'));
       toast(t('acc.account.toastPasswordChanged'));
     } catch (err) {
       if (err instanceof api.ApiError && err.status === 403) {
@@ -72,6 +76,8 @@ export default function AccountSettingsPage() {
       } else {
         setPwErr(t('acc.account.errorShortPassword'));
       }
+    } finally {
+      setPwBusy(false);
     }
   }
 
@@ -83,12 +89,15 @@ export default function AccountSettingsPage() {
       danger: true,
     });
     if (!ok) return;
+    setDeleting(true);
     try {
       await api.deleteMe();
       await refresh();
       navigate('/login');
     } catch (err) {
       toast(err instanceof api.ApiError ? err.detail : t('acc.account.errorDelete'), 'error');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -98,7 +107,7 @@ export default function AccountSettingsPage() {
 
       <form onSubmit={saveProfile} className="acc-narrow" style={{ marginTop: 12 }}>
         <h3 className="acc-subhead">{t('acc.account.profile')}</h3>
-        {profileMsg && <div className="acc-info">{profileMsg}</div>}
+        {profileErr && <div className="acc-error">{profileErr}</div>}
         <p className="acc-muted">{t('acc.account.username')} <strong>{user?.username}</strong></p>
         <label className="acc-field">
           <span>{t('acc.account.displayName')}</span>
@@ -108,12 +117,11 @@ export default function AccountSettingsPage() {
           <span>{t('acc.account.email')}</span>
           <input className="acc-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
-        <button className="acc-btn" type="submit">{t('acc.account.saveProfile')}</button>
+        <button className="acc-btn" type="submit" disabled={profileBusy}>{t('acc.account.saveProfile')}</button>
       </form>
 
       <form onSubmit={savePassword} className="acc-narrow" style={{ marginTop: 28 }}>
         <h3 className="acc-subhead">{t('acc.account.password')}</h3>
-        {pwMsg && <div className="acc-info">{pwMsg}</div>}
         {pwErr && <div className="acc-error">{pwErr}</div>}
         <label className="acc-field">
           <span>{t('acc.account.currentPassword')}</span>
@@ -130,7 +138,7 @@ export default function AccountSettingsPage() {
           <input className="acc-input" type="password" value={confirmPw}
             autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
         </label>
-        <button className="acc-btn" type="submit">{t('acc.account.password')}</button>
+        <button className="acc-btn" type="submit" disabled={pwBusy}>{t('acc.account.password')}</button>
       </form>
 
       <div className="acc-narrow" style={{ marginTop: 28 }}>
@@ -149,7 +157,7 @@ export default function AccountSettingsPage() {
       <div className="acc-narrow" style={{ marginTop: 28 }}>
         <h3 className="acc-subhead">{t('acc.account.danger')}</h3>
         <p className="acc-muted">{t('acc.account.dangerDesc')}</p>
-        <button className="acc-btn danger" onClick={deleteAccount}>{t('acc.account.deleteAccount')}</button>
+        <button className="acc-btn danger" onClick={deleteAccount} disabled={deleting}>{t('acc.account.deleteAccount')}</button>
       </div>
     </div>
   );

@@ -18,9 +18,17 @@ export default function OverlaysPage() {
   // (it is still valid); load errors are handled separately via ``loadError``.
   const [createError, setCreateError] = useState('');
 
+  // Mirror of the backend rule (app/id_validation.py OVERLAY_ID_PATTERN) so
+  // an invalid id is rejected inline instead of round-tripping to a 4xx.
+  const OID_RE = /^(?!\.{1,2}$)[A-Za-z0-9._-]{1,64}$/;
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setCreateError('');
+    if (!OID_RE.test(oid.trim())) {
+      setCreateError(t('acc.overlays.field.oidHelp'));
+      return;
+    }
     try {
       const created = oid.trim();
       await api.createOverlay(created, {
@@ -61,7 +69,7 @@ export default function OverlaysPage() {
         <label className="acc-field">
           <span>{t('acc.overlays.field.oid')}</span>
           <input className="acc-input" value={oid} placeholder={t('acc.overlays.field.oidPlaceholder')}
-            onChange={(e) => setOid(e.target.value)} />
+            maxLength={64} onChange={(e) => setOid(e.target.value)} />
           <small className="acc-muted">{t('acc.overlays.field.oidHelp')}</small>
         </label>
         <label className="acc-field">

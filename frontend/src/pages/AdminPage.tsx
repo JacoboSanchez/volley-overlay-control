@@ -153,10 +153,24 @@ export default function AdminPage() {
 
   async function toggleRegistration() {
     setError('');
+    if (!registrationOpen) {
+      // Opening public self-registration is the most security-sensitive
+      // switch on this page — never on a bare click.
+      const ok = await confirm({
+        title: t('acc.admin.confirmOpenRegTitle'),
+        message: t('acc.admin.confirmOpenRegMsg'),
+        confirmLabel: t('acc.admin.openRegistration'),
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       const r = await api.adminSetRegistration(!registrationOpen);
       setRegistrationOpen(r.registration_open);
+      toast(r.registration_open
+        ? t('acc.admin.toastRegistrationOpened')
+        : t('acc.admin.toastRegistrationClosed'));
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorRegistration'));
       await load(); // re-sync the label to the authoritative value
