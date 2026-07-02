@@ -33,7 +33,7 @@ export default function GeneralSection({
         onChange={(v) => setSetting('keyboardShortcuts', v)}
       />
       {settings.keyboardShortcuts && onShowShortcuts && (
-        <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
+        <div className="config-switch-row config-suboption">
           <button type="button" className="dialog-btn" onClick={onShowShortcuts}>
             {t('behavior.showShortcuts')}
           </button>

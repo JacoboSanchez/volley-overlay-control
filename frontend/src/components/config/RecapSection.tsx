@@ -46,8 +46,8 @@ export default function RecapSection({
           </p>
           {setSummaryStyle && onChangeSetSummaryStyle && (
             <div
-              className="config-field-group"
-              style={{ paddingLeft: '1.5rem', marginBottom: '0.75rem' }}
+              className="config-field-group config-suboption"
+              style={{ marginBottom: '0.75rem' }}
             >
               <label className="config-field-group-label">
                 {t('config.setSummary.style.label')}
@@ -55,7 +55,7 @@ export default function RecapSection({
               <SetSummaryStylePicker value={setSummaryStyle} onChange={onChangeSetSummaryStyle} />
             </div>
           )}
-          <div style={{ paddingLeft: '1.5rem' }}>
+          <div className="config-suboption">
             <ConfigSwitch
               label={t('behavior.autoShowSetSummary')}
               checked={settings.autoShowSetSummary}

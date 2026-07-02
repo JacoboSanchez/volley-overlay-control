@@ -1581,6 +1581,10 @@ body {
   color: var(--blue, #2196f3);
 }
 
+.config-save-status-saved {
+  color: var(--green, #4caf50);
+}
+
 /* ── Save error banner ──────────────────────────────────────────────── */
 
 .config-save-error {
@@ -1633,7 +1637,29 @@ body {
   cursor: not-allowed;
 }
 
+.config-save-error-dismiss {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+}
+
+.config-save-error-dismiss:hover,
+.config-save-error-dismiss:focus-visible {
+  background: rgba(244, 67, 54, 0.08);
+  outline: none;
+}
+
 /* ── Shared config form elements ────────────────────────────────────── */
+
+/* Indents a control that depends on the toggle above it (nested option). */
+.config-suboption {
+  padding-left: 1.5rem;
+}
 
 .config-label {
   display: block;

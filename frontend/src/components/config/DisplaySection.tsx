@@ -38,7 +38,7 @@ export default function DisplaySection({ settings, setSetting }: DisplaySectionP
         onChange={(v) => setSetting('autoSimple', v)}
       />
       {settings.autoSimple && (
-        <div style={{ paddingLeft: '1.5rem' }}>
+        <div className="config-suboption">
           <ConfigSwitch
             label={t('behavior.fullOnTimeout')}
             checked={settings.autoSimpleOnTimeout}

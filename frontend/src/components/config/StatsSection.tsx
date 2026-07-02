@@ -21,7 +21,7 @@ export default function StatsSection({ settings, setSetting }: StatsSectionProps
         onChange={(v) => setSetting('trackPointTypes', v)}
       />
       {settings.trackPointTypes && (
-        <div style={{ paddingLeft: '1.5rem' }}>
+        <div className="config-suboption">
           <p
             className="config-help-text"
             style={{ margin: '0 0 0.5rem', fontSize: '0.85em', opacity: 0.7 }}
