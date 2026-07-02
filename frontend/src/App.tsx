@@ -305,6 +305,20 @@ export default function App(
     useButtonTheme({ settings, customization });
 
   if (!oid || (error && !state)) {
+    // A failed capability link (revoked ?c= token, disabled ?u= bookmark)
+    // must not fall back to the owner-only InitScreen: its overlay picker
+    // calls the cookie-gated /overlays route, which just 401s for a
+    // no-login operator. Explain the failure and who can fix it instead.
+    if (isCapabilityMode && error) {
+      return (
+        <div className="init-screen" role="alert">
+          <h1 className="init-title">{appConfig.title}</h1>
+          <h2 className="init-label" style={{ fontSize: '1.1rem' }}>{t('board.invalidLink.title')}</h2>
+          <p className="init-error">{error}</p>
+          <p className="init-label">{t('board.invalidLink.body')}</p>
+        </div>
+      );
+    }
     return (
       <InitScreen
         oidInput={oidInput}

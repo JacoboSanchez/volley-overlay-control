@@ -175,7 +175,7 @@ WebSocket at `/ws/{public_token}`.
     ```
     Alembic migrates the schema to head automatically on startup. The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The app is available at `http://localhost:8080/` — the front door is a **login** screen.
 
-5.  **Claim the first admin** — On the very first start with no administrator, a one-time **bootstrap token** is logged at `WARNING` level (look in the startup output / `docker logs`). Open `/claim-admin`, paste the token, and create the first admin account. After that, users self-register at `/register` (an admin can toggle registration off), and each user creates overlays from their account dashboard. The overlay's OBS output is served at `http://localhost:8080/overlay/{public_token}`.
+5.  **Claim the first admin** — On the very first start with no administrator, a one-time **bootstrap token** is logged at `WARNING` level (look in the startup output / `docker logs`). Open `/claim-admin`, paste the token, and create the first admin account. After that, users self-register at `/register` (an admin can toggle registration off), and each user creates overlays from their account dashboard (opening `/board?oid=<new-id>` while signed in also auto-registers the overlay). The overlay's OBS output is served at `http://localhost:8080/overlay/{public_token}`.
 
 > **Tip:** For frontend development with hot-reload, run `cd frontend && npm run dev` alongside `python main.py`. Vite serves on port 3000 and proxies API calls to the backend on port 8080.
 
@@ -232,7 +232,6 @@ Configure the application using the following environment variables:
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
 | `STALE_SET_THRESHOLD_MINUTES` | Minutes a single set may run before the control-UI "match looks abandoned" prompt fires on the next page load. `0` disables the prompt entirely (useful for long all-day tournaments). Negative values clamp to `0`; non-numeric values fall back to the default. | `60` |
-| `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
 | `ENABLE_MULTITHREAD` | If `true`, overlay API calls run in a thread pool. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
 | `LOG_FORMAT` | Log output format: `text` (ANSI-coloured, for dev) or `json` (one JSON object per line, for log aggregators). | `text` |
@@ -250,7 +249,6 @@ Configure the application using the following environment variables:
 | `TRUSTED_HOSTS` | Comma-separated allow-list of hostnames the app accepts in the `Host` header. Wildcard subdomains (`*.example.com`) supported. Requests outside the list are rejected with HTTP 400 before any handler reads `request.base_url`. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.2. | *(unset → no enforcement)* |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allow-list of origins permitted to call the API cross-origin. `*` is rejected (credentialed API; explicit origins only). Default: same-origin only. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.3. | *(unset → no CORS)* |
 | `REMOTE_CONFIG_URL` | URL to a remote JSON file with non-account configuration fetched on startup. | |
-| `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
 | `CUSTOMIZATION_CACHE_TTL_SECONDS` | Single knob overriding the TTL (seconds) of both customization caches. When unset, the GameService cache defaults to `5` and the Backend cache to `60`. | *(per-cache defaults)* |
 | `APP_DEFAULT_LOGO` | URL of the fallback team logo used when a team has none configured. | *(flaticon volleyball icon)* |
 | `DEFAULT_TEAM_LOGO` | Logo path baked into a blank in-process overlay state (used by the built-in overlay server when an overlay is created). | `/static/images/default_volleyball.svg` |
@@ -264,6 +262,12 @@ Configure the application using the following environment variables:
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
 | `WEBHOOKS_ALLOW_PRIVATE_IPS` | If `true`, allows webhook targets whose host resolves to private / loopback / link-local IPs. Default: `false` — such targets are rejected with a logged warning to block accidental SSRF (`http://localhost/admin`, cloud metadata at `169.254.169.254`, etc.). Trusted-LAN deployments that need to call internal receivers opt in here. | `false` |
 | `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable by anyone, with no cookie or signed URL required. When unset, the report is reachable only by its owner's session cookie or an owner-minted signed share URL. | `false` |
+
+Rarely-needed knobs (auth rate limiting, security response headers, audit-log
+rotation, WebSocket hub limits, webhook retries, preset caps, idle game-session
+eviction via `SESSION_TTL_SECONDS` — not to be confused with
+`SESSION_TTL_HOURS`, the login-cookie lifetime) are documented in the
+**Advanced tuning** section of [`.env.example`](.env.example).
 
 <br>
 

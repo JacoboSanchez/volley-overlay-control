@@ -4,21 +4,33 @@ import { useGameState } from '../hooks/useGameState';
 import * as api from '../api/client';
 import * as ws from '../api/websocket';
 
-vi.mock('../api/client', () => ({
-  initSession: vi.fn(),
-  getCustomization: vi.fn(),
-  addPoint: vi.fn(),
-  addSet: vi.fn(),
-  addTimeout: vi.fn(),
-  changeServe: vi.fn(),
-  setScore: vi.fn(),
-  setSets: vi.fn(),
-  resetGame: vi.fn(),
-  setVisibility: vi.fn(),
-  setSimpleMode: vi.fn(),
-  undoLast: vi.fn(),
-  startMatch: vi.fn(),
-}));
+vi.mock('../api/client', () => {
+  class ApiError extends Error {
+    status: number;
+    detail: string;
+    constructor(status: number, message: string, detail?: string) {
+      super(message);
+      this.status = status;
+      this.detail = detail || message;
+    }
+  }
+  return {
+    ApiError,
+    initSession: vi.fn(),
+    getCustomization: vi.fn(),
+    addPoint: vi.fn(),
+    addSet: vi.fn(),
+    addTimeout: vi.fn(),
+    changeServe: vi.fn(),
+    setScore: vi.fn(),
+    setSets: vi.fn(),
+    resetGame: vi.fn(),
+    setVisibility: vi.fn(),
+    setSimpleMode: vi.fn(),
+    undoLast: vi.fn(),
+    startMatch: vi.fn(),
+  };
+});
 
 vi.mock('../api/websocket', () => ({
   createWebSocket: vi.fn(),
@@ -94,6 +106,23 @@ describe('useGameState', () => {
     });
 
     expect(result.current.error).toBe('network error');
+  });
+
+  it('initialize surfaces the clean ApiError detail, not the raw message', async () => {
+    vi.mocked(api.initSession).mockRejectedValue(
+      new api.ApiError(
+        403,
+        'API POST /session/init failed (403): {"detail":"Invalid or revoked control link."}',
+        'Invalid or revoked control link.',
+      ),
+    );
+    const { result } = renderHook(() => useGameState('fail'));
+
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    expect(result.current.error).toBe('Invalid or revoked control link.');
   });
 
   it('initialize with no oid resets state', async () => {
@@ -206,6 +235,24 @@ describe('useGameState', () => {
     });
 
     expect(result.current.error).toBe('action failed');
+  });
+
+  it('action surfaces the clean ApiError detail, not the raw message', async () => {
+    vi.mocked(api.addPoint).mockRejectedValue(
+      new api.ApiError(409, 'API POST /game/add-point failed (409): {...}', 'Set already finished.'),
+    );
+    const { result } = renderHook(() => useGameState('oid'));
+    await act(async () => {
+      await result.current.initialize();
+    });
+
+    await act(async () => {
+      const res = await result.current.actions.addPoint(1);
+      expect(res.success).toBe(false);
+      expect(res.message).toBe('Set already finished.');
+    });
+
+    expect(result.current.error).toBe('Set already finished.');
   });
 
   it('reset action calls api.resetGame', async () => {

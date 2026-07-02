@@ -116,6 +116,56 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Admin page: change a user's role from the UI.** Each user row gained a
+  *Make admin / Make user* action (backed by the existing
+  `PATCH /api/v1/admin/users/{id}`), so promoting or demoting no longer needs
+  a hand-crafted API call. The action honours the existing last-admin guard,
+  the role column shows the translated role label, all row/form actions
+  disable while one is in flight (no more double-submit duplicates), and
+  *Reset password* refreshes the list so the "must change password" pill
+  appears immediately. Deleting **your own** account now warns that you will
+  be signed out. `docs/screenshots/12-admin-page.png` refreshed.
+
+- **First-run flow no longer advertises self-registration before the first
+  admin is claimed.** While the instance has no administrator, the login page
+  hides the "No account? Create one" link (keeping only the claim-admin
+  banner) and `/register` short-circuits to the claim-admin guidance even
+  when the `REGISTRATION_OPEN` seed is true — creating an ordinary account
+  before the first admin exists was a first-run trap.
+
+- **Example configs dropped removed/no-op variables.** `docker-compose.yml`
+  no longer ships env rows for features removed by the multi-user refactor
+  (`UNO_OVERLAY_OID`/`UNO_OVERLAY_OUTPUT`, `APP_CUSTOM_OVERLAY_URL`/
+  `APP_CUSTOM_OVERLAY_OUTPUT_URL`, `OVERLAY_SERVER_TOKEN`[`_HASH`/`_DISABLED`],
+  `SCOREBOARD_USERS`[`_DISABLED`], `MATCH_REPORT_PUBLIC_DELETE`,
+  `METRICS_REQUIRE_ADMIN`, `STRICT_OID_ACCESS`) — some of which implied
+  security controls that silently did nothing. Both Traefik compose files
+  lose the same dead `OVERLAY_SERVER_TOKEN` / `METRICS_REQUIRE_ADMIN` rows
+  and their misleading "gate /metrics" comment. The dead `Conf` knobs
+  `SINGLE_OVERLAY_MODE`, `ORDERED_TEAMS` and `MINIMIZE_BACKEND_USAGE`
+  (read but never consumed since the refactor) were removed from the code,
+  compose, `.env.example` and README. Example `APP_TITLE` defaults now match
+  the documented `Volley Scoreboard`, and the Postgres notes no longer tell
+  operators to install psycopg by hand (it ships in the image).
+
+- **Every tunable is now documented.** ~20 real env knobs read through
+  helper wrappers (`AUTH_RATE_LIMIT_*`, `SECURITY_CSP`/`SECURITY_HSTS_SECONDS`/
+  `SECURITY_REFERRER_POLICY`/`SECURITY_PERMISSIONS_POLICY`,
+  `AUDIT_LOG_MAX_*`, `WSHUB_*`, `WS_BROADCAST_SEND_TIMEOUT_SECONDS`,
+  `WEBHOOK_RETRY_*`, `WEBHOOK_DEAD_LETTER_MAX_RECORDS`, `PRESETS_MAX_*`,
+  and the idle game-session `SESSION_TTL_SECONDS` — distinct from the
+  login-cookie `SESSION_TTL_HOURS`) were invisible to the env-docs guard
+  test and undocumented. They now live in a new **Advanced tuning** section
+  of `.env.example` (linked from the README), and
+  `tests/test_env_docs.py` also scans the `_env*()` helper wrappers so
+  future indirected reads cannot drift undocumented again.
+
+- **Config validation runs for every entry point.** `validate_config()` is
+  now called inside `create_app()` (it used to run only from `main.py`, so
+  launching the factory directly via `uvicorn app.bootstrap:create_app
+  --factory` skipped env sanitisation). Its fallback default for
+  `LOGGING_LEVEL` also matches the real `warning` default instead of `info`.
+
 - **Further internal cleanup (review follow-up).** A `useOverlays()` hook now
   backs the account dashboard, the Overlays manager and the board init screen
   (one fetch/cancel/error path instead of four), and the board Share dialog and
@@ -236,6 +286,43 @@ once a first tagged release ships.
   reports 0 vulnerabilities.
 
 ### Fixed
+
+- **A revoked control link now explains itself instead of dumping the
+  operator on the owner-only connect screen.** Opening a `/board?c=…` link
+  whose token was regenerated (or a disabled `?u=` public bookmark) used to
+  fall back to the OID-entry InitScreen, whose overlay picker calls the
+  cookie-gated `/api/v1/overlays` route and just 401s for a no-login
+  operator. Capability-mode failures now render a dedicated panel ("This
+  control link is no longer valid… ask the scoreboard owner for a new
+  link"), and board error surfaces show the API's human-facing `detail`
+  instead of the raw `API POST /session/init failed (403): {json}` string.
+
+- **The board's show/hide-controls handle had untranslated tooltips and
+  screen-reader labels** — it referenced i18n keys (`ctrl.hideControls` /
+  `ctrl.showControls`) that existed in no language, so assistive tech
+  announced the literal key string. The keys now exist in all six languages;
+  `config.openManage` was also added to the four languages that were missing
+  it. A new Vitest guard (`i18n-keys.test.ts`) enforces key parity across
+  languages and that every static `t('…')` key used in the source resolves,
+  so this class of leak cannot recur.
+
+- **Sign-in failures are no longer all reported as "Invalid username or
+  password."** A deactivated account (403), a rate-limit lockout (429) and a
+  server/network outage each show their real cause now; only a 401 keeps the
+  invalid-credentials message.
+
+- **The account dashboard no longer shows the "create your first
+  scoreboard" call-to-action when the overlay list simply failed to load** —
+  a transient API error now renders an error banner instead of a false empty
+  state. The admin global-presets section likewise surfaces a load failure
+  as a toast instead of silently rendering empty.
+
+- **A mid-session admin password reset now routes the affected user to the
+  change-password page.** Any API call answering `409 password_change_required`
+  flips the auth context (mirroring the existing 401 handling), so the user
+  lands on `/change-password` instead of a stuck page with a raw error.
+  Registration and claim-admin forms also gained the `autocomplete`
+  attributes password managers need to capture new credentials.
 
 - **Match-report charts stay readable for light team colours.** The per-set
   score charts picked the team's polyline colour with a bare luminance cap that

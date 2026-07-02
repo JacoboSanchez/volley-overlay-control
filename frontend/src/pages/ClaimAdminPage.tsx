@@ -56,12 +56,12 @@ export default function ClaimAdminPage() {
           {error && <div className="acc-error">{error}</div>}
           <label className="acc-field">
             <span>Bootstrap token</span>
-            <input className="acc-input" value={token} autoFocus
+            <input className="acc-input" value={token} autoFocus autoComplete="off"
               onChange={(e) => setToken(e.target.value)} />
           </label>
           <label className="acc-field">
             <span>Admin username</span>
-            <input className="acc-input" value={username}
+            <input className="acc-input" value={username} autoComplete="username"
               onChange={(e) => setUsername(e.target.value)} />
           </label>
           <label className="acc-field">

@@ -304,7 +304,6 @@ def mock_conf():
     conf.multithread = False
     conf.rest_user_agent = 'test'
     conf.id = 'test-layout'
-    conf.single_overlay = True
     return conf
 
 

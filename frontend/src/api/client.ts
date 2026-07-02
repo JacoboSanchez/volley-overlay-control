@@ -154,6 +154,17 @@ async function request<T = unknown>(
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
     const text = await res.text();
+    // A 409 password_change_required means an admin reset this account's
+    // password mid-session. Mirror the 401 handling so RequireAuth routes to
+    // /change-password instead of surfacing a raw error on a stuck page.
+    if (
+      res.status === 409 &&
+      !path.startsWith('/auth/') &&
+      typeof window !== 'undefined' &&
+      extractDetail(text) === 'password_change_required'
+    ) {
+      window.dispatchEvent(new CustomEvent('auth:password-change-required'));
+    }
     throw new ApiError(
       res.status,
       `API ${method} ${path} failed (${res.status}): ${text}`,

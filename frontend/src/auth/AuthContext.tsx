@@ -64,6 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
   }, []);
 
+  // When any API call gets a 409 password_change_required (an admin reset the
+  // password mid-session), flip the flag so RequireAuth routes the user to
+  // /change-password on the next render.
+  useEffect(() => {
+    const onPwChangeRequired = () =>
+      setCtx((prev) =>
+        prev?.user && !prev.user.must_change_password
+          ? { ...prev, user: { ...prev.user, must_change_password: true } }
+          : prev,
+      );
+    window.addEventListener('auth:password-change-required', onPwChangeRequired);
+    return () => window.removeEventListener('auth:password-change-required', onPwChangeRequired);
+  }, []);
+
   const value = useMemo(
     () => ({ loading, ctx, refresh, setUser }),
     [loading, ctx, refresh, setUser],

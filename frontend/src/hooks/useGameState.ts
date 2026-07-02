@@ -204,7 +204,9 @@ export function useGameState(oid: string | null): UseGameStateResult {
       }
     } catch (e) {
       if (!controller.signal.aborted) {
-        setError(e instanceof Error ? e.message : String(e));
+        // ApiError.message is the verbose "API POST /… failed (403): {json}"
+        // debugging string; surface the human-facing ``detail`` instead.
+        setError(e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e));
       }
     } finally {
       if (abortRef.current === controller) {
@@ -248,7 +250,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
         if (shouldApplyOptimistic) {
           applyState(snapshot, false);
         }
-        const message = e instanceof Error ? e.message : String(e);
+        const message = e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e);
         setError(message);
         return { success: false, message };
       }
