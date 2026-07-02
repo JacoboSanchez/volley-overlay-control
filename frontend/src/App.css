@@ -1644,7 +1644,7 @@ body {
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--red);
+  color: var(--red, #f44336);
   cursor: pointer;
 }
 

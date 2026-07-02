@@ -54,7 +54,10 @@ export default function JsonImportExport({
       const a = document.createElement('a');
       a.href = url;
       a.download = `${label.toLowerCase().replace(/\s+/g, '-')}.json`;
+      // Firefox only honours .click() on anchors that are in the document.
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
       setErr(e instanceof api.ApiError ? e.detail : t('acc.json.errorExport'));

@@ -211,7 +211,10 @@ export default function MatchRulesSection({
               value={pointsLastDraft ?? ''}
               onChange={(e) => {
                 setPointsError(null);
-                setPointsLastDraft(parseInt(e.target.value, 10));
+                const val = parseInt(e.target.value, 10);
+                // Clearing the field yields NaN — store null so the controlled
+                // input renders '' instead of tripping React's NaN warning.
+                setPointsLastDraft(Number.isNaN(val) ? null : val);
               }}
               onBlur={() => {
                 if (
@@ -250,7 +253,8 @@ export default function MatchRulesSection({
               value={pointsDraft ?? ''}
               onChange={(e) => {
                 setPointsError(null);
-                setPointsDraft(parseInt(e.target.value, 10));
+                const val = parseInt(e.target.value, 10);
+                setPointsDraft(Number.isNaN(val) ? null : val);
               }}
               onBlur={() => pointsDraft !== null && handlePointsCommit('points_limit', pointsDraft)}
               disabled={pending}
@@ -270,7 +274,10 @@ export default function MatchRulesSection({
               value={pointsLastDraft ?? ''}
               onChange={(e) => {
                 setPointsError(null);
-                setPointsLastDraft(parseInt(e.target.value, 10));
+                const val = parseInt(e.target.value, 10);
+                // Clearing the field yields NaN — store null so the controlled
+                // input renders '' instead of tripping React's NaN warning.
+                setPointsLastDraft(Number.isNaN(val) ? null : val);
               }}
               onBlur={() =>
                 pointsLastDraft !== null &&
