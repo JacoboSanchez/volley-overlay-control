@@ -96,9 +96,15 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
   const [globals, setGlobals] = useState<api.PresetSummary[]>([]);
 
   const load = useCallback(async () => {
-    const res = await api.adminListGlobalPresets();
-    setGlobals(res.items);
-  }, []);
+    try {
+      const res = await api.adminListGlobalPresets();
+      setGlobals(res.items);
+    } catch (err) {
+      // Surface the failure — a swallowed rejection here rendered the
+      // section as silently empty.
+      toast(err instanceof api.ApiError ? err.detail : t('acc.presets.errorLoad'), 'error');
+    }
+  }, [toast, t]);
 
   useEffect(() => {
     void load();

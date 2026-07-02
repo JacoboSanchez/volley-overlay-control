@@ -8,13 +8,14 @@ export default function AccountHome() {
   const { t } = useI18n();
   const isAdmin = ctx?.user?.role === 'admin';
   const name = ctx?.user?.display_name || ctx?.user?.username;
-  const { overlays, loading } = useOverlays();
+  const { overlays, loading, error } = useOverlays();
 
   return (
     <div>
       <h2>{t('acc.home.welcome', { name: name ?? '' })}</h2>
       <p className="acc-muted">{t('acc.home.intro')}</p>
-      {!loading && overlays.length === 0 && (
+      {error && <div className="acc-error" style={{ marginTop: 16 }}>{t('acc.reports.errorOverlays')}</div>}
+      {!loading && !error && overlays.length === 0 && (
         <div className="acc-info" style={{ marginTop: 16 }}>
           <strong>{t('acc.home.getStarted')}</strong> {t('acc.home.getStartedBody')}{' '}
           <Link to="/overlays">{t('acc.cta.createScoreboard')}</Link>

@@ -54,17 +54,12 @@ services:
       # ---- Overlay output ----
       # Public base URL used to build OBS-friendly overlay links.
       OVERLAY_PUBLIC_URL: https://${TRAEFIK_HOST}
-      # Bearer token for external overlay-server peers (auto-generated +
-      # persisted to data/.overlay_server_token if unset).
-      OVERLAY_SERVER_TOKEN: ${OVERLAY_SERVER_TOKEN:-}
       # ---- Hardening (optional) ----
       # Host-header allow-list. Traefik already routes only ${TRAEFIK_HOST} here,
       # so this is optional defence-in-depth. If you set it, include localhost so
       # the in-container healthcheck still passes, e.g.
       #   TRUSTED_HOSTS=scoreboard.example.com,localhost,127.0.0.1
       TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
-      # Gate GET /metrics behind the OVERLAY_SERVER_TOKEN bearer.
-      METRICS_REQUIRE_ADMIN: ${METRICS_REQUIRE_ADMIN:-false}
       # Open the print match-report routes to anonymous reads (off = owner cookie
       # or owner-minted signed URL only).
       MATCH_REPORT_PUBLIC: ${MATCH_REPORT_PUBLIC:-false}

@@ -244,7 +244,7 @@ The entire match lives in a flat dictionary with these keys:
 `LocalOverlayBackend`. There is no cloud (overlays.uno) or external-server
 backend.
 
-**Resolution:** `Backend._resolve_kind()` (see `app/overlay_backends/utils.resolve_overlay_kind`) returns `CUSTOM` when the OID's base id exists in the local overlay store, `EMPTY` for a blank id, and `INVALID` otherwise. **No auto-creation** — overlays must be created up-front by the owner via `POST /api/v1/overlays` (the SPA "Overlays" page); session init then ensures the local overlay state exists. The legacy `C-id[/style]` prefix is still accepted (and stripped) but is no longer required and is not used in the UI/docs.
+**Resolution:** `Backend._resolve_kind()` (see `app/overlay_backends/utils.resolve_overlay_kind`) returns `CUSTOM` when the OID's base id exists in the local overlay store, `EMPTY` for a blank id, and `INVALID` otherwise. Overlays are created via `POST /api/v1/overlays` (the SPA "Overlays" page) **or auto-registered on owner-mode board init**: `POST /session/init` with the owner's cookie creates a missing `oid` row and mints its `public_token` (see `_ensure_user_overlay` in `app/api/routes/session.py`). Capability (`?c=`) and public-bookmark (`?u=`) modes never auto-create — they require a pre-existing overlay. The legacy `C-id[/style]` prefix is still accepted (and stripped) but is no longer required and is not used in the UI/docs.
 
 **State flow:** `GameManager` → `Backend` → `LocalOverlayBackend` → `OverlayStateStore` → `ObsBroadcastHub` → OBS browser sources. Each overlay's OBS output URL is always the app's own `/overlay/<public_token>` link (there is no per-overlay custom/cloud output URL).
 

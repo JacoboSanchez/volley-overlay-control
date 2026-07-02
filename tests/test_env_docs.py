@@ -14,17 +14,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Variables intentionally undocumented: test-only knobs, values managed by
 # the runtime itself, or vars surfaced through other docs.
 ALLOWLIST = {
-    # Auto-generated/persisted by security bootstrap; documented via the
-    # OVERLAY_SERVER_TOKEN README entry rather than their own rows.
-    "OVERLAY_SERVER_TOKEN_FILE",
     # Set by docker-entrypoint.sh, not operator-facing app config.
     "PUID",
     "PGID",
 }
 
+# Also matches the local ``_env*("NAME", default)`` helper wrappers used in
+# app/constants.py and the middlewares, so indirected reads cannot slip past
+# the docs guard.
 _READ_PATTERN = re.compile(
-    r"(?:get_env_var|get_bool_env|environ\.get|getenv|environ\[)"
-    r"\(?\s*['\"]([A-Z][A-Z0-9_]+)['\"]"
+    r"(?:get_env_var|get_bool_env|environ\.get|getenv|environ\[|_env(?:_int|_float(?:_nonneg)?)?)"
+    r"\(?\s*\(?\s*['\"]([A-Z][A-Z0-9_]+)['\"]"
 )
 
 

@@ -83,6 +83,10 @@ export interface UseGameStateResult {
   customization: Customization | null;
   connected: boolean;
   error: string | null;
+  /** HTTP status behind ``error`` when it came from an ApiError (null for
+   *  network failures and non-HTTP errors) — lets consumers distinguish a
+   *  rejected credential (401/403/404) from a transient outage. */
+  errorStatus: number | null;
   initialize: () => Promise<void>;
   actions: GameActions;
   refreshCustomization: () => Promise<void>;
@@ -99,6 +103,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
   const [customization, setCustomization] = useState<Customization | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef<number>(0);
@@ -191,6 +196,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
 
     try {
       setError(null);
+      setErrorStatus(null);
       const res = await api.initSession(oid);
       if (controller.signal.aborted) return;
       if (res.success && res.state) {
@@ -204,7 +210,10 @@ export function useGameState(oid: string | null): UseGameStateResult {
       }
     } catch (e) {
       if (!controller.signal.aborted) {
-        setError(e instanceof Error ? e.message : String(e));
+        // ApiError.message is the verbose "API POST /… failed (403): {json}"
+        // debugging string; surface the human-facing ``detail`` instead.
+        setError(e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e));
+        setErrorStatus(e instanceof api.ApiError ? e.status : null);
       }
     } finally {
       if (abortRef.current === controller) {
@@ -248,8 +257,9 @@ export function useGameState(oid: string | null): UseGameStateResult {
         if (shouldApplyOptimistic) {
           applyState(snapshot, false);
         }
-        const message = e instanceof Error ? e.message : String(e);
+        const message = e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e);
         setError(message);
+        setErrorStatus(e instanceof api.ApiError ? e.status : null);
         return { success: false, message };
       }
     },
@@ -303,6 +313,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
     customization,
     connected,
     error,
+    errorStatus,
     initialize,
     actions,
     refreshCustomization,

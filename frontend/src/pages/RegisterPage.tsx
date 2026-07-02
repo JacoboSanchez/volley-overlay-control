@@ -15,8 +15,10 @@ export default function RegisterPage() {
   const [busy, setBusy] = useState(false);
 
   // Don't redirect silently when self-signup is off (or the app still needs its
-  // first admin) — explain why and point the visitor at the right place.
-  if (ctx && !ctx.registration_open) {
+  // first admin) — explain why and point the visitor at the right place. The
+  // bootstrap branch applies even while registration is open: an ordinary
+  // account created before the first admin exists is a first-run trap.
+  if (ctx && (!ctx.registration_open || ctx.needs_admin_bootstrap)) {
     return (
       <div className="acc-shell">
         <div className="acc-auth">
@@ -71,12 +73,12 @@ export default function RegisterPage() {
           {error && <div className="acc-error">{error}</div>}
           <label className="acc-field">
             <span>Username</span>
-            <input className="acc-input" value={username} autoFocus
+            <input className="acc-input" value={username} autoFocus autoComplete="username"
               onChange={(e) => setUsername(e.target.value)} />
           </label>
           <label className="acc-field">
             <span>Email (optional)</span>
-            <input className="acc-input" type="email" value={email}
+            <input className="acc-input" type="email" value={email} autoComplete="email"
               onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="acc-field">

@@ -34,6 +34,7 @@ from app.api.routes.metrics import router as metrics_router
 from app.app_config import get_app_title
 from app.auth.bootstrap import ensure_admin_bootstrap
 from app.auth.routes import auth_router
+from app.config_validator import validate_config
 from app.db import migrate as db_migrate
 from app.match_history import match_history_router
 from app.match_report import match_report_router
@@ -507,6 +508,12 @@ def create_app() -> FastAPI:
     registered before the SPA catch-all mount, otherwise the SPA consumes
     every unmatched path.
     """
+    # Sanitise env config first so every later consumer (Conf, session init,
+    # logging) sees validated values, regardless of the entry point — the
+    # factory is also launched directly (``uvicorn app.bootstrap:create_app
+    # --factory``), which used to skip the ``main.py``-only validation.
+    # Idempotent: it only normalises invalid values in os.environ.
+    validate_config()
     # Resolve / mint credentials BEFORE any router is included so the
     # auth dependencies see the same token that the rest of the app does.
     # ``run_security_bootstrap`` mutates os.environ in place; idempotent
