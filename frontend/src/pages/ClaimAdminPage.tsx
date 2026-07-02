@@ -2,10 +2,12 @@ import { FormEvent, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useI18n } from '../i18n';
 import './account.css';
 
 export default function ClaimAdminPage() {
   const { ctx, refresh } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [username, setUsername] = useState('');
@@ -23,7 +25,7 @@ export default function ClaimAdminPage() {
     e.preventDefault();
     setError('');
     if (password !== confirmPw) {
-      setError('Passwords do not match.');
+      setError(t('acc.auth.errorPasswordMismatch'));
       return;
     }
     setBusy(true);
@@ -34,8 +36,8 @@ export default function ClaimAdminPage() {
     } catch (err) {
       setError(
         err instanceof api.ApiError && err.status === 403
-          ? 'Invalid bootstrap token.'
-          : 'Could not claim the administrator account.',
+          ? t('acc.auth.claim.errorToken')
+          : t('acc.auth.claim.errorFailed'),
       );
     } finally {
       setBusy(false);
@@ -46,37 +48,42 @@ export default function ClaimAdminPage() {
     <div className="acc-shell">
       <div className="acc-auth">
         <form className="acc-card" onSubmit={onSubmit}>
-          <h1>Claim first administrator</h1>
+          <h1>{t('acc.auth.claim.title')}</h1>
           <p className="acc-sub">
-            Paste the one-time token printed in the service startup log on first run
-            (<code>docker logs</code>, <code>journalctl</code>, or the console). It can also be set
-            via the <code>ADMIN_BOOTSTRAP_TOKEN</code> environment variable, and is saved to
-            <code>data/.admin_bootstrap_token</code>.
+            {t('acc.auth.claim.introTokenPrefix')}
+            <code>docker logs</code>{', '}<code>journalctl</code>
+            {t('acc.auth.claim.introTokenSuffix')}
+            {' '}
+            {t('acc.auth.claim.introEnvPrefix')}
+            <code>ADMIN_BOOTSTRAP_TOKEN</code>
+            {t('acc.auth.claim.introEnvMid')}
+            <code>data/.admin_bootstrap_token</code>
+            {t('acc.auth.claim.introEnvSuffix')}
           </p>
           {error && <div className="acc-error">{error}</div>}
           <label className="acc-field">
-            <span>Bootstrap token</span>
+            <span>{t('acc.auth.claim.tokenLabel')}</span>
             <input className="acc-input" value={token} autoFocus autoComplete="off"
               onChange={(e) => setToken(e.target.value)} />
           </label>
           <label className="acc-field">
-            <span>Admin username</span>
+            <span>{t('acc.auth.claim.usernameLabel')}</span>
             <input className="acc-input" value={username} autoComplete="username"
               onChange={(e) => setUsername(e.target.value)} />
           </label>
           <label className="acc-field">
-            <span>Password (min 8 characters)</span>
+            <span>{t('acc.auth.passwordMin8')}</span>
             <input className="acc-input" type="password" value={password}
               autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
           </label>
           <label className="acc-field">
-            <span>Confirm password</span>
+            <span>{t('acc.auth.confirmPassword')}</span>
             <input className="acc-input" type="password" value={confirmPw}
               autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>
-              {busy ? 'Claiming…' : 'Create administrator'}
+              {busy ? t('acc.auth.claim.submitBusy') : t('acc.auth.claim.submit')}
             </button>
           </div>
         </form>

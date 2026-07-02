@@ -2,10 +2,12 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useI18n } from '../i18n';
 import './account.css';
 
 export default function LoginPage() {
   const { ctx, refresh } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,11 +27,11 @@ export default function LoginPage() {
       // account, 429 rate-limit lockout, 5xx/network) has its own cause —
       // masking it as "invalid password" misleads a locked-out user.
       if (err instanceof api.ApiError && err.status !== 401) {
-        setError(err.detail || 'Sign-in failed. Please try again.');
+        setError(err.detail || t('acc.auth.login.errorFailed'));
       } else if (err instanceof api.ApiError) {
-        setError('Invalid username or password.');
+        setError(t('acc.auth.login.errorInvalid'));
       } else {
-        setError('Could not reach the server. Check your connection and try again.');
+        setError(t('acc.auth.login.errorNetwork'));
       }
     } finally {
       setBusy(false);
@@ -40,17 +42,18 @@ export default function LoginPage() {
     <div className="acc-shell">
       <div className="acc-auth">
         <form className="acc-card" onSubmit={onSubmit}>
-          <h1>Sign in</h1>
-          <p className="acc-sub">Volley Overlay Control</p>
+          <h1>{t('acc.auth.login.title')}</h1>
+          <p className="acc-sub">{t('acc.auth.brand')}</p>
           {error && <div className="acc-error">{error}</div>}
           {ctx?.needs_admin_bootstrap && (
             <div className="acc-info">
-              No administrator yet — <Link to="/claim-admin">claim the first admin</Link> using the
-              token from the service startup log.
+              {t('acc.auth.login.bootstrapPrefix')}
+              <Link to="/claim-admin">{t('acc.auth.login.bootstrapLink')}</Link>
+              {t('acc.auth.login.bootstrapSuffix')}
             </div>
           )}
           <label className="acc-field">
-            <span>Username</span>
+            <span>{t('acc.admin.username')}</span>
             <input
               className="acc-input"
               value={username}
@@ -60,7 +63,7 @@ export default function LoginPage() {
             />
           </label>
           <label className="acc-field">
-            <span>Password</span>
+            <span>{t('acc.auth.password')}</span>
             <input
               className="acc-input"
               type="password"
@@ -71,18 +74,19 @@ export default function LoginPage() {
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>
-              {busy ? 'Signing in…' : 'Sign in'}
+              {busy ? t('acc.auth.login.submitBusy') : t('acc.auth.login.submit')}
             </button>
           </div>
           {/* While the first admin is unclaimed, registering an ordinary
               account is a first-run trap — steer to /claim-admin only. */}
           {ctx && !ctx.needs_admin_bootstrap && (ctx.registration_open ? (
             <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
-              No account? <Link to="/register">Create one</Link>
+              {t('acc.auth.login.noAccountPrefix')}
+              <Link to="/register">{t('acc.auth.login.noAccountLink')}</Link>
             </p>
           ) : (
             <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
-              Self sign-up is disabled — ask an administrator for an account.
+              {t('acc.auth.login.signupClosed')}
             </p>
           ))}
         </form>

@@ -339,6 +339,14 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **The auth pages are translated.** Sign-in, registration, the forced
+  password change and the claim-first-admin page now follow the detected
+  UI language (all six languages) instead of always rendering in English —
+  previously a non-English browser hit an English-only wall at the front
+  door before ever reaching the translated app. The language is
+  auto-detected from the browser (or the saved preference); the auth pages
+  intentionally have no language picker.
+
 - **Invalid match-rules points are called out inline.** Entering 0, a
   negative number, or clearing the points fields previously did nothing
   silently (the value just reverted on the next refresh); an inline
