@@ -8,7 +8,7 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { useI18n } from '../i18n';
 
 export default function AdminPage() {
-  const { ctx } = useAuth();
+  const { ctx, refresh } = useAuth();
   const { t } = useI18n();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -88,10 +88,18 @@ export default function AdminPage() {
 
   async function toggleRole(u: api.UserOut) {
     const promote = u.role !== 'admin';
+    const isSelf = ctx?.user?.id === u.id;
     setBusy(true);
     try {
       await api.adminUpdateUser(u.id, { role: promote ? 'admin' : 'user' });
-      await load();
+      if (isSelf) {
+        // Demoting yourself revokes your own /admin/* access: reloading the
+        // admin list would just 403. Refresh the auth context instead so the
+        // role guard above navigates away from the page.
+        await refresh();
+      } else {
+        await load();
+      }
       toast(promote
         ? t('acc.admin.toastPromoted', { username: u.username })
         : t('acc.admin.toastDemoted', { username: u.username }));
@@ -116,8 +124,15 @@ export default function AdminPage() {
     setBusy(true);
     try {
       await api.adminDeleteUser(u.id);
-      await load();
-      toast(t('acc.admin.toastDeleted', { username: u.username }));
+      if (isSelf) {
+        // Deleting your own account revoked this session: reloading the admin
+        // list would just 401. Refresh the auth context so RequireAuth
+        // redirects to /login.
+        await refresh();
+      } else {
+        await load();
+        toast(t('acc.admin.toastDeleted', { username: u.username }));
+      }
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorDelete'));
     } finally {

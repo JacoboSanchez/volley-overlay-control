@@ -34,8 +34,12 @@ describe('translation catalog', () => {
     const used = new Set<string>();
     expect(Object.keys(sources).length).toBeGreaterThan(50); // sanity: glob found the app
     for (const text of Object.values(sources)) {
-      for (const m of text.matchAll(/\bt\(\s*'([^']+)'/g)) {
-        if (m[1]) used.add(m[1]);
+      // Single/double-quoted keys, plus backtick keys with no ``${…}``
+      // interpolation — dynamic template keys can't be checked statically
+      // and are exercised by their components' own tests.
+      for (const m of text.matchAll(/\bt\(\s*(?:'([^']+)'|"([^"]+)"|`([^`$]+)`)/g)) {
+        const key = m[1] ?? m[2] ?? m[3];
+        if (key) used.add(key);
       }
     }
     expect(used.size).toBeGreaterThan(100); // sanity: the scan found real usage

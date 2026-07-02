@@ -4,16 +4,17 @@ import AdminPage from '../pages/AdminPage';
 import * as api from '../api/client';
 import { renderWithI18n } from './helpers';
 
+const refreshMock = vi.fn();
+// A single stable ctx object — AdminPage's load effect depends on ``ctx``, so
+// a fresh object per render would re-fire the list fetch on every render.
+const authCtx = {
+  authenticated: true,
+  user: { id: 1, username: 'root', role: 'admin' },
+  registration_open: true,
+  needs_admin_bootstrap: false,
+};
 vi.mock('../auth/AuthContext', () => ({
-  useAuth: () => ({
-    ctx: {
-      authenticated: true,
-      user: { id: 1, username: 'root', role: 'admin' },
-      registration_open: true,
-      needs_admin_bootstrap: false,
-    },
-    refresh: vi.fn(),
-  }),
+  useAuth: () => ({ ctx: authCtx, refresh: refreshMock }),
 }));
 
 vi.mock('../api/client', () => {
@@ -96,6 +97,23 @@ describe('AdminPage user management', () => {
     await waitFor(() => {
       expect(screen.getByText('must change pw')).toBeInTheDocument();
     });
+  });
+
+  it('refreshes the auth context (not the admin list) when demoting yourself', async () => {
+    vi.mocked(api.adminUpdateUser).mockResolvedValue({ ...ROOT, role: 'user' });
+    renderWithI18n(<AdminPage />);
+    await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
+
+    const listCallsBefore = vi.mocked(api.adminListUsers).mock.calls.length;
+    // root's own row is locked only when root is the last admin — with
+    // OTHER_ADMIN present the demote button is active.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Make user' })[0]!);
+    await waitFor(() => {
+      expect(api.adminUpdateUser).toHaveBeenCalledWith(1, { role: 'user' });
+      expect(refreshMock).toHaveBeenCalled();
+    });
+    // The now-forbidden /admin/users reload must not have been retried.
+    expect(vi.mocked(api.adminListUsers).mock.calls.length).toBe(listCallsBefore);
   });
 
   it('warns about self sign-out when deleting your own account', async () => {
