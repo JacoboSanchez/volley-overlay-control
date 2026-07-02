@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useI18n } from '../i18n';
 import ColorPicker from './ColorPicker';
 import { asString } from '../utils/coerce';
@@ -35,6 +35,12 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
   const logoUrl = asString(model[logoKey], '');
   const currentName = asString(model[nameKey], '');
   const [editing, setEditing] = useState(false);
+  // A broken logo URL must stay visible as a problem (placeholder + hint),
+  // not silently vanish. Reset whenever the URL changes.
+  const [logoError, setLogoError] = useState(false);
+  useEffect(() => {
+    setLogoError(false);
+  }, [logoUrl]);
 
   const teamNames = Object.keys(predefinedTeams);
   const allNames =
@@ -57,17 +63,17 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
     <div className="config-team-block">
       <div className="config-team-header">
         <div className="config-logo-preview" data-testid={`team-${teamId}-logo-preview`}>
-          {logoUrl ? (
+          {logoUrl && !logoError ? (
             <img
               src={logoUrl}
               alt={`Team ${teamId} logo`}
               className="config-logo-img"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
+              onError={() => setLogoError(true)}
             />
           ) : (
-            <span className="material-icons config-logo-placeholder">image</span>
+            <span className="material-icons config-logo-placeholder">
+              {logoError ? 'broken_image' : 'image'}
+            </span>
           )}
         </div>
         <div className="config-team-header-fields">
@@ -91,6 +97,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
                   setEditing(false);
                 }}
                 title={t('teams.backToList')}
+                aria-label={t('teams.backToList')}
               >
                 <span className="material-icons">check</span>
               </button>
@@ -114,12 +121,44 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
                 className="config-combobox-btn"
                 onClick={() => setEditing(true)}
                 title={t('teams.customName')}
+                aria-label={t('teams.customName')}
               >
                 <span className="material-icons">edit</span>
               </button>
             </div>
           )}
         </div>
+      </div>
+      <div className="config-logo-row">
+        <label className="config-label" htmlFor={`team-${teamId}-logo-url`}>
+          {t('teams.logoUrl')}
+        </label>
+        <div className="config-combobox-row">
+          <input
+            id={`team-${teamId}-logo-url`}
+            type="url"
+            className="config-combobox"
+            value={logoUrl}
+            onChange={(e) => updateField(logoKey, e.target.value.trim())}
+            placeholder="https://…"
+            data-testid={`team-${teamId}-logo-url`}
+          />
+          <button
+            className="config-combobox-btn"
+            onClick={() => updateField(logoKey, '')}
+            disabled={!logoUrl}
+            title={t('teams.logoClear')}
+            aria-label={t('teams.logoClear')}
+            data-testid={`team-${teamId}-logo-clear`}
+          >
+            <span className="material-icons">close</span>
+          </button>
+        </div>
+        {logoError && (
+          <p className="config-hint config-field-error" role="alert">
+            {t('teams.logoError')}
+          </p>
+        )}
       </div>
       <div className="config-color-row">
         <div className="config-color-group">
@@ -128,6 +167,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
             color={asString(model[colorKey], teamId === 1 ? '#060f8a' : '#ffffff')}
             onChange={(c) => updateField(colorKey, c)}
             data-testid={`team-${teamId}-color-input`}
+            aria-label={`${t('teams.color')} — ${currentName || prefix}`}
           />
         </div>
         <div className="config-color-group">
@@ -136,6 +176,7 @@ export default function TeamCard({ teamId, model, updateField, predefinedTeams }
             color={asString(model[textColorKey], teamId === 1 ? '#ffffff' : '#000000')}
             onChange={(c) => updateField(textColorKey, c)}
             data-testid={`team-${teamId}-text-color-input`}
+            aria-label={`${t('teams.text')} — ${currentName || prefix}`}
           />
         </div>
       </div>

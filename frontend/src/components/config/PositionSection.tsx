@@ -18,7 +18,7 @@ const FIELDS: PositionField[] = [
     def: 10,
     min: 0,
     max: 100,
-    step: 0.1,
+    step: 0.5,
     testId: 'height-input',
   },
   {
@@ -27,7 +27,7 @@ const FIELDS: PositionField[] = [
     def: 30,
     min: 0,
     max: 100,
-    step: 0.1,
+    step: 0.5,
     testId: 'width-input',
   },
   {
@@ -36,7 +36,7 @@ const FIELDS: PositionField[] = [
     def: -33,
     min: -50,
     max: 50,
-    step: 0.1,
+    step: 0.5,
     testId: 'hpos-input',
   },
   {
@@ -45,7 +45,7 @@ const FIELDS: PositionField[] = [
     def: -41.1,
     min: -50,
     max: 50,
-    step: 0.1,
+    step: 0.5,
     testId: 'vpos-input',
   },
   {
@@ -119,6 +119,21 @@ export default function PositionSection({ model, updateField }: PositionSectionP
       updateField('Left-Right', defOf('Left-Right'));
       updateField('Up-Down', defOf('Up-Down'));
     }
+  }
+
+  const currentOf = (key: string, def: number) => {
+    const raw = model[key];
+    const parsed = typeof raw === 'string' ? parseFloat(raw) : raw;
+    return typeof parsed === 'number' && !Number.isNaN(parsed) ? parsed : def;
+  };
+  const isAtDefaults = !isZone && FIELDS.every((f) => currentOf(f.key, f.def) === f.def);
+
+  // Stages every field back to its default (free anchor + the FIELDS
+  // defaults) through updateField, so the reset honours the Save button
+  // like any other staged edit.
+  function resetDefaults() {
+    updateField('Anchor', 'free');
+    for (const f of FIELDS) updateField(f.key, f.def);
   }
 
   return (
@@ -214,6 +229,17 @@ export default function PositionSection({ model, updateField }: PositionSectionP
           );
         })}
       </div>
+      <p className="config-hint">{t('position.unitsHint')}</p>
+      <button
+        type="button"
+        className="config-inline-btn"
+        onClick={resetDefaults}
+        disabled={isAtDefaults}
+        data-testid="position-reset-defaults"
+      >
+        <span className="material-icons">restart_alt</span>
+        {t('position.resetDefaults')}
+      </button>
     </div>
   );
 }

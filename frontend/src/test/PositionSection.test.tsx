@@ -88,4 +88,48 @@ describe('PositionSection', () => {
     expect(updateField).toHaveBeenCalledWith('Left-Right', -33);
     expect(updateField).toHaveBeenCalledWith('Up-Down', -41.1);
   });
+
+  it('reset-to-defaults stages the free anchor and every field default', () => {
+    const updateField = vi.fn();
+    renderWithI18n(
+      <PositionSection
+        model={{ Anchor: 'top-right', Height: 20, Width: 50, 'Left-Right': 5, 'Up-Down': 5 }}
+        updateField={updateField}
+      />,
+    );
+    const btn = screen.getByTestId('position-reset-defaults');
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+
+    expect(updateField).toHaveBeenCalledWith('Anchor', 'free');
+    expect(updateField).toHaveBeenCalledWith('Height', 10);
+    expect(updateField).toHaveBeenCalledWith('Width', 30);
+    expect(updateField).toHaveBeenCalledWith('Left-Right', -33);
+    expect(updateField).toHaveBeenCalledWith('Up-Down', -41.1);
+    expect(updateField).toHaveBeenCalledWith('Scale', 100);
+    expect(updateField).toHaveBeenCalledWith('Margin', 0);
+  });
+
+  it('reset-to-defaults is disabled when everything is already at defaults', () => {
+    renderWithI18n(
+      <PositionSection
+        model={{
+          Anchor: 'free',
+          Height: 10,
+          Width: 30,
+          'Left-Right': -33,
+          'Up-Down': -41.1,
+          Scale: 100,
+          Margin: 0,
+        }}
+        updateField={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('position-reset-defaults')).toBeDisabled();
+  });
+
+  it('shows the units hint', () => {
+    renderWithI18n(<PositionSection model={{}} updateField={vi.fn()} />);
+    expect(screen.getByText('Values are a percentage of the overlay canvas')).toBeInTheDocument();
+  });
 });

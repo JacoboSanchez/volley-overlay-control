@@ -1,6 +1,6 @@
 import { useI18n } from '../../i18n';
 import FontSelector from '../FontSelector';
-import { ConfigColorField, ConfigRange, ConfigSwitch } from './fields';
+import { ConfigColorField, ConfigRange, ConfigSwitch, InstantHint } from './fields';
 
 export interface ButtonsSettings {
   followTeamColors: boolean;
@@ -22,6 +22,7 @@ export default function ButtonsSection({ settings, setSetting }: ButtonsSectionP
   const { t } = useI18n();
   return (
     <div className="config-section-buttons">
+      <InstantHint />
       <ConfigSwitch
         label={t('buttons.followTeamColors')}
         checked={settings.followTeamColors}
@@ -57,9 +58,8 @@ export default function ButtonsSection({ settings, setSetting }: ButtonsSectionP
             />
           </div>
           <button
-            className="config-icon-btn"
+            className="config-inline-btn"
             data-testid="reset-colors-button"
-            title={t('buttons.resetColors')}
             onClick={() => {
               setSetting('team1BtnColor', '#2196f3');
               setSetting('team1BtnText', '#ffffff');
@@ -67,7 +67,8 @@ export default function ButtonsSection({ settings, setSetting }: ButtonsSectionP
               setSetting('team2BtnText', '#ffffff');
             }}
           >
-            <span className="material-icons">replay</span>
+            <span className="material-icons">restart_alt</span>
+            {t('buttons.resetColors')}
           </button>
         </>
       )}

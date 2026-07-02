@@ -1,5 +1,5 @@
 import { useI18n } from '../../i18n';
-import { ConfigSwitch } from './fields';
+import { ConfigSwitch, InstantHint } from './fields';
 
 export interface GeneralSettings {
   haptics: boolean;
@@ -22,6 +22,7 @@ export default function GeneralSection({
   const { t } = useI18n();
   return (
     <div className="config-section-general">
+      <InstantHint />
       <ConfigSwitch
         label={t('behavior.haptics')}
         checked={settings.haptics}

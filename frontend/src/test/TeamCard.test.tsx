@@ -18,7 +18,7 @@ describe('TeamCard', () => {
     expect(preview).toHaveTextContent('image');
   });
 
-  it('shows the logo image and hides it on load error', () => {
+  it('shows a broken-image placeholder and hint on load error', () => {
     renderWithI18n(
       <TeamCard
         teamId={2}
@@ -30,7 +30,36 @@ describe('TeamCard', () => {
     const img = screen.getByAltText('Team 2 logo') as HTMLImageElement;
     expect(img).toHaveAttribute('src', 'https://example.com/away.png');
     fireEvent.error(img);
-    expect(img.style.display).toBe('none');
+    // The failure stays visible instead of silently vanishing.
+    expect(screen.queryByAltText('Team 2 logo')).toBeNull();
+    expect(screen.getByTestId('team-2-logo-preview')).toHaveTextContent('broken_image');
+    expect(screen.getByText('Image failed to load')).toBeInTheDocument();
+  });
+
+  it('edits the logo URL through the new field and clears it', () => {
+    const updateField = vi.fn();
+    renderWithI18n(
+      <TeamCard
+        teamId={1}
+        model={{ 'Team 1 Logo': 'https://example.com/old.png' }}
+        updateField={updateField}
+        predefinedTeams={predefinedTeams}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('team-1-logo-url'), {
+      target: { value: 'https://example.com/new.png' },
+    });
+    expect(updateField).toHaveBeenCalledWith('Team 1 Logo', 'https://example.com/new.png');
+
+    fireEvent.click(screen.getByTestId('team-1-logo-clear'));
+    expect(updateField).toHaveBeenCalledWith('Team 1 Logo', '');
+  });
+
+  it('disables the clear button when there is no logo', () => {
+    renderWithI18n(
+      <TeamCard teamId={1} model={{}} updateField={() => {}} predefinedTeams={predefinedTeams} />,
+    );
+    expect(screen.getByTestId('team-1-logo-clear')).toBeDisabled();
   });
 
   it('selecting a predefined team applies name, logo and colors', () => {

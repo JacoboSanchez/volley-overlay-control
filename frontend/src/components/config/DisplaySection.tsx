@@ -1,5 +1,5 @@
 import { useI18n } from '../../i18n';
-import { ConfigRange, ConfigSwitch } from './fields';
+import { ConfigRange, ConfigSwitch, InstantHint } from './fields';
 
 export interface DisplaySettings {
   autoHide: boolean;
@@ -17,6 +17,7 @@ export default function DisplaySection({ settings, setSetting }: DisplaySectionP
   const { t } = useI18n();
   return (
     <div className="config-section-display">
+      <InstantHint />
       <ConfigSwitch
         label={t('behavior.autoHide')}
         checked={settings.autoHide}

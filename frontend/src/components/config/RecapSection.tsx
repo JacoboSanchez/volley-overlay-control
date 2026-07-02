@@ -1,5 +1,5 @@
 import { useI18n } from '../../i18n';
-import { ConfigRange, ConfigSwitch } from './fields';
+import { ConfigRange, ConfigSwitch, InstantHint } from './fields';
 import SetSummaryStylePicker from '../SetSummaryStylePicker';
 import type { SetSummaryStyle } from '../../api/client';
 
@@ -31,6 +31,7 @@ export default function RecapSection({
   const { t } = useI18n();
   return (
     <div className="config-section-recap">
+      <InstantHint />
       <ConfigSwitch
         label={t('config.setSummary.label')}
         checked={settings.setSummaryEnabled}
