@@ -220,6 +220,18 @@ describe('App', () => {
     expect(api.getOverlays).not.toHaveBeenCalled();
   });
 
+  it('shows a transient-outage panel (not "link revoked") when a capability init fails with a network/5xx error', async () => {
+    vi.mocked(api.initSession).mockRejectedValue(new Error('Failed to fetch'));
+    renderWithI18n(<App controlToken="live-token" />);
+    await waitFor(() => {
+      expect(screen.getByText('Could not load the scoreboard')).toBeInTheDocument();
+    });
+    // The link is (as far as we know) fine — do not tell the operator to
+    // ask the owner for a new one.
+    expect(screen.queryByText('This control link is no longer valid')).not.toBeInTheDocument();
+    expect(screen.getByText('Failed to fetch')).toBeInTheDocument();
+  });
+
   describe('HUD auto-hide', () => {
     // Shrink the viewport below the persistent-controls breakpoint so the
     // inactivity timer is actually engaged.

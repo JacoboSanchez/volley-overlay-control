@@ -69,6 +69,7 @@ export default function App(
     customization,
     connected,
     error,
+    errorStatus,
     initialize,
     actions,
     refreshCustomization,
@@ -308,14 +309,23 @@ export default function App(
     // A failed capability link (revoked ?c= token, disabled ?u= bookmark)
     // must not fall back to the owner-only InitScreen: its overlay picker
     // calls the cookie-gated /overlays route, which just 401s for a
-    // no-login operator. Explain the failure and who can fix it instead.
+    // no-login operator. Explain the failure and who can fix it instead —
+    // but only claim the link is dead when the server rejected the
+    // credential (401/403/404). A network failure or 5xx is a transient
+    // outage, where "ask the owner for a new link" would be wrong advice.
     if (isCapabilityMode && error) {
+      const linkRejected =
+        errorStatus === 401 || errorStatus === 403 || errorStatus === 404;
       return (
         <div className="init-screen" role="alert">
           <h1 className="init-title">{appConfig.title}</h1>
-          <h2 className="init-label" style={{ fontSize: '1.1rem' }}>{t('board.invalidLink.title')}</h2>
+          <h2 className="init-label" style={{ fontSize: '1.1rem' }}>
+            {linkRejected ? t('board.invalidLink.title') : t('board.loadError.title')}
+          </h2>
           <p className="init-error">{error}</p>
-          <p className="init-label">{t('board.invalidLink.body')}</p>
+          <p className="init-label">
+            {linkRejected ? t('board.invalidLink.body') : t('board.loadError.body')}
+          </p>
         </div>
       );
     }

@@ -99,7 +99,8 @@ describe('AdminPage user management', () => {
     });
   });
 
-  it('refreshes the auth context (not the admin list) when demoting yourself', async () => {
+  it('confirms a self-demotion, then refreshes the auth context (not the admin list)', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(api.adminUpdateUser).mockResolvedValue({ ...ROOT, role: 'user' });
     renderWithI18n(<AdminPage />);
     await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
@@ -112,8 +113,35 @@ describe('AdminPage user management', () => {
       expect(api.adminUpdateUser).toHaveBeenCalledWith(1, { role: 'user' });
       expect(refreshMock).toHaveBeenCalled();
     });
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/admin page/i));
     // The now-forbidden /admin/users reload must not have been retried.
     expect(vi.mocked(api.adminListUsers).mock.calls.length).toBe(listCallsBefore);
+    confirmSpy.mockRestore();
+  });
+
+  it('a declined self-demotion confirm changes nothing', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderWithI18n(<AdminPage />);
+    await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Make user' })[0]!);
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(api.adminUpdateUser).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('demoting another admin needs no confirm', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    vi.mocked(api.adminUpdateUser).mockResolvedValue({ ...OTHER_ADMIN, role: 'user' });
+    renderWithI18n(<AdminPage />);
+    await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Make user' })[1]!);
+    await waitFor(() => {
+      expect(api.adminUpdateUser).toHaveBeenCalledWith(2, { role: 'user' });
+    });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 
   it('warns about self sign-out when deleting your own account', async () => {

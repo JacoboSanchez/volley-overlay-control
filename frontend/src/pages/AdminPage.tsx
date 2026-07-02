@@ -89,6 +89,17 @@ export default function AdminPage() {
   async function toggleRole(u: api.UserOut) {
     const promote = u.role !== 'admin';
     const isSelf = ctx?.user?.id === u.id;
+    if (!promote && isSelf) {
+      // Demoting yourself kicks you off this page with no way back on your
+      // own — never do that on a single stray click.
+      const ok = await confirm({
+        title: t('acc.admin.confirmDemoteSelfTitle'),
+        message: t('acc.admin.confirmDemoteSelfMsg'),
+        confirmLabel: t('acc.admin.makeUser'),
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       await api.adminUpdateUser(u.id, { role: promote ? 'admin' : 'user' });
