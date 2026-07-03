@@ -155,6 +155,10 @@ def _store_file(content: bytes) -> str:
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(content)
+        # mkstemp creates 0600; these files are public by design (the /media
+        # mount, or a reverse proxy serving the directory straight from disk
+        # under a different user), so grant world-read explicitly.
+        os.chmod(tmp_path, 0o644)
         os.replace(tmp_path, os.path.join(directory, filename))
     except BaseException:
         try:

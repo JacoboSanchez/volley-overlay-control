@@ -113,6 +113,9 @@ def test_create_personal_icon_writes_file_and_row(db_session, user):
     path = os.path.join(icons_service.icons_dir(), icon.filename)
     assert os.path.isfile(path)
     assert os.path.getsize(path) == icon.size_bytes
+    # mkstemp creates 0600; the stored file must be world-readable so a
+    # reverse proxy serving /media straight from disk can read it.
+    assert os.stat(path).st_mode & 0o777 == 0o644
 
 
 def test_create_global_icon_has_no_owner(db_session):

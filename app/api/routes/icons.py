@@ -177,6 +177,9 @@ def _import_endpoint(
     ids outside the scope surface as per-team "not found" errors rather
     than silently rewriting someone else's rows.
     """
+    # Dedupe before the batch cap so repeated ids neither inflate the
+    # count nor produce duplicate result rows for the same team.
+    team_ids = list(dict.fromkeys(team_ids))
     if len(team_ids) > ICONS_IMPORT_MAX_BATCH:
         raise HTTPException(
             status_code=400,

@@ -445,6 +445,7 @@ def test_catalog_icon_accepts_harmless_values(value):
     "data:text/html,<script>alert(1)</script>",
     "file:///etc/passwd",
     "/\\evil.com/x.png",
+    "\\\\evil.com\\share\\x.png",
     None,
     123,
 ])

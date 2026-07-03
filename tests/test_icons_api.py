@@ -263,6 +263,22 @@ def test_admin_batch_import_converts_global_teams(db_session, monkeypatch):
     assert listing_icon["is_global"] is True
 
 
+def test_batch_import_dedupes_repeated_team_ids(db_session, monkeypatch):
+    calls = _fake_fetch(monkeypatch)
+    user = _user(db_session)
+    team = user.post(
+        "/api/v1/teams/mine/custom",
+        json={"name": "Lions", "icon": "https://cdn.example.com/lions.png"},
+    ).json()
+
+    results = user.post(
+        "/api/v1/icons/mine/import-from-teams",
+        json={"team_ids": [team["id"], team["id"], team["id"]]},
+    ).json()["results"]
+    assert len(results) == 1 and results[0]["status"] == "ok"
+    assert len(calls) == 1
+
+
 def test_batch_import_caps_batch_size(db_session, monkeypatch):
     from app.api.routes import icons as icons_routes
 

@@ -4,6 +4,7 @@ import { useConfirm } from '../ConfirmProvider';
 import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
 import IconBatchImportDialog from './IconBatchImportDialog';
+import { prefillIconName } from './iconName';
 
 /** Management panel for one scope of the hosted icon library.
  *
@@ -233,7 +234,7 @@ export default function IconLibrarySection({
             const file = e.target.files?.[0];
             if (file) {
               setPendingFile(file);
-              setUploadName(file.name.replace(/\.[^.]+$/, ''));
+              setUploadName(prefillIconName(file.name));
               setError('');
             }
             e.target.value = '';

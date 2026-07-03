@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as api from '../../api/client';
 import Dialog from '../Dialog';
 import { FILTER_THRESHOLD } from '../teams/teamUtils';
+import { prefillIconName } from './iconName';
 import { useI18n } from '../../i18n';
 
 /** Browse-and-pick dialog over the hosted icon library.
@@ -51,8 +52,7 @@ export default function IconPickerDialog({
   function onFileChosen(file: File) {
     setError('');
     setPendingFile(file);
-    // Prefill the icon name from the file name, minus the extension.
-    setUploadName(file.name.replace(/\.[^.]+$/, ''));
+    setUploadName(prefillIconName(file.name));
   }
 
   async function doUpload() {

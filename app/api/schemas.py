@@ -269,8 +269,9 @@ def is_acceptable_catalog_icon(value: object) -> bool:
 
     * an explicit scheme outside http/https/data:image (``javascript:``,
       ``vbscript:``, ``data:text/html`` …),
-    * ``/\\`` paths (WHATWG backslash normalization would leave the
-      origin).
+    * ``/\\`` and ``\\\\`` prefixes — WHATWG backslash normalization
+      turns both into protocol-relative URLs that leave the origin, and
+      a UNC path in an ``<img>`` can leak NTLM hashes on Windows.
 
     Everything scheme-less, same-origin, or allowlisted passes. The
     strict :func:`is_safe_logo_url` still guards the customization PUT
@@ -281,7 +282,7 @@ def is_acceptable_catalog_icon(value: object) -> bool:
     candidate = value.strip()
     if not candidate:
         return True
-    if candidate.startswith("/\\"):
+    if candidate.startswith(("/\\", "\\\\")):
         return False
     if candidate.startswith("//"):
         candidate = "https:" + candidate
