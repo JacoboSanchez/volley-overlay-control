@@ -21,7 +21,8 @@ once a first tagged release ships.
   clears the icon on every team that used it — the confirmation dialog
   says how many teams that is. The team editors' *Logo* field gains a
   **Library** button to browse global + personal icons (or upload right
-  there), and still accepts a pasted URL. The teams pages (personal and
+  there), and still accepts a pasted URL; large libraries get a name
+  search filter and scroll inside the dialog. The teams pages (personal and
   admin) gain an **Import team logos** tool that lists teams whose logo
   is an external URL, downloads the selected ones (SSRF-guarded,
   size-capped, per-URL timeout), stores them as library icons named

@@ -163,12 +163,17 @@ async function seedDemoUsers() {
 // with a browser canvas (the harness has no server-side image library) and
 // uploaded through the real multipart endpoints, so the shot exercises the
 // actual resize→WebP pipeline rather than mocked data.
+// More than FILTER_THRESHOLD (8) icons in total, so the shot also shows the
+// picker's search filter and its internal scroll area.
 const ICON_SEEDS = {
   global: [
     { name: 'Thunder Wolves', initials: 'TW', bg: '#1e3a8a', fg: '#ffffff' },
     { name: 'Solar Hawks', initials: 'SH', bg: '#f59e0b', fg: '#1f2937' },
     { name: 'Ridge Foxes', initials: 'RF', bg: '#166534', fg: '#ffffff' },
     { name: 'Bay Orcas', initials: 'BO', bg: '#0e7490', fg: '#ffffff' },
+    { name: 'Iron Bears', initials: 'IB', bg: '#44403c', fg: '#fbbf24' },
+    { name: 'Coast Sharks', initials: 'CS', bg: '#075985', fg: '#e0f2fe' },
+    { name: 'Pine Owls', initials: 'PO', bg: '#3f6212', fg: '#ecfccb' },
   ],
   personal: [
     { name: 'City Volley', initials: 'CV', bg: '#7c3aed', fg: '#ffffff' },
@@ -544,8 +549,11 @@ async function captureIconLibrary(page) {
   await page.waitForSelector('.acc-icon-chip img', { timeout: 8000 });
   await page.waitForFunction(() => {
     const imgs = Array.from(document.querySelectorAll('.acc-icon-chip img'));
-    return imgs.length >= 6 && imgs.every((img) => img.complete && img.naturalWidth > 0);
+    return imgs.length >= 9 && imgs.every((img) => img.complete && img.naturalWidth > 0);
   }, null, { timeout: 8000 }).catch(() => {});
+  // The search filter (renders past the icon-count threshold) is part of the
+  // story — make sure it is there before shooting.
+  await page.waitForSelector('[data-testid="icon-picker-filter"]', { timeout: 4000 }).catch(() => {});
   await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '13-icon-library.png'), fullPage: false });
   await page.keyboard.press('Escape');

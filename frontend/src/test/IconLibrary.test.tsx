@@ -87,6 +87,34 @@ describe('IconPickerDialog', () => {
     expect(onSelect).toHaveBeenCalledWith('/media/icons/hash9-abcd.webp');
   });
 
+  it('shows a name filter above the threshold and narrows both sections', async () => {
+    mocked.listIcons.mockResolvedValue({
+      globals: Array.from({ length: 6 }, (_, i) => icon(100 + i, `League ${i}`, true)),
+      mine: [icon(1, 'Lions'), icon(2, 'Tigers'), icon(3, 'Panthers')],
+      quota: { used: 3, limit: 50 },
+    });
+    renderWithI18n(
+      <IconPickerDialog open onClose={vi.fn()} onSelect={vi.fn()} />,
+    );
+    await waitFor(() => expect(screen.getByText('Lions')).toBeInTheDocument());
+    const filter = screen.getByTestId('icon-picker-filter');
+    fireEvent.change(filter, { target: { value: 'tig' } });
+    expect(screen.getByText('Tigers')).toBeInTheDocument();
+    expect(screen.queryByText('Lions')).not.toBeInTheDocument();
+    expect(screen.queryByText('League 1')).not.toBeInTheDocument();
+    // Empty-after-filter shows the no-match message, not the empty-library one.
+    fireEvent.change(filter, { target: { value: 'zzz' } });
+    expect(screen.getAllByText('No icon matches "zzz".').length).toBe(2);
+  });
+
+  it('hides the filter for small libraries', async () => {
+    renderWithI18n(
+      <IconPickerDialog open onClose={vi.fn()} onSelect={vi.fn()} />,
+    );
+    await waitFor(() => expect(screen.getByText('Lions')).toBeInTheDocument());
+    expect(screen.queryByTestId('icon-picker-filter')).not.toBeInTheDocument();
+  });
+
   it('uploads to the global library when scoped for admin pages', async () => {
     mocked.adminUploadIcon.mockResolvedValue(icon(9, 'Fresh', true));
     renderWithI18n(

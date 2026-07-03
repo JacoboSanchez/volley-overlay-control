@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../../api/client';
 import Dialog from '../Dialog';
+import { FILTER_THRESHOLD } from '../teams/teamUtils';
 import { useI18n } from '../../i18n';
 
 /** Browse-and-pick dialog over the hosted icon library.
@@ -24,6 +25,7 @@ export default function IconPickerDialog({
   const { t } = useI18n();
   const [library, setLibrary] = useState<api.IconLibrary | null>(null);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadName, setUploadName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -32,6 +34,7 @@ export default function IconPickerDialog({
   useEffect(() => {
     if (!open) return;
     setError('');
+    setQuery('');
     setPendingFile(null);
     setUploadName('');
     api
@@ -73,12 +76,21 @@ export default function IconPickerDialog({
     library != null &&
     library.quota.used >= library.quota.limit;
 
+  const totalIcons = (library?.globals.length ?? 0) + (library?.mine.length ?? 0);
+  const needle = query.trim().toLowerCase();
+  const matches = (icon: api.IconOut) =>
+    !needle || icon.name.toLowerCase().includes(needle);
+  const shownGlobals = (library?.globals ?? []).filter(matches);
+  const shownMine = (library?.mine ?? []).filter(matches);
+
   function renderSection(title: string, icons: api.IconOut[]) {
     return (
       <div className="acc-icon-section">
         <h4 className="acc-muted">{title}</h4>
         {icons.length === 0 ? (
-          <p className="acc-muted acc-icon-empty">{t('acc.icons.empty')}</p>
+          <p className="acc-muted acc-icon-empty">
+            {needle ? t('acc.icons.noMatch', { q: query.trim() }) : t('acc.icons.empty')}
+          </p>
         ) : (
           <div className="acc-icon-grid">
             {icons.map((icon) => (
@@ -104,16 +116,28 @@ export default function IconPickerDialog({
       <div className="acc-icon-picker">
         <h3 style={{ marginTop: 0 }}>{t('acc.icons.pickerTitle')}</h3>
         {error && <div className="acc-error">{error}</div>}
-        {renderSection(t('acc.icons.globalSection'), library?.globals ?? [])}
-        {renderSection(
-          uploadScope === 'personal'
-            ? t('acc.icons.mineSectionQuota', {
-                used: library?.quota.used ?? 0,
-                limit: library?.quota.limit ?? 0,
-              })
-            : t('acc.icons.mineSection'),
-          library?.mine ?? [],
+        {totalIcons > FILTER_THRESHOLD && (
+          <input
+            className="acc-input acc-icon-filter"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('acc.icons.filterPlaceholder')}
+            aria-label={t('acc.icons.filterPlaceholder')}
+            data-testid="icon-picker-filter"
+          />
         )}
+        <div className="acc-icon-picker-body">
+          {renderSection(t('acc.icons.globalSection'), shownGlobals)}
+          {renderSection(
+            uploadScope === 'personal'
+              ? t('acc.icons.mineSectionQuota', {
+                  used: library?.quota.used ?? 0,
+                  limit: library?.quota.limit ?? 0,
+                })
+              : t('acc.icons.mineSection'),
+            shownMine,
+          )}
+        </div>
         <div className="acc-btn-row" style={{ marginTop: 12 }}>
           {pendingFile ? (
             <>

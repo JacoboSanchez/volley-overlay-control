@@ -1573,3 +1573,20 @@ button.acc-icon-chip:hover {
 .acc-tfield-logo .acc-btn {
   flex: none;
 }
+
+/* Picker scroll + filter: the sections scroll inside the dialog (title,
+   filter and button row stay pinned), so a large library never grows the
+   dialog past the viewport. */
+.acc-icon-picker-body {
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Keep chip hover borders from being clipped by the scroll container. */
+  padding: 2px;
+  margin: 0 -2px;
+}
+
+.acc-icon-filter {
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
