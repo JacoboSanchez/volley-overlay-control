@@ -340,6 +340,9 @@ Always use `State` accessor methods; never read/write `state.current_model` dire
 ### Per-user data (overlays / teams / presets / settings)
 Go through the service modules — `app/overlays_service.py`, `app/teams_service.py`, `app/presets_service.py`, `app/settings_service.py` — and the ORM models in `app/db/models/`. Never query rows without scoping to `user.id`. The public OBS surface resolves an overlay by its `public_token`, never by raw `oid`/`skey`.
 
+### Hosted icon library (`app/icons_service.py`)
+Icon **metadata** is a DB row (`app/db/models/icon.py`, global/personal ownership mirroring `Team`); the **bytes** are WebP files in `data/media/icons/` served from the public, unauthenticated `/media` mount (OBS pages carry no cookies) with immutable caching — filenames embed a content hash + random suffix, so a re-upload is a new URL, and `DELETE` can always unlink its file. Every upload goes through `process_icon_upload` (Pillow: bomb guard → EXIF transpose → ≤`ICONS_MAX_DIM` thumbnail → WebP quality ladder); never store client bytes verbatim. Teams reference icons purely by URL string (no FK) — deletion clears referencing teams by exact URL match. Outbound downloads (batch logo import) must use `app.net_guard.fetch_guarded` (SSRF re-check on every redirect hop, byte cap); `is_safe_logo_url` accepts same-origin `/...` paths, and the permissive `is_acceptable_catalog_icon` gates catalog writes. Backups: the app's persistence unit is the whole `data/` directory (with Postgres, `pg_dump` alone misses icons and overlay state).
+
 ### OID utilities
 Use `app/oid_utils.py` for `extract_oid()` and `compose_output()` — do not import from deleted modules.
 

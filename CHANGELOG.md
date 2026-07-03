@@ -10,6 +10,30 @@ once a first tagged release ships.
 
 ### Added
 
+- **Hosted team-icon library.** Team logos can now live in the app instead
+  of depending on external image URLs (availability, hotlinking, dead
+  links). Administrators manage **global icons** shared with everyone;
+  each user has a **personal library** (50 icons by default,
+  `ICONS_MAX_PER_USER`). Uploads accept PNG/JPEG/WebP/GIF and are
+  resized server-side to fit 512×512 (`ICONS_MAX_DIM`) and re-encoded to
+  WebP, so storage stays bounded regardless of the input; SVG is not
+  supported. Icons have a display name, can be renamed, and deleting one
+  clears the icon on every team that used it — the confirmation dialog
+  says how many teams that is. The team editors' *Logo* field gains a
+  **Library** button to browse global + personal icons (or upload right
+  there), and still accepts a pasted URL. The teams pages (personal and
+  admin) gain an **Import team logos** tool that lists teams whose logo
+  is an external URL, downloads the selected ones (SSRF-guarded,
+  size-capped, per-URL timeout), stores them as library icons named
+  after each team, and repoints the teams at the hosted copies — re-running
+  it skips already-hosted teams. Icon files are served from the new
+  public `/media` mount with immutable caching; image bytes live in
+  `data/media/icons/` (not in the database), so a backup of the `data/`
+  directory — which the app already requires for overlay state and match
+  data — captures them alongside the default SQLite database. Deployments
+  that serve overlays from a separate origin (`OVERLAY_PUBLIC_URL`) must
+  route `/media` to the backend on that origin too.
+
 - **Team logos are editable from the board Config panel.** Clicking a team
   card's logo preview opens a small editor dialog with a *Logo URL* field
   and a clear button — previously a logo could only arrive by picking a
