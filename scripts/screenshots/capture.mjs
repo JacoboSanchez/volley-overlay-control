@@ -230,6 +230,25 @@ async function seedIconLibrary(page) {
   }
 }
 
+async function seedExternalLogoTeams() {
+  // Custom teams whose logos still point at an external CDN — exactly what
+  // the batch "Import team logos" dialog (shot 14) lists as eligible. The
+  // URLs are never fetched for the shot (the dialog screenshots before any
+  // import runs), so an invented host is fine and nothing leaves the box.
+  const teams = [
+    { name: 'Delta Spikers', icon: 'https://cdn.example.net/logos/delta-spikers.png', color: '#0f766e' },
+    { name: 'Metro Blockers', icon: 'https://cdn.example.net/logos/metro-blockers.png', color: '#9d174d' },
+    { name: 'Valley Setters', icon: 'https://cdn.example.net/logos/valley-setters.png', color: '#a16207' },
+  ];
+  for (const team of teams) {
+    const res = await apiFetch('/api/v1/teams/mine/custom', { method: 'POST', body: team });
+    // 400 → duplicate on a warm re-run; keep the run idempotent.
+    if (!res.ok && res.status !== 400) {
+      throw new Error(`seed team ${team.name} failed: ${res.status} ${await res.text()}`);
+    }
+  }
+}
+
 async function createOverlay(oid) {
   const res = await apiFetch('/api/v1/overlays', { method: 'POST', body: { oid } });
   if (res.status === 201) {
@@ -560,6 +579,25 @@ async function captureIconLibrary(page) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureIconBatchImport(page) {
+  // The batch "Import team logos" dialog on /teams: the seeded custom teams
+  // with external CDN logo URLs are listed pre-selected, ready to convert
+  // into hosted library icons. Captured before running the import, so the
+  // shot documents the choice the operator gets.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/teams`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  // The launcher lives in the icon-library section further down the page.
+  const launcher = page.locator('.acc-panel .acc-btn-row button', { hasText: /import/i }).last();
+  await launcher.scrollIntoViewIfNeeded();
+  await launcher.click();
+  await page.waitForSelector('.acc-icon-batch-list input[type="checkbox"]', { timeout: 8000 });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: resolve(OUT_DIR, '14-icon-batch-import.png'), fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureMatchReport(page, matchId) {
   // MATCH_REPORT_PUBLIC=true is set by run.sh, and the browser also carries the
   // owner's session cookie — so the report renders without any ?token=.
@@ -650,6 +688,7 @@ async function main() {
   // 2. Seed a small user roster so the admin global-config page is realistic.
   await seedDemoUsers();
   // 3. Seed demo overlays + match state via the cookie-authenticated API.
+  await seedExternalLogoTeams();
   await seedDemoOverlay();
   await seedFinishedMatchForReport();
   const reportMatchId = await fetchLatestMatchId();
@@ -713,6 +752,7 @@ async function main() {
     await step('04 config-panel', () => captureConfigPanel(page));
     await step('05 overlays-page', () => captureOverlaysPage(page));
     await step('13 icon-library', () => captureIconLibrary(page));
+    await step('14 icon-batch-import', () => captureIconBatchImport(page));
     await step('12 admin-page', () => captureAdminPage(page));
 
     await setSimpleMode(false);
