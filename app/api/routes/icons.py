@@ -162,8 +162,11 @@ def _rename_endpoint(
 
 def _delete_endpoint(db: Session, icon_id: int, *, user_id: int | None) -> IconDeleteOut:
     icon = _get_scoped_or_404(db, icon_id, user_id=user_id)
-    cleared = icons_service.delete_icon(db, icon)
+    cleared, filename = icons_service.delete_icon(db, icon)
     db.commit()
+    # Capture → commit → cleanup, like delete_user: the file goes only
+    # once the row deletion is durable.
+    icons_service.unlink_files([filename])
     return IconDeleteOut(ok=True, teams_cleared=cleared)
 
 

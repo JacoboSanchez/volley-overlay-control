@@ -32,7 +32,7 @@ import tempfile
 from dataclasses import dataclass
 
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import event, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.api._persistence_paths import data_dir
@@ -327,15 +327,17 @@ def usage_count(db: Session, icon: Icon) -> int:
     )
 
 
-def delete_icon(db: Session, icon: Icon) -> int:
-    """Delete *icon*, clearing every team that referenced it.
+def delete_icon(db: Session, icon: Icon) -> tuple[int, str]:
+    """Delete *icon*'s row, clearing every team that referenced it.
 
-    Returns the number of teams whose ``icon_url`` was cleared. The file
-    is unlinked only once the caller's transaction actually commits — a
-    rollback after this call restores the row AND keeps the file, so the
-    two stores never disagree. If the session closes without committing,
-    the listener simply never fires and the worst case is an orphaned
-    file (inert), never a dangling row pointing at nothing.
+    Returns ``(teams_cleared, filename)``. The file is deliberately NOT
+    unlinked here: the caller commits first and then passes the returned
+    filename to :func:`unlink_files` — the same capture→commit→cleanup
+    shape ``delete_user`` uses. That keeps the two stores consistent
+    without session event listeners (which would linger armed on the
+    session after a rollback): a rollback restores the row AND keeps the
+    file; a crash between commit and unlink leaves an orphaned file
+    (inert), never a dangling row pointing at nothing.
     """
     url = icon_public_url(icon.filename)
     cleared = db.execute(
@@ -344,8 +346,7 @@ def delete_icon(db: Session, icon: Icon) -> int:
     filename = icon.filename
     db.delete(icon)
     db.flush()
-    event.listen(db, "after_commit", lambda session: _unlink_file(filename), once=True)
-    return int(cleared)
+    return int(cleared), filename
 
 
 def import_icons_from_teams(

@@ -144,8 +144,15 @@ def test_rename_and_usage_and_delete_clear_teams(db_session):
     usage = user.get(f"/api/v1/icons/mine/{icon['id']}/usage").json()
     assert usage == {"teams": 1}
 
+    import os
+    disk_path = os.path.join(
+        icons_service.icons_dir(), icon["url"].removeprefix("/media/icons/"),
+    )
+    assert os.path.isfile(disk_path)
     deleted = user.delete(f"/api/v1/icons/mine/{icon['id']}").json()
     assert deleted == {"ok": True, "teams_cleared": 1}
+    # The endpoint unlinks the file once the row deletion is durable.
+    assert not os.path.exists(disk_path)
 
     catalog = user.get("/api/v1/my/groups").json()
     all_teams = [t for g in catalog for t in g["teams"] if t["id"] == team["id"]]

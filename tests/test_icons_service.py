@@ -159,8 +159,9 @@ def test_dedupe_never_exceeds_the_column_width(db_session, user):
 
 
 def test_delete_rolled_back_keeps_row_and_file(db_session, user):
-    """The unlink is deferred to after-commit: a rollback must leave both the
-    row and the file intact (no dangling row pointing at nothing)."""
+    """The unlink belongs to the caller's post-commit step: a rollback must
+    leave both the row and the file intact (no dangling row pointing at
+    nothing) — and no lingering session hook may delete the file later."""
     icon = icons_service.create_icon(
         db_session, name="Keep", raw=png_bytes(), user_id=user.id,
     )
@@ -172,6 +173,15 @@ def test_delete_rolled_back_keeps_row_and_file(db_session, user):
 
     assert os.path.exists(path)
     assert db_session.query(Icon).count() == 1
+
+    # Regression (PR #392 round 3): with the old after_commit listener a
+    # later unrelated commit on the same session deleted the file.
+    db_session.add(Icon(
+        name="Other", filename="other-file.webp", mime="image/webp",
+        width=1, height=1, size_bytes=1, owner_user_id=user.id,
+    ))
+    db_session.commit()
+    assert os.path.exists(path)
 
 
 def test_batch_import_isolates_unexpected_commit_errors(db_session, user, monkeypatch):
@@ -252,10 +262,13 @@ def test_delete_clears_referencing_teams_and_unlinks_file(db_session, user):
     path = os.path.join(icons_service.icons_dir(), icon.filename)
 
     assert icons_service.usage_count(db_session, icon) == 2
-    cleared = icons_service.delete_icon(db_session, icon)
+    cleared, filename = icons_service.delete_icon(db_session, icon)
     db_session.commit()
 
     assert cleared == 2
+    # The service never unlinks — that's the caller's post-commit step.
+    assert os.path.exists(path)
+    icons_service.unlink_files([filename])
     assert not os.path.exists(path)
     urls = [t.icon_url for t in db_session.query(Team).order_by(Team.name)]
     assert urls == [None, None, "https://example.com/x.png"]
