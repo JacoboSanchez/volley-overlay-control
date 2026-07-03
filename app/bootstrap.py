@@ -25,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import api_router
+from app.api._persistence_paths import data_dir
 from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
@@ -286,6 +287,22 @@ def _register_static_mounts(application: FastAPI) -> None:
             name="overlay-static",
         )
     application.mount("/pwa", StaticFiles(directory="app/pwa"), name="pwa")
+    # Hosted icon library. Only ``data/media`` is exposed — never ``data/``
+    # itself (it holds per-session state). Unauthenticated on purpose: OBS
+    # browser sources load overlay pages without cookies, so the icons they
+    # reference must be public, same as ``/static``. Filenames are
+    # content-addressed (hash + random suffix), so ``immutable`` is safe —
+    # a re-upload mints a new URL instead of mutating this one.
+    media_dir = data_dir("media")
+    os.makedirs(os.path.join(media_dir, "icons"), exist_ok=True)
+    application.mount(
+        "/media",
+        CachedStaticFiles(
+            directory=media_dir,
+            cache_control="public, max-age=31536000, immutable",
+        ),
+        name="media",
+    )
 
 
 def _register_system_endpoints(application: FastAPI) -> None:

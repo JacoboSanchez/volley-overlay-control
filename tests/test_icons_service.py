@@ -1,0 +1,214 @@
+"""Unit coverage for the hosted icon library service layer.
+
+The image pipeline (decode → shrink → WebP) and the DB/file consistency
+rules (quota, scoped names, delete-clears-teams) are exercised directly
+against the in-memory SQLite session from ``conftest.db_session``; the
+HTTP layer has its own coverage in ``test_icons_api.py``.
+"""
+
+from __future__ import annotations
+
+import io
+import os
+
+import pytest
+from PIL import Image
+
+from app import icons_service
+from app.db.models.icon import Icon
+from app.db.models.team import Team
+from app.db.models.user import User
+
+
+@pytest.fixture(autouse=True)
+def _icons_tmp_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(icons_service, "icons_dir", lambda: str(tmp_path / "icons"))
+    yield
+
+
+@pytest.fixture
+def user(db_session):
+    u = User(username="ana", password_hash="x")
+    db_session.add(u)
+    db_session.commit()
+    return u
+
+
+def png_bytes(width=64, height=64, color=(255, 0, 0, 255), fmt="PNG"):
+    buf = io.BytesIO()
+    Image.new("RGBA", (width, height), color).save(buf, format=fmt)
+    return buf.getvalue()
+
+
+# ---- process_icon_upload -----------------------------------------------------
+
+
+def test_process_small_png_roundtrips_to_webp():
+    processed = icons_service.process_icon_upload(png_bytes(64, 64))
+    assert processed.width == 64 and processed.height == 64
+    with Image.open(io.BytesIO(processed.content)) as out:
+        assert out.format == "WEBP"
+
+
+def test_process_shrinks_oversized_images_preserving_aspect():
+    processed = icons_service.process_icon_upload(png_bytes(2048, 1024))
+    assert (processed.width, processed.height) == (512, 256)
+
+
+def test_process_never_upscales():
+    processed = icons_service.process_icon_upload(png_bytes(30, 20))
+    assert (processed.width, processed.height) == (30, 20)
+
+
+def test_process_rejects_svg_with_clear_message():
+    svg = b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>'
+    with pytest.raises(icons_service.IconError, match="SVG"):
+        icons_service.process_icon_upload(svg)
+
+
+def test_process_rejects_non_image_bytes():
+    with pytest.raises(icons_service.IconError, match="not a recognizable image"):
+        icons_service.process_icon_upload(b"definitely not an image")
+
+
+def test_process_rejects_oversized_input(monkeypatch):
+    monkeypatch.setattr(icons_service, "ICONS_MAX_UPLOAD_BYTES", 100)
+    with pytest.raises(icons_service.IconError, match="too large"):
+        icons_service.process_icon_upload(png_bytes(256, 256))
+
+
+def test_process_flattens_animated_gif_to_first_frame():
+    frames = [
+        Image.new("P", (40, 40), i) for i in (0, 128, 255)
+    ]
+    buf = io.BytesIO()
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:])
+    processed = icons_service.process_icon_upload(buf.getvalue())
+    with Image.open(io.BytesIO(processed.content)) as out:
+        assert out.format == "WEBP"
+        assert getattr(out, "n_frames", 1) == 1
+
+
+def test_process_applies_exif_orientation():
+    # Orientation 6 = rotate 270° CW on display: a 100x60 JPEG renders 60x100.
+    img = Image.new("RGB", (100, 60), (0, 128, 0))
+    exif = img.getexif()
+    exif[0x0112] = 6
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", exif=exif)
+    processed = icons_service.process_icon_upload(buf.getvalue())
+    assert (processed.width, processed.height) == (60, 100)
+
+
+# ---- create / quota / names --------------------------------------------------
+
+
+def test_create_personal_icon_writes_file_and_row(db_session, user):
+    icon = icons_service.create_icon(
+        db_session, name="Lions", raw=png_bytes(), user_id=user.id,
+    )
+    db_session.commit()
+    assert icon.is_global is False and icon.owner_user_id == user.id
+    assert icon.mime == "image/webp"
+    path = os.path.join(icons_service.icons_dir(), icon.filename)
+    assert os.path.isfile(path)
+    assert os.path.getsize(path) == icon.size_bytes
+
+
+def test_create_global_icon_has_no_owner(db_session):
+    icon = icons_service.create_icon(
+        db_session, name="League", raw=png_bytes(), user_id=None,
+    )
+    db_session.commit()
+    assert icon.is_global is True and icon.owner_user_id is None
+
+
+def test_duplicate_name_rejected_case_insensitively(db_session, user):
+    icons_service.create_icon(db_session, name="Lions", raw=png_bytes(), user_id=user.id)
+    with pytest.raises(icons_service.IconError, match="already exists"):
+        icons_service.create_icon(db_session, name="lions", raw=png_bytes(), user_id=user.id)
+
+
+def test_same_name_allowed_across_scopes(db_session, user):
+    icons_service.create_icon(db_session, name="Lions", raw=png_bytes(), user_id=user.id)
+    icons_service.create_icon(db_session, name="Lions", raw=png_bytes(), user_id=None)
+    db_session.commit()
+
+
+def test_dedupe_suffixes_taken_names(db_session, user):
+    icons_service.create_icon(db_session, name="Lions", raw=png_bytes(), user_id=user.id)
+    icon = icons_service.create_icon(
+        db_session, name="Lions", raw=png_bytes(), user_id=user.id, dedupe=True,
+    )
+    assert icon.name == "Lions (2)"
+
+
+def test_personal_quota_enforced(db_session, user, monkeypatch):
+    monkeypatch.setattr(icons_service, "ICONS_MAX_PER_USER", 2)
+    icons_service.create_icon(db_session, name="A", raw=png_bytes(), user_id=user.id)
+    icons_service.create_icon(db_session, name="B", raw=png_bytes(), user_id=user.id)
+    with pytest.raises(icons_service.IconError, match="quota"):
+        icons_service.create_icon(db_session, name="C", raw=png_bytes(), user_id=user.id)
+    # Globals ignore the per-user cap.
+    icons_service.create_icon(db_session, name="G", raw=png_bytes(), user_id=None)
+
+
+def test_rename_checks_scope_uniqueness(db_session, user):
+    icons_service.create_icon(db_session, name="Lions", raw=png_bytes(), user_id=user.id)
+    tigers = icons_service.create_icon(
+        db_session, name="Tigers", raw=png_bytes(), user_id=user.id,
+    )
+    with pytest.raises(icons_service.IconError, match="already exists"):
+        icons_service.rename_icon(db_session, tigers, "LIONS")
+    icons_service.rename_icon(db_session, tigers, "Panthers")
+    assert tigers.name == "Panthers"
+
+
+def test_get_scoped_hides_cross_scope_rows(db_session, user):
+    personal = icons_service.create_icon(
+        db_session, name="Mine", raw=png_bytes(), user_id=user.id,
+    )
+    global_icon = icons_service.create_icon(
+        db_session, name="Global", raw=png_bytes(), user_id=None,
+    )
+    db_session.commit()
+    assert icons_service.get_scoped(db_session, personal.id, user_id=None) is None
+    assert icons_service.get_scoped(db_session, global_icon.id, user_id=user.id) is None
+    assert icons_service.get_scoped(db_session, personal.id, user_id=user.id) is personal
+
+
+# ---- delete clears referencing teams ----------------------------------------
+
+
+def test_delete_clears_referencing_teams_and_unlinks_file(db_session, user):
+    icon = icons_service.create_icon(
+        db_session, name="Lions", raw=png_bytes(), user_id=user.id,
+    )
+    url = icons_service.icon_public_url(icon.filename)
+    db_session.add_all([
+        Team(name="Lions A", icon_url=url, owner_user_id=user.id),
+        Team(name="Lions B", icon_url=url, is_global=True),
+        Team(name="Other", icon_url="https://example.com/x.png", is_global=True),
+    ])
+    db_session.commit()
+    path = os.path.join(icons_service.icons_dir(), icon.filename)
+
+    assert icons_service.usage_count(db_session, icon) == 2
+    cleared = icons_service.delete_icon(db_session, icon)
+    db_session.commit()
+
+    assert cleared == 2
+    assert not os.path.exists(path)
+    urls = [t.icon_url for t in db_session.query(Team).order_by(Team.name)]
+    assert urls == [None, None, "https://example.com/x.png"]
+    assert db_session.query(Icon).count() == 0
+
+
+def test_filenames_for_user_and_unlink(db_session, user, tmp_path):
+    a = icons_service.create_icon(db_session, name="A", raw=png_bytes(), user_id=user.id)
+    icons_service.create_icon(db_session, name="G", raw=png_bytes(), user_id=None)
+    db_session.commit()
+    names = icons_service.filenames_for_user(db_session, user.id)
+    assert names == [a.filename]
+    icons_service.unlink_files(names)
+    assert not os.path.exists(os.path.join(icons_service.icons_dir(), a.filename))
