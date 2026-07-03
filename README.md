@@ -32,9 +32,9 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 |---|---|
 | ![Account overlays page listing the signed-in user's overlays with copyable OBS output URLs](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
-| Hosted icon library (`/teams`) |
-|---|
-| ![Icon library picker open over the teams page — global and personal hosted team logos with quota and inline upload](docs/screenshots/13-icon-library.png) |
+| Hosted icon library (`/teams`) | Batch logo import |
+|---|---|
+| ![Icon library picker open over the teams page — global and personal hosted team logos with search, quota and inline upload](docs/screenshots/13-icon-library.png) | ![Import team logos dialog listing teams with external logo URLs, pre-selected for conversion into hosted library icons](docs/screenshots/14-icon-batch-import.png) |
 
 | Public spectator page (`/follow/{public_token}`) | Admin — global configuration (`/admin`) |
 |---|---|
