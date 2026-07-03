@@ -143,6 +143,61 @@ def test_dedupe_suffixes_taken_names(db_session, user):
     assert icon.name == "Lions (2)"
 
 
+def test_dedupe_never_exceeds_the_column_width(db_session, user):
+    """A 120-char base (a team name at the limit) must yield a suffixed
+    candidate that still fits String(120) — Postgres refuses overflow."""
+    base = "L" * 120
+    icons_service.create_icon(db_session, name=base, raw=png_bytes(), user_id=user.id)
+    icon = icons_service.create_icon(
+        db_session, name=base, raw=png_bytes(), user_id=user.id, dedupe=True,
+    )
+    assert len(icon.name) <= 120
+    assert icon.name.endswith(" (2)")
+
+
+def test_delete_rolled_back_keeps_row_and_file(db_session, user):
+    """The unlink is deferred to after-commit: a rollback must leave both the
+    row and the file intact (no dangling row pointing at nothing)."""
+    icon = icons_service.create_icon(
+        db_session, name="Keep", raw=png_bytes(), user_id=user.id,
+    )
+    db_session.commit()
+    path = os.path.join(icons_service.icons_dir(), icon.filename)
+
+    icons_service.delete_icon(db_session, icon)
+    db_session.rollback()
+
+    assert os.path.exists(path)
+    assert db_session.query(Icon).count() == 1
+
+
+def test_batch_import_isolates_unexpected_commit_errors(db_session, user, monkeypatch):
+    """A non-application exception on one team must not take the batch down."""
+    db_session.add_all([
+        Team(name="First", icon_url="https://cdn.example.com/a.png", owner_user_id=user.id),
+        Team(name="Second", icon_url="https://cdn.example.com/b.png", owner_user_id=user.id),
+    ])
+    db_session.commit()
+    teams = list(db_session.query(Team).order_by(Team.id))
+
+    monkeypatch.setattr(icons_service, "fetch_guarded", lambda url, **kw: png_bytes())
+    original_create = icons_service.create_icon
+    calls = {"n": 0}
+
+    def flaky_create(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("simulated transient failure")
+        return original_create(*args, **kwargs)
+
+    monkeypatch.setattr(icons_service, "create_icon", flaky_create)
+    results = icons_service.import_icons_from_teams(db_session, teams, user_id=user.id)
+
+    assert [r["status"] for r in results] == ["error", "ok"]
+    assert results[0]["error"] == "internal error"
+    assert results[1]["icon_url"].startswith("/media/icons/")
+
+
 def test_personal_quota_enforced(db_session, user, monkeypatch):
     monkeypatch.setattr(icons_service, "ICONS_MAX_PER_USER", 2)
     icons_service.create_icon(db_session, name="A", raw=png_bytes(), user_id=user.id)

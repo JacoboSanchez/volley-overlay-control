@@ -291,6 +291,22 @@ def test_batch_import_dedupes_icon_names(db_session, monkeypatch):
     assert names == ["Lions", "Lions (2)"]
 
 
+def test_deleting_a_user_unlinks_their_icon_files(db_session):
+    """Icon rows cascade with the user; the bytes on disk must go too."""
+    import os
+
+    admin = _admin(db_session)
+    user = _user(db_session, "temp-user")
+    uploaded = upload(user, "/api/v1/icons/mine", name="Mine").json()
+    filename = uploaded["url"].removeprefix("/media/icons/")
+    path = os.path.join(icons_service.icons_dir(), filename)
+    assert os.path.isfile(path)
+
+    resp = admin.delete(f"/api/v1/admin/users/{user.test_user_id}")
+    assert resp.status_code == 200, resp.text
+    assert not os.path.exists(path)
+
+
 # ---- team CRUD icon gate --------------------------------------------------------
 
 

@@ -106,6 +106,22 @@ def test_fetch_surfaces_http_errors():
         fetch_guarded("http://93.184.216.34/x.png", max_bytes=1024, timeout=1)
 
 
+def test_fetch_wraps_mid_body_stream_failures():
+    """stream=True defers the body: a reset during iter_content must land in
+    GuardedFetchError, not escape as a raw RequestException (PR #392 review)."""
+
+    class BrokenBody(FakeResponse):
+        def iter_content(self, chunk_size):
+            yield b"partial"
+            raise net_guard.requests.ConnectionError("reset mid-body")
+
+    with (
+        patch.object(net_guard.requests, "get", return_value=BrokenBody()),
+        pytest.raises(GuardedFetchError, match="download failed"),
+    ):
+        fetch_guarded("http://93.184.216.34/x.png", max_bytes=4096, timeout=1)
+
+
 def test_fetch_wraps_request_exceptions():
     with patch.object(
         net_guard.requests, "get",

@@ -32,7 +32,7 @@ import tempfile
 from dataclasses import dataclass
 
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import func, select, update
+from sqlalchemy import event, func, select, update
 from sqlalchemy.orm import Session
 
 from app.api._persistence_paths import data_dir
@@ -71,6 +71,9 @@ _ACCEPTED_FORMATS = {"PNG", "JPEG", "WEBP", "GIF"}
 # output fits ICONS_MAX_STORED_BYTES. A 512x512 WebP virtually never
 # exceeds 512 KiB even at q82 — the ladder is belt-and-braces.
 _QUALITY_LADDER_FLOOR = (70, 55, 40)
+
+# Must match the ``icons.name`` column width (String(120)).
+_MAX_NAME_LEN = 120
 
 
 class IconError(ValueError):
@@ -227,11 +230,17 @@ def _name_taken(db: Session, name: str, *, user_id: int | None, exclude_id: int 
 
 
 def dedupe_name(db: Session, name: str, *, user_id: int | None) -> str:
-    """Return *name*, suffixed ``" (2)"``, ``" (3)"`` … until free in scope."""
+    """Return *name*, suffixed ``" (2)"``, ``" (3)"`` … until free in scope.
+
+    The base is truncated so the suffixed candidate never exceeds the
+    column's 120 characters — team names (the batch-import source) may
+    already sit at the limit, and Postgres would refuse the overflow.
+    """
     if not _name_taken(db, name, user_id=user_id):
         return name
     for n in range(2, 100):
-        candidate = f"{name} ({n})"
+        suffix = f" ({n})"
+        candidate = f"{name[: _MAX_NAME_LEN - len(suffix)]}{suffix}"
         if not _name_taken(db, candidate, user_id=user_id):
             return candidate
     raise IconError(f"Could not find a free name for {name!r}.")
@@ -261,8 +270,8 @@ def create_icon(
     name = (name or "").strip()
     if not name:
         raise IconError("Icon name is required.")
-    if len(name) > 120:
-        raise IconError("Icon name is too long (max 120 characters).")
+    if len(name) > _MAX_NAME_LEN:
+        raise IconError(f"Icon name is too long (max {_MAX_NAME_LEN} characters).")
     if user_id is not None and user_icon_count(db, user_id) >= ICONS_MAX_PER_USER:
         raise IconError(f"Icon quota reached ({ICONS_MAX_PER_USER}).")
     if dedupe:
@@ -295,8 +304,8 @@ def rename_icon(db: Session, icon: Icon, name: str) -> Icon:
     name = (name or "").strip()
     if not name:
         raise IconError("Icon name is required.")
-    if len(name) > 120:
-        raise IconError("Icon name is too long (max 120 characters).")
+    if len(name) > _MAX_NAME_LEN:
+        raise IconError(f"Icon name is too long (max {_MAX_NAME_LEN} characters).")
     scope_user = None if icon.is_global else icon.owner_user_id
     if _name_taken(db, name, user_id=scope_user, exclude_id=icon.id):
         raise IconError(f"An icon named {name!r} already exists.")
@@ -317,11 +326,12 @@ def usage_count(db: Session, icon: Icon) -> int:
 def delete_icon(db: Session, icon: Icon) -> int:
     """Delete *icon*, clearing every team that referenced it.
 
-    Returns the number of teams whose ``icon_url`` was cleared. The
-    caller commits; the file is unlinked afterwards via
-    :func:`unlink_after_commit` semantics (here: immediately after the
-    row delete is flushed — the worst crash case leaves an orphaned
-    file, never a dangling row).
+    Returns the number of teams whose ``icon_url`` was cleared. The file
+    is unlinked only once the caller's transaction actually commits — a
+    rollback after this call restores the row AND keeps the file, so the
+    two stores never disagree. If the session closes without committing,
+    the listener simply never fires and the worst case is an orphaned
+    file (inert), never a dangling row pointing at nothing.
     """
     url = icon_public_url(icon.filename)
     cleared = db.execute(
@@ -330,7 +340,7 @@ def delete_icon(db: Session, icon: Icon) -> int:
     filename = icon.filename
     db.delete(icon)
     db.flush()
-    _unlink_file(filename)
+    event.listen(db, "after_commit", lambda session: _unlink_file(filename), once=True)
     return int(cleared)
 
 
@@ -382,6 +392,15 @@ def import_icons_from_teams(
         except (GuardedFetchError, IconError) as exc:
             db.rollback()
             results.append({**base, "status": "error", "error": str(exc)})
+            continue
+        except Exception:
+            # Per-team isolation is the contract: a commit that dies on a
+            # transient DB error (lock timeout, disk) must not take the
+            # whole batch down with a 500. Log the real cause; the client
+            # gets a generic marker rather than internals.
+            logger.exception("Icon import failed for team %s (%s)", team.id, team.name)
+            db.rollback()
+            results.append({**base, "status": "error", "error": "internal error"})
             continue
         results.append(
             {**base, "status": "ok", "icon_id": icon.id, "icon_url": url}

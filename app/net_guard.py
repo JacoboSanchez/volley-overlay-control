@@ -132,6 +132,9 @@ def fetch_guarded(
         safe, reason = is_target_safe(current)
         if not safe:
             raise GuardedFetchError(reason)
+        # The try must span the WHOLE exchange: ``stream=True`` defers the
+        # body to ``iter_content``, so a timeout / connection reset mid-body
+        # raises RequestException during iteration, not at ``get()``.
         try:
             response = requests.get(
                 current,
@@ -139,26 +142,26 @@ def fetch_guarded(
                 allow_redirects=False,
                 timeout=(5.0, timeout),
             )
+            with response:
+                if response.is_redirect:
+                    location = response.headers.get("Location")
+                    if not location:
+                        raise GuardedFetchError("redirect without a Location header")
+                    current = urljoin(current, location)
+                    continue
+                if response.status_code != 200:
+                    raise GuardedFetchError(f"HTTP {response.status_code}")
+                declared = response.headers.get("Content-Length")
+                if declared and declared.isdigit() and int(declared) > max_bytes:
+                    raise GuardedFetchError("response larger than the allowed size")
+                chunks: list[bytes] = []
+                received = 0
+                for chunk in response.iter_content(chunk_size=64 * 1024):
+                    received += len(chunk)
+                    if received > max_bytes:
+                        raise GuardedFetchError("response larger than the allowed size")
+                    chunks.append(chunk)
+                return b"".join(chunks)
         except requests.RequestException as exc:
             raise GuardedFetchError(f"download failed: {exc}") from exc
-        with response:
-            if response.is_redirect:
-                location = response.headers.get("Location")
-                if not location:
-                    raise GuardedFetchError("redirect without a Location header")
-                current = urljoin(current, location)
-                continue
-            if response.status_code != 200:
-                raise GuardedFetchError(f"HTTP {response.status_code}")
-            declared = response.headers.get("Content-Length")
-            if declared and declared.isdigit() and int(declared) > max_bytes:
-                raise GuardedFetchError("response larger than the allowed size")
-            chunks: list[bytes] = []
-            received = 0
-            for chunk in response.iter_content(chunk_size=64 * 1024):
-                received += len(chunk)
-                if received > max_bytes:
-                    raise GuardedFetchError("response larger than the allowed size")
-                chunks.append(chunk)
-            return b"".join(chunks)
     raise GuardedFetchError(f"too many redirects (max {max_redirects})")
