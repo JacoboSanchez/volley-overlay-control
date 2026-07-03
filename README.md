@@ -32,6 +32,10 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 |---|---|
 | ![Account overlays page listing the signed-in user's overlays with copyable OBS output URLs](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
+| Hosted icon library (`/teams`) |
+|---|
+| ![Icon library picker open over the teams page — global and personal hosted team logos with quota and inline upload](docs/screenshots/13-icon-library.png) |
+
 | Public spectator page (`/follow/{public_token}`) | Admin — global configuration (`/admin`) |
 |---|---|
 | <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> | ![Admin Administration page: the self-registration toggle and user management table](docs/screenshots/12-admin-page.png) |
