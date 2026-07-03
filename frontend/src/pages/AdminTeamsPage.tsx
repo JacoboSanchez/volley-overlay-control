@@ -12,6 +12,7 @@ import TeamListToolbar from '../components/teams/TeamListToolbar';
 import BulkActionBar from '../components/teams/BulkActionBar';
 import TeamCreatePanel from '../components/teams/TeamCreatePanel';
 import TeamInlineEditor from '../components/teams/TeamInlineEditor';
+import IconLibrarySection from '../components/icons/IconLibrarySection';
 import { SwatchBox } from '../components/teams/TeamSwatch';
 import { useTeamSelection } from '../components/teams/useTeamSelection';
 import {
@@ -138,6 +139,7 @@ function AdminCatalog() {
             addLabel={t('acc.teams.adminAdd')}
             successMessage={(name) => t('acc.teams.adminToastAdded', { name })}
             idPrefix="admin-team"
+            iconPickerScope="global"
           />
         </div>
       )}
@@ -176,6 +178,7 @@ function AdminCatalog() {
                     onSave={(fields) => api.adminUpdateTeam(team.id, fields)}
                     onSaved={() => void load()}
                     danger={{ label: t('acc.common.delete'), onClick: () => void deleteOne(team) }}
+                    iconPickerScope="global"
                   />
                 </TeamRowCard>
               ))}
@@ -197,6 +200,12 @@ function AdminCatalog() {
         exportFn={api.adminExportTeams}
         importFn={api.adminImportTeams}
         onImported={() => void load()}
+      />
+
+      <IconLibrarySection
+        scope="global"
+        teams={catalog}
+        onTeamsChanged={() => void load()}
       />
     </div>
   );

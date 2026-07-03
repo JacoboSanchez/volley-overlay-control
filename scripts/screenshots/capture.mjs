@@ -155,6 +155,100 @@ async function seedDemoUsers() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Icon library seeding (shot 13)
+// ---------------------------------------------------------------------------
+
+// Roundel PNGs in the same visual language as the TW/SH logos above. Drawn
+// with a browser canvas (the harness has no server-side image library) and
+// uploaded through the real multipart endpoints, so the shot exercises the
+// actual resize→WebP pipeline rather than mocked data.
+// More than FILTER_THRESHOLD (8) icons in total, so the shot also shows the
+// picker's search filter and its internal scroll area.
+const ICON_SEEDS = {
+  global: [
+    { name: 'Thunder Wolves', initials: 'TW', bg: '#1e3a8a', fg: '#ffffff' },
+    { name: 'Solar Hawks', initials: 'SH', bg: '#f59e0b', fg: '#1f2937' },
+    { name: 'Ridge Foxes', initials: 'RF', bg: '#166534', fg: '#ffffff' },
+    { name: 'Bay Orcas', initials: 'BO', bg: '#0e7490', fg: '#ffffff' },
+    { name: 'Iron Bears', initials: 'IB', bg: '#44403c', fg: '#fbbf24' },
+    { name: 'Coast Sharks', initials: 'CS', bg: '#075985', fg: '#e0f2fe' },
+    { name: 'Pine Owls', initials: 'PO', bg: '#3f6212', fg: '#ecfccb' },
+  ],
+  personal: [
+    { name: 'City Volley', initials: 'CV', bg: '#7c3aed', fg: '#ffffff' },
+    { name: 'Beach Ants', initials: 'BA', bg: '#b91c1c', fg: '#ffffff' },
+  ],
+};
+
+async function makeLogoPng(page, { initials, bg, fg }) {
+  const dataUrl = await page.evaluate(({ initials, bg, fg }) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.arc(64, 64, 58, 0, Math.PI * 2);
+    ctx.fillStyle = bg;
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = fg;
+    ctx.stroke();
+    ctx.fillStyle = fg;
+    ctx.font = '900 44px "Arial Black", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, 64, 66);
+    return canvas.toDataURL('image/png');
+  }, { initials, bg, fg });
+  return Buffer.from(dataUrl.split(',')[1], 'base64');
+}
+
+async function uploadIcon(path, name, png) {
+  const form = new FormData();
+  form.set('name', name);
+  form.set('file', new Blob([png], { type: 'image/png' }), `${name}.png`);
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: SESSION_COOKIE ? { Cookie: SESSION_COOKIE } : {},
+    body: form,
+  });
+  // 400 → duplicate name on a warm re-run; keep the run idempotent.
+  if (!res.ok && res.status !== 400) {
+    throw new Error(`icon upload ${name}: ${res.status} ${await res.text()}`);
+  }
+}
+
+async function seedIconLibrary(page) {
+  // Needs the launched browser (canvas), so this runs after launch — unlike
+  // the REST-only seeds above.
+  for (const seed of ICON_SEEDS.global) {
+    await uploadIcon('/api/v1/admin/icons', seed.name, await makeLogoPng(page, seed));
+  }
+  for (const seed of ICON_SEEDS.personal) {
+    await uploadIcon('/api/v1/icons/mine', seed.name, await makeLogoPng(page, seed));
+  }
+}
+
+async function seedExternalLogoTeams() {
+  // Custom teams whose logos still point at an external CDN — exactly what
+  // the batch "Import team logos" dialog (shot 14) lists as eligible. The
+  // URLs are never fetched for the shot (the dialog screenshots before any
+  // import runs), so an invented host is fine and nothing leaves the box.
+  const teams = [
+    { name: 'Delta Spikers', icon: 'https://cdn.example.net/logos/delta-spikers.png', color: '#0f766e' },
+    { name: 'Metro Blockers', icon: 'https://cdn.example.net/logos/metro-blockers.png', color: '#9d174d' },
+    { name: 'Valley Setters', icon: 'https://cdn.example.net/logos/valley-setters.png', color: '#a16207' },
+  ];
+  for (const team of teams) {
+    const res = await apiFetch('/api/v1/teams/mine/custom', { method: 'POST', body: team });
+    // 400 → duplicate on a warm re-run; keep the run idempotent.
+    if (!res.ok && res.status !== 400) {
+      throw new Error(`seed team ${team.name} failed: ${res.status} ${await res.text()}`);
+    }
+  }
+}
+
 async function createOverlay(oid) {
   const res = await apiFetch('/api/v1/overlays', { method: 'POST', body: { oid } });
   if (res.status === 201) {
@@ -462,6 +556,48 @@ async function captureAdminPage(page) {
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureIconLibrary(page) {
+  // The hosted icon library, shown where operators meet it: the /teams page
+  // with the create-team form's Library picker open — global icons, the
+  // user's own icons with the quota line, and the inline upload affordance.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/teams`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  await page.click('[data-testid="custom-logo-browse"]');
+  // Wait for the seeded icon chips (and their <img>s) to render.
+  await page.waitForSelector('.acc-icon-chip img', { timeout: 8000 });
+  await page.waitForFunction(() => {
+    const imgs = Array.from(document.querySelectorAll('.acc-icon-chip img'));
+    return imgs.length >= 9 && imgs.every((img) => img.complete && img.naturalWidth > 0);
+  }, null, { timeout: 8000 }).catch(() => {});
+  // The search filter (renders past the icon-count threshold) is part of the
+  // story — make sure it is there before shooting.
+  await page.waitForSelector('[data-testid="icon-picker-filter"]', { timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: resolve(OUT_DIR, '13-icon-library.png'), fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
+async function captureIconBatchImport(page) {
+  // The batch "Import team logos" dialog on /teams: the seeded custom teams
+  // with external CDN logo URLs are listed pre-selected, ready to convert
+  // into hosted library icons. Captured before running the import, so the
+  // shot documents the choice the operator gets.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/teams`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  // The launcher lives in the icon-library section further down the page.
+  const launcher = page.locator('.acc-panel .acc-btn-row button', { hasText: /import/i }).last();
+  await launcher.scrollIntoViewIfNeeded();
+  await launcher.click();
+  await page.waitForSelector('.acc-icon-batch-list input[type="checkbox"]', { timeout: 8000 });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: resolve(OUT_DIR, '14-icon-batch-import.png'), fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureMatchReport(page, matchId) {
   // MATCH_REPORT_PUBLIC=true is set by run.sh, and the browser also carries the
   // owner's session cookie — so the report renders without any ?token=.
@@ -552,6 +688,7 @@ async function main() {
   // 2. Seed a small user roster so the admin global-config page is realistic.
   await seedDemoUsers();
   // 3. Seed demo overlays + match state via the cookie-authenticated API.
+  await seedExternalLogoTeams();
   await seedDemoOverlay();
   await seedFinishedMatchForReport();
   const reportMatchId = await fetchLatestMatchId();
@@ -579,6 +716,9 @@ async function main() {
     try { localStorage.setItem('volley_gestureTourSeen', JSON.stringify(true)); } catch (_) { /* ignore */ }
   });
   const page = await context.newPage();
+  // Icon-library seeding needs a live page (canvas-drawn PNGs), so it runs
+  // here rather than with the REST-only seeds above.
+  await seedIconLibrary(page);
 
   // Each shot is wrapped so one failure (a slow selector, a flaky WS handshake)
   // is logged and the rest still capture. A non-empty `failures` list exits
@@ -611,6 +751,8 @@ async function main() {
     await step('11 point-type-picker', () => capturePointTypePicker(page));
     await step('04 config-panel', () => captureConfigPanel(page));
     await step('05 overlays-page', () => captureOverlaysPage(page));
+    await step('13 icon-library', () => captureIconLibrary(page));
+    await step('14 icon-batch-import', () => captureIconBatchImport(page));
     await step('12 admin-page', () => captureAdminPage(page));
 
     await setSimpleMode(false);

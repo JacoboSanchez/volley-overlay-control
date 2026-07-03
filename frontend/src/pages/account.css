@@ -1410,3 +1410,183 @@
     max-width: none;
   }
 }
+
+/* ---- Hosted icon library (picker dialog + management sections) ---------- */
+
+.acc-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.acc-icon-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #171b22;
+  border: 1px solid #232833;
+  border-radius: 8px;
+  color: #dfe5ee;
+  font-size: 0.85rem;
+  text-align: left;
+  min-width: 0;
+}
+
+button.acc-icon-chip {
+  cursor: pointer;
+}
+
+button.acc-icon-chip:hover {
+  border-color: #79a8ff;
+}
+
+.acc-icon-chip img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: none;
+  background: #0d1015;
+  border-radius: 5px;
+}
+
+.acc-icon-chip span,
+.acc-icon-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acc-icon-chip--manage {
+  flex-wrap: wrap;
+}
+
+.acc-icon-chip-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  flex: none;
+}
+
+.acc-icon-chip-actions .acc-link.danger {
+  color: #ff8a8a;
+}
+
+.acc-icon-rename {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.acc-icon-rename .acc-input {
+  min-width: 0;
+}
+
+.acc-icon-section h4 {
+  margin: 12px 0 4px;
+  font-weight: 600;
+}
+
+.acc-icon-empty {
+  margin: 4px 0;
+}
+
+.acc-icon-picker,
+.acc-icon-batch {
+  max-width: 560px;
+}
+
+.acc-icon-batch-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.acc-icon-batch-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.acc-icon-batch-name {
+  font-weight: 600;
+  flex: none;
+}
+
+.acc-icon-batch-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.acc-icon-batch-results li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.acc-error-text {
+  color: #ff8a8a;
+  font-size: 0.82rem;
+}
+
+.acc-panel {
+  background: #14171d;
+  border: 1px solid #232833;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.acc-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.acc-panel-head h3 {
+  margin: 0;
+}
+
+.acc-tfield-logo {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.acc-tfield-logo .acc-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.acc-tfield-logo .acc-btn {
+  flex: none;
+}
+
+/* Picker scroll + filter: the sections scroll inside the dialog (title,
+   filter and button row stay pinned), so a large library never grows the
+   dialog past the viewport. */
+.acc-icon-picker-body {
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Keep chip hover borders from being clipped by the scroll container. */
+  padding: 2px;
+  margin: 0 -2px;
+}
+
+.acc-icon-filter {
+  margin-top: 4px;
+  margin-bottom: 6px;
+}

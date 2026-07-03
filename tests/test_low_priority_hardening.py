@@ -21,12 +21,9 @@ from fastapi.testclient import TestClient
 from app.api import api_router
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
-from app.api.webhooks import (
-    WebhookDispatcher,
-    WebhookTarget,
-    _is_private_ip,
-    _is_target_safe,
-)
+from app.api.webhooks import WebhookDispatcher, WebhookTarget
+from app.net_guard import is_private_ip as _is_private_ip
+from app.net_guard import is_target_safe as _is_target_safe
 
 # ---------------------------------------------------------------------------
 # L-1 — exception logging enrichment

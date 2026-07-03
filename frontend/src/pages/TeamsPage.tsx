@@ -8,6 +8,7 @@ import TeamRowCard from '../components/teams/TeamRowCard';
 import TeamListToolbar from '../components/teams/TeamListToolbar';
 import TeamCreatePanel from '../components/teams/TeamCreatePanel';
 import TeamInlineEditor from '../components/teams/TeamInlineEditor';
+import IconLibrarySection from '../components/icons/IconLibrarySection';
 import { SwatchBox } from '../components/teams/TeamSwatch';
 import { useTeamSelection } from '../components/teams/useTeamSelection';
 import { FILTER_THRESHOLD, filterTeams } from '../components/teams/teamUtils';
@@ -59,6 +60,8 @@ export default function TeamsPage() {
       )}
 
       <CustomTeamsSection customs={customs} loaded={loaded} onChange={load} />
+
+      <IconLibrarySection scope="personal" teams={customs} onTeamsChanged={load} />
     </div>
   );
 }

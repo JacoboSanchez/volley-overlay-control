@@ -13,6 +13,15 @@ vi.mock('../api/client', () => ({
   createMyTeam: vi.fn(),
   updateMyTeam: vi.fn(),
   removeTeamFromMine: vi.fn(),
+  // Icon library (rendered by IconLibrarySection / the fieldset picker).
+  listIcons: vi.fn().mockResolvedValue({
+    globals: [], mine: [], quota: { used: 0, limit: 50 },
+  }),
+  uploadMyIcon: vi.fn(),
+  renameMyIcon: vi.fn(),
+  getMyIconUsage: vi.fn(),
+  deleteMyIcon: vi.fn(),
+  importIconsFromMyTeams: vi.fn(),
 }));
 
 import * as api from '../api/client';

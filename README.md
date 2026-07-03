@@ -32,6 +32,10 @@ It includes 27 overlay style templates served **in-process** directly to OBS bro
 |---|---|
 | ![Account overlays page listing the signed-in user's overlays with copyable OBS output URLs](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
+| Hosted icon library (`/teams`) | Batch logo import |
+|---|---|
+| ![Icon library picker open over the teams page — global and personal hosted team logos with search, quota and inline upload](docs/screenshots/13-icon-library.png) | ![Import team logos dialog listing teams with external logo URLs, pre-selected for conversion into hosted library icons](docs/screenshots/14-icon-batch-import.png) |
+
 | Public spectator page (`/follow/{public_token}`) | Admin — global configuration (`/admin`) |
 |---|---|
 | <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> | ![Admin Administration page: the self-registration toggle and user management table](docs/screenshots/12-admin-page.png) |
@@ -227,7 +231,7 @@ Configure the application using the following environment variables:
 | :--- | :--- | :--- |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
 | `APP_TITLE` | Application title shown in the browser tab, the init screen heading and the PWA manifest. | `Volley Scoreboard` |
-| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. | |
+| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. When overlays are served from a separate origin via a reverse proxy, route `/media` (hosted icon images) to this backend on that origin too. | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
@@ -290,6 +294,32 @@ Teams and presets are stored in the database, not in environment variables:
     the preset payload follows the legacy `APP_THEMES` shape; these formats
     now live only as the admin import/export JSON contract, not as runtime
     environment variables.
+*   **Icon library** — Team logo images can be hosted by the app itself
+    instead of pointing at external URLs. Admins manage global icons on
+    `/admin/teams`; every user has a personal library on `/teams`
+    (`ICONS_MAX_PER_USER`, 50 by default). Uploads are resized to fit
+    `ICONS_MAX_DIM` (512 px) and re-encoded to WebP server-side. The team
+    editors' *Logo* field offers a **Library** picker next to the plain URL
+    input, and both teams pages include an **Import team logos** tool that
+    downloads existing external logo URLs into the library and repoints the
+    teams. API: `/api/v1/icons…` (personal) and `/api/v1/admin/icons…`
+    (global).
+
+#### Data directory and backups
+
+The database holds accounts, teams, presets and icon *metadata* — but the
+`data/` directory is part of the application state too: icon images live in
+`data/media/icons/` (served from the public `/media` mount), and per-overlay
+state, action logs and secrets (`.session_secret`) are files under `data/`.
+
+*   **Default (SQLite)** — the database itself is `data/app.db`, so backing
+    up the `data/` directory (the `overlay_data` volume in the Docker
+    setups) captures everything in one place.
+*   **PostgreSQL** — a `pg_dump` alone does **not** include icon images or
+    the rest of `data/`; back up both the database and the `data/`
+    directory. Restoring only the database leaves teams pointing at missing
+    icon files (the UI falls back to the team initial; re-upload or re-run
+    the logo import to heal).
 
 #### Team import/export JSON (`APP_TEAMS` shape)
 ```json

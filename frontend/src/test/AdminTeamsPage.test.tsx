@@ -22,6 +22,15 @@ vi.mock('../api/client', () => ({
   adminRemoveGroupMember: vi.fn(),
   adminSetGroupActive: vi.fn(),
   adminDeleteGroup: vi.fn(),
+  // Icon library (rendered by IconLibrarySection / the fieldset picker).
+  listIcons: vi.fn().mockResolvedValue({
+    globals: [], mine: [], quota: { used: 0, limit: 50 },
+  }),
+  adminUploadIcon: vi.fn(),
+  adminRenameIcon: vi.fn(),
+  adminGetIconUsage: vi.fn(),
+  adminDeleteIcon: vi.fn(),
+  adminImportIconsFromTeams: vi.fn(),
 }));
 
 import * as api from '../api/client';

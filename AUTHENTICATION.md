@@ -140,6 +140,12 @@ structural in the session key.
 | `GET` | `/matches/{id}` | Y | Owner-only (`404` otherwise). |
 | `DELETE` | `/matches/{id}` | Y | Owner-only delete (§8 / §7.1). |
 | `POST` | `/matches/{id}/sign-url` | Y | Owner mints an HMAC capability URL for the gated match report. Body: `{"ttl_seconds": int}`. Response embeds `?exp=&sig=` — never a credential. Key is `SESSION_SECRET`. |
+| `GET` | `/icons` | Y | Icon library listing (globals + the caller's own + quota). |
+| `POST` | `/icons/mine` | Y | Multipart icon upload into the caller's personal library (server-side resize → WebP; quota-capped). |
+| `PATCH` / `DELETE` | `/icons/mine/{id}` | Y | Rename / delete an own icon (delete also clears referencing teams). `404` for ids outside the caller's scope. |
+| `GET` | `/icons/mine/{id}/usage` | Y | How many teams reference the icon (pre-delete count). |
+| `POST` | `/icons/mine/import-from-teams` | Y | Convert the caller's own teams' external logo URLs into hosted icons (SSRF-guarded download; scope re-checked server-side). |
+| `POST` | `/admin/icons` | A | Upload a global icon; `PATCH`/`DELETE /admin/icons/{id}`, `GET /admin/icons/{id}/usage` and `POST /admin/icons/import-from-teams` mirror the personal shapes for the global scope. |
 | `WS` | `/ws` | Y + OID | Authenticated by the same `vsession` cookie — browsers send cookies on same-origin WS upgrades, so no subprotocol/query-param token is needed. Resolves to `make_skey(user.id, oid)`; closes `4003` when anonymous, `4004` when no session exists. |
 
 ### 2.4 Admin user management — `app/api/routes/admin_users.py`
@@ -204,6 +210,7 @@ there is nothing here for an external overlay server to call.
 | :--- | :--- | :--- | :--- |
 | `GET` | `/fonts/**` | — | Static assets |
 | `GET` | `/static/**` | — | Overlay static assets |
+| `GET` | `/media/**` | — | Hosted icon-library images (`data/media/`). Public by design: overlay pages in OBS carry no cookies, so the logos they embed must load credential-less — same posture as `/static`. Filenames are content-hashed and unguessable-ish, but treat every uploaded icon as public. |
 | `GET` | `/pwa/**` | — | PWA manifest/icons |
 | `GET` | `/assets/**` | — | SPA build output |
 | `GET` | `/sw.js` | — | PWA service worker |

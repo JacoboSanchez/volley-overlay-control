@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.api.schemas import is_acceptable_catalog_icon
 from app.db.models.team import (
     Team,
     TeamGroup,
@@ -137,9 +138,16 @@ def import_app_teams(db: Session, payload: dict, *, replace: bool = False) -> in
     count = 0
     for name, cfg in payload.items():
         cfg = cfg if isinstance(cfg, dict) else {}
+        icon = cfg.get(ICON)
+        # A dangerous icon scheme nulls just that field instead of
+        # failing the whole import — bulk JSON pastes shouldn't die on
+        # one bad entry, and the strict customization gate still stands
+        # between any stored value and an overlay <img>.
+        if icon is not None and not is_acceptable_catalog_icon(icon):
+            icon = None
         upsert_global(
             db, name,
-            icon=cfg.get(ICON), color=cfg.get(COLOR), text_color=cfg.get(TEXT_COLOR),
+            icon=icon, color=cfg.get(COLOR), text_color=cfg.get(TEXT_COLOR),
         )
         count += 1
     return count

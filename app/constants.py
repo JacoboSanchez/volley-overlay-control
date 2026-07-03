@@ -121,3 +121,22 @@ WEBHOOK_DEAD_LETTER_MAX_RECORDS = _env_int(
 # script cannot fill the disk with files. Both override via env.
 PRESETS_MAX_NAME_LEN = _env_int("PRESETS_MAX_NAME_LEN", 80)
 PRESETS_MAX_RECORDS = _env_int("PRESETS_MAX_RECORDS", 500)
+
+# Hosted icon library. Every uploaded/imported image is re-encoded to
+# WebP after being shrunk to fit ``ICONS_MAX_DIM`` on its longest side,
+# so the stored footprint stays bounded no matter what the client
+# sends. ``MAX_UPLOAD_BYTES`` caps the *input* (reject before decode);
+# ``MAX_STORED_BYTES`` caps the re-encoded output (the encoder steps
+# quality down before giving up). ``MAX_PIXELS`` feeds Pillow's
+# decompression-bomb guard. ``MAX_PER_USER`` bounds each user's
+# personal library; global (admin) icons are uncapped.
+ICONS_MAX_DIM = _env_int("ICONS_MAX_DIM", 512)
+ICONS_MAX_UPLOAD_BYTES = _env_int("ICONS_MAX_UPLOAD_BYTES", 5 * 1024 * 1024)
+ICONS_MAX_STORED_BYTES = _env_int("ICONS_MAX_STORED_BYTES", 512 * 1024)
+ICONS_MAX_PER_USER = _env_int("ICONS_MAX_PER_USER", 50)
+ICONS_WEBP_QUALITY = _env_int("ICONS_WEBP_QUALITY", 82)
+ICONS_MAX_PIXELS = _env_int("ICONS_MAX_PIXELS", 24_000_000)
+# Batch import of external team-logo URLs: per-download timeout and a
+# cap on how many teams one request may convert.
+ICONS_IMPORT_TIMEOUT_SECONDS = _env_float("ICONS_IMPORT_TIMEOUT_SECONDS", 10.0)
+ICONS_IMPORT_MAX_BATCH = _env_int("ICONS_IMPORT_MAX_BATCH", 100)

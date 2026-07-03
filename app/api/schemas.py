@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -228,6 +229,14 @@ def is_safe_logo_url(value: object) -> bool:
     Protocol-relative URLs (``//cdn.example.com/logo.png``) are accepted
     because :func:`app.customization.Customization.fix_icon` rewrites
     them to ``https://`` before they are persisted.
+
+    Same-origin absolute paths (``/media/icons/x.webp``, the
+    ``/static/...`` default logo) are accepted too — the hosted icon
+    library stores icons as origin-relative URLs so they work behind
+    any hostname. The second-character guard is load-bearing: ``//host``
+    is protocol-relative (handled above), and ``/\\evil.com`` would be
+    normalized to ``https://evil.com/`` by WHATWG URL parsers, so a
+    backslash in position two is rejected outright.
     """
     if not isinstance(value, str):
         return False
@@ -236,10 +245,50 @@ def is_safe_logo_url(value: object) -> bool:
         return False
     if len(candidate) > MAX_LOGO_VALUE_LENGTH:
         return False
+    if candidate.startswith("/") and not candidate.startswith(("//", "/\\")):
+        return True
     if candidate.startswith("//"):
         candidate = "https:" + candidate
     lowered = candidate.lower()
     return lowered.startswith(ALLOWED_LOGO_PREFIXES)
+
+
+# Explicit-scheme detector for the catalog icon validator: matches
+# ``scheme:`` per RFC 3986 (letter, then letters/digits/+/-/.).
+_EXPLICIT_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:")
+
+
+def is_acceptable_catalog_icon(value: object) -> bool:
+    """Permissive gate for team-catalog ``icon`` writes.
+
+    The catalog historically accepted any string (only a length cap),
+    so plenty of stored values are scheme-less (``foo.png``) and an
+    unrelated PATCH must not start rejecting them — the team editors
+    always resend the full field set. This validator therefore only
+    refuses values that are *positively* dangerous in an ``<img src>``:
+
+    * an explicit scheme outside http/https/data:image (``javascript:``,
+      ``vbscript:``, ``data:text/html`` …),
+    * ``/\\`` and ``\\\\`` prefixes — WHATWG backslash normalization
+      turns both into protocol-relative URLs that leave the origin, and
+      a UNC path in an ``<img>`` can leak NTLM hashes on Windows.
+
+    Everything scheme-less, same-origin, or allowlisted passes. The
+    strict :func:`is_safe_logo_url` still guards the customization PUT
+    (the path every value crosses before reaching an overlay).
+    """
+    if not isinstance(value, str):
+        return False
+    candidate = value.strip()
+    if not candidate:
+        return True
+    if candidate.startswith(("/\\", "\\\\")):
+        return False
+    if candidate.startswith("//"):
+        candidate = "https:" + candidate
+    if _EXPLICIT_SCHEME_RE.match(candidate):
+        return candidate.lower().startswith(ALLOWED_LOGO_PREFIXES)
+    return True
 
 
 # ---------------------------------------------------------------------------

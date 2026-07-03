@@ -382,6 +382,79 @@ def test_logo_url_rejects_overlong():
     assert is_safe_logo_url("https://" + "a" * (MAX_LOGO_VALUE_LENGTH + 1)) is False
 
 
+@pytest.mark.parametrize("url", [
+    "/media/icons/abc123-ff00.webp",
+    "/static/images/default_volleyball.svg",
+])
+def test_logo_url_accepts_same_origin_paths(url):
+    """Hosted icons are stored as origin-relative paths — they must pass."""
+    assert is_safe_logo_url(url) is True
+
+
+@pytest.mark.parametrize("url", [
+    # ``/\`` would leave the origin under WHATWG backslash normalization.
+    "/\\evil.com/x.png",
+])
+def test_logo_url_rejects_backslash_path(url):
+    assert is_safe_logo_url(url) is False
+
+
+def test_update_customization_accepts_hosted_icon_path(api_session):
+    """Picking a team whose catalog icon is a hosted /media URL must work —
+    this is the exact path the board copy travels (6b in the icon plan)."""
+    from app.api.game_service import GameService
+
+    res = GameService.update_customization(
+        api_session, {"Team 1 Logo": "/media/icons/abc123-ff00.webp"},
+    )
+    assert res.success is True
+
+
+def test_update_customization_still_rejects_backslash_path(api_session):
+    from app.api.game_service import GameService
+
+    res = GameService.update_customization(
+        api_session, {"Team 1 Logo": "/\\evil.com/x.png"},
+    )
+    assert res.success is False
+
+
+# ---------------------------------------------------------------------------
+# Catalog icon gate (permissive variant used by the team CRUD/import)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("value", [
+    "https://cdn.example.com/logo.png",
+    "//cdn.example.com/logo.png",
+    "data:image/png;base64,iVBORw0KGgo=",
+    "/media/icons/abc123-ff00.webp",
+    "foo.png",              # legacy scheme-less values keep round-tripping
+    "images/logo.jpg",
+    "",
+])
+def test_catalog_icon_accepts_harmless_values(value):
+    from app.api.schemas import is_acceptable_catalog_icon
+
+    assert is_acceptable_catalog_icon(value) is True
+
+
+@pytest.mark.parametrize("value", [
+    "javascript:alert(1)",
+    "vbscript:msgbox",
+    "data:text/html,<script>alert(1)</script>",
+    "file:///etc/passwd",
+    "/\\evil.com/x.png",
+    "\\\\evil.com\\share\\x.png",
+    None,
+    123,
+])
+def test_catalog_icon_rejects_dangerous_values(value):
+    from app.api.schemas import is_acceptable_catalog_icon
+
+    assert is_acceptable_catalog_icon(value) is False
+
+
 # ---------------------------------------------------------------------------
 # Customization payload caps
 # ---------------------------------------------------------------------------
