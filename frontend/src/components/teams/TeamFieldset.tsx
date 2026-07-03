@@ -1,17 +1,24 @@
+import { useState } from 'react';
 import ColorPicker from '../ColorPicker';
+import IconPickerDialog from '../icons/IconPickerDialog';
 import { useI18n } from '../../i18n';
 import type { TeamDraft } from './useTeamDraft';
 
 /** The shared name / logo / colours field set used by every team create form
  *  and inline editor. Stacks one field per row so it reads cleanly in a phone's
- *  portrait column; the two colour pickers sit side by side. */
+ *  portrait column; the two colour pickers sit side by side. The logo field
+ *  takes a pasted URL or a pick from the hosted icon library. */
 export default function TeamFieldset({
-  draft, idPrefix,
+  draft, idPrefix, iconPickerScope = 'personal',
 }: {
   draft: TeamDraft;
   idPrefix?: string;
+  /** Where the picker's inline upload lands: personal library everywhere,
+   *  the global library on the admin catalog pages. */
+  iconPickerScope?: 'personal' | 'global';
 }) {
   const { t } = useI18n();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const testId = (suffix: string) => (idPrefix ? `${idPrefix}-${suffix}` : undefined);
   return (
     <div className="acc-tfields">
@@ -26,14 +33,30 @@ export default function TeamFieldset({
       </label>
       <label className="acc-field acc-tfield">
         <span>{t('acc.teams.fieldLogoShort')}</span>
-        <input
-          className="acc-input"
-          value={draft.icon}
-          placeholder={t('acc.teams.logoPlaceholder')}
-          onChange={(e) => draft.setIcon(e.target.value)}
-          data-testid={testId('logo')}
-        />
+        <div className="acc-tfield-logo">
+          <input
+            className="acc-input"
+            value={draft.icon}
+            placeholder={t('acc.teams.logoPlaceholder')}
+            onChange={(e) => draft.setIcon(e.target.value)}
+            data-testid={testId('logo')}
+          />
+          <button
+            type="button"
+            className="acc-btn secondary"
+            onClick={() => setPickerOpen(true)}
+            data-testid={testId('logo-browse')}
+          >
+            {t('acc.teams.browseLibrary')}
+          </button>
+        </div>
       </label>
+      <IconPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url) => draft.setIcon(url)}
+        uploadScope={iconPickerScope}
+      />
       <div className="acc-tfields__colors">
         <div className="acc-field acc-tfield acc-tfield-color">
           <span>{t('acc.teams.fieldColour')}</span>

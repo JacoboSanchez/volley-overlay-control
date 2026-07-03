@@ -9,13 +9,14 @@ import { useTeamDraft } from './useTeamDraft';
  *  plus Save and (optionally) a destructive action. Seeded once from `team`, so
  *  in-progress edits survive a background list refresh without resetting. */
 export default function TeamInlineEditor({
-  team, onSave, onSaved, danger,
+  team, onSave, onSaved, danger, iconPickerScope,
 }: {
   team: api.TeamOut;
   onSave: (fields: api.TeamFields) => Promise<unknown>;
   onSaved: () => void;
   /** Optional destructive action rendered next to Save (delete / remove). */
   danger?: { label: string; onClick: () => void };
+  iconPickerScope?: 'personal' | 'global';
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -41,7 +42,7 @@ export default function TeamInlineEditor({
 
   return (
     <>
-      <TeamFieldset draft={draft} />
+      <TeamFieldset draft={draft} iconPickerScope={iconPickerScope} />
       <div className="acc-tcard__editor-actions">
         <button className="acc-btn" disabled={busy || !draft.name.trim()} onClick={save}>
           {saved ? t('acc.common.saved') : t('acc.common.save')}
