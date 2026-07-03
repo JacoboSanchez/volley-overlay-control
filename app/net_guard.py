@@ -18,7 +18,13 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
+
+import requests
+
+
+class GuardedFetchError(ValueError):
+    """A guarded download failed for a caller-reportable reason."""
 
 
 def is_private_ip(ip_str: str) -> bool:
@@ -101,3 +107,58 @@ def is_target_safe(url: str) -> tuple[bool, str]:
         if is_private_ip(addr):
             return False, f"host resolves to private/loopback IP {addr}"
     return True, ""
+
+
+def fetch_guarded(
+    url: str,
+    *,
+    max_bytes: int,
+    timeout: float,
+    max_redirects: int = 3,
+) -> bytes:
+    """Download *url* with SSRF checks re-applied on every redirect hop.
+
+    Redirects are followed manually (``allow_redirects=False``) because a
+    public host may 302 to ``http://169.254.169.254/`` — following blindly
+    would reopen exactly the hole :func:`is_target_safe` closes. The body
+    is streamed with a hard byte cap so a huge (or endless) response
+    cannot exhaust memory or disk.
+
+    Raises :class:`GuardedFetchError` with an operator-readable reason on
+    any refusal or failure.
+    """
+    current = url
+    for _ in range(max_redirects + 1):
+        safe, reason = is_target_safe(current)
+        if not safe:
+            raise GuardedFetchError(reason)
+        try:
+            response = requests.get(
+                current,
+                stream=True,
+                allow_redirects=False,
+                timeout=(5.0, timeout),
+            )
+        except requests.RequestException as exc:
+            raise GuardedFetchError(f"download failed: {exc}") from exc
+        with response:
+            if response.is_redirect:
+                location = response.headers.get("Location")
+                if not location:
+                    raise GuardedFetchError("redirect without a Location header")
+                current = urljoin(current, location)
+                continue
+            if response.status_code != 200:
+                raise GuardedFetchError(f"HTTP {response.status_code}")
+            declared = response.headers.get("Content-Length")
+            if declared and declared.isdigit() and int(declared) > max_bytes:
+                raise GuardedFetchError("response larger than the allowed size")
+            chunks: list[bytes] = []
+            received = 0
+            for chunk in response.iter_content(chunk_size=64 * 1024):
+                received += len(chunk)
+                if received > max_bytes:
+                    raise GuardedFetchError("response larger than the allowed size")
+                chunks.append(chunk)
+            return b"".join(chunks)
+    raise GuardedFetchError(f"too many redirects (max {max_redirects})")

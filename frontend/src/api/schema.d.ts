@@ -43,6 +43,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/icons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Upload Icon */
+        post: operations["admin_upload_icon_api_v1_admin_icons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/icons/import-from-teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Import Icons From Teams */
+        post: operations["admin_import_icons_from_teams_api_v1_admin_icons_import_from_teams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/icons/{icon_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Admin Delete Icon */
+        delete: operations["admin_delete_icon_api_v1_admin_icons__icon_id__delete"];
+        options?: never;
+        head?: never;
+        /** Admin Rename Icon */
+        patch: operations["admin_rename_icon_api_v1_admin_icons__icon_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/icons/{icon_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Icon Usage */
+        get: operations["admin_icon_usage_api_v1_admin_icons__icon_id__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/presets": {
         parameters: {
             query?: never;
@@ -954,6 +1023,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/icons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Icons */
+        get: operations["list_icons_api_v1_icons_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/icons/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload My Icon */
+        post: operations["upload_my_icon_api_v1_icons_mine_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/icons/mine/import-from-teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Icons From My Teams */
+        post: operations["import_icons_from_my_teams_api_v1_icons_mine_import_from_teams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/icons/mine/{icon_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete My Icon */
+        delete: operations["delete_my_icon_api_v1_icons_mine__icon_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename My Icon */
+        patch: operations["rename_my_icon_api_v1_icons_mine__icon_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/icons/mine/{icon_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Icon Usage */
+        get: operations["my_icon_usage_api_v1_icons_mine__icon_id__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/links": {
         parameters: {
             query?: never;
@@ -1192,7 +1347,7 @@ export interface paths {
         head?: never;
         /**
          * Update My Overlay
-         * @description Edit an overlay's label, output URL, and default match rules.
+         * @description Edit an overlay's description and no-login control toggle.
          *
          *     Only the fields present in the request body are changed (``exclude_unset``),
          *     so a partial PATCH never clobbers settings the caller didn't mention.
@@ -1875,6 +2030,20 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** Body_admin_upload_icon_api_v1_admin_icons_post */
+        Body_admin_upload_icon_api_v1_admin_icons_post: {
+            /** File */
+            file: string;
+            /** Name */
+            name: string;
+        };
+        /** Body_upload_my_icon_api_v1_icons_mine_post */
+        Body_upload_my_icon_api_v1_icons_mine_post: {
+            /** File */
+            file: string;
+            /** Name */
+            name: string;
+        };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
             /** Current Password */
@@ -2046,6 +2215,80 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** IconDeleteOut */
+        IconDeleteOut: {
+            /** Ok */
+            ok: boolean;
+            /** Teams Cleared */
+            teams_cleared: number;
+        };
+        /** IconImportOut */
+        IconImportOut: {
+            /** Results */
+            results: components["schemas"]["IconImportResult"][];
+        };
+        /** IconImportRequest */
+        IconImportRequest: {
+            /** Team Ids */
+            team_ids?: number[];
+        };
+        /** IconImportResult */
+        IconImportResult: {
+            /** Error */
+            error?: string | null;
+            /** Icon Id */
+            icon_id?: number | null;
+            /** Icon Url */
+            icon_url?: string | null;
+            /** Status */
+            status: string;
+            /** Team Id */
+            team_id: number;
+            /** Team Name */
+            team_name: string;
+        };
+        /** IconLibraryOut */
+        IconLibraryOut: {
+            /** Globals */
+            globals: components["schemas"]["IconOut"][];
+            /** Mine */
+            mine: components["schemas"]["IconOut"][];
+            quota: components["schemas"]["IconQuotaOut"];
+        };
+        /** IconOut */
+        IconOut: {
+            /** Height */
+            height: number;
+            /** Id */
+            id: number;
+            /** Is Global */
+            is_global: boolean;
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Url */
+            url: string;
+            /** Width */
+            width: number;
+        };
+        /** IconQuotaOut */
+        IconQuotaOut: {
+            /** Limit */
+            limit: number;
+            /** Used */
+            used: number;
+        };
+        /** IconRenameRequest */
+        IconRenameRequest: {
+            /** Name */
+            name: string;
+        };
+        /** IconUsageOut */
+        IconUsageOut: {
+            /** Teams */
+            teams: number;
         };
         /** ImportTeamsRequest */
         ImportTeamsRequest: {
@@ -2511,6 +2754,179 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_upload_icon_api_v1_admin_icons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_admin_upload_icon_api_v1_admin_icons_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_import_icons_from_teams_api_v1_admin_icons_import_from_teams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IconImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_delete_icon_api_v1_admin_icons__icon_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                icon_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconDeleteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_rename_icon_api_v1_admin_icons__icon_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                icon_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IconRenameRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_icon_usage_api_v1_admin_icons__icon_id__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                icon_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconUsageOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -4782,6 +5198,210 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_icons_api_v1_icons_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconLibraryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_my_icon_api_v1_icons_mine_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_my_icon_api_v1_icons_mine_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_icons_from_my_teams_api_v1_icons_mine_import_from_teams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IconImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_icon_api_v1_icons_mine__icon_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                icon_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconDeleteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_my_icon_api_v1_icons_mine__icon_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                icon_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IconRenameRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_icon_usage_api_v1_icons_mine__icon_id__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                icon_id: number;
+            };
+            cookie?: {
+                vsession?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IconUsageOut"];
                 };
             };
             /** @description Validation Error */

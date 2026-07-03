@@ -12,7 +12,7 @@ import datetime
 import html
 import re
 
-from app.api.schemas import ERROR_TYPES
+from app.api.schemas import ERROR_TYPES, is_safe_logo_url
 from app.match_report_i18n import t as _t
 from app.match_report_stats import (
     _is_score_action,
@@ -229,9 +229,10 @@ def _format_relative_ts(ts: float | None, base_ts: float | None) -> str:
 def _logo_url(customization: dict, team: int) -> str | None:
     """Return a sanitised logo URL for *team*, or ``None`` if missing.
 
-    Only ``http(s):`` and ``data:`` schemes are accepted — the URL is
-    interpolated into ``<img src=…>`` and any other scheme would invite
-    XSS via ``javascript:``-style payloads.
+    Delegates to :func:`app.api.schemas.is_safe_logo_url` — the single
+    source of truth for what may reach an ``<img src=…>`` — so hosted
+    same-origin icons (``/media/icons/…``) render in the report while
+    ``javascript:``-style payloads stay out.
     """
     for key in (f"Team {team} Logo", f"team_{team}_logo", f"logo{team}"):
         value = customization.get(key)
@@ -240,8 +241,7 @@ def _logo_url(customization: dict, team: int) -> str | None:
         candidate = value.strip()
         if not candidate:
             continue
-        lowered = candidate.lower()
-        if lowered.startswith(("http://", "https://", "data:image/")):
+        if is_safe_logo_url(candidate):
             return candidate
     return None
 

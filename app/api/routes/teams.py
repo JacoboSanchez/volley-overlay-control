@@ -19,11 +19,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app import teams_service
 from app.api.dependencies import control_token, get_session, resolve_board_skey
+from app.api.schemas import is_acceptable_catalog_icon
 from app.api.session_manager import GameSession
 from app.api.session_persistence import load_session_meta
 from app.auth.dependencies import current_user, require_admin, require_user
@@ -76,11 +77,26 @@ class RemoveTeamsRequest(BaseModel):
     team_ids: list[int] = Field(default_factory=list)
 
 
+def _validate_catalog_icon(value: str | None) -> str | None:
+    """Shared ``icon`` gate for every team write model.
+
+    Permissive on purpose — legacy scheme-less values must keep
+    round-tripping through PATCH — but positively dangerous strings
+    (``javascript:`` and friends) are rejected at the door. See
+    :func:`app.api.schemas.is_acceptable_catalog_icon`.
+    """
+    if value is not None and not is_acceptable_catalog_icon(value):
+        raise ValueError("Icon URL scheme is not allowed.")
+    return value
+
+
 class CustomTeamRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     icon: str | None = Field(default=None, max_length=2048)
     color: str | None = Field(default=None, max_length=32)
     text_color: str | None = Field(default=None, max_length=32)
+
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
 
 
 class CustomTeamUpdateRequest(BaseModel):
@@ -88,6 +104,8 @@ class CustomTeamUpdateRequest(BaseModel):
     icon: str | None = Field(default=None, max_length=2048)
     color: str | None = Field(default=None, max_length=32)
     text_color: str | None = Field(default=None, max_length=32)
+
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
 
 
 class TeamGroupOut(BaseModel):
@@ -103,12 +121,16 @@ class AdminTeamRequest(BaseModel):
     color: str | None = Field(default=None, max_length=32)
     text_color: str | None = Field(default=None, max_length=32)
 
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
+
 
 class AdminTeamUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     icon: str | None = Field(default=None, max_length=2048)
     color: str | None = Field(default=None, max_length=32)
     text_color: str | None = Field(default=None, max_length=32)
+
+    _icon_ok = field_validator("icon")(_validate_catalog_icon)
 
 
 class ImportTeamsRequest(BaseModel):

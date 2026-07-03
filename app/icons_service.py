@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from app.api._persistence_paths import data_dir
 from app.constants import (
+    ICONS_IMPORT_TIMEOUT_SECONDS,
     ICONS_MAX_DIM,
     ICONS_MAX_PER_USER,
     ICONS_MAX_PIXELS,
@@ -46,6 +47,7 @@ from app.constants import (
 )
 from app.db.models.icon import Icon
 from app.db.models.team import Team
+from app.net_guard import GuardedFetchError, fetch_guarded
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +332,61 @@ def delete_icon(db: Session, icon: Icon) -> int:
     db.flush()
     _unlink_file(filename)
     return int(cleared)
+
+
+def import_icons_from_teams(
+    db: Session,
+    teams: list[Team],
+    *,
+    user_id: int | None,
+) -> list[dict]:
+    """Convert each team's external logo URL into a hosted library icon.
+
+    For every team: download the current ``icon_url`` (SSRF-guarded,
+    size-capped), run it through the normal upload pipeline, create an
+    icon named after the team (auto-suffixed on collision), and point
+    the team at the hosted URL. Committed **per team**, so one failure
+    never rolls back earlier conversions.
+
+    Returns one result dict per team, in input order:
+    ``{team_id, team_name, status: ok|skipped|error, icon_id?, icon_url?, error?}``.
+    """
+    results: list[dict] = []
+    for team in teams:
+        base = {"team_id": team.id, "team_name": team.name}
+        source = (team.icon_url or "").strip()
+        if not source:
+            results.append({**base, "status": "skipped", "error": "no icon URL"})
+            continue
+        if source.startswith(ICONS_URL_PREFIX):
+            # Already hosted — makes re-running the import idempotent.
+            results.append({**base, "status": "skipped", "error": "already hosted"})
+            continue
+        if not source.lower().startswith(("http://", "https://")):
+            results.append(
+                {**base, "status": "skipped", "error": "not an external http(s) URL"}
+            )
+            continue
+        try:
+            raw = fetch_guarded(
+                source,
+                max_bytes=ICONS_MAX_UPLOAD_BYTES,
+                timeout=ICONS_IMPORT_TIMEOUT_SECONDS,
+            )
+            icon = create_icon(
+                db, name=team.name, raw=raw, user_id=user_id, dedupe=True,
+            )
+            url = icon_public_url(icon.filename)
+            team.icon_url = url
+            db.commit()
+        except (GuardedFetchError, IconError) as exc:
+            db.rollback()
+            results.append({**base, "status": "error", "error": str(exc)})
+            continue
+        results.append(
+            {**base, "status": "ok", "icon_id": icon.id, "icon_url": url}
+        )
+    return results
 
 
 def filenames_for_user(db: Session, user_id: int) -> list[str]:
