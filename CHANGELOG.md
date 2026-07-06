@@ -399,6 +399,16 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Concurrent duplicate submissions no longer surface as server errors.**
+  Registering a username, creating an overlay, or saving a preset that a
+  simultaneous request just created used to slip past the duplicate
+  pre-check and crash with an unhandled database constraint violation
+  (HTTP 500). These paths now translate the constraint violation into the
+  same "already exists" error a normal duplicate gets (400/409). The
+  first-admin claim is also serialized, so two simultaneous claims with
+  the valid bootstrap token create exactly one administrator — the loser
+  receives the regular 410.
+
 - **The auth pages are translated.** Sign-in, registration, the forced
   password change and the claim-first-admin page now follow the detected
   UI language (all six languages) instead of always rendering in English —

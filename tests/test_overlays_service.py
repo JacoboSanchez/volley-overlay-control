@@ -115,3 +115,21 @@ def test_overlays_deleted_when_user_deleted(db_session):
     service.delete_user(db_session, a)
     db_session.commit()
     assert overlays_service.list_overlays(db_session, a.id) == []
+
+
+def test_create_overlay_race_maps_integrity_error(db_session, monkeypatch):
+    """A concurrent duplicate that slips past the pre-check must surface as
+    OverlayError (→ 400), not IntegrityError (→ 500), and leave the
+    session usable."""
+    from app import overlays_service
+    from tests.conftest import make_user
+
+    user = make_user(db_session, "raceuser")
+    overlays_service.create_overlay(db_session, user.id, "liga")
+    db_session.commit()
+
+    monkeypatch.setattr(overlays_service, "get_overlay", lambda db, uid, oid: None)
+    with pytest.raises(overlays_service.OverlayError, match="already have"):
+        overlays_service.create_overlay(db_session, user.id, "liga")
+    # Session survived the rollback and still works.
+    assert overlays_service.get_by_control_token(db_session, "nope") is None

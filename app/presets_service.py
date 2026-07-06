@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.preset_categories import categories_for_keys, filter_to_known
@@ -60,7 +61,12 @@ def create_user_preset(db: Session, user_id: int, name: str, values: dict) -> Pr
     if _exists(db, user_id, preset.slug) is not None:
         raise PresetError(f"Preset '{name}' already exists.")
     db.add(preset)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        # Keep "already exists" in the message: the route maps it to 409.
+        db.rollback()
+        raise PresetError(f"Preset '{name}' already exists.") from exc
     return preset
 
 
@@ -99,7 +105,11 @@ def create_global_preset(db: Session, name: str, values: dict, *, is_active: boo
     if _exists(db, None, preset.slug) is not None:
         raise PresetError(f"Global preset '{name}' already exists.")
     db.add(preset)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise PresetError(f"Global preset '{name}' already exists.") from exc
     return preset
 
 

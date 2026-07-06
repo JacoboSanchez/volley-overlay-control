@@ -327,3 +327,60 @@ def test_cookie_secure_follows_env_then_scheme(monkeypatch):
     assert sessions.cookie_secure("http") is True
     monkeypatch.setenv("SESSION_COOKIE_SECURE", "false")
     assert sessions.cookie_secure("https") is False
+
+
+def test_concurrent_claims_leave_exactly_one_admin(client, db_session):
+    """Two simultaneous valid-token claims must produce a single admin —
+    the claim lock serializes them and the loser gets 410."""
+    import threading
+
+    from app.auth import bootstrap
+
+    token = bootstrap.get_bootstrap_token()
+    assert token
+    barrier = threading.Barrier(2)
+    results: list[int] = []
+
+    def claim(username: str) -> None:
+        barrier.wait()
+        resp = TestClient(client.app).post(
+            "/api/v1/auth/claim-admin",
+            json={"token": token, "username": username, "password": "adminpass1"},
+        )
+        results.append(resp.status_code)
+
+    threads = [threading.Thread(target=claim, args=(f"root{i}",)) for i in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(results) == [200, 410], results
+    from sqlalchemy import func, select
+
+    from app.db.models.user import ROLE_ADMIN, User
+
+    admins = db_session.execute(
+        select(func.count()).select_from(User).where(User.role == ROLE_ADMIN)
+    ).scalar_one()
+    assert admins == 1
+
+
+def test_registration_race_maps_integrity_error_to_400(client, db_session, monkeypatch):
+    """When two registrations race past the duplicate pre-check, the loser
+    must get the normal duplicate-username 400, not a 500."""
+    from app.auth import service
+
+    # Simulate the race: the pre-check sees no duplicate, but the row
+    # already exists when the INSERT flushes.
+    monkeypatch.setattr(service, "get_by_username", lambda db, u: None)
+    client.post(
+        "/api/v1/auth/register",
+        json={"username": "dupe", "password": "password123"},
+    )
+    resp = TestClient(client.app).post(
+        "/api/v1/auth/register",
+        json={"username": "dupe", "password": "password123"},
+    )
+    assert resp.status_code == 400
+    assert "already" in resp.json()["detail"].lower()
