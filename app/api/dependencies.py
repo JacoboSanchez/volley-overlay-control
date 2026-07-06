@@ -13,10 +13,10 @@ The control board is reachable three ways:
   owner can bookmark permanently. It is *guessable*, so it only works when the
   overlay has opted into ``public_control``; otherwise it is rejected.
 
-``verify_api_key`` is kept as a name (used as ``dependencies=[Depends(...)]`` on
-the domain routers); it now authorizes a valid control token, an opted-in
-username+oid pair, or an onboarded cookie user. ``get_session`` resolves the
-storage key from whichever credential is present.
+``get_session`` resolves the storage key from whichever credential is present
+and is the single authorization gate for board routes — don't add a separate
+route-level credential check on a route that already depends on it, or every
+action pays a second identical token lookup.
 """
 
 import logging
@@ -85,38 +85,6 @@ def resolve_board_skey(
             detail="Missing required query parameter: 'oid' (or alias 'control').",
         )
     return make_skey(user.id, oid)  # type: ignore[union-attr]  # _require_onboarded ensures non-None
-
-
-def require_board_control(
-    token: str | None = Depends(control_token),
-    u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
-    oid: str | None = Query(None, description="Overlay ID"),
-    control: str | None = Query(None, description="Alias of `oid`"),
-    user: User | None = Depends(current_user),
-    db: Session = Depends(get_db),
-) -> None:
-    """Authorize a board-control request: control token, opted-in username+oid,
-    or onboarded cookie user.
-
-    Pure gate (no return value) — used as ``dependencies=[Depends(...)]``.
-    Deliberately a sync ``def``: FastAPI runs it in the threadpool, keeping
-    the blocking SQLAlchemy lookups off the event loop.
-    """
-    if token:
-        if overlays_service.get_by_control_token(db, token) is None:
-            raise HTTPException(status_code=403, detail=_INVALID_LINK)
-        return
-    if u:
-        if overlays_service.get_public_by_username_and_oid(db, u, (oid or control) or "") is None:
-            raise HTTPException(status_code=403, detail=_INVALID_LINK)
-        return
-    _require_onboarded(user)
-
-
-# Route-level "may control this board" dependency. Named for backwards
-# compatibility with the many ``dependencies=[Depends(verify_api_key)]`` call
-# sites; the implementation is now the token / public-bookmark / cookie gate.
-verify_api_key = require_board_control
 
 
 def get_session(

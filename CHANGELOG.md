@@ -168,6 +168,12 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Board actions authorize with a single credential lookup.** Every
+  scoreboard route used to run the same control-token / bookmark / cookie
+  check twice (a route-level gate plus the session resolver). The
+  redundant gate is gone, saving a database round-trip on every point,
+  set, timeout, and customization call.
+
 - **Database and image work no longer runs on the server's event loop.**
   The teams / overlays / matches / presets / icons endpoints and the
   board-auth dependencies now execute their blocking SQLAlchemy queries in

@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import presets_service
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.game_service import GameService
 from app.api.schemas import ActionResponse
 from app.api.session_manager import GameSession
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/customization", dependencies=[Depends(verify_api_key)])
+@router.get("/customization")
 async def get_customization(session: GameSession = Depends(get_session)):
     return await run_in_threadpool(GameService.refresh_customization, session)
 
@@ -43,7 +43,6 @@ async def get_customization(session: GameSession = Depends(get_session)):
 @router.put(
     "/customization",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def update_customization(data: dict,
                                session: GameSession = Depends(get_session)):

@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
 from app.api import match_archive
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_user
 from app.db.engine import get_db
@@ -175,7 +175,7 @@ def regenerate_control_token(
 # predefined catalog.
 
 
-@router.get("/links", dependencies=[Depends(verify_api_key)])
+@router.get("/links")
 async def get_links(request: Request,
                     session: GameSession = Depends(get_session)):
     """Return overlay, preview, and spectator links for the session."""
@@ -251,13 +251,13 @@ def _latest_match_id_for(oid: str):
     return summaries[0]["match_id"] if summaries else None
 
 
-@router.get("/styles", dependencies=[Depends(verify_api_key)])
+@router.get("/styles")
 async def get_styles(session: GameSession = Depends(get_session)):
     """Return available overlay styles."""
     return await run_in_threadpool(session.backend.get_available_styles)
 
 
-@router.get("/style-capabilities", dependencies=[Depends(verify_api_key)])
+@router.get("/style-capabilities")
 async def get_style_capabilities(session: GameSession = Depends(get_session)):
     """Per-style UI capability flags (theme / vertical-anchor support).
 

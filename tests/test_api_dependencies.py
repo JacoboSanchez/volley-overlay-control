@@ -82,5 +82,29 @@ def test_board_dependencies_are_sync_defs():
 
     from app.api import dependencies
 
-    assert not inspect.iscoroutinefunction(dependencies.require_board_control)
     assert not inspect.iscoroutinefunction(dependencies.get_session)
+    assert not inspect.iscoroutinefunction(dependencies.current_user)
+
+
+def test_control_token_resolved_exactly_once_per_action(app_client, db_session, monkeypatch):
+    """Regression: board routes used to stack a route-level credential gate
+    on top of ``get_session``, resolving the same control token twice per
+    action. The gate is gone — one lookup per request."""
+    from app import overlays_service
+
+    alice = login_client(app_client, db_session, "alice")
+    assert alice.post("/api/v1/overlays", json={"oid": "liga"}).status_code == 201
+    assert _init(alice, "liga").status_code == 200
+    token = alice.get("/api/v1/overlays").json()[0]["control_token"]
+
+    calls = {"n": 0}
+    real = overlays_service.get_by_control_token
+
+    def counting(db, tok):
+        calls["n"] += 1
+        return real(db, tok)
+
+    monkeypatch.setattr(overlays_service, "get_by_control_token", counting)
+    resp = app_client.post(f"/api/v1/game/add-point?c={token}", json={"team": 1})
+    assert resp.status_code == 200
+    assert calls["n"] == 1, f"control token resolved {calls['n']} times for one action"

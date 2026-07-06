@@ -33,7 +33,7 @@ to gate any external overlay server.
 | Layer | Credential | How it's enforced | Where |
 | :--- | :--- | :--- | :--- |
 | User session dependencies (`current_user` → `require_user` → `require_admin`) | HttpOnly `vsession` cookie → `auth_sessions` row | Per-route `Depends(require_user)` / `Depends(require_admin)`. `401` when anonymous, `409 PASSWORD_CHANGE_REQUIRED` when a forced password change is pending, `403` when an admin-only route is hit by a non-admin. | `app/auth/dependencies.py` |
-| `verify_api_key` alias | (same cookie session) | Kept as a name on the many `dependencies=[Depends(verify_api_key)]` call sites; it is now simply an alias for `require_user`. | `app/api/dependencies.py` |
+| `get_session` board gate | control token / public bookmark / cookie session | Single per-route dependency: resolves the caller's credential to a storage key (403 on a bad token/bookmark, 401/409 via the cookie path) and returns the `GameSession`. There is no separate route-level credential gate — that would repeat the same lookup on every action. | `app/api/dependencies.py` |
 
 User passwords are stored hashed as scrypt records in the `users` table
 (see §8). The session cookie value is itself stored hashed — only the
@@ -109,9 +109,9 @@ Prefix `/api/v1/auth`.
 
 ### 2.3 Scoreboard REST API — `api_router` (`app/api/routes/*`)
 
-Prefix `/api/v1`. Every route below has `Depends(verify_api_key)`, which
-is now an alias for `require_user`; the ones that take an `oid` resolve
-their `GameSession` via `get_session`, which builds the key
+Prefix `/api/v1`. Every board route below authorizes through its
+`Depends(get_session)` parameter, which resolves the control token,
+public bookmark, or cookie user to the storage key
 `make_skey(user.id, oid)` — so passing another user's `oid` simply
 resolves to a different key with no session (404), never another user's
 data. There is no second-level `check_oid_access`: isolation is
