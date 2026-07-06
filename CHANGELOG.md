@@ -168,6 +168,14 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Bulk team operations run as single batches.** Adding many teams to a
+  user's list or to a group (including the full-catalog seeding at account
+  creation) used to issue two to three database queries per team; each
+  batch now validates, dedupes, and inserts with a constant number of
+  queries, so copying a large catalog is no longer quadratic in practice.
+  A batch containing an unknown (or out-of-scope) team id now fails as a
+  whole before adding anything, instead of stopping partway through.
+
 - **The OBS overlay WebSocket hub now tolerates wedged clients and caps
   fan-out.** Broadcasts to browser sources apply the same per-socket send
   timeout as the control hub (`WS_BROADCAST_SEND_TIMEOUT_SECONDS`), so one

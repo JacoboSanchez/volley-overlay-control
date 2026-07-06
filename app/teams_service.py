@@ -316,11 +316,38 @@ def add_team_to_user(db: Session, user_id: int, team_id: int) -> bool:
 
 
 def add_teams_to_user(db: Session, user_id: int, team_ids: list[int]) -> int:
-    added = 0
-    for tid in team_ids:
-        if add_team_to_user(db, user_id, tid):
-            added += 1
-    return added
+    """Add several catalog teams to the user's list in one batch (idempotent).
+
+    Three queries total (validate ids, find existing links, current max
+    sort order) instead of three per team.
+    """
+    ids = list(dict.fromkeys(team_ids))
+    if not ids:
+        return 0
+    found = set(
+        db.execute(select(Team.id).where(Team.id.in_(ids))).scalars().all()
+    )
+    missing = [tid for tid in ids if tid not in found]
+    if missing:
+        raise TeamError("Team not found.")
+    linked = set(
+        db.execute(
+            select(UserTeamListItem.team_id).where(
+                UserTeamListItem.user_id == user_id,
+                UserTeamListItem.team_id.in_(ids),
+            )
+        ).scalars().all()
+    )
+    to_add = [tid for tid in ids if tid not in linked]
+    if not to_add:
+        return 0
+    sort_order = _next_sort_order(db, user_id)
+    for offset, tid in enumerate(to_add):
+        db.add(UserTeamListItem(
+            user_id=user_id, team_id=tid, sort_order=sort_order + offset,
+        ))
+    db.flush()
+    return len(to_add)
 
 
 def remove_team_from_user(db: Session, user_id: int, team_id: int) -> bool:
@@ -625,11 +652,43 @@ def add_user_group_team(db: Session, user_id: int, group_id: int, team_id: int) 
 def add_user_group_teams(
     db: Session, user_id: int, group_id: int, team_ids: list[int],
 ) -> int:
-    """Add several teams to a group (idempotent). Returns the count added.
-    Validates the group once; per-team validation still applies."""
+    """Add several teams to a group in one batch (idempotent). Returns the
+    count added. Group and teams are each validated with a single query."""
     if get_visible_group(db, user_id, group_id) is None:
         raise TeamError("Group not found.")
-    return sum(1 for tid in team_ids if add_user_group_team(db, user_id, group_id, tid))
+    ids = list(dict.fromkeys(team_ids))
+    if not ids:
+        return 0
+    visible = set(
+        db.execute(
+            select(Team.id).where(
+                Team.id.in_(ids),
+                or_(Team.is_global.is_(True), Team.owner_user_id == user_id),
+            )
+        ).scalars().all()
+    )
+    if any(tid not in visible for tid in ids):
+        raise TeamError("Team not found.")
+    member = set(
+        db.execute(
+            select(UserGroupTeam.team_id).where(
+                UserGroupTeam.user_id == user_id,
+                UserGroupTeam.group_id == group_id,
+                UserGroupTeam.team_id.in_(ids),
+            )
+        ).scalars().all()
+    )
+    to_add = [tid for tid in ids if tid not in member]
+    if not to_add:
+        return 0
+    sort_order = _next_group_sort_order(db, user_id, group_id)
+    for offset, tid in enumerate(to_add):
+        db.add(UserGroupTeam(
+            user_id=user_id, group_id=group_id, team_id=tid,
+            sort_order=sort_order + offset,
+        ))
+    db.flush()
+    return len(to_add)
 
 
 def remove_user_group_team(db: Session, user_id: int, group_id: int, team_id: int) -> bool:
