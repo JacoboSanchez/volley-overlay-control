@@ -138,6 +138,15 @@ PRESETS_MAX_RECORDS = _env_int("PRESETS_MAX_RECORDS", 500)
 # personal library; global (admin) icons are uncapped.
 ICONS_MAX_DIM = _env_int("ICONS_MAX_DIM", 512)
 ICONS_MAX_UPLOAD_BYTES = _env_int("ICONS_MAX_UPLOAD_BYTES", 5 * 1024 * 1024)
+
+# Global ASGI-level request-body cap (see middleware/body_limit.py). A
+# backstop against chunked-encoding uploads that bypass Content-Length
+# checks — deliberately roomier than the largest legitimate body (icon
+# uploads plus multipart framing). Override with ``REQUEST_MAX_BODY_BYTES``.
+REQUEST_MAX_BODY_BYTES = _env_int(
+    "REQUEST_MAX_BODY_BYTES",
+    max(ICONS_MAX_UPLOAD_BYTES, 8 * 1024 * 1024) + 64 * 1024,
+)
 ICONS_MAX_STORED_BYTES = _env_int("ICONS_MAX_STORED_BYTES", 512 * 1024)
 ICONS_MAX_PER_USER = _env_int("ICONS_MAX_PER_USER", 50)
 ICONS_WEBP_QUALITY = _env_int("ICONS_WEBP_QUALITY", 82)

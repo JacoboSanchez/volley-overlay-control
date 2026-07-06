@@ -370,6 +370,14 @@ once a first tagged release ships.
 
 ### Security
 
+- **Request bodies are capped at the ASGI layer.** The icon-upload size
+  check keyed off the `Content-Length` header, which a chunked-transfer
+  request simply omits — and the framework spooled the whole body to disk
+  before any handler check ran. A new middleware fast-fails oversized
+  declared lengths and stops reading once `REQUEST_MAX_BODY_BYTES`
+  (default: icon upload cap + framing, ≥ 8 MiB) is crossed, answering 413.
+  Per-route checks remain as the earlier, friendlier guard.
+
 - **Public registration now auto-closes once the first admin is claimed.**
   Previously a fresh install accepted anonymous sign-ups at `/register`
   indefinitely until an admin explicitly turned them off. Now, when

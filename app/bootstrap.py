@@ -27,6 +27,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api import api_router
 from app.api._persistence_paths import data_dir
 from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
+from app.api.middleware.body_limit import BodySizeLimitMiddleware
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
 from app.api.middleware.metrics import MetricsMiddleware
@@ -570,6 +571,9 @@ def create_app() -> FastAPI:
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(GZipMiddleware, minimum_size=1024)
     application.add_middleware(SecurityHeadersMiddleware)
+    # Body cap sits just inside the rate limiter: cheap rejects happen
+    # before any parsing (multipart spooling) can spend disk or memory.
+    application.add_middleware(BodySizeLimitMiddleware)
     application.add_middleware(AuthRateLimitMiddleware)
     # CORS and TrustedHost are opt-in; the helpers no-op when the env
     # vars are unset so existing deployments are unaffected.
