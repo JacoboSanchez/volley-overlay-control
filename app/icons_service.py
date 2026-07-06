@@ -118,6 +118,12 @@ def process_icon_upload(raw: bytes) -> ProcessedIcon:
                     f"Unsupported image format {fmt or 'unknown'!r} — "
                     "upload PNG, JPEG, WebP or GIF."
                 )
+            # Explicit pixel budget from the header, BEFORE any decode:
+            # Pillow's own bomb guard only hard-fails at 2× MAX_IMAGE_PIXELS
+            # (below that it merely warns), which would let a ~5 MB upload
+            # materialize a ~48M-pixel RGBA (~190 MB) during convert().
+            if img.width * img.height > ICONS_MAX_PIXELS:
+                raise IconError("Image has too many pixels.")
             # Animated inputs are flattened to their first frame (v1).
             img.seek(0)
             # Bake EXIF rotation in, then normalize palette/CMYK/L modes;
@@ -267,9 +273,10 @@ def create_icon(
     with the per-user quota enforced. ``dedupe=True`` auto-suffixes a
     taken name (batch import); otherwise a duplicate raises.
 
-    The file is written before the row; the caller's surrounding
-    commit failing triggers a best-effort unlink via the exception
-    path here.
+    The file is written before the row; a failing flush unlinks it here.
+    The exception path does NOT see the caller's later ``commit()`` —
+    callers that commit must unlink ``icon.filename`` themselves when
+    that commit fails (see the upload route and the batch import).
     """
     name = (name or "").strip()
     if not name:
@@ -382,6 +389,7 @@ def import_icons_from_teams(
                 {**base, "status": "skipped", "error": "not an external http(s) URL"}
             )
             continue
+        created_filename: str | None = None
         try:
             raw = fetch_guarded(
                 source,
@@ -391,11 +399,14 @@ def import_icons_from_teams(
             icon = create_icon(
                 db, name=team.name, raw=raw, user_id=user_id, dedupe=True,
             )
+            created_filename = icon.filename
             url = icon_public_url(icon.filename)
             team.icon_url = url
             db.commit()
         except (GuardedFetchError, IconError) as exc:
             db.rollback()
+            if created_filename:
+                _unlink_file(created_filename)
             results.append({**base, "status": "error", "error": str(exc)})
             continue
         except Exception:
@@ -405,6 +416,10 @@ def import_icons_from_teams(
             # gets a generic marker rather than internals.
             logger.exception("Icon import failed for team %s (%s)", team.id, team.name)
             db.rollback()
+            # The rollback discarded the row, so the already-written file
+            # would be orphaned under /media — remove it too.
+            if created_filename:
+                _unlink_file(created_filename)
             results.append({**base, "status": "error", "error": "internal error"})
             continue
         results.append(

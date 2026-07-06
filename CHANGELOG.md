@@ -421,6 +421,15 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Icon uploads reject over-budget images before decoding, and failed
+  saves no longer leave orphaned files.** The pixel budget
+  (`ICONS_MAX_PIXELS`) is now checked from the image header before any
+  pixel data is decoded — previously an image between 1× and 2× the
+  budget slipped past Pillow's bomb guard and was fully materialized in
+  memory. And when the database write for an upload or batch-imported
+  icon fails after the WebP file was written, the file is now removed
+  instead of accumulating invisibly under `/media/icons`.
+
 - **Database timestamps are timezone-aware on SQLite.** Timestamp columns
   now normalize to UTC-aware datetimes in both directions (SQLite returns
   naive values for `timezone=True` columns), removing the per-call-site

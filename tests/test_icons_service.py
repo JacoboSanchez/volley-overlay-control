@@ -283,3 +283,89 @@ def test_filenames_for_user_and_unlink(db_session, user, tmp_path):
     assert names == [a.filename]
     icons_service.unlink_files(names)
     assert not os.path.exists(os.path.join(icons_service.icons_dir(), a.filename))
+
+
+def test_pixel_budget_enforced_before_decode(monkeypatch, db_session):
+    """An image between 1× and 2× ICONS_MAX_PIXELS decodes fine under
+    Pillow's bomb guard (which only hard-fails at 2×) but must be
+    rejected by the explicit pre-decode check."""
+    import io
+
+    from PIL import Image
+
+    from app import icons_service
+
+    img = Image.new("RGB", (300, 300))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    raw = buf.getvalue()
+
+    monkeypatch.setattr(icons_service, "ICONS_MAX_PIXELS", 300 * 300 - 1)
+    with pytest.raises(icons_service.IconError, match="too many pixels"):
+        icons_service.process_icon_upload(raw)
+
+    monkeypatch.setattr(icons_service, "ICONS_MAX_PIXELS", 300 * 300)
+    assert icons_service.process_icon_upload(raw).width == 300
+
+
+def test_upload_commit_failure_leaves_no_orphan_file(monkeypatch, db_session, tmp_path):
+    """If the route's commit fails after create_icon wrote the file, the
+    file must be unlinked — not orphaned under /media."""
+    import io
+    import os
+
+    from PIL import Image
+
+    from app import icons_service
+    from app.api.routes.icons import _create_icon_sync
+
+    monkeypatch.setattr(icons_service, "icons_dir", lambda: str(tmp_path))
+    img = Image.new("RGB", (10, 10))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+
+    real_commit = db_session.commit
+    calls = {"n": 0}
+
+    def failing_commit():
+        calls["n"] += 1
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    with pytest.raises(RuntimeError, match="disk full"):
+        _create_icon_sync(db_session, name="Boom", raw=buf.getvalue(), user_id=None)
+    monkeypatch.setattr(db_session, "commit", real_commit)
+
+    assert calls["n"] == 1
+    assert os.listdir(tmp_path) == [], "orphaned icon file left behind"
+
+
+def test_batch_import_commit_failure_cleans_created_file(monkeypatch, db_session, tmp_path):
+    import io
+    import os
+
+    from PIL import Image
+
+    from app import icons_service
+    from app.db.models.team import Team
+
+    monkeypatch.setattr(icons_service, "icons_dir", lambda: str(tmp_path))
+    img = Image.new("RGB", (10, 10))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    monkeypatch.setattr(
+        icons_service, "fetch_guarded",
+        lambda url, max_bytes, timeout: buf.getvalue(),
+    )
+
+    team = Team(name="Wolves", is_global=True, icon_url="https://x/y.png")
+    db_session.add(team)
+    db_session.commit()
+
+    monkeypatch.setattr(
+        db_session, "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("commit died")),
+    )
+    results = icons_service.import_icons_from_teams(db_session, [team], user_id=None)
+    assert results[0]["status"] == "error"
+    assert os.listdir(tmp_path) == [], "orphaned icon file left behind"

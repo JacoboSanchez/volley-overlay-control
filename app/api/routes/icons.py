@@ -139,7 +139,13 @@ def _create_icon_sync(
         icon = icons_service.create_icon(db, name=name, raw=raw, user_id=user_id)
     except icons_service.IconError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    db.commit()
+    try:
+        db.commit()
+    except BaseException:
+        # The row is gone with the failed commit; remove the already-written
+        # file too or it stays orphaned under /media forever.
+        icons_service.unlink_files([icon.filename])
+        raise
     return IconOut.of(icon)
 
 
