@@ -129,16 +129,19 @@ def process_icon_upload(raw: bytes) -> ProcessedIcon:
             img.seek(0)
             # Bake EXIF rotation in, then normalize palette/CMYK/L modes;
             # RGBA keeps transparency and WebP encodes it natively.
-            img = ImageOps.exif_transpose(img)
-            img = img.convert("RGBA")
+            # (New name: exif_transpose/convert return plain Image objects,
+            # not the ImageFile that ``open`` produced — mypy distinguishes.)
+            normalized = ImageOps.exif_transpose(img).convert("RGBA")
             # thumbnail() preserves aspect ratio and never upscales.
-            img.thumbnail((ICONS_MAX_DIM, ICONS_MAX_DIM), Image.Resampling.LANCZOS)
+            normalized.thumbnail(
+                (ICONS_MAX_DIM, ICONS_MAX_DIM), Image.Resampling.LANCZOS,
+            )
             for quality in (ICONS_WEBP_QUALITY, *_QUALITY_LADDER_FLOOR):
                 buf = io.BytesIO()
-                img.save(buf, format="WEBP", quality=quality, method=6)
+                normalized.save(buf, format="WEBP", quality=quality, method=6)
                 content = buf.getvalue()
                 if len(content) <= ICONS_MAX_STORED_BYTES:
-                    return ProcessedIcon(content, img.width, img.height)
+                    return ProcessedIcon(content, normalized.width, normalized.height)
             raise IconError("Image does not compress under the stored-size limit.")
     except Image.DecompressionBombError as exc:
         raise IconError("Image has too many pixels.") from exc
@@ -378,9 +381,12 @@ def delete_icon(db: Session, icon: Icon) -> tuple[int, str]:
     (inert), never a dangling row pointing at nothing.
     """
     url = icon_public_url(icon.filename)
-    cleared = db.execute(
+    result = db.execute(
         update(Team).where(Team.icon_url == url).values(icon_url=None)
-    ).rowcount or 0
+    )
+    # execute() is typed as the base Result, which has no rowcount; DML
+    # statements actually return a CursorResult that does.
+    cleared = getattr(result, "rowcount", 0) or 0
     filename = icon.filename
     db.delete(icon)
     db.flush()

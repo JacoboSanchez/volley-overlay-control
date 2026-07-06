@@ -254,4 +254,6 @@ def delete_for_oid(oid: str) -> int:
                 MatchReport.user_id == user_id, MatchReport.oid == raw_oid,
             )
         )
-        return int(result.rowcount or 0)
+        # Result is typed without rowcount; DML returns a CursorResult that
+        # has it.
+        return int(getattr(result, "rowcount", 0) or 0)

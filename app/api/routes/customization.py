@@ -71,8 +71,9 @@ class PresetSummary(BaseModel):
 
     @classmethod
     def of(cls, p: Preset) -> "PresetSummary":
+        source: Literal["user", "global"] = "global" if p.scope == "global" else "user"
         return cls(
-            slug=p.slug, name=p.name, source=p.scope, is_active=p.is_active,
+            slug=p.slug, name=p.name, source=source, is_active=p.is_active,
             categories=list(p.categories or []), values=dict(p.values or {}),
         )
 
