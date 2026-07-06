@@ -7,20 +7,28 @@ is refused before any HTTP request fires, blocking classic SSRF
 (``http://localhost/admin``, ``http://169.254.169.254`` cloud metadata,
 ``http://10.0.0.5/``).
 
-DNS failures deliberately pass through: a temporarily unreachable real
-domain must not be mistaken for a malicious one — the actual HTTP call
-surfaces the network error a moment later. The check-then-connect gap
-(DNS rebinding) is an accepted risk, matching the webhook delivery
-posture; callers mitigate redirects by re-validating every hop
-(``allow_redirects=False`` + manual loop) instead of following blindly.
+Two callers, two postures:
+
+* ``is_target_safe`` (webhooks — operator-controlled URLs): validate,
+  then let ``requests`` resolve again. DNS failures pass through so a
+  flaky resolver doesn't break deliveries; the residual check-then-
+  connect gap (DNS rebinding) is accepted for operator-supplied targets.
+* ``fetch_guarded`` (icon imports — **user**-controlled URLs): resolve
+  once, validate every address, and **pin the connection to a validated
+  IP** (Host header / TLS SNI+verification keep the original hostname).
+  A rebinding host that answers the guard with a public IP cannot swap
+  in ``169.254.169.254`` for the actual fetch, because the fetch never
+  re-resolves. Redirects re-run the same plan per hop
+  (``allow_redirects=False`` + manual loop) instead of following blindly.
 """
 from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
+from requests.adapters import HTTPAdapter
 
 
 class GuardedFetchError(ValueError):
@@ -109,6 +117,93 @@ def is_target_safe(url: str) -> tuple[bool, str]:
     return True, ""
 
 
+class _PinnedTLSAdapter(HTTPAdapter):
+    """TLS to a pinned IP while presenting/validating the original hostname.
+
+    The request URL carries the validated IP (so the TCP connection can
+    never follow a re-resolved DNS answer); ``server_hostname`` restores
+    the original name for SNI and ``assert_hostname`` keeps certificate
+    verification against it (urllib3 v2 pool kwargs).
+    """
+
+    def __init__(self, hostname: str):
+        self._hostname = hostname
+        super().__init__()
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["server_hostname"] = self._hostname
+        pool_kwargs["assert_hostname"] = self._hostname
+        return super().init_poolmanager(
+            connections, maxsize, block=block, **pool_kwargs
+        )
+
+
+def _select_pinned_ip(addresses: list[str]) -> str:
+    """Deterministically pick the connect address (IPv4 preferred)."""
+    ordered = sorted(addresses)
+    for addr in ordered:
+        if ":" not in addr:
+            return addr
+    return ordered[0]
+
+
+def _plan_hop(current: str) -> tuple[str, dict[str, str], str | None]:
+    """Validate one hop and return ``(request_url, headers, tls_hostname)``.
+
+    A hostname URL is rewritten to a validated, pinned IP with a ``Host``
+    header carrying the original name; ``tls_hostname`` is that name for
+    the HTTPS adapter (``None`` for literal-IP URLs, which need no pin).
+    Raises :class:`GuardedFetchError` on any refusal.
+    """
+    parsed = urlparse(current)
+    if parsed.scheme not in ("http", "https"):
+        raise GuardedFetchError(
+            f"scheme {parsed.scheme!r} not allowed (use http/https)"
+        )
+    host = parsed.hostname
+    if not host:
+        raise GuardedFetchError("URL has no hostname")
+    try:
+        literal_ip = ipaddress.ip_address(host)
+    except ValueError:
+        literal_ip = None
+    if literal_ip is not None:
+        if is_private_ip(str(literal_ip)):
+            raise GuardedFetchError(f"host literal {host} is private/loopback")
+        return current, {}, None
+
+    # ``get_environ_proxies`` returns every ``*_proxy`` env var (including
+    # ``no_proxy``), so ask ``select_proxy`` whether one actually applies
+    # to THIS url/scheme.
+    environ_proxies = requests.utils.get_environ_proxies(current)
+    if environ_proxies and requests.utils.select_proxy(current, environ_proxies):
+        # An egress proxy performs the DNS resolution itself, so an IP-pinned
+        # URL would only break the proxy's hostname ACLs without adding
+        # protection (we cannot pin what the proxy resolves). Validate our
+        # view of the name and send the original URL through the proxy.
+        safe, reason = is_target_safe(current)
+        if not safe:
+            raise GuardedFetchError(reason)
+        return current, {}, None
+
+    addresses = resolve_target_addresses(host)
+    if addresses is None:
+        # Unlike the webhook posture, a user-supplied import URL that we
+        # cannot resolve is refused outright: pass-through would hand the
+        # (unpinnable) resolution to requests and reopen the rebinding gap.
+        raise GuardedFetchError(f"could not resolve host {host!r}")
+    for addr in addresses:
+        if is_private_ip(addr):
+            raise GuardedFetchError(f"host resolves to private/loopback IP {addr}")
+    ip = _select_pinned_ip(addresses)
+    ip_netloc = f"[{ip}]" if ":" in ip else ip
+    if parsed.port is not None:
+        ip_netloc = f"{ip_netloc}:{parsed.port}"
+    pinned_url = urlunparse(parsed._replace(netloc=ip_netloc))
+    host_header = host if parsed.port is None else f"{host}:{parsed.port}"
+    return pinned_url, {"Host": host_header}, host
+
+
 def fetch_guarded(
     url: str,
     *,
@@ -118,29 +213,36 @@ def fetch_guarded(
 ) -> bytes:
     """Download *url* with SSRF checks re-applied on every redirect hop.
 
-    Redirects are followed manually (``allow_redirects=False``) because a
-    public host may 302 to ``http://169.254.169.254/`` — following blindly
-    would reopen exactly the hole :func:`is_target_safe` closes. The body
-    is streamed with a hard byte cap so a huge (or endless) response
-    cannot exhaust memory or disk.
+    Hostname targets are resolved once, validated, and fetched over a
+    connection pinned to the validated IP (closing the DNS-rebinding
+    check-then-connect gap); redirects are followed manually
+    (``allow_redirects=False``) because a public host may 302 to
+    ``http://169.254.169.254/``. The body is streamed with a hard byte
+    cap so a huge (or endless) response cannot exhaust memory or disk.
 
     Raises :class:`GuardedFetchError` with an operator-readable reason on
     any refusal or failure.
     """
     current = url
     for _ in range(max_redirects + 1):
-        safe, reason = is_target_safe(current)
-        if not safe:
-            raise GuardedFetchError(reason)
+        request_url, headers, tls_hostname = _plan_hop(current)
         # The try must span the WHOLE exchange: ``stream=True`` defers the
         # body to ``iter_content``, so a timeout / connection reset mid-body
         # raises RequestException during iteration, not at ``get()``.
+        session: requests.Session | None = None
         try:
-            response = requests.get(
-                current,
+            if tls_hostname is not None and request_url.startswith("https"):
+                session = requests.Session()
+                session.mount("https://", _PinnedTLSAdapter(tls_hostname))
+                getter = session.get
+            else:
+                getter = requests.get
+            response = getter(
+                request_url,
                 stream=True,
                 allow_redirects=False,
                 timeout=(5.0, timeout),
+                headers=headers or None,
             )
             with response:
                 if response.is_redirect:
@@ -164,4 +266,7 @@ def fetch_guarded(
                 return b"".join(chunks)
         except requests.RequestException as exc:
             raise GuardedFetchError(f"download failed: {exc}") from exc
+        finally:
+            if session is not None:
+                session.close()
     raise GuardedFetchError(f"too many redirects (max {max_redirects})")

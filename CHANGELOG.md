@@ -370,6 +370,21 @@ once a first tagged release ships.
 
 ### Security
 
+- **The icon batch-import download pins the connection to the validated
+  IP (DNS-rebinding fix).** `fetch_guarded` used to resolve a
+  user-supplied logo URL to check it against the private-address
+  blocklist and then let the HTTP client resolve the name again for the
+  actual request — a host with a short-TTL record could answer the check
+  with a public IP and the fetch with `169.254.169.254` or `127.0.0.1`.
+  Hostname targets are now resolved once, every address validated, and
+  the request sent to that exact IP with the original hostname preserved
+  in the `Host` header and in TLS SNI/certificate verification. Every
+  redirect hop is re-planned the same way, and a name that fails to
+  resolve is refused instead of passed through. Deployments behind an
+  egress proxy keep working: when a proxy applies to the URL, the
+  original hostname is sent to the proxy (which does its own resolving)
+  after the same validation.
+
 - **Request bodies are capped at the ASGI layer.** The icon-upload size
   check keyed off the `Content-Length` header, which a chunked-transfer
   request simply omits — and the framework spooled the whole body to disk

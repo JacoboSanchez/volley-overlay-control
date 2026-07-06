@@ -128,3 +128,156 @@ def test_fetch_wraps_request_exceptions():
         side_effect=net_guard.requests.ConnectionError("boom"),
     ), pytest.raises(GuardedFetchError, match="download failed"):
         fetch_guarded("http://93.184.216.34/x.png", max_bytes=1024, timeout=1)
+
+
+# ---- DNS-rebinding pin ------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _no_environ_proxies(monkeypatch):
+    """Neutralize HTTP(S)_PROXY from the test environment: with an egress
+    proxy configured, fetch_guarded deliberately skips IP pinning (the
+    proxy resolves DNS itself), which is not the path under test here."""
+    for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
+                "ALL_PROXY", "all_proxy"):
+        monkeypatch.delenv(var, raising=False)
+
+
+def test_environ_proxy_bypasses_pinning_but_still_validates(monkeypatch):
+    """With an egress proxy, the original URL goes to the proxy (it does
+    the resolution) — but the guard still refuses private targets."""
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.local:3128")
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses", lambda host: ["93.184.216.34"],
+    )
+    with patch.object(
+        net_guard.requests, "get", return_value=FakeResponse(chunks=(b"ok",)),
+    ) as get:
+        fetch_guarded("http://cdn.example.com/logo.png", max_bytes=64, timeout=1)
+    assert get.call_args.args[0] == "http://cdn.example.com/logo.png"
+
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses", lambda host: ["127.0.0.1"],
+    )
+    with pytest.raises(GuardedFetchError, match="private/loopback"):
+        fetch_guarded("http://evil.example.com/x.png", max_bytes=64, timeout=1)
+
+
+def test_hostname_fetch_pins_the_validated_ip(monkeypatch):
+    """The request must target the IP the guard validated (URL rewrite +
+    Host header), never re-resolve the hostname."""
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses", lambda host: ["93.184.216.34"],
+    )
+    with patch.object(
+        net_guard.requests, "get", return_value=FakeResponse(chunks=(b"ok",)),
+    ) as get:
+        body = fetch_guarded("http://cdn.example.com/logo.png", max_bytes=64, timeout=1)
+    assert body == b"ok"
+    assert get.call_args.args[0] == "http://93.184.216.34/logo.png"
+    assert get.call_args.kwargs["headers"]["Host"] == "cdn.example.com"
+
+
+def test_hostname_fetch_preserves_explicit_port(monkeypatch):
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses", lambda host: ["93.184.216.34"],
+    )
+    with patch.object(
+        net_guard.requests, "get", return_value=FakeResponse(chunks=(b"ok",)),
+    ) as get:
+        fetch_guarded("http://cdn.example.com:8080/a.png", max_bytes=64, timeout=1)
+    assert get.call_args.args[0] == "http://93.184.216.34:8080/a.png"
+    assert get.call_args.kwargs["headers"]["Host"] == "cdn.example.com:8080"
+
+
+def test_hostname_resolving_to_private_ip_is_refused(monkeypatch):
+    """The rebinding payoff address never gets a connection."""
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses",
+        lambda host: ["93.184.216.34", "169.254.169.254"],
+    )
+    with patch.object(net_guard.requests, "get") as get, pytest.raises(
+        GuardedFetchError, match="private/loopback IP",
+    ):
+        fetch_guarded("http://rebind.attacker.io/x.png", max_bytes=64, timeout=1)
+    get.assert_not_called()
+
+
+def test_unresolvable_host_is_refused_not_passed_through(monkeypatch):
+    """fetch_guarded (user URLs) must NOT hand an unpinnable resolution to
+    requests — unlike the webhook is_target_safe posture."""
+    monkeypatch.setattr(net_guard, "resolve_target_addresses", lambda host: None)
+    with patch.object(net_guard.requests, "get") as get, pytest.raises(
+        GuardedFetchError, match="could not resolve",
+    ):
+        fetch_guarded("http://gone.example.com/x.png", max_bytes=64, timeout=1)
+    get.assert_not_called()
+
+
+def test_https_hostname_uses_pinned_tls_adapter(monkeypatch):
+    """HTTPS goes through a Session with the pinned-TLS adapter so SNI and
+    certificate verification still use the original hostname."""
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses", lambda host: ["93.184.216.34"],
+    )
+    captured = {}
+
+    class FakeSession:
+        def mount(self, prefix, adapter):
+            captured["prefix"] = prefix
+            captured["adapter"] = adapter
+
+        def get(self, url, **kwargs):
+            captured["url"] = url
+            captured["headers"] = kwargs.get("headers")
+            return FakeResponse(chunks=(b"ok",))
+
+        def close(self):
+            captured["closed"] = True
+
+    monkeypatch.setattr(net_guard.requests, "Session", FakeSession)
+    body = fetch_guarded("https://cdn.example.com/logo.png", max_bytes=64, timeout=1)
+    assert body == b"ok"
+    assert captured["url"] == "https://93.184.216.34/logo.png"
+    assert captured["headers"]["Host"] == "cdn.example.com"
+    assert isinstance(captured["adapter"], net_guard._PinnedTLSAdapter)
+    assert captured["adapter"]._hostname == "cdn.example.com"
+    assert captured["closed"] is True
+
+
+def test_pinned_tls_adapter_sets_urllib3_pool_kwargs():
+    """The adapter must feed server_hostname/assert_hostname into the pool
+    (urllib3 v2 kwargs) — that is what keeps SNI + cert verification on
+    the original name while TCP goes to the pinned IP."""
+    adapter = net_guard._PinnedTLSAdapter("cdn.example.com")
+    pool_kwargs = adapter.poolmanager.connection_pool_kw
+    assert pool_kwargs["server_hostname"] == "cdn.example.com"
+    assert pool_kwargs["assert_hostname"] == "cdn.example.com"
+
+
+def test_redirect_hops_are_each_pinned(monkeypatch):
+    """Every hop re-resolves and re-pins; a hop to a hostname resolving
+    private is refused."""
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses",
+        lambda host: {"a.example.com": ["93.184.216.34"],
+                      "evil.example.com": ["127.0.0.1"]}[host],
+    )
+    hops = [
+        FakeResponse(redirect=True, headers={"Location": "http://evil.example.com/l"}),
+    ]
+    with patch.object(net_guard.requests, "get", side_effect=hops), pytest.raises(
+        GuardedFetchError, match="private/loopback IP",
+    ):
+        fetch_guarded("http://a.example.com/x.png", max_bytes=64, timeout=1)
+
+
+def test_ipv6_pin_is_bracketed(monkeypatch):
+    monkeypatch.setattr(
+        net_guard, "resolve_target_addresses", lambda host: ["2606:2800:220:1::1"],
+    )
+    with patch.object(
+        net_guard.requests, "get", return_value=FakeResponse(chunks=(b"ok",)),
+    ) as get:
+        fetch_guarded("http://v6.example.com/x.png", max_bytes=64, timeout=1)
+    assert get.call_args.args[0] == "http://[2606:2800:220:1::1]/x.png"
