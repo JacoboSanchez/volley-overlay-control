@@ -14,7 +14,7 @@ services:
       # ---- Accounts & database (multi-user) ----
       - DATABASE_URL=${DATABASE_URL:-} #Optional: SQLAlchemy URL; default SQLite under the data volume. Postgres: postgresql+psycopg://user:pass@db:5432/volley
       - SESSION_SECRET=${SESSION_SECRET:-} #Optional: cookie/report-signing key; auto-generated + persisted to data/.session_secret if unset
-      - REGISTRATION_OPEN=${REGISTRATION_OPEN:-true} #Optional: initial public-registration seed (an admin can toggle it later; DB wins)
+      - REGISTRATION_OPEN=${REGISTRATION_OPEN:-} #Optional: pin public registration open/closed. Unset: open until the first admin is claimed, then auto-closed (an admin can toggle it later; DB wins)
       - ADMIN_BOOTSTRAP_TOKEN=${ADMIN_BOOTSTRAP_TOKEN:-} #Optional: first-admin claim token; auto-generated + printed to the startup log if unset
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-} #Optional: force the Secure cookie flag (default: auto by scheme)
       - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-} #Optional: login session lifetime in hours (default 336 = 14 days)

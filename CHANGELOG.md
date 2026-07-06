@@ -356,6 +356,17 @@ once a first tagged release ships.
 
 ### Security
 
+- **Public registration now auto-closes once the first admin is claimed.**
+  Previously a fresh install accepted anonymous sign-ups at `/register`
+  indefinitely until an admin explicitly turned them off. Now, when
+  `REGISTRATION_OPEN` is not configured, registration stays open only
+  during the bootstrap window and is closed automatically the moment the
+  first administrator account is created (the admin can reopen it from
+  the Users page at any time). Setting `REGISTRATION_OPEN=true`/`false`
+  pins the behaviour explicitly and is never overridden; an empty value
+  (docker-compose's passthrough for "unset") counts as unset. The
+  default docker-compose seed changed from `true` to unset accordingly.
+
 - **Branch code-review hardening pass.** Fixed a cluster of authorization /
   hardening gaps found reviewing the multi-user branch:
   - **Webhook SSRF via redirect.** Outbound webhook POSTs now use

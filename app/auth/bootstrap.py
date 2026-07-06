@@ -19,7 +19,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from app import security_bootstrap
+from app import security_bootstrap, settings_service
 from app.auth import service
 from app.db.engine import session_scope
 from app.settings_service import set_admin_bootstrap_claimed
@@ -113,6 +113,15 @@ def claim_first_admin(
         must_change_password=False,
     )
     set_admin_bootstrap_claimed(db, True)
+    # Secure-by-default: once the instance has its admin, close public
+    # sign-ups unless the operator pinned REGISTRATION_OPEN (env var or a
+    # prior DB write). The admin can reopen it from the Users page.
+    if not settings_service.registration_explicitly_configured(db):
+        settings_service.set_registration_open(db, False)
+        logger.info(
+            "First admin claimed — public registration auto-closed. "
+            "Reopen it from the admin Users page or set REGISTRATION_OPEN=true.",
+        )
     clear_bootstrap_token()
     return user
 

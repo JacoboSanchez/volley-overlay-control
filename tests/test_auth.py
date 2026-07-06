@@ -93,6 +93,66 @@ def test_register_login_logout_cycle(client):
     assert client.get("/api/v1/auth/me").json()["username"] == "alice"
 
 
+def test_claim_admin_auto_closes_registration(client, db_session):
+    """With no explicit REGISTRATION_OPEN config, claiming the first admin
+    closes public sign-ups (secure-by-default)."""
+    from app import settings_service
+
+    assert settings_service.registration_open(db_session) is True
+    _claim_admin(client, db_session)
+
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is False
+    ctx = client.get("/api/v1/auth/context").json()
+    assert ctx["registration_open"] is False
+
+    anon = TestClient(client.app)
+    resp = anon.post(
+        "/api/v1/auth/register",
+        json={"username": "walkin", "password": "password123"},
+    )
+    assert resp.status_code == 403
+
+
+def test_claim_admin_respects_env_pinned_registration(client, db_session, monkeypatch):
+    """An explicit REGISTRATION_OPEN=true is an operator choice — the
+    first-admin claim must not override it."""
+    from app import settings_service
+
+    monkeypatch.setenv("REGISTRATION_OPEN", "true")
+    _claim_admin(client, db_session)
+
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is True
+
+
+def test_claim_admin_respects_db_pinned_registration(client, db_session):
+    """A pre-existing DB row (e.g. an operator opened registration via the
+    admin API before re-claiming on a restored instance) is preserved."""
+    from app import settings_service
+
+    settings_service.set_registration_open(db_session, True)
+    db_session.commit()
+    _claim_admin(client, db_session)
+
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is True
+
+
+def test_empty_env_seed_counts_as_unset(client, db_session, monkeypatch):
+    """docker-compose passes REGISTRATION_OPEN= (empty) when the operator
+    left it unconfigured — that must behave exactly like unset."""
+    from app import settings_service
+
+    monkeypatch.setenv("REGISTRATION_OPEN", "")
+    assert settings_service.registration_open(db_session) is True
+    assert settings_service.registration_explicitly_configured(db_session) is False
+
+    _claim_admin(client, db_session)
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is False
+
+
 def test_registration_can_be_closed(client, db_session):
     from app.settings_service import set_registration_open
 

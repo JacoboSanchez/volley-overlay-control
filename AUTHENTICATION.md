@@ -313,9 +313,12 @@ Deployment-visible changes operators should be aware of:
    persists it to `data/.session_secret` (mode `0o600`). Pin it
    explicitly (`SESSION_SECRET=…`) across multiple replicas, or each
    replica will reject the others' sessions and signed URLs.
-3. **Registration is closed unless opened.** `REGISTRATION_OPEN` only
-   seeds the initial value; after first boot the DB flag wins and admins
-   toggle it via `PUT /api/v1/admin/registration`. While closed,
+3. **Registration auto-closes once the instance has its admin.** With
+   `REGISTRATION_OPEN` unset, public sign-ups are allowed only during the
+   bootstrap window; claiming the first admin writes the DB flag to
+   closed. Setting the env var pins the seed instead, and after first
+   write the DB flag wins — admins toggle it via
+   `PUT /api/v1/admin/registration`. While closed,
    `POST /api/v1/auth/register` returns `403` and admins create accounts
    directly (§2.4).
 
