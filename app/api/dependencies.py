@@ -87,7 +87,7 @@ def resolve_board_skey(
     return make_skey(user.id, oid)  # type: ignore[union-attr]  # _require_onboarded ensures non-None
 
 
-async def require_board_control(
+def require_board_control(
     token: str | None = Depends(control_token),
     u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
     oid: str | None = Query(None, description="Overlay ID"),
@@ -99,6 +99,8 @@ async def require_board_control(
     or onboarded cookie user.
 
     Pure gate (no return value) — used as ``dependencies=[Depends(...)]``.
+    Deliberately a sync ``def``: FastAPI runs it in the threadpool, keeping
+    the blocking SQLAlchemy lookups off the event loop.
     """
     if token:
         if overlays_service.get_by_control_token(db, token) is None:
@@ -117,7 +119,7 @@ async def require_board_control(
 verify_api_key = require_board_control
 
 
-async def get_session(
+def get_session(
     oid: str | None = Query(None, description="Overlay ID"),
     control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
     token: str | None = Depends(control_token),
@@ -131,6 +133,7 @@ async def get_session(
     ``username``+``oid`` bookmark, or the cookie user + ``oid`` (owner), so a
     caller only ever reaches the board their credential authorizes. Returns 404
     when no session exists (call ``POST /api/v1/session/init`` first).
+    Sync ``def`` on purpose — the DB lookup runs in the threadpool.
     """
     skey = resolve_board_skey(
         db, token=token, public_user=u, user=user, oid=(oid or control),

@@ -70,7 +70,7 @@ def _overlay_out(request: Request, overlay, *, username: str | None = None) -> O
 
 
 @router.get("/overlays", response_model=list[OverlayOut])
-async def list_my_overlays(
+def list_my_overlays(
     request: Request,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -83,7 +83,7 @@ async def list_my_overlays(
 
 
 @router.post("/overlays", response_model=OverlayOut, status_code=201)
-async def create_my_overlay(
+def create_my_overlay(
     body: CreateOverlayRequest,
     request: Request,
     user: User = Depends(require_user),
@@ -102,7 +102,7 @@ async def create_my_overlay(
 
 
 @router.patch("/overlays/{oid}", response_model=OverlayOut)
-async def update_my_overlay(
+def update_my_overlay(
     oid: str,
     body: UpdateOverlayRequest,
     request: Request,
@@ -125,12 +125,16 @@ async def update_my_overlay(
 
 
 @router.delete("/overlays/{oid}")
-async def delete_my_overlay(
+def delete_my_overlay(
     oid: str,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Delete one of the caller's overlays and its in-process session/state."""
+    """Delete one of the caller's overlays and its in-process session/state.
+
+    Sync handler — the whole body (DB delete, state-store and archive file
+    removal) is blocking work and runs in the threadpool.
+    """
     from app.api.session_manager import SessionManager
     from app.overlay import overlay_state_store
     from app.overlay_key import make_skey
@@ -140,15 +144,15 @@ async def delete_my_overlay(
     db.commit()
     skey = make_skey(user.id, oid)
     SessionManager.remove(skey)
-    await run_in_threadpool(overlay_state_store.delete_overlay, skey)
+    overlay_state_store.delete_overlay(skey)
     # Reports key on the user (FK), not the overlay, so remove this overlay's
     # archived matches explicitly.
-    await run_in_threadpool(match_archive.delete_for_oid, skey)
+    match_archive.delete_for_oid(skey)
     return {"ok": True}
 
 
 @router.post("/overlays/{oid}/regenerate-control-token", response_model=OverlayOut)
-async def regenerate_control_token(
+def regenerate_control_token(
     oid: str,
     request: Request,
     user: User = Depends(require_user),

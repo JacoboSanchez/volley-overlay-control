@@ -32,7 +32,7 @@ def _owns(skey: object, user: User) -> bool:
 
 
 @router.get("/matches", summary="List the caller's archived matches")
-async def list_matches(
+def list_matches(
     oid: str | None = Query(None, description="Filter to a single overlay id"),
     user: User = Depends(require_user),
 ):
@@ -50,7 +50,7 @@ async def list_matches(
 
 
 @router.get("/matches/{match_id}", summary="Full archived match snapshot")
-async def get_match(match_id: str, user: User = Depends(require_user)):
+def get_match(match_id: str, user: User = Depends(require_user)):
     payload = match_archive.load_match(match_id)
     if payload is None or not _owns(payload.get("oid"), user):
         raise HTTPException(status_code=404, detail="Match not found.")
@@ -58,7 +58,7 @@ async def get_match(match_id: str, user: User = Depends(require_user)):
 
 
 @router.delete("/matches/{match_id}", status_code=204, summary="Delete one of the caller's matches")
-async def delete_match(match_id: str, user: User = Depends(require_user)):
+def delete_match(match_id: str, user: User = Depends(require_user)):
     payload = match_archive.load_match(match_id)
     if payload is None or not _owns(payload.get("oid"), user):
         raise HTTPException(status_code=404, detail="Match not found.")
@@ -66,7 +66,7 @@ async def delete_match(match_id: str, user: User = Depends(require_user)):
 
 
 @router.post("/matches/{match_id}/sign-url", summary="Mint a shareable signed report URL")
-async def sign_match_url(
+def sign_match_url(
     match_id: str,
     request: Request,
     ttl_seconds: int | None = Query(None, description="URL lifetime in seconds."),

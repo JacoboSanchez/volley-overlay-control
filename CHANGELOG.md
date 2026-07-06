@@ -168,6 +168,15 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Database and image work no longer runs on the server's event loop.**
+  The teams / overlays / matches / presets / icons endpoints and the
+  board-auth dependencies now execute their blocking SQLAlchemy queries in
+  the worker threadpool, and icon uploads and the batch logo import do
+  their downloads and image re-encoding there too. Before this, a slow
+  database (e.g. Postgres over the network) or a single large logo import
+  could stall every other request and WebSocket update; now the server
+  stays responsive while that work runs.
+
 - **Saving board customization keeps you in the Config panel.** Save no
   longer bounces the operator back to the scoreboard: the panel stays
   open, a transient "Saved" status confirms the write, and leaving stays

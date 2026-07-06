@@ -72,3 +72,15 @@ def test_matches_list_does_not_leak_other_users_with_malformed_oid(app_client, d
     assert bob.get("/api/v1/matches").json()["count"] == 0
     # alice still sees her own match.
     assert alice.get("/api/v1/matches?oid=liga").json()["count"] == 1
+
+
+def test_board_dependencies_are_sync_defs():
+    """Regression: these deps do blocking SQLAlchemy work, so they must be
+    plain ``def`` (FastAPI offloads sync dependencies to the threadpool).
+    An ``async def`` here would run the DB round-trips on the event loop."""
+    import inspect
+
+    from app.api import dependencies
+
+    assert not inspect.iscoroutinefunction(dependencies.require_board_control)
+    assert not inspect.iscoroutinefunction(dependencies.get_session)
