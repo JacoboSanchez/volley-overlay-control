@@ -436,6 +436,20 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **The batch logo-import dialog no longer wipes its results right after
+  a successful import.** Finishing an import refreshes the teams list,
+  which re-rendered the dialog and reset it back to the checklist (with
+  everything re-checked, inviting a duplicate run) before the per-team
+  outcome could be read. The outcome list now stays visible until the
+  dialog is closed.
+
+- **A transient network error no longer logs you out of the UI.** The
+  auth-context refresh treated any fetch failure as "not signed in" and
+  redirected to the login page even when the session cookie was still
+  valid. An established session is now kept through network blips; only
+  the initial load falls back to the logged-out state (with registration
+  shown as closed, matching the backend default).
+
 - **Icon uploads reject over-budget images before decoding, and failed
   saves no longer leave orphaned files.** The pixel budget
   (`ICONS_MAX_PIXELS`) is now checked from the image header before any

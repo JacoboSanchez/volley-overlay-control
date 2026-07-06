@@ -33,12 +33,20 @@ export default function IconBatchImportDialog({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      // Reset on close so the next open starts from a fresh checklist.
+      setResults(null);
+      setError('');
+      return;
+    }
+    // While the outcome list is showing, leave it alone: a successful run
+    // calls onDone() → the parent refetches teams → a new `eligible` array
+    // reference arrives, and re-running the preselect here would wipe the
+    // just-rendered results (and re-check everything for a duplicate run).
+    if (results !== null) return;
     // Preselect everything eligible — the common case is "convert them all".
     setSelected(new Set(eligible.map((team) => team.id)));
-    setResults(null);
-    setError('');
-  }, [open, eligible]);
+  }, [open, eligible, results]);
 
   function toggle(id: number) {
     setSelected((prev) => {

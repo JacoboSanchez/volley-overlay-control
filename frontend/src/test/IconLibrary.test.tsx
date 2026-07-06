@@ -180,6 +180,62 @@ describe('IconBatchImportDialog', () => {
     expect(onDone).toHaveBeenCalled();
   });
 
+  it('keeps the results visible when the parent refetch delivers a new teams array', async () => {
+    // Regression: after a successful run, onDone() makes the parent reload
+    // teams; the new array reference used to re-trigger the reset effect and
+    // wipe the just-rendered outcome list back to the (re-checked) checklist.
+    const importFn = vi.fn().mockResolvedValue({
+      results: [
+        { team_id: 1, team_name: 'Ext', status: 'ok', icon_url: '/media/icons/x.webp' },
+      ],
+    });
+    const view = renderWithI18n(
+      <IconBatchImportDialog
+        open
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText('Import 1 selected'));
+    await waitFor(() => expect(screen.getByText('Imported')).toBeInTheDocument());
+
+    // Parent refetch: same data, brand-new array reference.
+    view.rerender(
+      <IconBatchImportDialog
+        open
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Imported')).toBeInTheDocument();
+
+    // Close + reopen starts from a fresh checklist again.
+    view.rerender(
+      <IconBatchImportDialog
+        open={false}
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    view.rerender(
+      <IconBatchImportDialog
+        open
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('Imported')).not.toBeInTheDocument();
+    expect(screen.getByText('Import 1 selected')).toBeInTheDocument();
+  });
+
   it('shows the empty state when nothing is eligible', () => {
     renderWithI18n(
       <IconBatchImportDialog

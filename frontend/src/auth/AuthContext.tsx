@@ -28,14 +28,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCtx(next);
       return next;
     } catch {
+      // /auth/context answers 200 with an `authenticated` flag even when
+      // logged out, so landing here means a network blip / 5xx — not an
+      // authoritative "not logged in". Keep an already-established context
+      // instead of bouncing a validly-cookied user to /login; only fall
+      // back to logged-out (registration closed, matching the backend
+      // default) when we never had one.
       const fallback: api.AuthContext = {
         authenticated: false,
         user: null,
-        registration_open: true,
+        registration_open: false,
         needs_admin_bootstrap: false,
       };
-      setCtx(fallback);
-      return fallback;
+      let effective = fallback;
+      setCtx((prev) => {
+        effective = prev ?? fallback;
+        return effective;
+      });
+      return effective;
     } finally {
       setLoading(false);
     }
