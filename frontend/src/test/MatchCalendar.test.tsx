@@ -13,7 +13,9 @@ describe('MatchCalendar', () => {
   });
 
   it('opens to the most recent match month and marks match days as clickable', () => {
-    renderWithI18n(<MatchCalendar matchTimes={[MAR_15, MAR_20]} selected={null} onSelect={vi.fn()} />);
+    renderWithI18n(
+      <MatchCalendar matchTimes={[MAR_15, MAR_20]} selected={null} onSelect={vi.fn()} />,
+    );
     fireEvent.click(screen.getByRole('button', { name: /filter by day/i }));
     // Day 15 has a match → enabled; day 10 has none → disabled.
     expect(screen.getByRole('button', { name: '15' })).toBeEnabled();
@@ -23,7 +25,9 @@ describe('MatchCalendar', () => {
 
   it('emits the picked day and closes the popover', () => {
     const onSelect = vi.fn();
-    renderWithI18n(<MatchCalendar matchTimes={[MAR_15, MAR_20]} selected={null} onSelect={onSelect} />);
+    renderWithI18n(
+      <MatchCalendar matchTimes={[MAR_15, MAR_20]} selected={null} onSelect={onSelect} />,
+    );
     fireEvent.click(screen.getByRole('button', { name: /filter by day/i }));
     fireEvent.click(screen.getByRole('button', { name: '20' }));
     expect(onSelect).toHaveBeenCalledWith('2026-03-20');

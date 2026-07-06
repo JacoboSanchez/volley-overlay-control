@@ -105,14 +105,8 @@ export default function IconBatchImportDialog({
               </ul>
             )}
             <div className="acc-btn-row" style={{ marginTop: 12 }}>
-              <button
-                className="acc-btn"
-                onClick={run}
-                disabled={busy || selected.size === 0}
-              >
-                {busy
-                  ? t('acc.icons.batchRunning')
-                  : t('acc.icons.batchRun', { n: selected.size })}
+              <button className="acc-btn" onClick={run} disabled={busy || selected.size === 0}>
+                {busy ? t('acc.icons.batchRunning') : t('acc.icons.batchRun', { n: selected.size })}
               </button>
               <button className="acc-btn secondary" onClick={onClose} disabled={busy}>
                 {t('acc.common.cancel')}

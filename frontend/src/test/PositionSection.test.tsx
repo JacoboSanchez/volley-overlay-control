@@ -42,9 +42,7 @@ describe('PositionSection', () => {
   });
 
   it('relabels the H/V steppers as a nudge while a zone is active', () => {
-    renderWithI18n(
-      <PositionSection model={{ Anchor: 'bottom-left' }} updateField={vi.fn()} />,
-    );
+    renderWithI18n(<PositionSection model={{ Anchor: 'bottom-left' }} updateField={vi.fn()} />);
 
     // The active zone cell is pressed; the absolute "Free" mode is not.
     expect(screen.getByTestId('anchor-bottom-left')).toHaveAttribute('aria-pressed', 'true');
@@ -76,9 +74,7 @@ describe('PositionSection', () => {
 
   it('restores absolute coordinate defaults when leaving zone mode', () => {
     const updateField = vi.fn();
-    renderWithI18n(
-      <PositionSection model={{ Anchor: 'top-right' }} updateField={updateField} />,
-    );
+    renderWithI18n(<PositionSection model={{ Anchor: 'top-right' }} updateField={updateField} />);
 
     fireEvent.click(screen.getByTestId('anchor-free'));
 

@@ -79,16 +79,18 @@ export default function LoginPage() {
           </div>
           {/* While the first admin is unclaimed, registering an ordinary
               account is a first-run trap — steer to /claim-admin only. */}
-          {ctx && !ctx.needs_admin_bootstrap && (ctx.registration_open ? (
-            <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
-              {t('acc.auth.login.noAccountPrefix')}
-              <Link to="/register">{t('acc.auth.login.noAccountLink')}</Link>
-            </p>
-          ) : (
-            <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
-              {t('acc.auth.login.signupClosed')}
-            </p>
-          ))}
+          {ctx &&
+            !ctx.needs_admin_bootstrap &&
+            (ctx.registration_open ? (
+              <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
+                {t('acc.auth.login.noAccountPrefix')}
+                <Link to="/register">{t('acc.auth.login.noAccountLink')}</Link>
+              </p>
+            ) : (
+              <p className="acc-sub" style={{ marginTop: 18, marginBottom: 0 }}>
+                {t('acc.auth.login.signupClosed')}
+              </p>
+            ))}
         </form>
       </div>
     </div>

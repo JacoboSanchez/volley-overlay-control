@@ -72,9 +72,10 @@ export default function IconPickerDialog({
     setError('');
     setBusy(true);
     try {
-      const uploaded = uploadScope === 'global'
-        ? await api.adminUploadIcon(uploadName.trim(), pendingFile)
-        : await api.uploadMyIcon(uploadName.trim(), pendingFile);
+      const uploaded =
+        uploadScope === 'global'
+          ? await api.adminUploadIcon(uploadName.trim(), pendingFile)
+          : await api.uploadMyIcon(uploadName.trim(), pendingFile);
       pick(uploaded);
     } catch (e) {
       setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorUpload'));
@@ -84,14 +85,11 @@ export default function IconPickerDialog({
   }
 
   const quotaFull =
-    uploadScope === 'personal' &&
-    library != null &&
-    library.quota.used >= library.quota.limit;
+    uploadScope === 'personal' && library != null && library.quota.used >= library.quota.limit;
 
   const totalIcons = (library?.globals.length ?? 0) + (library?.mine.length ?? 0);
   const needle = query.trim().toLowerCase();
-  const matches = (icon: api.IconOut) =>
-    !needle || icon.name.toLowerCase().includes(needle);
+  const matches = (icon: api.IconOut) => !needle || icon.name.toLowerCase().includes(needle);
   const shownGlobals = (library?.globals ?? []).filter(matches);
   const shownMine = (library?.mine ?? []).filter(matches);
 
@@ -161,11 +159,7 @@ export default function IconPickerDialog({
                 style={{ maxWidth: 220 }}
                 data-testid="icon-upload-name"
               />
-              <button
-                className="acc-btn"
-                onClick={doUpload}
-                disabled={busy || !uploadName.trim()}
-              >
+              <button className="acc-btn" onClick={doUpload} disabled={busy || !uploadName.trim()}>
                 {busy ? t('acc.icons.uploading') : t('acc.icons.uploadBtn')}
               </button>
               <button

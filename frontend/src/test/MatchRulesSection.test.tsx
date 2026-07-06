@@ -200,9 +200,7 @@ describe('MatchRulesSection', () => {
       />,
     );
     const sel = screen.getByTestId('rules-sets-select') as HTMLSelectElement;
-    expect(
-      Array.from(sel.options).map((o) => o.value),
-    ).toEqual(['1', '3', '5', '7']);
+    expect(Array.from(sel.options).map((o) => o.value)).toEqual(['1', '3', '5', '7']);
     fireEvent.change(sel, { target: { value: '7' } });
     await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
     expect(mockedSetRules).toHaveBeenCalledWith('my-oid', { sets_limit: 7 });

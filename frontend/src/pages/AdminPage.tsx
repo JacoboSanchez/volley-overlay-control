@@ -48,7 +48,10 @@ export default function AdminPage() {
     try {
       const res = await api.adminCreateUser(newName.trim(), { role: newRole });
       setNewName('');
-      setTempCred({ text: t('acc.admin.created', { username: res.user.username }), password: res.temp_password });
+      setTempCred({
+        text: t('acc.admin.created', { username: res.user.username }),
+        password: res.temp_password,
+      });
       await load();
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorCreate'));
@@ -62,7 +65,10 @@ export default function AdminPage() {
     setBusy(true);
     try {
       const res = await api.adminResetPassword(u.id);
-      setTempCred({ text: t('acc.admin.reset', { username: u.username }), password: res.temp_password });
+      setTempCred({
+        text: t('acc.admin.reset', { username: u.username }),
+        password: res.temp_password,
+      });
       await load(); // the row now shows the "must change password" pill
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorReset'));
@@ -76,9 +82,11 @@ export default function AdminPage() {
     try {
       await api.adminUpdateUser(u.id, { is_active: !u.is_active });
       await load();
-      toast(u.is_active
-        ? t('acc.admin.toastDeactivated', { username: u.username })
-        : t('acc.admin.toastActivated', { username: u.username }));
+      toast(
+        u.is_active
+          ? t('acc.admin.toastDeactivated', { username: u.username })
+          : t('acc.admin.toastActivated', { username: u.username }),
+      );
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorUpdate'));
     } finally {
@@ -111,9 +119,11 @@ export default function AdminPage() {
       } else {
         await load();
       }
-      toast(promote
-        ? t('acc.admin.toastPromoted', { username: u.username })
-        : t('acc.admin.toastDemoted', { username: u.username }));
+      toast(
+        promote
+          ? t('acc.admin.toastPromoted', { username: u.username })
+          : t('acc.admin.toastDemoted', { username: u.username }),
+      );
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorRole'));
     } finally {
@@ -168,9 +178,11 @@ export default function AdminPage() {
     try {
       const r = await api.adminSetRegistration(!registrationOpen);
       setRegistrationOpen(r.registration_open);
-      toast(r.registration_open
-        ? t('acc.admin.toastRegistrationOpened')
-        : t('acc.admin.toastRegistrationClosed'));
+      toast(
+        r.registration_open
+          ? t('acc.admin.toastRegistrationOpened')
+          : t('acc.admin.toastRegistrationClosed'),
+      );
     } catch (err) {
       setError(err instanceof api.ApiError ? err.detail : t('acc.admin.errorRegistration'));
       await load(); // re-sync the label to the authoritative value
@@ -188,7 +200,9 @@ export default function AdminPage() {
       <h2>{t('acc.admin.title')}</h2>
 
       <div className="acc-row" style={{ marginTop: 8 }}>
-        <span>{registrationOpen ? t('acc.admin.registrationOpen') : t('acc.admin.registrationClosed')}</span>
+        <span>
+          {registrationOpen ? t('acc.admin.registrationOpen') : t('acc.admin.registrationClosed')}
+        </span>
         <button className="acc-btn secondary" onClick={toggleRegistration} disabled={busy}>
           {registrationOpen ? t('acc.admin.closeRegistration') : t('acc.admin.openRegistration')}
         </button>
@@ -200,7 +214,9 @@ export default function AdminPage() {
           <div style={{ marginTop: 8 }}>
             <CopyField value={tempCred.password} label={t('acc.admin.tempPassword')} />
           </div>
-          <div className="acc-muted" style={{ marginTop: 6 }}>{t('acc.admin.tempHint')}</div>
+          <div className="acc-muted" style={{ marginTop: 6 }}>
+            {t('acc.admin.tempHint')}
+          </div>
         </div>
       )}
       {error && <div className="acc-error">{error}</div>}
@@ -209,24 +225,38 @@ export default function AdminPage() {
       <form className="acc-row" onSubmit={createUser}>
         <label className="acc-field" style={{ marginBottom: 0 }}>
           <span>{t('acc.admin.username')}</span>
-          <input className="acc-input" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <input
+            className="acc-input"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
         </label>
         <label className="acc-field" style={{ marginBottom: 0 }}>
           <span>{t('acc.admin.role')}</span>
-          <select className="acc-input" value={newRole} onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}>
+          <select
+            className="acc-input"
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}
+          >
             <option value="user">{t('acc.admin.roleUser')}</option>
             <option value="admin">{t('acc.admin.roleAdmin')}</option>
           </select>
         </label>
-        <button className="acc-btn" type="submit" disabled={busy || !newName.trim()}>{t('acc.admin.createBtn')}</button>
+        <button className="acc-btn" type="submit" disabled={busy || !newName.trim()}>
+          {t('acc.admin.createBtn')}
+        </button>
       </form>
 
       <h3 className="acc-subhead">{t('acc.admin.users')}</h3>
       <table className="acc-table">
-        <thead><tr>
-          <th scope="col">{t('acc.admin.colUsername')}</th><th scope="col">{t('acc.admin.colRole')}</th>
-          <th scope="col">{t('acc.admin.colActive')}</th><th scope="col"></th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th scope="col">{t('acc.admin.colUsername')}</th>
+            <th scope="col">{t('acc.admin.colRole')}</th>
+            <th scope="col">{t('acc.admin.colActive')}</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
         <tbody>
           {users.map((u) => {
             const isSelf = ctx?.user?.id === u.id;
@@ -237,24 +267,46 @@ export default function AdminPage() {
                 <td>
                   {u.username}
                   {isSelf && <span className="acc-muted"> {t('acc.admin.you')}</span>}
-                  {u.must_change_password && <span className="acc-pill" style={{ marginLeft: 6 }}>{t('acc.admin.mustChangePw')}</span>}
+                  {u.must_change_password && (
+                    <span className="acc-pill" style={{ marginLeft: 6 }}>
+                      {t('acc.admin.mustChangePw')}
+                    </span>
+                  )}
                 </td>
                 <td data-label={t('acc.admin.colRole')}>
                   {u.role === 'admin' ? t('acc.admin.roleAdmin') : t('acc.admin.roleUser')}
                 </td>
-                <td data-label={t('acc.admin.colActive')}>{u.is_active ? t('acc.admin.yes') : t('acc.admin.no')}</td>
+                <td data-label={t('acc.admin.colActive')}>
+                  {u.is_active ? t('acc.admin.yes') : t('acc.admin.no')}
+                </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  <button className="acc-btn ghost" onClick={() => resetPw(u)} disabled={busy}>{t('acc.admin.resetPw')}</button>{' '}
-                  <button className="acc-btn ghost" onClick={() => toggleRole(u)}
-                    disabled={busy || lockLastAdmin} title={lockTitle}>
+                  <button className="acc-btn ghost" onClick={() => resetPw(u)} disabled={busy}>
+                    {t('acc.admin.resetPw')}
+                  </button>{' '}
+                  <button
+                    className="acc-btn ghost"
+                    onClick={() => toggleRole(u)}
+                    disabled={busy || lockLastAdmin}
+                    title={lockTitle}
+                  >
                     {u.role === 'admin' ? t('acc.admin.makeUser') : t('acc.admin.makeAdmin')}
                   </button>{' '}
-                  <button className="acc-btn ghost" onClick={() => toggleActive(u)}
-                    disabled={busy || lockLastAdmin} title={lockTitle}>
+                  <button
+                    className="acc-btn ghost"
+                    onClick={() => toggleActive(u)}
+                    disabled={busy || lockLastAdmin}
+                    title={lockTitle}
+                  >
                     {u.is_active ? t('acc.admin.deactivate') : t('acc.admin.activate')}
                   </button>{' '}
-                  <button className="acc-btn danger" onClick={() => del(u)}
-                    disabled={busy || lockLastAdmin} title={lockTitle}>{t('acc.common.delete')}</button>
+                  <button
+                    className="acc-btn danger"
+                    onClick={() => del(u)}
+                    disabled={busy || lockLastAdmin}
+                    title={lockTitle}
+                  >
+                    {t('acc.common.delete')}
+                  </button>
                 </td>
               </tr>
             );

@@ -6,7 +6,11 @@ import type { TeamOut } from '../../api/client';
  *  A logo URL that fails to load (deleted library icon, dead external link)
  *  falls back to the initial instead of a broken-image glyph. */
 export function SwatchBox({
-  color, textColor, icon, name, size = 30,
+  color,
+  textColor,
+  icon,
+  name,
+  size = 30,
 }: {
   color?: string | null;
   textColor?: string | null;
@@ -33,5 +37,7 @@ export function SwatchBox({
 }
 
 export function TeamSwatch({ team }: { team: TeamOut }) {
-  return <SwatchBox color={team.color} textColor={team.text_color} icon={team.icon} name={team.name} />;
+  return (
+    <SwatchBox color={team.color} textColor={team.text_color} icon={team.icon} name={team.name} />
+  );
 }

@@ -257,7 +257,8 @@ export function useGameState(oid: string | null): UseGameStateResult {
         if (shouldApplyOptimistic) {
           applyState(snapshot, false);
         }
-        const message = e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e);
+        const message =
+          e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e);
         setError(message);
         setErrorStatus(e instanceof api.ApiError ? e.status : null);
         return { success: false, message };

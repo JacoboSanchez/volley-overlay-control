@@ -13,9 +13,7 @@ function Probe() {
   const { loading, ctx, refresh } = useAuth();
   return (
     <div>
-      <span data-testid="state">
-        {loading ? 'loading' : ctx?.authenticated ? 'in' : 'out'}
-      </span>
+      <span data-testid="state">{loading ? 'loading' : ctx?.authenticated ? 'in' : 'out'}</span>
       <span data-testid="reg">{String(ctx?.registration_open ?? 'none')}</span>
       <button onClick={() => void refresh()}>refresh</button>
     </div>
@@ -25,8 +23,13 @@ function Probe() {
 const AUTHED: api.AuthContext = {
   authenticated: true,
   user: {
-    id: 1, username: 'alice', display_name: null, email: null,
-    role: 'user', is_active: true, must_change_password: false,
+    id: 1,
+    username: 'alice',
+    display_name: null,
+    email: null,
+    role: 'user',
+    is_active: true,
+    must_change_password: false,
   } as api.UserOut,
   registration_open: false,
   needs_admin_bootstrap: false,

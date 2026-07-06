@@ -52,9 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setUser = useCallback((user: api.UserOut | null) => {
-    setCtx((prev) =>
-      prev ? { ...prev, authenticated: !!user, user } : prev,
-    );
+    setCtx((prev) => (prev ? { ...prev, authenticated: !!user, user } : prev));
   }, []);
 
   useEffect(() => {
@@ -66,9 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onUnauthorized = () =>
       setCtx((prev) =>
-        prev && prev.authenticated
-          ? { ...prev, authenticated: false, user: null }
-          : prev,
+        prev && prev.authenticated ? { ...prev, authenticated: false, user: null } : prev,
       );
     window.addEventListener('auth:unauthorized', onUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized);

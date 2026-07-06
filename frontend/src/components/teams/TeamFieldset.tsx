@@ -9,7 +9,9 @@ import type { TeamDraft } from './useTeamDraft';
  *  portrait column; the two colour pickers sit side by side. The logo field
  *  takes a pasted URL or a pick from the hosted icon library. */
 export default function TeamFieldset({
-  draft, idPrefix, iconPickerScope = 'personal',
+  draft,
+  idPrefix,
+  iconPickerScope = 'personal',
 }: {
   draft: TeamDraft;
   idPrefix?: string;

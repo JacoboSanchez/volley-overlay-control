@@ -72,7 +72,12 @@ describe('CenterPanel', () => {
 
   it('shows logos in landscape mode when logos are provided', () => {
     renderWithI18n(
-      <CenterPanel {...defaultProps} team1Logo="logo1.png" team2Logo="logo2.png" isPortrait={false} />,
+      <CenterPanel
+        {...defaultProps}
+        team1Logo="logo1.png"
+        team2Logo="logo2.png"
+        isPortrait={false}
+      />,
     );
     expect(screen.getByTestId('team-1-logo')).toHaveAttribute('src', 'logo1.png');
     expect(screen.getByTestId('team-2-logo')).toHaveAttribute('src', 'logo2.png');

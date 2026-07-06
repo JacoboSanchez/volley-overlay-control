@@ -14,10 +14,11 @@ import { translations } from '../i18n/translations';
 
 // Raw source of everything under src/ except the tests themselves and
 // generated type declarations.
-const sources = import.meta.glob(
-  ['../**/*.ts', '../**/*.tsx', '!../test/**', '!../**/*.d.ts'],
-  { query: '?raw', import: 'default', eager: true },
-) as Record<string, string>;
+const sources = import.meta.glob(['../**/*.ts', '../**/*.tsx', '!../test/**', '!../**/*.d.ts'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
 describe('translation catalog', () => {
   const langs = Object.keys(translations);

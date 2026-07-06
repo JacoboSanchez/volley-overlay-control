@@ -51,10 +51,10 @@ export default function ClaimAdminPage() {
           <h1>{t('acc.auth.claim.title')}</h1>
           <p className="acc-sub">
             {t('acc.auth.claim.introTokenPrefix')}
-            <code>docker logs</code>{', '}<code>journalctl</code>
-            {t('acc.auth.claim.introTokenSuffix')}
-            {' '}
-            {t('acc.auth.claim.introEnvPrefix')}
+            <code>docker logs</code>
+            {', '}
+            <code>journalctl</code>
+            {t('acc.auth.claim.introTokenSuffix')} {t('acc.auth.claim.introEnvPrefix')}
             <code>ADMIN_BOOTSTRAP_TOKEN</code>
             {t('acc.auth.claim.introEnvMid')}
             <code>data/.admin_bootstrap_token</code>
@@ -63,23 +63,42 @@ export default function ClaimAdminPage() {
           {error && <div className="acc-error">{error}</div>}
           <label className="acc-field">
             <span>{t('acc.auth.claim.tokenLabel')}</span>
-            <input className="acc-input" value={token} autoFocus autoComplete="off"
-              onChange={(e) => setToken(e.target.value)} />
+            <input
+              className="acc-input"
+              value={token}
+              autoFocus
+              autoComplete="off"
+              onChange={(e) => setToken(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.auth.claim.usernameLabel')}</span>
-            <input className="acc-input" value={username} autoComplete="username"
-              onChange={(e) => setUsername(e.target.value)} />
+            <input
+              className="acc-input"
+              value={username}
+              autoComplete="username"
+              onChange={(e) => setUsername(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.auth.passwordMin8')}</span>
-            <input className="acc-input" type="password" value={password}
-              autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
+            <input
+              className="acc-input"
+              type="password"
+              value={password}
+              autoComplete="new-password"
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.auth.confirmPassword')}</span>
-            <input className="acc-input" type="password" value={confirmPw}
-              autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
+            <input
+              className="acc-input"
+              type="password"
+              value={confirmPw}
+              autoComplete="new-password"
+              onChange={(e) => setConfirmPw(e.target.value)}
+            />
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>

@@ -9,7 +9,11 @@ import { useTeamDraft } from './useTeamDraft';
  *  plus Save and (optionally) a destructive action. Seeded once from `team`, so
  *  in-progress edits survive a background list refresh without resetting. */
 export default function TeamInlineEditor({
-  team, onSave, onSaved, danger, iconPickerScope,
+  team,
+  onSave,
+  onSaved,
+  danger,
+  iconPickerScope,
 }: {
   team: api.TeamOut;
   onSave: (fields: api.TeamFields) => Promise<unknown>;
@@ -25,11 +29,14 @@ export default function TeamInlineEditor({
   const [busy, setBusy] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    // onSaved() may collapse the row; don't leave the timer firing setState
-    // on an unmounted editor (and don't stack timers on rapid saves).
-    if (savedTimer.current) clearTimeout(savedTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      // onSaved() may collapse the row; don't leave the timer firing setState
+      // on an unmounted editor (and don't stack timers on rapid saves).
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
 
   async function save() {
     if (!draft.name.trim() || busy) return;
@@ -56,7 +63,9 @@ export default function TeamInlineEditor({
           {saved ? t('acc.common.saved') : t('acc.common.save')}
         </button>
         {danger && (
-          <button className="acc-btn danger" onClick={danger.onClick}>{danger.label}</button>
+          <button className="acc-btn danger" onClick={danger.onClick}>
+            {danger.label}
+          </button>
         )}
       </div>
     </>

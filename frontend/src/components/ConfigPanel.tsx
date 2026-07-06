@@ -279,11 +279,14 @@ export default function ConfigPanel({
     [],
   );
 
-  const updateField = useCallback((key: string, value: unknown) => {
-    setModel((m) => ({ ...m, [key]: value }));
-    setIsDirty(true);
-    clearJustSaved();
-  }, [clearJustSaved]);
+  const updateField = useCallback(
+    (key: string, value: unknown) => {
+      setModel((m) => ({ ...m, [key]: value }));
+      setIsDirty(true);
+      clearJustSaved();
+    },
+    [clearJustSaved],
+  );
 
   const ignoreNextPopRef = useRef(false);
 
@@ -325,7 +328,11 @@ export default function ConfigPanel({
     },
     {
       formatError: (e) =>
-        e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : t('config.failedToSave'),
+        e instanceof api.ApiError
+          ? e.detail
+          : e instanceof Error
+            ? e.message
+            : t('config.failedToSave'),
     },
   );
 
@@ -355,11 +362,14 @@ export default function ConfigPanel({
   // direct field edits: shallow-merge the patch into ``model``, mark
   // the panel dirty, and let the existing Save button persist. Avoids
   // racing the operator's unsaved changes.
-  const handleApplyPatch = useCallback((patch: ConfigModel) => {
-    clearJustSaved();
-    setModel((m) => ({ ...m, ...patch }));
-    setIsDirty(true);
-  }, [clearJustSaved]);
+  const handleApplyPatch = useCallback(
+    (patch: ConfigModel) => {
+      clearJustSaved();
+      setModel((m) => ({ ...m, ...patch }));
+      setIsDirty(true);
+    },
+    [clearJustSaved],
+  );
 
   function renderSection(sec: Section | null) {
     switch (sec) {

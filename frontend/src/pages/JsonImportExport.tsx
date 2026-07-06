@@ -133,7 +133,11 @@ export default function JsonImportExport({
             <button className="acc-btn secondary" onClick={doDownload} disabled={busy}>
               {t('acc.json.download')}
             </button>
-            <button className="acc-btn secondary" onClick={() => fileInputRef.current?.click()} disabled={busy}>
+            <button
+              className="acc-btn secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busy}
+            >
               {t('acc.json.fromFile')}
             </button>
             <input
@@ -152,7 +156,11 @@ export default function JsonImportExport({
               {t('acc.json.import')}
             </button>
             <label className="acc-muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={replace}
+                onChange={(e) => setReplace(e.target.checked)}
+              />
               {t('acc.json.replace')}
             </label>
           </div>

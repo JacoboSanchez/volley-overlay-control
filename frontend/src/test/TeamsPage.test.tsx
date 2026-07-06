@@ -3,7 +3,9 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import TeamsPage from '../pages/TeamsPage';
 
 vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error { detail = ''; },
+  ApiError: class ApiError extends Error {
+    detail = '';
+  },
   getMyGroups: vi.fn(),
   createMyGroup: vi.fn(),
   renameMyGroup: vi.fn(),
@@ -15,7 +17,9 @@ vi.mock('../api/client', () => ({
   removeTeamFromMine: vi.fn(),
   // Icon library (rendered by IconLibrarySection / the fieldset picker).
   listIcons: vi.fn().mockResolvedValue({
-    globals: [], mine: [], quota: { used: 0, limit: 50 },
+    globals: [],
+    mine: [],
+    quota: { used: 0, limit: 50 },
   }),
   uploadMyIcon: vi.fn(),
   renameMyIcon: vi.fn(),
@@ -27,14 +31,31 @@ vi.mock('../api/client', () => ({
 import * as api from '../api/client';
 
 const team = (id: number, name: string, is_global = true): api.TeamOut => ({
-  id, name, icon: null, color: '#123456', text_color: '#ffffff', is_global,
+  id,
+  name,
+  icon: null,
+  color: '#123456',
+  text_color: '#ffffff',
+  is_global,
 });
 
 const groups = (): api.GroupDetail[] => [
-  { id: null, name: 'All teams', kind: 'all', is_private: false,
-    teams: [team(1, 'Breogán'), team(2, 'Estudiantes')], removable_ids: [] },
-  { id: 5, name: 'My league', kind: 'private', is_private: true,
-    teams: [team(1, 'Breogán')], removable_ids: [1] },
+  {
+    id: null,
+    name: 'All teams',
+    kind: 'all',
+    is_private: false,
+    teams: [team(1, 'Breogán'), team(2, 'Estudiantes')],
+    removable_ids: [],
+  },
+  {
+    id: 5,
+    name: 'My league',
+    kind: 'private',
+    is_private: true,
+    teams: [team(1, 'Breogán')],
+    removable_ids: [1],
+  },
 ];
 
 function cardFor(name: string): HTMLElement {
@@ -45,9 +66,14 @@ describe('TeamsPage (groups)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.getMyGroups).mockResolvedValue(groups());
-    vi.mocked(api.createMyGroup).mockResolvedValue(
-      { id: 9, name: 'New', kind: 'private', is_private: true, teams: [], removable_ids: [] },
-    );
+    vi.mocked(api.createMyGroup).mockResolvedValue({
+      id: 9,
+      name: 'New',
+      kind: 'private',
+      is_private: true,
+      teams: [],
+      removable_ids: [],
+    });
     vi.mocked(api.addTeamsToMyGroup).mockResolvedValue({ added: 1 });
     vi.mocked(api.removeTeamFromMyGroup).mockResolvedValue({ ok: true, removed: true });
     vi.mocked(api.createMyTeam).mockResolvedValue(team(9, 'Lugo', false));
@@ -58,7 +84,9 @@ describe('TeamsPage (groups)', () => {
     await waitFor(() => expect(screen.getByText('All teams')).toBeInTheDocument());
     // All teams offers "View" (read-only); the private group offers "Manage".
     expect(within(cardFor('All teams')).getByRole('button', { name: 'View' })).toBeInTheDocument();
-    expect(within(cardFor('My league')).getByRole('button', { name: 'Manage' })).toBeInTheDocument();
+    expect(
+      within(cardFor('My league')).getByRole('button', { name: 'Manage' }),
+    ).toBeInTheDocument();
   });
 
   it('creates a private group', async () => {
@@ -94,9 +122,12 @@ describe('TeamsPage (groups)', () => {
     render(<TeamsPage />);
     await waitFor(() => expect(screen.getByText('Create a custom team')).toBeInTheDocument());
     const section = screen.getByText('Create a custom team').closest('div')!;
-    fireEvent.change(within(section).getByLabelText('Name', { selector: 'input' }) as HTMLInputElement, {
-      target: { value: 'Lugo CV' },
-    });
+    fireEvent.change(
+      within(section).getByLabelText('Name', { selector: 'input' }) as HTMLInputElement,
+      {
+        target: { value: 'Lugo CV' },
+      },
+    );
     fireEvent.click(within(section).getByRole('button', { name: 'Add team' }));
     await waitFor(() =>
       expect(api.createMyTeam).toHaveBeenCalledWith(expect.objectContaining({ name: 'Lugo CV' })),

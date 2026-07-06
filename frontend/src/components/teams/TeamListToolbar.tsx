@@ -6,8 +6,15 @@ import { useI18n } from '../../i18n';
  *  live filter with a "shown of total" counter so it's clear the list is
  *  filtered rather than just short. */
 export default function TeamListToolbar({
-  shownCount, selectedShownCount, onSelectAll, onClearSelection,
-  query, onQuery, total, showFilter, inputRef,
+  shownCount,
+  selectedShownCount,
+  onSelectAll,
+  onClearSelection,
+  query,
+  onQuery,
+  total,
+  showFilter,
+  inputRef,
 }: {
   shownCount: number;
   selectedShownCount: number;

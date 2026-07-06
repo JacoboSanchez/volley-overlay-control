@@ -202,11 +202,7 @@ describe('TeamPanel', () => {
 
   it('portrait: shows the team logo from iconLogo when icons are enabled', () => {
     render(
-      <TeamPanel
-        {...defaultProps}
-        isPortrait={true}
-        iconLogo="https://example.com/logo.png"
-      />,
+      <TeamPanel {...defaultProps} isPortrait={true} iconLogo="https://example.com/logo.png" />,
     );
     const img = screen.getByTestId('team-1-logo') as HTMLImageElement;
     expect(img.src).toContain('https://example.com/logo.png');

@@ -50,18 +50,34 @@ export default function ChangePasswordPage() {
           {error && <div className="acc-error">{error}</div>}
           <label className="acc-field">
             <span>{t('acc.auth.changePw.currentLabel')}</span>
-            <input className="acc-input" type="password" value={current} autoFocus
-              autoComplete="current-password" onChange={(e) => setCurrent(e.target.value)} />
+            <input
+              className="acc-input"
+              type="password"
+              value={current}
+              autoFocus
+              autoComplete="current-password"
+              onChange={(e) => setCurrent(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.auth.changePw.newLabel')}</span>
-            <input className="acc-input" type="password" value={next}
-              autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
+            <input
+              className="acc-input"
+              type="password"
+              value={next}
+              autoComplete="new-password"
+              onChange={(e) => setNext(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.account.confirmPassword')}</span>
-            <input className="acc-input" type="password" value={confirmPw}
-              autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
+            <input
+              className="acc-input"
+              type="password"
+              value={confirmPw}
+              autoComplete="new-password"
+              onChange={(e) => setConfirmPw(e.target.value)}
+            />
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>

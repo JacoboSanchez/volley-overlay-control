@@ -239,7 +239,11 @@ describe('useGameState', () => {
 
   it('action surfaces the clean ApiError detail, not the raw message', async () => {
     vi.mocked(api.addPoint).mockRejectedValue(
-      new api.ApiError(409, 'API POST /game/add-point failed (409): {...}', 'Set already finished.'),
+      new api.ApiError(
+        409,
+        'API POST /game/add-point failed (409): {...}',
+        'Set already finished.',
+      ),
     );
     const { result } = renderHook(() => useGameState('oid'));
     await act(async () => {

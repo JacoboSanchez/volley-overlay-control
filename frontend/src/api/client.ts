@@ -116,9 +116,7 @@ function extractDetail(text: string): string {
     const parsed = JSON.parse(text);
     if (parsed && typeof parsed.detail === 'string') return parsed.detail;
     if (parsed && Array.isArray(parsed.detail)) {
-      const msgs = parsed.detail
-        .map((d: { msg?: string }) => (d && d.msg) || '')
-        .filter(Boolean);
+      const msgs = parsed.detail.map((d: { msg?: string }) => (d && d.msg) || '').filter(Boolean);
       if (msgs.length) return msgs.join('; ');
     }
   } catch {
@@ -360,14 +358,16 @@ export function getBoardGroups(oid: string): Promise<BoardGroupList> {
 }
 
 export function getBoardGroupTeams(
-  oid: string, groupId: number | null,
+  oid: string,
+  groupId: number | null,
 ): Promise<Record<string, unknown>> {
   const key = groupId === null ? 'all' : String(groupId);
   return request<Record<string, unknown>>('GET', `/board/team-groups/${key}/teams${withOid(oid)}`);
 }
 
 export function setBoardSelectedGroup(
-  oid: string, groupId: number | null,
+  oid: string,
+  groupId: number | null,
 ): Promise<{ ok: boolean; selected_id: number | null }> {
   return request('PUT', `/board/selected-group${withOid(oid)}`, { group_id: groupId });
 }
@@ -419,7 +419,10 @@ export function adminCreateGlobalPreset(
   return request('POST', '/admin/presets', { name, values, is_active: isActive });
 }
 
-export function adminSetPresetActive(slug: string, isActive: boolean): Promise<{ slug: string; is_active: boolean }> {
+export function adminSetPresetActive(
+  slug: string,
+  isActive: boolean,
+): Promise<{ slug: string; is_active: boolean }> {
   return request('PATCH', `/admin/presets/${encodeURIComponent(slug)}`, { is_active: isActive });
 }
 
@@ -540,7 +543,8 @@ export function addTeamsToMyGroup(groupId: number, teamIds: number[]): Promise<{
 }
 
 export function removeTeamFromMyGroup(
-  groupId: number, teamId: number,
+  groupId: number,
+  teamId: number,
 ): Promise<{ ok: boolean; removed: boolean }> {
   return request('DELETE', `/my/groups/${groupId}/teams/${teamId}`);
 }
@@ -620,7 +624,9 @@ export function deleteMyIcon(id: number): Promise<{ ok: boolean; teams_cleared: 
   return request('DELETE', `/icons/mine/${id}`);
 }
 
-export function importIconsFromMyTeams(teamIds: number[]): Promise<{ results: IconImportResult[] }> {
+export function importIconsFromMyTeams(
+  teamIds: number[],
+): Promise<{ results: IconImportResult[] }> {
   return request('POST', '/icons/mine/import-from-teams', { team_ids: teamIds });
 }
 
@@ -720,7 +726,9 @@ export function adminCreateUser(
   return request('POST', '/admin/users', { username, ...opts });
 }
 
-export function adminResetPassword(userId: number): Promise<{ user: UserOut; temp_password: string }> {
+export function adminResetPassword(
+  userId: number,
+): Promise<{ user: UserOut; temp_password: string }> {
   return request('POST', `/admin/users/${userId}/reset-password`, {});
 }
 
@@ -798,7 +806,9 @@ export function deleteOverlay(oid: string): Promise<void> {
 /** Mint a fresh control link for an overlay, revoking the previous one. */
 export async function regenerateControlToken(oid: string): Promise<OverlayPayload> {
   const row = await request<OverlayRow>(
-    'POST', `/overlays/${encodeURIComponent(oid)}/regenerate-control-token`, {},
+    'POST',
+    `/overlays/${encodeURIComponent(oid)}/regenerate-control-token`,
+    {},
   );
   return withName(row);
 }
@@ -830,7 +840,10 @@ export function getAuthContext(): Promise<AuthContext> {
   return request<AuthContext>('GET', '/auth/context');
 }
 
-export function login(username: string, password: string): Promise<{ user: UserOut; must_change_password: boolean }> {
+export function login(
+  username: string,
+  password: string,
+): Promise<{ user: UserOut; must_change_password: boolean }> {
   return request('POST', '/auth/login', { username, password });
 }
 

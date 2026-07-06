@@ -219,9 +219,7 @@ function CenterPanel({
             forcePending={indoorMidpointPending}
           />
         )}
-        {!state.match_finished && (
-          <ServeSwitchIndicator info={state.serve_switch} />
-        )}
+        {!state.match_finished && <ServeSwitchIndicator info={state.serve_switch} />}
       </div>
 
       {setSummaryActive && onDeactivateSetSummary && onChangeSetSummaryStyle ? (

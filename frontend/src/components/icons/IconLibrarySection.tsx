@@ -78,9 +78,8 @@ export default function IconLibrarySection({
     };
   }, [t]);
 
-  const icons = isGlobal ? library?.globals ?? [] : library?.mine ?? [];
-  const quotaFull =
-    !isGlobal && library != null && library.quota.used >= library.quota.limit;
+  const icons = isGlobal ? (library?.globals ?? []) : (library?.mine ?? []);
+  const quotaFull = !isGlobal && library != null && library.quota.used >= library.quota.limit;
 
   async function doUpload() {
     if (!pendingFile) return;
@@ -150,7 +149,9 @@ export default function IconLibrarySection({
           </span>
         )}
       </div>
-      <p className="acc-muted">{t(isGlobal ? 'acc.icons.sectionHintGlobal' : 'acc.icons.sectionHint')}</p>
+      <p className="acc-muted">
+        {t(isGlobal ? 'acc.icons.sectionHintGlobal' : 'acc.icons.sectionHint')}
+      </p>
       {error && <div className="acc-error">{error}</div>}
       {icons.length === 0 ? (
         <p className="acc-muted">{t('acc.icons.empty')}</p>

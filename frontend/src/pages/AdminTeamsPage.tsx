@@ -16,7 +16,10 @@ import IconLibrarySection from '../components/icons/IconLibrarySection';
 import { SwatchBox } from '../components/teams/TeamSwatch';
 import { useTeamSelection } from '../components/teams/useTeamSelection';
 import {
-  FILTER_THRESHOLD, filterTeams, restoreFocus, withPinnedEdit,
+  FILTER_THRESHOLD,
+  filterTeams,
+  restoreFocus,
+  withPinnedEdit,
 } from '../components/teams/teamUtils';
 
 /** Admin-only authoring of the global team catalog and the published groups —
@@ -61,7 +64,9 @@ function AdminCatalog() {
     }
   }, [t, toast]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const reload = useCallback(async () => {
     sel.clear();
@@ -135,7 +140,10 @@ function AdminCatalog() {
         <div className="acc-overlay-panel">
           <TeamCreatePanel
             onCreate={(fields) => api.adminCreateTeam(fields)}
-            onCreated={() => { void reload(); setShowCreate(false); }}
+            onCreated={() => {
+              void reload();
+              setShowCreate(false);
+            }}
             addLabel={t('acc.teams.adminAdd')}
             successMessage={(name) => t('acc.teams.adminToastAdded', { name })}
             idPrefix="admin-team"
@@ -153,7 +161,9 @@ function AdminCatalog() {
             shownCount={shown.length}
             selectedShownCount={selShownIds.length}
             onSelectAll={() => sel.replace([...new Set([...sel.ids, ...shown.map((x) => x.id)])])}
-            onClearSelection={() => sel.replace(sel.ids.filter((id) => !shown.some((x) => x.id === id)))}
+            onClearSelection={() =>
+              sel.replace(sel.ids.filter((id) => !shown.some((x) => x.id === id)))
+            }
             query={query}
             onQuery={setQuery}
             total={catalog.length}
@@ -186,7 +196,10 @@ function AdminCatalog() {
           )}
           <BulkActionBar
             count={selShownIds.length}
-            onClear={() => { sel.clear(); restoreFocus(selAllRef); }}
+            onClear={() => {
+              sel.clear();
+              restoreFocus(selAllRef);
+            }}
           >
             <button className="acc-btn danger" onClick={deleteSelected}>
               {t('acc.adminTeams.deleteSelected', { n: selShownIds.length })}
@@ -202,11 +215,7 @@ function AdminCatalog() {
         onImported={() => void load()}
       />
 
-      <IconLibrarySection
-        scope="global"
-        teams={catalog}
-        onTeamsChanged={() => void load()}
-      />
+      <IconLibrarySection scope="global" teams={catalog} onTeamsChanged={() => void load()} />
     </div>
   );
 }
@@ -234,7 +243,9 @@ function AdminGroups() {
     }
   }, [t, toast]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -270,21 +281,23 @@ function AdminGroups() {
         </button>
       </form>
 
-      {groups.length === 0
-        ? loaded && <EmptyState>{t('acc.groups.empty')}</EmptyState>
-        : (
-          <div className="acc-tlist">
-            {groups.map((g) => (
-              <GroupCard key={g.id} group={g} catalog={catalog} onChange={load} />
-            ))}
-          </div>
-        )}
+      {groups.length === 0 ? (
+        loaded && <EmptyState>{t('acc.groups.empty')}</EmptyState>
+      ) : (
+        <div className="acc-tlist">
+          {groups.map((g) => (
+            <GroupCard key={g.id} group={g} catalog={catalog} onChange={load} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function GroupCard({
-  group, catalog, onChange,
+  group,
+  catalog,
+  onChange,
 }: {
   group: api.TeamGroupOut;
   catalog: api.TeamOut[];
@@ -353,7 +366,9 @@ function GroupCard({
         <span className={`acc-pill${group.is_active ? ' is-on' : ''}`}>
           {group.is_active ? t('acc.groups.published') : t('acc.groups.draft')}
         </span>
-        <span className="acc-muted acc-gcard__count">{t('acc.groups.memberCount', { n: group.teams.length })}</span>
+        <span className="acc-muted acc-gcard__count">
+          {t('acc.groups.memberCount', { n: group.teams.length })}
+        </span>
         <span className="acc-tcard__spacer" />
         <button
           className={`acc-btn ghost${open ? ' is-active' : ''}`}
@@ -382,7 +397,13 @@ function GroupCard({
             <ul className="acc-gcard__members">
               {group.teams.map((m) => (
                 <li key={m.id} className="acc-gchip">
-                  <SwatchBox color={m.color} textColor={m.text_color} icon={m.icon} name={m.name} size={22} />
+                  <SwatchBox
+                    color={m.color}
+                    textColor={m.text_color}
+                    icon={m.icon}
+                    name={m.name}
+                    size={22}
+                  />
                   <span className="acc-gchip__name">{m.name}</span>
                   <button
                     className="acc-gchip__x"
@@ -410,7 +431,9 @@ function GroupCard({
               >
                 <option value="">{t('acc.groups.addMemberPlaceholder')}</option>
                 {addable.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
                 ))}
               </select>
               <button className="acc-btn" disabled={busy || !addId} onClick={addMember}>

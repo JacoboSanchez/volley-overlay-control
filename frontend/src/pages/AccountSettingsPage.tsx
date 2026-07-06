@@ -45,9 +45,7 @@ export default function AccountSettingsPage() {
       toast(t('acc.account.profileSaved'));
     } catch (err) {
       setProfileErr(
-        err instanceof api.ApiError && err.detail
-          ? err.detail
-          : t('acc.account.errorProfile'),
+        err instanceof api.ApiError && err.detail ? err.detail : t('acc.account.errorProfile'),
       );
     } finally {
       setProfileBusy(false);
@@ -108,16 +106,29 @@ export default function AccountSettingsPage() {
       <form onSubmit={saveProfile} className="acc-narrow" style={{ marginTop: 12 }}>
         <h3 className="acc-subhead">{t('acc.account.profile')}</h3>
         {profileErr && <div className="acc-error">{profileErr}</div>}
-        <p className="acc-muted">{t('acc.account.username')} <strong>{user?.username}</strong></p>
+        <p className="acc-muted">
+          {t('acc.account.username')} <strong>{user?.username}</strong>
+        </p>
         <label className="acc-field">
           <span>{t('acc.account.displayName')}</span>
-          <input className="acc-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          <input
+            className="acc-input"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
         </label>
         <label className="acc-field">
           <span>{t('acc.account.email')}</span>
-          <input className="acc-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            className="acc-input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </label>
-        <button className="acc-btn" type="submit" disabled={profileBusy}>{t('acc.account.saveProfile')}</button>
+        <button className="acc-btn" type="submit" disabled={profileBusy}>
+          {t('acc.account.saveProfile')}
+        </button>
       </form>
 
       <form onSubmit={savePassword} className="acc-narrow" style={{ marginTop: 28 }}>
@@ -125,20 +136,37 @@ export default function AccountSettingsPage() {
         {pwErr && <div className="acc-error">{pwErr}</div>}
         <label className="acc-field">
           <span>{t('acc.account.currentPassword')}</span>
-          <input className="acc-input" type="password" value={current}
-            autoComplete="current-password" onChange={(e) => setCurrent(e.target.value)} />
+          <input
+            className="acc-input"
+            type="password"
+            value={current}
+            autoComplete="current-password"
+            onChange={(e) => setCurrent(e.target.value)}
+          />
         </label>
         <label className="acc-field">
           <span>{t('acc.account.newPassword')}</span>
-          <input className="acc-input" type="password" value={next}
-            autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
+          <input
+            className="acc-input"
+            type="password"
+            value={next}
+            autoComplete="new-password"
+            onChange={(e) => setNext(e.target.value)}
+          />
         </label>
         <label className="acc-field">
           <span>{t('acc.account.confirmPassword')}</span>
-          <input className="acc-input" type="password" value={confirmPw}
-            autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
+          <input
+            className="acc-input"
+            type="password"
+            value={confirmPw}
+            autoComplete="new-password"
+            onChange={(e) => setConfirmPw(e.target.value)}
+          />
         </label>
-        <button className="acc-btn" type="submit" disabled={pwBusy}>{t('acc.account.password')}</button>
+        <button className="acc-btn" type="submit" disabled={pwBusy}>
+          {t('acc.account.password')}
+        </button>
       </form>
 
       <div className="acc-narrow" style={{ marginTop: 28 }}>
@@ -147,7 +175,9 @@ export default function AccountSettingsPage() {
           <span>{t('acc.account.language')}</span>
           <select className="acc-input" value={lang} onChange={(e) => setLanguage(e.target.value)}>
             {languages.map((l) => (
-              <option key={l} value={l}>{LANGUAGE_NAMES[l] ?? l}</option>
+              <option key={l} value={l}>
+                {LANGUAGE_NAMES[l] ?? l}
+              </option>
             ))}
           </select>
           <small className="acc-muted">{t('acc.account.languageDesc')}</small>
@@ -157,7 +187,9 @@ export default function AccountSettingsPage() {
       <div className="acc-narrow" style={{ marginTop: 28 }}>
         <h3 className="acc-subhead">{t('acc.account.danger')}</h3>
         <p className="acc-muted">{t('acc.account.dangerDesc')}</p>
-        <button className="acc-btn danger" onClick={deleteAccount} disabled={deleting}>{t('acc.account.deleteAccount')}</button>
+        <button className="acc-btn danger" onClick={deleteAccount} disabled={deleting}>
+          {t('acc.account.deleteAccount')}
+        </button>
       </div>
     </div>
   );

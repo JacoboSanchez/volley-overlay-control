@@ -33,15 +33,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const settle = useCallback(
-    (ok: boolean) => {
-      setPending((cur) => {
-        cur?.resolve(ok);
-        return null;
-      });
-    },
-    [],
-  );
+  const settle = useCallback((ok: boolean) => {
+    setPending((cur) => {
+      cur?.resolve(ok);
+      return null;
+    });
+  }, []);
 
   return (
     <ConfirmCtx.Provider value={confirm}>
@@ -54,7 +51,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         {pending?.title ? <p className="dialog-title">{pending.title}</p> : null}
         <p className="dialog-message">{pending?.message}</p>
         <div className="dialog-actions">
-          <button type="button" className="dialog-btn dialog-btn-cancel" onClick={() => settle(false)}>
+          <button
+            type="button"
+            className="dialog-btn dialog-btn-cancel"
+            onClick={() => settle(false)}
+          >
             {pending?.cancelLabel ?? 'Cancel'}
           </button>
           <button

@@ -33,10 +33,12 @@ export default function TeamsPage() {
     }
   }, [t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const allGroup = groups.find((g) => g.kind === 'all');
-  const universe = allGroup?.teams ?? [];            // catalog ∪ the user's customs
+  const universe = allGroup?.teams ?? []; // catalog ∪ the user's customs
   const customs = universe.filter((tm) => !tm.is_global);
   const realGroups = groups.filter((g) => g.kind !== 'all');
 
@@ -105,7 +107,9 @@ function CreateGroupForm({ onCreated }: { onCreated: () => void }) {
 }
 
 function GroupCard({
-  group, universe, onChange,
+  group,
+  universe,
+  onChange,
 }: {
   group: api.GroupDetail;
   universe: api.TeamOut[];
@@ -184,7 +188,9 @@ function GroupCard({
       <div className="acc-tcard__main">
         <span className="acc-tcard__name">{group.name}</span>
         {badge}
-        <span className="acc-muted acc-gcard__count">{t('acc.groups.memberCount', { n: group.teams.length })}</span>
+        <span className="acc-muted acc-gcard__count">
+          {t('acc.groups.memberCount', { n: group.teams.length })}
+        </span>
         <span className="acc-tcard__spacer" />
         <button
           className={`acc-btn ghost${open ? ' is-active' : ''}`}
@@ -214,7 +220,13 @@ function GroupCard({
                   </button>
                 </>
               ) : (
-                <button className="acc-btn secondary" onClick={() => { setRename(group.name); setRenaming(true); }}>
+                <button
+                  className="acc-btn secondary"
+                  onClick={() => {
+                    setRename(group.name);
+                    setRenaming(true);
+                  }}
+                >
                   {t('acc.groups.rename')}
                 </button>
               )}
@@ -231,7 +243,13 @@ function GroupCard({
             <ul className="acc-gcard__members">
               {group.teams.map((tm) => (
                 <li key={tm.id} className="acc-gchip">
-                  <SwatchBox color={tm.color} textColor={tm.text_color} icon={tm.icon} name={tm.name} size={22} />
+                  <SwatchBox
+                    color={tm.color}
+                    textColor={tm.text_color}
+                    icon={tm.icon}
+                    name={tm.name}
+                    size={22}
+                  />
                   <span className="acc-gchip__name">{tm.name}</span>
                   {removable.has(tm.id) && (
                     <button
@@ -249,15 +267,19 @@ function GroupCard({
             </ul>
           )}
 
-          {!isAll && (
-            adding ? (
-              <AddTeamsPanel addable={addable} busy={busy} onAdd={addTeams} onCancel={() => setAdding(false)} />
+          {!isAll &&
+            (adding ? (
+              <AddTeamsPanel
+                addable={addable}
+                busy={busy}
+                onAdd={addTeams}
+                onCancel={() => setAdding(false)}
+              />
             ) : (
               <button className="acc-btn" style={{ marginTop: 12 }} onClick={() => setAdding(true)}>
                 {t('acc.groups.addTeams')}
               </button>
-            )
-          )}
+            ))}
         </div>
       )}
     </div>
@@ -266,7 +288,10 @@ function GroupCard({
 
 /** Searchable, multi-select picker of teams not yet in a group, with bulk add. */
 function AddTeamsPanel({
-  addable, busy, onAdd, onCancel,
+  addable,
+  busy,
+  onAdd,
+  onCancel,
 }: {
   addable: api.TeamOut[];
   busy: boolean;
@@ -283,7 +308,9 @@ function AddTeamsPanel({
     return (
       <div className="acc-overlay-panel" style={{ marginTop: 12 }}>
         <p className="acc-muted">{t('acc.groups.allTeamsIn')}</p>
-        <button className="acc-btn ghost" onClick={onCancel}>{t('acc.common.close')}</button>
+        <button className="acc-btn ghost" onClick={onCancel}>
+          {t('acc.common.close')}
+        </button>
       </div>
     );
   }
@@ -294,7 +321,9 @@ function AddTeamsPanel({
         shownCount={shown.length}
         selectedShownCount={selShownIds.length}
         onSelectAll={() => sel.replace([...new Set([...sel.ids, ...shown.map((x) => x.id)])])}
-        onClearSelection={() => sel.replace(sel.ids.filter((id) => !shown.some((x) => x.id === id)))}
+        onClearSelection={() =>
+          sel.replace(sel.ids.filter((id) => !shown.some((x) => x.id === id)))
+        }
         query={query}
         onQuery={setQuery}
         total={addable.length}
@@ -310,7 +339,11 @@ function AddTeamsPanel({
               team={tm}
               selected={sel.has(tm.id)}
               onToggleSelect={() => sel.toggle(tm.id)}
-              pill={!tm.is_global ? <span className="acc-pill">{t('acc.teams.custom')}</span> : undefined}
+              pill={
+                !tm.is_global ? (
+                  <span className="acc-pill">{t('acc.teams.custom')}</span>
+                ) : undefined
+              }
             />
           ))}
         </div>
@@ -323,14 +356,18 @@ function AddTeamsPanel({
         >
           {t('acc.groups.addSelected', { n: selShownIds.length })}
         </button>
-        <button className="acc-btn ghost" onClick={onCancel}>{t('acc.common.close')}</button>
+        <button className="acc-btn ghost" onClick={onCancel}>
+          {t('acc.common.close')}
+        </button>
       </div>
     </div>
   );
 }
 
 function CustomTeamsSection({
-  customs, loaded, onChange,
+  customs,
+  loaded,
+  onChange,
 }: {
   customs: api.TeamOut[];
   loaded: boolean;
