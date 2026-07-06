@@ -168,6 +168,12 @@ once a first tagged release ships.
 
 ### Changed
 
+- **The match-history listing is paginated.** `GET /api/v1/matches` now
+  takes `limit` (default 100, max 500) and `offset` and reports the total
+  in `count`, instead of loading and serializing a user's entire archive
+  on every call. The account Reports page requests the maximum page
+  (500 newest matches) and keeps filtering client-side.
+
 - **Bulk team operations run as single batches.** Adding many teams to a
   user's list or to a group (including the full-catalog seeding at account
   creation) used to issue two to three database queries per team; each

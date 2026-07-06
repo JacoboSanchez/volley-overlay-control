@@ -696,7 +696,10 @@ export interface MatchSummary {
 }
 
 export function listReports(oid?: string): Promise<{ count: number; matches: MatchSummary[] }> {
-  const q = oid ? withOid(oid) : '';
+  // The server pages this endpoint (default 100); request its maximum page.
+  // The Reports page filters client-side, so one large page keeps that UX;
+  // `count` in the response is the total should a library ever outgrow it.
+  const q = oid ? `${withOid(oid)}&limit=500` : '?limit=500';
   return request('GET', `/matches${q}`);
 }
 

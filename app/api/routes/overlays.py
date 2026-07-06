@@ -247,7 +247,7 @@ async def get_links(request: Request,
 
 def _latest_match_id_for(oid: str):
     """Return the most-recent ``match_id`` archived for *oid*, or ``None``."""
-    summaries = match_archive.list_matches(oid=oid)
+    summaries = match_archive.list_matches(oid=oid, limit=1)
     return summaries[0]["match_id"] if summaries else None
 
 

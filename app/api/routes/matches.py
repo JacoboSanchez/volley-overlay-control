@@ -34,19 +34,34 @@ def _owns(skey: object, user: User) -> bool:
 @router.get("/matches", summary="List the caller's archived matches")
 def list_matches(
     oid: str | None = Query(None, description="Filter to a single overlay id"),
+    limit: int = Query(100, ge=1, le=500, description="Page size"),
+    offset: int = Query(0, ge=0, description="Rows to skip (newest first)"),
     user: User = Depends(require_user),
 ):
-    """Return summaries of the caller's archived matches, newest first."""
+    """Return a page of the caller's archived matches, newest first.
+
+    ``count`` is the total in scope (not the page length), so a client can
+    page with ``offset``/``limit`` until it has everything.
+    """
     # The ``_owns`` filter below is the real authorization gate, applied
     # unconditionally to every branch. Note the two ``list_matches`` shapes:
     # a provided ``oid`` is scoped to this user's skey and fails *closed* on a
-    # malformed key (returns ``[]``); the no-``oid`` branch reads the full table
-    # (defense-in-depth then narrows it). Either way the caller only ever sees
-    # rows whose skey starts with ``"<their id>:"``.
-    raw = match_archive.list_matches(oid=make_skey(user.id, oid)) if oid \
-        else match_archive.list_matches(user_id=user.id)
+    # malformed key (returns ``[]``); the no-``oid`` branch pushes the
+    # ``user_id`` predicate into SQL (defense-in-depth then narrows it).
+    # Either way the caller only ever sees rows whose skey starts with
+    # ``"<their id>:"``.
+    skey = make_skey(user.id, oid) if oid else None
+    raw = match_archive.list_matches(
+        oid=skey, user_id=None if oid else user.id, limit=limit, offset=offset,
+    )
+    total = match_archive.count_matches(oid=skey, user_id=None if oid else user.id)
     summaries = [s for s in raw if _owns(s.get("oid"), user)]
-    return {"count": len(summaries), "matches": [_present(s) for s in summaries]}
+    return {
+        "count": total,
+        "matches": [_present(s) for s in summaries],
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/matches/{match_id}", summary="Full archived match snapshot")

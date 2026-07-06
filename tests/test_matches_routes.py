@@ -71,3 +71,41 @@ def test_non_owner_cannot_mint_sign_url(db_session):
     intruder = TestClient(create_app())
     login_client(intruder, db_session, username="intruder")
     assert intruder.post(f"/api/v1/matches/{match_id}/sign-url").status_code == 404
+
+
+def test_matches_listing_is_paginated(auth_client, db_session):
+    """The listing returns pages (newest first) and `count` is the total."""
+    from app.api import match_archive
+    from app.overlay_key import make_skey
+
+    skey = make_skey(auth_client.test_user_id, "liga")
+    ids = []
+    for i in range(7):
+        mid = match_archive.archive_match(
+            oid=skey, final_state={"Current Set": 1}, winning_team=1,
+        )
+        assert mid is not None
+        ids.append(mid)
+        # Distinct ended_at ordering: bump each row's timestamp explicitly.
+        from app.db.engine import session_scope
+        from app.db.models.report import MatchReport
+        with session_scope() as db:
+            row = db.query(MatchReport).filter_by(match_id=mid).one()
+            row.ended_at = 1000.0 + i
+
+    page1 = auth_client.get("/api/v1/matches?limit=3").json()
+    assert page1["count"] == 7
+    assert page1["limit"] == 3 and page1["offset"] == 0
+    assert [m["match_id"] for m in page1["matches"]] == ids[6:3:-1]
+
+    page2 = auth_client.get("/api/v1/matches?limit=3&offset=3").json()
+    assert [m["match_id"] for m in page2["matches"]] == ids[3:0:-1]
+
+    page3 = auth_client.get("/api/v1/matches?limit=3&offset=6").json()
+    assert [m["match_id"] for m in page3["matches"]] == ids[0:1]
+    assert page3["count"] == 7
+
+    # Bounds are enforced.
+    assert auth_client.get("/api/v1/matches?limit=0").status_code == 422
+    assert auth_client.get("/api/v1/matches?limit=501").status_code == 422
+    assert auth_client.get("/api/v1/matches?offset=-1").status_code == 422
