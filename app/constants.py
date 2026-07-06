@@ -78,6 +78,12 @@ AUDIT_LOG_MAX_FILES = _env_int("AUDIT_LOG_MAX_FILES", 5)
 # ``WSHUB_MAX_CLIENTS_PER_OID``.
 WSHUB_MAX_CLIENTS_PER_OID = _env_int("WSHUB_MAX_CLIENTS_PER_OID", 200)
 
+# Same idea for the OBS browser-source hub (``/ws/<public_token>``): the
+# public token is shareable, so cap fan-out per overlay to keep a leaked
+# link from exhausting sockets or slowing every broadcast. Override with
+# ``OBS_MAX_CLIENTS_PER_OVERLAY``.
+OBS_MAX_CLIENTS_PER_OVERLAY = _env_int("OBS_MAX_CLIENTS_PER_OVERLAY", 100)
+
 # Server-side WebSocket heartbeat. ``WSHUB_HEARTBEAT_INTERVAL_SECONDS``
 # defaults to 0 (disabled) because the existing browser client does not
 # yet respond to application-level pings — enabling without first

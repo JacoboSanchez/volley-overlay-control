@@ -168,6 +168,15 @@ once a first tagged release ships.
 
 ### Changed
 
+- **The OBS overlay WebSocket hub now tolerates wedged clients and caps
+  fan-out.** Broadcasts to browser sources apply the same per-socket send
+  timeout as the control hub (`WS_BROADCAST_SEND_TIMEOUT_SECONDS`), so one
+  stuck OBS source no longer delays score updates to every other client
+  of that overlay, and each overlay accepts at most
+  `OBS_MAX_CLIENTS_PER_OVERLAY` connections (default 100) — beyond that
+  the upgrade is refused with WebSocket close code 1013, keeping a leaked
+  public link from exhausting server sockets.
+
 - **Board actions authorize with a single credential lookup.** Every
   scoreboard route used to run the same control-token / bookmark / cookie
   check twice (a route-level gate plus the session resolver). The

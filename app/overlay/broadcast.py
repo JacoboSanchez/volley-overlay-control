@@ -10,11 +10,36 @@ import logging
 
 from fastapi import WebSocket
 
+from app.constants import (
+    OBS_MAX_CLIENTS_PER_OVERLAY,
+    WS_BROADCAST_SEND_TIMEOUT_SECONDS,
+)
+
 logger = logging.getLogger(__name__)
+
+
+class ObsHubFull(Exception):
+    """Raised by :meth:`ObsBroadcastHub.add_client` at the per-overlay cap.
+
+    Mirrors ``WSHubFull``: the endpoint catches this and closes the
+    upgrade with WebSocket code 1013 ("Try Again Later").
+    """
+
+    def __init__(self, overlay_id: str, cap: int):
+        super().__init__(
+            f"overlay '{overlay_id}' is at its client cap ({cap})"
+        )
+        self.overlay_id = overlay_id
+        self.cap = cap
 
 
 class ObsBroadcastHub:
     """Tracks OBS browser source WebSocket connections and broadcasts state."""
+
+    # Runtime-tunable copies so tests can ``monkeypatch.setattr`` without
+    # reaching into ``app.constants`` (same pattern as ``WSHub``).
+    _BROADCAST_SEND_TIMEOUT = WS_BROADCAST_SEND_TIMEOUT_SECONDS
+    _MAX_CLIENTS_PER_OVERLAY = OBS_MAX_CLIENTS_PER_OVERLAY
 
     def __init__(self):
         self._clients: dict[str, list[WebSocket]] = {}
@@ -26,8 +51,20 @@ class ObsBroadcastHub:
         self._loop = asyncio.get_running_loop()
 
     def add_client(self, overlay_id: str, ws: WebSocket) -> None:
-        """Register an OBS browser source connection."""
-        self._clients.setdefault(overlay_id, []).append(ws)
+        """Register an OBS browser source connection.
+
+        Raises :class:`ObsHubFull` when the overlay already has
+        ``_MAX_CLIENTS_PER_OVERLAY`` connections — call before
+        ``accept``-ing so the refusal is a clean 1013 close.
+        """
+        clients = self._clients.setdefault(overlay_id, [])
+        if len(clients) >= self._MAX_CLIENTS_PER_OVERLAY:
+            logger.warning(
+                "Rejecting OBS WS connect for overlay '%s': %d/%d clients (cap reached)",
+                overlay_id, len(clients), self._MAX_CLIENTS_PER_OVERLAY,
+            )
+            raise ObsHubFull(overlay_id, self._MAX_CLIENTS_PER_OVERLAY)
+        clients.append(ws)
 
     def remove_client(self, overlay_id: str, ws: WebSocket) -> None:
         """Unregister an OBS browser source connection."""
@@ -54,9 +91,18 @@ class ObsBroadcastHub:
         existing = self._broadcast_tasks.get(overlay_id)
         if existing and not existing.done():
             existing.cancel()
-        self._broadcast_tasks[overlay_id] = asyncio.create_task(
+        task = asyncio.create_task(
             self._debounced_broadcast(overlay_id, get_state)
         )
+        self._broadcast_tasks[overlay_id] = task
+        task.add_done_callback(
+            lambda t, oid=overlay_id: self._reap_task(oid, t)
+        )
+
+    def _reap_task(self, overlay_id: str, task: asyncio.Task) -> None:
+        """Drop the task-map entry once its task finishes (if still current)."""
+        if self._broadcast_tasks.get(overlay_id) is task:
+            del self._broadcast_tasks[overlay_id]
 
     def schedule_broadcast_from_sync(self, overlay_id: str, get_state) -> None:
         """Schedule a broadcast from a synchronous context (e.g. ThreadPoolExecutor)."""
@@ -73,7 +119,13 @@ class ObsBroadcastHub:
 
         async def _send(client):
             try:
-                await client.send_text(message)
+                # A slow or wedged client (TCP backpressure from a stuck
+                # OBS source) must not stall delivery to the rest — treat
+                # a send that exceeds the timeout as a stale client.
+                await asyncio.wait_for(
+                    client.send_text(message),
+                    timeout=self._BROADCAST_SEND_TIMEOUT,
+                )
                 return None
             except Exception as exc:
                 # WebSocket frameworks raise a range of exceptions on a
@@ -109,6 +161,12 @@ class ObsBroadcastHub:
             await self._send_to_clients(overlay_id, message)
         except asyncio.CancelledError:
             pass  # Superseded by a newer update
+        except Exception:
+            # A failing get_state()/serialization must not die as an
+            # unretrieved task exception — later broadcasts still work.
+            logger.exception(
+                "Broadcast for overlay '%s' failed", overlay_id,
+            )
 
     async def broadcast_now(self, overlay_id: str, state: dict) -> None:
         """Immediately broadcast *state* to all clients (no debounce)."""
