@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, TimestampMixin, TZDateTime
 
 # Role values stored in ``users.role``. Kept as plain strings (not a DB enum)
 # for cross-backend portability and trivial migrations.
@@ -30,7 +30,7 @@ class User(Base, TimestampMixin):
     must_change_password: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False,
     )
-    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    password_changed_at: Mapped[datetime | None] = mapped_column(TZDateTime())
 
     sessions: Mapped[list[AuthSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True,
@@ -52,8 +52,8 @@ class AuthSession(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True,
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)
+    last_seen_at: Mapped[datetime | None] = mapped_column(TZDateTime())
     user_agent: Mapped[str | None] = mapped_column(String(255))
     ip: Mapped[str | None] = mapped_column(String(64))
 

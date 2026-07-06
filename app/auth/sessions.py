@@ -85,10 +85,8 @@ def resolve_session(db: Session, raw: str | None) -> User | None:
     ).scalar_one_or_none()
     if row is None:
         return None
-    expires_at = row.expires_at
-    if expires_at.tzinfo is None:  # SQLite returns naive UTC datetimes
-        expires_at = expires_at.replace(tzinfo=UTC)
-    if expires_at <= _now():
+    # Columns are TZDateTime — values come back UTC-aware on every backend.
+    if row.expires_at <= _now():
         db.delete(row)
         db.commit()
         return None
@@ -97,8 +95,6 @@ def resolve_session(db: Session, raw: str | None) -> User | None:
         return None
     now = _now()
     last_seen = row.last_seen_at
-    if last_seen is not None and last_seen.tzinfo is None:
-        last_seen = last_seen.replace(tzinfo=UTC)
     if last_seen is None or (now - last_seen) > _LAST_SEEN_THROTTLE:
         row.last_seen_at = now
         db.commit()

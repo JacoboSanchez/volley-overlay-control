@@ -413,6 +413,14 @@ once a first tagged release ships.
 
 ### Fixed
 
+- **Database timestamps are timezone-aware on SQLite.** Timestamp columns
+  now normalize to UTC-aware datetimes in both directions (SQLite returns
+  naive values for `timezone=True` columns), removing the per-call-site
+  `tzinfo` patching in the session resolver and the latent
+  `TypeError: can't compare offset-naive and offset-aware datetimes`
+  waiting for the next code that compares a model timestamp against
+  `datetime.now(UTC)`. No schema migration is needed.
+
 - **Concurrent duplicate submissions no longer surface as server errors.**
   Registering a username, creating an overlay, or saving a preset that a
   simultaneous request just created used to slip past the duplicate

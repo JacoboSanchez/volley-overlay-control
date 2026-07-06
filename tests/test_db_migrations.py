@@ -106,3 +106,31 @@ def test_sqlite_foreign_keys_are_enforced(db_session):
         pytest.skip("FK pragma is SQLite-specific")
     result = db_session.execute(text("PRAGMA foreign_keys")).scalar()
     assert result == 1
+
+
+def test_tz_datetime_round_trips_aware_on_sqlite(db_session):
+    """TZDateTime must hand back UTC-aware datetimes on SQLite so model
+    timestamps can be compared against datetime.now(UTC) without TypeError."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.auth import sessions
+    from app.db.models.user import AuthSession
+    from tests.conftest import make_user
+
+    user = make_user(db_session, "tzuser")
+    raw = sessions.create_session(db_session, user)
+    db_session.commit()
+    db_session.expire_all()
+
+    row = db_session.query(AuthSession).one()
+    assert row.expires_at.tzinfo is not None
+    assert row.last_seen_at is None or row.last_seen_at.tzinfo is not None
+    assert row.created_at.tzinfo is not None
+    # Aware comparison — the exact failure mode this guards against.
+    assert row.expires_at > datetime.now(UTC)
+
+    # resolve_session still lazily drops expired rows.
+    row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    db_session.commit()
+    assert sessions.resolve_session(db_session, raw) is None
+    assert db_session.query(AuthSession).count() == 0
