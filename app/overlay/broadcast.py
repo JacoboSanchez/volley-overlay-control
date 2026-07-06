@@ -5,6 +5,7 @@ overlay state updates with 50ms debouncing to coalesce rapid changes.
 """
 
 import asyncio
+import functools
 import json
 import logging
 
@@ -95,9 +96,7 @@ class ObsBroadcastHub:
             self._debounced_broadcast(overlay_id, get_state)
         )
         self._broadcast_tasks[overlay_id] = task
-        task.add_done_callback(
-            lambda t, oid=overlay_id: self._reap_task(oid, t)
-        )
+        task.add_done_callback(functools.partial(self._reap_task, overlay_id))
 
     def _reap_task(self, overlay_id: str, task: asyncio.Task) -> None:
         """Drop the task-map entry once its task finishes (if still current)."""

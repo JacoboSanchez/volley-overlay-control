@@ -168,6 +168,19 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Assorted robustness polish.** Remote-config lookups
+  (`REMOTE_CONFIG_URL`) now serve the cached values instantly and refresh
+  in the background instead of stalling requests for up to five seconds;
+  a malformed numeric env var (e.g. `MATCH_GAME_POINTS=abc`) falls back
+  to its default with a warning instead of crashing session init; icon
+  files are staged in a private temp directory rather than inside the
+  public `/media` tree; the unused `overlay_session_meta` table is
+  dropped (migration 0003); deleting a user no longer issues redundant
+  per-overlay archive deletes; the Reports page disables its delete
+  buttons while a delete is in flight; the team logo field shows a hint
+  for unusual URLs; and the icon picker, library section, overlays hook,
+  and inline team editor clean up their in-flight requests and timers.
+
 - **The match-history listing is paginated.** `GET /api/v1/matches` now
   takes `limit` (default 100, max 500) and `offset` and reports the total
   in `count`, instead of loading and serializing a user's entire archive

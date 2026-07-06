@@ -60,8 +60,23 @@ export default function IconLibrarySection({
   }, [t]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    // Mount-load with a cancel guard; post-action refreshes reuse refresh()
+    // directly (the section is still mounted there by construction).
+    let cancelled = false;
+    api
+      .listIcons()
+      .then((lib) => {
+        if (!cancelled) setLibrary(lib);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorLoad'));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
 
   const icons = isGlobal ? library?.globals ?? [] : library?.mine ?? [];
   const quotaFull =

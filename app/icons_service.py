@@ -23,6 +23,7 @@ many were touched.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import io
 import logging
@@ -157,7 +158,14 @@ def _store_file(content: bytes) -> str:
     )
     directory = icons_dir()
     os.makedirs(directory, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=directory, suffix=".tmp")
+    # Stage in a private sibling dir, NOT inside the publicly-served /media
+    # tree: a crash between mkstemp and the replace must not leave .tmp
+    # files world-readable behind the immutable cache headers. Same
+    # filesystem (both under data/), so os.replace stays atomic; fall back
+    # to in-place staging if an exotic layout makes the rename cross-device.
+    staging = data_dir("tmp")
+    os.makedirs(staging, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=staging, suffix=".tmp")
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(content)
@@ -165,7 +173,30 @@ def _store_file(content: bytes) -> str:
         # mount, or a reverse proxy serving the directory straight from disk
         # under a different user), so grant world-read explicitly.
         os.chmod(tmp_path, 0o644)
-        os.replace(tmp_path, os.path.join(directory, filename))
+        try:
+            os.replace(tmp_path, os.path.join(directory, filename))
+        except OSError as exc:
+            if exc.errno != errno.EXDEV:
+                raise
+            fallback_fd, fallback_path = tempfile.mkstemp(
+                dir=directory, suffix=".tmp",
+            )
+            try:
+                with os.fdopen(fallback_fd, "wb") as f:
+                    f.write(content)
+                os.chmod(fallback_path, 0o644)
+                os.replace(fallback_path, os.path.join(directory, filename))
+            except BaseException:
+                try:
+                    os.unlink(fallback_path)
+                except OSError:
+                    pass
+                raise
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
     except BaseException:
         try:
             os.unlink(tmp_path)

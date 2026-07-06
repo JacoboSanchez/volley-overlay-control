@@ -488,6 +488,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.teams.fieldLogo': 'Logo URL (optional)',
     'acc.teams.fieldLogoShort': 'Logo URL',
     'acc.teams.logoPlaceholder': 'https://…/logo.png',
+    'acc.teams.logoUrlHint': 'Unusual logo URL — use https://… or a library icon.',
     // --- Hosted icon library ---
     'acc.teams.browseLibrary': 'Library',
     'acc.icons.pickerTitle': 'Icon library',
@@ -1302,6 +1303,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.teams.fieldLogo': 'URL del logo (opcional)',
     'acc.teams.fieldLogoShort': 'URL del logo',
     'acc.teams.logoPlaceholder': 'https://…/logo.png',
+    'acc.teams.logoUrlHint': 'URL de logo inusual: usa https://… o un icono de la biblioteca.',
     // --- Librería de iconos alojados ---
     'acc.teams.browseLibrary': 'Librería',
     'acc.icons.pickerTitle': 'Librería de iconos',
@@ -2111,6 +2113,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.teams.fieldLogo': 'URL do logótipo (opcional)',
     'acc.teams.fieldLogoShort': 'URL do logótipo',
     'acc.teams.logoPlaceholder': 'https://…/logo.png',
+    'acc.teams.logoUrlHint': 'URL de logótipo invulgar — usa https://… ou um ícone da biblioteca.',
     // --- Biblioteca de ícones alojados ---
     'acc.teams.browseLibrary': 'Biblioteca',
     'acc.icons.pickerTitle': 'Biblioteca de ícones',
@@ -2915,6 +2918,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.teams.fieldLogo': 'URL logo (facoltativo)',
     'acc.teams.fieldLogoShort': 'URL logo',
     'acc.teams.logoPlaceholder': 'https://…/logo.png',
+    'acc.teams.logoUrlHint': 'URL del logo insolito: usa https://… o un\'icona della libreria.',
     // --- Libreria di icone ospitate ---
     'acc.teams.browseLibrary': 'Libreria',
     'acc.icons.pickerTitle': 'Libreria di icone',
@@ -3720,6 +3724,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.teams.fieldLogo': 'URL du logo (facultatif)',
     'acc.teams.fieldLogoShort': 'URL du logo',
     'acc.teams.logoPlaceholder': 'https://…/logo.png',
+    'acc.teams.logoUrlHint': 'URL de logo inhabituelle — utilisez https://… ou une icône de la bibliothèque.',
     // --- Bibliothèque d'icônes hébergées ---
     'acc.teams.browseLibrary': 'Bibliothèque',
     'acc.icons.pickerTitle': 'Bibliothèque d\'icônes',
@@ -4525,6 +4530,7 @@ export const translations: Record<string, TranslationDict> = {
     'acc.teams.fieldLogo': 'Logo-URL (optional)',
     'acc.teams.fieldLogoShort': 'Logo-URL',
     'acc.teams.logoPlaceholder': 'https://…/logo.png',
+    'acc.teams.logoUrlHint': 'Ungewöhnliche Logo-URL – verwende https://… oder ein Symbol aus der Bibliothek.',
     // --- Gehostete Icon-Bibliothek ---
     'acc.teams.browseLibrary': 'Bibliothek',
     'acc.icons.pickerTitle': 'Icon-Bibliothek',

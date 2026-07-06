@@ -25,6 +25,8 @@ class EnvVarsManager:
     # Serialises the refetch so concurrent callers (request pool + webhook
     # executor) don't each fire a duplicate HTTP fetch and race on the cache.
     _lock = threading.Lock()
+    # True while a background revalidation thread is running.
+    _refresh_in_flight = False
 
     @classmethod
     def get_env_var(cls, key, default=None):
@@ -48,21 +50,51 @@ class EnvVarsManager:
         # Fast path: serve the cache without locking while it is still fresh.
         if time.time() - cls._cache_timestamp <= cls._CACHE_EXPIRATION_SECONDS:
             return
+        if cls._cache_timestamp == 0:
+            # Very first load: fetch synchronously (under the lock) so
+            # startup reads see the remote values rather than defaults.
+            with cls._lock:
+                if cls._cache_timestamp == 0:
+                    cls._refresh(remote_config_url)
+            return
+        # Stale-while-revalidate: callers get the (stale) cache immediately —
+        # get_env_var runs inside async handlers, and a synchronous 5s fetch
+        # under the lock would stall the event loop and serialize every
+        # other caller behind it. A single daemon thread revalidates.
         with cls._lock:
-            # Re-check under the lock so only the first waiter refetches; the
-            # rest fall through to the now-fresh cache.
-            if time.time() - cls._cache_timestamp <= cls._CACHE_EXPIRATION_SECONDS:
+            if cls._refresh_in_flight or (
+                time.time() - cls._cache_timestamp <= cls._CACHE_EXPIRATION_SECONDS
+            ):
                 return
-            cls._cache_timestamp = time.time()
-            try:
-                logger.info("Fetching remote config from %s", redact_url(remote_config_url))
-                response = requests.get(remote_config_url, timeout=5)
-                logger.debug("Remote config response status: %s", response.status_code)
-                response.raise_for_status()
-                cls._remote_config_cache = cls._unwrap_remote_config(response.json())
-            except (requests.exceptions.RequestException, json.JSONDecodeError):
-                logger.exception("Error loading remote configuration")
-                cls._remote_config_cache = {}
+            cls._refresh_in_flight = True
+        threading.Thread(
+            target=cls._background_refresh,
+            args=(remote_config_url,),
+            name="remote-config-refresh",
+            daemon=True,
+        ).start()
+
+    @classmethod
+    def _background_refresh(cls, remote_config_url: str) -> None:
+        try:
+            with cls._lock:
+                cls._refresh(remote_config_url)
+        finally:
+            cls._refresh_in_flight = False
+
+    @classmethod
+    def _refresh(cls, remote_config_url: str) -> None:
+        """Fetch and install the remote config. Callers hold ``_lock``."""
+        cls._cache_timestamp = time.time()
+        try:
+            logger.info("Fetching remote config from %s", redact_url(remote_config_url))
+            response = requests.get(remote_config_url, timeout=5)
+            logger.debug("Remote config response status: %s", response.status_code)
+            response.raise_for_status()
+            cls._remote_config_cache = cls._unwrap_remote_config(response.json())
+        except (requests.exceptions.RequestException, json.JSONDecodeError):
+            logger.exception("Error loading remote configuration")
+            cls._remote_config_cache = {}
 
     @staticmethod
     def _unwrap_remote_config(payload):

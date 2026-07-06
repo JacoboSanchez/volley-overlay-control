@@ -38,10 +38,22 @@ export default function IconPickerDialog({
     setQuery('');
     setPendingFile(null);
     setUploadName('');
+    // Cancel guard (the useOverlays pattern): the picker unmounts with its
+    // editor row, and two rapid opens must not apply responses out of order.
+    let cancelled = false;
     api
       .listIcons()
-      .then(setLibrary)
-      .catch((e) => setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorLoad')));
+      .then((lib) => {
+        if (!cancelled) setLibrary(lib);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof api.ApiError ? e.detail : t('acc.icons.errorLoad'));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, t]);
 
   function pick(icon: api.IconOut) {

@@ -41,6 +41,15 @@ describe('translation catalog', () => {
         const key = m[1] ?? m[2] ?? m[3];
         if (key) used.add(key);
       }
+      // Ternary first-arguments — ``t(cond ? 'a' : 'b')`` — which the
+      // literal-first regex above skips; both branches must resolve.
+      for (const m of text.matchAll(
+        /\bt\(\s*[^)'"`]*?\?\s*(?:'([^']+)'|"([^"]+)")\s*:\s*(?:'([^']+)'|"([^"]+)")/g,
+      )) {
+        for (const key of [m[1] ?? m[2], m[3] ?? m[4]]) {
+          if (key) used.add(key);
+        }
+      }
     }
     expect(used.size).toBeGreaterThan(100); // sanity: the scan found real usage
     const unresolved = [...used].filter((k) => !enKeys.has(k)).sort();

@@ -25,6 +25,8 @@ export default function ReportsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('ended');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
+  // In-flight guard: a fast double-tap must not fan out the delete twice.
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [overlaysLoaded, setOverlaysLoaded] = useState(false);
   const [error, setError] = useState('');
@@ -147,16 +149,22 @@ export default function ReportsPage() {
   async function deleteIds(ids: string[]) {
     // The backend exposes a single-match delete; fan out and tolerate
     // partial failures so one stale row can't block the rest.
-    const results = await Promise.allSettled(ids.map((id) => api.deleteMatch(id)));
-    const ok = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.length - ok;
-    await load(oid);
-    setSel(new Set());
-    if (ok > 0) toast(t('acc.reports.toastDeleted', { n: ok }));
-    if (failed > 0) toast(t('acc.reports.errorDelete'), 'error');
+    setDeleting(true);
+    try {
+      const results = await Promise.allSettled(ids.map((id) => api.deleteMatch(id)));
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - ok;
+      await load(oid);
+      setSel(new Set());
+      if (ok > 0) toast(t('acc.reports.toastDeleted', { n: ok }));
+      if (failed > 0) toast(t('acc.reports.errorDelete'), 'error');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function onDeleteOne(m: api.MatchSummary) {
+    if (deleting) return;
     const ok = await confirm({
       title: t('acc.reports.confirmDeleteTitle'),
       message: t('acc.reports.confirmDeleteMsg'),
@@ -168,6 +176,7 @@ export default function ReportsPage() {
   }
 
   async function onDeleteSelected() {
+    if (deleting) return;
     const ids = shownIds.filter((id) => sel.has(id));
     if (ids.length === 0) return;
     const ok = await confirm({
@@ -232,7 +241,12 @@ export default function ReportsPage() {
                 />
                 <span className="acc-muted">{t('acc.reports.showing', { shown: shown.length, total: matches.length })}</span>
                 {someSelected && (
-                  <button type="button" className="acc-btn danger" onClick={onDeleteSelected}>
+                  <button
+                    type="button"
+                    className="acc-btn danger"
+                    disabled={deleting}
+                    onClick={onDeleteSelected}
+                  >
                     {t('acc.reports.deleteSelected', { n: shownIds.filter((id) => sel.has(id)).length })}
                   </button>
                 )}
@@ -291,6 +305,7 @@ export default function ReportsPage() {
                               className="acc-btn danger ghost"
                               aria-label={t('acc.reports.deleteOne')}
                               title={t('acc.reports.deleteOne')}
+                              disabled={deleting}
                               onClick={() => onDeleteOne(m)}
                             >
                               <span className="material-icons">delete</span>

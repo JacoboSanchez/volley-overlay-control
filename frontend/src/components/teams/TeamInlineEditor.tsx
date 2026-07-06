@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as api from '../../api/client';
 import { useI18n } from '../../i18n';
 import { useToast } from '../Toast';
@@ -23,6 +23,13 @@ export default function TeamInlineEditor({
   const draft = useTeamDraft(team);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    // onSaved() may collapse the row; don't leave the timer firing setState
+    // on an unmounted editor (and don't stack timers on rapid saves).
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+  }, []);
 
   async function save() {
     if (!draft.name.trim() || busy) return;
@@ -30,7 +37,8 @@ export default function TeamInlineEditor({
     try {
       await onSave(draft.toFields());
       setSaved(true);
-      setTimeout(() => setSaved(false), 1200);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 1200);
       onSaved();
       toast(t('acc.teams.toastSaved'));
     } catch (err) {
