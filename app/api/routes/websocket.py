@@ -9,6 +9,7 @@ ever streams a board its credential authorizes.
 import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
 from app.api.game_service import GameService
@@ -58,7 +59,7 @@ async def websocket_endpoint(
         await ws.close(code=4400, reason="Missing 'oid' (or 'c' control token) query parameter.")
         return
 
-    skey = _resolve_skey(ws, resolved, c, u)
+    skey = await run_in_threadpool(_resolve_skey, ws, resolved, c, u)
     if skey is None:
         await ws.close(code=4003, reason="Authentication required.")
         return

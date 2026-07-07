@@ -135,6 +135,12 @@ def claim_first_admin(
                 "First admin claimed — public registration auto-closed. "
                 "Reopen it from the admin Users page or set REGISTRATION_OPEN=true.",
             )
+        # Commit while still holding the lock: a concurrent loser then
+        # deterministically sees the committed admin (410) instead of racing
+        # into the cleared-token 403 path, and its request teardown — which
+        # rolls its session back — can never touch rows the winner hasn't
+        # made durable yet.
+        db.commit()
         clear_bootstrap_token()
         return user
 

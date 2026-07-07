@@ -82,7 +82,8 @@ async def init_session(
     board can be bootstrapped after a server restart by whoever opens the link.
     """
     try:
-        overlay = _resolve_init_overlay(
+        overlay = await run_in_threadpool(
+            _resolve_init_overlay,
             db, token=token, public_user=u, user=user, oid=req.oid,
         )
     except overlays_service.OverlayError as exc:
