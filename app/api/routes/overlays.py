@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app import overlays_service
 from app.api import match_archive
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.session_manager import GameSession
 from app.auth.dependencies import require_user
 from app.db.engine import get_db
@@ -70,7 +70,7 @@ def _overlay_out(request: Request, overlay, *, username: str | None = None) -> O
 
 
 @router.get("/overlays", response_model=list[OverlayOut])
-async def list_my_overlays(
+def list_my_overlays(
     request: Request,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -83,7 +83,7 @@ async def list_my_overlays(
 
 
 @router.post("/overlays", response_model=OverlayOut, status_code=201)
-async def create_my_overlay(
+def create_my_overlay(
     body: CreateOverlayRequest,
     request: Request,
     user: User = Depends(require_user),
@@ -102,7 +102,7 @@ async def create_my_overlay(
 
 
 @router.patch("/overlays/{oid}", response_model=OverlayOut)
-async def update_my_overlay(
+def update_my_overlay(
     oid: str,
     body: UpdateOverlayRequest,
     request: Request,
@@ -125,12 +125,16 @@ async def update_my_overlay(
 
 
 @router.delete("/overlays/{oid}")
-async def delete_my_overlay(
+def delete_my_overlay(
     oid: str,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    """Delete one of the caller's overlays and its in-process session/state."""
+    """Delete one of the caller's overlays and its in-process session/state.
+
+    Sync handler — the whole body (DB delete, state-store and archive file
+    removal) is blocking work and runs in the threadpool.
+    """
     from app.api.session_manager import SessionManager
     from app.overlay import overlay_state_store
     from app.overlay_key import make_skey
@@ -140,15 +144,15 @@ async def delete_my_overlay(
     db.commit()
     skey = make_skey(user.id, oid)
     SessionManager.remove(skey)
-    await run_in_threadpool(overlay_state_store.delete_overlay, skey)
+    overlay_state_store.delete_overlay(skey)
     # Reports key on the user (FK), not the overlay, so remove this overlay's
     # archived matches explicitly.
-    await run_in_threadpool(match_archive.delete_for_oid, skey)
+    match_archive.delete_for_oid(skey)
     return {"ok": True}
 
 
 @router.post("/overlays/{oid}/regenerate-control-token", response_model=OverlayOut)
-async def regenerate_control_token(
+def regenerate_control_token(
     oid: str,
     request: Request,
     user: User = Depends(require_user),
@@ -171,7 +175,7 @@ async def regenerate_control_token(
 # predefined catalog.
 
 
-@router.get("/links", dependencies=[Depends(verify_api_key)])
+@router.get("/links")
 async def get_links(request: Request,
                     session: GameSession = Depends(get_session)):
     """Return overlay, preview, and spectator links for the session."""
@@ -243,17 +247,17 @@ async def get_links(request: Request,
 
 def _latest_match_id_for(oid: str):
     """Return the most-recent ``match_id`` archived for *oid*, or ``None``."""
-    summaries = match_archive.list_matches(oid=oid)
+    summaries = match_archive.list_matches(oid=oid, limit=1)
     return summaries[0]["match_id"] if summaries else None
 
 
-@router.get("/styles", dependencies=[Depends(verify_api_key)])
+@router.get("/styles")
 async def get_styles(session: GameSession = Depends(get_session)):
     """Return available overlay styles."""
     return await run_in_threadpool(session.backend.get_available_styles)
 
 
-@router.get("/style-capabilities", dependencies=[Depends(verify_api_key)])
+@router.get("/style-capabilities")
 async def get_style_capabilities(session: GameSession = Depends(get_session)):
     """Per-style UI capability flags (theme / vertical-anchor support).
 

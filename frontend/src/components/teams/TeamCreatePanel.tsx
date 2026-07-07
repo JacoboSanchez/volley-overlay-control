@@ -9,7 +9,12 @@ import { useTeamDraft } from './useTeamDraft';
  *  caller supplies the create call and the success message so the same panel
  *  drives both the user's custom teams and the admin catalog. */
 export default function TeamCreatePanel({
-  onCreate, onCreated, addLabel, successMessage, idPrefix, iconPickerScope,
+  onCreate,
+  onCreated,
+  addLabel,
+  successMessage,
+  idPrefix,
+  iconPickerScope,
 }: {
   onCreate: (fields: api.TeamFields) => Promise<api.TeamOut>;
   onCreated: () => void;
@@ -44,9 +49,15 @@ export default function TeamCreatePanel({
   return (
     <form className="acc-tcreate" onSubmit={submit}>
       <TeamFieldset draft={draft} idPrefix={idPrefix} iconPickerScope={iconPickerScope} />
-      {error && <div className="acc-error" style={{ marginTop: 10 }}>{error}</div>}
+      {error && (
+        <div className="acc-error" style={{ marginTop: 10 }}>
+          {error}
+        </div>
+      )}
       <div className="acc-tcreate__actions">
-        <button className="acc-btn" type="submit" disabled={!draft.name.trim() || busy}>{addLabel}</button>
+        <button className="acc-btn" type="submit" disabled={!draft.name.trim() || busy}>
+          {addLabel}
+        </button>
       </div>
     </form>
   );

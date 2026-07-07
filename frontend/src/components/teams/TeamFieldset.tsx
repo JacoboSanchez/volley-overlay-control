@@ -9,7 +9,9 @@ import type { TeamDraft } from './useTeamDraft';
  *  portrait column; the two colour pickers sit side by side. The logo field
  *  takes a pasted URL or a pick from the hosted icon library. */
 export default function TeamFieldset({
-  draft, idPrefix, iconPickerScope = 'personal',
+  draft,
+  idPrefix,
+  iconPickerScope = 'personal',
 }: {
   draft: TeamDraft;
   idPrefix?: string;
@@ -20,6 +22,11 @@ export default function TeamFieldset({
   const { t } = useI18n();
   const [pickerOpen, setPickerOpen] = useState(false);
   const testId = (suffix: string) => (idPrefix ? `${idPrefix}-${suffix}` : undefined);
+  // Soft hint only — the field legitimately holds /media/… library paths and
+  // the server validates on save; this just catches obvious paste mistakes
+  // (and http:// values that would trip mixed-content on an HTTPS deploy).
+  const icon = draft.icon.trim();
+  const oddLogoUrl = icon !== '' && !/^(https:\/\/|\/)/i.test(icon);
   return (
     <div className="acc-tfields">
       <label className="acc-field acc-tfield">
@@ -50,6 +57,11 @@ export default function TeamFieldset({
             {t('acc.teams.browseLibrary')}
           </button>
         </div>
+        {oddLogoUrl && (
+          <span className="acc-muted" data-testid={testId('logo-hint')}>
+            {t('acc.teams.logoUrlHint')}
+          </span>
+        )}
       </label>
       <IconPickerDialog
         open={pickerOpen}

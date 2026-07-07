@@ -23,6 +23,7 @@ many were touched.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import io
 import logging
@@ -118,20 +119,29 @@ def process_icon_upload(raw: bytes) -> ProcessedIcon:
                     f"Unsupported image format {fmt or 'unknown'!r} — "
                     "upload PNG, JPEG, WebP or GIF."
                 )
+            # Explicit pixel budget from the header, BEFORE any decode:
+            # Pillow's own bomb guard only hard-fails at 2× MAX_IMAGE_PIXELS
+            # (below that it merely warns), which would let a ~5 MB upload
+            # materialize a ~48M-pixel RGBA (~190 MB) during convert().
+            if img.width * img.height > ICONS_MAX_PIXELS:
+                raise IconError("Image has too many pixels.")
             # Animated inputs are flattened to their first frame (v1).
             img.seek(0)
             # Bake EXIF rotation in, then normalize palette/CMYK/L modes;
             # RGBA keeps transparency and WebP encodes it natively.
-            img = ImageOps.exif_transpose(img)
-            img = img.convert("RGBA")
+            # (New name: exif_transpose/convert return plain Image objects,
+            # not the ImageFile that ``open`` produced — mypy distinguishes.)
+            normalized = ImageOps.exif_transpose(img).convert("RGBA")
             # thumbnail() preserves aspect ratio and never upscales.
-            img.thumbnail((ICONS_MAX_DIM, ICONS_MAX_DIM), Image.Resampling.LANCZOS)
+            normalized.thumbnail(
+                (ICONS_MAX_DIM, ICONS_MAX_DIM), Image.Resampling.LANCZOS,
+            )
             for quality in (ICONS_WEBP_QUALITY, *_QUALITY_LADDER_FLOOR):
                 buf = io.BytesIO()
-                img.save(buf, format="WEBP", quality=quality, method=6)
+                normalized.save(buf, format="WEBP", quality=quality, method=6)
                 content = buf.getvalue()
                 if len(content) <= ICONS_MAX_STORED_BYTES:
-                    return ProcessedIcon(content, img.width, img.height)
+                    return ProcessedIcon(content, normalized.width, normalized.height)
             raise IconError("Image does not compress under the stored-size limit.")
     except Image.DecompressionBombError as exc:
         raise IconError("Image has too many pixels.") from exc
@@ -151,7 +161,14 @@ def _store_file(content: bytes) -> str:
     )
     directory = icons_dir()
     os.makedirs(directory, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=directory, suffix=".tmp")
+    # Stage in a private sibling dir, NOT inside the publicly-served /media
+    # tree: a crash between mkstemp and the replace must not leave .tmp
+    # files world-readable behind the immutable cache headers. Same
+    # filesystem (both under data/), so os.replace stays atomic; fall back
+    # to in-place staging if an exotic layout makes the rename cross-device.
+    staging = data_dir("tmp")
+    os.makedirs(staging, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=staging, suffix=".tmp")
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(content)
@@ -159,7 +176,30 @@ def _store_file(content: bytes) -> str:
         # mount, or a reverse proxy serving the directory straight from disk
         # under a different user), so grant world-read explicitly.
         os.chmod(tmp_path, 0o644)
-        os.replace(tmp_path, os.path.join(directory, filename))
+        try:
+            os.replace(tmp_path, os.path.join(directory, filename))
+        except OSError as exc:
+            if exc.errno != errno.EXDEV:
+                raise
+            fallback_fd, fallback_path = tempfile.mkstemp(
+                dir=directory, suffix=".tmp",
+            )
+            try:
+                with os.fdopen(fallback_fd, "wb") as f:
+                    f.write(content)
+                os.chmod(fallback_path, 0o644)
+                os.replace(fallback_path, os.path.join(directory, filename))
+            except BaseException:
+                try:
+                    os.unlink(fallback_path)
+                except OSError:
+                    pass
+                raise
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
     except BaseException:
         try:
             os.unlink(tmp_path)
@@ -267,9 +307,10 @@ def create_icon(
     with the per-user quota enforced. ``dedupe=True`` auto-suffixes a
     taken name (batch import); otherwise a duplicate raises.
 
-    The file is written before the row; the caller's surrounding
-    commit failing triggers a best-effort unlink via the exception
-    path here.
+    The file is written before the row; a failing flush unlinks it here.
+    The exception path does NOT see the caller's later ``commit()`` —
+    callers that commit must unlink ``icon.filename`` themselves when
+    that commit fails (see the upload route and the batch import).
     """
     name = (name or "").strip()
     if not name:
@@ -340,9 +381,12 @@ def delete_icon(db: Session, icon: Icon) -> tuple[int, str]:
     (inert), never a dangling row pointing at nothing.
     """
     url = icon_public_url(icon.filename)
-    cleared = db.execute(
+    result = db.execute(
         update(Team).where(Team.icon_url == url).values(icon_url=None)
-    ).rowcount or 0
+    )
+    # execute() is typed as the base Result, which has no rowcount; DML
+    # statements actually return a CursorResult that does.
+    cleared = getattr(result, "rowcount", 0) or 0
     filename = icon.filename
     db.delete(icon)
     db.flush()
@@ -382,6 +426,7 @@ def import_icons_from_teams(
                 {**base, "status": "skipped", "error": "not an external http(s) URL"}
             )
             continue
+        created_filename: str | None = None
         try:
             raw = fetch_guarded(
                 source,
@@ -391,11 +436,14 @@ def import_icons_from_teams(
             icon = create_icon(
                 db, name=team.name, raw=raw, user_id=user_id, dedupe=True,
             )
+            created_filename = icon.filename
             url = icon_public_url(icon.filename)
             team.icon_url = url
             db.commit()
         except (GuardedFetchError, IconError) as exc:
             db.rollback()
+            if created_filename:
+                _unlink_file(created_filename)
             results.append({**base, "status": "error", "error": str(exc)})
             continue
         except Exception:
@@ -405,6 +453,10 @@ def import_icons_from_teams(
             # gets a generic marker rather than internals.
             logger.exception("Icon import failed for team %s (%s)", team.id, team.name)
             db.rollback()
+            # The rollback discarded the row, so the already-written file
+            # would be orphaned under /media — remove it too.
+            if created_filename:
+                _unlink_file(created_filename)
             results.append({**base, "status": "error", "error": "internal error"})
             continue
         results.append(

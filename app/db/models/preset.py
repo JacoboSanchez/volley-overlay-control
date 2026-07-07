@@ -45,7 +45,10 @@ class Preset(Base, TimestampMixin):
     # Global presets are visible to all users only when active; user presets
     # are always usable by their owner.
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    categories: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    # A JSON *array* of category ids (see app.api.preset_categories) — the
+    # annotation matters: every writer stores a list, and typing it as a
+    # dict let a wrong-shaped assignment slip past mypy.
+    categories: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 
 

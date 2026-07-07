@@ -1,4 +1,4 @@
-"""Per-user overlays and their persisted session-level flags.
+"""Per-user overlays.
 
 A user's overlay is identified to the *user* by its ``oid`` (unique only
 within that user — two users may both own ``oid="liga"``), and to *OBS*
@@ -8,11 +8,8 @@ by an unguessable ``public_token``. The internal store/session key is
 
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import JSON
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
 
@@ -50,22 +47,3 @@ class UserOverlay(Base, TimestampMixin):
     # in the account UI. Not an alternative name — the ``oid`` is the name.
     description: Mapped[str | None] = mapped_column(String(120))
 
-    meta: Mapped[OverlaySessionMeta | None] = relationship(
-        back_populates="overlay", cascade="all, delete-orphan",
-        passive_deletes=True, uselist=False,
-    )
-
-
-class OverlaySessionMeta(Base, TimestampMixin):
-    """Small per-overlay session flags (was ``data/session_meta_<hash>.json``)."""
-
-    __tablename__ = "overlay_session_meta"
-
-    overlay_id: Mapped[int] = mapped_column(
-        ForeignKey("user_overlays.id", ondelete="CASCADE"), primary_key=True,
-    )
-    # The flat flags dict produced by ``GameSession.to_meta_dict`` — kept as a
-    # single JSON blob so adding a flag never needs a migration.
-    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-
-    overlay: Mapped[UserOverlay] = relationship(back_populates="meta")

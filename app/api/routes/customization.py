@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app import presets_service
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.game_service import GameService
 from app.api.schemas import ActionResponse
 from app.api.session_manager import GameSession
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/customization", dependencies=[Depends(verify_api_key)])
+@router.get("/customization")
 async def get_customization(session: GameSession = Depends(get_session)):
     return await run_in_threadpool(GameService.refresh_customization, session)
 
@@ -43,7 +43,6 @@ async def get_customization(session: GameSession = Depends(get_session)):
 @router.put(
     "/customization",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def update_customization(data: dict,
                                session: GameSession = Depends(get_session)):
@@ -72,8 +71,9 @@ class PresetSummary(BaseModel):
 
     @classmethod
     def of(cls, p: Preset) -> "PresetSummary":
+        source: Literal["user", "global"] = "global" if p.scope == "global" else "user"
         return cls(
-            slug=p.slug, name=p.name, source=p.scope, is_active=p.is_active,
+            slug=p.slug, name=p.name, source=source, is_active=p.is_active,
             categories=list(p.categories or []), values=dict(p.values or {}),
         )
 
@@ -110,7 +110,7 @@ class SetActiveRequest(BaseModel):
     response_model=PresetListResponse,
     summary="List active global presets plus the caller's own.",
 )
-async def list_presets(
+def list_presets(
     user: User = Depends(require_user), db: Session = Depends(get_db),
 ) -> PresetListResponse:
     items = [PresetSummary.of(p) for p in presets_service.list_for_user(db, user.id)]
@@ -122,7 +122,7 @@ async def list_presets(
     response_model=PresetSummary,
     summary="Save a subset of the current configuration as a personal preset.",
 )
-async def create_preset(
+def create_preset(
     payload: PresetCreateRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -145,7 +145,7 @@ async def create_preset(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete one of the caller's own presets.",
 )
-async def delete_preset(
+def delete_preset(
     slug: str = Path(..., min_length=1, max_length=120),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -171,7 +171,7 @@ async def delete_preset(
     "/admin/presets", response_model=PresetListResponse,
     summary="List all global presets (active and inactive) for management.",
 )
-async def admin_list_presets(
+def admin_list_presets(
     _admin: User = Depends(require_admin), db: Session = Depends(get_db),
 ) -> PresetListResponse:
     items = [PresetSummary.of(p) for p in presets_service.list_global_presets(db)]
@@ -182,7 +182,7 @@ async def admin_list_presets(
     "/admin/presets", response_model=PresetSummary, status_code=201,
     summary="Author a global preset.",
 )
-async def admin_create_preset(
+def admin_create_preset(
     payload: AdminPresetCreateRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -200,7 +200,7 @@ async def admin_create_preset(
 
 
 @router.patch("/admin/presets/{slug}", summary="Activate/deactivate a global preset.")
-async def admin_set_preset_active(
+def admin_set_preset_active(
     body: SetActiveRequest,
     slug: str = Path(..., min_length=1, max_length=120),
     _admin: User = Depends(require_admin),
@@ -218,7 +218,7 @@ async def admin_set_preset_active(
     "/admin/presets/{slug}", status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a global preset.",
 )
-async def admin_delete_preset(
+def admin_delete_preset(
     slug: str = Path(..., min_length=1, max_length=120),
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -229,14 +229,14 @@ async def admin_delete_preset(
 
 
 @router.get("/admin/presets/export", summary="Export global presets as APP_THEMES JSON.")
-async def admin_export_presets(
+def admin_export_presets(
     _admin: User = Depends(require_admin), db: Session = Depends(get_db),
 ):
     return presets_service.export_app_themes(db)
 
 
 @router.post("/admin/presets/import", summary="Import an APP_THEMES JSON map.")
-async def admin_import_presets(
+def admin_import_presets(
     body: ImportThemesRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),

@@ -97,11 +97,17 @@ export default function MatchCalendar({ matchTimes, selected, onSelect }: MatchC
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="material-icons" aria-hidden="true">calendar_month</span>
+        <span className="material-icons" aria-hidden="true">
+          calendar_month
+        </span>
         <span>{triggerLabel}</span>
       </button>
       {selected && (
-        <button type="button" className="acc-btn ghost acc-cal-clear" onClick={() => onSelect(null)}>
+        <button
+          type="button"
+          className="acc-btn ghost acc-cal-clear"
+          onClick={() => onSelect(null)}
+        >
           {t('acc.reports.allDays')}
         </button>
       )}
@@ -129,7 +135,9 @@ export default function MatchCalendar({ matchTimes, selected, onSelect }: MatchC
           </div>
           <div className="acc-cal-grid acc-cal-weekdays">
             {weekdays.map((w, i) => (
-              <span key={i} className="acc-cal-weekday">{w}</span>
+              <span key={i} className="acc-cal-weekday">
+                {w}
+              </span>
             ))}
           </div>
           <div className="acc-cal-grid">

@@ -9,7 +9,9 @@ vi.mock('../auth/AuthContext', () => ({
 }));
 
 vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error { detail = ''; },
+  ApiError: class ApiError extends Error {
+    detail = '';
+  },
   getTeamCatalog: vi.fn(),
   adminCreateTeam: vi.fn(),
   adminUpdateTeam: vi.fn(),
@@ -24,7 +26,9 @@ vi.mock('../api/client', () => ({
   adminDeleteGroup: vi.fn(),
   // Icon library (rendered by IconLibrarySection / the fieldset picker).
   listIcons: vi.fn().mockResolvedValue({
-    globals: [], mine: [], quota: { used: 0, limit: 50 },
+    globals: [],
+    mine: [],
+    quota: { used: 0, limit: 50 },
   }),
   adminUploadIcon: vi.fn(),
   adminRenameIcon: vi.fn(),
@@ -36,11 +40,20 @@ vi.mock('../api/client', () => ({
 import * as api from '../api/client';
 
 const team = (id: number, name: string): api.TeamOut => ({
-  id, name, icon: null, color: '#123456', text_color: '#ffffff', is_global: true,
+  id,
+  name,
+  icon: null,
+  color: '#123456',
+  text_color: '#ffffff',
+  is_global: true,
 });
 
 function renderPage() {
-  return render(<MemoryRouter><AdminTeamsPage /></MemoryRouter>);
+  return render(
+    <MemoryRouter>
+      <AdminTeamsPage />
+    </MemoryRouter>,
+  );
 }
 
 describe('AdminTeamsPage', () => {
@@ -51,7 +64,12 @@ describe('AdminTeamsPage', () => {
     vi.mocked(api.adminListGroups).mockResolvedValue([]);
     vi.mocked(api.adminCreateTeam).mockResolvedValue(team(9, 'Lugo'));
     vi.mocked(api.adminDeleteTeam).mockResolvedValue({ ok: true });
-    vi.mocked(api.adminCreateGroup).mockResolvedValue({ id: 5, name: 'Liga', is_active: false, teams: [] });
+    vi.mocked(api.adminCreateGroup).mockResolvedValue({
+      id: 5,
+      name: 'Liga',
+      is_active: false,
+      teams: [],
+    });
     vi.mocked(api.adminAddGroupMember).mockResolvedValue({ ok: true });
     vi.mocked(api.adminRemoveGroupMember).mockResolvedValue({ ok: true, removed: true });
     vi.mocked(api.adminSetGroupActive).mockResolvedValue({ id: 5, is_active: true });
@@ -94,7 +112,9 @@ describe('AdminTeamsPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add team' }));
     await waitFor(() =>
-      expect(api.adminCreateTeam).toHaveBeenCalledWith(expect.objectContaining({ name: 'Lugo CV' })),
+      expect(api.adminCreateTeam).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Lugo CV' }),
+      ),
     );
   });
 
@@ -131,7 +151,9 @@ describe('AdminTeamsPage', () => {
       await waitFor(() => expect(api.adminRemoveGroupMember).toHaveBeenCalledWith(5, 1));
 
       // Add a catalog team not yet in the group (Estudiantes, id 2).
-      fireEvent.change(within(card).getByLabelText('Choose a team to add'), { target: { value: '2' } });
+      fireEvent.change(within(card).getByLabelText('Choose a team to add'), {
+        target: { value: '2' },
+      });
       fireEvent.click(within(card).getByRole('button', { name: 'Add team' }));
       await waitFor(() => expect(api.adminAddGroupMember).toHaveBeenCalledWith(5, 2));
 

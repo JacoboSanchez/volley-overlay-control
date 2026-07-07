@@ -16,6 +16,7 @@ from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
+from app.overlay.broadcast import ObsHubFull
 from app.overlay.locale import _resolve_overlay_locale
 from app.overlay.state_store import OverlayStateStore
 from app.overlay.themes import get_theme_names
@@ -196,11 +197,19 @@ def _register_page_routes(
             await websocket.close(code=4004, reason="Overlay not found")
             return
         overlay_id = skey
-        await websocket.accept()
-
-        broadcast.add_client(overlay_id, websocket)
-
         try:
+            # Register before accepting so a capped overlay is refused with
+            # a clean 1013 close (same shape as the control WS endpoint).
+            broadcast.add_client(overlay_id, websocket)
+        except ObsHubFull as exc:
+            logger.warning(
+                "Refused OBS WS connect for overlay '%s' — at cap %d",
+                overlay_id, exc.cap,
+            )
+            await websocket.close(code=1013, reason="Too many clients for this overlay.")
+            return
+        try:
+            await websocket.accept()
             state = await run_in_threadpool(store.get_state, overlay_id)
             await websocket.send_text(json.dumps(state))
             while True:

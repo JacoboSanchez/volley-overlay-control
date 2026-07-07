@@ -42,7 +42,15 @@ export function useTeamDraft(initial?: TeamOut | null): TeamDraft {
   }
 
   return {
-    name, setName, icon, setIcon, color, setColor, textColor, setTextColor,
-    reset, toFields,
+    name,
+    setName,
+    icon,
+    setIcon,
+    color,
+    setColor,
+    textColor,
+    setTextColor,
+    reset,
+    toFields,
   };
 }

@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.passwords import generate_temp_password, hash_password, verify_password
@@ -57,10 +58,11 @@ def get_by_username(db: Session, username: str) -> User | None:
     ).scalar_one_or_none()
 
 
-def admin_exists(db: Session) -> bool:
-    return db.execute(
-        select(func.count()).select_from(User).where(User.role == ROLE_ADMIN)
-    ).scalar_one() > 0
+def admin_exists(db: Session, *, exclude_user_id: int | None = None) -> bool:
+    stmt = select(func.count()).select_from(User).where(User.role == ROLE_ADMIN)
+    if exclude_user_id is not None:
+        stmt = stmt.where(User.id != exclude_user_id)
+    return db.execute(stmt).scalar_one() > 0
 
 
 def _normalize_email(email: str | None) -> str | None:
@@ -104,7 +106,14 @@ def create_user(
         password_changed_at=datetime.now(UTC),
     )
     db.add(user)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        # The pre-checks above race with concurrent inserts; translate the
+        # unique-constraint loss into the same caller-fixable error instead
+        # of surfacing a 500 (and leave the session usable again).
+        db.rollback()
+        raise UserError("That username or email is already taken.") from exc
     return user
 
 
@@ -159,7 +168,11 @@ def update_profile(
             if clash is not None:
                 raise UserError("That email is already registered.")
         user.email = normalized
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise UserError("That email is already registered.") from exc
     return user
 
 

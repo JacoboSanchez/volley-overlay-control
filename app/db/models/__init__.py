@@ -7,7 +7,7 @@ this package to discover every table.
 from __future__ import annotations
 
 from app.db.models.icon import Icon
-from app.db.models.overlay import OverlaySessionMeta, UserOverlay
+from app.db.models.overlay import UserOverlay
 from app.db.models.preset import Preset
 from app.db.models.report import MatchReport
 from app.db.models.setting import Setting
@@ -24,7 +24,6 @@ __all__ = [
     "AuthSession",
     "Icon",
     "MatchReport",
-    "OverlaySessionMeta",
     "Preset",
     "Setting",
     "Team",

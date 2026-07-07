@@ -68,17 +68,30 @@ export default function OverlaysPage() {
       <form className="acc-form" onSubmit={onCreate}>
         <label className="acc-field">
           <span>{t('acc.overlays.field.oid')}</span>
-          <input className="acc-input" value={oid} placeholder={t('acc.overlays.field.oidPlaceholder')}
-            maxLength={64} onChange={(e) => setOid(e.target.value)} />
+          <input
+            className="acc-input"
+            value={oid}
+            placeholder={t('acc.overlays.field.oidPlaceholder')}
+            maxLength={64}
+            onChange={(e) => setOid(e.target.value)}
+          />
           <small className="acc-muted">{t('acc.overlays.field.oidHelp')}</small>
         </label>
         <label className="acc-field">
           <span>{t('acc.overlays.field.description')}</span>
-          <input className="acc-input" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <input
+            className="acc-input"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </label>
         <div className="acc-form-actions">
-          <span className="acc-form-spacer" aria-hidden="true">&nbsp;</span>
-          <button className="acc-btn" type="submit" disabled={!oid.trim()}>{t('acc.overlays.add')}</button>
+          <span className="acc-form-spacer" aria-hidden="true">
+            &nbsp;
+          </span>
+          <button className="acc-btn" type="submit" disabled={!oid.trim()}>
+            {t('acc.overlays.add')}
+          </button>
         </div>
       </form>
       {(createError || loadError) && (
@@ -87,7 +100,8 @@ export default function OverlaysPage() {
 
       {loading ? (
         <p className="acc-muted">{t('acc.common.loading')}</p>
-      ) : loadError ? null /* the error banner above already explains the failure */ : overlays.length === 0 ? (
+      ) : loadError ? null /* the error banner above already explains the failure */ : overlays.length ===
+        0 ? (
         <EmptyState>{t('acc.overlays.empty')}</EmptyState>
       ) : (
         <div className="acc-overlay-cards">
@@ -110,7 +124,9 @@ export default function OverlaysPage() {
  *     a no-login link to whoever keeps score.
  *  Rename/Delete are small management icons in the header. */
 function OverlayCard({
-  o, onChanged, onDelete,
+  o,
+  onChanged,
+  onDelete,
 }: {
   o: api.OverlayPayload;
   onChanged: () => void;
@@ -151,9 +167,14 @@ function OverlayCard({
             aria-pressed={renaming}
             aria-label={t('acc.overlays.rename')}
             title={t('acc.overlays.rename')}
-            onClick={() => { setOpen(true); setRenaming((v) => !v); }}
+            onClick={() => {
+              setOpen(true);
+              setRenaming((v) => !v);
+            }}
           >
-            <span className="material-icons" aria-hidden="true">edit</span>
+            <span className="material-icons" aria-hidden="true">
+              edit
+            </span>
           </button>
           <button
             type="button"
@@ -162,7 +183,9 @@ function OverlayCard({
             title={t('acc.common.delete')}
             onClick={onDelete}
           >
-            <span className="material-icons" aria-hidden="true">delete</span>
+            <span className="material-icons" aria-hidden="true">
+              delete
+            </span>
           </button>
         </div>
       </header>
@@ -170,13 +193,21 @@ function OverlayCard({
       {open && (
         <div className="acc-overlay-body">
           {renaming && (
-            <RenamePanel o={o} onSaved={() => { setRenaming(false); onChanged(); }} />
+            <RenamePanel
+              o={o}
+              onSaved={() => {
+                setRenaming(false);
+                onChanged();
+              }}
+            />
           )}
 
           {/* JOB 1 — the on-stream graphic (paste into OBS once). */}
           <div className="acc-overlay-job">
             <div className="acc-overlay-job__label">
-              <span className="material-icons" aria-hidden="true">tv</span>
+              <span className="material-icons" aria-hidden="true">
+                tv
+              </span>
               {t('acc.overlays.outputLabel')}
             </div>
             <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.outputDesc')}</p>
@@ -186,7 +217,9 @@ function OverlayCard({
           {/* JOB 2 — the scoring board (open mine / share a link). */}
           <div className="acc-overlay-job">
             <div className="acc-overlay-job__label">
-              <span className="material-icons" aria-hidden="true">sports_esports</span>
+              <span className="material-icons" aria-hidden="true">
+                sports_esports
+              </span>
               {t('acc.overlays.controlLabel')}
             </div>
             <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.controlGroupDesc')}</p>
@@ -196,7 +229,8 @@ function OverlayCard({
               target="_blank"
               rel="noopener noreferrer"
             >
-              {t('acc.overlays.openBoard')}<span aria-hidden="true"> ↗</span>
+              {t('acc.overlays.openBoard')}
+              <span aria-hidden="true"> ↗</span>
             </a>
             <ShareControl o={o} onChanged={onChanged} />
             <BookmarkAdvanced o={o} onChanged={onChanged} />
@@ -231,7 +265,11 @@ function RenamePanel({ o, onSaved }: { o: api.OverlayPayload; onSaved: () => voi
     <div className="acc-overlay-panel">
       <label className="acc-field" style={{ marginBottom: 8 }}>
         <span>{t('acc.overlays.editDescription')}</span>
-        <input className="acc-input" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <input
+          className="acc-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
       </label>
       <button className="acc-btn" onClick={save} disabled={busy}>
         {busy ? t('acc.common.working') : t('acc.overlays.editSave')}
@@ -285,7 +323,9 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
             onClick={regenerate}
             disabled={busy}
           >
-            <span className="material-icons" aria-hidden="true">{busy ? 'hourglass_top' : 'refresh'}</span>
+            <span className="material-icons" aria-hidden="true">
+              {busy ? 'hourglass_top' : 'refresh'}
+            </span>
           </button>
         </div>
       ) : (
@@ -319,7 +359,9 @@ function BookmarkAdvanced({ o, onChanged }: { o: api.OverlayPayload; onChanged: 
     try {
       await api.updateOverlay(o.oid, { public_control: !o.public_control });
       onChanged();
-      toast(o.public_control ? t('acc.overlays.bookmarkDisabled') : t('acc.overlays.bookmarkEnabled'));
+      toast(
+        o.public_control ? t('acc.overlays.bookmarkDisabled') : t('acc.overlays.bookmarkEnabled'),
+      );
     } catch (err) {
       toast(err instanceof api.ApiError ? err.detail : t('acc.overlays.bookmarkError'), 'error');
     } finally {
@@ -331,7 +373,9 @@ function BookmarkAdvanced({ o, onChanged }: { o: api.OverlayPayload; onChanged: 
     <details className="acc-overlay-advanced" open={o.public_control}>
       <summary className="acc-overlay-advanced__summary">{t('acc.overlays.advancedTitle')}</summary>
       <div className="acc-overlay-advanced__body">
-        <p className="acc-muted" style={{ marginTop: 0 }}>{t('acc.overlays.bookmarkDesc')}</p>
+        <p className="acc-muted" style={{ marginTop: 0 }}>
+          {t('acc.overlays.bookmarkDesc')}
+        </p>
         <label className="acc-muted acc-overlay-advanced__toggle">
           <input type="checkbox" checked={o.public_control} disabled={busy} onChange={toggle} />
           {t('acc.overlays.bookmarkToggle')}

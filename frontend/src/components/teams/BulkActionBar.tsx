@@ -6,7 +6,9 @@ import { useI18n } from '../../i18n';
  *  reach in portrait. Renders nothing when the selection is empty. Pages keep at
  *  most one selection active at a time so two bars never overlap. */
 export default function BulkActionBar({
-  count, onClear, children,
+  count,
+  onClear,
+  children,
 }: {
   count: number;
   onClear: () => void;
@@ -19,7 +21,9 @@ export default function BulkActionBar({
       <span className="acc-bulkbar__count">{t('acc.teams.selectedCount', { n: count })}</span>
       <div className="acc-bulkbar__actions">
         {children}
-        <button className="acc-btn ghost" onClick={onClear}>{t('acc.teams.clearSelection')}</button>
+        <button className="acc-btn ghost" onClick={onClear}>
+          {t('acc.teams.clearSelection')}
+        </button>
       </div>
     </div>
   );

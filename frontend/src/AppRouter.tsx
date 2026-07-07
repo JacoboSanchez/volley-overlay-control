@@ -1,11 +1,5 @@
 import { Suspense, lazy, useEffect, type ReactNode } from 'react';
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-} from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { I18nProvider } from './i18n';
 import { SettingsProvider } from './hooks/useSettings';
@@ -97,9 +91,30 @@ export default function AppRouter() {
           <ToastProvider>
             <ConfirmProvider>
               <Routes>
-                <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
-                <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
-                <Route path="/claim-admin" element={<PublicOnly><ClaimAdminPage /></PublicOnly>} />
+                <Route
+                  path="/login"
+                  element={
+                    <PublicOnly>
+                      <LoginPage />
+                    </PublicOnly>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <PublicOnly>
+                      <RegisterPage />
+                    </PublicOnly>
+                  }
+                />
+                <Route
+                  path="/claim-admin"
+                  element={
+                    <PublicOnly>
+                      <ClaimAdminPage />
+                    </PublicOnly>
+                  }
+                />
                 <Route
                   path="/change-password"
                   element={

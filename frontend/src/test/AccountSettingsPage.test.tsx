@@ -12,7 +12,10 @@ vi.mock('../auth/AuthContext', () => ({
 }));
 
 vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error { detail = ''; status = 0; },
+  ApiError: class ApiError extends Error {
+    detail = '';
+    status = 0;
+  },
   updateMe: vi.fn(),
   changePassword: vi.fn(),
   deleteMe: vi.fn(),

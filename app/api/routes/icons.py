@@ -21,6 +21,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app import icons_service
 from app.auth.dependencies import require_admin, require_user
@@ -129,16 +130,32 @@ async def _read_upload_capped(file: UploadFile) -> bytes:
     return b"".join(chunks)
 
 
-async def _create_icon_endpoint(
-    db: Session, *, name: str, file: UploadFile, user_id: int | None
+def _create_icon_sync(
+    db: Session, *, name: str, raw: bytes, user_id: int | None
 ) -> IconOut:
-    raw = await _read_upload_capped(file)
+    """Blocking tail of an upload (Pillow processing + commit) — must run
+    in the threadpool, never on the event loop."""
     try:
         icon = icons_service.create_icon(db, name=name, raw=raw, user_id=user_id)
     except icons_service.IconError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    db.commit()
+    try:
+        db.commit()
+    except BaseException:
+        # The row is gone with the failed commit; remove the already-written
+        # file too or it stays orphaned under /media forever.
+        icons_service.unlink_files([icon.filename])
+        raise
     return IconOut.of(icon)
+
+
+async def _create_icon_endpoint(
+    db: Session, *, name: str, file: UploadFile, user_id: int | None
+) -> IconOut:
+    raw = await _read_upload_capped(file)
+    return await run_in_threadpool(
+        _create_icon_sync, db, name=name, raw=raw, user_id=user_id,
+    )
 
 
 def _get_scoped_or_404(db: Session, icon_id: int, *, user_id: int | None) -> Icon:
@@ -216,7 +233,7 @@ def _import_endpoint(
 
 
 @router.get("/icons", response_model=IconLibraryOut)
-async def list_icons(
+def list_icons(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
@@ -246,7 +263,7 @@ async def upload_my_icon(
 
 
 @router.patch("/icons/mine/{icon_id}", response_model=IconOut)
-async def rename_my_icon(
+def rename_my_icon(
     icon_id: int,
     body: IconRenameRequest,
     user: User = Depends(require_user),
@@ -256,7 +273,7 @@ async def rename_my_icon(
 
 
 @router.get("/icons/mine/{icon_id}/usage", response_model=IconUsageOut)
-async def my_icon_usage(
+def my_icon_usage(
     icon_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -266,7 +283,7 @@ async def my_icon_usage(
 
 
 @router.delete("/icons/mine/{icon_id}", response_model=IconDeleteOut)
-async def delete_my_icon(
+def delete_my_icon(
     icon_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -275,7 +292,7 @@ async def delete_my_icon(
 
 
 @router.post("/icons/mine/import-from-teams", response_model=IconImportOut)
-async def import_icons_from_my_teams(
+def import_icons_from_my_teams(
     body: IconImportRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -302,7 +319,7 @@ async def admin_upload_icon(
 
 
 @router.patch("/admin/icons/{icon_id}", response_model=IconOut)
-async def admin_rename_icon(
+def admin_rename_icon(
     icon_id: int,
     body: IconRenameRequest,
     _admin: User = Depends(require_admin),
@@ -312,7 +329,7 @@ async def admin_rename_icon(
 
 
 @router.get("/admin/icons/{icon_id}/usage", response_model=IconUsageOut)
-async def admin_icon_usage(
+def admin_icon_usage(
     icon_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -322,7 +339,7 @@ async def admin_icon_usage(
 
 
 @router.delete("/admin/icons/{icon_id}", response_model=IconDeleteOut)
-async def admin_delete_icon(
+def admin_delete_icon(
     icon_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -331,7 +348,7 @@ async def admin_delete_icon(
 
 
 @router.post("/admin/icons/import-from-teams", response_model=IconImportOut)
-async def admin_import_icons_from_teams(
+def admin_import_icons_from_teams(
     body: IconImportRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),

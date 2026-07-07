@@ -5,5 +5,8 @@ export const ICON_NAME_MAX = 120;
  *  trimmed, and truncated to the column limit so a long filename doesn't
  *  bounce off the server's 120-char validation. */
 export function prefillIconName(filename: string): string {
-  return filename.replace(/\.[^.]+$/, '').trim().slice(0, ICON_NAME_MAX);
+  return filename
+    .replace(/\.[^.]+$/, '')
+    .trim()
+    .slice(0, ICON_NAME_MAX);
 }

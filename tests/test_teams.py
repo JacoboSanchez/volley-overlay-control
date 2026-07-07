@@ -518,3 +518,96 @@ def test_board_selected_group_persists_per_overlay(db_session):
     assert op.put(
         f"/api/v1/board/selected-group?c={ctrl}", json={"group_id": 999999},
     ).status_code == 404
+
+
+# ---- bulk-add batching ------------------------------------------------------
+
+
+def _count_queries(db_session):
+    """Context manager counting SELECT statements executed on the test engine."""
+    from contextlib import contextmanager
+
+    from sqlalchemy import event
+
+    engine = db_session.get_bind()
+
+    @contextmanager
+    def counter(box):
+        def on_execute(conn, cursor, statement, parameters, context, executemany):
+            if statement.lstrip().upper().startswith("SELECT"):
+                box.append(statement)
+
+        event.listen(engine, "before_cursor_execute", on_execute)
+        try:
+            yield box
+        finally:
+            event.remove(engine, "before_cursor_execute", on_execute)
+
+    return counter([])
+
+
+def test_bulk_add_teams_uses_constant_queries(db_session):
+    """Adding N teams must not issue O(N) queries (was 3 per team)."""
+    from app import teams_service
+    from tests.conftest import make_user
+
+    ids = [
+        teams_service.upsert_global(db_session, f"Club {i}").id
+        for i in range(12)
+    ]
+    user = make_user(db_session, "bulkuser")
+    db_session.commit()
+
+    # Pre-link a couple so the batch mixes new / already-linked / duplicates.
+    teams_service.add_teams_to_user(db_session, user.id, ids[:2])
+    with _count_queries(db_session) as queries:
+        added = teams_service.add_teams_to_user(
+            db_session, user.id, ids + ids[:3],  # duplicates in the input too
+        )
+    assert added == 10
+    # Inserts are per-row by nature; the SELECT count must stay constant
+    # (validate ids + existing links + max sort_order — was 2 per team).
+    assert len(queries) <= 3, f"{len(queries)} SELECTs for a 12-team batch"
+
+    rows = teams_service.list_user_team_rows(db_session, user.id)
+    assert [t.id for t in rows[:12]] == ids  # input order, contiguous sort
+
+
+def test_bulk_add_teams_missing_id_raises_and_adds_nothing(db_session):
+    from app import teams_service
+    from tests.conftest import make_user
+
+    tid = teams_service.upsert_global(db_session, "Solo").id
+    user = make_user(db_session, "bulkuser2")
+    db_session.commit()
+
+    import pytest as _pytest
+
+    with _pytest.raises(teams_service.TeamError, match="not found"):
+        teams_service.add_teams_to_user(db_session, user.id, [tid, 99999])
+    assert teams_service.list_user_team_rows(db_session, user.id) == []
+
+
+def test_bulk_group_add_validates_scope_in_batch(db_session):
+    """Group bulk add: one query validates visibility; another user's custom
+    team in the batch fails the whole call."""
+    from app import teams_service
+    from tests.conftest import make_user
+
+    alice = make_user(db_session, "galice")
+    bob = make_user(db_session, "gbob")
+    mine = teams_service.create_user_team(db_session, alice.id, "Mine").id
+    theirs = teams_service.create_user_team(db_session, bob.id, "Theirs").id
+    group = teams_service.create_private_group(db_session, alice.id, "Grp")
+    db_session.commit()
+
+    import pytest as _pytest
+
+    with _pytest.raises(teams_service.TeamError, match="not found"):
+        teams_service.add_user_group_teams(
+            db_session, alice.id, group.id, [mine, theirs],
+        )
+    added = teams_service.add_user_group_teams(db_session, alice.id, group.id, [mine])
+    assert added == 1
+    # Idempotent re-add.
+    assert teams_service.add_user_group_teams(db_session, alice.id, group.id, [mine]) == 0

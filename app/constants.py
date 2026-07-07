@@ -78,6 +78,12 @@ AUDIT_LOG_MAX_FILES = _env_int("AUDIT_LOG_MAX_FILES", 5)
 # ``WSHUB_MAX_CLIENTS_PER_OID``.
 WSHUB_MAX_CLIENTS_PER_OID = _env_int("WSHUB_MAX_CLIENTS_PER_OID", 200)
 
+# Same idea for the OBS browser-source hub (``/ws/<public_token>``): the
+# public token is shareable, so cap fan-out per overlay to keep a leaked
+# link from exhausting sockets or slowing every broadcast. Override with
+# ``OBS_MAX_CLIENTS_PER_OVERLAY``.
+OBS_MAX_CLIENTS_PER_OVERLAY = _env_int("OBS_MAX_CLIENTS_PER_OVERLAY", 100)
+
 # Server-side WebSocket heartbeat. ``WSHUB_HEARTBEAT_INTERVAL_SECONDS``
 # defaults to 0 (disabled) because the existing browser client does not
 # yet respond to application-level pings — enabling without first
@@ -132,6 +138,15 @@ PRESETS_MAX_RECORDS = _env_int("PRESETS_MAX_RECORDS", 500)
 # personal library; global (admin) icons are uncapped.
 ICONS_MAX_DIM = _env_int("ICONS_MAX_DIM", 512)
 ICONS_MAX_UPLOAD_BYTES = _env_int("ICONS_MAX_UPLOAD_BYTES", 5 * 1024 * 1024)
+
+# Global ASGI-level request-body cap (see middleware/body_limit.py). A
+# backstop against chunked-encoding uploads that bypass Content-Length
+# checks — deliberately roomier than the largest legitimate body (icon
+# uploads plus multipart framing). Override with ``REQUEST_MAX_BODY_BYTES``.
+REQUEST_MAX_BODY_BYTES = _env_int(
+    "REQUEST_MAX_BODY_BYTES",
+    max(ICONS_MAX_UPLOAD_BYTES, 8 * 1024 * 1024) + 64 * 1024,
+)
 ICONS_MAX_STORED_BYTES = _env_int("ICONS_MAX_STORED_BYTES", 512 * 1024)
 ICONS_MAX_PER_USER = _env_int("ICONS_MAX_PER_USER", 50)
 ICONS_WEBP_QUALITY = _env_int("ICONS_WEBP_QUALITY", 82)

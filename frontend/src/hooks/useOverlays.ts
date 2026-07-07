@@ -32,25 +32,11 @@ export function useOverlays(): UseOverlaysResult {
     }
   }, []);
 
+  // Single code path: the mount load IS a reload, so an early manual
+  // reload() can never race a divergent copy of the same fetch.
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const ovs = await api.getOverlays();
-        if (!cancelled) {
-          setOverlays(ovs);
-          setError(false);
-        }
-      } catch {
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void reload();
+  }, [reload]);
 
   return { overlays, loading, error, reload };
 }

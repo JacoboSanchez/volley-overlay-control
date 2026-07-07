@@ -15,11 +15,12 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import threading
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from app import security_bootstrap
+from app import security_bootstrap, settings_service
 from app.auth import service
 from app.db.engine import session_scope
 from app.settings_service import set_admin_bootstrap_claimed
@@ -28,6 +29,12 @@ logger = logging.getLogger(__name__)
 
 _ADMIN_TOKEN_FILENAME = ".admin_bootstrap_token"  # nosec B105 - filename, not a secret
 _TOKEN_BYTES = 32
+
+# Serializes concurrent first-admin claims within this process (the
+# deployment model is a single worker). Two simultaneous valid-token
+# claims would otherwise both pass the admin_exists() check and create
+# two admins.
+_claim_lock = threading.Lock()
 
 
 def _token_path() -> Path:
@@ -97,24 +104,39 @@ def claim_first_admin(
     * ``GoneError``  — an admin already exists (410).
     * ``PermissionError`` — token mismatch / unavailable (403).
     """
-    if service.admin_exists(db):
-        raise GoneError("An administrator already exists.")
-    expected = get_bootstrap_token()
-    if not expected or not secrets.compare_digest(token, expected):
-        raise PermissionError("Invalid bootstrap token.")
+    with _claim_lock:
+        if service.admin_exists(db):
+            raise GoneError("An administrator already exists.")
+        expected = get_bootstrap_token()
+        if not expected or not secrets.compare_digest(token, expected):
+            raise PermissionError("Invalid bootstrap token.")
 
-    user = service.create_user(
-        db,
-        username=username,
-        password=password,
-        role="admin",
-        display_name=display_name,
-        email=email,
-        must_change_password=False,
-    )
-    set_admin_bootstrap_claimed(db, True)
-    clear_bootstrap_token()
-    return user
+        user = service.create_user(
+            db,
+            username=username,
+            password=password,
+            role="admin",
+            display_name=display_name,
+            email=email,
+            must_change_password=False,
+        )
+        # Belt-and-braces for multi-process deployments the lock can't
+        # cover: if another process claimed while we worked, back out (the
+        # route's error path rolls the transaction back).
+        if service.admin_exists(db, exclude_user_id=user.id):
+            raise GoneError("An administrator already exists.")
+        set_admin_bootstrap_claimed(db, True)
+        # Secure-by-default: once the instance has its admin, close public
+        # sign-ups unless the operator pinned REGISTRATION_OPEN (env var or a
+        # prior DB write). The admin can reopen it from the Users page.
+        if not settings_service.registration_explicitly_configured(db):
+            settings_service.set_registration_open(db, False)
+            logger.info(
+                "First admin claimed — public registration auto-closed. "
+                "Reopen it from the admin Users page or set REGISTRATION_OPEN=true.",
+            )
+        clear_bootstrap_token()
+        return user
 
 
 class GoneError(Exception):

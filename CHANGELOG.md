@@ -168,6 +168,57 @@ once a first tagged release ships.
 
 ### Changed
 
+- **Assorted robustness polish.** Remote-config lookups
+  (`REMOTE_CONFIG_URL`) now serve the cached values instantly and refresh
+  in the background instead of stalling requests for up to five seconds;
+  a malformed numeric env var (e.g. `MATCH_GAME_POINTS=abc`) falls back
+  to its default with a warning instead of crashing session init; icon
+  files are staged in a private temp directory rather than inside the
+  public `/media` tree; the unused `overlay_session_meta` table is
+  dropped (migration 0003); deleting a user no longer issues redundant
+  per-overlay archive deletes; the Reports page disables its delete
+  buttons while a delete is in flight; the team logo field shows a hint
+  for unusual URLs; and the icon picker, library section, overlays hook,
+  and inline team editor clean up their in-flight requests and timers.
+
+- **The match-history listing is paginated.** `GET /api/v1/matches` now
+  takes `limit` (default 100, max 500) and `offset` and reports the total
+  in `count`, instead of loading and serializing a user's entire archive
+  on every call. The account Reports page requests the maximum page
+  (500 newest matches) and keeps filtering client-side.
+
+- **Bulk team operations run as single batches.** Adding many teams to a
+  user's list or to a group (including the full-catalog seeding at account
+  creation) used to issue two to three database queries per team; each
+  batch now validates, dedupes, and inserts with a constant number of
+  queries, so copying a large catalog is no longer quadratic in practice.
+  A batch containing an unknown (or out-of-scope) team id now fails as a
+  whole before adding anything, instead of stopping partway through.
+
+- **The OBS overlay WebSocket hub now tolerates wedged clients and caps
+  fan-out.** Broadcasts to browser sources apply the same per-socket send
+  timeout as the control hub (`WS_BROADCAST_SEND_TIMEOUT_SECONDS`), so one
+  stuck OBS source no longer delays score updates to every other client
+  of that overlay, and each overlay accepts at most
+  `OBS_MAX_CLIENTS_PER_OVERLAY` connections (default 100) — beyond that
+  the upgrade is refused with WebSocket close code 1013, keeping a leaked
+  public link from exhausting server sockets.
+
+- **Board actions authorize with a single credential lookup.** Every
+  scoreboard route used to run the same control-token / bookmark / cookie
+  check twice (a route-level gate plus the session resolver). The
+  redundant gate is gone, saving a database round-trip on every point,
+  set, timeout, and customization call.
+
+- **Database and image work no longer runs on the server's event loop.**
+  The teams / overlays / matches / presets / icons endpoints and the
+  board-auth dependencies now execute their blocking SQLAlchemy queries in
+  the worker threadpool, and icon uploads and the batch logo import do
+  their downloads and image re-encoding there too. Before this, a slow
+  database (e.g. Postgres over the network) or a single large logo import
+  could stall every other request and WebSocket update; now the server
+  stays responsive while that work runs.
+
 - **Saving board customization keeps you in the Config panel.** Save no
   longer bounces the operator back to the scoreboard: the panel stays
   open, a transient "Saved" status confirms the write, and leaving stays
@@ -332,6 +383,40 @@ once a first tagged release ships.
 
 ### Security
 
+- **The icon batch-import download pins the connection to the validated
+  IP (DNS-rebinding fix).** `fetch_guarded` used to resolve a
+  user-supplied logo URL to check it against the private-address
+  blocklist and then let the HTTP client resolve the name again for the
+  actual request — a host with a short-TTL record could answer the check
+  with a public IP and the fetch with `169.254.169.254` or `127.0.0.1`.
+  Hostname targets are now resolved once, every address validated, and
+  the request sent to that exact IP with the original hostname preserved
+  in the `Host` header and in TLS SNI/certificate verification. Every
+  redirect hop is re-planned the same way, and a name that fails to
+  resolve is refused instead of passed through. Deployments behind an
+  egress proxy keep working: when a proxy applies to the URL, the
+  original hostname is sent to the proxy (which does its own resolving)
+  after the same validation.
+
+- **Request bodies are capped at the ASGI layer.** The icon-upload size
+  check keyed off the `Content-Length` header, which a chunked-transfer
+  request simply omits — and the framework spooled the whole body to disk
+  before any handler check ran. A new middleware fast-fails oversized
+  declared lengths and stops reading once `REQUEST_MAX_BODY_BYTES`
+  (default: icon upload cap + framing, ≥ 8 MiB) is crossed, answering 413.
+  Per-route checks remain as the earlier, friendlier guard.
+
+- **Public registration now auto-closes once the first admin is claimed.**
+  Previously a fresh install accepted anonymous sign-ups at `/register`
+  indefinitely until an admin explicitly turned them off. Now, when
+  `REGISTRATION_OPEN` is not configured, registration stays open only
+  during the bootstrap window and is closed automatically the moment the
+  first administrator account is created (the admin can reopen it from
+  the Users page at any time). Setting `REGISTRATION_OPEN=true`/`false`
+  pins the behaviour explicitly and is never overridden; an empty value
+  (docker-compose's passthrough for "unset") counts as unset. The
+  default docker-compose seed changed from `true` to unset accordingly.
+
 - **Branch code-review hardening pass.** Fixed a cluster of authorization /
   hardening gaps found reviewing the multi-user branch:
   - **Webhook SSRF via redirect.** Outbound webhook POSTs now use
@@ -363,6 +448,47 @@ once a first tagged release ships.
   reports 0 vulnerabilities.
 
 ### Fixed
+
+- **The batch logo-import dialog no longer wipes its results right after
+  a successful import.** Finishing an import refreshes the teams list,
+  which re-rendered the dialog and reset it back to the checklist (with
+  everything re-checked, inviting a duplicate run) before the per-team
+  outcome could be read. The outcome list now stays visible until the
+  dialog is closed.
+
+- **A transient network error no longer logs you out of the UI.** The
+  auth-context refresh treated any fetch failure as "not signed in" and
+  redirected to the login page even when the session cookie was still
+  valid. An established session is now kept through network blips; only
+  the initial load falls back to the logged-out state (with registration
+  shown as closed, matching the backend default).
+
+- **Icon uploads reject over-budget images before decoding, and failed
+  saves no longer leave orphaned files.** The pixel budget
+  (`ICONS_MAX_PIXELS`) is now checked from the image header before any
+  pixel data is decoded — previously an image between 1× and 2× the
+  budget slipped past Pillow's bomb guard and was fully materialized in
+  memory. And when the database write for an upload or batch-imported
+  icon fails after the WebP file was written, the file is now removed
+  instead of accumulating invisibly under `/media/icons`.
+
+- **Database timestamps are timezone-aware on SQLite.** Timestamp columns
+  now normalize to UTC-aware datetimes in both directions (SQLite returns
+  naive values for `timezone=True` columns), removing the per-call-site
+  `tzinfo` patching in the session resolver and the latent
+  `TypeError: can't compare offset-naive and offset-aware datetimes`
+  waiting for the next code that compares a model timestamp against
+  `datetime.now(UTC)`. No schema migration is needed.
+
+- **Concurrent duplicate submissions no longer surface as server errors.**
+  Registering a username, creating an overlay, or saving a preset that a
+  simultaneous request just created used to slip past the duplicate
+  pre-check and crash with an unhandled database constraint violation
+  (HTTP 500). These paths now translate the constraint violation into the
+  same "already exists" error a normal duplicate gets (400/409). The
+  first-admin claim is also serialized, so two simultaneous claims with
+  the valid bootstrap token create exactly one administrator — the loser
+  receives the regular 410.
 
 - **The auth pages are translated.** Sign-in, registration, the forced
   password change and the claim-first-admin page now follow the detected

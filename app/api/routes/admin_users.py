@@ -126,7 +126,6 @@ def delete_user(
     # do not) first, then evict runtime state / unlink files after the delete
     # commits — mirroring ``delete_my_overlay``.
     from app import icons_service, overlays_service
-    from app.api import match_archive
     from app.api.session_manager import SessionManager
     from app.auth import sessions
     from app.overlay import overlay_state_store
@@ -137,10 +136,12 @@ def delete_user(
     sessions.revoke_all_for_user(db, user.id)
     service.delete_user(db, user)
     db.commit()
+    # Match reports key on the user FK, so the cascade above already deleted
+    # them — unlike ``delete_my_overlay``, where the owning user survives and
+    # the per-overlay archive delete IS required.
     for skey in skeys:
         SessionManager.remove(skey)
         overlay_state_store.delete_overlay(skey)
-        match_archive.delete_for_oid(skey)
     icons_service.unlink_files(icon_files)
     return {"ok": True}
 

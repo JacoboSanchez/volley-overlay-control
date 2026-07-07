@@ -32,9 +32,10 @@ import PointTypePicker from './components/PointTypePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { asString } from './utils/coerce';
 
-export default function App(
-  { controlToken, publicUser }: { controlToken?: string; publicUser?: string } = {},
-) {
+export default function App({
+  controlToken,
+  publicUser,
+}: { controlToken?: string; publicUser?: string } = {}) {
   // Register the board capability (operator token or public username) before any
   // request fires. ``useLayoutEffect`` runs before paint and before the passive
   // session-init effect below, so the credential is set in time — without the
@@ -314,8 +315,7 @@ export default function App(
     // credential (401/403/404). A network failure or 5xx is a transient
     // outage, where "ask the owner for a new link" would be wrong advice.
     if (isCapabilityMode && error) {
-      const linkRejected =
-        errorStatus === 401 || errorStatus === 403 || errorStatus === 404;
+      const linkRejected = errorStatus === 401 || errorStatus === 403 || errorStatus === 404;
       return (
         <div className="init-screen" role="alert">
           <h1 className="init-title">{appConfig.title}</h1>

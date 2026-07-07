@@ -8,7 +8,15 @@ import { SwatchBox } from './TeamSwatch';
  *  "custom"), and an optional Edit toggle; the expandable editor (passed as
  *  `children`) drops below the row full-width when `editing` is true. */
 export default function TeamRowCard({
-  team, selected, onToggleSelect, pill, editable, editing, onToggleEdit, trailing, children,
+  team,
+  selected,
+  onToggleSelect,
+  pill,
+  editable,
+  editing,
+  onToggleEdit,
+  trailing,
+  children,
 }: {
   team: TeamOut;
   selected?: boolean;
@@ -35,7 +43,12 @@ export default function TeamRowCard({
             />
           </label>
         )}
-        <SwatchBox color={team.color} textColor={team.text_color} icon={team.icon} name={team.name} />
+        <SwatchBox
+          color={team.color}
+          textColor={team.text_color}
+          icon={team.icon}
+          name={team.name}
+        />
         <span className="acc-tcard__name">{team.name}</span>
         {pill}
         <span className="acc-tcard__spacer" />

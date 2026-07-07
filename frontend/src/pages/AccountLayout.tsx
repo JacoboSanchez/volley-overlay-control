@@ -82,7 +82,9 @@ export default function AccountLayout() {
           aria-label={t('acc.nav.primary')}
         >
           <div className="brand">🏐 {t('acc.brand')}</div>
-          <NavLink to="/" end>{t('acc.nav.dashboard')}</NavLink>
+          <NavLink to="/" end>
+            {t('acc.nav.dashboard')}
+          </NavLink>
           <NavLink to="/overlays">{t('acc.nav.overlays')}</NavLink>
           <NavLink to="/teams">{t('acc.nav.teams')}</NavLink>
           <NavLink to="/presets">{t('acc.nav.presets')}</NavLink>

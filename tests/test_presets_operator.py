@@ -373,3 +373,28 @@ class TestPresetCRUDEndpoints:
         )
         other = login_client(TestClient(create_app()), db_session, "bob")
         assert other.get("/api/v1/customization/presets").json()["items"] == []
+
+
+def test_create_preset_race_maps_integrity_error(db_session):
+    """A duplicate slug that slips past the _exists pre-check must surface
+    as PresetError with 'already exists' (the route maps that to 409)."""
+    import pytest as _pytest
+
+    from app import presets_service
+    from tests.conftest import make_user
+
+    user = make_user(db_session, "presetrace")
+    presets_service.create_user_preset(db_session, user.id, "Mine", {"Height": 1})
+    db_session.commit()
+
+    real_exists = presets_service._exists
+    presets_service._exists = lambda db, owner, slug: None
+    try:
+        with _pytest.raises(presets_service.PresetError, match="already exists"):
+            presets_service.create_user_preset(
+                db_session, user.id, "Mine", {"Height": 2},
+            )
+    finally:
+        presets_service._exists = real_exists
+    # Session survived the rollback.
+    assert presets_service.list_for_user(db_session, user.id) != []

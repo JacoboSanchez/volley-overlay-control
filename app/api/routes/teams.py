@@ -206,24 +206,24 @@ def _all_group_detail(db: Session, user_id: int) -> GroupDetailOut:
 
 
 @router.get("/teams")
-async def my_teams(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def my_teams(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """The caller's team list, in the APP_TEAMS map shape."""
     return teams_service.user_teams(db, user.id)
 
 
 @router.get("/teams/mine", response_model=list[TeamOut])
-async def my_team_rows(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def my_team_rows(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """The caller's team list as rows with ids (global + own custom teams)."""
     return [TeamOut.of(t) for t in teams_service.list_user_team_rows(db, user.id)]
 
 
 @router.get("/teams/catalog", response_model=list[TeamOut])
-async def catalog(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def catalog(user: User = Depends(require_user), db: Session = Depends(get_db)):
     return [TeamOut.of(t) for t in teams_service.list_global(db)]
 
 
 @router.post("/teams/mine")
-async def add_to_my_teams(
+def add_to_my_teams(
     body: AddTeamsRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -237,7 +237,7 @@ async def add_to_my_teams(
 
 
 @router.post("/teams/mine/custom", response_model=TeamOut, status_code=201)
-async def create_my_custom_team(
+def create_my_custom_team(
     body: CustomTeamRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -255,7 +255,7 @@ async def create_my_custom_team(
 
 
 @router.patch("/teams/mine/custom/{team_id}", response_model=TeamOut)
-async def update_my_custom_team(
+def update_my_custom_team(
     team_id: int,
     body: CustomTeamUpdateRequest,
     user: User = Depends(require_user),
@@ -274,7 +274,7 @@ async def update_my_custom_team(
 
 
 @router.post("/teams/mine/remove")
-async def remove_my_teams(
+def remove_my_teams(
     body: RemoveTeamsRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -286,7 +286,7 @@ async def remove_my_teams(
 
 
 @router.delete("/teams/mine/{team_id}")
-async def remove_from_my_teams(
+def remove_from_my_teams(
     team_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -298,7 +298,7 @@ async def remove_from_my_teams(
 
 
 @router.get("/team-groups", response_model=list[TeamGroupOut])
-async def list_groups(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def list_groups(user: User = Depends(require_user), db: Session = Depends(get_db)):
     out = []
     for g in teams_service.list_active_groups(db):
         teams = [TeamOut.of(t) for t in teams_service.group_member_teams(db, g.id)]
@@ -307,7 +307,7 @@ async def list_groups(user: User = Depends(require_user), db: Session = Depends(
 
 
 @router.post("/team-groups/{group_id}/copy-to-mine")
-async def copy_group(
+def copy_group(
     group_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -324,7 +324,7 @@ async def copy_group(
 
 
 @router.post("/admin/teams", response_model=TeamOut, status_code=201)
-async def admin_create_team(
+def admin_create_team(
     body: AdminTeamRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -340,7 +340,7 @@ async def admin_create_team(
 
 
 @router.patch("/admin/teams/{team_id}", response_model=TeamOut)
-async def admin_update_team(
+def admin_update_team(
     team_id: int,
     body: AdminTeamUpdateRequest,
     _admin: User = Depends(require_admin),
@@ -358,7 +358,7 @@ async def admin_update_team(
 
 
 @router.delete("/admin/teams/{team_id}")
-async def admin_delete_team(
+def admin_delete_team(
     team_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -370,7 +370,7 @@ async def admin_delete_team(
 
 
 @router.get("/admin/teams/export")
-async def admin_export_teams(
+def admin_export_teams(
     _admin: User = Depends(require_admin), db: Session = Depends(get_db),
 ):
     """Export the global catalog as an APP_TEAMS JSON map."""
@@ -378,7 +378,7 @@ async def admin_export_teams(
 
 
 @router.post("/admin/teams/import")
-async def admin_import_teams(
+def admin_import_teams(
     body: ImportTeamsRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -393,7 +393,7 @@ async def admin_import_teams(
 
 
 @router.get("/admin/team-groups", response_model=list[TeamGroupOut])
-async def admin_list_groups(
+def admin_list_groups(
     _admin: User = Depends(require_admin), db: Session = Depends(get_db),
 ):
     """Every group (active and inactive) with its members — drives the admin
@@ -406,7 +406,7 @@ async def admin_list_groups(
 
 
 @router.post("/admin/team-groups", response_model=TeamGroupOut, status_code=201)
-async def admin_create_group(
+def admin_create_group(
     body: CreateGroupRequest,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -420,7 +420,7 @@ async def admin_create_group(
 
 
 @router.post("/admin/team-groups/{group_id}/members")
-async def admin_add_group_member(
+def admin_add_group_member(
     group_id: int,
     body: GroupMemberRequest,
     _admin: User = Depends(require_admin),
@@ -440,7 +440,7 @@ async def admin_add_group_member(
 
 
 @router.delete("/admin/team-groups/{group_id}/members/{team_id}")
-async def admin_remove_group_member(
+def admin_remove_group_member(
     group_id: int,
     team_id: int,
     _admin: User = Depends(require_admin),
@@ -454,7 +454,7 @@ async def admin_remove_group_member(
 
 
 @router.patch("/admin/team-groups/{group_id}")
-async def admin_set_group_active(
+def admin_set_group_active(
     group_id: int,
     body: SetActiveRequest,
     _admin: User = Depends(require_admin),
@@ -469,7 +469,7 @@ async def admin_set_group_active(
 
 
 @router.delete("/admin/team-groups/{group_id}")
-async def admin_delete_group(
+def admin_delete_group(
     group_id: int,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -498,7 +498,7 @@ def _parse_group_key(group_key: str) -> int | None:
 
 
 @router.get("/board/team-groups", response_model=BoardGroupListOut)
-async def board_team_groups(
+def board_team_groups(
     skey: str = Depends(board_owner_skey), db: Session = Depends(get_db),
 ):
     owner_id, _oid = split_skey(skey)
@@ -524,7 +524,7 @@ async def board_team_groups(
 
 
 @router.get("/board/team-groups/{group_key}/teams")
-async def board_group_teams(
+def board_group_teams(
     group_key: str,
     skey: str = Depends(board_owner_skey),
     db: Session = Depends(get_db),
@@ -539,7 +539,7 @@ async def board_group_teams(
 
 
 @router.put("/board/selected-group")
-async def board_select_group(
+def board_select_group(
     body: SelectGroupRequest,
     session: GameSession = Depends(get_session),
     db: Session = Depends(get_db),
@@ -568,7 +568,7 @@ def _group_detail(db: Session, user_id: int, group: TeamGroup) -> GroupDetailOut
 
 
 @router.get("/my/groups", response_model=list[GroupDetailOut])
-async def my_visible_groups(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def my_visible_groups(user: User = Depends(require_user), db: Session = Depends(get_db)):
     """The caller's selectable groups: the synthetic "All" first, then shared
     published groups and the user's own private groups, each with their teams."""
     out = [_all_group_detail(db, user.id)]
@@ -578,7 +578,7 @@ async def my_visible_groups(user: User = Depends(require_user), db: Session = De
 
 
 @router.post("/my/groups", response_model=GroupDetailOut, status_code=201)
-async def create_my_group(
+def create_my_group(
     body: CreateMyGroupRequest,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -592,7 +592,7 @@ async def create_my_group(
 
 
 @router.patch("/my/groups/{group_id}", response_model=GroupDetailOut)
-async def rename_my_group(
+def rename_my_group(
     group_id: int,
     body: RenameMyGroupRequest,
     user: User = Depends(require_user),
@@ -607,7 +607,7 @@ async def rename_my_group(
 
 
 @router.delete("/my/groups/{group_id}")
-async def delete_my_group(
+def delete_my_group(
     group_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
@@ -619,7 +619,7 @@ async def delete_my_group(
 
 
 @router.post("/my/groups/{group_id}/teams")
-async def add_teams_to_my_group(
+def add_teams_to_my_group(
     group_id: int,
     body: GroupTeamsRequest,
     user: User = Depends(require_user),
@@ -634,7 +634,7 @@ async def add_teams_to_my_group(
 
 
 @router.delete("/my/groups/{group_id}/teams/{team_id}")
-async def remove_team_from_my_group(
+def remove_team_from_my_group(
     group_id: int,
     team_id: int,
     user: User = Depends(require_user),

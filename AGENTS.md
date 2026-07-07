@@ -126,7 +126,7 @@ volley-overlay-control/
 │   │   ├── match_rules.py     # Indoor/beach presets + beach side-switch helpers
 │   │   ├── webhooks.py        # Outbound HTTP webhooks fired on game events (set_end, match_end, timeout, serve_change); SSRF-guarded by default
 │   │   ├── ws_hub.py          # WebSocket notification hub for real-time state push
-│   │   └── dependencies.py    # Session FastAPI deps — verify_api_key = require_user; get_session keyed by skey
+│   │   └── dependencies.py    # Session FastAPI deps — get_session authorizes + resolves by skey
 │   │
 │   ├── match_report.py        # Print-friendly /match/{match_id}/report HTML route
 │   │
@@ -332,7 +332,7 @@ Always use `State` accessor methods; never read/write `state.current_model` dire
 
 ### Adding a new API endpoint
 1. Add the route to the matching domain module under `app/api/routes/` (e.g. `game.py`, `session.py`, `customization.py`).
-2. Gate it with the right auth dependency from `app/auth/dependencies.py`: `require_user` for any signed-in user (or the `verify_api_key` alias in `app/api/dependencies.py`), `require_admin` for admin-only routes. Read the caller via `current_user`. Scope per-overlay work to the user by resolving the `skey` with `make_skey(user.id, oid)` (the `get_session` dependency already does this).
+2. Gate it with the right auth dependency from `app/auth/dependencies.py`: `require_user` for any signed-in user, `require_admin` for admin-only routes; board routes are gated by their `Depends(get_session)` parameter (`app/api/dependencies.py`) — do not stack a second credential check on top of it. Read the caller via `current_user`. Scope per-overlay work to the user by resolving the `skey` with `make_skey(user.id, oid)` (the `get_session` dependency already does this).
 3. Add schemas in `app/api/schemas.py`.
 4. Add business logic in `app/api/game_service.py` (or the relevant `*_service.py`).
 5. Regenerate the OpenAPI schema + frontend types (see Mandatory Maintenance Tasks).

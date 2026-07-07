@@ -26,6 +26,8 @@ describe('CopyField', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     expect(writeText).toHaveBeenCalledWith('Tmp-9f3K2a');
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument(),
+    );
   });
 });

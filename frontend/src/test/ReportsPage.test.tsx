@@ -4,7 +4,9 @@ import { renderWithI18n } from './helpers';
 import ReportsPage from '../pages/ReportsPage';
 
 vi.mock('../api/client', () => ({
-  ApiError: class ApiError extends Error { detail = ''; },
+  ApiError: class ApiError extends Error {
+    detail = '';
+  },
   getOverlays: vi.fn(),
   listReports: vi.fn(),
   deleteMatch: vi.fn(),

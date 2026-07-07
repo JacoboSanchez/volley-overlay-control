@@ -93,6 +93,66 @@ def test_register_login_logout_cycle(client):
     assert client.get("/api/v1/auth/me").json()["username"] == "alice"
 
 
+def test_claim_admin_auto_closes_registration(client, db_session):
+    """With no explicit REGISTRATION_OPEN config, claiming the first admin
+    closes public sign-ups (secure-by-default)."""
+    from app import settings_service
+
+    assert settings_service.registration_open(db_session) is True
+    _claim_admin(client, db_session)
+
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is False
+    ctx = client.get("/api/v1/auth/context").json()
+    assert ctx["registration_open"] is False
+
+    anon = TestClient(client.app)
+    resp = anon.post(
+        "/api/v1/auth/register",
+        json={"username": "walkin", "password": "password123"},
+    )
+    assert resp.status_code == 403
+
+
+def test_claim_admin_respects_env_pinned_registration(client, db_session, monkeypatch):
+    """An explicit REGISTRATION_OPEN=true is an operator choice — the
+    first-admin claim must not override it."""
+    from app import settings_service
+
+    monkeypatch.setenv("REGISTRATION_OPEN", "true")
+    _claim_admin(client, db_session)
+
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is True
+
+
+def test_claim_admin_respects_db_pinned_registration(client, db_session):
+    """A pre-existing DB row (e.g. an operator opened registration via the
+    admin API before re-claiming on a restored instance) is preserved."""
+    from app import settings_service
+
+    settings_service.set_registration_open(db_session, True)
+    db_session.commit()
+    _claim_admin(client, db_session)
+
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is True
+
+
+def test_empty_env_seed_counts_as_unset(client, db_session, monkeypatch):
+    """docker-compose passes REGISTRATION_OPEN= (empty) when the operator
+    left it unconfigured — that must behave exactly like unset."""
+    from app import settings_service
+
+    monkeypatch.setenv("REGISTRATION_OPEN", "")
+    assert settings_service.registration_open(db_session) is True
+    assert settings_service.registration_explicitly_configured(db_session) is False
+
+    _claim_admin(client, db_session)
+    db_session.expire_all()
+    assert settings_service.registration_open(db_session) is False
+
+
 def test_registration_can_be_closed(client, db_session):
     from app.settings_service import set_registration_open
 
@@ -267,3 +327,60 @@ def test_cookie_secure_follows_env_then_scheme(monkeypatch):
     assert sessions.cookie_secure("http") is True
     monkeypatch.setenv("SESSION_COOKIE_SECURE", "false")
     assert sessions.cookie_secure("https") is False
+
+
+def test_concurrent_claims_leave_exactly_one_admin(client, db_session):
+    """Two simultaneous valid-token claims must produce a single admin —
+    the claim lock serializes them and the loser gets 410."""
+    import threading
+
+    from app.auth import bootstrap
+
+    token = bootstrap.get_bootstrap_token()
+    assert token
+    barrier = threading.Barrier(2)
+    results: list[int] = []
+
+    def claim(username: str) -> None:
+        barrier.wait()
+        resp = TestClient(client.app).post(
+            "/api/v1/auth/claim-admin",
+            json={"token": token, "username": username, "password": "adminpass1"},
+        )
+        results.append(resp.status_code)
+
+    threads = [threading.Thread(target=claim, args=(f"root{i}",)) for i in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(results) == [200, 410], results
+    from sqlalchemy import func, select
+
+    from app.db.models.user import ROLE_ADMIN, User
+
+    admins = db_session.execute(
+        select(func.count()).select_from(User).where(User.role == ROLE_ADMIN)
+    ).scalar_one()
+    assert admins == 1
+
+
+def test_registration_race_maps_integrity_error_to_400(client, db_session, monkeypatch):
+    """When two registrations race past the duplicate pre-check, the loser
+    must get the normal duplicate-username 400, not a 500."""
+    from app.auth import service
+
+    # Simulate the race: the pre-check sees no duplicate, but the row
+    # already exists when the INSERT flushes.
+    monkeypatch.setattr(service, "get_by_username", lambda db, u: None)
+    client.post(
+        "/api/v1/auth/register",
+        json={"username": "dupe", "password": "password123"},
+    )
+    resp = TestClient(client.app).post(
+        "/api/v1/auth/register",
+        json={"username": "dupe", "password": "password123"},
+    )
+    assert resp.status_code == 400
+    assert "already" in resp.json()["detail"].lower()

@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.game_service import GameService
 from app.api.schemas import (
     ActionResponse,
@@ -24,7 +24,6 @@ router = APIRouter()
 @router.post(
     "/display/visibility",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_visibility(req: VisibilityRequest,
                          session: GameSession = Depends(get_session)):
@@ -36,7 +35,6 @@ async def set_visibility(req: VisibilityRequest,
 @router.post(
     "/display/simple-mode",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_simple_mode(req: SimpleModeRequest,
                           session: GameSession = Depends(get_session)):
@@ -48,7 +46,6 @@ async def set_simple_mode(req: SimpleModeRequest,
 @router.post(
     "/display/swap-sides",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_swap_sides(req: SwapSidesRequest,
                          session: GameSession = Depends(get_session)):
@@ -61,7 +58,6 @@ async def set_swap_sides(req: SwapSidesRequest,
 @router.post(
     "/display/auto-swap-sides",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_auto_swap_sides(req: AutoSwapSidesRequest,
                               session: GameSession = Depends(get_session)):
@@ -74,7 +70,6 @@ async def set_auto_swap_sides(req: AutoSwapSidesRequest,
 @router.post(
     "/display/set-summary",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_set_summary(req: SetSummaryRequest,
                           session: GameSession = Depends(get_session)):
@@ -87,7 +82,6 @@ async def set_set_summary(req: SetSummaryRequest,
 @router.post(
     "/display/set-summary-style",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_set_summary_style(req: SetSummaryStyleRequest,
                                 session: GameSession = Depends(get_session)):

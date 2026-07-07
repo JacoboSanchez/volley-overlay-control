@@ -1085,13 +1085,21 @@ body {
 }
 
 @keyframes onair-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.55); }
-  70% { box-shadow: 0 0 0 7px rgba(255, 23, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(255, 23, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 23, 68, 0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .control-onair-dot { animation: none; }
+  .control-onair-dot {
+    animation: none;
+  }
 }
 
 /* Live MM:SS counter rendered inside the bottom-bar spacer once the

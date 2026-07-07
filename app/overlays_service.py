@@ -11,6 +11,7 @@ from __future__ import annotations
 import secrets
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.models.overlay import UserOverlay
@@ -71,7 +72,14 @@ def create_overlay(
         description=(description or "").strip() or None,
     )
     db.add(overlay)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        # The get_overlay pre-check races with a concurrent create (double
+        # submit); map the unique (user_id, oid) violation to the same
+        # caller-fixable error and leave the session usable.
+        db.rollback()
+        raise OverlayError("You already have an overlay with that id.") from exc
     return overlay
 
 

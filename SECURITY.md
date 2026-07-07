@@ -69,7 +69,8 @@ should at least:
    at startup / visible in `docker logs`), then create user accounts —
    every `/api/v1/*` scoreboard route is cookie + role gated, so the API
    is not open to the network out of the box.
-2. Leave `REGISTRATION_OPEN` off (admins create users) unless you want
+2. Leave `REGISTRATION_OPEN` unset — sign-ups auto-close once the first
+   admin is claimed (admins create users) — unless you want
    open self-registration, and let `SESSION_SECRET` auto-mint (or set it
    explicitly) so sessions and report share-URLs are signed.
 3. Configure `TRUSTED_HOSTS` to the public hostname(s) the app serves

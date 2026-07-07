@@ -14,10 +14,11 @@ import { translations } from '../i18n/translations';
 
 // Raw source of everything under src/ except the tests themselves and
 // generated type declarations.
-const sources = import.meta.glob(
-  ['../**/*.ts', '../**/*.tsx', '!../test/**', '!../**/*.d.ts'],
-  { query: '?raw', import: 'default', eager: true },
-) as Record<string, string>;
+const sources = import.meta.glob(['../**/*.ts', '../**/*.tsx', '!../test/**', '!../**/*.d.ts'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
 describe('translation catalog', () => {
   const langs = Object.keys(translations);
@@ -40,6 +41,15 @@ describe('translation catalog', () => {
       for (const m of text.matchAll(/\bt\(\s*(?:'([^']+)'|"([^"]+)"|`([^`$]+)`)/g)) {
         const key = m[1] ?? m[2] ?? m[3];
         if (key) used.add(key);
+      }
+      // Ternary first-arguments — ``t(cond ? 'a' : 'b')`` — which the
+      // literal-first regex above skips; both branches must resolve.
+      for (const m of text.matchAll(
+        /\bt\(\s*[^)'"`]*?\?\s*(?:'([^']+)'|"([^"]+)")\s*:\s*(?:'([^']+)'|"([^"]+)")/g,
+      )) {
+        for (const key of [m[1] ?? m[2], m[3] ?? m[4]]) {
+          if (key) used.add(key);
+        }
       }
     }
     expect(used.size).toBeGreaterThan(100); // sanity: the scan found real usage

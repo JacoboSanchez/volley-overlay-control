@@ -15,9 +15,10 @@ vi.mock('../api/client', () => ({
       this.detail = detail || message;
     }
   },
-  getBoardGroups: vi
-    .fn()
-    .mockResolvedValue({ groups: [{ id: null, name: 'All teams', kind: 'all', count: 1 }], selected_id: null }),
+  getBoardGroups: vi.fn().mockResolvedValue({
+    groups: [{ id: null, name: 'All teams', kind: 'all', count: 1 }],
+    selected_id: null,
+  }),
   getBoardGroupTeams: vi
     .fn()
     .mockResolvedValue({ Home: { icon: '', color: '#0000ff', text_color: '#ffffff' } }),

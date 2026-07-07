@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api import action_log
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.session_manager import GameSession
 
 router = APIRouter()
@@ -11,7 +11,6 @@ router = APIRouter()
 
 @router.get(
     "/audit",
-    dependencies=[Depends(verify_api_key)],
     summary="Recent action audit log (cursor-paginated)",
 )
 async def get_audit_log(

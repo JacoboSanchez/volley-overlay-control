@@ -41,16 +41,31 @@ vi.mock('../api/client', () => {
 });
 
 const ROOT: api.UserOut = {
-  id: 1, username: 'root', role: 'admin', is_active: true,
-  must_change_password: false, display_name: null, email: null,
+  id: 1,
+  username: 'root',
+  role: 'admin',
+  is_active: true,
+  must_change_password: false,
+  display_name: null,
+  email: null,
 } as unknown as api.UserOut;
 const OTHER_ADMIN: api.UserOut = {
-  id: 2, username: 'backup', role: 'admin', is_active: true,
-  must_change_password: false, display_name: null, email: null,
+  id: 2,
+  username: 'backup',
+  role: 'admin',
+  is_active: true,
+  must_change_password: false,
+  display_name: null,
+  email: null,
 } as unknown as api.UserOut;
 const PLAIN: api.UserOut = {
-  id: 3, username: 'scorer', role: 'user', is_active: true,
-  must_change_password: false, display_name: null, email: null,
+  id: 3,
+  username: 'scorer',
+  role: 'user',
+  is_active: true,
+  must_change_password: false,
+  display_name: null,
+  email: null,
 } as unknown as api.UserOut;
 
 describe('AdminPage user management', () => {
@@ -91,7 +106,9 @@ describe('AdminPage user management', () => {
     await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
 
     vi.mocked(api.adminListUsers).mockResolvedValue([
-      ROOT, OTHER_ADMIN, { ...PLAIN, must_change_password: true },
+      ROOT,
+      OTHER_ADMIN,
+      { ...PLAIN, must_change_password: true },
     ]);
     fireEvent.click(screen.getAllByRole('button', { name: 'Reset pw' })[2]!);
     // The pill can only appear because resetPw reloaded the user list.
@@ -164,7 +181,11 @@ describe('AdminPage user management', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.mocked(api.adminGetRegistration).mockResolvedValue({ registration_open: false });
     vi.mocked(api.adminSetRegistration).mockResolvedValue({ registration_open: true });
-    renderWithI18n(<ToastProvider><AdminPage /></ToastProvider>);
+    renderWithI18n(
+      <ToastProvider>
+        <AdminPage />
+      </ToastProvider>,
+    );
     await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Open registration' }));
@@ -193,7 +214,11 @@ describe('AdminPage user management', () => {
   it('closing registration skips the confirm and toasts', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm');
     vi.mocked(api.adminSetRegistration).mockResolvedValue({ registration_open: false });
-    renderWithI18n(<ToastProvider><AdminPage /></ToastProvider>);
+    renderWithI18n(
+      <ToastProvider>
+        <AdminPage />
+      </ToastProvider>,
+    );
     await waitFor(() => expect(screen.getByText('scorer')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Close registration' }));

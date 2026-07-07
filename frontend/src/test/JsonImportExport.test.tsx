@@ -16,7 +16,9 @@ vi.mock('../api/client', () => ({
   },
 }));
 
-function setup(overrides: Partial<{ exportFn: () => Promise<never>; importFn: () => Promise<never> }> = {}) {
+function setup(
+  overrides: Partial<{ exportFn: () => Promise<never>; importFn: () => Promise<never> }> = {},
+) {
   const exportFn = vi.fn().mockResolvedValue({ Lions: { color: '#112233' } });
   const importFn = vi.fn().mockResolvedValue({ imported: 1 });
   const onImported = vi.fn();

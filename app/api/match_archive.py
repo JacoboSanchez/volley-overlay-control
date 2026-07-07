@@ -27,7 +27,7 @@ import logging
 import re
 
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api import action_log
 from app.api._persistence_paths import DEFAULT_HASH_LEN, hashed_filename
@@ -164,25 +164,58 @@ def archive_match(
     return match_id
 
 
-def list_matches(oid: str | None = None, *, user_id: int | None = None) -> list[dict]:
+def _scope_predicates(stmt, oid: str | None, user_id: int | None):
+    """Apply the skey / user_id scoping shared by list and count.
+
+    Returns the scoped statement, or ``None`` when a provided-but-invalid
+    key must match nothing (fail closed).
+    """
+    if oid and is_valid_skey(oid):
+        uid, raw_oid = split_skey(oid)
+        return stmt.where(MatchReport.user_id == uid, MatchReport.oid == raw_oid)
+    if oid:
+        return None
+    if user_id is not None:
+        return stmt.where(MatchReport.user_id == user_id)
+    return stmt
+
+
+def list_matches(
+    oid: str | None = None,
+    *,
+    user_id: int | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[dict]:
     """Return newest-first match summaries.
 
     Scope with either a full storage key (*oid* = ``"<user_id>:<oid>"``) for a
     single overlay, or *user_id* for all of one user's matches — both push a
     ``WHERE`` predicate into SQL so a per-user listing never falls back to the
-    full-table scan.
+    full-table scan. *limit*/*offset* page the result in SQL; ``limit=None``
+    keeps the full listing for internal callers.
     """
     with session_scope() as db:
-        stmt = select(MatchReport)
-        if oid and is_valid_skey(oid):
-            uid, raw_oid = split_skey(oid)
-            stmt = stmt.where(MatchReport.user_id == uid, MatchReport.oid == raw_oid)
-        elif oid:
-            return []  # a provided-but-invalid key matches nothing (fail closed)
-        elif user_id is not None:
-            stmt = stmt.where(MatchReport.user_id == user_id)
+        stmt = _scope_predicates(select(MatchReport), oid, user_id)
+        if stmt is None:
+            return []
         stmt = stmt.order_by(MatchReport.ended_at.desc().nullslast())
+        if offset:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         return [_summary(r) for r in db.execute(stmt).scalars().all()]
+
+
+def count_matches(oid: str | None = None, *, user_id: int | None = None) -> int:
+    """Total matches in the same scope ``list_matches`` would use."""
+    with session_scope() as db:
+        stmt = _scope_predicates(
+            select(func.count()).select_from(MatchReport), oid, user_id,
+        )
+        if stmt is None:
+            return 0
+        return int(db.execute(stmt).scalar_one())
 
 
 def load_match(match_id: str) -> dict | None:
@@ -221,4 +254,6 @@ def delete_for_oid(oid: str) -> int:
                 MatchReport.user_id == user_id, MatchReport.oid == raw_oid,
             )
         )
-        return int(result.rowcount or 0)
+        # Result is typed without rowcount; DML returns a CursorResult that
+        # has it.
+        return int(getattr(result, "rowcount", 0) or 0)

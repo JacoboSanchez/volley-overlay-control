@@ -61,19 +61,29 @@ export default function PresetsPage() {
         <EmptyState>{t('acc.presets.empty')}</EmptyState>
       ) : (
         <table className="acc-table">
-          <thead><tr>
-            <th scope="col">{t('acc.presets.colName')}</th><th scope="col">{t('acc.presets.colScope')}</th>
-            <th scope="col">{t('acc.presets.colCovers')}</th><th scope="col"></th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th scope="col">{t('acc.presets.colName')}</th>
+              <th scope="col">{t('acc.presets.colScope')}</th>
+              <th scope="col">{t('acc.presets.colCovers')}</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
           <tbody>
             {items.map((p) => (
               <tr key={`${p.source}:${p.slug}`}>
                 <td>{p.name}</td>
-                <td data-label={t('acc.presets.colScope')}><span className="acc-pill">{p.source}</span></td>
-                <td className="acc-muted" data-label={t('acc.presets.colCovers')}>{p.categories.join(', ')}</td>
+                <td data-label={t('acc.presets.colScope')}>
+                  <span className="acc-pill">{p.source}</span>
+                </td>
+                <td className="acc-muted" data-label={t('acc.presets.colCovers')}>
+                  {p.categories.join(', ')}
+                </td>
                 <td>
                   {p.source === 'user' ? (
-                    <button className="acc-btn danger" onClick={() => onDelete(p)}>{t('acc.common.delete')}</button>
+                    <button className="acc-btn danger" onClick={() => onDelete(p)}>
+                      {t('acc.common.delete')}
+                    </button>
                   ) : (
                     <span className="acc-muted">—</span>
                   )}
@@ -119,9 +129,11 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
     try {
       await api.adminSetPresetActive(p.slug, !p.is_active);
       await refresh();
-      toast(p.is_active
-        ? t('acc.presets.toastDeactivated', { name: p.name })
-        : t('acc.presets.toastActivated', { name: p.name }));
+      toast(
+        p.is_active
+          ? t('acc.presets.toastDeactivated', { name: p.name })
+          : t('acc.presets.toastActivated', { name: p.name }),
+      );
     } catch (err) {
       toast(err instanceof api.ApiError ? err.detail : t('acc.presets.errorUpdate'), 'error');
     }
@@ -151,10 +163,14 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
         <EmptyState>{t('acc.presets.adminEmpty')}</EmptyState>
       ) : (
         <table className="acc-table">
-          <thead><tr>
-            <th scope="col">{t('acc.presets.colName')}</th><th scope="col">{t('acc.presets.colActive')}</th>
-            <th scope="col">{t('acc.presets.colCovers')}</th><th scope="col"></th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th scope="col">{t('acc.presets.colName')}</th>
+              <th scope="col">{t('acc.presets.colActive')}</th>
+              <th scope="col">{t('acc.presets.colCovers')}</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
           <tbody>
             {globals.map((p) => (
               <tr key={p.slug}>
@@ -164,12 +180,16 @@ function AdminGlobalPresets({ onChange }: { onChange: () => void }) {
                     {p.is_active ? t('acc.presets.active') : t('acc.presets.inactive')}
                   </span>
                 </td>
-                <td className="acc-muted" data-label={t('acc.presets.colCovers')}>{p.categories.join(', ')}</td>
+                <td className="acc-muted" data-label={t('acc.presets.colCovers')}>
+                  {p.categories.join(', ')}
+                </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <button className="acc-btn ghost" onClick={() => toggle(p)}>
                     {p.is_active ? t('acc.presets.deactivate') : t('acc.presets.activate')}
                   </button>{' '}
-                  <button className="acc-btn danger" onClick={() => del(p)}>{t('acc.common.delete')}</button>
+                  <button className="acc-btn danger" onClick={() => del(p)}>
+                    {t('acc.common.delete')}
+                  </button>
                 </td>
               </tr>
             ))}

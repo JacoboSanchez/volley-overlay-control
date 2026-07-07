@@ -12,7 +12,12 @@
   -webkit-user-select: text;
   background: #0f1115;
   color: #e7e9ee;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
 }
 
 .acc-auth {
@@ -231,7 +236,10 @@
   height: 2px;
   background: #e7e9ee;
   border-radius: 2px;
-  transition: transform 0.2s ease, opacity 0.2s ease, top 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    top 0.2s ease;
 }
 
 .acc-hamburger-inner {
@@ -469,7 +477,9 @@
   border-radius: 12px;
   padding: 16px;
   display: block;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .acc-tile:hover {
@@ -723,13 +733,13 @@
   display: none;
 }
 .acc-overlay-advanced__summary::before {
-  content: "▸";
+  content: '▸';
   display: inline-block;
   margin-right: 6px;
   color: #6b7689;
 }
 .acc-overlay-advanced[open] .acc-overlay-advanced__summary::before {
-  content: "▾";
+  content: '▾';
 }
 .acc-overlay-advanced__body {
   margin-top: 10px;

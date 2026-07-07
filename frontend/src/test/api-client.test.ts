@@ -172,7 +172,10 @@ describe('api/client', () => {
   });
 
   it('ApiError.detail summarises a 422 validation array', async () => {
-    mockFetchError(422, JSON.stringify({ detail: [{ msg: 'field required' }, { msg: 'too short' }] }));
+    mockFetchError(
+      422,
+      JSON.stringify({ detail: [{ msg: 'field required' }, { msg: 'too short' }] }),
+    );
     await expect(getTeams()).rejects.toMatchObject({ detail: 'field required; too short' });
   });
 

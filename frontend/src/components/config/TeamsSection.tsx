@@ -24,7 +24,12 @@ export interface TeamsSectionProps {
 }
 
 export default function TeamsSection({
-  model, updateField, predefinedTeams, groups, selectedGroupId = null, onSelectGroup,
+  model,
+  updateField,
+  predefinedTeams,
+  groups,
+  selectedGroupId = null,
+  onSelectGroup,
 }: TeamsSectionProps) {
   const { t } = useI18n();
   return (
@@ -43,7 +48,7 @@ export default function TeamsSection({
           >
             {groups.map((g) => (
               <option key={g.id ?? 'all'} value={g.id ?? ''}>
-                {(g.kind === 'all' ? t('teams.allGroup') : g.name)} ({g.count})
+                {g.kind === 'all' ? t('teams.allGroup') : g.name} ({g.count})
               </option>
             ))}
           </select>

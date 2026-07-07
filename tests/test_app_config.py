@@ -192,3 +192,18 @@ def test_manifest_route_serves_per_board_variant(tmp_path, monkeypatch):
             "/manifest.webmanifest", params={"u": "a/b", "oid": "liga"}
         ).json()
         assert bad["start_url"] == "/"
+
+
+def test_conf_survives_malformed_numeric_env(monkeypatch):
+    """MATCH_GAME_POINTS=abc must degrade to the default with a warning,
+    not crash Conf() (and with it every session init)."""
+    from app.conf import Conf
+
+    monkeypatch.setenv("MATCH_GAME_POINTS", "abc")
+    monkeypatch.setenv("MATCH_SETS", "")
+    conf = Conf()
+    assert conf.points == 25
+    assert conf.sets == 5
+
+    monkeypatch.setenv("MATCH_GAME_POINTS", "21")
+    assert Conf().points == 21

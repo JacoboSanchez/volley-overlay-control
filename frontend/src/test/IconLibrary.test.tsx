@@ -62,9 +62,7 @@ beforeEach(() => {
 describe('IconPickerDialog', () => {
   it('lists both scopes and returns the picked icon URL', async () => {
     const onSelect = vi.fn();
-    renderWithI18n(
-      <IconPickerDialog open onClose={vi.fn()} onSelect={onSelect} />,
-    );
+    renderWithI18n(<IconPickerDialog open onClose={vi.fn()} onSelect={onSelect} />);
     await waitFor(() => expect(screen.getByText('League')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Lions'));
     expect(onSelect).toHaveBeenCalledWith('/media/icons/hash2-abcd.webp');
@@ -73,9 +71,7 @@ describe('IconPickerDialog', () => {
   it('uploads a chosen file and auto-selects it', async () => {
     mocked.uploadMyIcon.mockResolvedValue(icon(9, 'Fresh'));
     const onSelect = vi.fn();
-    renderWithI18n(
-      <IconPickerDialog open onClose={vi.fn()} onSelect={onSelect} />,
-    );
+    renderWithI18n(<IconPickerDialog open onClose={vi.fn()} onSelect={onSelect} />);
     await waitFor(() => expect(mocked.listIcons).toHaveBeenCalled());
     const file = new File(['x'], 'fresh-logo.png', { type: 'image/png' });
     fireEvent.change(screen.getByTestId('icon-file-input'), { target: { files: [file] } });
@@ -93,9 +89,7 @@ describe('IconPickerDialog', () => {
       mine: [icon(1, 'Lions'), icon(2, 'Tigers'), icon(3, 'Panthers')],
       quota: { used: 3, limit: 50 },
     });
-    renderWithI18n(
-      <IconPickerDialog open onClose={vi.fn()} onSelect={vi.fn()} />,
-    );
+    renderWithI18n(<IconPickerDialog open onClose={vi.fn()} onSelect={vi.fn()} />);
     await waitFor(() => expect(screen.getByText('Lions')).toBeInTheDocument());
     const filter = screen.getByTestId('icon-picker-filter');
     fireEvent.change(filter, { target: { value: 'tig' } });
@@ -108,9 +102,7 @@ describe('IconPickerDialog', () => {
   });
 
   it('hides the filter for small libraries', async () => {
-    renderWithI18n(
-      <IconPickerDialog open onClose={vi.fn()} onSelect={vi.fn()} />,
-    );
+    renderWithI18n(<IconPickerDialog open onClose={vi.fn()} onSelect={vi.fn()} />);
     await waitFor(() => expect(screen.getByText('Lions')).toBeInTheDocument());
     expect(screen.queryByTestId('icon-picker-filter')).not.toBeInTheDocument();
   });
@@ -152,9 +144,7 @@ describe('TeamFieldset library button', () => {
 describe('IconBatchImportDialog', () => {
   it('lists only teams with external URLs, preselected, and reports results', async () => {
     const importFn = vi.fn().mockResolvedValue({
-      results: [
-        { team_id: 1, team_name: 'Ext', status: 'ok', icon_url: '/media/icons/x.webp' },
-      ],
+      results: [{ team_id: 1, team_name: 'Ext', status: 'ok', icon_url: '/media/icons/x.webp' }],
     });
     const onDone = vi.fn();
     renderWithI18n(
@@ -178,6 +168,60 @@ describe('IconBatchImportDialog', () => {
     await waitFor(() => expect(importFn).toHaveBeenCalledWith([1]));
     await waitFor(() => expect(screen.getByText('Imported')).toBeInTheDocument());
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it('keeps the results visible when the parent refetch delivers a new teams array', async () => {
+    // Regression: after a successful run, onDone() makes the parent reload
+    // teams; the new array reference used to re-trigger the reset effect and
+    // wipe the just-rendered outcome list back to the (re-checked) checklist.
+    const importFn = vi.fn().mockResolvedValue({
+      results: [{ team_id: 1, team_name: 'Ext', status: 'ok', icon_url: '/media/icons/x.webp' }],
+    });
+    const view = renderWithI18n(
+      <IconBatchImportDialog
+        open
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText('Import 1 selected'));
+    await waitFor(() => expect(screen.getByText('Imported')).toBeInTheDocument());
+
+    // Parent refetch: same data, brand-new array reference.
+    view.rerender(
+      <IconBatchImportDialog
+        open
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Imported')).toBeInTheDocument();
+
+    // Close + reopen starts from a fresh checklist again.
+    view.rerender(
+      <IconBatchImportDialog
+        open={false}
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    view.rerender(
+      <IconBatchImportDialog
+        open
+        onClose={vi.fn()}
+        teams={[team(1, 'Ext', 'https://cdn.example.com/a.png')]}
+        importFn={importFn}
+        onDone={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('Imported')).not.toBeInTheDocument();
+    expect(screen.getByText('Import 1 selected')).toBeInTheDocument();
   });
 
   it('shows the empty state when nothing is eligible', () => {
@@ -213,9 +257,7 @@ describe('IconLibrarySection', () => {
 
   it('renames inline via the scoped endpoint', async () => {
     mocked.renameMyIcon.mockResolvedValue(icon(2, 'Panthers'));
-    renderWithI18n(
-      <IconLibrarySection scope="personal" teams={[]} onTeamsChanged={vi.fn()} />,
-    );
+    renderWithI18n(<IconLibrarySection scope="personal" teams={[]} onTeamsChanged={vi.fn()} />);
     await waitFor(() => expect(screen.getByText('Lions')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Rename'));
     const input = screen.getByTestId('icon-rename-2');
@@ -228,9 +270,7 @@ describe('IconLibrarySection', () => {
     mocked.adminGetIconUsage.mockResolvedValue({ teams: 0 });
     mocked.adminDeleteIcon.mockResolvedValue({ ok: true, teams_cleared: 0 });
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    renderWithI18n(
-      <IconLibrarySection scope="global" teams={[]} onTeamsChanged={vi.fn()} />,
-    );
+    renderWithI18n(<IconLibrarySection scope="global" teams={[]} onTeamsChanged={vi.fn()} />);
     await waitFor(() => expect(screen.getByText('League')).toBeInTheDocument());
     expect(screen.queryByText('Lions')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Delete'));

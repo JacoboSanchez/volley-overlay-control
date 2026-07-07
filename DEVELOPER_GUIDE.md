@@ -128,7 +128,7 @@ dependency.
 │   │   ├── match_archive.py # Archives finished matches to the match_reports table.
 │   │   ├── ws_hub.py        # WebSocket notification hub for real-time state push.
 │   │   ├── middleware/      # ASGI middleware (auth rate-limit, metrics, security headers, logging, errors).
-│   │   └── dependencies.py  # verify_api_key (= require_user) + get_session keyed by skey.
+│   │   └── dependencies.py  # get_session — board auth + session lookup keyed by skey.
 │   ├── overlay/             # In-process overlay serving (absorbed from volleyball-scoreboard-overlay).
 │   │   ├── __init__.py      # Package init — creates singleton OverlayStateStore & ObsBroadcastHub.
 │   │   ├── state_store.py   # Overlay state management — in-memory + JSON file persistence.
@@ -336,10 +336,9 @@ possible). Accounts carry a `user`/`admin` role.
   Once an admin exists the flow is a no-op and the endpoint returns 410.
 - **`passwords.py` / `app/password_hash.py`** — scrypt hashing (stdlib only).
 
-`app/api/dependencies.py` keeps the legacy name `verify_api_key` as an
-alias for `require_user` (so the many `dependencies=[Depends(verify_api_key)]`
-call sites keep working), and `get_session` resolves the caller's session by
-`skey = "<user_id>:<oid>"`. The control WebSocket `/api/v1/ws?oid=` is
+`app/api/dependencies.py` exposes `get_session`, which authorizes the
+caller (control token, public bookmark, or cookie user) and resolves their
+session by `skey = "<user_id>:<oid>"` in a single lookup. The control WebSocket `/api/v1/ws?oid=` is
 authenticated by the same cookie.
 
 #### `app/db/` — SQLAlchemy persistence
@@ -520,8 +519,9 @@ The API router installs its own lifespan (`app/api/routes/lifespan.py`):
    models in the route module, as several domain routers do).
 3. Add the business logic in `app/api/game_service.py` or the relevant
    service module (`teams_service.py`, `presets_service.py`, etc.).
-4. Gate it: `dependencies=[Depends(verify_api_key)]` (any logged-in user) or
-   `Depends(require_admin)` for admin-only routes.
+4. Gate it: `session: GameSession = Depends(get_session)` for board routes
+   (it authorizes and resolves the session in one step), `Depends(require_user)`
+   for any logged-in user, or `Depends(require_admin)` for admin-only routes.
 
 ### Adding a DB model or migration
 

@@ -65,9 +65,11 @@ export default function RegisterPage() {
       await refresh();
       navigate('/');
     } catch (err) {
-      setError(err instanceof api.ApiError && err.status === 400
-        ? t('acc.auth.register.errorTaken')
-        : t('acc.auth.register.errorFailed'));
+      setError(
+        err instanceof api.ApiError && err.status === 400
+          ? t('acc.auth.register.errorTaken')
+          : t('acc.auth.register.errorFailed'),
+      );
     } finally {
       setBusy(false);
     }
@@ -82,23 +84,43 @@ export default function RegisterPage() {
           {error && <div className="acc-error">{error}</div>}
           <label className="acc-field">
             <span>{t('acc.admin.username')}</span>
-            <input className="acc-input" value={username} autoFocus autoComplete="username"
-              onChange={(e) => setUsername(e.target.value)} />
+            <input
+              className="acc-input"
+              value={username}
+              autoFocus
+              autoComplete="username"
+              onChange={(e) => setUsername(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.auth.register.emailOptional')}</span>
-            <input className="acc-input" type="email" value={email} autoComplete="email"
-              onChange={(e) => setEmail(e.target.value)} />
+            <input
+              className="acc-input"
+              type="email"
+              value={email}
+              autoComplete="email"
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.auth.passwordMin8')}</span>
-            <input className="acc-input" type="password" value={password}
-              autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
+            <input
+              className="acc-input"
+              type="password"
+              value={password}
+              autoComplete="new-password"
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </label>
           <label className="acc-field">
             <span>{t('acc.auth.confirmPassword')}</span>
-            <input className="acc-input" type="password" value={confirmPw}
-              autoComplete="new-password" onChange={(e) => setConfirmPw(e.target.value)} />
+            <input
+              className="acc-input"
+              type="password"
+              value={confirmPw}
+              autoComplete="new-password"
+              onChange={(e) => setConfirmPw(e.target.value)}
+            />
           </label>
           <div className="acc-btn-row">
             <button className="acc-btn" type="submit" disabled={busy}>
