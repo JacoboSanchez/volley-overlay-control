@@ -148,7 +148,11 @@ def _hashed_basename(oid: str) -> str:
 
 
 def _path(oid: str) -> str | None:
-    if not isinstance(oid, str) or _OID_PATTERN.match(oid) is None:
+    from app.overlay_key import is_valid_skey
+
+    if not isinstance(oid, str) or (
+        _OID_PATTERN.match(oid) is None and not is_valid_skey(oid)
+    ):
         return None
     return os.path.join(_data_dir(), _hashed_basename(oid))
 

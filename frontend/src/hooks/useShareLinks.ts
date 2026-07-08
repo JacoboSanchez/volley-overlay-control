@@ -1,12 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import * as api from '../api/client';
+import type { ShareLinks } from '../utils/links';
 
-export interface ShareLinks {
-  control?: string;
-  overlay?: string;
-  preview?: string;
-  follow?: string;
-}
+export type { ShareLinks };
 
 export interface UseShareLinksResult {
   shareOpen: boolean;
@@ -25,17 +21,27 @@ export function useShareLinks(oid: string): UseShareLinksResult {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareLinks, setShareLinks] = useState<ShareLinks | null>(null);
 
+  // Drop the cached links when the overlay changes — ``App`` stays mounted
+  // across owner overlay switches, so without this, reopening the dialog would
+  // show the previously-selected overlay's URLs.
+  useEffect(() => {
+    setShareLinks(null);
+  }, [oid]);
+
   const handleOpenShare = useCallback(async () => {
     if (!oid) return;
     setShareOpen(true);
     if (!shareLinks) {
       try {
         const links = await api.getLinks(oid);
+        const str = (v: unknown) => (typeof v === 'string' ? v : '');
         setShareLinks({
-          control: typeof links?.control === 'string' ? links.control : '',
-          overlay: typeof links?.overlay === 'string' ? links.overlay : '',
-          preview: typeof links?.preview === 'string' ? links.preview : '',
-          follow: typeof links?.follow === 'string' ? links.follow : '',
+          control: str(links?.control),
+          overlay: str(links?.overlay),
+          preview: str(links?.preview),
+          follow: str(links?.follow),
+          latest_match_report: str(links?.latest_match_report),
+          match_history: str(links?.match_history),
         });
       } catch {
         // Empty links surface as the "No links available" fallback

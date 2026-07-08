@@ -48,6 +48,16 @@ export function useHudVisibility({
     }
   }, [matchStartedAt, setShowControls]);
 
+  // Reveal the bar the moment the match finishes so the Reset / "Match
+  // report" controls are reachable without the operator first un-hiding
+  // the HUD (it may have auto-hidden during the final rally).
+  const matchFinished = state?.match_finished ?? false;
+  useEffect(() => {
+    if (matchFinished) {
+      setShowControls(true);
+    }
+  }, [matchFinished, setShowControls]);
+
   // Depend on the two state fields the effect actually reads, not the
   // ``state`` object itself — its identity changes on every WebSocket
   // push and would re-arm the effect on every scored point. Operator
@@ -61,9 +71,10 @@ export function useHudVisibility({
     // inactivity timer once ``match_started_at`` is stamped. Also covers
     // the pre-init case where ``state`` itself is still null.
     if (matchStartedAt == null) return;
-    // When the set-summary recap is live, the operator must be able to
-    // turn it off in one tap — never auto-hide the HUD.
-    if (setSummaryActive) {
+    // When the set-summary recap is live, or the match has just finished,
+    // the operator must be able to reach the controls in one tap — never
+    // auto-hide the HUD in those states.
+    if (setSummaryActive || matchFinished) {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       setShowControls(true);
       return;
@@ -81,6 +92,7 @@ export function useHudVisibility({
     activeTab,
     matchStartedAt,
     setSummaryActive,
+    matchFinished,
     resetHideTimer,
     hasRoomForPersistentControls,
   ]);

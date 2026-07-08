@@ -17,6 +17,7 @@ from collections.abc import Callable
 
 from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
 from app.id_validation import is_valid_overlay_id, validate_overlay_id
+from app.overlay_key import is_valid_skey
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,6 @@ _FILENAME_HASH_LEN = DEFAULT_HASH_LEN
 _HASHED_FILENAME_PATTERN = re.compile(
     r"^overlay_state_[0-9a-f]{" + str(_FILENAME_HASH_LEN) + r"}\.json$"
 )
-_LEGACY_FILENAME_PATTERN = re.compile(r"^overlay_state_(.+)\.json$")
 
 # Bundled overlay static CSS directory, resolved relative to this module
 # (app/overlay/) so style-capability scanning finds the shipped stylesheets
@@ -217,7 +217,6 @@ class OverlayStateStore:
         self._output_key_cache: dict[str, str] = {}
         self._all_overlays_scanned = False
         os.makedirs(data_dir, exist_ok=True)
-        self._migrate_legacy_files_locked()
 
     def set_broadcast_callback(self, callback: Callable) -> None:
         """Set the callback invoked after state changes to trigger broadcasts."""
@@ -229,13 +228,14 @@ class OverlayStateStore:
     def _sanitize_id(overlay_id: str) -> str:
         """Validate *overlay_id* as a filesystem-safe identifier.
 
-        Returns *overlay_id* unchanged when it matches the strict allow-list
-        (:func:`app.id_validation.validate_overlay_id`). Raises ``ValueError`` otherwise — this is
-        the single choke point between user-provided ids and the on-disk
-        ``overlay_state_<id>.json`` paths, so rejecting here guarantees no
-        path-traversal or arbitrary-filename value reaches ``open``,
-        ``unlink``, or ``rename``.
+        Accepts either a bare overlay id (legacy/single-tenant) or a
+        per-user storage key ``<user_id>:<oid>`` (:func:`app.overlay_key`).
+        Both shapes are path-safe — no ``/`` and no ``..`` — so this stays
+        the single choke point between caller input and the on-disk
+        ``overlay_state_<hash>.json`` paths. Raises ``ValueError`` otherwise.
         """
+        if is_valid_skey(overlay_id):
+            return overlay_id
         return validate_overlay_id(overlay_id)
 
     @staticmethod
@@ -396,7 +396,7 @@ class OverlayStateStore:
                 logger.warning("Skipping unreadable state file '%s': %s", filename, exc)
                 continue
             oid = (payload or {}).get("_meta", {}).get("overlay_id")
-            if not is_valid_overlay_id(oid):
+            if not (is_valid_overlay_id(oid) or is_valid_skey(oid)):
                 logger.warning("State file '%s' missing valid _meta.overlay_id", filename)
                 continue
             yield oid, filename
@@ -411,49 +411,6 @@ class OverlayStateStore:
             self._output_key_cache[oid] = oid
             self._output_key_cache[self.get_output_key(oid)] = oid
         self._all_overlays_scanned = True
-
-    def _migrate_legacy_files_locked(self) -> None:
-        """Rename ``overlay_state_<id>.json`` → ``overlay_state_<hash>.json``.
-
-        Runs once at init. For each legacy file whose stem matches
-        :mod:`app.id_validation` overlay rules, injects ``_meta.overlay_id`` into
-        the payload and rewrites to the hashed basename. No-op for files
-        already in the new format.
-        """
-        if not os.path.isdir(self._data_dir):
-            return
-        for filename in os.listdir(self._data_dir):
-            if _HASHED_FILENAME_PATTERN.fullmatch(filename):
-                continue
-            m = _LEGACY_FILENAME_PATTERN.fullmatch(filename)
-            if m is None:
-                continue
-            stem = m.group(1)
-            if not is_valid_overlay_id(stem):
-                continue
-            legacy_path = os.path.join(self._data_dir, filename)
-            new_basename = self._hashed_basename(stem)
-            new_path = os.path.join(self._data_dir, new_basename)
-            if os.path.exists(new_path):
-                continue
-            try:
-                with open(legacy_path, encoding="utf-8") as f:
-                    payload = json.load(f)
-            except (OSError, json.JSONDecodeError) as exc:
-                logger.warning("Skipping legacy state file '%s': %s", filename, exc)
-                continue
-            if not isinstance(payload, dict):
-                continue
-            self._stamp_meta(payload, stem)
-            try:
-                self._write_state_sync(new_path, payload)
-                os.remove(legacy_path)
-                logger.info(
-                    "Migrated legacy state file '%s' -> '%s'",
-                    filename, new_basename,
-                )
-            except OSError as exc:
-                logger.warning("Failed to migrate '%s': %s", filename, exc)
 
     # -- Available styles --------------------------------------------------
 
@@ -580,10 +537,13 @@ class OverlayStateStore:
         except ValueError:
             logger.warning("create_overlay rejected invalid id: %r", overlay_id)
             return False
-        if os.path.exists(path):
-            return False
-        self.save_persisted_state(overlay_id, get_default_state())
         with self._lock:
+            # Hold the (reentrant) lock across the existence check AND the
+            # write so two concurrent first-touches can't both write default
+            # state (the check-then-write was previously a TOCTOU race).
+            if os.path.exists(path):
+                return False
+            self.save_persisted_state(overlay_id, get_default_state())
             self._output_key_cache[overlay_id] = overlay_id
             self._output_key_cache[self.get_output_key(overlay_id)] = overlay_id
         logger.info("Overlay '%s' created", overlay_id)

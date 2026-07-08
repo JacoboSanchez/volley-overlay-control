@@ -1,14 +1,16 @@
-"""Match-rule presets for indoor vs. beach volleyball.
+"""Match-rule presets for indoor / beach volleyball and table tennis.
 
-A session has a ``mode`` ("indoor" or "beach") plus three numeric
-limits (``points_limit``, ``points_limit_last_set``, ``sets_limit``).
-The mode primarily drives:
+A session has a ``mode`` ("indoor", "beach" or "table_tennis") plus
+three numeric limits (``points_limit``, ``points_limit_last_set``,
+``sets_limit``). The mode primarily drives:
 
 * Default values for the limits (applied when the operator switches
   modes or asks for "reset to defaults").
 * The interval used by the beach side-switch tracker — derived from
   the active set's points target: a 5-point cadence when the target
   is ≤15 (e.g. the deciding set), 7 otherwise.
+* Whether the serve rotates automatically on a fixed cadence
+  (table tennis) versus following the rally winner (volleyball).
 
 Indoor:
   * 25 points per set (must win by 2)
@@ -24,15 +26,25 @@ Beach:
   * 15 points in the deciding set
   * Best of 3
   * Side switch every 7 points (every 5 in the tiebreak)
+
+Table tennis:
+  * 11 points per game (must win by 2)
+  * 11 points in the deciding game
+  * Best of 5 (selectable: 1 / 3 / 5 / 7)
+  * Serve rotates every 2 points; every point once both players reach
+    10 (deuce). The first server alternates each game. Ends switch
+    after every game, and once a player reaches the midpoint (5) of
+    the deciding game. The backend computes the live server and a
+    serve-change countdown so the operator never tracks it by hand.
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
-MatchMode = Literal["indoor", "beach"]
+MatchMode = Literal["indoor", "beach", "table_tennis"]
 
-VALID_MODES: tuple[str, ...] = ("indoor", "beach")
+VALID_MODES: tuple[str, ...] = ("indoor", "beach", "table_tennis")
 
 
 class RulesPreset:
@@ -56,6 +68,9 @@ class RulesPreset:
 PRESETS: dict[str, RulesPreset] = {
     "indoor": RulesPreset(points_limit=25, points_limit_last_set=15, sets_limit=5),
     "beach":  RulesPreset(points_limit=21, points_limit_last_set=15, sets_limit=3),
+    "table_tennis": RulesPreset(
+        points_limit=11, points_limit_last_set=11, sets_limit=5,
+    ),
 }
 
 
@@ -187,6 +202,16 @@ def compute_sides_swapped_auto(
         )
         points_in_set = max(0, int(team1_score)) + max(0, int(team2_score))
         flips += points_in_set // interval
+    elif mode == "table_tennis":
+        # Table tennis: players switch ends after *every* game — already
+        # captured by the one-flip-per-completed-set base above. The only
+        # extra switch is in the deciding game, when a player first reaches
+        # the midpoint of the target (5 of 11). Earlier games carry no
+        # mid-game switch.
+        if current_set >= sets_limit:
+            midpoint = points_limit_last_set // 2
+            if max(int(team1_score), int(team2_score)) >= midpoint:
+                flips += 1
     elif current_set >= sets_limit:
         # Indoor deciding set: one switch when the leading team first
         # reaches the midpoint (FIVB: 8 of 15). Completed sets carry no
@@ -197,6 +222,121 @@ def compute_sides_swapped_auto(
             flips += 1
 
     return flips % 2 == 1
+
+
+# -----------------------------------------------------------------------------
+# Table-tennis serve rotation
+# -----------------------------------------------------------------------------
+
+def _other_team(team: int) -> int:
+    return 2 if team == 1 else 1
+
+
+def _tt_serve_turns(
+    *, team1_score: int, team2_score: int, target: int,
+) -> int:
+    """Number of completed service turns at the current combined score.
+
+    Before deuce a turn is two points; once both players reach
+    ``target - 1`` (10 in an 11-point game) every point is its own
+    turn. The server alternates on each turn, so the *parity* of this
+    count decides who is on serve.
+    """
+    deuce_at = 2 * max(0, target - 1)
+    points = max(0, int(team1_score)) + max(0, int(team2_score))
+    if points < deuce_at:
+        return points // 2
+    return (deuce_at // 2) + (points - deuce_at)
+
+
+def _tt_game_first_server(first_server: int, current_set: int) -> int:
+    """Team that serves first in *current_set* — alternates each game."""
+    if (current_set - 1) % 2 == 0:
+        return first_server
+    return _other_team(first_server)
+
+
+def table_tennis_server(
+    *, first_server: int, current_set: int, sets_limit: int,
+    team1_score: int, team2_score: int,
+    points_limit: int, points_limit_last_set: int,
+) -> int:
+    """Return the team (1 or 2) currently on serve in a table-tennis game.
+
+    A pure function of the score, the match's ``first_server`` (the team
+    that serves first in game 1) and the game index — so an undo rewinds
+    the serve automatically. ``first_server`` alternates each game.
+    """
+    fs = first_server if first_server in (1, 2) else 1
+    target = points_limit_last_set if current_set >= sets_limit else points_limit
+    turns = _tt_serve_turns(
+        team1_score=team1_score, team2_score=team2_score, target=target,
+    )
+    game_first = _tt_game_first_server(fs, current_set)
+    return game_first if turns % 2 == 0 else _other_team(game_first)
+
+
+def table_tennis_first_server_for(
+    *, desired_server: int, current_set: int, sets_limit: int,
+    team1_score: int, team2_score: int,
+    points_limit: int, points_limit_last_set: int,
+) -> int:
+    """Invert :func:`table_tennis_server`.
+
+    Given the team the operator wants on serve *right now*, return the
+    match-level ``first_server`` that produces it under the current
+    score/game — so clicking a serve toggle mid-game stays consistent
+    with the rotation going forward.
+    """
+    target = points_limit_last_set if current_set >= sets_limit else points_limit
+    turns = _tt_serve_turns(
+        team1_score=team1_score, team2_score=team2_score, target=target,
+    )
+    game_first = desired_server if turns % 2 == 0 else _other_team(desired_server)
+    if (current_set - 1) % 2 == 0:
+        return game_first
+    return _other_team(game_first)
+
+
+def compute_serve_switch(
+    *, mode: str, current_set: int, sets_limit: int,
+    first_server: int, team1_score: int, team2_score: int,
+    points_limit: int, points_limit_last_set: int,
+) -> dict | None:
+    """Serve-rotation countdown for the current table-tennis game.
+
+    Returns ``None`` for non-table-tennis modes (where the serve follows
+    the rally winner and there is nothing to count down). The shape
+    mirrors the beach side-switch indicator: a countdown to the next
+    serve change plus an ``is_change_pending`` flag that fires the moment
+    the most recent point handed serve over.
+    """
+    if mode != "table_tennis":
+        return None
+    target = points_limit_last_set if current_set >= sets_limit else points_limit
+    deuce_at = 2 * max(0, target - 1)
+    points = max(0, int(team1_score)) + max(0, int(team2_score))
+    if points < deuce_at:
+        next_change_at = ((points // 2) + 1) * 2
+        is_pending = points > 0 and points % 2 == 0
+    else:
+        # Past deuce every point flips the serve. Guard against the degenerate
+        # ``points_limit=1`` case where ``deuce_at`` collapses to 0 and 0-0
+        # would otherwise flash "serve changes now" before any point is played.
+        next_change_at = points + 1
+        is_pending = points > 0
+    server = table_tennis_server(
+        first_server=first_server, current_set=current_set,
+        sets_limit=sets_limit, team1_score=team1_score, team2_score=team2_score,
+        points_limit=points_limit, points_limit_last_set=points_limit_last_set,
+    )
+    return {
+        "server": server,
+        "points_in_set": points,
+        "next_change_at": next_change_at,
+        "points_until_change": next_change_at - points,
+        "is_change_pending": is_pending,
+    }
 
 
 # -----------------------------------------------------------------------------

@@ -1,52 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Volley Scoreboard">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="#232848"/>
-      <stop offset="100%" stop-color="#1a1a2e"/>
-    </radialGradient>
-    <radialGradient id="ball" cx="42%" cy="38%" r="50%">
-      <stop offset="0%" stop-color="#fffde8"/>
-      <stop offset="60%" stop-color="#f5f0d0"/>
-      <stop offset="100%" stop-color="#e8deb5"/>
-    </radialGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.35"/>
+    <linearGradient id="sbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2f57"/>
+      <stop offset="1" stop-color="#15162b"/>
+    </linearGradient>
+    <linearGradient id="sLeft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a5b"/>
+      <stop offset="1" stop-color="#ff3d6e"/>
+    </linearGradient>
+    <linearGradient id="sRight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5ad1e6"/>
+      <stop offset="1" stop-color="#3a8dff"/>
+    </linearGradient>
+    <filter id="sshadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.35"/>
     </filter>
   </defs>
 
-  <!-- Background -->
-  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Full-bleed background: maskable launchers crop the corners. -->
+  <rect width="512" height="512" fill="url(#sbg)"/>
 
-  <!-- Volleyball -->
-  <g filter="url(#shadow)">
-    <circle cx="256" cy="248" r="160" fill="url(#ball)"/>
+  <!-- Scoreboard panel (kept within the maskable safe zone, centred). -->
+  <g filter="url(#sshadow)">
+    <rect x="86" y="168" width="340" height="176" rx="30" fill="#232a52"/>
+    <!-- Header strip with two team dots. -->
+    <path d="M116 168 h280 a30 30 0 0 1 30 30 v8 H86 v-8 a30 30 0 0 1 30 -30 z"
+          fill="#2c3568"/>
+    <circle cx="150" cy="188" r="9" fill="#ff5d73"/>
+    <circle cx="362" cy="188" r="9" fill="#43b6e8"/>
 
-    <!-- Volleyball seam lines -->
-    <!-- Vertical curve left -->
-    <path d="M208 92 C180 170, 178 310, 210 400"
-          fill="none" stroke="#c4b78a" stroke-width="4.5" stroke-linecap="round"/>
-    <!-- Vertical curve right -->
-    <path d="M304 92 C332 170, 334 310, 302 400"
-          fill="none" stroke="#c4b78a" stroke-width="4.5" stroke-linecap="round"/>
+    <!-- Two score windows. -->
+    <rect x="116" y="224" width="120" height="92" rx="16" fill="url(#sLeft)"/>
+    <rect x="276" y="224" width="120" height="92" rx="16" fill="url(#sRight)"/>
+    <!-- Subtle gloss on each window. -->
+    <rect x="116" y="224" width="120" height="42" rx="16" fill="#ffffff" opacity="0.16"/>
+    <rect x="276" y="224" width="120" height="42" rx="16" fill="#ffffff" opacity="0.16"/>
 
-    <!-- Horizontal curve top -->
-    <path d="M100 210 C170 240, 342 240, 412 210"
-          fill="none" stroke="#c4b78a" stroke-width="4.5" stroke-linecap="round"/>
-
-    <!-- Diagonal curve top-left to bottom-right -->
-    <path d="M130 140 C200 200, 310 296, 382 356"
-          fill="none" stroke="#c4b78a" stroke-width="4.5" stroke-linecap="round"/>
-
-    <!-- Diagonal curve top-right to bottom-left -->
-    <path d="M382 140 C312 200, 202 296, 130 356"
-          fill="none" stroke="#c4b78a" stroke-width="4.5" stroke-linecap="round"/>
+    <!-- Colon divider. -->
+    <circle cx="256" cy="252" r="9" fill="#ffffff" opacity="0.92"/>
+    <circle cx="256" cy="288" r="9" fill="#ffffff" opacity="0.92"/>
   </g>
-
-  <!-- Score accent bar -->
-  <rect x="156" y="430" width="200" height="36" rx="18" fill="#4fc3f7" opacity="0.9"/>
-  <text x="256" y="455" font-family="system-ui, sans-serif" fill="#1a1a2e" text-anchor="middle">
-    <tspan font-weight="800" font-size="22" letter-spacing="1">25</tspan>
-    <tspan font-weight="600" font-size="18" opacity="0.6"> - </tspan>
-    <tspan font-weight="800" font-size="22" letter-spacing="1">23</tspan>
-  </text>
 </svg>

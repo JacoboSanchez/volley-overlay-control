@@ -6,6 +6,17 @@ import { renderWithI18n, mockGameState, mockCustomization } from './helpers';
 import { HUD_AUTO_HIDE_MS } from '../constants';
 
 vi.mock('../api/client', () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: string;
+    constructor(status: number, message: string, detail?: string) {
+      super(message);
+      this.status = status;
+      this.detail = detail || message;
+    }
+  },
+  setControlToken: vi.fn(),
+  setPublicUser: vi.fn(),
   initSession: vi.fn(),
   getCustomization: vi.fn(),
   getLinks: vi.fn(),
@@ -20,7 +31,9 @@ vi.mock('../api/client', () => ({
   resetGame: vi.fn(),
   setVisibility: vi.fn(),
   setSimpleMode: vi.fn(),
-  getTeams: vi.fn(),
+  getBoardGroups: vi.fn().mockResolvedValue({ groups: [], selected_id: null }),
+  getBoardGroupTeams: vi.fn().mockResolvedValue({}),
+  setBoardSelectedGroup: vi.fn().mockResolvedValue({ ok: true, selected_id: null }),
   getStyles: vi.fn(),
   getStyleCapabilities: vi.fn(),
   updateCustomization: vi.fn(),
@@ -130,7 +143,8 @@ describe('App', () => {
     });
 
     // Mock additional API calls that ConfigPanel makes
-    vi.mocked(api.getTeams).mockResolvedValue({});
+    vi.mocked(api.getBoardGroups).mockResolvedValue({ groups: [], selected_id: null });
+    vi.mocked(api.getBoardGroupTeams).mockResolvedValue({});
     vi.mocked(api.getStyles).mockResolvedValue([]);
     vi.mocked(api.getStyleCapabilities).mockResolvedValue({});
 
@@ -186,6 +200,36 @@ describe('App', () => {
     await waitFor(() => {
       expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'alias-oid');
     });
+  });
+
+  it('shows the invalid-link panel (not the owner InitScreen) when a capability link fails', async () => {
+    vi.mocked(api.initSession).mockRejectedValue(
+      new api.ApiError(
+        403,
+        'API POST /session/init failed (403): {"detail":"Invalid or revoked control link."}',
+        'Invalid or revoked control link.',
+      ),
+    );
+    renderWithI18n(<App controlToken="revoked-token" />);
+    await waitFor(() => {
+      expect(screen.getByText('This control link is no longer valid')).toBeInTheDocument();
+    });
+    // The clean detail is surfaced, and the owner-only OID entry is absent.
+    expect(screen.getByText('Invalid or revoked control link.')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('my-overlay')).not.toBeInTheDocument();
+    expect(api.getOverlays).not.toHaveBeenCalled();
+  });
+
+  it('shows a transient-outage panel (not "link revoked") when a capability init fails with a network/5xx error', async () => {
+    vi.mocked(api.initSession).mockRejectedValue(new Error('Failed to fetch'));
+    renderWithI18n(<App controlToken="live-token" />);
+    await waitFor(() => {
+      expect(screen.getByText('Could not load the scoreboard')).toBeInTheDocument();
+    });
+    // The link is (as far as we know) fine — do not tell the operator to
+    // ask the owner for a new one.
+    expect(screen.queryByText('This control link is no longer valid')).not.toBeInTheDocument();
+    expect(screen.getByText('Failed to fetch')).toBeInTheDocument();
   });
 
   describe('HUD auto-hide', () => {

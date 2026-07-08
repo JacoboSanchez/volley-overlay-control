@@ -1,9 +1,11 @@
 import { useI18n } from '../../i18n';
-import { ConfigSwitch } from './fields';
+import { ConfigSwitch, InstantHint } from './fields';
 
 export interface GeneralSettings {
   haptics: boolean;
   keyboardShortcuts: boolean;
+  showOnAir: boolean;
+  showReportLink: boolean;
 }
 
 export interface GeneralSectionProps {
@@ -12,23 +14,15 @@ export interface GeneralSectionProps {
   onShowShortcuts?: () => void;
 }
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: 'English',
-  es: 'Español',
-  pt: 'Português',
-  it: 'Italiano',
-  fr: 'Français',
-  de: 'Deutsch',
-};
-
 export default function GeneralSection({
   settings,
   setSetting,
   onShowShortcuts,
 }: GeneralSectionProps) {
-  const { t, lang, setLanguage, languages } = useI18n();
+  const { t } = useI18n();
   return (
     <div className="config-section-general">
+      <InstantHint />
       <ConfigSwitch
         label={t('behavior.haptics')}
         checked={settings.haptics}
@@ -40,28 +34,22 @@ export default function GeneralSection({
         onChange={(v) => setSetting('keyboardShortcuts', v)}
       />
       {settings.keyboardShortcuts && onShowShortcuts && (
-        <div className="config-switch-row" style={{ paddingLeft: '1.5rem' }}>
+        <div className="config-switch-row config-suboption">
           <button type="button" className="dialog-btn" onClick={onShowShortcuts}>
             {t('behavior.showShortcuts')}
           </button>
         </div>
       )}
-
-      <div className="config-separator" />
-      <div className="config-field-row">
-        <label className="config-label">{t('lang.label')}</label>
-        <select
-          className="config-select"
-          value={lang}
-          onChange={(e) => setLanguage(e.target.value)}
-        >
-          {languages.map((l) => (
-            <option key={l} value={l}>
-              {LANGUAGE_NAMES[l] ?? l}
-            </option>
-          ))}
-        </select>
-      </div>
+      <ConfigSwitch
+        label={t('behavior.onAirIndicator')}
+        checked={settings.showOnAir}
+        onChange={(v) => setSetting('showOnAir', v)}
+      />
+      <ConfigSwitch
+        label={t('behavior.reportLink')}
+        checked={settings.showReportLink}
+        onChange={(v) => setSetting('showReportLink', v)}
+      />
     </div>
   );
 }

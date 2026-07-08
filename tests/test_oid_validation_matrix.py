@@ -11,7 +11,6 @@ from app.api.oid_validation import is_valid_oid as legacy_is_valid_oid
 from app.id_validation import (
     api_oid_compatible_with_overlay_store,
     api_oid_overlay_base,
-    is_uno_oid,
     is_valid_api_oid,
     is_valid_overlay_id,
     validate_api_oid,
@@ -74,14 +73,6 @@ def test_api_oid_with_multiple_slashes_fails_overlay_compat() -> None:
     # API allows slashes, but only a single style suffix maps to overlay store.
     assert is_valid_api_oid("mybroadcast/line/extra")
     assert api_oid_overlay_base("mybroadcast/line/extra") is None
-
-
-def test_uno_oid_format() -> None:
-    assert is_uno_oid("2cIXk2IjHvMuva6Wwele8j")
-    assert not is_uno_oid("mybroadcast")
-    assert not is_uno_oid("2cIXk2IjHvMuva6Wwele8")  # too short
-    assert not is_uno_oid("")
-    assert not is_uno_oid("2cIXk2IjHvMuva6Wwele8j!")  # non-alphanumeric
 
 
 def test_validate_api_oid_returns_input() -> None:

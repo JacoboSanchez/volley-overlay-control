@@ -6,14 +6,31 @@ import { renderWithI18n, mockCustomization } from './helpers';
 
 // Mock the API module
 vi.mock('../api/client', () => ({
-  getTeams: vi
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: string;
+    constructor(status: number, message: string, detail?: string) {
+      super(message);
+      this.status = status;
+      this.detail = detail || message;
+    }
+  },
+  getBoardGroups: vi.fn().mockResolvedValue({
+    groups: [{ id: null, name: 'All teams', kind: 'all', count: 1 }],
+    selected_id: null,
+  }),
+  getBoardGroupTeams: vi
     .fn()
     .mockResolvedValue({ Home: { icon: '', color: '#0000ff', text_color: '#ffffff' } }),
+  setBoardSelectedGroup: vi.fn().mockResolvedValue({ ok: true, selected_id: null }),
   getStyles: vi.fn().mockResolvedValue([]),
   getStyleCapabilities: vi.fn().mockResolvedValue({}),
   getLinks: vi.fn().mockResolvedValue({ control: '', overlay: '', preview: '' }),
   getCustomization: vi.fn().mockResolvedValue({}),
   updateCustomization: vi.fn().mockResolvedValue({}),
+  listPresets: vi.fn().mockResolvedValue({ items: [] }),
+  createPreset: vi.fn().mockResolvedValue({}),
+  deletePreset: vi.fn().mockResolvedValue(undefined),
 }));
 
 const defaultProps = {
@@ -29,9 +46,22 @@ const defaultProps = {
   onToggleFullscreen: vi.fn(),
 };
 
+/** The default-open section is Presets; team fields need explicit navigation. */
+function openTeamsSection() {
+  fireEvent.click(screen.getByText('Teams').closest('button')!);
+}
+
 describe('ConfigPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('opens on the Presets section by default', async () => {
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    await waitFor(() => {
+      expect(api.listPresets).toHaveBeenCalled();
+    });
+    expect(screen.queryByTestId('team-1-name-selector')).not.toBeInTheDocument();
   });
 
   it('renders config title', () => {
@@ -62,6 +92,7 @@ describe('ConfigPanel', () => {
 
   it('enables the save button after a customization change', async () => {
     renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -72,6 +103,7 @@ describe('ConfigPanel', () => {
   it('confirms before leaving when there are unsaved changes', async () => {
     window.confirm = vi.fn().mockReturnValue(false);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -87,6 +119,7 @@ describe('ConfigPanel', () => {
   it('confirms when popstate fires (swipe back) with unsaved changes', async () => {
     window.confirm = vi.fn().mockReturnValue(false);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
@@ -105,10 +138,11 @@ describe('ConfigPanel', () => {
     expect(defaultProps.onBack).toHaveBeenCalledOnce();
   });
 
-  it('exits without prompting after a successful save', async () => {
+  it('stays in the panel after a successful save and shows a Saved status', async () => {
     vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
     window.confirm = vi.fn();
     renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     const saveBtn = screen.getByTestId('save-button');
@@ -118,9 +152,35 @@ describe('ConfigPanel', () => {
     fireEvent.click(saveBtn);
     await waitFor(() => {
       expect(api.updateCustomization).toHaveBeenCalled();
-      expect(defaultProps.onBack).toHaveBeenCalled();
+      expect(screen.getByTestId('save-status-saved')).toBeInTheDocument();
     });
+    // The operator keeps iterating: no auto-exit, Save disarms again.
+    expect(defaultProps.onBack).not.toHaveBeenCalled();
+    expect(saveBtn).toBeDisabled();
+
+    // Leaving afterwards needs no unsaved-changes prompt.
+    window.dispatchEvent(new PopStateEvent('popstate'));
     expect(window.confirm).not.toHaveBeenCalled();
+    expect(defaultProps.onBack).toHaveBeenCalledOnce();
+  });
+
+  it('clears the Saved status as soon as the panel goes dirty again', async () => {
+    vi.mocked(api.updateCustomization).mockResolvedValue({ success: true });
+    renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByTestId('save-button'));
+    await screen.findByTestId('save-status-saved');
+
+    fireEvent.change(selector, { target: { value: 'Home' } });
+    await waitFor(() => {
+      expect(screen.queryByTestId('save-status-saved')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('save-button')).not.toBeDisabled();
   });
 
   it('renders bottom bar action buttons', () => {
@@ -165,17 +225,6 @@ describe('ConfigPanel', () => {
     expect(defaultProps.onLogout).not.toHaveBeenCalled();
   });
 
-  it('renders language selector in general section', async () => {
-    renderWithI18n(<ConfigPanel {...defaultProps} />);
-    // In landscape mode, click the General sidebar item (language now
-    // lives there after the Behavior section was split up).
-    const generalButton = screen.getByText('General').closest('button')!;
-    fireEvent.click(generalButton);
-    await waitFor(() => {
-      expect(screen.getByText('English')).toBeInTheDocument();
-    });
-  });
-
   it('shows style selector when backend returns multiple styles', async () => {
     vi.mocked(api.getStyles).mockResolvedValue(['Classic', 'Modern']);
     renderWithI18n(<ConfigPanel {...defaultProps} />);
@@ -204,6 +253,7 @@ describe('ConfigPanel', () => {
   it('surfaces a retryable error banner when save fails', async () => {
     vi.mocked(api.updateCustomization).mockRejectedValueOnce(new Error('Server is on fire'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
+    openTeamsSection();
     const selector = await screen.findByTestId('team-1-name-selector');
     fireEvent.change(selector, { target: { value: '' } });
     const saveBtn = screen.getByTestId('save-button');
@@ -224,31 +274,35 @@ describe('ConfigPanel', () => {
     });
   });
 
-  it('hides gradient toggle for custom overlays', async () => {
-    vi.mocked(api.getLinks).mockResolvedValue({
-      control: '',
-      overlay: 'http://custom-overlay.example.com/output',
-      preview: '',
-    });
+  it('save-error banner can be dismissed without retrying', async () => {
+    vi.mocked(api.updateCustomization).mockRejectedValueOnce(new Error('boom'));
     renderWithI18n(<ConfigPanel {...defaultProps} />);
-    const overlayButton = screen.getByText('Overlay Style').closest('button')!;
-    fireEvent.click(overlayButton);
+    openTeamsSection();
+    const selector = await screen.findByTestId('team-1-name-selector');
+    fireEvent.change(selector, { target: { value: '' } });
     await waitFor(() => {
-      expect(screen.queryByText('Gradient')).not.toBeInTheDocument();
+      expect(screen.getByTestId('save-button')).not.toBeDisabled();
     });
+    fireEvent.click(screen.getByTestId('save-button'));
+    await screen.findByTestId('save-error-banner');
+
+    fireEvent.click(screen.getByTestId('save-error-dismiss'));
+    expect(screen.queryByTestId('save-error-banner')).not.toBeInTheDocument();
+    expect(api.updateCustomization).toHaveBeenCalledTimes(1);
   });
 
-  it('shows gradient toggle for standard overlays', async () => {
+  it('never shows the (removed) gradient toggle', async () => {
     vi.mocked(api.getLinks).mockResolvedValue({
       control: '',
-      overlay: 'https://overlays.uno/output/abc',
+      overlay: 'http://my-app.example/overlay/tok',
       preview: '',
     });
     renderWithI18n(<ConfigPanel {...defaultProps} />);
     const overlayButton = screen.getByText('Overlay Style').closest('button')!;
     fireEvent.click(overlayButton);
     await waitFor(() => {
-      expect(screen.getByText('Gradient')).toBeInTheDocument();
+      expect(screen.getByText('Overlay Style')).toBeInTheDocument();
     });
+    expect(screen.queryByText('Gradient')).not.toBeInTheDocument();
   });
 });

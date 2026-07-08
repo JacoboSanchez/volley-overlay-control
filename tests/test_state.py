@@ -166,10 +166,10 @@ def test_state_round_trip_preserves_per_set_history(state):
     state.set_current_set(2)
     round_tripped = State(new_state=state.get_current_model())
     assert round_tripped.get_timeouts_by_set(1) == {
-        1: 2, 2: 1, 3: 0, 4: 0, 5: 0,
+        1: 2, 2: 1, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0,
     }
     assert round_tripped.get_timeouts_by_set(2) == {
-        1: 1, 2: 0, 3: 0, 4: 0, 5: 0,
+        1: 1, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0,
     }
 
 def test_get_and_set_sets(state):
@@ -278,7 +278,7 @@ def test_getters_with_invalid_keys(state):
     with pytest.raises(KeyError):
         state.get_sets(0)
     with pytest.raises(KeyError):
-        state.get_game(1, 6)
+        state.get_game(1, 8)
 
 def test_setters_with_invalid_values(state):
     """Tests that setters reject non-integer values with a ValueError."""

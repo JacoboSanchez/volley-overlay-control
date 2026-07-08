@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
-import type { AuditRecord, GameState, TeamState } from '../api/client';
+import type { AuditRecord, GameState } from '../api/client';
+import { teamScoreSum } from '../utils/score';
 
 export interface UseAuditLogOptions {
   /**
@@ -29,15 +30,6 @@ export interface UseAuditLogResult {
 }
 
 const DEFAULT_LIMIT = 20;
-
-function teamScoreSum(team: TeamState | undefined | null): number {
-  if (!team) return 0;
-  let total = 0;
-  for (const value of Object.values(team.scores ?? {})) {
-    if (typeof value === 'number') total += value;
-  }
-  return total;
-}
 
 /**
  * Stable cache key derived from the parts of state that change

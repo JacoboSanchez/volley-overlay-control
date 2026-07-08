@@ -31,6 +31,16 @@ class Customization:
     # border; negative pushes it past the edges to fight stream overscan).
     SCALE_FLOAT = "Scale"
     MARGIN_FLOAT = "Margin"
+    # Placement anchor for the built-in overlay engine. ``free`` (the
+    # default) keeps the legacy behaviour where ``Left-Right`` / ``Up-Down``
+    # are absolute coordinates of the box's top-left corner. The nine zone
+    # values (``top-left`` … ``bottom-right``) instead pin the box's matching
+    # corner/edge to that screen zone — computed against the box's *measured*
+    # size in the browser, so a single zone preset lands flush for any
+    # overlay style regardless of its width. In zone mode ``Left-Right`` /
+    # ``Up-Down`` act as a fine nudge (percent of canvas) off the anchor.
+    ANCHOR = "Anchor"
+    ANCHOR_FREE = "free"
     T1_COLOR = "Team 1 Color"
     T1_TEXT_COLOR = "Team 1 Text Color"
     T1_LOGO = "Team 1 Logo"
@@ -88,7 +98,8 @@ class Customization:
         VPOS_FLOAT: -41.1,
         WIDTH_FLOAT: 30,
         SCALE_FLOAT: 100,
-        MARGIN_FLOAT: 0}
+        MARGIN_FLOAT: 0,
+        ANCHOR: ANCHOR_FREE}
 
     predefined_teams: dict[str, dict[str, str]] = {}
     THEMES: dict[str, dict[str, str | int | float]] = {}
@@ -313,6 +324,24 @@ class Customization:
 
     def set_margin(self, float_val):
         self.customization_model[Customization.MARGIN_FLOAT] = float_val
+
+    def get_anchor(self):
+        """Return the placement anchor, normalised to lowercase.
+
+        Falls back to :data:`ANCHOR_FREE` (legacy absolute positioning)
+        for missing, blank or non-string values so existing overlays
+        render unchanged. The overlay client treats any value it does
+        not recognise as ``free`` too, so this is best-effort.
+        """
+        val = self.customization_model.get(
+            Customization.ANCHOR, Customization.ANCHOR_FREE
+        )
+        if not isinstance(val, str) or not val.strip():
+            return Customization.ANCHOR_FREE
+        return val.strip().lower()
+
+    def set_anchor(self, value):
+        self.customization_model[Customization.ANCHOR] = value
 
     @staticmethod
     def get_predefined_teams():

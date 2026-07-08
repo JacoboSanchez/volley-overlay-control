@@ -22,7 +22,8 @@
     "material-icons": "^1.13.14",
     "react": "^19.2.7",
     "react-colorful": "^5.7.0",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -51,6 +52,7 @@
     "vitest": "^4.1.2"
   },
   "overrides": {
-    "serialize-javascript": "^7.0.5"
+    "serialize-javascript": "^7.0.5",
+    "js-yaml": "^4.2.0"
   }
 }

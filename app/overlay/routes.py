@@ -7,25 +7,19 @@ inside a factory function so the ``OverlayStateStore`` and
 
 import json
 import logging
-import os
 import re
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
-from app.auth_utils import require_admin
-from app.overlay.auth import (
-    _get_overlay_server_credential,  # noqa: F401  (re-export; see AUTHENTICATION.md §5)
-    require_overlay_server_token,
-)
+from app.overlay.broadcast import ObsHubFull
 from app.overlay.locale import _resolve_overlay_locale
-from app.overlay.models import OverlayStateUpdate, RawConfigPayload
 from app.overlay.state_store import OverlayStateStore
-from app.overlay.themes import PRESET_THEMES, get_theme_names
+from app.overlay.themes import get_theme_names
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +31,25 @@ logger = logging.getLogger(__name__)
 # even though the bare ``/static`` URLs are fresh). Mark these dynamic pages
 # no-store so intermediaries always re-fetch them.
 _NO_CACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
+
+def _resolve_public_token(token: str) -> str | None:
+    """Map a public OBS-output token to its overlay storage key (skey).
+
+    The public surface (``/overlay``, ``/follow``, ``/ws``) is addressed by
+    the unguessable ``public_token`` stored on the user's overlay row, never
+    by the user-facing ``username``/``oid`` — so the OBS URL leaks neither.
+    """
+    from app import overlays_service
+    from app.db.engine import session_scope
+
+    if not token:
+        return None
+    with session_scope() as db:
+        overlay = overlays_service.get_by_public_token(db, token)
+        if overlay is None:
+            return None
+        return overlays_service.skey_for(overlay)
 
 
 
@@ -89,15 +102,15 @@ def _register_page_routes(
 
     # -- Overlay HTML rendering --------------------------------------------
 
-    @router.get("/overlay/{overlay_id}", response_class=HTMLResponse)
+    @router.get("/overlay/{public_token}", response_class=HTMLResponse)
     async def serve_overlay(
-        request: Request, overlay_id: str, style: str = None,
+        request: Request, public_token: str, style: str = None,
         lang: str = None,
     ):
-        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
-        if resolved is None:
+        skey = await run_in_threadpool(_resolve_public_token, public_token)
+        if skey is None:
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
-        overlay_id = resolved
+        overlay_id = skey
 
         available = await run_in_threadpool(store.get_available_styles_list)
         renderable = await run_in_threadpool(store.get_renderable_styles)
@@ -133,8 +146,11 @@ def _register_page_routes(
             request=request,
             name=template_name,
             context={
-                "target_id": overlay_id,
-                "output_key": OverlayStateStore.get_output_key(overlay_id),
+                # The page connects to /ws/{output_key}; both the OBS URL
+                # token and the WS subscription use the public token, which
+                # the WS route resolves back to the storage key.
+                "target_id": public_token,
+                "output_key": public_token,
                 "style": style,
                 "available_styles": available,
                 "v": int(time.time()),
@@ -147,27 +163,26 @@ def _register_page_routes(
 
     # -- Public spectator (follow) page ------------------------------------
 
-    @router.get("/follow/{overlay_id}", response_class=HTMLResponse)
-    async def serve_spectator(request: Request, overlay_id: str):
+    @router.get("/follow/{public_token}", response_class=HTMLResponse)
+    async def serve_spectator(request: Request, public_token: str):
         """Mobile-friendly read-only follow view.
 
-        Resolves the overlay id like ``/overlay/{id}`` and serves a
-        lightweight template that consumes the same ``/ws/{id}`` feed
+        Resolves the public token like ``/overlay/{token}`` and serves a
+        lightweight template that consumes the same ``/ws/{token}`` feed
         the OBS templates use. Public by design — the page exposes no
         write paths and inherits the same data exposure as the OBS
         overlay it shadows.
         """
-        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
-        if resolved is None:
+        skey = await run_in_threadpool(_resolve_public_token, public_token)
+        if skey is None:
             raise HTTPException(status_code=404, detail="Overlay ID not found.")
-        overlay_id = resolved
 
         return templates.TemplateResponse(
             request=request,
             name="_spectator.html",
             context={
-                "target_id": overlay_id,
-                "output_key": OverlayStateStore.get_output_key(overlay_id),
+                "target_id": public_token,
+                "output_key": public_token,
                 "v": int(time.time()),
             },
             headers=_NO_CACHE_HEADERS,
@@ -175,18 +190,26 @@ def _register_page_routes(
 
     # -- OBS browser source WebSocket --------------------------------------
 
-    @router.websocket("/ws/{overlay_id}")
-    async def obs_websocket(websocket: WebSocket, overlay_id: str):
-        resolved = await run_in_threadpool(store.resolve_overlay_id, overlay_id)
-        if resolved is None:
+    @router.websocket("/ws/{public_token}")
+    async def obs_websocket(websocket: WebSocket, public_token: str):
+        skey = await run_in_threadpool(_resolve_public_token, public_token)
+        if skey is None:
             await websocket.close(code=4004, reason="Overlay not found")
             return
-        overlay_id = resolved
-        await websocket.accept()
-
-        broadcast.add_client(overlay_id, websocket)
-
+        overlay_id = skey
         try:
+            # Register before accepting so a capped overlay is refused with
+            # a clean 1013 close (same shape as the control WS endpoint).
+            broadcast.add_client(overlay_id, websocket)
+        except ObsHubFull as exc:
+            logger.warning(
+                "Refused OBS WS connect for overlay '%s' — at cap %d",
+                overlay_id, exc.cap,
+            )
+            await websocket.close(code=1013, reason="Too many clients for this overlay.")
+            return
+        try:
+            await websocket.accept()
             state = await run_in_threadpool(store.get_state, overlay_id)
             await websocket.send_text(json.dumps(state))
             while True:
@@ -204,135 +227,14 @@ def _register_api_routes(
     store: OverlayStateStore,
     broadcast,
 ) -> None:
-    """JSON API: state push, CRUD, raw config, output config, themes."""
+    """Public JSON API for the in-process overlay engine.
 
-    # -- State update (HTTP) -----------------------------------------------
-
-    @router.post(
-        "/api/state/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def update_state(
-        overlay_id: str, state_update: OverlayStateUpdate
-    ):
-        update_dict = state_update.model_dump(exclude_unset=True)
-        await store.update_state(overlay_id, update_dict)
-        return {"status": "success", "overlay_id": overlay_id}
-
-    # -- Overlay CRUD ------------------------------------------------------
-
-    @router.api_route(
-        "/create/overlay/{overlay_id}",
-        methods=["GET", "POST"],
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def create_overlay(overlay_id: str):
-        if store.overlay_exists(overlay_id):
-            return {"status": "already_exists", "overlay_id": overlay_id}
-        store.create_overlay(overlay_id)
-        return {"status": "created", "overlay_id": overlay_id}
-
-    @router.api_route(
-        "/delete/overlay/{overlay_id}",
-        methods=["GET", "POST", "DELETE"],
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def delete_overlay(overlay_id: str):
-        existed = store.delete_overlay(overlay_id)
-        await broadcast.cleanup_overlay(overlay_id)
-        if existed:
-            return {"status": "deleted", "overlay_id": overlay_id}
-        raise HTTPException(status_code=404, detail="Overlay not found")
-
-    @router.get("/list/overlay", dependencies=[Depends(require_admin)])
-    async def list_overlays():
-        """Return every overlay id plus its output key.
-
-        Gated behind ``OVERLAY_MANAGER_PASSWORD`` because the response
-        defeats the capability-URL design of ``/overlay/{output_key}``.
-        See ``AUTHENTICATION.md`` (F-4).
-        """
-        return {"overlays": store.list_overlays()}
-
-    # -- Raw config --------------------------------------------------------
-
-    @router.get(
-        "/api/raw_config/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def get_raw_config(overlay_id: str):
-        if not store.overlay_exists(overlay_id):
-            raise HTTPException(
-                status_code=404, detail="Overlay not found"
-            )
-        return store.get_raw_config(overlay_id)
-
-    @router.post(
-        "/api/raw_config/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def set_raw_config(overlay_id: str, payload: RawConfigPayload):
-        if not store.overlay_exists(overlay_id):
-            raise HTTPException(
-                status_code=404,
-                detail="Overlay not found. Call /create/overlay/ first.",
-            )
-        store.set_raw_config(
-            overlay_id,
-            model=payload.model,
-            customization=payload.customization,
-        )
-        return {"status": "success"}
-
-    # -- Config / output URL -----------------------------------------------
-
-    @router.get(
-        "/api/config/{overlay_id}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def get_config(request: Request, overlay_id: str):
-        public_url = os.environ.get("OVERLAY_PUBLIC_URL", "").rstrip("/")
-        base_url = (
-            f"{public_url}/" if public_url else str(request.base_url)
-        )
-        output_key = OverlayStateStore.get_output_key(overlay_id)
-        output_url = f"{base_url}overlay/{output_key}"
-
-        return {
-            "outputUrl": output_url,
-            "outputKey": output_key,
-            "availableStyles": store.get_available_styles_list(),
-        }
-
-    # -- Themes ------------------------------------------------------------
+    Overlay state is driven in-process by ``LocalOverlayBackend`` (direct
+    ``OverlayStateStore`` calls), so there are no externally-callable
+    mutation/config endpoints — only the read-only theme list used by the
+    overlay templates.
+    """
 
     @router.get("/api/themes")
     async def list_themes():
         return {"themes": get_theme_names()}
-
-    @router.post(
-        "/api/theme/{overlay_id}/{theme_name}",
-        dependencies=[Depends(require_overlay_server_token)],
-    )
-    async def apply_theme(overlay_id: str, theme_name: str):
-        if theme_name not in PRESET_THEMES:
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Theme '{theme_name}' not found. "
-                    f"Available: {get_theme_names()}"
-                ),
-            )
-        if not store.overlay_exists(overlay_id):
-            raise HTTPException(
-                status_code=404, detail="Overlay not found"
-            )
-        await store.update_state(overlay_id, PRESET_THEMES[theme_name])
-        logger.info(
-            "Theme '%s' applied to overlay '%s'", theme_name, overlay_id
-        )
-        return {
-            "status": "applied",
-            "theme": theme_name,
-            "overlay_id": overlay_id,
-        }

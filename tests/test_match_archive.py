@@ -1,4 +1,4 @@
-"""Tests for app/api/match_archive.py and the GameService archive trigger."""
+"""Tests for app/api/match_archive.py (DB-backed) and the archive trigger."""
 import time
 
 import pytest
@@ -6,19 +6,36 @@ import pytest
 from app.api import action_log, match_archive
 from app.api.game_service import GameService
 from app.api.session_manager import SessionManager
+from app.overlay_key import make_skey
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
+def _user_skey(db_session, oid, username="archuser"):
+    """Create (or reuse) a user and return ``(user_id, skey)`` for *oid*.
+
+    Match reports key on a real user (FK), so archival requires a storage
+    key whose user exists.
+    """
+    from app.auth import service
+
+    user = service.get_by_username(db_session, username) or service.create_user(
+        db_session, username=username, password="password123",
+    )
+    db_session.commit()
+    return user.id, make_skey(user.id, oid)
+
+
 # ---------------------------------------------------------------------------
-# match_archive low-level
+# match_archive low-level (DB-backed)
 # ---------------------------------------------------------------------------
 
 class TestMatchArchive:
-    def test_archive_round_trip(self):
-        action_log.append("oid-x", "add_point", {"team": 1}, {"score": 1})
+    def test_archive_round_trip(self, db_session):
+        _uid, skey = _user_skey(db_session, "oid-x")
+        action_log.append(skey, "add_point", {"team": 1}, {"score": 1})
         match_id = match_archive.archive_match(
-            oid="oid-x",
+            oid=skey,
             final_state={"team_1": {"sets": 3}, "team_2": {"sets": 1},
                          "current_set": 4},
             customization={"Team 1 Name": "Home"},
@@ -32,7 +49,7 @@ class TestMatchArchive:
 
         loaded = match_archive.load_match(match_id)
         assert loaded is not None
-        assert loaded["oid"] == "oid-x"
+        assert loaded["oid"] == skey
         assert loaded["winning_team"] == 1
         assert loaded["final_state"]["team_1"]["sets"] == 3
         assert loaded["customization"]["Team 1 Name"] == "Home"
@@ -40,139 +57,112 @@ class TestMatchArchive:
         assert loaded["config"]["points_limit"] == 25
         assert loaded["duration_s"] is not None and loaded["duration_s"] > 0
 
-    def test_invalid_oid_returns_none(self):
+    def test_summary_resolves_legacy_team_name_key(self, db_session):
+        # Names stored under the legacy "Team N Text Name" alias (e.g. seeded
+        # from a preset / predefined team) must surface in the reports list the
+        # same way the printed report renders them — not as the literal
+        # "Team 1" / "Team 2" placeholder.
+        _uid, skey = _user_skey(db_session, "oid-legacy-name")
+        match_archive.archive_match(
+            oid=skey,
+            final_state={"team_1": {"sets": 3}, "team_2": {"sets": 1}},
+            customization={"Team 1 Text Name": "Lions", "name2": "Tigers"},
+            winning_team=1,
+        )
+        summary = match_archive.list_matches(oid=skey)[0]
+        assert summary["team_1_name"] == "Lions"
+        assert summary["team_2_name"] == "Tigers"
+
+    def test_summary_leaves_unnamed_teams_null(self, db_session):
+        # No name under any known key → ``None`` so the UI can localize the
+        # "Team 1" / "Team 2" placeholder itself.
+        _uid, skey = _user_skey(db_session, "oid-unnamed")
+        match_archive.archive_match(
+            oid=skey, final_state={"current_set": 1}, customization={},
+            winning_team=1,
+        )
+        summary = match_archive.list_matches(oid=skey)[0]
+        assert summary["team_1_name"] is None
+        assert summary["team_2_name"] is None
+
+    def test_non_storage_key_returns_none(self, db_session):
+        # A bare oid (no owning user) cannot be archived.
+        assert match_archive.archive_match(
+            oid="oid-x", final_state={}, winning_team=1,
+        ) is None
         assert match_archive.archive_match(
             oid="../escape", final_state={}, winning_team=1,
         ) is None
 
-    def test_list_matches_filters_by_oid(self):
-        match_archive.archive_match(
-            oid="oid-a", final_state={"current_set": 5}, winning_team=2,
-        )
-        match_archive.archive_match(
-            oid="oid-b", final_state={"current_set": 4}, winning_team=1,
-        )
-        matches_a = match_archive.list_matches(oid="oid-a")
+    def test_list_matches_filters_by_oid(self, db_session):
+        _uid, skey_a = _user_skey(db_session, "oid-a")
+        _uid2, skey_b = _user_skey(db_session, "oid-b")
+        match_archive.archive_match(oid=skey_a, final_state={"current_set": 5}, winning_team=2)
+        match_archive.archive_match(oid=skey_b, final_state={"current_set": 4}, winning_team=1)
+        matches_a = match_archive.list_matches(oid=skey_a)
         assert len(matches_a) == 1
-        assert matches_a[0]["oid"] == "oid-a"
+        assert matches_a[0]["oid"] == skey_a
+        assert len(match_archive.list_matches()) == 2
 
-        all_matches = match_archive.list_matches()
-        assert len(all_matches) == 2
-
-    def test_list_matches_orders_newest_first(self):
-        # Microsecond-resolution timestamps mean two back-to-back
-        # archives produce distinct ``match_id`` values without sleeps.
+    def test_list_matches_orders_newest_first(self, db_session):
+        _uid, skey = _user_skey(db_session, "oid-ord")
         match_archive.archive_match(
-            oid="oid-ord",
-            final_state={"team_1": {"sets": 0}, "team_2": {"sets": 3}},
-            winning_team=2,
-        )
+            oid=skey, final_state={"team_1": {"sets": 0}, "team_2": {"sets": 3}}, winning_team=2)
         match_archive.archive_match(
-            oid="oid-ord",
-            final_state={"team_1": {"sets": 3}, "team_2": {"sets": 1}},
-            winning_team=1,
-        )
-        matches = match_archive.list_matches(oid="oid-ord")
+            oid=skey, final_state={"team_1": {"sets": 3}, "team_2": {"sets": 1}}, winning_team=1)
+        matches = match_archive.list_matches(oid=skey)
         assert matches[0]["winning_team"] == 1
         assert matches[1]["winning_team"] == 2
 
-    def test_load_match_rejects_traversal(self):
+    def test_load_match_rejects_malformed_id(self, db_session):
         assert match_archive.load_match("../etc/passwd") is None
         assert match_archive.load_match("nope") is None
         assert match_archive.load_match("match_zzzz_invalid") is None
+        assert match_archive.load_match(None) is None
 
-    def test_back_to_back_archives_get_distinct_ids(self):
+    def test_back_to_back_archives_get_distinct_ids(self, db_session):
+        _uid, skey = _user_skey(db_session, "oid-b2b")
         ids = {
-            match_archive.archive_match(
-                oid="oid-back2back", final_state={}, winning_team=1,
-            )
+            match_archive.archive_match(oid=skey, final_state={}, winning_team=1)
             for _ in range(5)
         }
         assert None not in ids
         assert len(ids) == 5
 
-    def test_delete_for_oid_removes_files(self):
+    def test_delete_for_oid_removes_rows(self, db_session):
+        _uid, skey = _user_skey(db_session, "oid-del")
         for _ in range(3):
-            match_archive.archive_match(
-                oid="oid-del", final_state={}, winning_team=1,
-            )
-        assert len(match_archive.list_matches(oid="oid-del")) == 3
-        removed = match_archive.delete_for_oid("oid-del")
-        assert removed == 3
-        assert match_archive.list_matches(oid="oid-del") == []
+            match_archive.archive_match(oid=skey, final_state={}, winning_team=1)
+        assert len(match_archive.list_matches(oid=skey)) == 3
+        assert match_archive.delete_for_oid(skey) == 3
+        assert match_archive.list_matches(oid=skey) == []
 
-    def test_delete_match_removes_single_file(self):
-        a = match_archive.archive_match(oid="oid-single", final_state={}, winning_team=1)
-        b = match_archive.archive_match(oid="oid-single", final_state={}, winning_team=2)
+    def test_delete_match_removes_single_row(self, db_session):
+        _uid, skey = _user_skey(db_session, "oid-single")
+        a = match_archive.archive_match(oid=skey, final_state={}, winning_team=1)
+        b = match_archive.archive_match(oid=skey, final_state={}, winning_team=2)
         assert a is not None and b is not None and a != b
-
         assert match_archive.delete_match(a) is True
-        ids = {s["match_id"] for s in match_archive.list_matches(oid="oid-single")}
+        ids = {s["match_id"] for s in match_archive.list_matches(oid=skey)}
         assert ids == {b}
 
-    def test_delete_match_returns_false_on_missing(self):
-        assert match_archive.delete_match("match_" + "0" * 20 + "_20260101T000000_000000Z") is False
+    def test_delete_match_returns_false_on_missing(self, db_session):
+        assert match_archive.delete_match(
+            "match_" + "0" * 20 + "_20260101T000000_000000Z") is False
 
-    def test_list_matches_uses_index_not_full_load(self, monkeypatch):
-        """``list_matches`` must read the cheap ``index.jsonl`` summary
-        file instead of opening every match snapshot. This is the perf
-        invariant — listing 1000 matches must not cost 1000 json.load
-        calls."""
-        for i in range(5):
-            match_archive.archive_match(
-                oid="oid-idx",
-                final_state={"team_1": {"sets": i}, "team_2": {"sets": 0}},
-                winning_team=1,
-            )
-        # Sanity check: archives created an index file.
-        index = match_archive._index_path()
-        import os as _os
-        assert _os.path.exists(index)
-
-        # Spy on the per-match json.load — it should not be called by
-        # list_matches when the index is fresh.
-        original_open = open
-        opened_match_files: list[str] = []
-
-        def tracking_open(path, *args, **kwargs):
-            if isinstance(path, str) and "match_" in _os.path.basename(path) \
-                    and path.endswith(".json"):
-                opened_match_files.append(path)
-            return original_open(path, *args, **kwargs)
-
-        monkeypatch.setattr("builtins.open", tracking_open)
-        results = match_archive.list_matches(oid="oid-idx")
-        assert len(results) == 5
-        assert opened_match_files == [], (
-            f"list_matches opened individual snapshots: {opened_match_files}"
-        )
-
-    def test_list_matches_rebuilds_index_when_missing(self):
-        """If the index is missing (e.g. upgrade from older build),
-        ``list_matches`` reconstructs it from the on-disk files."""
-        for _ in range(3):
-            match_archive.archive_match(
-                oid="oid-rebuild", final_state={}, winning_team=1,
-            )
-        import os as _os
-        idx = match_archive._index_path()
-        assert _os.path.exists(idx)
-        _os.remove(idx)
-
-        results = match_archive.list_matches(oid="oid-rebuild")
-        assert len(results) == 3
-        # Index is rebuilt and reused on the next call.
-        assert _os.path.exists(idx)
-
-    def test_delete_match_rejects_traversal(self):
-        # Caller-supplied id must round-trip through the strict regex
-        # before we touch the filesystem — this guards against
-        # ``../etc/passwd`` style input.
+    def test_delete_match_rejects_malformed_id(self, db_session):
         assert match_archive.delete_match("../etc/passwd") is False
         assert match_archive.delete_match("match_aaaaaaaaaaaaaaaaaaaa_../boom") is False
         assert match_archive.delete_match("") is False
-        # Non-string types must not crash.
         assert match_archive.delete_match(None) is False
+
+    def test_other_users_archives_do_not_leak(self, db_session):
+        _u1, skey1 = _user_skey(db_session, "shared", username="alice")
+        _u2, skey2 = _user_skey(db_session, "shared", username="bob")
+        match_archive.archive_match(oid=skey1, final_state={}, winning_team=1)
+        # Same raw oid, different user → not visible to the other.
+        assert len(match_archive.list_matches(oid=skey1)) == 1
+        assert match_archive.list_matches(oid=skey2) == []
 
 
 # ---------------------------------------------------------------------------
@@ -192,18 +182,20 @@ class TestArchiveTrigger:
                 for _ in range(25):
                     GameService.add_point(session, team=1)
 
-    def test_match_end_via_add_set_archives(self, mock_conf, api_backend):
-        session = SessionManager.get_or_create("arch-1", mock_conf, api_backend)
+    def test_match_end_via_add_set_archives(self, mock_conf, api_backend, db_session):
+        _uid, skey = _user_skey(db_session, "arch-1")
+        session = SessionManager.get_or_create(skey, mock_conf, api_backend)
         # mock_conf: sets=5 → soft limit 3 → 3 sets win the match.
         self._drive_to_match_end(session, via_set=True)
-        matches = match_archive.list_matches(oid="arch-1")
+        matches = match_archive.list_matches(oid=skey)
         assert len(matches) == 1
         assert matches[0]["winning_team"] == 1
 
-    def test_match_end_via_add_point_archives(self, mock_conf, api_backend):
-        session = SessionManager.get_or_create("arch-2", mock_conf, api_backend)
+    def test_match_end_via_add_point_archives(self, mock_conf, api_backend, db_session):
+        _uid, skey = _user_skey(db_session, "arch-2")
+        session = SessionManager.get_or_create(skey, mock_conf, api_backend)
         self._drive_to_match_end(session, via_set=False)
-        matches = match_archive.list_matches(oid="arch-2")
+        matches = match_archive.list_matches(oid=skey)
         assert len(matches) == 1
         # Check the audit log was bundled in.
         full = match_archive.load_match(matches[0]["match_id"])

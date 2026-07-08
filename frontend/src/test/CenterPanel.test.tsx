@@ -15,6 +15,8 @@ const defaultProps = {
   btnTextA: '#ffffff',
   btnColorB: '#f44336',
   btnTextB: '#ffffff',
+  team1Logo: null as string | null,
+  team2Logo: null as string | null,
   onAddSet: vi.fn(),
   onLongPressSet: vi.fn(),
 };
@@ -68,11 +70,29 @@ describe('CenterPanel', () => {
     expect(indicators[0]).toHaveTextContent('4');
   });
 
-  it('shows logos in landscape mode when customization has logos', () => {
-    const cust = { ...mockCustomization, 'Team 1 Logo': 'logo1.png', 'Team 2 Logo': 'logo2.png' };
-    renderWithI18n(<CenterPanel {...defaultProps} customization={cust} isPortrait={false} />);
+  it('shows logos in landscape mode when logos are provided', () => {
+    renderWithI18n(
+      <CenterPanel
+        {...defaultProps}
+        team1Logo="logo1.png"
+        team2Logo="logo2.png"
+        isPortrait={false}
+      />,
+    );
     expect(screen.getByTestId('team-1-logo')).toHaveAttribute('src', 'logo1.png');
     expect(screen.getByTestId('team-2-logo')).toHaveAttribute('src', 'logo2.png');
+  });
+
+  it('hides logos when they are turned off, regardless of the customization', () => {
+    // ``team1Logo``/``team2Logo`` arrive already null when the operator's
+    // "show logos" toggle is off; the centre column must not fall back to
+    // the customization's logo URLs (the bug this guards against).
+    const cust = { ...mockCustomization, 'Team 1 Logo': 'logo1.png', 'Team 2 Logo': 'logo2.png' };
+    renderWithI18n(
+      <CenterPanel {...defaultProps} customization={cust} team1Logo={null} team2Logo={null} />,
+    );
+    expect(screen.queryByTestId('team-1-logo')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('team-2-logo')).not.toBeInTheDocument();
   });
 
   it('hides score section in portrait mode', () => {

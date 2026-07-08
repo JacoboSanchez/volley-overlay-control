@@ -6,7 +6,7 @@ import type { GameState } from '../api/client';
 import { mockGameState } from './helpers';
 
 function makeState(
-  overrides: Partial<Pick<GameState, 'match_started_at' | 'set_summary'>> = {},
+  overrides: Partial<Pick<GameState, 'match_started_at' | 'set_summary' | 'match_finished'>> = {},
 ): GameState {
   return {
     ...mockGameState,
@@ -128,6 +128,26 @@ describe('useHudVisibility', () => {
     });
     expect(result.current.showControls).toBe(true);
     // Pinned: the inactivity timer must not fire while the recap is up.
+    act(() => {
+      vi.advanceTimersByTime(HUD_AUTO_HIDE_MS * 3);
+    });
+    expect(result.current.showControls).toBe(true);
+  });
+
+  it('reveals and pins the HUD when the match finishes', () => {
+    const { result, rerender } = setup();
+    act(() => {
+      vi.advanceTimersByTime(HUD_AUTO_HIDE_MS);
+    });
+    expect(result.current.showControls).toBe(false);
+    rerender({
+      hasRoomForPersistentControls: false,
+      activeTab: 'scoreboard' as const,
+      state: makeState({ match_finished: true }),
+    });
+    expect(result.current.showControls).toBe(true);
+    // Pinned: the Reset / "Match report" controls must stay reachable and
+    // never auto-hide while the finished match is on screen.
     act(() => {
       vi.advanceTimersByTime(HUD_AUTO_HIDE_MS * 3);
     });

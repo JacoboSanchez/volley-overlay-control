@@ -1,0 +1,147 @@
+# volley-overlay-control — deployment behind a Traefik reverse proxy.
+#
+# Self-contained template for git-based deployment managers (Arcane, Portainer,
+# Komodo, …) that run a single compose file straight from the repository. It
+# builds the whole app (React SPA + FastAPI REST API + overlay/WebSocket engine)
+# into one image and publishes it through Traefik on Traefik's existing external
+# `proxy` network. No host ports are exposed — Traefik is the only ingress.
+#
+# Storage defaults to SQLite on the `overlay_data` volume (which also holds the
+# auto-generated session secret + bootstrap / overlay-server tokens), so no
+# external database is required. To use PostgreSQL instead, uncomment the `db`
+# service + `internal` network at the bottom and set DATABASE_URL.
+#
+# This file does NOT replace docker-compose.yml (the host-port local stack) —
+# point your deployment manager at THIS file instead.
+#
+# Required environment (set in your deployment manager or a .env next to this
+# file — see .env.traefik.example):
+#   TRAEFIK_HOST          Public hostname, e.g. scoreboard.example.com
+#   TRAEFIK_MIDDLEWARES   Middleware chain for the secure router,
+#                         e.g. "secure-headers@file" (use your own)
+# Optional (defaults shown):
+#   TRAEFIK_ENTRYPOINT    Insecure entrypoint name              (default: http)
+#   TRAEFIK_CERTRESOLVER  ACME certificate resolver name        (default: http)
+#   TRAEFIK_PROXY_NETWORK Name of Traefik's external network    (default: proxy)
+#   APP_PORT              Port the app listens on in-container  (default: 8080)
+
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_PORT: ${APP_PORT:-8080}
+      APP_TITLE: ${APP_TITLE:-Scoreboard}
+      # ---- Accounts, sessions & database (multi-user) ----
+      # Default: SQLite on the overlay_data volume. For PostgreSQL, uncomment
+      # the `db` service below and set, e.g.:
+      #   DATABASE_URL=postgresql+psycopg://volley:volley_secret@db:5432/volley
+      DATABASE_URL: ${DATABASE_URL:-}
+      # Auto-generated + persisted to data/.session_secret if unset; set it to
+      # pin the value across redeploys / fresh volumes.
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      # Traefik terminates TLS and forwards HTTP to the app, so the app can't
+      # infer the public https scheme — force the Secure cookie flag on.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      # Initial public-registration seed (an admin can toggle it later; DB wins).
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-false}
+      # First-admin claim token. Auto-generated + logged on first start if unset
+      # (read it from `docker logs`); set it to claim the admin deterministically.
+      ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-}
+      # ---- Overlay output ----
+      # Public base URL used to build OBS-friendly overlay links.
+      OVERLAY_PUBLIC_URL: https://${TRAEFIK_HOST}
+      # ---- Hardening (optional) ----
+      # Host-header allow-list. Traefik already routes only ${TRAEFIK_HOST} here,
+      # so this is optional defence-in-depth. If you set it, include localhost so
+      # the in-container healthcheck still passes, e.g.
+      #   TRUSTED_HOSTS=scoreboard.example.com,localhost,127.0.0.1
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-}
+      # Open the print match-report routes to anonymous reads (off = owner cookie
+      # or owner-minted signed URL only).
+      MATCH_REPORT_PUBLIC: ${MATCH_REPORT_PUBLIC:-false}
+      # ---- Match defaults ----
+      MATCH_GAME_POINTS: ${MATCH_GAME_POINTS:-25}
+      MATCH_GAME_POINTS_LAST_SET: ${MATCH_GAME_POINTS_LAST_SET:-15}
+      MATCH_SETS: ${MATCH_SETS:-5}
+      # ---- Logging ----
+      LOGGING_LEVEL: ${LOGGING_LEVEL:-warning}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      # See .env.example / docker-compose.yml for the full list of optional
+      # knobs (overlays.uno, custom overlay backend, webhooks, etc.).
+    volumes:
+      # SQLite DB + session secret + bootstrap / overlay-server tokens.
+      - overlay_data:/app/data
+    healthcheck:
+      # The slim base image has no curl; probe with urllib.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      # HTTP router → redirect everything to HTTPS
+      - "traefik.http.routers.volley.entrypoints=${TRAEFIK_ENTRYPOINT:-http}"
+      - "traefik.http.routers.volley.rule=Host(`${TRAEFIK_HOST}`)"
+      - "traefik.http.middlewares.volley-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.volley.middlewares=volley-https-redirect"
+      # HTTPS router → the app (WebSocket upgrades for /api/v1/ws and
+      # /ws/{token} are proxied transparently — no extra labels needed).
+      - "traefik.http.routers.volley-secure.entrypoints=https"
+      - "traefik.http.routers.volley-secure.rule=Host(`${TRAEFIK_HOST}`)"
+      - "traefik.http.routers.volley-secure.tls=true"
+      - "traefik.http.routers.volley-secure.tls.certresolver=${TRAEFIK_CERTRESOLVER:-http}"
+      - "traefik.http.routers.volley-secure.middlewares=${TRAEFIK_MIDDLEWARES}"
+      - "traefik.http.routers.volley-secure.service=volley"
+      # Service → the app's container port
+      - "traefik.http.services.volley.loadbalancer.server.port=${APP_PORT:-8080}"
+      # Tell Traefik which network to reach this container on
+      - "traefik.docker.network=${TRAEFIK_PROXY_NETWORK:-proxy}"
+    networks:
+      - proxy
+      # Uncomment when using the PostgreSQL `db` service below.
+      # - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+        max-file: ${DOCKER_LOG_MAX_FILE:-5}
+
+  # ---- Optional PostgreSQL (uncomment to use instead of SQLite) ----
+  # Set DATABASE_URL above to
+  #   postgresql+psycopg://${POSTGRES_USER:-volley}:${POSTGRES_PASSWORD:-volley_secret}@db:5432/${POSTGRES_DB:-volley}
+  # and add `internal` to the app's networks list.
+  # db:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER:-volley}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-volley_secret}
+  #     POSTGRES_DB: ${POSTGRES_DB:-volley}
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-volley}"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - internal
+
+volumes:
+  overlay_data:
+  # pgdata:   # uncomment with the PostgreSQL service
+
+networks:
+  # Traefik's pre-existing external network. Create it once with:
+  #   docker network create proxy
+  proxy:
+    external: true
+    name: ${TRAEFIK_PROXY_NETWORK:-proxy}
+  # Private network for app ↔ PostgreSQL (uncomment with the `db` service).
+  # internal:
+  #   driver: bridge

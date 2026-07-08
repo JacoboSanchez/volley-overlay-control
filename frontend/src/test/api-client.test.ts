@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import {
-  setApiKey,
+  ApiError,
   initSession,
   getState,
   addPoint,
   getTeams,
+  getAuthContext,
   setVisibility,
   resetGame,
   updateCustomization,
@@ -16,7 +17,6 @@ describe('api/client', () => {
   beforeEach(() => {
     originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn() as unknown as typeof globalThis.fetch;
-    setApiKey(null);
   });
 
   afterEach(() => {
@@ -101,14 +101,11 @@ describe('api/client', () => {
     await expect(getState('oid')).rejects.toThrow('API GET /state?oid=oid failed (500)');
   });
 
-  it('includes Authorization header when apiKey is set', async () => {
+  it('sends requests with credentials so the session cookie is included', async () => {
     mockFetchOk({});
-    setApiKey('secret');
     await getTeams();
     const firstCall = fetchMock().mock.calls[0]!;
-    const callHeaders = firstCall[1].headers;
-    expect(callHeaders.Authorization).toBe('Bearer secret');
-    setApiKey(null);
+    expect(firstCall[1].credentials).toBe('include');
   });
 
   it('setVisibility sends visible flag', async () => {
@@ -142,5 +139,48 @@ describe('api/client', () => {
         body: JSON.stringify({ Height: 10 }),
       }),
     );
+  });
+
+  it('dispatches auth:unauthorized on a 401 from a non-auth route', async () => {
+    mockFetchError(401, 'unauthorized');
+    const spy = vi.spyOn(window, 'dispatchEvent');
+    await expect(getTeams()).rejects.toThrow();
+    const fired = spy.mock.calls.some(([e]) => (e as Event).type === 'auth:unauthorized');
+    expect(fired).toBe(true);
+    spy.mockRestore();
+  });
+
+  it('does NOT dispatch auth:unauthorized on a 401 from an auth route', async () => {
+    mockFetchError(401, 'bad credentials');
+    const spy = vi.spyOn(window, 'dispatchEvent');
+    await expect(getAuthContext()).rejects.toThrow();
+    const fired = spy.mock.calls.some(([e]) => (e as Event).type === 'auth:unauthorized');
+    expect(fired).toBe(false);
+    spy.mockRestore();
+  });
+
+  it('ApiError.detail extracts the API detail field from a JSON error body', async () => {
+    mockFetchError(400, JSON.stringify({ detail: 'Overlay id must be 1-64 characters.' }));
+    try {
+      await getTeams();
+      throw new Error('expected getTeams to reject');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).detail).toBe('Overlay id must be 1-64 characters.');
+      expect((err as ApiError).message).toContain('400'); // full envelope kept for debugging
+    }
+  });
+
+  it('ApiError.detail summarises a 422 validation array', async () => {
+    mockFetchError(
+      422,
+      JSON.stringify({ detail: [{ msg: 'field required' }, { msg: 'too short' }] }),
+    );
+    await expect(getTeams()).rejects.toMatchObject({ detail: 'field required; too short' });
+  });
+
+  it('ApiError.detail falls back to the raw text for a non-JSON body', async () => {
+    mockFetchError(500, 'Internal Server Error');
+    await expect(getTeams()).rejects.toMatchObject({ detail: 'Internal Server Error' });
   });
 });

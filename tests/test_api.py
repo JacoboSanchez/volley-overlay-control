@@ -3,7 +3,6 @@
 Shared fixtures (``mock_conf``, ``api_backend``, ``api_session``,
 ``clean_sessions``) live in ``tests/conftest.py``.
 """
-import json
 
 import pytest
 
@@ -79,6 +78,21 @@ class TestGameService:
         assert state.team_2.sets == 0
         assert state.match_finished is False
 
+    def test_get_state_on_air_and_report_fields(self, session):
+        session.backend.obs_client_count = 0
+        state = GameService.get_state(session)
+        assert state.obs_clients == 0
+        # No report link while the match isn't finished.
+        assert state.last_match_id is None
+
+    def test_get_state_obs_clients_reflects_backend_count(self, session):
+        session.backend.obs_client_count = 4
+        assert GameService.get_state(session).obs_clients == 4
+
+    def test_resolve_last_match_id_prefers_session_cache(self, session):
+        session.last_match_id = "match_cached_123"
+        assert GameService._resolve_last_match_id(session) == "match_cached_123"
+
     def test_add_point(self, session):
         result = GameService.add_point(session, team=1)
         assert result.success is True
@@ -113,6 +127,15 @@ class TestGameService:
         result = GameService.add_timeout(session, team=1, undo=True)
         assert result.success is True
         assert result.state.team_1.timeouts == 0
+
+    def test_add_timeout_table_tennis_cap_returns_failure(self, session):
+        # Table tennis allows one timeout per team per match; the second must
+        # be rejected with success=False (not silently swallowed as success).
+        session.mode = "table_tennis"
+        assert GameService.add_timeout(session, team=1).success is True
+        blocked = GameService.add_timeout(session, team=1)
+        assert blocked.success is False
+        assert "limit" in (blocked.message or "").lower()
 
     def test_change_serve(self, session):
         result = GameService.change_serve(session, team=2)
@@ -272,6 +295,18 @@ class TestGameService:
         assert result.success is True
         assert session.customization.get_model().get("verticalAnchor") == "top"
 
+    def test_update_customization_accepts_zone_anchor(self, session):
+        # A zone anchor must survive the allow-list filter so the overlay
+        # can pin the box to that screen zone.
+        result = GameService.update_customization(session, {"Anchor": "top-right"})
+        assert result.success is True
+        assert session.customization.get_model().get("Anchor") == "top-right"
+
+    def test_update_customization_rejects_unknown_anchor(self, session):
+        result = GameService.update_customization(session, {"Anchor": "diagonal"})
+        assert result.success is False
+        assert "Anchor" in (result.message or "")
+
     def test_update_customization_accepts_supported_locale(self, session):
         result = GameService.update_customization(session, {"locale": "es"})
         assert result.success is True
@@ -344,26 +379,3 @@ class TestGameSession:
         assert session.points_limit == 25
         assert session.points_limit_last_set == 15
         assert session.sets_limit == 5
-
-
-# ---------------------------------------------------------------------------
-# API Key auth tests
-# ---------------------------------------------------------------------------
-
-class TestAPIKeyAuth:
-    def test_check_api_key_no_users(self, monkeypatch):
-        from app.authentication import PasswordAuthenticator
-        monkeypatch.setenv('SCOREBOARD_USERS', '')
-        assert PasswordAuthenticator.check_api_key('any') is False
-
-    def test_check_api_key_valid(self, monkeypatch):
-        from app.authentication import PasswordAuthenticator
-        users = json.dumps({"admin": {"password": "secret123"}})
-        monkeypatch.setenv('SCOREBOARD_USERS', users)
-        assert PasswordAuthenticator.check_api_key('secret123') is True
-
-    def test_check_api_key_invalid(self, monkeypatch):
-        from app.authentication import PasswordAuthenticator
-        users = json.dumps({"admin": {"password": "secret123"}})
-        monkeypatch.setenv('SCOREBOARD_USERS', users)
-        assert PasswordAuthenticator.check_api_key('wrong') is False

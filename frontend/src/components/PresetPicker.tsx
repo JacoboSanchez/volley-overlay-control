@@ -40,7 +40,7 @@ const KEYS_BY_CATEGORY: Record<CategoryId, readonly string[]> = {
   team1_color: ['Team 1 Color', 'Team 1 Text Color', 'Team 1 Logo'],
   team2_name: ['Team 2 Name', 'Team 2 Text Name'],
   team2_color: ['Team 2 Color', 'Team 2 Text Color', 'Team 2 Logo'],
-  position: ['Height', 'Width', 'Left-Right', 'Up-Down', 'Scale', 'Margin'],
+  position: ['Anchor', 'Height', 'Width', 'Left-Right', 'Up-Down', 'Scale', 'Margin'],
   style: [
     'preferredStyle',
     'overlayTheme',
@@ -170,7 +170,16 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
   }
 
   function handleApply(item: PresetSummary) {
-    onApplyPatch(item.values as ConfigModel);
+    const patch = { ...(item.values as Record<string, unknown>) };
+    // Legacy position presets carry absolute Left-Right / Up-Down but no
+    // ``Anchor``. Applying one onto an overlay currently pinned to a zone
+    // would misread those coordinates as a large nudge off the anchor, so
+    // fall back to Free (absolute) — the placement the preset was authored
+    // for. Presets that explicitly set an anchor are left untouched.
+    if (('Left-Right' in patch || 'Up-Down' in patch) && !('Anchor' in patch)) {
+      patch['Anchor'] = 'free';
+    }
+    onApplyPatch(patch as ConfigModel);
   }
 
   // System presets first, then user presets — both alphabetised. The
@@ -180,7 +189,7 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
   const sortedItems = useMemo(
     () =>
       [...items].sort((a, b) => {
-        if (a.source !== b.source) return a.source === 'system' ? -1 : 1;
+        if (a.source !== b.source) return a.source === 'global' ? -1 : 1;
         return a.name.localeCompare(b.name);
       }),
     [items],
@@ -287,7 +296,7 @@ export default function PresetPicker({ model, onApplyPatch }: PresetPickerProps)
       ) : (
         <ul className="preset-picker-list">
           {sortedItems.map((item) => {
-            const isSystem = item.source === 'system';
+            const isSystem = item.source === 'global';
             return (
               <li
                 key={item.slug}

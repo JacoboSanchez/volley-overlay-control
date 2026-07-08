@@ -35,12 +35,12 @@ class TestMetricsEndpoint:
     def test_records_request_latency(self, client):
         # Hit a route a few times so the histogram has observations.
         for _ in range(3):
-            client.get("/api/v1/admin/status")
+            client.get("/api/v1/auth/context")
         res = client.get("/metrics")
-        # The route template (``/api/v1/admin/status``) must appear in
+        # The route template (``/api/v1/auth/context``) must appear in
         # the metric output, not the raw path with any query string.
         body = res.text
-        assert "/api/v1/admin/status" in body
+        assert "/api/v1/auth/context" in body
         # And the count of observations for that bucket should be at
         # least the number of requests we just sent.
         # ``_count`` lines look like:
@@ -48,9 +48,9 @@ class TestMetricsEndpoint:
         count_lines = [
             ln for ln in body.splitlines()
             if ln.startswith("voc_http_request_duration_seconds_count")
-            and "/api/v1/admin/status" in ln
+            and "/api/v1/auth/context" in ln
         ]
-        assert count_lines, "no observation recorded for /admin/status"
+        assert count_lines, "no observation recorded for /auth/context"
         # Parse the trailing float and require at least 3.
         for line in count_lines:
             try:
@@ -60,32 +60,10 @@ class TestMetricsEndpoint:
             assert value >= 3.0
 
 
-class TestMetricsAdminGate:
-    def test_default_no_auth_required(self, client, monkeypatch):
-        monkeypatch.delenv("METRICS_REQUIRE_ADMIN", raising=False)
-        res = client.get("/metrics")
-        assert res.status_code == 200
-
-    def test_admin_required_when_env_set(self, client, monkeypatch):
-        monkeypatch.setenv("METRICS_REQUIRE_ADMIN", "true")
-        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "topsecret")
-        # Without the Bearer the route refuses.
-        res = client.get("/metrics")
-        assert res.status_code == 401
-        # With the right Bearer it lets through.
-        res = client.get(
-            "/metrics",
-            headers={"Authorization": "Bearer topsecret"},
-        )
-        assert res.status_code == 200
-
-    def test_admin_required_but_password_unset_503(self, client, monkeypatch):
-        monkeypatch.setenv("METRICS_REQUIRE_ADMIN", "true")
-        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
-        res = client.get("/metrics")
-        # The auth helper returns 503 when admin is requested but
-        # OVERLAY_MANAGER_PASSWORD is unset, mirroring /api/v1/admin/*.
-        assert res.status_code == 503
+class TestMetricsOpen:
+    def test_metrics_is_unauthenticated(self, client):
+        # /metrics exposes only aggregates and is open by design.
+        assert client.get("/metrics").status_code == 200
 
 
 class TestWebhookCounter:

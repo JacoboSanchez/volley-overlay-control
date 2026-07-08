@@ -102,6 +102,18 @@ export interface Settings {
    * while ``trackPointTypes`` is off. Default OFF.
    */
   extendedErrorTracking: boolean;
+  /**
+   * Show an "on-air" indicator on the control bar that lights when at
+   * least one OBS browser source or spectator is connected to this
+   * overlay's output. Lets the operator confirm the scoreboard is
+   * actually reaching the stream. Default OFF (opt-in).
+   */
+  showOnAir: boolean;
+  /**
+   * Show a "View match report" button on the board when a match
+   * finishes, linking straight to its archived report. Default ON.
+   */
+  showReportLink: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -128,6 +140,8 @@ const DEFAULTS: Settings = {
   autoShowSetSummaryDuration: 15,
   trackPointTypes: false,
   extendedErrorTracking: false,
+  showOnAir: false,
+  showReportLink: true,
 };
 
 /**

@@ -1,5 +1,5 @@
 import { useI18n } from '../../i18n';
-import { ConfigSwitch } from './fields';
+import { ConfigSwitch, InstantHint } from './fields';
 
 export interface StatsSettings {
   trackPointTypes: boolean;
@@ -15,13 +15,14 @@ export default function StatsSection({ settings, setSetting }: StatsSectionProps
   const { t } = useI18n();
   return (
     <div className="config-section-stats">
+      <InstantHint />
       <ConfigSwitch
         label={t('behavior.trackPointTypes')}
         checked={settings.trackPointTypes}
         onChange={(v) => setSetting('trackPointTypes', v)}
       />
       {settings.trackPointTypes && (
-        <div style={{ paddingLeft: '1.5rem' }}>
+        <div className="config-suboption">
           <p
             className="config-help-text"
             style={{ margin: '0 0 0.5rem', fontSize: '0.85em', opacity: 0.7 }}

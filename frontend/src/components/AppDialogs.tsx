@@ -32,7 +32,11 @@ export interface AppDialogsProps {
     overlay?: string;
     preview?: string;
     follow?: string;
+    latest_match_report?: string;
+    match_history?: string;
   } | null;
+  /** Owner-only full reports page, or null for unauthenticated viewers. */
+  reportsUrl?: string | null;
   onShareClose: () => void;
   oid: string;
   historyOpen: boolean;
@@ -56,6 +60,7 @@ export default function AppDialogs({
   onStaleClose,
   shareOpen,
   shareLinks,
+  reportsUrl,
   onShareClose,
   oid,
   historyOpen,
@@ -99,7 +104,9 @@ export default function AppDialogs({
         onClose={onStaleClose}
       />
 
-      {shareOpen && <LinksDialog links={shareLinks ?? {}} onClose={onShareClose} />}
+      {shareOpen && (
+        <LinksDialog links={shareLinks ?? {}} reportsUrl={reportsUrl} onClose={onShareClose} />
+      )}
 
       <RecentAuditDrawer
         oid={oid}

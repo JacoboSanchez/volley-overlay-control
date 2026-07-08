@@ -83,6 +83,10 @@ export interface UseGameStateResult {
   customization: Customization | null;
   connected: boolean;
   error: string | null;
+  /** HTTP status behind ``error`` when it came from an ApiError (null for
+   *  network failures and non-HTTP errors) — lets consumers distinguish a
+   *  rejected credential (401/403/404) from a transient outage. */
+  errorStatus: number | null;
   initialize: () => Promise<void>;
   actions: GameActions;
   refreshCustomization: () => Promise<void>;
@@ -99,6 +103,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
   const [customization, setCustomization] = useState<Customization | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef<number>(0);
@@ -150,18 +155,23 @@ export function useGameState(oid: string | null): UseGameStateResult {
       },
       onClose: (event) => {
         setConnected(false);
-        if (event.code !== 4004) {
-          // Exponential backoff with jitter: prevents reconnect storms
-          // when many clients lose the server simultaneously, and avoids
-          // hammering an unreachable server during long outages.
-          const attempt = reconnectAttempts.current;
-          reconnectAttempts.current = attempt + 1;
-          const exp = WS_RECONNECT_BASE_MS * Math.pow(WS_RECONNECT_FACTOR, attempt);
-          const capped = Math.min(exp, WS_RECONNECT_MAX_MS);
-          const jitter = Math.random() * 0.3 * capped;
-          const delay = capped + jitter;
-          reconnectTimer.current = setTimeout(connectWs, delay);
+        // Application-level close codes (4xxx) are terminal: bad request
+        // (4400), invalid/revoked credentials (4003) or no session (4004).
+        // Reconnecting would just re-fail forever, so stop and surface why.
+        if (event.code >= 4000 && event.code <= 4999) {
+          if (event.reason) setError(event.reason);
+          return;
         }
+        // Exponential backoff with jitter: prevents reconnect storms
+        // when many clients lose the server simultaneously, and avoids
+        // hammering an unreachable server during long outages.
+        const attempt = reconnectAttempts.current;
+        reconnectAttempts.current = attempt + 1;
+        const exp = WS_RECONNECT_BASE_MS * Math.pow(WS_RECONNECT_FACTOR, attempt);
+        const capped = Math.min(exp, WS_RECONNECT_MAX_MS);
+        const jitter = Math.random() * 0.3 * capped;
+        const delay = capped + jitter;
+        reconnectTimer.current = setTimeout(connectWs, delay);
       },
       onError: () => setConnected(false),
     });
@@ -178,11 +188,15 @@ export function useGameState(oid: string | null): UseGameStateResult {
     if (abortRef.current) {
       abortRef.current.abort();
     }
+    // A new overlay starts its reconnect backoff fresh — otherwise a counter
+    // left high by the previous overlay's outage would delay the first connect.
+    reconnectAttempts.current = 0;
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
       setError(null);
+      setErrorStatus(null);
       const res = await api.initSession(oid);
       if (controller.signal.aborted) return;
       if (res.success && res.state) {
@@ -196,7 +210,10 @@ export function useGameState(oid: string | null): UseGameStateResult {
       }
     } catch (e) {
       if (!controller.signal.aborted) {
-        setError(e instanceof Error ? e.message : String(e));
+        // ApiError.message is the verbose "API POST /… failed (403): {json}"
+        // debugging string; surface the human-facing ``detail`` instead.
+        setError(e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e));
+        setErrorStatus(e instanceof api.ApiError ? e.status : null);
       }
     } finally {
       if (abortRef.current === controller) {
@@ -240,8 +257,10 @@ export function useGameState(oid: string | null): UseGameStateResult {
         if (shouldApplyOptimistic) {
           applyState(snapshot, false);
         }
-        const message = e instanceof Error ? e.message : String(e);
+        const message =
+          e instanceof api.ApiError ? e.detail : e instanceof Error ? e.message : String(e);
         setError(message);
+        setErrorStatus(e instanceof api.ApiError ? e.status : null);
         return { success: false, message };
       }
     },
@@ -295,6 +314,7 @@ export function useGameState(oid: string | null): UseGameStateResult {
     customization,
     connected,
     error,
+    errorStatus,
     initialize,
     actions,
     refreshCustomization,

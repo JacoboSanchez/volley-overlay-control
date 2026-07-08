@@ -169,6 +169,43 @@ describe('MatchRulesSection', () => {
     expect(input.value).toBe('11');
   });
 
+  it('offers table tennis as a selectable mode', async () => {
+    renderWithI18n(
+      <MatchRulesSection
+        oid="my-oid"
+        mode="indoor"
+        pointsLimit={25}
+        pointsLimitLastSet={15}
+        setsLimit={5}
+      />,
+    );
+    const tt = screen.getByTestId('rules-mode-table_tennis');
+    expect(tt).toBeInTheDocument();
+    fireEvent.click(tt);
+    await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
+    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', {
+      mode: 'table_tennis',
+      reset_to_defaults: true,
+    });
+  });
+
+  it('offers best-of-7 in the sets selector', async () => {
+    renderWithI18n(
+      <MatchRulesSection
+        oid="my-oid"
+        mode="table_tennis"
+        pointsLimit={11}
+        pointsLimitLastSet={11}
+        setsLimit={5}
+      />,
+    );
+    const sel = screen.getByTestId('rules-sets-select') as HTMLSelectElement;
+    expect(Array.from(sel.options).map((o) => o.value)).toEqual(['1', '3', '5', '7']);
+    fireEvent.change(sel, { target: { value: '7' } });
+    await waitFor(() => expect(mockedSetRules).toHaveBeenCalled());
+    expect(mockedSetRules).toHaveBeenCalledWith('my-oid', { sets_limit: 7 });
+  });
+
   it('reset-to-defaults posts mode + reset flag when limits diverge', async () => {
     renderWithI18n(
       <MatchRulesSection

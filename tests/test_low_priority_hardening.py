@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from unittest.mock import patch
 
@@ -19,16 +18,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.admin import admin_router
 from app.api import api_router
 from app.api.middleware.errors import ExceptionLoggingMiddleware
 from app.api.middleware.logging import RequestContextMiddleware
-from app.api.webhooks import (
-    WebhookDispatcher,
-    WebhookTarget,
-    _is_private_ip,
-    _is_target_safe,
-)
+from app.api.webhooks import WebhookDispatcher, WebhookTarget
+from app.net_guard import is_private_ip as _is_private_ip
+from app.net_guard import is_target_safe as _is_target_safe
 
 # ---------------------------------------------------------------------------
 # L-1 — exception logging enrichment
@@ -81,98 +76,22 @@ def test_exception_log_includes_method_path_class_and_request_id(caplog):
 # ---------------------------------------------------------------------------
 
 
-def test_scoreboard_401_carries_bearer_challenge(monkeypatch):
-    monkeypatch.setenv(
-        "SCOREBOARD_USERS",
-        json.dumps({"alice": {"password": "alice-pw"}}),
-    )
-    # Force re-parse since other tests may have cached an older value.
-    from app.authentication import PasswordAuthenticator
-    PasswordAuthenticator._cached_users = None
-    PasswordAuthenticator._cached_users_raw = None
-
+def test_scoreboard_401_carries_cookie_challenge():
+    """An unauthenticated scoreboard request gets a 401 with a
+    ``WWW-Authenticate`` challenge (now the cookie-session scheme)."""
     app = FastAPI()
     app.include_router(api_router)
     client = TestClient(app)
 
-    # 401 — missing header.
     res = client.get("/api/v1/state?oid=test_overlay")
     assert res.status_code == 401
-    assert (
-        res.headers.get("www-authenticate")
-        == 'Bearer realm="scoreboard"'
-    )
+    assert res.headers.get("www-authenticate") == "Cookie"
 
 
-def test_scoreboard_401_check_oid_path_carries_challenge(monkeypatch):
-    """The second 401 site (``check_oid_access`` for missing header)
-    must also emit the WWW-Authenticate challenge.
-
-    Exercise the WebSocket route, which calls ``check_oid_access``
-    explicitly. A bare ``401`` from that path was previously
-    silent on the challenge.
-    """
-    monkeypatch.setenv(
-        "SCOREBOARD_USERS",
-        json.dumps({"alice": {"password": "alice-pw"}}),
-    )
-    from fastapi import HTTPException
-
-    from app.api.dependencies import check_oid_access
-
-    with pytest.raises(HTTPException) as excinfo:
-        check_oid_access("", "test_overlay")
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.headers is not None
-    assert (
-        excinfo.value.headers.get("WWW-Authenticate")
-        == 'Bearer realm="scoreboard"'
-    )
-
-
-def test_admin_401_carries_admin_realm(monkeypatch):
-    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "admin-pw")
-    app = FastAPI()
-    app.include_router(admin_router)
-    client = TestClient(app)
-    res = client.post("/api/v1/admin/login")
-    assert res.status_code == 401
-    assert (
-        res.headers.get("www-authenticate")
-        == 'Bearer realm="admin"'
-    )
-
-
-def test_overlay_server_401_carries_overlay_realm(monkeypatch, tmp_path):
-    """When ``OVERLAY_SERVER_TOKEN`` gates an endpoint, missing-header
-    rejections include the overlay-server realm."""
-    from fastapi.templating import Jinja2Templates
-
-    from app.overlay.broadcast import ObsBroadcastHub
-    from app.overlay.routes import create_overlay_router
-    from app.overlay.state_store import OverlayStateStore
-
-    monkeypatch.setenv("OVERLAY_SERVER_TOKEN", "server-pw")
-    templates_dir = tmp_path / "templates"
-    templates_dir.mkdir()
-    (templates_dir / "index.html").write_text("ok")
-    store = OverlayStateStore(
-        data_dir=str(tmp_path / "overlays"),
-        templates_dir=str(templates_dir),
-    )
-    store.create_overlay("ovl-1")
-    hub = ObsBroadcastHub()
-    app = FastAPI()
-    app.include_router(create_overlay_router(
-        store, hub, Jinja2Templates(directory=str(templates_dir)),
-    ))
-    client = TestClient(app)
-    res = client.post("/api/state/ovl-1", json={})
-    assert res.status_code == 401
-    assert (
-        res.headers.get("www-authenticate")
-        == 'Bearer realm="overlay-server"'
-    )
+# NOTE: the legacy OVERLAY_MANAGER_PASSWORD admin Bearer realm was removed
+# in the multi-user refactor — admin access is now cookie + role gated (403),
+# not a Bearer 401. The overlay-server realm below is the only remaining
+# Bearer ladder.
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +110,10 @@ def test_overlay_server_401_carries_overlay_realm(monkeypatch, tmp_path):
     "0.0.0.0",                          # unspecified
     "fc00::1",                          # IPv6 ULA
     "fe80::1",                          # IPv6 link-local
+    "::ffff:127.0.0.1",                 # IPv4-mapped loopback (SSRF bypass)
+    "::ffff:169.254.169.254",           # IPv4-mapped cloud metadata
+    "::ffff:10.0.0.5",                  # IPv4-mapped RFC1918
+    "::ffff:192.168.1.1",               # IPv4-mapped RFC1918
     "not-an-ip",                        # non-parseable → suspicious
 ])
 def test_is_private_ip_classifies_correctly(ip):

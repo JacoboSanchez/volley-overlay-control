@@ -344,7 +344,7 @@ class TestSetRules:
             self, mock_conf, api_backend):
         s = SessionManager.get_or_create("rules-5", mock_conf, api_backend)
         GameService.set_rules(s, sets_limit=99)
-        assert s.sets_limit == 5
+        assert s.sets_limit == 7
         GameService.set_rules(s, sets_limit=0)
         assert s.sets_limit == 1
 

@@ -12,7 +12,7 @@ import datetime
 import html
 import re
 
-from app.api.schemas import ERROR_TYPES
+from app.api.schemas import ERROR_TYPES, is_safe_logo_url
 from app.match_report_i18n import t as _t
 from app.match_report_stats import (
     _is_score_action,
@@ -229,9 +229,10 @@ def _format_relative_ts(ts: float | None, base_ts: float | None) -> str:
 def _logo_url(customization: dict, team: int) -> str | None:
     """Return a sanitised logo URL for *team*, or ``None`` if missing.
 
-    Only ``http(s):`` and ``data:`` schemes are accepted — the URL is
-    interpolated into ``<img src=…>`` and any other scheme would invite
-    XSS via ``javascript:``-style payloads.
+    Delegates to :func:`app.api.schemas.is_safe_logo_url` — the single
+    source of truth for what may reach an ``<img src=…>`` — so hosted
+    same-origin icons (``/media/icons/…``) render in the report while
+    ``javascript:``-style payloads stay out.
     """
     for key in (f"Team {team} Logo", f"team_{team}_logo", f"logo{team}"):
         value = customization.get(key)
@@ -240,8 +241,7 @@ def _logo_url(customization: dict, team: int) -> str | None:
         candidate = value.strip()
         if not candidate:
             continue
-        lowered = candidate.lower()
-        if lowered.startswith(("http://", "https://", "data:image/")):
+        if is_safe_logo_url(candidate):
             return candidate
     return None
 
@@ -251,15 +251,21 @@ def _logo_url(customization: dict, team: int) -> str | None:
 # ---------------------------------------------------------------------------
 
 # Distinguishable fallback palette for teams whose own brand colour is
-# either too light to read on the report's white surface or
-# indistinguishable from the other team's colour. ``team_index`` is
-# 0-based so callers can use ``[team-1]``.
+# either too light to read on the report's surface or indistinguishable
+# from the other team's colour. ``team_index`` is 0-based so callers can
+# use ``[team-1]``.
 _CHART_FALLBACK = ("#0047AB", "#E21836")
-# Luminance threshold above which the colour is "too light" for the
-# white-ish report background. Computed as relative luminance per
-# WCAG so 0.0 == black, 1.0 == white. ~0.85 keeps pastels usable but
-# rejects pure white / very light yellows.
-_LIGHTNESS_REJECT = 0.85
+# The neutral surface the charts / highlights are drawn on — must track
+# ``--surface`` in ``app/match_report_template.py`` (the ``.chart-card``
+# background). Team colours are accepted for the polyline layer only when
+# they clear a real contrast ratio against *this* colour; a bare luminance
+# cap used to wave through light greys (e.g. ``#d3d3d3``) that then melted
+# into the surface.
+_CHART_SURFACE = "#fafafa"
+# WCAG 1.4.11 (non-text contrast) minimum for graphical objects. A chart
+# polyline below this against the surface is treated as invisible, so we
+# darken the brand colour (or fall back) until it clears the floor.
+_MIN_CHART_CONTRAST = 3.0
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int] | None:
@@ -286,22 +292,68 @@ def _relative_luminance(hex_color: str) -> float | None:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def _contrast_ratio(c1: str, c2: str) -> float | None:
+    """WCAG contrast ratio between two hex colours (>= 1), or ``None``."""
+    l1 = _relative_luminance(c1)
+    l2 = _relative_luminance(c2)
+    if l1 is None or l2 is None:
+        return None
+    lighter, darker = (l1, l2) if l1 >= l2 else (l2, l1)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _darken_to_contrast(hex_color: str, surface: str, min_ratio: float) -> str | None:
+    """Darken *hex_color* toward black until it clears *min_ratio* on *surface*.
+
+    Hue is preserved (RGB is scaled toward black), so a light-but-coloured
+    brand — a pale green, a sky blue — stays recognisably itself instead of
+    snapping to the generic blue/red palette; an achromatic colour (white,
+    grey) becomes a visible neutral. Against a *light* surface, contrast
+    rises monotonically as the colour darkens, so a binary search finds the
+    lightest scale (closest to the original) that still reads. Returns
+    ``None`` only when *hex_color* doesn't parse. Black (the limit) always
+    clears the floor on a light surface, so a parseable colour always
+    resolves to something visible.
+    """
+    rgb = _hex_to_rgb(hex_color)
+    if rgb is None:
+        return None
+    lo, hi = 0.0, 1.0
+    best = "#000000"  # the dark limit always clears the floor on a light surface
+    for _ in range(8):
+        mid = (lo + hi) / 2.0
+        scaled = "#{:02x}{:02x}{:02x}".format(*(round(c * mid) for c in rgb))
+        ratio = _contrast_ratio(scaled, surface)
+        if ratio is not None and ratio >= min_ratio:
+            best = scaled   # readable — try lighter (nearer the brand colour)
+            lo = mid
+        else:
+            hi = mid        # too light — darken further
+    return best
+
+
 def _chart_color(team: int, primary: str, fg: str) -> str:
     """Pick a chart-/highlight-safe colour for *team*.
 
-    The team's primary brand colour is used when it has acceptable
-    contrast against the report's white background. Otherwise we
-    fall back to the team's text colour (which is, by design,
-    high-contrast against the brand colour and usually against
-    the page too) and finally to a fixed palette. This keeps every
-    rendered datapoint visible without losing team identity.
+    Priority, all measured as a real WCAG contrast ratio against the
+    report's neutral ``_CHART_SURFACE`` (not a bare luminance cap):
+
+    1. the team's primary brand colour, when it already reads on the surface;
+    2. otherwise the team's text colour, which is high-contrast against the
+       brand by design and usually against the page too;
+    3. otherwise the brand colour darkened just enough to read — keeping the
+       team's hue rather than discarding its identity;
+    4. and finally the fixed fallback palette (only when nothing parses).
+
+    This keeps every datapoint visible regardless of how light the brand
+    colour is: a white or pale team no longer melts into the grey surface.
     """
-    candidates = [primary, fg, _CHART_FALLBACK[(team - 1) % 2]]
-    for candidate in candidates:
-        lum = _relative_luminance(candidate)
-        if lum is not None and lum < _LIGHTNESS_REJECT:
+    for candidate in (primary, fg):
+        ratio = _contrast_ratio(candidate, _CHART_SURFACE)
+        if ratio is not None and ratio >= _MIN_CHART_CONTRAST:
             return candidate
-    return _CHART_FALLBACK[(team - 1) % 2]
+    darkened = _darken_to_contrast(primary, _CHART_SURFACE, _MIN_CHART_CONTRAST)
+    return darkened if darkened is not None else _CHART_FALLBACK[(team - 1) % 2]
 
 
 def _ensure_distinct_chart_colors(c1: str, c2: str) -> tuple[str, str]:
@@ -1007,238 +1059,3 @@ def _render_logo(customization: dict, team: int) -> str:
         f'<img class="logo" src="{html.escape(url)}" '
         f'alt="" loading="lazy" decoding="async" />'
     )
-
-
-_INDEX_TEMPLATE = """<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Match history — {oid_label}</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-  :root {{
-    --fg: #1a1a1a;
-    --muted: #666;
-    --border: #d0d0d0;
-    --hover: #f5f5f5;
-  }}
-  * {{ box-sizing: border-box; }}
-  body {{
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: var(--fg);
-    margin: 0;
-    padding: 24px;
-    max-width: 960px;
-    margin-left: auto;
-    margin-right: auto;
-    line-height: 1.5;
-  }}
-  header h1 {{ margin: 0 0 4px; font-size: 24px; }}
-  header .meta {{ color: var(--muted); font-size: 14px; margin-bottom: 16px; }}
-  table {{
-    width: 100%;
-    border-collapse: collapse;
-    margin: 16px 0;
-  }}
-  th, td {{
-    text-align: left;
-    padding: 10px 8px;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px;
-  }}
-  th {{ font-weight: 600; color: var(--muted); }}
-  tbody tr:hover {{ background: var(--hover); }}
-  td.score {{
-    text-align: center;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }}
-  td.score .winner {{ color: #2e7d32; }}
-  a.report-link, button.row-delete {{
-    display: inline-block;
-    padding: 4px 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    text-decoration: none;
-    color: var(--fg);
-    font-size: 13px;
-    background: transparent;
-    cursor: pointer;
-    font-family: inherit;
-  }}
-  a.report-link:hover, button.row-delete:hover {{ background: var(--hover); }}
-  button.row-delete {{ color: #b71c1c; border-color: #ef9a9a; }}
-  button.row-delete:hover {{ background: #fdecea; }}
-  th.checkbox-col, td.checkbox-col {{ width: 28px; text-align: center; padding-left: 0; padding-right: 0; }}
-  .toolbar {{
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: var(--muted);
-  }}
-  .toolbar button {{
-    padding: 6px 14px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--fg);
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-  }}
-  .toolbar button.danger {{
-    color: #b71c1c;
-    border-color: #ef9a9a;
-  }}
-  .toolbar button.danger:hover:not(:disabled) {{ background: #fdecea; }}
-  .toolbar button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
-  .empty {{
-    text-align: center;
-    color: var(--muted);
-    font-style: italic;
-    padding: 32px;
-    border: 1px dashed var(--border);
-    border-radius: 6px;
-  }}
-  .footer {{
-    margin-top: 24px;
-    font-size: 12px;
-    color: var(--muted);
-    border-top: 1px solid var(--border);
-    padding-top: 12px;
-  }}
-</style>
-</head>
-<body>
-<header>
-  <h1>Match history</h1>
-  <div class="meta">OID: <code>{oid_label}</code> &middot; {count} match{plural}</div>
-</header>
-
-{body_html}
-
-<div class="footer">
-  Generated by Volley Overlay Control. Each row links to a print-friendly report.
-</div>
-</body>
-</html>
-"""
-
-
-def _render_match_row(summary: dict, token_qs: str) -> str:
-    """Render one row of the index table."""
-    match_id = summary.get("match_id") or ""
-    t1_sets = summary.get("team_1_sets")
-    t2_sets = summary.get("team_2_sets")
-    winner = summary.get("winning_team")
-    ended = _fmt_ts(summary.get("ended_at"))
-    duration = _fmt_seconds(summary.get("duration_s"))
-
-    def _sets_cell(team: int) -> str:
-        v = (t1_sets if team == 1 else t2_sets)
-        text = "—" if v is None else str(v)
-        if winner == team:
-            return f'<span class="winner">{html.escape(text)}</span>'
-        return html.escape(text)
-
-    safe_id = html.escape(match_id)
-    href = f"/match/{safe_id}/report{token_qs}"
-    return (
-        f'<tr data-match-id="{safe_id}">'
-        f'<td class="checkbox-col">'
-        f'<input type="checkbox" class="match-checkbox" '
-        f'aria-label="Select match {safe_id}" '
-        f'data-match-id="{safe_id}"></td>'
-        f"<td>{html.escape(ended)}</td>"
-        f'<td class="score">{_sets_cell(1)} – {_sets_cell(2)}</td>'
-        f"<td>{html.escape(duration)}</td>"
-        f'<td><a class="report-link" href="{href}">View report</a></td>'
-        f'<td><button type="button" class="row-delete" '
-        f'data-match-id="{safe_id}">Delete</button></td>'
-        "</tr>"
-    )
-
-
-# Static client-side script for the index page. Pure JS — does not go
-# through ``str.format``, so curly braces stay single. Reads the
-# operator's token from the page URL (when present) and forwards it to
-# DELETE /matches/{id} as a Bearer header so the request authenticates
-# the same way the page itself did.
-_INDEX_SCRIPT = """
-<script>
-(function() {
-  const url = new URL(window.location.href);
-  const token = url.searchParams.get('token');
-  const tokenQuery = token ? ('?token=' + encodeURIComponent(token)) : '';
-  const headers = {};
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-
-  const checkboxes = () =>
-    Array.from(document.querySelectorAll('input.match-checkbox'));
-  const selectedIds = () =>
-    checkboxes().filter(cb => cb.checked).map(cb => cb.dataset.matchId);
-
-  function refreshToolbar() {
-    const ids = selectedIds();
-    const btn = document.getElementById('delete-selected');
-    const counter = document.getElementById('selected-count');
-    if (btn) btn.disabled = ids.length === 0;
-    if (counter) counter.textContent = ids.length;
-    const all = document.getElementById('select-all');
-    if (all) {
-      const total = checkboxes().length;
-      all.checked = total > 0 && ids.length === total;
-      all.indeterminate = ids.length > 0 && ids.length < total;
-    }
-  }
-
-  async function deleteOne(id) {
-    const res = await fetch(
-      '/matches/' + encodeURIComponent(id) + tokenQuery,
-      { method: 'DELETE', headers }
-    );
-    return res.ok;
-  }
-
-  async function deleteIds(ids) {
-    if (ids.length === 0) return;
-    const label = ids.length === 1 ? '1 match' : (ids.length + ' matches');
-    if (!confirm('Delete ' + label + '? This cannot be undone.')) return;
-    let failed = 0;
-    for (const id of ids) {
-      try {
-        if (!(await deleteOne(id))) failed++;
-      } catch (e) {
-        failed++;
-      }
-    }
-    if (failed > 0) {
-      alert('Failed to delete ' + failed + ' of ' + ids.length + ' matches.');
-    }
-    window.location.reload();
-  }
-
-  document.addEventListener('change', (e) => {
-    if (e.target.matches('input.match-checkbox')) refreshToolbar();
-    if (e.target.id === 'select-all') {
-      checkboxes().forEach(cb => { cb.checked = e.target.checked; });
-      refreshToolbar();
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (e.target.id === 'delete-selected') {
-      deleteIds(selectedIds());
-    } else if (e.target.matches('button.row-delete')) {
-      deleteIds([e.target.dataset.matchId]);
-    }
-  });
-
-  refreshToolbar();
-})();
-</script>
-"""
-
-

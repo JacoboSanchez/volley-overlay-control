@@ -122,3 +122,57 @@ class TestEnvVarsManager(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_stale_cache_is_served_while_revalidating(monkeypatch):
+    """Once populated, a stale cache is returned immediately and the refetch
+    happens on a background thread — a slow remote config must not block
+    the caller (the event loop) for its full timeout."""
+    import threading
+    import time as time_mod
+    from unittest.mock import patch
+
+    from app.env_vars_manager import EnvVarsManager
+
+    monkeypatch.setenv("REMOTE_CONFIG_URL", "http://config.example/env.json")
+    EnvVarsManager._remote_config_cache = {"KEY": "stale-value"}
+    EnvVarsManager._cache_timestamp = time_mod.time() - 3600  # long stale
+    EnvVarsManager._refresh_in_flight = False
+
+    release = threading.Event()
+    fetched = threading.Event()
+
+    class SlowResponse:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"KEY": "fresh-value"}
+
+    def slow_get(url, timeout):
+        fetched.set()
+        release.wait(5)
+        return SlowResponse()
+
+    with patch("app.env_vars_manager.requests.get", side_effect=slow_get):
+        start = time_mod.time()
+        value = EnvVarsManager.get_env_var("KEY")
+        elapsed = time_mod.time() - start
+        # Served the stale value without waiting on the in-flight fetch.
+        assert value == "stale-value"
+        assert elapsed < 1.0
+        assert fetched.wait(2)
+        release.set()
+        # The background refresh eventually installs the fresh value.
+        deadline = time_mod.time() + 5
+        while time_mod.time() < deadline:
+            if EnvVarsManager._remote_config_cache.get("KEY") == "fresh-value":
+                break
+            time_mod.sleep(0.02)
+        assert EnvVarsManager._remote_config_cache.get("KEY") == "fresh-value"
+
+    EnvVarsManager._remote_config_cache = {}
+    EnvVarsManager._cache_timestamp = 0
+    EnvVarsManager._refresh_in_flight = False

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as api from '../api/client';
-import type { GameState, AuditRecord, TeamState, PointType } from '../api/client';
+import type { GameState, AuditRecord, PointType } from '../api/client';
+import { teamScoreSum } from '../utils/score';
 
 export type RecentEventKind = 'point_add' | 'set_won' | 'match_won' | 'timeout' | 'manual';
 
@@ -18,16 +19,6 @@ export interface RecentEvent {
 }
 
 const DEFAULT_AUDIT_FETCH_LIMIT = 40;
-
-function teamScoreSum(team: TeamState | undefined | null): number {
-  if (!team) return 0;
-  const scores = (team.scores ?? {}) as Record<string, unknown>;
-  let total = 0;
-  for (const value of Object.values(scores)) {
-    if (typeof value === 'number') total += value;
-  }
-  return total;
-}
 
 function scoringKey(state: GameState | null): string {
   if (!state) return '';

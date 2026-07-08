@@ -26,6 +26,19 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
         from app.overlay import overlay_state_store
         return overlay_state_store
 
+    def _custom_id(self, oid=None):
+        """Per-user storage key for this session's overlay.
+
+        A ``LocalOverlayBackend`` is bound to one session's ``conf``; when
+        that conf carries a storage key (``skey = <user_id>:<oid>``) every
+        store operation targets the user's namespaced overlay, regardless of
+        which raw ``oid`` a caller passes. Falls back to the mixin's bare-id
+        behaviour for standalone/legacy construction.
+        """
+        if getattr(self.conf, "skey", None):
+            return self.conf.skey
+        return super()._custom_id(oid)
+
     def _broadcast(self):
         from app.overlay import obs_broadcast_hub
         return obs_broadcast_hub
@@ -104,8 +117,11 @@ class LocalOverlayBackend(CustomOidMixin, OverlayBackend):
 
     def fetch_output_token(self, oid: str = None) -> str | None:
         from app.overlay.state_store import OverlayStateStore
-        custom_id = self._custom_id(oid)
-        output_key = OverlayStateStore.get_output_key(custom_id)
+        # The public OBS URL uses the per-overlay capability token when one
+        # is bound to the session; otherwise fall back to the derived output
+        # key (standalone/legacy backends without a user_overlays row).
+        output_key = getattr(self.conf, "public_token", None) or \
+            OverlayStateStore.get_output_key(self._custom_id(oid))
         public_url = EnvVarsManager.get_env_var('OVERLAY_PUBLIC_URL', None)
         if public_url:
             base = public_url.rstrip('/')

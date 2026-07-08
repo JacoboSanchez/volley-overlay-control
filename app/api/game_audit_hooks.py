@@ -48,6 +48,9 @@ def archive_if_finished(
             points_limit_last_set=session.points_limit_last_set,
             sets_limit=session.sets_limit,
         )
+        # Remember it so the control board can link straight to the report
+        # at match end without a separate lookup (see GameStateResponse).
+        session.last_match_id = match_id
         session.persist_meta()
         return match_id
     except Exception as exc:
@@ -116,6 +119,8 @@ def fire_webhook(
             "state": state_response.model_dump(),
             "details": details,
         }
-        webhook_dispatcher.dispatch(event, session.oid, payload)
+        # Webhook consumers key on the human-facing overlay id, not the
+        # internal per-user storage key.
+        webhook_dispatcher.dispatch(event, session.raw_oid, payload)
     except Exception as exc:
         logger.warning("Webhook dispatch for %s failed: %s", event, exc)

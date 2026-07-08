@@ -1,196 +1,56 @@
-"""Match history archive — snapshot per finished match.
+"""Match history archive — one DB row per finished match.
 
-When ``GameService.add_point`` or ``GameService.add_set`` transitions a
-session from in-progress to ``match_finished``, the match is archived
-to ``data/matches/match_<sha256(oid)[:20]>_<UTC-ISO8601>.json``.
+When ``GameService`` transitions a session from in-progress to
+``match_finished``, the match is archived to the ``match_reports`` table
+(was ``data/matches/*.json`` before the multi-user refactor — moved to the
+database because the per-user report volume grows).
 
-Each snapshot bundles:
+The public surface is unchanged so callers (the finish hook, the match
+routes, and the print report) need no changes:
 
-* ``oid``, ``started_at``, ``ended_at``, ``duration_s``,
-  ``winning_team``
-* ``final_state`` — the same shape as the WebSocket ``state_update``
-  payload, so a stale frontend can render the result without any
-  schema translation.
-* ``customization`` — team names, colors, logos, layout — frozen at
-  match-end, so cosmetic edits made after the match do not retroactively
-  rewrite history.
-* ``audit_log`` — every audit record from ``app.api.action_log`` for
-  this OID at the moment of archival (the log is then cleared on the
-  next ``reset`` call).
-* ``points_limit``, ``points_limit_last_set``, ``sets_limit`` so the
-  archive is interpretable without consulting the live config.
+* ``archive_match(skey, …)`` — insert a row, return the ``match_id``.
+* ``list_matches(skey | None)`` — newest-first summaries.
+* ``load_match(match_id)`` — full snapshot.
+* ``delete_match(match_id)`` / ``delete_for_oid(skey)``.
 
-All I/O is best-effort: a failure during archival is logged but does
-not block the match-end response.
+The ``match_id`` keeps the historical ``match_<sha256(skey)[:20]>_<UTC>``
+shape so the HMAC-signed report URLs (:mod:`app.match_report_signing`) and
+the ``/match/{id}/report`` route keep working. Every summary/payload reports
+``oid`` as the *storage key* (``user_id:oid``) — callers split it back to the
+human oid via :mod:`app.overlay_key`.
 """
 
 from __future__ import annotations
 
 import datetime
-import json
 import logging
-import os
 import re
-import tempfile
-import threading
+
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, select
 
 from app.api import action_log
-from app.api._persistence_paths import DEFAULT_HASH_LEN, atomic_write_json, hashed_filename
+from app.api._persistence_paths import DEFAULT_HASH_LEN, hashed_filename
 from app.api._persistence_paths import data_dir as _shared_data_dir
-from app.api.oid_validation import OID_PATTERN
+from app.db.engine import session_scope
+from app.db.models.report import MatchReport
+from app.overlay_key import is_valid_skey, make_skey, split_skey
 
 logger = logging.getLogger(__name__)
 
-_OID_PATTERN = OID_PATTERN
 _FILENAME_HASH_LEN = DEFAULT_HASH_LEN
-
-# Match basename: ``match_<20-hex>_<UTC-ISO>.json`` where the timestamp
-# is ``YYYYMMDDTHHMMSS_microseconds_Z``. Microsecond precision avoids
-# silent overwrites when two matches archive in the same second.
-_MATCH_FILENAME_RE = re.compile(
-    r"^match_(?P<oid_hash>[0-9a-f]{20})_(?P<ts>\d{8}T\d{6}_\d{6}Z)\.json$"
-)
-
-# Index of archived matches — one summary line per match. Avoids the
-# previous ``list_matches`` cost of opening and ``json.load``-ing every
-# snapshot on disk just to render the dashboard list.
-_INDEX_FILENAME = "index.jsonl"
-_index_lock = threading.Lock()
-
-
-def _index_path() -> str:
-    return os.path.join(_data_dir(), _INDEX_FILENAME)
-
-
-def _summary_from_payload(payload: dict) -> dict:
-    """Return the compact summary written to the index for *payload*."""
-    final_state = payload.get("final_state", {}) or {}
-    team_1 = final_state.get("team_1", {}) or {}
-    team_2 = final_state.get("team_2", {}) or {}
-    return {
-        "match_id": payload.get("match_id"),
-        "oid": payload.get("oid"),
-        "ended_at": payload.get("ended_at"),
-        "duration_s": payload.get("duration_s"),
-        "winning_team": payload.get("winning_team"),
-        "team_1_sets": team_1.get("sets"),
-        "team_2_sets": team_2.get("sets"),
-        "current_set": final_state.get("current_set"),
-    }
-
-
-def _index_append(summary: dict) -> None:
-    """Append one summary line to the index. Best-effort."""
-    path = _index_path()
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        line = json.dumps(summary, ensure_ascii=False) + "\n"
-        with _index_lock, open(path, "a", encoding="utf-8") as f:
-            f.write(line)
-    except Exception as exc:
-        logger.warning("Failed to append match index entry: %s", exc)
-
-
-def _read_index_locked() -> list[dict] | None:
-    """Return parsed index entries or ``None`` if the index is absent.
-
-    Caller must already hold ``_index_lock``.
-    """
-    path = _index_path()
-    if not os.path.exists(path):
-        return None
-    summaries: list[dict] = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                summaries.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return summaries
-
-
-def _rebuild_index_locked() -> list[dict]:
-    """Scan the matches dir and rebuild ``index.jsonl`` from scratch.
-
-    Used as a fallback when the index is missing (fresh upgrade) or
-    to re-sync after a delete operation. Caller must already hold
-    ``_index_lock``.
-    """
-    summaries: list[dict] = []
-    if not os.path.isdir(_data_dir()):
-        return summaries
-    for filename in os.listdir(_data_dir()):
-        m = _MATCH_FILENAME_RE.match(filename)
-        if m is None:
-            continue
-        try:
-            with open(os.path.join(_data_dir(), filename), encoding="utf-8") as f:
-                payload = json.load(f)
-        except Exception as exc:
-            logger.warning("Skipping unreadable match file '%s': %s",
-                           filename, exc)
-            continue
-        if not isinstance(payload, dict):
-            continue
-        summaries.append(_summary_from_payload(payload))
-    _write_index_locked(summaries)
-    return summaries
-
-
-def _write_index_locked(summaries: list[dict]) -> None:
-    """Atomically rewrite the index with *summaries*. Caller holds the lock."""
-    path = _index_path()
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        fd, tmp_path = tempfile.mkstemp(
-            dir=os.path.dirname(path), suffix=".tmp",
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                for s in summaries:
-                    f.write(json.dumps(s, ensure_ascii=False) + "\n")
-            os.replace(tmp_path, path)
-        except BaseException:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
-    except Exception as exc:
-        logger.warning("Failed to write match index: %s", exc)
-
-
-def _index_remove_match_ids(match_ids: set[str]) -> None:
-    """Remove every index entry whose ``match_id`` is in *match_ids*."""
-    if not match_ids:
-        return
-    with _index_lock:
-        existing = _read_index_locked()
-        if existing is None:
-            return
-        kept = [s for s in existing if s.get("match_id") not in match_ids]
-        if len(kept) == len(existing):
-            return
-        _write_index_locked(kept)
+# ``match_<20-hex>_<UTC-ISO>`` (no ``.json`` now — it is an id, not a file).
+_MATCH_ID_RE = re.compile(r"^match_[0-9a-f]{20}_\d{8}T\d{6}_\d{6}Z$")
 
 
 def _data_dir() -> str:
-    # Wrapper kept so tests can monkeypatch this attribute.
+    # Retained (unused for storage) so the test isolation fixture that
+    # monkeypatches ``match_archive._data_dir`` keeps working.
     return _shared_data_dir("matches")
 
 
-def _oid_hash(oid: str) -> str:
-    # The basename uses ``match_<hash>_<ts>.json``; ``hashed_filename``
-    # bakes prefix+suffix together, so we slice the digest manually here
-    # to keep the existing two-part filename layout intact.
-    return hashed_filename("", oid, "")
-
-
-def _is_valid_oid(oid: str) -> bool:
-    return isinstance(oid, str) and _OID_PATTERN.match(oid) is not None
+def _skey_hash(skey: str) -> str:
+    return hashed_filename("", skey, "")
 
 
 def _ts_for_now() -> str:
@@ -198,8 +58,65 @@ def _ts_for_now() -> str:
     return now.strftime("%Y%m%dT%H%M%S") + f"_{now.microsecond:06d}Z"
 
 
-def _path_for(oid: str, ts: str) -> str:
-    return os.path.join(_data_dir(), f"match_{_oid_hash(oid)}_{ts}.json")
+def _summary(r: MatchReport) -> dict:
+    fs = r.final_state or {}
+    t1 = fs.get("team_1", {}) or {}
+    t2 = fs.get("team_2", {}) or {}
+    # Team names live in the captured customization. Resolve them through the
+    # same multi-key fallback the printed report uses (``_team_name``:
+    # canonical "Team N Name", the legacy "Team N Text Name" alias, snake_case
+    # and "nameN") so the list and the report always agree on who played.
+    # Reading only "Team N Name" here meant any match whose names were stored
+    # under a non-canonical key (e.g. seeded from a preset / predefined team)
+    # showed the literal "Team 1" / "Team 2" in the list while the report
+    # rendered the real name. ``_team_name`` returns the "Team N" sentinel when
+    # truly unnamed; map that back to ``None`` to keep the contract that lets
+    # the UI localize the placeholder ("Team 1" / "Equipo 1").
+    # Function-local import: ``match_report_render`` imports ``app.api.schemas``
+    # at module load, so a top-level import here would create an
+    # ``app.api`` <-> ``match_report_render`` cycle that breaks whenever the
+    # render module is imported before the ``app.api`` package finishes
+    # initializing. By call time both modules are fully loaded.
+    from app.match_report_render import _team_name
+    cust = r.customization or {}
+    name1 = _team_name(cust, 1)
+    name2 = _team_name(cust, 2)
+    return {
+        "match_id": r.match_id,
+        "oid": make_skey(r.user_id, r.oid),
+        "ended_at": r.ended_at,
+        "duration_s": r.duration_s,
+        "winning_team": r.winning_team,
+        "team_1_sets": t1.get("sets"),
+        "team_2_sets": t2.get("sets"),
+        "team_1_name": (None if name1 == "Team 1" else name1),
+        "team_2_name": (None if name2 == "Team 2" else name2),
+        "current_set": fs.get("current_set"),
+        # Match mode (indoor / beach / table_tennis) is captured inside the
+        # archived ``final_state.config`` (GameStateResponse.config). Surface
+        # it so the reports list can filter by match type. ``None`` for
+        # matches archived before the mode was recorded.
+        "mode": (fs.get("config") or {}).get("mode"),
+    }
+
+
+def _payload(r: MatchReport) -> dict:
+    return {
+        "match_id": r.match_id,
+        "oid": make_skey(r.user_id, r.oid),
+        "started_at": r.started_at,
+        "ended_at": r.ended_at,
+        "duration_s": r.duration_s,
+        "winning_team": r.winning_team,
+        "final_state": r.final_state or {},
+        "customization": r.customization or {},
+        "audit_log": r.audit_log or [],
+        "config": {
+            "points_limit": r.points_limit,
+            "points_limit_last_set": r.points_limit_last_set,
+            "sets_limit": r.sets_limit,
+        },
+    }
 
 
 def archive_match(
@@ -212,170 +129,131 @@ def archive_match(
     points_limit_last_set: int | None = None,
     sets_limit: int | None = None,
 ) -> str | None:
-    """Write a snapshot of *oid*'s match. Returns the match_id, or ``None``.
+    """Insert a snapshot of *oid*'s (a storage key) match. Returns the match_id.
 
-    The match_id is the basename without the ``.json`` suffix. Use it
-    with :func:`load_match` to read the snapshot back.
+    Returns ``None`` for a non-storage-key (no owning user can be derived)
+    or on any DB error — archival never blocks the match-end response.
     """
-    if not _is_valid_oid(oid):
+    skey = oid
+    if not is_valid_skey(skey):
         return None
-    ts = _ts_for_now()
-    path = _path_for(oid, ts)
+    user_id, raw_oid = split_skey(skey)
     ended_at = datetime.datetime.now(datetime.UTC).timestamp()
-    match_id = os.path.basename(path)[: -len(".json")]
-    payload = {
-        "match_id": match_id,
-        "oid": oid,
-        "started_at": started_at,
-        "ended_at": ended_at,
-        "duration_s": (
-            None if started_at is None else max(0.0, ended_at - float(started_at))
-        ),
-        "winning_team": winning_team,
-        "final_state": final_state,
-        "customization": customization or {},
-        "audit_log": action_log.read_all(oid),
-        "config": {
-            "points_limit": points_limit,
-            "points_limit_last_set": points_limit_last_set,
-            "sets_limit": sets_limit,
-        },
-    }
+    match_id = f"match_{_skey_hash(skey)}_{_ts_for_now()}"
+    duration = None if started_at is None else max(0.0, ended_at - float(started_at))
     try:
-        atomic_write_json(path, payload, ensure_ascii=False)
+        with session_scope() as db:
+            db.add(MatchReport(
+                match_id=match_id,
+                user_id=user_id,
+                oid=raw_oid,
+                started_at=started_at,
+                ended_at=ended_at,
+                duration_s=duration,
+                winning_team=winning_team,
+                final_state=final_state or {},
+                customization=customization or {},
+                audit_log=action_log.read_all(skey),
+                points_limit=points_limit,
+                points_limit_last_set=points_limit_last_set,
+                sets_limit=sets_limit,
+            ))
     except Exception as exc:
-        logger.warning("Failed to archive match for %r: %s", oid, exc)
+        logger.warning("Failed to archive match for %r: %s", skey, exc)
         return None
-    _index_append(_summary_from_payload(payload))
     return match_id
 
 
-def list_matches(oid: str | None = None) -> list[dict]:
-    """Return summaries for archived matches, newest first.
+def _scope_predicates(stmt, oid: str | None, user_id: int | None):
+    """Apply the skey / user_id scoping shared by list and count.
 
-    When *oid* is provided, only matches for that OID are returned.
-    Each summary contains ``match_id``, ``oid``, ``ended_at``,
-    ``duration_s``, ``winning_team``, and the final-state header
-    (sets and current_set) — enough to render a list without
-    re-reading every full snapshot.
-
-    Reads from the ``index.jsonl`` summary file populated by
-    :func:`archive_match`. If the index is missing — e.g. after an
-    upgrade from a build that did not maintain it — it is rebuilt
-    from the on-disk match files on first access.
+    Returns the scoped statement, or ``None`` when a provided-but-invalid
+    key must match nothing (fail closed).
     """
-    if not os.path.isdir(_data_dir()):
-        return []
-    with _index_lock:
-        summaries = _read_index_locked()
-        if summaries is None:
-            summaries = _rebuild_index_locked()
-    if oid and _is_valid_oid(oid):
-        target_oid = oid
-        summaries = [s for s in summaries if s.get("oid") == target_oid]
-    summaries.sort(key=lambda s: s.get("ended_at") or 0, reverse=True)
-    return summaries
+    if oid and is_valid_skey(oid):
+        uid, raw_oid = split_skey(oid)
+        return stmt.where(MatchReport.user_id == uid, MatchReport.oid == raw_oid)
+    if oid:
+        return None
+    if user_id is not None:
+        return stmt.where(MatchReport.user_id == user_id)
+    return stmt
 
 
-def _safe_match_path(match_id: object) -> str | None:
-    """Validate *match_id* and return the on-disk path, or ``None``.
+def list_matches(
+    oid: str | None = None,
+    *,
+    user_id: int | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[dict]:
+    """Return newest-first match summaries.
 
-    Three layers of defence stack here so the public ``load_match``
-    and ``delete_match`` callers can never escape ``data/matches/``:
-
-    1. ``isinstance`` + ``_MATCH_FILENAME_RE`` reject anything whose
-       shape is not ``match_<20-hex>_<UTC-ISO>.json``.
-    2. The basename is rebuilt from the regex's named groups
-       (``oid_hash`` is fixed-length hex; ``ts`` is a fixed-shape
-       timestamp), so no caller-controlled bytes flow into the
-       filename.
-    3. The canonicalized realpath is checked to live directly inside
-       the canonicalized data dir using **two redundant CodeQL-
-       recognized sanitizers**: ``os.path.commonpath`` (the
-       ``py/path-injection`` query's documented sanitizer pattern)
-       plus a ``startswith(base + os.sep)`` guard. Either one alone
-       is sufficient for correctness; both together silence the
-       static analyzer's data-flow tracker, which previously didn't
-       follow the ``os.path.dirname(...) != base`` form through and
-       still flagged the call sites at ``load_match`` /
-       ``delete_match``.
+    Scope with either a full storage key (*oid* = ``"<user_id>:<oid>"``) for a
+    single overlay, or *user_id* for all of one user's matches — both push a
+    ``WHERE`` predicate into SQL so a per-user listing never falls back to the
+    full-table scan. *limit*/*offset* page the result in SQL; ``limit=None``
+    keeps the full listing for internal callers.
     """
-    if not isinstance(match_id, str):
-        return None
-    m = _MATCH_FILENAME_RE.match(match_id + ".json")
-    if m is None:
-        return None
-    safe_basename = (
-        f"match_{m.group('oid_hash')}_{m.group('ts')}.json"
-    )
-    base = os.path.realpath(_data_dir())
-    candidate = os.path.realpath(os.path.join(base, safe_basename))
-    # ``commonpath`` raises ``ValueError`` if the candidate and base
-    # are on different drives (Windows) or share no prefix; treat
-    # that as a rejection too.
-    try:
-        if os.path.commonpath([candidate, base]) != base:
-            return None
-    except ValueError:
-        return None
-    if not candidate.startswith(base + os.sep):
-        return None
-    if os.path.dirname(candidate) != base:
-        # No subdirectories under data/matches/ — only direct children.
-        return None
-    return candidate
+    with session_scope() as db:
+        stmt = _scope_predicates(select(MatchReport), oid, user_id)
+        if stmt is None:
+            return []
+        stmt = stmt.order_by(MatchReport.ended_at.desc().nullslast())
+        if offset:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return [_summary(r) for r in db.execute(stmt).scalars().all()]
+
+
+def count_matches(oid: str | None = None, *, user_id: int | None = None) -> int:
+    """Total matches in the same scope ``list_matches`` would use."""
+    with session_scope() as db:
+        stmt = _scope_predicates(
+            select(func.count()).select_from(MatchReport), oid, user_id,
+        )
+        if stmt is None:
+            return 0
+        return int(db.execute(stmt).scalar_one())
 
 
 def load_match(match_id: str) -> dict | None:
     """Return the full archived snapshot for *match_id*, or ``None``."""
-    path = _safe_match_path(match_id)
-    if path is None or not os.path.exists(path):
+    if not isinstance(match_id, str) or _MATCH_ID_RE.match(match_id) is None:
         return None
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as exc:
-        logger.warning("Failed to load match %r: %s", match_id, exc)
-        return None
+    with session_scope() as db:
+        row = db.execute(
+            select(MatchReport).where(MatchReport.match_id == match_id)
+        ).scalar_one_or_none()
+        return _payload(row) if row is not None else None
 
 
 def delete_match(match_id: str) -> bool:
-    """Remove the archived snapshot identified by *match_id*.
-
-    Returns ``True`` if a file was removed, ``False`` if the match-id is
-    syntactically invalid, the file does not exist, or removal failed.
-    Validates the basename against ``_MATCH_FILENAME_RE`` so a caller
-    can never escape ``data/matches/`` via path traversal.
-    """
-    path = _safe_match_path(match_id)
-    if path is None or not os.path.exists(path):
+    """Delete the archived match identified by *match_id*."""
+    if not isinstance(match_id, str) or _MATCH_ID_RE.match(match_id) is None:
         return False
-    try:
-        os.remove(path)
-    except OSError as exc:
-        logger.warning("Failed to remove match %r: %s", match_id, exc)
-        return False
-    _index_remove_match_ids({match_id})
-    return True
+    with session_scope() as db:
+        row = db.execute(
+            select(MatchReport).where(MatchReport.match_id == match_id)
+        ).scalar_one_or_none()
+        if row is None:
+            return False
+        db.delete(row)
+        return True
 
 
 def delete_for_oid(oid: str) -> int:
-    """Remove every archived match for *oid*. Returns count deleted."""
-    if not _is_valid_oid(oid):
+    """Delete every archived match for a storage key. Returns the count."""
+    if not is_valid_skey(oid):
         return 0
-    target_hash = _oid_hash(oid)
-    if not os.path.isdir(_data_dir()):
-        return 0
-    removed_ids: set[str] = set()
-    for filename in os.listdir(_data_dir()):
-        m = _MATCH_FILENAME_RE.match(filename)
-        if m is None or m.group("oid_hash") != target_hash:
-            continue
-        try:
-            os.remove(os.path.join(_data_dir(), filename))
-            removed_ids.add(filename[:-len(".json")])
-        except OSError as exc:
-            logger.warning("Failed to remove match file '%s': %s",
-                           filename, exc)
-    _index_remove_match_ids(removed_ids)
-    return len(removed_ids)
+    user_id, raw_oid = split_skey(oid)
+    with session_scope() as db:
+        result = db.execute(
+            sa_delete(MatchReport).where(
+                MatchReport.user_id == user_id, MatchReport.oid == raw_oid,
+            )
+        )
+        # Result is typed without rowcount; DML returns a CursorResult that
+        # has it.
+        return int(getattr(result, "rowcount", 0) or 0)

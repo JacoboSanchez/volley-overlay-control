@@ -6,7 +6,6 @@ Different surfaces accept different identifier shapes:
   custom overlay style suffixes (e.g. ``mybroadcast/line``). Rejects ``..``.
 * **Overlay IDs** (filesystem / admin CRUD) — 1–64 chars, alphanumeric plus
   ``._-`` only; no path separators.
-* **UNO cloud tokens** — exactly 22 alphanumeric characters.
 
 Every module that validates an id should import from here so acceptance rules
 stay aligned across API init, overlay persistence, and admin management.
@@ -16,11 +15,7 @@ from __future__ import annotations
 
 import re
 
-from app.overlay_backends.utils import (
-    UNO_OID_LENGTH,
-    matches_uno_format,
-    strip_legacy_prefix,
-)
+from app.overlay_backends.utils import strip_legacy_prefix
 
 # API/session OID: same rules as legacy ``app.api.oid_validation``.
 API_OID_PATTERN = re.compile(r"^(?!.*\.\.)[A-Za-z0-9._\-/]{1,200}$")
@@ -57,13 +52,11 @@ def is_valid_overlay_id(value: object) -> bool:
 def validate_overlay_id(overlay_id: str) -> str:
     """Return *overlay_id* when valid; raise ``ValueError`` otherwise."""
     if not is_valid_overlay_id(overlay_id):
-        raise ValueError(f"Invalid overlay id: {overlay_id!r}")
+        raise ValueError(
+            "Overlay id must be 1–64 characters using only letters, digits, "
+            "'.', '_' or '-' (no spaces)."
+        )
     return overlay_id
-
-
-def is_uno_oid(oid: str) -> bool:
-    """Return True when *oid* matches the overlays.uno 22-char token format."""
-    return matches_uno_format(oid)
 
 
 def api_oid_overlay_base(oid: str) -> str | None:
@@ -95,10 +88,8 @@ __all__ = [
     "API_OID_PATTERN",
     "OVERLAY_ID_MAX_LENGTH",
     "OVERLAY_ID_PATTERN",
-    "UNO_OID_LENGTH",
     "api_oid_compatible_with_overlay_store",
     "api_oid_overlay_base",
-    "is_uno_oid",
     "is_valid_api_oid",
     "is_valid_overlay_id",
     "validate_api_oid",

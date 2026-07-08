@@ -10,7 +10,7 @@
 
 **Volley Overlay Control** is a powerful, self-hostable application for controlling volleyball scoreboards. It bundles a touch-friendly React frontend, a FastAPI backend, and a **built-in overlay engine** into a single deployable service.
 
-It includes 27 overlay style templates served directly to OBS browser sources — no external overlay server required. It also works with *overlays.uno* cloud overlays and with fully custom, external overlay engines. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it supports multiple users, overlays, and personalized themes.
+It includes 27 overlay style templates served **in-process** directly to OBS browser sources — no external overlay server or cloud account required. Complete match control — scores, sets, timeouts, and serving teams. Highly customizable and built for versatility, it is a **multi-user** app: each account signs in, manages its own scoreboards/overlays, teams, presets and match reports, while admins curate a shared global catalog of teams and presets.
 
 ---
 
@@ -20,23 +20,27 @@ It includes 27 overlay style templates served directly to OBS browser sources �
 |---|---|
 | ![Scoreboard control UI in landscape](docs/screenshots/02-scoreboard.png) | ![Scoreboard control UI in portrait](docs/screenshots/03-scoreboard-phone.png) |
 
-| Initial connect screen | Configuration panel |
+| Sign-in page | Configuration panel |
 |---|---|
-| ![Connect screen](docs/screenshots/01-init-screen.png) | ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) |
+| ![Sign-in page](docs/screenshots/01-init-screen.png) | ![Config panel — teams, colors, layout](docs/screenshots/04-config-panel.png) |
 
 | Per-point classification picker (opt-in) |
 |---|
 | <p align="center"><img src="docs/screenshots/11-point-type-picker.png" alt="Scoreboard with the opt-in point-type picker open — ace, kill, block, opponent error, or quick point" width="65%"></p> |
 
-| Custom overlay manager (`/manage`) | Match report (`/match/{id}/report`) |
+| My overlays (`/overlays`) | Match report (`/match/{id}/report`) |
 |---|---|
-| ![Custom overlay manager listing centercourt and practice-hall overlays](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
+| ![Account overlays page listing the signed-in user's overlays with copyable OBS output URLs](docs/screenshots/05-manage-page.png) | <p align="center"><img src="docs/screenshots/08-match-report.png" alt="Print-friendly match report with hero, set-by-set, highlights and per-set score charts" width="65%"></p> |
 
-| Public spectator page (`/follow/{id}`) |
-|---|
-| <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> |
+| Hosted icon library (`/teams`) | Batch logo import |
+|---|---|
+| ![Icon library picker open over the teams page — global and personal hosted team logos with search, quota and inline upload](docs/screenshots/13-icon-library.png) | ![Import team logos dialog listing teams with external logo URLs, pre-selected for conversion into hosted library icons](docs/screenshots/14-icon-batch-import.png) |
 
-**Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{id}`. All 27 selectable styles laid out side-by-side in a single preview grid via `/overlay/{id}?style=mosaic`. The pair below doubles as the theme demo — full data is captured with the forced light theme (`?theme=light`), simple mode with the forced dark one (`?theme=dark`); styles without the matching palette keep their native look:
+| Public spectator page (`/follow/{public_token}`) | Admin — global configuration (`/admin`) |
+|---|---|
+| <p align="center"><img src="docs/screenshots/09-spectator-page.png" alt="Mobile-first spectator page with scoreboard, set chart, history and live stats" width="40%"></p> | ![Admin Administration page: the self-registration toggle and user management table](docs/screenshots/12-admin-page.png) |
+
+**Built-in overlay styles** rendered live to OBS browser sources via `/overlay/{public_token}`. All 27 selectable styles laid out side-by-side in a single preview grid via `/overlay/{public_token}?style=mosaic`. The pair below doubles as the theme demo — full data is captured with the forced light theme (`?theme=light`), simple mode with the forced dark one (`?theme=dark`); styles without the matching palette keep their native look:
 
 | Full match data | Simple mode (current set only) |
 |---|---|
@@ -62,9 +66,9 @@ It includes 27 overlay style templates served directly to OBS browser sources �
 *   **Points History Strip**: When the overlay preview is hidden, the centre column shows a two-row action timeline (one row per team) sourced from the audit log. Each rally, set win, match win, timeout and manual correction renders as a chip on its team's row only — `+1`/`−1` for points and undos, a star (or struck star on undo) when a set is won, a trophy (or struck trophy on undo) when the match ends, a clock (or struck clock on undo) for timeouts, and a pencil with the new score for manual corrections. Non-adjacent timeout undoes also reconstruct the original forward chip from the post-state diff so the timeline matches what the operator saw before clicking undo. Logo + colour markers anchor each row; honours `followTeamColors` and per-team customisation overrides. Window auto-shrinks on narrow landscape phones so it never overflows the centre slot.
 
 ### Match History
-*   **Auto-archive on match end**: Every finished match is snapshotted to `data/matches/match_<sha256(oid)[:20]>_<UTC-ISO8601>.json` with the final state, customization, audit log, and config — frozen so cosmetic edits made afterwards do not retroactively rewrite history.
-*   **Browseable HTML index** at `/matches/index.html?oid=<OID>` listing every archived match with date, sets, duration, and a link to a print-friendly per-match report at `/match/{match_id}/report` (designed for the browser's "Save as PDF" workflow). Both pages are gated by `OVERLAY_MANAGER_PASSWORD` (Bearer header *or* `?token=` query); set `MATCH_REPORT_PUBLIC=true` for open access.
-*   **Per-OID action audit log** at `data/audit_<sha256(oid)[:20]>.jsonl` capturing every state mutation with a compact post-state snapshot. Exposed read-only via `GET /api/v1/audit?oid=...`.
+*   **Auto-archive on match end**: Every finished match is recorded as a row in the `match_reports` table (DB-backed, scoped to the owning user) with the final state, customization, audit log, and config — frozen so cosmetic edits made afterwards do not retroactively rewrite history. Browse your own reports from the account area via `GET /api/v1/matches`, fetch or delete one via `GET`/`DELETE /api/v1/matches/{id}`.
+*   **Print-friendly per-match report** at `/match/{match_id}/report` (designed for the browser's "Save as PDF" workflow). The route is gated three ways: the owner's session cookie, an owner-minted signed share URL (`POST /api/v1/matches/{match_id}/sign-url`, HMAC-keyed by `SESSION_SECRET`), or fully open when `MATCH_REPORT_PUBLIC=true`.
+*   **Per-OID action audit log** capturing every state mutation with a compact post-state snapshot, kept on disk as JSONL re-keyed by the per-user storage key. Exposed read-only via `GET /api/v1/audit?oid=...`.
 *   **Outbound webhooks** on `set_end`, `match_end`, `timeout`, and `serve_change` events. Configure via `WEBHOOKS_URL` (single endpoint) or `WEBHOOKS_JSON` (multi-target with per-event filtering); bodies are HMAC-SHA256-signed when a secret is set.
 
 ### Advanced Customization
@@ -72,13 +76,13 @@ It includes 27 overlay style templates served directly to OBS browser sources �
 *   **Scoreboard Layout**: Adjust dimensions (height, width) and position (horizontal, vertical).
 *   **Style-aware overlay knobs**: The Overlay section only surfaces a control where it actually changes the selected style — the **dark/light theme** selector appears for styles that ship a light/dark palette, and a **top / center / bottom** vertical-anchor selector appears for edge-pinned styles (`pylons`, `pylons_gradient`) that dock to the screen edges instead of following the free x/y geometry.
 *   **Visual Effects**: Apply glossy/gradient effects.
-*   **Themes**: Create, save, and load custom themes.
+*   **Presets**: Create, save, and load customization presets. Your own presets follow you across every scoreboard you own; admins can additionally activate global presets that all users see.
 
-### User and Overlay Management
-*   **Multi-User Support**: Secure access with password-based API key authentication.
-*   **Multi-Overlay Control**: Manage multiple overlays from a single instance.
-*   **Overlay Library**: Select from predefined overlays for quick setup.
-*   **Custom Overlay Manager Page**: Dedicated, password-protected page at `/manage` to create, delete and clone custom (built-in engine) overlays at runtime — no need to use the `/create/overlay`, `/list/overlay` or `/delete/overlay` endpoints directly.
+### Accounts and Overlay Management
+*   **Multi-User Accounts**: Each user registers, signs in, and owns an isolated set of scoreboards, overlays, teams, presets and match reports. Sessions are HttpOnly cookies — there is no shared password or API key.
+*   **Roles**: `user` and `admin`. Admins manage users, the registration toggle, the global team catalog and global presets from the in-app `/admin` page.
+*   **Multi-Overlay Control**: Each account manages multiple overlays from a single instance. Overlays are keyed per user, so two accounts can independently own the same `oid`.
+*   **OBS Output Tokens**: Each overlay carries an unguessable `public_token`; OBS loads `/overlay/{public_token}`, `/follow/{public_token}` and `/ws/{public_token}` — no cookie or account leaked into the URL.
 *   **Internationalization**: Control UI available in **English**, **Spanish**, **Portuguese**, **Italian**, **French** and **German**, with volleyball-specific terminology per locale.
 
 ### REST + WebSocket API
@@ -89,15 +93,15 @@ It includes 27 overlay style templates served directly to OBS browser sources �
 *   **History** — `GET /api/v1/matches[/{id}]` for archived match snapshots; `GET /api/v1/audit?oid=...` for the action log
 *   **Real-time WebSocket** — receive instant state updates at `ws://<host>/api/v1/ws?oid=<OID>`
 
-Authentication uses Bearer tokens (reusing `SCOREBOARD_USERS` passwords). If no users are configured, the API is open.
+Every `/api/v1/*` scoreboard/control route is gated by the session cookie and per-user ownership of the `oid` — there is no Bearer path for these user routes. Auth lives under `/api/v1/auth` (register, login, logout, `GET /context`, change-password, `PATCH`/`DELETE me`, claim-admin).
 
 For the full endpoint reference, request/response schemas, and WebSocket protocol, see [**FRONTEND_DEVELOPMENT.md**](FRONTEND_DEVELOPMENT.md).
 
 ### Built-In Overlay Engine
-*   **27 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `baseline`, `beach`, `beach_twoline`, `broadcast`, `clear_jersey`, `compact`, `corner_gradient`, `corner_jersey`, `corner_tags`, `corner_wedge`, `diagonal`, `esports`, `glass`, `led`, `micro`, `neo_jersey`, `neon`, `original`, `pill`, `pylons`, `pylons_gradient`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. The `corner_*` styles form the **corners** family — horizontal, corner-docked cousins of `pylons`: one chip per team pinned to a top or bottom corner (sets-won pips by the score; serve lamp and timeout bars by the team icon), with `corner_jersey` leading on a team-kit jersey icon. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{id}?style=mosaic`.
+*   **27 Selectable Overlay Styles**: Pre-built HTML templates rendered via Jinja2 and served directly to OBS/vMix browser sources. Available styles: `default`, `baseline`, `beach`, `beach_twoline`, `broadcast`, `clear_jersey`, `compact`, `corner_gradient`, `corner_jersey`, `corner_tags`, `corner_wedge`, `diagonal`, `esports`, `glass`, `led`, `micro`, `neo_jersey`, `neon`, `original`, `pill`, `pylons`, `pylons_gradient`, `ribbon`, `shield`, `split`, `split_jersey`, `vertical`. The `corner_*` styles form the **corners** family — horizontal, corner-docked cousins of `pylons`: one chip per team pinned to a top or bottom corner (sets-won pips by the score; serve lamp and timeout bars by the team icon), with `corner_jersey` leading on a team-kit jersey icon. A meta-style `mosaic` renders every selectable style in a single preview grid via `/overlay/{public_token}?style=mosaic`.
 *   **Dark/Light Overlay Theme**: A three-state appearance setting (default / dark / light) flips the card surface on styles that support it (`broadcast`, `baseline`, `neon`, `pylons`, `micro`, `led`, and dark variants for the light-native `neo_jersey`, `clear_jersey`, `split_jersey`); "default" keeps each style's native palette. Styles whose surface *is* the team colour (e.g. `glass`) intentionally ignore the toggle. A `?theme=` query on the overlay URL (or the mosaic) pins a theme per browser source. Team accents are contrast-corrected automatically against the active surface, so a dark team colour stays legible on a dark card and vice versa.
-*   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{overlay_id}`) and receive 50ms-debounced state pushes — no polling needed.
-*   **Manage Overlays in One Place**: Create, copy and delete overlays from the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`). Overlay IDs created there can be used directly as OIDs in the control UI; state is persisted to disk and served immediately.
+*   **Real-Time Updates**: OBS browser sources connect via WebSocket (`/ws/{public_token}`) and receive 50ms-debounced state pushes — no polling needed.
+*   **Manage Overlays From Your Account**: Create and delete overlays via `/api/v1/overlays`, surfaced in the account dashboard. Each overlay exposes an unguessable `public_token` for its OBS output; render state is persisted to disk and served immediately.
 *   **Preset Themes**: Apply dark, light, esports, neo_jersey, split_jersey, or clear_jersey themes with one click.
 
 ### Single-App Deployment
@@ -109,28 +113,40 @@ For the full endpoint reference, request/response schemas, and WebSocket protoco
 
 ## Getting Started
 
+> **Multi-user application.** This is now a full multi-user app with a
+> database. The landing page is a **login** screen, and every user manages
+> their own scoreboards/overlays, teams, presets and match reports.
+>
+> **First run:** on first start, no administrator exists yet, so the service
+> logs a one-time **admin bootstrap token** (visible in `docker logs`). Open
+> `/claim-admin`, paste the token, and create the first administrator. After
+> that, users self-register at `/register` (an admin can disable registration
+> in the admin panel), and admins manage users, the global team catalog and
+> global presets.
+>
+> **Persistence:** SQLAlchemy + Alembic via `DATABASE_URL` — SQLite by default
+> (`data/app.db`), PostgreSQL supported (`postgresql+psycopg://…`). The schema
+> migrates to head automatically on startup; nothing to run by hand.
+>
+> **Sessions:** HttpOnly cookies (the old `SCOREBOARD_USERS` Bearer auth is
+> gone). The public OBS output URL for each overlay uses an unguessable token,
+> so usernames/oids never appear in it. See the session-related env vars in
+> the *Configuration* table below (`SESSION_SECRET`, `SESSION_TTL_HOURS`,
+> `REGISTRATION_OPEN`, `ADMIN_BOOTSTRAP_TOKEN`, …).
+
 ### Prerequisites
 
 *   **Python 3.11+**
 *   **Node.js 20+** and **npm** (for building the frontend)
-*   *(Optional)* An account on **[overlays.uno](https://overlays.uno)** for cloud overlays. Not needed when using the built-in overlay engine.
 
 ### Creating an Overlay
 
-1.  **Login** to your *overlays.uno* account.
-2.  Navigate to [this overlay](https://overlays.uno/library/437-Volleyball-Scorebug---Standard) and click **Add to My Overlays**.
-3.  **Open your overlay** to get the necessary tokens:
-    *   **Control URL**: Copy the URL. The part after `https://app.overlays.uno/control/` is your **`UNO_OVERLAY_OID`**.
-
-### Using the Built-In Overlay Engine
-
-The fastest way to get started is with the built-in overlay engine. Open the `/manage` page (protected by `OVERLAY_MANAGER_PASSWORD`) to create an overlay — say, `mybroadcast` — then use that ID directly as the OID in the control UI. The system serves 14 selectable style templates at `/overlay/{id}` (plus the `mosaic` preview grid via `/overlay/{id}?style=mosaic`) and broadcasts state updates to OBS via WebSocket at `/ws/{id}`. No external server or account is required.
-
-> **Backward compatibility:** the legacy `C-<id>` prefix (e.g. `C-mybroadcast`) is still accepted when the overlay already exists, but it is no longer required and is omitted from the documentation and UI from now on.
-
-### Building a Custom External Overlay
-
-If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot), you can point Remote-Scoreboard at an **external overlay server** by setting `APP_CUSTOM_OVERLAY_URL`. Refer to the [Custom Overlay Documentation](CUSTOM_OVERLAY.md) for the API contract.
+Overlays are served **in-process** — there is no external overlay server or
+cloud account. Once signed in, create an overlay from your account dashboard
+(or via `POST /api/v1/overlays`) — say, `mybroadcast`. Each overlay is handed
+an unguessable `public_token`: point OBS at `/overlay/{public_token}` (plus the
+`mosaic` preview grid via `?style=mosaic`) and it receives state updates over
+WebSocket at `/ws/{public_token}`.
 
 ---
 
@@ -149,22 +165,21 @@ If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot),
     cd frontend && npm ci && npm run build && cd ..
     ```
 
-3.  **Configure Environment Variables**:
-    Create a `.env` file in the root directory or export variables in your terminal. `UNO_OVERLAY_OID` is required when using overlays.uno.
+3.  **Configure Environment Variables** *(optional)*:
+    Create a `.env` file in the root directory or export variables in your terminal. Nothing is required for first run — the app ships with sensible defaults and persists to SQLite at `data/app.db`. Set `DATABASE_URL` to point at PostgreSQL instead of SQLite.
 
     ```env
-    # .env file
-    UNO_OVERLAY_OID=XXXXXXXX
-    SCOREBOARD_USERS={"user1": {"password": "password1"}}
+    # .env file (all optional)
+    # DATABASE_URL=postgresql+psycopg://user:pass@host/db
     ```
 
 4.  **Start the Application**:
     ```bash
     python main.py
     ```
-    The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The control UI is available at `http://localhost:8080/`.
+    Alembic migrates the schema to head automatically on startup. The FastAPI server starts on port 8080 (configurable via `APP_PORT`). The app is available at `http://localhost:8080/` — the front door is a **login** screen.
 
-5.  **Use a Custom Overlay** — Create an overlay from the `/manage` page (set `OVERLAY_MANAGER_PASSWORD` first) and use its ID as the OID in the control UI. The overlay is accessible at `http://localhost:8080/overlay/{id}` for OBS browser sources. If you want to use an *external* overlay server instead, additionally set `APP_CUSTOM_OVERLAY_URL`. See [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md) for details.
+5.  **Claim the first admin** — On the very first start with no administrator, a one-time **bootstrap token** is logged at `WARNING` level (look in the startup output / `docker logs`). Open `/claim-admin`, paste the token, and create the first admin account. After that, users self-register at `/register` (an admin can toggle registration off), and each user creates overlays from their account dashboard (opening `/board?oid=<new-id>` while signed in also auto-registers the overlay). The overlay's OBS output is served at `http://localhost:8080/overlay/{public_token}`.
 
 > **Tip:** For frontend development with hot-reload, run `cd frontend && npm run dev` alongside `python main.py`. Vite serves on port 3000 and proxies API calls to the backend on port 8080.
 
@@ -172,16 +187,39 @@ If you need a fully custom overlay engine (e.g., built in React, Vue, or Godot),
 
 The Dockerfile uses a multi-stage build: Node.js builds the React frontend, then the result is copied into the Python image. No separate frontend container or nginx is needed.
 
-1.  Create a `.env` file:
+> Deploying behind a **Traefik** reverse proxy? Use [`docker-compose.traefik.yml`](docker-compose.traefik.yml) + [`.env.traefik.example`](.env.traefik.example) instead — it publishes the app through Traefik (TLS, HTTP→HTTPS redirect, WebSocket pass-through) with no host ports, SQLite on a volume by default and an optional PostgreSQL service.
+
+1.  Create a `.env` file (everything here is optional):
     ```env
     EXTERNAL_PORT=80
     APP_TITLE=MyScoreboard
-    UNO_OVERLAY_OID=<overlay_control_token>
+    # DATABASE_URL=postgresql+psycopg://user:pass@host/db  # default: SQLite under data/
     ```
 2.  Run Docker Compose:
     ```bash
     docker-compose up -d
     ```
+3.  **Claim the first admin:** read the one-time bootstrap token from the
+    startup log (`docker-compose logs app` — logged at `WARNING`), open
+    `/claim-admin`, and create the first administrator. The SQLite database,
+    session secret and bootstrap/overlay-server token files all live under
+    `data/`, so persist that directory across container restarts.
+
+### Upgrading from a single-tenant deployment
+
+> ⚠️ **This is a clean break — there is no automatic data migration.** The
+> multi-user app keys runtime data per user (`"<user_id>:<oid>"`) instead of by
+> the bare overlay id, so an older single-tenant deployment's on-disk data is
+> **not** carried over: pre-existing `data/overlay_state_*.json`,
+> `data/audit_*.jsonl`, and the old file-based `data/matches/` archive are left
+> orphaned (nothing is deleted, but the new app never reads them).
+>
+> To upgrade, **start from a fresh `data/` directory**: let the app create a new
+> database, claim the first admin from the startup-log token, then recreate your
+> users, overlays, teams and presets. An existing **teams/presets catalog** can
+> be carried across with the admin JSON import (the **Teams** and **Presets**
+> admin pages, or `POST /api/v1/admin/{teams,presets}/import`). In-progress
+> overlay state and historical match reports are not migrated.
 
 ---
 
@@ -191,17 +229,13 @@ Configure the application using the following environment variables:
 
 | Variable | Description | Default Value |
 | :--- | :--- | :--- |
-| `UNO_OVERLAY_OID` | The control token for your overlays.uno overlay. | |
 | `APP_PORT` | The TCP port where the application will run. | `8080` |
 | `APP_TITLE` | Application title shown in the browser tab, the init screen heading and the PWA manifest. | `Volley Scoreboard` |
-| `APP_CUSTOM_OVERLAY_URL` | *(Optional)* Base URL of an external custom overlay server. When set, custom overlays use the external server instead of the built-in engine. | *(unset — built-in engine)* |
-| `APP_CUSTOM_OVERLAY_OUTPUT_URL` | *(Optional)* Public-facing base URL for overlay links. Used to replace the host in output URLs when the overlay server is behind a proxy. | |
-| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. | |
+| `OVERLAY_PUBLIC_URL` | *(Optional)* Public base URL for overlay output links served by the built-in engine. If unset, URLs are constructed from the request's host. When overlays are served from a separate origin via a reverse proxy, route `/media` (hosted icon images) to this backend on that origin too. | |
 | `MATCH_GAME_POINTS` | Points needed to win a set. | `25` |
 | `MATCH_GAME_POINTS_LAST_SET` | Points needed to win the last set. | `15` |
 | `MATCH_SETS` | Total sets in the match (best of N). | `5` |
 | `STALE_SET_THRESHOLD_MINUTES` | Minutes a single set may run before the control-UI "match looks abandoned" prompt fires on the next page load. `0` disables the prompt entirely (useful for long all-day tournaments). Negative values clamp to `0`; non-numeric values fall back to the default. | `60` |
-| `ORDERED_TEAMS` | If `true`, the team list will be displayed in alphabetical order. | `true` |
 | `ENABLE_MULTITHREAD` | If `true`, overlay API calls run in a thread pool. | `true` |
 | `LOGGING_LEVEL` | Log level (`debug`, `info`, `warning`, `error`). | `warning` |
 | `LOG_FORMAT` | Log output format: `text` (ANSI-coloured, for dev) or `json` (one JSON object per line, for log aggregators). | `text` |
@@ -210,47 +244,84 @@ Configure the application using the following environment variables:
 | `LOG_FILE_BACKUPS` | Number of rotated log files to retain. | `5` |
 | `LOG_REDACT` | If `true`, PII fields (OIDs, URLs) are redacted in log output and error reports from the SPA. | `true` |
 | `REST_USER_AGENT` | User-Agent to avoid Cloudflare bot detection. | `curl/8.15.0` |
-| `APP_TEAMS` | JSON with the list of predefined teams. | |
-| `SCOREBOARD_USERS` | JSON map of users. Each entry carries either `password` (legacy plaintext) or `password_hash` (a scrypt record minted via `python -m app.password_hash`). When both are present, the hash wins. See [AUTHENTICATION.md](AUTHENTICATION.md) §8. | |
-| `PREDEFINED_OVERLAYS` | JSON with a list of preconfigured overlays. | |
-| `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` | If `true`, hides the option to manually enter an overlay. | `false` |
-| `OVERLAY_MANAGER_PASSWORD` | Password that unlocks the custom overlay manager page at `/manage` (also required to read `/list/overlay`). Leave empty to disable the page, or use `OVERLAY_MANAGER_PASSWORD_HASH` instead to keep no cleartext on disk. | |
-| `OVERLAY_MANAGER_PASSWORD_HASH` | scrypt-hashed alternative to `OVERLAY_MANAGER_PASSWORD`. Mint via `python -m app.password_hash`. When both are set, the hash wins. See [AUTHENTICATION.md](AUTHENTICATION.md) §8. | |
-| `OVERLAY_SERVER_TOKEN` | Bearer token required by the built-in overlay server's mutation and config endpoints (`/api/state/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`, `/create/overlay/{id}`, `/delete/overlay/{id}`, `/api/theme/{id}/{name}`). **Auto-generated and persisted to `data/.overlay_server_token` on first start when unset.** Set explicitly here to override (e.g. when an external `CustomOverlayBackend` peer must use the same value). See [AUTHENTICATION.md](AUTHENTICATION.md) §5. | *(auto)* |
-| `OVERLAY_SERVER_TOKEN_HASH` | scrypt-hashed alternative to `OVERLAY_SERVER_TOKEN`. When set, the bootstrap skips auto-generating the persisted plaintext file — a hash-only deployment keeps zero cleartext on this server (the peer keeps the cleartext). | |
-| `OVERLAY_SERVER_TOKEN_DISABLED` | If `true`, opts back into legacy unauthenticated overlay-server endpoints. The bootstrap logs a `CRITICAL` startup warning when active. Only safe on a trusted LAN. | `false` |
-| `SCOREBOARD_USERS_DISABLED` | If `true`, silences the startup warning emitted when `SCOREBOARD_USERS` is unset. The API still allows unauthenticated requests; this flag only acknowledges the choice. | `false` |
+| `DATABASE_URL` | SQLAlchemy 2.0 database URL. SQLite by default; point at PostgreSQL (`postgresql+psycopg://…`) with no code change. Alembic migrates to head automatically on startup. | `sqlite:///data/app.db` |
+| `SESSION_SECRET` | Secret that hardens cookie sessions and signs report share URLs. **Auto-minted and persisted to `data/.session_secret` on first start when unset.** | *(auto)* |
+| `SESSION_COOKIE_SECURE` | Forces the `Secure` flag on the `vsession` cookie. By default it is set automatically when the request is served over HTTPS. | *(auto over HTTPS)* |
+| `SESSION_TTL_HOURS` | Lifetime of a login session in hours. | `336` (14 days) |
+| `REGISTRATION_OPEN` | Pin self-service registration at `/register` open (`true`) or closed (`false`). When unset, registration is open only until the first admin is claimed, then closes automatically. DB-backed once toggled; admins manage it from the `/admin` page. | _(unset — auto-close after first admin)_ |
+| `ADMIN_BOOTSTRAP_TOKEN` | First-admin bootstrap token. When unset, a one-time token is minted on first start, logged at `WARNING`, and persisted to `data/.admin_bootstrap_token` (mode `0600`). Set it explicitly to pin a known value. See [AUTHENTICATION.md](AUTHENTICATION.md). | *(auto)* |
 | `TRUSTED_HOSTS` | Comma-separated allow-list of hostnames the app accepts in the `Host` header. Wildcard subdomains (`*.example.com`) supported. Requests outside the list are rejected with HTTP 400 before any handler reads `request.base_url`. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.2. | *(unset → no enforcement)* |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allow-list of origins permitted to call the API cross-origin. `*` is rejected (credentialed API; explicit origins only). Default: same-origin only. See [AUTHENTICATION.md](AUTHENTICATION.md) §6.3. | *(unset → no CORS)* |
-| `APP_THEMES` | JSON with customization themes. Surfaced in the operator's Presets section as read-only "system" entries alongside on-disk presets. | |
-| `REMOTE_CONFIG_URL` | URL to a remote JSON file with the configuration. | |
-| `SINGLE_OVERLAY_MODE` | If `true`, restricts the app to a single active overlay at a time. | `true` |
-| `MINIMIZE_BACKEND_USAGE` | If `true`, caches customization responses to reduce API round-trips. | `true` |
+| `REMOTE_CONFIG_URL` | URL to a remote JSON file with non-account configuration fetched on startup. | |
 | `CUSTOMIZATION_CACHE_TTL_SECONDS` | Single knob overriding the TTL (seconds) of both customization caches. When unset, the GameService cache defaults to `5` and the Backend cache to `60`. | *(per-cache defaults)* |
-| `METRICS_REQUIRE_ADMIN` | If `true`, `GET /metrics` requires the same admin Bearer token as `/api/v1/admin/*`. Default: the Prometheus exposition is unauthenticated (aggregates only — no payloads, no per-OID labels). | `false` |
-| `STRICT_OID_ACCESS` | Opt-in hardening: a user configured in `SCOREBOARD_USERS` without an explicit `control` field is denied access to every OID rather than allowed everywhere. | `false` |
 | `APP_DEFAULT_LOGO` | URL of the fallback team logo used when a team has none configured. | *(flaticon volleyball icon)* |
 | `DEFAULT_TEAM_LOGO` | Logo path baked into a blank in-process overlay state (used by the built-in overlay server when an overlay is created). | `/static/images/default_volleyball.svg` |
 | `SET_SUMMARY_DEFAULT_STYLE` | Default style of the between-sets summary panel. | `brand_ledger` |
 | `OVERLAY_LOCALE` | Fallback locale for overlay rendering when neither the `?lang=` query parameter nor a persisted overlay locale is present. | *(browser/`en`)* |
-| `UNO_OVERLAY_ID` | Internal instance identifier sent to overlays.uno. Rarely needs changing. | *(fixed UUID)* |
 | `APP_RELOAD` | Development only: if `true`, runs uvicorn with auto-reload. | `false` |
-| `UNO_OVERLAY_OUTPUT` | Custom output URL override for the overlay display link. | |
 | `WEBHOOKS_URL` | *(Optional)* Single outbound webhook endpoint. POSTed JSON `{event, oid, ts, state, details}` on `set_end`, `match_end`, `timeout`, `serve_change`. | |
 | `WEBHOOKS_SECRET` | *(Optional)* Shared secret for HMAC-SHA256 signing of single-URL webhook bodies. Sent as `X-Webhook-Signature: sha256=<hex>`. | |
 | `WEBHOOKS_EVENTS` | *(Optional)* CSV subset of events the single-URL webhook should receive. | *(all events)* |
 | `WEBHOOKS_TIMEOUT_S` | *(Optional)* Per-target POST timeout in seconds. | `5` |
 | `WEBHOOKS_JSON` | *(Optional)* JSON list of webhook targets, e.g. `[{"url":"…","secret":"…","events":["set_end"],"timeout_s":5}]`. Takes precedence over `WEBHOOKS_URL`. | |
 | `WEBHOOKS_ALLOW_PRIVATE_IPS` | If `true`, allows webhook targets whose host resolves to private / loopback / link-local IPs. Default: `false` — such targets are rejected with a logged warning to block accidental SSRF (`http://localhost/admin`, cloud metadata at `169.254.169.254`, etc.). Trusted-LAN deployments that need to call internal receivers opt in here. | `false` |
-| `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable without a token (matches the `/overlay/{output_key}` model). When unset, the route requires `OVERLAY_MANAGER_PASSWORD` via Bearer header or `?token=`. Returns 503 if neither is configured. | `false` |
-| `MATCH_REPORT_PUBLIC_DELETE` | If `true`, `DELETE /matches/{id}` no longer requires the admin token — the per-row Delete button on `/matches/index.html` becomes usable without sharing `OVERLAY_MANAGER_PASSWORD`. Independent from `MATCH_REPORT_PUBLIC`: granting public read does *not* grant public delete. | `false` |
+| `MATCH_REPORT_PUBLIC` | If `true`, `/match/{id}/report` is reachable by anyone, with no cookie or signed URL required. When unset, the report is reachable only by its owner's session cookie or an owner-minted signed share URL. | `false` |
+
+Rarely-needed knobs (auth rate limiting, security response headers, audit-log
+rotation, WebSocket hub limits, webhook retries, preset caps, idle game-session
+eviction via `SESSION_TTL_SECONDS` — not to be confused with
+`SESSION_TTL_HOURS`, the login-cookie lifetime) are documented in the
+**Advanced tuning** section of [`.env.example`](.env.example).
 
 <br>
 
-### JSON Configuration Examples
+### Accounts, Teams and Presets
 
-#### `APP_TEAMS`
-List of predefined teams.
+Teams and presets are stored in the database, not in environment variables:
+
+*   **Teams** — A global catalog (curated and activated by admins) plus each
+    user's own team list. Users work with `/api/v1/teams`, `/teams/catalog`,
+    `/teams/mine`, and admin-published `/team-groups` (with
+    `/team-groups/{id}/copy-to-mine`). Admins manage the catalog under
+    `/api/v1/admin/teams…` and `/admin/team-groups…`.
+*   **Presets** — A user's own customization presets follow them across all
+    of their scoreboards; admins can additionally activate global presets that
+    every user sees. Users work with `/api/v1/customization/presets`
+    (`GET`/`POST`/`DELETE {slug}`); admins manage globals under
+    `/api/v1/admin/presets…`.
+*   **Migration import/export** — Admins can bulk-import and export teams and
+    presets as JSON. The team payload follows the legacy `APP_TEAMS` shape and
+    the preset payload follows the legacy `APP_THEMES` shape; these formats
+    now live only as the admin import/export JSON contract, not as runtime
+    environment variables.
+*   **Icon library** — Team logo images can be hosted by the app itself
+    instead of pointing at external URLs. Admins manage global icons on
+    `/admin/teams`; every user has a personal library on `/teams`
+    (`ICONS_MAX_PER_USER`, 50 by default). Uploads are resized to fit
+    `ICONS_MAX_DIM` (512 px) and re-encoded to WebP server-side. The team
+    editors' *Logo* field offers a **Library** picker next to the plain URL
+    input, and both teams pages include an **Import team logos** tool that
+    downloads existing external logo URLs into the library and repoints the
+    teams. API: `/api/v1/icons…` (personal) and `/api/v1/admin/icons…`
+    (global).
+
+#### Data directory and backups
+
+The database holds accounts, teams, presets and icon *metadata* — but the
+`data/` directory is part of the application state too: icon images live in
+`data/media/icons/` (served from the public `/media` mount), and per-overlay
+state, action logs and secrets (`.session_secret`) are files under `data/`.
+
+*   **Default (SQLite)** — the database itself is `data/app.db`, so backing
+    up the `data/` directory (the `overlay_data` volume in the Docker
+    setups) captures everything in one place.
+*   **PostgreSQL** — a `pg_dump` alone does **not** include icon images or
+    the rest of `data/`; back up both the database and the `data/`
+    directory. Restoring only the database leaves teams pointing at missing
+    icon files (the UI falls back to the team initial; re-upload or re-run
+    the logo import to heal).
+
+#### Team import/export JSON (`APP_TEAMS` shape)
 ```json
 {
     "Local": {
@@ -266,34 +337,7 @@ List of predefined teams.
 }
 ```
 
-#### `SCOREBOARD_USERS`
-List of allowed users. Passwords double as API Bearer tokens.
-```json
-{
-    "user1": {"password": "password1"},
-    "user2": {
-        "password": "password2",
-        "control": "CONTROLTOKEN"
-    }
-}
-```
-
-#### `PREDEFINED_OVERLAYS`
-List of predefined overlay configurations.
-```json
-{
-    "Overlay for user 1": {
-        "control": "CONTROLTOKEN",
-        "allowed_users": ["user1"]
-    },
-    "Overlay for all users": {
-        "control": "CONTROLTOKEN"
-    }
-}
-```
-
-#### `APP_THEMES`
-List of themes.
+#### Preset import/export JSON (`APP_THEMES` shape)
 ```json
 {
     "Change position and show logos theme": {
@@ -308,110 +352,48 @@ List of themes.
 }
 ```
 
-### Custom Overlay Manager Page
+### Overlay serving
 
-Navigate to **`/manage`** (e.g. `http://localhost:8080/manage`) to open the
-custom overlay manager. It is independent from the scoreboard UI: it has
-its own URL and its own password prompt.
-
-From this page you can:
-
-*   **Create** a new custom overlay by name — use that name directly as the
-    OID in the control UI (the legacy `C-<name>` prefix is still accepted
-    for existing overlays). The built-in overlay engine persists state to
-    `data/overlay_state_<name>.json`.
-*   **Clone** an existing custom overlay into a new one — the clone inherits
-    the source's colors, layout, preferred style and current state.
-*   **Delete** custom overlays no longer needed.
-
-You no longer need to call the `/create/overlay`, `/list/overlay` or
-`/delete/overlay` endpoints by hand for day-to-day management.
-
-Predefined overlay catalogues (for populating the scoreboard UI's overlay
-picker) are still configured exclusively through the `PREDEFINED_OVERLAYS`
-environment variable or the remote configurator (`REMOTE_CONFIG_URL`).
-
-#### Enabling the page
-
-Set the `OVERLAY_MANAGER_PASSWORD` environment variable to any non-empty
-value. When the variable is unset or empty, the page shows a "management
-disabled" notice and every admin endpoint returns HTTP 503.
-
-```env
-OVERLAY_MANAGER_PASSWORD=change-me
-```
-
-> **Security note**: `OVERLAY_MANAGER_PASSWORD` is a single shared password.
-> Treat it the same way you treat `SCOREBOARD_USERS` — do not expose the
-> service directly to the public internet without additional protection.
-
-### Overlay server token (`OVERLAY_SERVER_TOKEN`)
-
-When the built-in overlay server is mounted (i.e. the `overlay_templates/`
-directory is present), its mutation and config endpoints are gated behind
-a Bearer token. Every request to the following routes must include
-`Authorization: Bearer <token>`:
-
-- `POST /api/state/{id}`
-- `GET` / `POST /create/overlay/{id}`
-- `GET` / `POST` / `DELETE /delete/overlay/{id}`
-- `GET` / `POST /api/raw_config/{id}`
-- `GET /api/config/{id}`
-- `POST /api/theme/{id}/{name}`
-
-The token is **auto-generated and persisted to `data/.overlay_server_token`
-on first start**. Subsequent restarts reuse the same value, so an external
-`CustomOverlayBackend` peer pointed at this app via
-`APP_CUSTOM_OVERLAY_URL` only needs to be configured once: read the value
-from the persisted file or set `OVERLAY_SERVER_TOKEN` explicitly on both
-sides.
-
-To opt back into the legacy unauthenticated behaviour (e.g. for a
-trusted-LAN install or local debugging), set
-`OVERLAY_SERVER_TOKEN_DISABLED=true`. A `CRITICAL` startup warning is
-logged whenever this opt-out is active so the choice is visible in the
-startup tail.
-
-The OBS capability URLs (`/overlay/{output_key}` and `/ws/{output_key}`) are
-intentionally **not** gated by this token — they are the public-by-design
-entry points that OBS loads.
+Overlays are served in-process. The OBS capability URLs
+(`/overlay/{public_token}`, `/follow/{public_token}`, `/ws/{public_token}`) are
+public-by-design entry points that OBS and spectators load — they're addressed
+by an unguessable per-overlay `public_token`, never the raw oid.
 
 See [AUTHENTICATION.md](AUTHENTICATION.md) for the full route inventory.
 
 ### Remote Configuration
-Import configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup. Useful for centralized management.
-*   **Example Source**: [volleyball-scoreboard-configurator](https://github.com/JacoboSanchez/volleyball-scoreboard-configurator/)
+Import non-account configuration from an external resource via `REMOTE_CONFIG_URL`. The application fetches this JSON file on startup. (Teams and presets are no longer sourced remotely — they live in the database; see *Accounts, Teams and Presets* above.)
 
 ### Available Endpoints
 
 | Endpoint | Description |
 | :--- | :--- |
-| `/` | Control UI (React SPA) |
-| `/manage` | Custom overlay manager page (password-protected via `OVERLAY_MANAGER_PASSWORD`). |
+| `/` | Account dashboard (React SPA; redirects to `/login` when unauthenticated) |
+| `/login` · `/register` · `/claim-admin` · `/admin` | SPA routes for sign-in, self-registration, first-admin claim, and the admin panel |
+| `/board?oid=X` | Scoreboard / control screen (SPA route, scoped to the signed-in user) |
 | `/api/v1/...` | REST API (see [FRONTEND_DEVELOPMENT.md](FRONTEND_DEVELOPMENT.md)) |
-| `/api/v1/app-config` | Runtime SPA bootstrap config (currently `{ title }`). Used by the control UI on load. |
+| `/api/v1/auth/...` | Account auth: `register`, `login`, `logout`, `GET context`, `change-password`, `PATCH`/`DELETE me`, `claim-admin`. |
+| `/api/v1/admin/users` | Admin user management (create with temp password, reset-to-temp, set role/active, delete) plus the registration toggle. |
+| `/api/v1/overlays` | Manage the signed-in user's overlays (list/create/delete; each carries a `public_token`). |
+| `/api/v1/app-config` | Runtime SPA bootstrap config (currently `{ title }`). Used by the SPA on load. |
 | `/api/v1/_log` | `POST` endpoint for SPA client-side error reports. Rate-limited per peer IP; unauthenticated by design. |
-| `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend) |
-| `/api/v1/admin/status` | `GET` — whether overlay management is enabled (`OVERLAY_MANAGER_PASSWORD` set). Unauthenticated. |
-| `/api/v1/admin/login` | `POST` — validate the admin Bearer token against `OVERLAY_MANAGER_PASSWORD`. |
-| `/api/v1/admin/custom-overlays` | List/create/delete custom overlays (Bearer = `OVERLAY_MANAGER_PASSWORD`). |
-| `/api/v1/session/rules?oid=X` | `POST` — update match rules (`mode` indoor/beach, `points_limit`, `points_limit_last_set`, `sets_limit`, `reset_to_defaults`). Backs the React config panel's new "Match rules" section. |
+| `/api/v1/ws?oid=X` | WebSocket for real-time state updates (frontend; cookie-authenticated). |
+| `/api/v1/session/rules?oid=X` | `POST` — update match rules (`mode` indoor/beach, `points_limit`, `points_limit_last_set`, `sets_limit`, `reset_to_defaults`). Backs the React config panel's "Match rules" section. |
 | `/api/v1/audit?oid=X[&limit=N]` | `GET` — recent records from the per-OID action audit log (default `limit=100`, max `1000`). |
-| `/api/v1/matches[?oid=X]` | `GET` — list summaries of archived matches, newest first (optional OID filter). |
-| `/api/v1/matches/{match_id}` | `GET` — full archived match snapshot (final state, customization, audit log, config). |
+| `/api/v1/matches[?oid=X]` | `GET` — list the user's archived match reports, newest first (optional OID filter). |
+| `/api/v1/matches/{match_id}` | `GET`/`DELETE` — full archived match snapshot, or delete it. |
+| `/api/v1/matches/{match_id}/sign-url` | `POST` — owner mints an HMAC-signed share URL for the printable report. |
 | `/api/v1/game/undo` | `POST` — pop the last forward `add_point`/`add_set`/`add_timeout` from the audit log and reverse it. Returns 200 with `success=false` and `message="Nothing to undo."` when the log is empty. |
-| `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Gated by `OVERLAY_MANAGER_PASSWORD` unless `MATCH_REPORT_PUBLIC=true`. Auth modes: `Authorization: Bearer <password>` header, `?exp=&sig=` signed URL minted via `POST /api/v1/admin/match/{id}/sign-url` (preferred), or legacy `?token=<password>` query (deprecated — leaks the admin password into URL access logs). Returns 503 when neither password nor public mode is configured. |
-| `/matches/index.html?oid=X` | `GET` — browseable HTML list of every archived match for the OID (date, sets, duration, link to each report). Same auth gate as `/match/{id}/report`; the `?token=` query is propagated to the per-match report links. |
-| `/matches/{match_id}` | `DELETE` — remove a single archived snapshot. Gated by `OVERLAY_MANAGER_PASSWORD` unless `MATCH_REPORT_PUBLIC_DELETE=true`. |
-| `/overlay/{id}` | Overlay HTML for OBS browser sources (built-in engine). `?style=mosaic` renders a preview grid of every selectable style. |
-| `/ws/{id}` | WebSocket for OBS browser sources (overlay state broadcast) |
-| `/api/config/{id}` | Overlay config (output URL, available styles) |
-| `/api/themes` | List preset overlay themes |
+| `/match/{match_id}/report` | `GET` — print-friendly HTML match report. Reachable by the owner's session cookie, an owner-minted signed URL, or by anyone when `MATCH_REPORT_PUBLIC=true`. |
+| `/overlay/{public_token}` | Overlay HTML for OBS browser sources (built-in engine; no cookie). `?style=mosaic` renders a preview grid of every selectable style. |
+| `/follow/{public_token}` | Public mobile-first spectator page (no cookie). |
+| `/ws/{public_token}` | WebSocket for OBS browser sources (overlay state broadcast; no cookie). |
+| `/api/themes` | List preset overlay themes (public). |
+| `/metrics` | Prometheus exposition (unauthenticated; aggregates only). |
 | `/health` | Health check endpoint. Returns `200 OK` with a timestamp. |
 
-For a full audit of every route and its authentication requirements
-(including the overlay server endpoints consumed by OBS and
-`CustomOverlayBackend`), see [AUTHENTICATION.md](AUTHENTICATION.md).
+For a full audit of every route and its authentication requirements, see
+[AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
 
@@ -419,11 +401,11 @@ For a full audit of every route and its authentication requirements
 
 | Issue | Solution |
 | :--- | :--- |
-| App won't start | Verify `UNO_OVERLAY_OID` is set correctly. Check logs for errors. |
-| Overlay not updating | Ensure the overlay control token is valid. Try calling `POST /api/v1/session/init` again. |
+| App won't start | Check logs for errors (Alembic runs migrations on startup). Ensure the `data/` directory is writable. |
+| Overlay not updating | Ensure the overlay exists and try calling `POST /api/v1/session/init` again. |
 | Docker container crashes | Check logs with `docker-compose logs app`. Ensure all environment variables in `.env` are properly formatted (especially JSON values). |
-| "Outdated overlay version" error | Your overlay was created before March 2025. Create a new overlay from the [overlays.uno library](https://overlays.uno/library/437-Volleyball-Scorebug---Standard). |
-| Custom overlay not receiving updates | Confirm the overlay exists (create it from `/manage` if needed). Use the bare overlay id as the OID (`mybroadcast`, not `C-mybroadcast`, unless you created it under the legacy prefix). For built-in overlays, check that `overlay_templates/` exists. For external overlays, verify `APP_CUSTOM_OVERLAY_URL` is reachable. See [Custom Overlay docs](CUSTOM_OVERLAY.md). |
+| Can't sign in on first run | No administrator exists yet. Check the startup log / `docker logs` for the one-time bootstrap token (logged at `WARNING`), then claim the first admin at `/claim-admin`. The token is also persisted to `data/.admin_bootstrap_token`. |
+| Overlay not receiving updates | Confirm the overlay exists (create it from your account dashboard if needed) and that OBS is pointed at its `public_token` URL (`/overlay/{public_token}`). Check that `overlay_templates/` exists. |
 
 ---
 
@@ -438,8 +420,6 @@ Contributions are welcome! Here's how to get started:
 3.  **Follow existing patterns** — see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture and conventions.
 4.  **Submit a Pull Request** against the `dev` branch with a clear description of your changes.
 
-For custom overlay development, see [CUSTOM_OVERLAY.md](CUSTOM_OVERLAY.md).
-
 ---
 
 ## License
@@ -453,6 +433,6 @@ This project is licensed under the **Apache License 2.0**. See the [LICENSE](LIC
 This software was developed as a personal project and is provided **as-is**. It was built iteratively and may lack comprehensive error handling.
 
 > [!CAUTION]
-> **Security Warning:** The authentication feature is intended only for distributing overlays among trusted users and is **not secure**. **Do not expose this application directly to the internet without additional security measures.**
+> **Security Warning:** Although the app uses per-user accounts with HttpOnly cookie sessions, it was built for trusted, small-scale use. **Do not expose this application directly to the internet without additional security measures** (HTTPS termination, `TRUSTED_HOSTS`, a strong `SESSION_SECRET`, and a locked-down registration policy).
 
 **Use at your own risk.**

@@ -10,9 +10,6 @@ class Constants:
     # The SVG string used for the application favicon
     CUSTOM_FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 24 24" height="24px" viewBox="0 0 24 24" width="24px" fill="#5f6368"><g><rect fill="none" height="24" width="24"/></g><g><g><path d="M12,2C6.48,2,2,6.48,2,12c0,5.52,4.48,10,10,10s10-4.48,10-10C22,6.48,17.52,2,12,2z M13,4.07 c3.07,0.38,5.57,2.52,6.54,5.36L13,5.65V4.07z M8,5.08c1.18-0.69,3.33-1.06,3-1.02v7.35l-3,1.73V5.08z M4.63,15.1 C4.23,14.14,4,13.1,4,12c0-2.02,0.76-3.86,2-5.27v7.58L4.63,15.1z M5.64,16.83L12,13.15l3,1.73l-6.98,4.03 C7.09,18.38,6.28,17.68,5.64,16.83z M10.42,19.84 M12,20c-0.54,0-1.07-0.06-1.58-0.16l6.58-3.8l1.36,0.78 C16.9,18.75,14.6,20,12,20z M13,11.42V7.96l7,4.05c0,1.1-0.23,2.14-0.63,3.09L13,11.42z"/></g></g></svg>'
 
-    # Base URL for the overlays.uno API
-    API_BASE_URL = 'https://app.overlays.uno/apiv2/controlapps'
-
 
 def _env_float(key: str, default: float) -> float:
     raw = os.environ.get(key)
@@ -81,6 +78,12 @@ AUDIT_LOG_MAX_FILES = _env_int("AUDIT_LOG_MAX_FILES", 5)
 # ``WSHUB_MAX_CLIENTS_PER_OID``.
 WSHUB_MAX_CLIENTS_PER_OID = _env_int("WSHUB_MAX_CLIENTS_PER_OID", 200)
 
+# Same idea for the OBS browser-source hub (``/ws/<public_token>``): the
+# public token is shareable, so cap fan-out per overlay to keep a leaked
+# link from exhausting sockets or slowing every broadcast. Override with
+# ``OBS_MAX_CLIENTS_PER_OVERLAY``.
+OBS_MAX_CLIENTS_PER_OVERLAY = _env_int("OBS_MAX_CLIENTS_PER_OVERLAY", 100)
+
 # Server-side WebSocket heartbeat. ``WSHUB_HEARTBEAT_INTERVAL_SECONDS``
 # defaults to 0 (disabled) because the existing browser client does not
 # yet respond to application-level pings — enabling without first
@@ -125,14 +128,30 @@ WEBHOOK_DEAD_LETTER_MAX_RECORDS = _env_int(
 PRESETS_MAX_NAME_LEN = _env_int("PRESETS_MAX_NAME_LEN", 80)
 PRESETS_MAX_RECORDS = _env_int("PRESETS_MAX_RECORDS", 500)
 
-# ``WSControlClient`` reconnect/heartbeat tuning. ``WS_ZOMBIE_DEADLINE``
-# must stay > 2 * ``WS_HEARTBEAT_INTERVAL`` so a single dropped pong
-# does not churn the connection.
-WS_RECONNECT_BASE_SECONDS = _env_float("WS_RECONNECT_BASE_SECONDS", 1.0)
-WS_RECONNECT_MAX_SECONDS = _env_float("WS_RECONNECT_MAX_SECONDS", 30.0)
-WS_HEARTBEAT_INTERVAL_SECONDS = _env_float(
-    "WS_HEARTBEAT_INTERVAL_SECONDS", 25.0,
+# Hosted icon library. Every uploaded/imported image is re-encoded to
+# WebP after being shrunk to fit ``ICONS_MAX_DIM`` on its longest side,
+# so the stored footprint stays bounded no matter what the client
+# sends. ``MAX_UPLOAD_BYTES`` caps the *input* (reject before decode);
+# ``MAX_STORED_BYTES`` caps the re-encoded output (the encoder steps
+# quality down before giving up). ``MAX_PIXELS`` feeds Pillow's
+# decompression-bomb guard. ``MAX_PER_USER`` bounds each user's
+# personal library; global (admin) icons are uncapped.
+ICONS_MAX_DIM = _env_int("ICONS_MAX_DIM", 512)
+ICONS_MAX_UPLOAD_BYTES = _env_int("ICONS_MAX_UPLOAD_BYTES", 5 * 1024 * 1024)
+
+# Global ASGI-level request-body cap (see middleware/body_limit.py). A
+# backstop against chunked-encoding uploads that bypass Content-Length
+# checks — deliberately roomier than the largest legitimate body (icon
+# uploads plus multipart framing). Override with ``REQUEST_MAX_BODY_BYTES``.
+REQUEST_MAX_BODY_BYTES = _env_int(
+    "REQUEST_MAX_BODY_BYTES",
+    max(ICONS_MAX_UPLOAD_BYTES, 8 * 1024 * 1024) + 64 * 1024,
 )
-WS_ZOMBIE_DEADLINE_SECONDS = _env_float(
-    "WS_ZOMBIE_DEADLINE_SECONDS", 55.0,
-)
+ICONS_MAX_STORED_BYTES = _env_int("ICONS_MAX_STORED_BYTES", 512 * 1024)
+ICONS_MAX_PER_USER = _env_int("ICONS_MAX_PER_USER", 50)
+ICONS_WEBP_QUALITY = _env_int("ICONS_WEBP_QUALITY", 82)
+ICONS_MAX_PIXELS = _env_int("ICONS_MAX_PIXELS", 24_000_000)
+# Batch import of external team-logo URLs: per-download timeout and a
+# cap on how many teams one request may convert.
+ICONS_IMPORT_TIMEOUT_SECONDS = _env_float("ICONS_IMPORT_TIMEOUT_SECONDS", 10.0)
+ICONS_IMPORT_MAX_BATCH = _env_int("ICONS_IMPORT_MAX_BATCH", 100)

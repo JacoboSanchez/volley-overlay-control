@@ -14,12 +14,9 @@ from app.customization_cache_ttl import (
     BACKEND_DEFAULT_TTL_SECONDS,
     customization_cache_ttl_seconds,
 )
-from app.env_vars_manager import EnvVarsManager
 from app.overlay_backends import (
-    CustomOverlayBackend,
     LocalOverlayBackend,
     OverlayKind,
-    UnoOverlayBackend,
     resolve_overlay_kind,
 )
 from app.state import State
@@ -48,10 +45,10 @@ def _timed(label: str, logger: logging.Logger):
 
 
 class Backend:
-    """Coordinator that delegates overlay communication to the right strategy.
+    """Coordinator that forwards overlay operations to the in-process backend.
 
-    Instantiates either a ``UnoOverlayBackend`` or ``CustomOverlayBackend``
-    based on the OID prefix and forwards all overlay-specific operations.
+    Every overlay is served in-process by :class:`LocalOverlayBackend`; this
+    class keeps the same public surface the rest of the app calls.
     """
 
     logger = logging.getLogger(__name__)
@@ -114,10 +111,13 @@ class Backend:
         """Return a fresh copy of the cached customization, or None if stale."""
         return self._customization_cache.fresh()
 
-    @staticmethod
-    def _local_overlay_exists(overlay_id: str) -> bool:
+    def _local_overlay_exists(self, overlay_id: str) -> bool:
+        # Local overlay state is keyed by the per-user storage key when one
+        # is bound to the session (``conf.skey``); fall back to the raw id
+        # for bare/standalone backends (tests, legacy paths).
         from app.overlay import overlay_state_store
-        return bool(overlay_id) and overlay_state_store.overlay_exists(overlay_id)
+        key = self.conf.skey or overlay_id
+        return bool(key) and overlay_state_store.overlay_exists(key)
 
     def _oid_or_default(self, oid):
         return oid if oid is not None else self.conf.oid
@@ -126,32 +126,18 @@ class Backend:
         return resolve_overlay_kind(self._oid_or_default(oid), self._local_overlay_exists)
 
     def _create_overlay_backend(self, oid=None):
-        """Instantiate the right overlay backend for the given OID.
+        """Instantiate the in-process overlay backend.
 
-        Custom overlays use ``LocalOverlayBackend`` (in-process) by default;
-        when ``APP_CUSTOM_OVERLAY_URL`` is set, ``CustomOverlayBackend``
-        (external server) is used instead. Anything else (including OIDs
-        that fail to resolve) falls back to ``UnoOverlayBackend`` so that
-        validation can later report INVALID via the cloud REST API.
+        Every overlay is served by ``LocalOverlayBackend``; ``validate_oid``
+        later reports INVALID for an OID with no local overlay (overlays are
+        created up-front via the "My overlays" page — no auto-creation here).
         """
-        if self._resolve_kind(oid) == OverlayKind.CUSTOM:
-            external_url = EnvVarsManager.get_env_var(
-                'APP_CUSTOM_OVERLAY_URL', None
-            )
-            if external_url:
-                backend = CustomOverlayBackend(self.conf, self.session)
-            else:
-                backend = LocalOverlayBackend(self.conf)
-            backend._build_payload = self._build_overlay_payload
-            return backend
-        return UnoOverlayBackend(self.conf, self.session)
+        backend = LocalOverlayBackend(self.conf)
+        backend._build_payload = self._build_overlay_payload
+        return backend
 
     def _ensure_overlay_backend(self, oid=None):
-        """Re-create the overlay backend if the OID type changed."""
-        is_custom = self._resolve_kind(oid) == OverlayKind.CUSTOM
-        if is_custom != self._overlay.is_custom:
-            self._overlay.close_ws_client()
-            self._overlay = self._create_overlay_backend(oid)
+        """No-op: there is a single in-process backend (kept for call-site compat)."""
 
     # -- Public interface (used by GameManager, GameSession, routes, GUI) ----
 
@@ -161,19 +147,14 @@ class Backend:
     def get_custom_overlay_id(self, oid=None):
         check_oid = self._oid_or_default(oid)
         if self._resolve_kind(check_oid) == OverlayKind.CUSTOM:
-            # Both LocalOverlayBackend and CustomOverlayBackend share
-            # the same static get_overlay_id parser.
             return LocalOverlayBackend.get_overlay_id(check_oid)
         return check_oid, None
 
     # -- WebSocket lifecycle (delegated) ------------------------------------
 
     def init_ws_client(self, oid=None):
-        check_oid = self._oid_or_default(oid)
-        if self._resolve_kind(check_oid) != OverlayKind.CUSTOM:
-            return
-        self._ensure_overlay_backend(check_oid)
-        self._overlay.init_ws_client(check_oid)
+        # In-process backend has no external WS connection (no-op).
+        self._overlay.init_ws_client(self._oid_or_default(oid))
 
     def close_ws_client(self):
         self._overlay.close_ws_client()
@@ -224,7 +205,7 @@ class Backend:
                         f'Team {team} Game {i} Score', 0
                     )
                 )
-                for i in range(1, 6)
+                for i in range(1, 8)
             }
 
         current_set = int(
@@ -391,6 +372,10 @@ class Backend:
                     "ypos": cust.get_vpos(),
                     "scale": cust.get_scale(),
                     "margin": cust.get_margin(),
+                    # ``free`` keeps xpos/ypos as absolute top-left
+                    # coordinates; a zone value pins the matching
+                    # corner/edge and turns xpos/ypos into a nudge.
+                    "anchor": cust.get_anchor(),
                 },
                 "colors": {
                     "set_bg": cust.get_set_color(),
@@ -399,7 +384,9 @@ class Backend:
                     "game_text": cust.get_game_text_color(),
                 },
                 "preferredStyle": cust.get_preferred_style(),
-                "show_logos": cust.is_show_logos() not in (False, "false", "False"),
+                "show_logos": cust.is_show_logos() not in (
+                    False, "false", "False", 0, "0", None, "",
+                ),
                 "show_stats": cust.is_show_stats(),
                 "show_points_history": cust.is_show_points_history(),
             },
@@ -490,7 +477,12 @@ class Backend:
 
         try:
             from app.api.live_stats import compute_live_stats
-            stats = compute_live_stats(self.conf.oid, history_limit=30)
+            # The audit log is keyed by the per-user storage key (``skey``);
+            # ``conf.oid`` is the bare oid and would read the wrong (empty)
+            # file. Fall back to the raw id for bare/standalone backends.
+            stats = compute_live_stats(
+                self.conf.skey or self.conf.oid, history_limit=30,
+            )
             payload["overlay_control"]["stats"] = {
                 "current_streak": stats["current_streak"],
                 "longest_streak": stats["longest_streak"],

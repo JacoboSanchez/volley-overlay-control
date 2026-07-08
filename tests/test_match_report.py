@@ -9,8 +9,42 @@ from fastapi.testclient import TestClient
 
 from app.api import action_log, match_archive
 from app.match_report import match_report_router
+from app.overlay_key import is_valid_skey, make_skey
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
+
+# These legacy print-report tests predate the per-user storage keys and seed
+# matches by bare oid. Match reports are DB-backed and keyed by a real user
+# now, so a single autouse fixture transparently maps every bare oid to a
+# fixed "reporter" user's storage key (archival, listing, deletion, and the
+# audit-log writes), keeping the tests focused on report rendering / access.
+_REPORTER_UID = 0
+
+
+def _sk(oid):
+    """Map a bare oid to the reporter user's storage key (skey pass-through)."""
+    if oid is None or is_valid_skey(oid):
+        return oid
+    return make_skey(_REPORTER_UID, oid)
+
+
+@pytest.fixture(autouse=True)
+def _reporter_user(db_session, monkeypatch):
+    from app.auth import service
+
+    global _REPORTER_UID
+    user = service.create_user(db_session, username="reporter", password="password123")
+    db_session.commit()
+    _REPORTER_UID = user.id
+
+    real_archive = match_archive.archive_match
+    real_list = match_archive.list_matches
+    real_delete_for = match_archive.delete_for_oid
+    real_append = action_log.append
+    monkeypatch.setattr(match_archive, "archive_match", lambda oid, **kw: real_archive(_sk(oid), **kw))
+    monkeypatch.setattr(match_archive, "list_matches", lambda oid=None: real_list(_sk(oid)))
+    monkeypatch.setattr(match_archive, "delete_for_oid", lambda oid: real_delete_for(_sk(oid)))
+    monkeypatch.setattr(action_log, "append", lambda oid, *a, **k: real_append(_sk(oid), *a, **k))
 
 
 def _seed_realistic_audit(oid: str, base_ts: float) -> None:
@@ -65,7 +99,7 @@ def _seed_realistic_audit(oid: str, base_ts: float) -> None:
          {"current_set": 2, "team_1": {"score": 22},
           "team_2": {"score": 25}}, offset=1500)
 
-    path = _al._path(oid)
+    path = _al._path(_sk(oid))
     assert path is not None, "action_log path resolution failed in test"
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -122,16 +156,6 @@ def client(monkeypatch):
 
 
 @pytest.fixture
-def gated_client(monkeypatch):
-    """Client where access requires OVERLAY_MANAGER_PASSWORD."""
-    monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
-    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
-    app = FastAPI()
-    app.include_router(match_report_router)
-    return TestClient(app)
-
-
-@pytest.fixture
 def archived_match():
     """Seed a fully-populated archive snapshot and return its match_id."""
     action_log.append("rep-1", "add_point", {"team": 1, "undo": False},
@@ -176,8 +200,8 @@ def archived_match():
 class TestMatchReportTemplateStructure:
     """Structural guardrails for the ``str.format``-based templates.
 
-    The report module renders HTML by ``str.format``-ing two large
-    string templates (``_REPORT_TEMPLATE``, ``_INDEX_TEMPLATE``).
+    The report module renders HTML by ``str.format``-ing the
+    ``_REPORT_TEMPLATE`` string template.
     A stray single ``{`` or ``}`` in a CSS / JS block would parse
     fine when the file loads but raise ``KeyError`` (or ``IndexError``)
     the next time the report is rendered — a runtime regression
@@ -187,9 +211,7 @@ class TestMatchReportTemplateStructure:
     it once per template here as a fast structural smoke test.
     """
 
-    @pytest.mark.parametrize("name", [
-        "_REPORT_TEMPLATE", "_INDEX_TEMPLATE", "_INDEX_SCRIPT",
-    ])
+    @pytest.mark.parametrize("name", ["_REPORT_TEMPLATE"])
     def test_template_has_balanced_braces(self, name):
         import string
 
@@ -364,7 +386,7 @@ class TestMatchReport:
              "result": {"current_set": 1, "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -501,6 +523,58 @@ class TestMatchReport:
         assert 'src="http://ok.example/img.png"' in response.text
 
 
+class TestChartColorContrast:
+    """``_chart_color`` must keep every polyline readable on the chart surface.
+
+    The old luminance cap waved through light-but-not-white brand colours
+    (e.g. ``#d3d3d3``) that then sat at ~1.3:1 against the grey ``#fafafa``
+    surface — effectively invisible. The contrast-ratio model guarantees a
+    floor and preserves hue by darkening rather than discarding the colour.
+    """
+
+    @staticmethod
+    def _contrast(c1, c2):
+        from app.match_report_render import _relative_luminance
+        l1, l2 = _relative_luminance(c1), _relative_luminance(c2)
+        lo, hi = sorted((l1, l2))
+        return (hi + 0.05) / (lo + 0.05)
+
+    @pytest.mark.parametrize(
+        "brand,fg",
+        [
+            ("#ffffff", "#000000"),  # white brand, dark text
+            ("#ffffff", "#f5f5f5"),  # white brand, light text (worst case)
+            ("#e0e0e0", "#ffffff"),  # light grey brand + light text
+            ("#d3d3d3", "#ffffff"),  # lightgrey brand
+            ("#cccccc", "#eeeeee"),  # silver brand + light text
+            ("#90ee90", "#ffffff"),  # pale green
+            ("#0047ab", "#ffffff"),  # already-strong brand
+        ],
+    )
+    def test_every_resolved_colour_clears_the_contrast_floor(self, brand, fg):
+        from app.match_report_render import (
+            _CHART_SURFACE,
+            _MIN_CHART_CONTRAST,
+            _chart_color,
+        )
+        for team in (1, 2):
+            resolved = _chart_color(team, brand, fg)
+            assert self._contrast(resolved, _CHART_SURFACE) >= _MIN_CHART_CONTRAST
+
+    def test_light_coloured_brand_keeps_its_hue(self):
+        # A pale green that fails the floor is darkened (green channel stays
+        # dominant), not swapped for the generic blue/red fallback.
+        from app.match_report_render import _CHART_FALLBACK, _chart_color, _hex_to_rgb
+        resolved = _chart_color(1, "#90ee90", "#ffffff")
+        assert resolved not in _CHART_FALLBACK
+        r, g, b = _hex_to_rgb(resolved)
+        assert g > r and g > b
+
+    def test_strong_brand_colour_is_left_untouched(self):
+        from app.match_report_render import _chart_color
+        assert _chart_color(1, "#0047AB", "#ffffff") == "#0047AB"
+
+
 class TestMatchReportI18n:
     """Locale resolution from ``Accept-Language`` header."""
 
@@ -632,7 +706,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 0}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -681,7 +755,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -725,7 +799,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 2},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -765,7 +839,7 @@ class TestMatchReportRichSections:
                         "team_1": {"score": 1},
                         "team_2": {"score": 1}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -809,7 +883,7 @@ class TestMatchReportRichSections:
              "result": {"current_set": 1, "team_1": {"score": 5},
                         "team_2": {"score": 0}}},
         ]
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -1006,7 +1080,7 @@ class TestMatchReportComebacks:
                 })
                 ts += 30.0
                 prev = (s1, s2)
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -1201,7 +1275,7 @@ class TestMatchReportPregameTrim:
 
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
         from app.api import action_log as _al
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -1371,7 +1445,7 @@ class TestMatchReportTimeoutsInline:
 
     def _seed_audit(self, oid: str, records: list[dict]) -> None:
         from app.api import action_log as _al
-        path = _al._path(oid)
+        path = _al._path(_sk(oid))
         assert path is not None
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -1697,291 +1771,70 @@ class TestMatchReportEmptySets:
 
 
 class TestMatchReportAuth:
-    """Coverage for the auth gate added under MATCH_REPORT_PUBLIC=false."""
+    """Cookie-owner / signed-URL / public access for /match/{id}/report."""
 
-    def _seed_match(self, oid: str = "auth-1") -> str:
+    def _seed(self, oid="auth-1"):
         match_id = match_archive.archive_match(
             oid=oid,
             final_state={"team_1": {"sets": 3}, "team_2": {"sets": 0}},
             customization={"Team 1 Name": "Home", "Team 2 Name": "Away"},
-            winning_team=1,
-            sets_limit=3,
+            winning_team=1, sets_limit=3,
         )
         assert match_id is not None
         return match_id
 
-    def test_503_when_no_env_var_configured(self, monkeypatch):
-        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
-        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
-        app = FastAPI()
-        app.include_router(match_report_router)
-        c = TestClient(app)
-        match_id = self._seed_match("auth-503")
-        response = c.get(f"/match/{match_id}/report")
-        assert response.status_code == 503
-
-    def test_401_without_credentials(self, gated_client):
-        match_id = self._seed_match("auth-401")
-        response = gated_client.get(f"/match/{match_id}/report")
-        assert response.status_code == 401
-
-    def test_403_with_wrong_credentials(self, gated_client):
-        match_id = self._seed_match("auth-403-bearer")
-        bearer = gated_client.get(
-            f"/match/{match_id}/report",
-            headers={"Authorization": "Bearer wrong"},
-        )
-        assert bearer.status_code == 403
-        query = gated_client.get(f"/match/{match_id}/report?token=wrong")
-        assert query.status_code == 403
-
-    def test_200_with_bearer_header(self, gated_client):
-        match_id = self._seed_match("auth-bearer-ok")
-        response = gated_client.get(
-            f"/match/{match_id}/report",
-            headers={"Authorization": "Bearer s3cret"},
-        )
-        assert response.status_code == 200
-
-    def test_200_with_query_token(self, gated_client):
-        match_id = self._seed_match("auth-query-ok")
-        response = gated_client.get(
-            f"/match/{match_id}/report?token=s3cret",
-        )
-        assert response.status_code == 200
-
-    def test_public_mode_overrides_password(self, monkeypatch):
+    def test_public_mode_allows_anyone(self, monkeypatch):
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
-        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
         app = FastAPI()
         app.include_router(match_report_router)
         c = TestClient(app)
-        match_id = self._seed_match("auth-public")
-        response = c.get(f"/match/{match_id}/report")
-        assert response.status_code == 200
+        match_id = self._seed("pub")
+        assert c.get(f"/match/{match_id}/report").status_code == 200
 
-
-class TestMatchesIndex:
-    """Coverage for the new /matches/index.html browseable list."""
-
-    def _archive(self, oid: str, winner: int) -> str:
-        match_id = match_archive.archive_match(
-            oid=oid,
-            final_state={
-                "team_1": {"sets": 3 if winner == 1 else 1},
-                "team_2": {"sets": 1 if winner == 1 else 3},
-            },
-            customization={"Team 1 Name": "Home", "Team 2 Name": "Away"},
-            winning_team=winner,
-            sets_limit=5,
-        )
-        assert match_id is not None
-        return match_id
-
-    def test_index_lists_archived_matches(self, client):
-        a = self._archive("idx-1", winner=1)
-        b = self._archive("idx-1", winner=2)
-        response = client.get("/matches/index.html?oid=idx-1")
-        assert response.status_code == 200
-        assert "text/html" in response.headers["content-type"]
-        # Both match_ids should appear as links to their reports.
-        assert f"/match/{a}/report" in response.text
-        assert f"/match/{b}/report" in response.text
-        # Header shows the OID and a count of 2.
-        assert "idx-1" in response.text
-        assert "2 matches" in response.text
-
-    def test_index_filters_by_oid(self, client):
-        own = self._archive("idx-mine", winner=1)
-        self._archive("idx-other", winner=2)  # different OID
-        response = client.get("/matches/index.html?oid=idx-mine")
-        assert f"/match/{own}/report" in response.text
-        # The "other" OID's match must NOT leak in.
-        assert "idx-other" not in response.text
-
-    def test_index_empty_state(self, client):
-        response = client.get("/matches/index.html?oid=idx-empty")
-        assert response.status_code == 200
-        assert "0 match" in response.text
-        assert "No matches archived yet" in response.text
-
-    def test_index_requires_oid(self, client):
-        response = client.get("/matches/index.html")
-        assert response.status_code == 422
-
-    def test_index_503_when_no_auth_configured(self, monkeypatch):
+    def test_non_public_without_cookie_is_401(self, monkeypatch):
         monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
-        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
         app = FastAPI()
         app.include_router(match_report_router)
         c = TestClient(app)
-        response = c.get("/matches/index.html?oid=anything")
-        assert response.status_code == 503
+        match_id = self._seed("priv")
+        assert c.get(f"/match/{match_id}/report").status_code == 401
 
-    def test_index_401_without_token_when_gated(self, gated_client):
-        response = gated_client.get("/matches/index.html?oid=anything")
-        assert response.status_code == 401
-
-    def test_index_token_propagates_to_report_links(self, gated_client):
-        """When the operator opens the gated index with ``?token=…``,
-        the per-match report links should carry the same token so a
-        click-through doesn't re-prompt for credentials."""
-        match_id = self._archive("idx-token", winner=1)
-        response = gated_client.get(
-            "/matches/index.html?oid=idx-token&token=s3cret",
-        )
-        assert response.status_code == 200
-        assert f"/match/{match_id}/report?token=s3cret" in response.text
-
-    def test_index_oid_is_html_escaped(self, client):
-        # OID containing HTML metacharacters must not break the page.
-        # ``match_archive`` only accepts a strict regex so this is
-        # belt-and-braces — but the index template must still escape.
-        response = client.get("/matches/index.html?oid=%3Cscript%3E")
-        # OID failed regex → no archives → empty page rendered cleanly.
-        assert response.status_code == 200
-        assert "<script>" not in response.text
-
-    def test_index_renders_delete_affordances(self, client):
-        match_id = self._archive("idx-del", winner=1)
-        response = client.get("/matches/index.html?oid=idx-del")
-        # Toolbar + per-row delete + select-all checkbox + script wired up.
-        assert 'id="delete-selected"' in response.text
-        assert 'id="select-all"' in response.text
-        assert 'class="row-delete"' in response.text
-        assert f'data-match-id="{match_id}"' in response.text
-        assert "/matches/' + encodeURIComponent" in response.text
-
-
-class TestDeleteArchivedMatch:
-    """Coverage for DELETE /matches/{match_id}."""
-
-    def _archive(self, oid: str = "del-1") -> str:
-        match_id = match_archive.archive_match(
-            oid=oid, final_state={}, winning_team=1,
-        )
-        assert match_id is not None
-        return match_id
-
-    def test_delete_succeeds_with_token(self, gated_client):
-        match_id = self._archive()
-        response = gated_client.delete(f"/matches/{match_id}?token=s3cret")
-        assert response.status_code == 204
-        assert match_archive.load_match(match_id) is None
-
-    def test_delete_accepts_bearer_header(self, gated_client):
-        match_id = self._archive()
-        response = gated_client.delete(
-            f"/matches/{match_id}",
-            headers={"Authorization": "Bearer s3cret"},
-        )
-        assert response.status_code == 204
-
-    def test_delete_404_for_unknown_match(self, gated_client):
-        bogus = "match_" + "0" * 20 + "_20260101T000000_000000Z"
-        response = gated_client.delete(f"/matches/{bogus}?token=s3cret")
-        assert response.status_code == 404
-
-    def test_delete_401_without_token(self, gated_client):
-        match_id = self._archive()
-        response = gated_client.delete(f"/matches/{match_id}")
-        assert response.status_code == 401
-        # Match must NOT have been deleted.
-        assert match_archive.load_match(match_id) is not None
-
-    def test_delete_403_with_wrong_token(self, gated_client):
-        match_id = self._archive()
-        response = gated_client.delete(f"/matches/{match_id}?token=wrong")
-        assert response.status_code == 403
-        assert match_archive.load_match(match_id) is not None
-
-    def test_delete_503_when_no_admin_password(self, monkeypatch):
-        # Public mode is on, but no admin password — destructive calls
-        # must still be denied.
-        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
-        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
-        app = FastAPI()
-        app.include_router(match_report_router)
-        c = TestClient(app)
-        match_id = self._archive()
-        response = c.delete(f"/matches/{match_id}")
-        assert response.status_code == 503
-        assert match_archive.load_match(match_id) is not None
-
-    def test_delete_rejects_public_mode_without_token(self, monkeypatch):
-        # MATCH_REPORT_PUBLIC=true grants read access, but DELETE must
-        # still require the admin token.
-        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
-        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
-        app = FastAPI()
-        app.include_router(match_report_router)
-        c = TestClient(app)
-        match_id = self._archive()
-        response = c.delete(f"/matches/{match_id}")
-        assert response.status_code == 401
-        assert match_archive.load_match(match_id) is not None
-
-    def test_delete_validates_match_id_shape(self, gated_client):
-        # Path-traversal attempts get rejected at the helper level, so
-        # the route should respond 404 (not 500, not partial filesystem
-        # exception). FastAPI may also bounce malformed ids before they
-        # reach the handler — accept either.
-        response = gated_client.delete("/matches/not-a-match-id?token=s3cret")
-        assert response.status_code in (404, 422)
-
-    # ── MATCH_REPORT_PUBLIC_DELETE opt-in ──────────────────────────────
-
-    def _public_delete_client(self, monkeypatch):
-        monkeypatch.setenv("MATCH_REPORT_PUBLIC_DELETE", "true")
-        # Read access still gated — we're isolating the delete flag.
+    def test_signed_url_allows_access(self, monkeypatch):
         monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
-        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
+        monkeypatch.setenv("SESSION_SECRET", "test-signing-secret")
+        from app.match_report_signing import make_signed_query
         app = FastAPI()
         app.include_router(match_report_router)
-        return TestClient(app)
+        c = TestClient(app)
+        match_id = self._seed("signed")
+        sq = make_signed_query(match_id)
+        assert c.get(f"/match/{match_id}/report?exp={sq['exp']}&sig={sq['sig']}").status_code == 200
+        # A tampered signature is rejected.
+        assert c.get(f"/match/{match_id}/report?exp={sq['exp']}&sig=deadbeef").status_code == 401
 
-    def test_delete_public_mode_succeeds_without_token(self, monkeypatch):
-        c = self._public_delete_client(monkeypatch)
-        match_id = self._archive()
-        response = c.delete(f"/matches/{match_id}")
-        assert response.status_code == 204
-        assert match_archive.load_match(match_id) is None
-
-    def test_delete_public_mode_works_without_admin_password(self, monkeypatch):
-        # The whole point of the flag is to avoid the "I have to set
-        # OVERLAY_MANAGER_PASSWORD just to enable Delete" trap. Without
-        # the password set, the delete must still go through.
-        monkeypatch.setenv("MATCH_REPORT_PUBLIC_DELETE", "true")
+    def test_owner_cookie_allows_access(self, monkeypatch):
         monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
-        monkeypatch.delenv("OVERLAY_MANAGER_PASSWORD", raising=False)
-        app = FastAPI()
-        app.include_router(match_report_router)
-        c = TestClient(app)
-        match_id = self._archive()
-        response = c.delete(f"/matches/{match_id}")
-        assert response.status_code == 204
-        assert match_archive.load_match(match_id) is None
+        from app.bootstrap import create_app
+        c = TestClient(create_app())
+        # The autouse _reporter_user fixture created "reporter"; sign in so the
+        # cookie identifies the report's owner.
+        assert c.post(
+            "/api/v1/auth/login",
+            json={"username": "reporter", "password": "password123"},
+        ).status_code == 200
+        match_id = self._seed("owned")
+        assert c.get(f"/match/{match_id}/report").status_code == 200
 
-    def test_delete_public_mode_still_404s_for_unknown(self, monkeypatch):
-        c = self._public_delete_client(monkeypatch)
-        bogus = "match_" + "0" * 20 + "_20260101T000000_000000Z"
-        response = c.delete(f"/matches/{bogus}")
-        assert response.status_code == 404
-
-    def test_public_read_alone_does_not_unlock_delete(self, monkeypatch):
-        # MATCH_REPORT_PUBLIC=true (read) without
-        # MATCH_REPORT_PUBLIC_DELETE must NOT enable destructive calls
-        # — this independence is the safety property of the two flags.
-        monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
-        monkeypatch.delenv("MATCH_REPORT_PUBLIC_DELETE", raising=False)
-        monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "s3cret")
-        app = FastAPI()
-        app.include_router(match_report_router)
-        c = TestClient(app)
-        match_id = self._archive()
-        response = c.delete(f"/matches/{match_id}")
-        assert response.status_code == 401
-        assert match_archive.load_match(match_id) is not None
+    def test_non_owner_cookie_is_401(self, db_session, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        from app.auth import service
+        from app.bootstrap import create_app
+        service.create_user(db_session, username="intruder", password="password123")
+        db_session.commit()
+        c = TestClient(create_app())
+        c.post("/api/v1/auth/login", json={"username": "intruder", "password": "password123"})
+        match_id = self._seed("owned-by-reporter")
+        assert c.get(f"/match/{match_id}/report").status_code == 401
 
 
 class TestPointTypeBreakdown:

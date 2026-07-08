@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
 import * as api from '../../api/client';
 import { useAsyncAction } from '../../hooks/useAsyncAction';
+import { InstantHint } from './fields';
 
 export interface MatchRulesSectionProps {
   oid: string;
@@ -31,9 +32,16 @@ const MODE_PRESETS: Record<
 > = {
   indoor: { points_limit: 25, points_limit_last_set: 15, sets_limit: 5 },
   beach: { points_limit: 21, points_limit_last_set: 15, sets_limit: 3 },
+  table_tennis: { points_limit: 11, points_limit_last_set: 11, sets_limit: 5 },
 };
 
-const SETS_OPTIONS = [1, 3, 5];
+const SETS_OPTIONS = [1, 3, 5, 7];
+
+const MODE_ICONS: Record<api.MatchMode, string> = {
+  indoor: 'sports_volleyball',
+  beach: 'beach_access',
+  table_tennis: 'sports_tennis',
+};
 
 export default function MatchRulesSection({
   oid,
@@ -47,6 +55,7 @@ export default function MatchRulesSection({
   const { t } = useI18n();
   const [pointsDraft, setPointsDraft] = useState<number | null>(pointsLimit);
   const [pointsLastDraft, setPointsLastDraft] = useState<number | null>(pointsLimitLastSet);
+  const [pointsError, setPointsError] = useState<string | null>(null);
 
   useEffect(() => {
     setPointsDraft(pointsLimit);
@@ -78,7 +87,13 @@ export default function MatchRulesSection({
   }
 
   function handlePointsCommit(field: 'points_limit' | 'points_limit_last_set', value: number) {
-    if (Number.isNaN(value) || value <= 0) return;
+    if (Number.isNaN(value) || value <= 0) {
+      // Tell the operator why nothing changed instead of silently
+      // reverting on the next state refresh.
+      setPointsError(t('rules.invalidPoints'));
+      return;
+    }
+    setPointsError(null);
     if (field === 'points_limit' && value === pointsLimit) return;
     if (field === 'points_limit_last_set' && value === pointsLimitLastSet) return;
     void call({ [field]: value });
@@ -107,6 +122,7 @@ export default function MatchRulesSection({
 
   return (
     <div className="config-section-rules">
+      <InstantHint />
       <label className="config-label">{t('rules.mode')}</label>
       <div
         className="config-mode-toggle"
@@ -114,7 +130,7 @@ export default function MatchRulesSection({
         aria-label={t('rules.mode')}
         data-testid="rules-mode-toggle"
       >
-        {(['indoor', 'beach'] as const).map((m) => (
+        {(['indoor', 'beach', 'table_tennis'] as const).map((m) => (
           <button
             key={m}
             type="button"
@@ -125,9 +141,7 @@ export default function MatchRulesSection({
             disabled={pending}
             data-testid={`rules-mode-${m}`}
           >
-            <span className="material-icons">
-              {m === 'indoor' ? 'sports_volleyball' : 'beach_access'}
-            </span>
+            <span className="material-icons">{MODE_ICONS[m]}</span>
             {t(`rules.mode.${m}`)}
           </button>
         ))}
@@ -195,14 +209,24 @@ export default function MatchRulesSection({
               min={1}
               max={99}
               value={pointsLastDraft ?? ''}
-              onChange={(e) => setPointsLastDraft(parseInt(e.target.value, 10))}
+              onChange={(e) => {
+                setPointsError(null);
+                const val = parseInt(e.target.value, 10);
+                // Clearing the field yields NaN — store null so the controlled
+                // input renders '' instead of tripping React's NaN warning.
+                setPointsLastDraft(Number.isNaN(val) ? null : val);
+              }}
               onBlur={() => {
                 if (
-                  pointsLastDraft !== null &&
-                  !Number.isNaN(pointsLastDraft) &&
-                  pointsLastDraft > 0 &&
-                  (pointsLastDraft !== pointsLimitLastSet || pointsLastDraft !== pointsLimit)
+                  pointsLastDraft === null ||
+                  Number.isNaN(pointsLastDraft) ||
+                  pointsLastDraft <= 0
                 ) {
+                  setPointsError(t('rules.invalidPoints'));
+                  return;
+                }
+                setPointsError(null);
+                if (pointsLastDraft !== pointsLimitLastSet || pointsLastDraft !== pointsLimit) {
                   void call({
                     points_limit: pointsLastDraft,
                     points_limit_last_set: pointsLastDraft,
@@ -227,7 +251,11 @@ export default function MatchRulesSection({
               min={1}
               max={99}
               value={pointsDraft ?? ''}
-              onChange={(e) => setPointsDraft(parseInt(e.target.value, 10))}
+              onChange={(e) => {
+                setPointsError(null);
+                const val = parseInt(e.target.value, 10);
+                setPointsDraft(Number.isNaN(val) ? null : val);
+              }}
               onBlur={() => pointsDraft !== null && handlePointsCommit('points_limit', pointsDraft)}
               disabled={pending}
               data-testid="rules-points-input"
@@ -244,7 +272,13 @@ export default function MatchRulesSection({
               min={1}
               max={99}
               value={pointsLastDraft ?? ''}
-              onChange={(e) => setPointsLastDraft(parseInt(e.target.value, 10))}
+              onChange={(e) => {
+                setPointsError(null);
+                const val = parseInt(e.target.value, 10);
+                // Clearing the field yields NaN — store null so the controlled
+                // input renders '' instead of tripping React's NaN warning.
+                setPointsLastDraft(Number.isNaN(val) ? null : val);
+              }}
               onBlur={() =>
                 pointsLastDraft !== null &&
                 handlePointsCommit('points_limit_last_set', pointsLastDraft)
@@ -254,6 +288,12 @@ export default function MatchRulesSection({
             />
           </div>
         </div>
+      )}
+
+      {pointsError && (
+        <p className="config-hint config-field-error" role="alert" data-testid="rules-points-error">
+          {pointsError}
+        </p>
       )}
 
       <button

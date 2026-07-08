@@ -13,35 +13,29 @@ as read-only ``source="system"`` records, so the React picker can show
 both sources in a single list. System presets cannot be deleted.
 """
 
-import json
 import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.api import presets_store
-from app.api.dependencies import get_session, verify_api_key
+from app import presets_service
+from app.api.dependencies import get_session
 from app.api.game_service import GameService
-from app.api.preset_categories import categories_for_keys, filter_to_known
 from app.api.schemas import ActionResponse
 from app.api.session_manager import GameSession
-from app.env_vars_manager import EnvVarsManager
+from app.auth.dependencies import require_admin, require_user
+from app.db.engine import get_db
+from app.db.models.preset import Preset
+from app.db.models.user import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# Tracks the raw ``APP_THEMES`` value we last logged a parse failure
-# for. ``_system_presets`` runs on every preset-list request, so a
-# malformed env var would otherwise spam the warning every poll. We
-# only emit the warning when the value changes (so an operator who
-# fixes the JSON, or swaps in a new mistake, still gets feedback).
-_last_logged_malformed_app_themes: str | None = None
-
-
-@router.get("/customization", dependencies=[Depends(verify_api_key)])
+@router.get("/customization")
 async def get_customization(session: GameSession = Depends(get_session)):
     return await run_in_threadpool(GameService.refresh_customization, session)
 
@@ -49,7 +43,6 @@ async def get_customization(session: GameSession = Depends(get_session)):
 @router.put(
     "/customization",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def update_customization(data: dict,
                                session: GameSession = Depends(get_session)):
@@ -66,23 +59,23 @@ async def update_customization(data: dict,
 class PresetSummary(BaseModel):
     slug: str
     name: str
-    created_at: float
-    source: Literal["user", "system"] = Field(
+    source: Literal["user", "global"] = Field(
         "user",
-        description="``user`` for operator-saved records on disk; "
-        "``system`` for read-only entries derived from ``APP_THEMES``. "
-        "System presets cannot be deleted.",
+        description="``user`` for the caller's own presets; ``global`` for "
+        "admin-authored, admin-activated presets shared with everyone. "
+        "Only the owner may delete a ``user`` preset; globals are admin-only.",
     )
-    categories: list[str] = Field(
-        description="Category ids covered by the preset's values "
-        "(``team1_name``, ``team1_color``, ``team2_name``, "
-        "``team2_color``, ``position``, ``style``).",
-    )
-    values: dict[str, Any] = Field(
-        description="Flat ``ALLOWED_CUSTOMIZATION_KEYS`` patch the "
-        "React panel deep-merges into its edit model. Unknown keys "
-        "from older records are filtered out at read time.",
-    )
+    is_active: bool = True
+    categories: list[str] = Field(default_factory=list)
+    values: dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def of(cls, p: Preset) -> "PresetSummary":
+        source: Literal["user", "global"] = "global" if p.scope == "global" else "user"
+        return cls(
+            slug=p.slug, name=p.name, source=source, is_active=p.is_active,
+            categories=list(p.categories or []), values=dict(p.values or {}),
+        )
 
 
 class PresetListResponse(BaseModel):
@@ -93,141 +86,164 @@ class PresetCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     values: dict[str, Any] = Field(
         ...,
-        description="Subset of the operator's flat customization model "
-        "to capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are "
-        "dropped server-side; an empty result is rejected with 400.",
+        description="Subset of the caller's flat customization model to "
+        "capture. Keys outside ``ALLOWED_CUSTOMIZATION_KEYS`` are dropped; "
+        "an empty result is rejected with 400.",
     )
 
 
-def _summarize(record: dict) -> PresetSummary:
-    meta = record.get("_meta") or {}
-    return PresetSummary(
-        slug=str(meta.get("slug") or ""),
-        name=str(meta.get("name") or meta.get("slug") or ""),
-        created_at=float(meta.get("created_at") or 0.0),
-        source="user",
-        categories=list(record.get("categories") or []),
-        values=dict(record.get("values") or {}),
-    )
+class AdminPresetCreateRequest(PresetCreateRequest):
+    is_active: bool = True
 
 
-def _system_presets() -> list[PresetSummary]:
-    """Map ``APP_THEMES`` to read-only ``PresetSummary`` records.
+class ImportThemesRequest(BaseModel):
+    themes: dict[str, dict[str, Any]]
+    replace: bool = False
 
-    Reads the env var directly (rather than via ``Customization.THEMES``)
-    so test reloads of ``app.customization`` cannot leave us holding a
-    stale class reference. Malformed JSON logs a warning at most once
-    per distinct value (see ``_last_logged_malformed_app_themes``);
-    theme names that yield an empty slug or have no allow-listed
-    values are skipped silently. ``slugify`` is called with
-    ``check_reserved=False`` because the loader prepends the reserved
-    prefix unconditionally, so a theme literally named "System Dark"
-    addresses as ``system-system-dark`` instead of being dropped.
-    """
-    global _last_logged_malformed_app_themes
-    raw_json = EnvVarsManager.get_env_var("APP_THEMES", None)
-    if not raw_json:
-        return []
-    try:
-        themes = json.loads(raw_json)
-    except json.JSONDecodeError:
-        if _last_logged_malformed_app_themes != raw_json:
-            logger.warning("Malformed APP_THEMES env var; ignoring value")
-            _last_logged_malformed_app_themes = raw_json
-        return []
-    if not isinstance(themes, dict):
-        return []
-    items: list[PresetSummary] = []
-    for name, raw in themes.items():
-        if not isinstance(raw, dict):
-            continue
-        cleaned = filter_to_known(raw)
-        if not cleaned:
-            continue
-        try:
-            base_slug = presets_store.slugify(str(name), check_reserved=False)
-        except ValueError:
-            continue
-        items.append(
-            PresetSummary(
-                slug=f"{presets_store.SYSTEM_SLUG_PREFIX}{base_slug}",
-                name=str(name),
-                created_at=0.0,
-                source="system",
-                categories=categories_for_keys(cleaned.keys()),
-                values=cleaned,
-            ),
-        )
-    items.sort(key=lambda p: p.name.lower())
-    return items
+
+class SetActiveRequest(BaseModel):
+    is_active: bool
 
 
 @router.get(
     "/customization/presets",
     response_model=PresetListResponse,
-    dependencies=[Depends(verify_api_key)],
-    summary="List operator-saved and system presets.",
+    summary="List active global presets plus the caller's own.",
 )
-async def list_presets() -> PresetListResponse:
-    """Return every preset, ordered system-first then by name.
-
-    System entries are derived from ``APP_THEMES`` at request time and
-    are not persisted; user entries come from disk. Both share the same
-    ``PresetSummary`` shape so the React picker can render them in a
-    single list.
-    """
-    records = await run_in_threadpool(presets_store.list_all)
-    user_items = [_summarize(r) for r in records]
-    user_items.sort(key=lambda p: p.name.lower())
-    system_items = await run_in_threadpool(_system_presets)
-    return PresetListResponse(items=system_items + user_items)
+def list_presets(
+    user: User = Depends(require_user), db: Session = Depends(get_db),
+) -> PresetListResponse:
+    items = [PresetSummary.of(p) for p in presets_service.list_for_user(db, user.id)]
+    return PresetListResponse(items=items)
 
 
 @router.post(
     "/customization/presets",
     response_model=PresetSummary,
-    dependencies=[Depends(verify_api_key)],
-    summary="Save the current configuration (or a subset) as a named preset.",
+    summary="Save a subset of the current configuration as a personal preset.",
 )
-async def create_preset(payload: PresetCreateRequest) -> PresetSummary:
-    """Persist *payload.values* under a slugified version of *name*.
-
-    The React panel sends the values directly — it already has the
-    operator's flat customization in memory, so the server doesn't
-    need to round-trip through ``GameService.refresh_customization``.
-    """
+def create_preset(
+    payload: PresetCreateRequest,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+) -> PresetSummary:
+    """Create a per-user preset (usable across all the caller's scoreboards)."""
     try:
-        record = await run_in_threadpool(
-            presets_store.create, payload.name, payload.values,
+        preset = presets_service.create_user_preset(
+            db, user.id, payload.name, payload.values,
         )
-    except presets_store.PresetExists as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Preset '{exc!s}' already exists.",
-        ) from None
-    except presets_store.PresetCatalogueFull as exc:
-        raise HTTPException(status_code=507, detail=str(exc)) from None
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from None
-    return _summarize(record)
+    except presets_service.PresetError as exc:
+        detail = str(exc)
+        status_code = 409 if "already exists" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from None
+    db.commit()
+    return PresetSummary.of(preset)
 
 
 @router.delete(
     "/customization/presets/{slug}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(verify_api_key)],
-    summary="Delete an operator-saved preset.",
+    summary="Delete one of the caller's own presets.",
 )
-async def delete_preset(
+def delete_preset(
     slug: str = Path(..., min_length=1, max_length=120),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
 ) -> None:
-    if slug.startswith(presets_store.SYSTEM_SLUG_PREFIX):
+    # Try the caller's own preset first: a user preset and a global preset may
+    # legitimately share a slug, so the 403 global guard must not shadow the
+    # user's own deletable row. delete_user_preset is scope-restricted to the
+    # owner's user-scoped rows, so it can never touch a global.
+    if presets_service.delete_user_preset(db, user.id, slug):
+        db.commit()
+        return
+    if presets_service.get_global_preset(db, slug) is not None:
         raise HTTPException(
-            status_code=403,
-            detail="System presets cannot be deleted.",
+            status_code=403, detail="Global presets are managed by an administrator.",
         )
-    removed = await run_in_threadpool(presets_store.delete, slug)
-    if not removed:
-        raise HTTPException(
-            status_code=404, detail=f"Preset '{slug}' not found.",
+    raise HTTPException(status_code=404, detail=f"Preset '{slug}' not found.")
+
+
+# ---- admin global-preset authoring ----------------------------------------
+
+
+@router.get(
+    "/admin/presets", response_model=PresetListResponse,
+    summary="List all global presets (active and inactive) for management.",
+)
+def admin_list_presets(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db),
+) -> PresetListResponse:
+    items = [PresetSummary.of(p) for p in presets_service.list_global_presets(db)]
+    return PresetListResponse(items=items)
+
+
+@router.post(
+    "/admin/presets", response_model=PresetSummary, status_code=201,
+    summary="Author a global preset.",
+)
+def admin_create_preset(
+    payload: AdminPresetCreateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PresetSummary:
+    try:
+        preset = presets_service.create_global_preset(
+            db, payload.name, payload.values, is_active=payload.is_active,
         )
+    except presets_service.PresetError as exc:
+        detail = str(exc)
+        status_code = 409 if "already exists" in detail else 400
+        raise HTTPException(status_code=status_code, detail=detail) from None
+    db.commit()
+    return PresetSummary.of(preset)
+
+
+@router.patch("/admin/presets/{slug}", summary="Activate/deactivate a global preset.")
+def admin_set_preset_active(
+    body: SetActiveRequest,
+    slug: str = Path(..., min_length=1, max_length=120),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        preset = presets_service.set_global_active(db, slug, body.is_active)
+    except presets_service.PresetError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    db.commit()
+    return {"slug": preset.slug, "is_active": preset.is_active}
+
+
+@router.delete(
+    "/admin/presets/{slug}", status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a global preset.",
+)
+def admin_delete_preset(
+    slug: str = Path(..., min_length=1, max_length=120),
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> None:
+    if not presets_service.delete_global_preset(db, slug):
+        raise HTTPException(status_code=404, detail=f"Global preset '{slug}' not found.")
+    db.commit()
+
+
+@router.get("/admin/presets/export", summary="Export global presets as APP_THEMES JSON.")
+def admin_export_presets(
+    _admin: User = Depends(require_admin), db: Session = Depends(get_db),
+):
+    return presets_service.export_app_themes(db)
+
+
+@router.post("/admin/presets/import", summary="Import an APP_THEMES JSON map.")
+def admin_import_presets(
+    body: ImportThemesRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        count = presets_service.import_app_themes(db, body.themes, replace=body.replace)
+    except presets_service.PresetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    db.commit()
+    return {"imported": count}

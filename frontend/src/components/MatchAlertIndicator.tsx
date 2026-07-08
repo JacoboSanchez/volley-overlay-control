@@ -16,6 +16,13 @@ export interface MatchAlertIndicatorProps {
    * Defaults to landscape — the icon still encodes the team correctly.
    */
   isPortrait?: boolean;
+  /**
+   * Display-side swap: when ``true`` team 1 sits on the right and team 2
+   * on the left. The marker points at the team's *physical* side, so it
+   * has to flip with the swap — otherwise a set/match-point arrow points
+   * away from the team that can actually win it.
+   */
+  sidesSwapped?: boolean;
 }
 
 export type AlertKind = 'finished' | 'match-point' | 'set-point';
@@ -25,12 +32,13 @@ export interface AlertSpec {
   team?: 1 | 2;
 }
 
-// Per-team triangle that points toward the team's panel: left/up for
-// team 1 (top-left of the layout), right/down for team 2 — picking
-// the orientation that matches the current viewport.
-const TEAM_TRIANGLE = {
-  1: { portrait: 'arrow_drop_up', landscape: 'arrow_left' },
-  2: { portrait: 'arrow_drop_down', landscape: 'arrow_right' },
+// Triangle that points toward a *physical* side of the layout: up/left
+// for the left side, down/right for the right — picking the orientation
+// that matches the current viewport. Keyed by side (not team) so it
+// follows a side swap.
+const SIDE_TRIANGLE = {
+  left: { portrait: 'arrow_drop_up', landscape: 'arrow_left' },
+  right: { portrait: 'arrow_drop_down', landscape: 'arrow_right' },
 } as const;
 
 /**
@@ -58,6 +66,7 @@ export function pickAlert(state: GameState | null | undefined): AlertSpec | null
 export default function MatchAlertIndicator({
   state,
   isPortrait = false,
+  sidesSwapped = false,
 }: MatchAlertIndicatorProps) {
   const { t } = useI18n();
   if (!state) return null;
@@ -72,18 +81,21 @@ export default function MatchAlertIndicator({
         : 'alerts.setPoint';
   const label = t(labelKey);
 
+  // Which physical side the alert's team currently sits on. Team 1 is on
+  // the left by default; a side swap puts it on the right. Match-finished
+  // has no team, so it pins to the left like every other "lead" pill.
+  const onLeft = alert.team ? (alert.team === 1) !== sidesSwapped : true;
+
   // For team-bearing alerts (set / match point) the icon is a filled
-  // triangle pointing toward the team that can win. Match-finished
-  // has no team, so it keeps the trophy.
+  // triangle pointing toward the side the team can win on. Match-finished
+  // keeps the trophy.
   const icon = alert.team
-    ? TEAM_TRIANGLE[alert.team][isPortrait ? 'portrait' : 'landscape']
+    ? SIDE_TRIANGLE[onLeft ? 'left' : 'right'][isPortrait ? 'portrait' : 'landscape']
     : 'emoji_events';
 
-  // The icon also sits on the side closest to the team — left for
-  // team 1, right for team 2 — so the triangle's tip and its
-  // position both reinforce the team identity. Match-finished pins
-  // to the left like every other "lead" pill.
-  const iconLeft = alert.team !== 2;
+  // The icon sits on the same physical side it points to, so the
+  // triangle's tip and its position both reinforce where the team is.
+  const iconLeft = onLeft;
   const iconEl = <span className="material-icons">{icon}</span>;
 
   // Screen readers can't see the icon's position, so spell the team out

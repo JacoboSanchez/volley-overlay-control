@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.game_service import GameService
 from app.api.schemas import (
     ActionResponse,
@@ -20,7 +20,6 @@ router = APIRouter()
 @router.post(
     "/game/add-point",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def add_point(req: AddPointRequest,
                     session: GameSession = Depends(get_session)):
@@ -34,7 +33,6 @@ async def add_point(req: AddPointRequest,
 @router.post(
     "/game/add-set",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def add_set(req: TeamActionRequest,
                   session: GameSession = Depends(get_session)):
@@ -45,7 +43,6 @@ async def add_set(req: TeamActionRequest,
 @router.post(
     "/game/add-timeout",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def add_timeout(req: TeamActionRequest,
                       session: GameSession = Depends(get_session)):
@@ -56,7 +53,6 @@ async def add_timeout(req: TeamActionRequest,
 @router.post(
     "/game/change-serve",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def change_serve(req: ServeRequest,
                        session: GameSession = Depends(get_session)):
@@ -67,7 +63,6 @@ async def change_serve(req: ServeRequest,
 @router.post(
     "/game/set-score",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_score(req: SetScoreRequest,
                     session: GameSession = Depends(get_session)):
@@ -78,7 +73,6 @@ async def set_score(req: SetScoreRequest,
 @router.post(
     "/game/set-sets",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def set_sets(req: SetSetsRequest,
                    session: GameSession = Depends(get_session)):
@@ -89,7 +83,6 @@ async def set_sets(req: SetSetsRequest,
 @router.post(
     "/game/reset",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
 )
 async def reset_game(session: GameSession = Depends(get_session)):
     async with session.lock:
@@ -99,7 +92,6 @@ async def reset_game(session: GameSession = Depends(get_session)):
 @router.post(
     "/game/start-match",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
     summary="Arm the match-start timer without scoring a point",
 )
 async def start_match(session: GameSession = Depends(get_session)):
@@ -115,7 +107,6 @@ async def start_match(session: GameSession = Depends(get_session)):
 @router.post(
     "/game/undo",
     response_model=ActionResponse,
-    dependencies=[Depends(verify_api_key)],
     summary="Reverse the most recent undoable action",
 )
 async def undo_last(session: GameSession = Depends(get_session)):

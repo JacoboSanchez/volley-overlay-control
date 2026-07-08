@@ -1,13 +1,20 @@
-// Headless screenshot capture for the project README.
+// Headless screenshot capture for the project README (multi-user app).
 //
 // Assumes a dev/staging instance of volley-overlay-control is running at
 // SCREENSHOT_BASE_URL (default http://localhost:8181) with:
-//   - OVERLAY_MANAGER_PASSWORD set to SCREENSHOT_ADMIN_PASSWORD (default "demo")
+//   - a FRESH database (no admin yet) and ADMIN_BOOTSTRAP_TOKEN set, so this
+//     script can claim the first admin and obtain a session cookie
+//   - SESSION_COOKIE_SECURE=false (the harness runs over http)
+//   - MATCH_REPORT_PUBLIC=true (so the report shot needs no credential)
 //   - the built frontend mounted at /
-//   - the bundled overlay engine available at /overlay/{id}
 //
-// The companion run.sh boots an isolated backend with these settings and
-// pre-creates the demo overlay used here.
+// The companion run.sh boots an isolated backend with these settings.
+//
+// Auth model: the app is cookie-session + role based (no Bearer admin
+// password anymore). We claim/login once for a `vsession` cookie, send it on
+// every REST seeding call, AND inject it into the Playwright browser context
+// so the authenticated SPA pages render. OBS output pages are addressed by the
+// per-overlay `public_token`, not the raw oid.
 
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
@@ -20,8 +27,18 @@ const REPO_ROOT = resolve(__dirname, '..', '..');
 const OUT_DIR = resolve(REPO_ROOT, 'docs', 'screenshots');
 
 const BASE = process.env.SCREENSHOT_BASE_URL || 'http://localhost:8181';
-const ADMIN_PW = process.env.SCREENSHOT_ADMIN_PASSWORD || 'demo';
+const ADMIN_USER = process.env.SCREENSHOT_ADMIN_USER || 'demo';
+// Must satisfy the app's MIN_PASSWORD_LENGTH (8).
+const ADMIN_PW = process.env.SCREENSHOT_ADMIN_PASSWORD || 'demo-password';
+const BOOTSTRAP_TOKEN = process.env.ADMIN_BOOTSTRAP_TOKEN || '';
 const DEMO_OID = process.env.SCREENSHOT_DEMO_OID || 'centercourt';
+const REPORT_OID = 'practice-hall';
+
+// The session cookie ("vsession=<token>") captured at bootstrap and replayed
+// on every REST call + injected into the browser context.
+let SESSION_COOKIE = null;
+// public_token per overlay, filled by createOverlay() and used for OBS URLs.
+const PUBLIC_TOKEN = {};
 
 // Invented match data — deliberately not the operator's real teams.
 //
@@ -31,9 +48,7 @@ const DEMO_OID = process.env.SCREENSHOT_DEMO_OID || 'centercourt';
 // be served as http URLs. We anchor them at the backend's own origin
 // so the control UI's strict CSP (`img-src 'self' data: https:`) treats
 // them as same-origin; Playwright's route handler intercepts the
-// request and returns the inline SVG, so no actual network call is
-// made and no real /screenshot-logos/* path needs to exist on the
-// backend.
+// request and returns the inline SVG, so no actual network call is made.
 const LOGO_HOST = `${BASE}/screenshot-logos`;
 const TEAM_1 = {
   name: 'Thunder Wolves',
@@ -58,339 +73,285 @@ const TEAM_2 = {
     '</svg>',
 };
 
+// ---------------------------------------------------------------------------
+// Cookie-aware REST helpers
+// ---------------------------------------------------------------------------
+
+function cookieHeaders(extra = {}) {
+  return {
+    'Content-Type': 'application/json',
+    ...(SESSION_COOKIE ? { Cookie: SESSION_COOKIE } : {}),
+    ...extra,
+  };
+}
+
+async function apiFetch(path, { method = 'GET', body } = {}) {
+  return fetch(`${BASE}${path}`, {
+    method,
+    headers: cookieHeaders(),
+    body: body == null ? undefined : JSON.stringify(body),
+  });
+}
+
+function oidPost(path, oid, body) {
+  return apiFetch(`${path}?oid=${encodeURIComponent(oid)}`, { method: 'POST', body });
+}
+
+function extractSessionCookie(res) {
+  const jar = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : [res.headers.get('set-cookie')].filter(Boolean);
+  const vs = jar
+    .map((c) => (c || '').split(';')[0])
+    .find((c) => c.startsWith('vsession='));
+  return vs || null;
+}
+
+async function bootstrapAdmin() {
+  // Fresh DB: claim the first admin with the known bootstrap token. If the DB
+  // already has an admin (re-run against a warm instance), fall back to login.
+  let res = await fetch(`${BASE}/api/v1/auth/claim-admin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: BOOTSTRAP_TOKEN, username: ADMIN_USER, password: ADMIN_PW }),
+  });
+  if (res.status === 410) {
+    // Already claimed (warm re-run) → log in instead.
+    res = await fetch(`${BASE}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: ADMIN_USER, password: ADMIN_PW }),
+    });
+    if (!res.ok) {
+      throw new Error(`admin login failed: ${res.status} ${await res.text()}`);
+    }
+  } else if (!res.ok) {
+    throw new Error(`admin claim failed: ${res.status} ${await res.text()}`);
+  }
+  SESSION_COOKIE = extractSessionCookie(res);
+  if (!SESSION_COOKIE) {
+    throw new Error('no vsession cookie returned from claim-admin/login');
+  }
+}
+
+async function seedDemoUsers() {
+  // Extra accounts so the admin "global configuration" page shows a
+  // representative roster rather than the lone bootstrap admin. Explicit
+  // passwords keep the table clean (no "must change password" pills).
+  const roster = [
+    { username: 'coach-martinez', role: 'user' },
+    { username: 'scorekeeper', role: 'user' },
+    { username: 'club-admin', role: 'admin' },
+  ];
+  for (const u of roster) {
+    const res = await apiFetch('/api/v1/admin/users', {
+      method: 'POST',
+      body: { username: u.username, password: ADMIN_PW, role: u.role },
+    });
+    // 400 → username already exists on a warm re-run; keep the run idempotent.
+    if (!res.ok && res.status !== 400) {
+      throw new Error(`seed user ${u.username} failed: ${res.status} ${await res.text()}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Icon library seeding (shot 13)
+// ---------------------------------------------------------------------------
+
+// Roundel PNGs in the same visual language as the TW/SH logos above. Drawn
+// with a browser canvas (the harness has no server-side image library) and
+// uploaded through the real multipart endpoints, so the shot exercises the
+// actual resize→WebP pipeline rather than mocked data.
+// More than FILTER_THRESHOLD (8) icons in total, so the shot also shows the
+// picker's search filter and its internal scroll area.
+const ICON_SEEDS = {
+  global: [
+    { name: 'Thunder Wolves', initials: 'TW', bg: '#1e3a8a', fg: '#ffffff' },
+    { name: 'Solar Hawks', initials: 'SH', bg: '#f59e0b', fg: '#1f2937' },
+    { name: 'Ridge Foxes', initials: 'RF', bg: '#166534', fg: '#ffffff' },
+    { name: 'Bay Orcas', initials: 'BO', bg: '#0e7490', fg: '#ffffff' },
+    { name: 'Iron Bears', initials: 'IB', bg: '#44403c', fg: '#fbbf24' },
+    { name: 'Coast Sharks', initials: 'CS', bg: '#075985', fg: '#e0f2fe' },
+    { name: 'Pine Owls', initials: 'PO', bg: '#3f6212', fg: '#ecfccb' },
+  ],
+  personal: [
+    { name: 'City Volley', initials: 'CV', bg: '#7c3aed', fg: '#ffffff' },
+    { name: 'Beach Ants', initials: 'BA', bg: '#b91c1c', fg: '#ffffff' },
+  ],
+};
+
+async function makeLogoPng(page, { initials, bg, fg }) {
+  const dataUrl = await page.evaluate(({ initials, bg, fg }) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.arc(64, 64, 58, 0, Math.PI * 2);
+    ctx.fillStyle = bg;
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = fg;
+    ctx.stroke();
+    ctx.fillStyle = fg;
+    ctx.font = '900 44px "Arial Black", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, 64, 66);
+    return canvas.toDataURL('image/png');
+  }, { initials, bg, fg });
+  return Buffer.from(dataUrl.split(',')[1], 'base64');
+}
+
+async function uploadIcon(path, name, png) {
+  const form = new FormData();
+  form.set('name', name);
+  form.set('file', new Blob([png], { type: 'image/png' }), `${name}.png`);
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: SESSION_COOKIE ? { Cookie: SESSION_COOKIE } : {},
+    body: form,
+  });
+  // 400 → duplicate name on a warm re-run; keep the run idempotent.
+  if (!res.ok && res.status !== 400) {
+    throw new Error(`icon upload ${name}: ${res.status} ${await res.text()}`);
+  }
+}
+
+async function seedIconLibrary(page) {
+  // Needs the launched browser (canvas), so this runs after launch — unlike
+  // the REST-only seeds above.
+  for (const seed of ICON_SEEDS.global) {
+    await uploadIcon('/api/v1/admin/icons', seed.name, await makeLogoPng(page, seed));
+  }
+  for (const seed of ICON_SEEDS.personal) {
+    await uploadIcon('/api/v1/icons/mine', seed.name, await makeLogoPng(page, seed));
+  }
+}
+
+async function seedExternalLogoTeams() {
+  // Custom teams whose logos still point at an external CDN — exactly what
+  // the batch "Import team logos" dialog (shot 14) lists as eligible. The
+  // URLs are never fetched for the shot (the dialog screenshots before any
+  // import runs), so an invented host is fine and nothing leaves the box.
+  const teams = [
+    { name: 'Delta Spikers', icon: 'https://cdn.example.net/logos/delta-spikers.png', color: '#0f766e' },
+    { name: 'Metro Blockers', icon: 'https://cdn.example.net/logos/metro-blockers.png', color: '#9d174d' },
+    { name: 'Valley Setters', icon: 'https://cdn.example.net/logos/valley-setters.png', color: '#a16207' },
+  ];
+  for (const team of teams) {
+    const res = await apiFetch('/api/v1/teams/mine/custom', { method: 'POST', body: team });
+    // 400 → duplicate on a warm re-run; keep the run idempotent.
+    if (!res.ok && res.status !== 400) {
+      throw new Error(`seed team ${team.name} failed: ${res.status} ${await res.text()}`);
+    }
+  }
+}
+
+async function createOverlay(oid) {
+  const res = await apiFetch('/api/v1/overlays', { method: 'POST', body: { oid } });
+  if (res.status === 201) {
+    PUBLIC_TOKEN[oid] = (await res.json()).public_token;
+    return;
+  }
+  // Already exists (warm re-run) → read its public_token from the list.
+  const list = await (await apiFetch('/api/v1/overlays')).json();
+  const found = Array.isArray(list) ? list.find((o) => o.oid === oid) : null;
+  if (found) {
+    PUBLIC_TOKEN[oid] = found.public_token;
+    return;
+  }
+  throw new Error(`could not create/find overlay ${oid}: ${res.status} ${await res.text()}`);
+}
+
+async function initSession(oid) {
+  const res = await apiFetch('/api/v1/session/init', { method: 'POST', body: { oid } });
+  if (!res.ok) {
+    throw new Error(`session/init for ${oid} failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+async function putCustomization(oid, customization) {
+  const res = await apiFetch(
+    `/api/v1/customization?oid=${encodeURIComponent(oid)}`,
+    { method: 'PUT', body: customization },
+  );
+  if (!res.ok) {
+    throw new Error(`customization for ${oid} failed: ${res.status} ${await res.text()}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Playwright helpers + viewports
+// ---------------------------------------------------------------------------
+
 async function installLogoRouter(context) {
   // Intercept every request to the synthetic logo host and return the
-  // matching SVG inline. Both the React control UI and the overlay
-  // browser pages live in this context, so a single handler covers both.
+  // matching SVG inline. Both the React control UI and the overlay browser
+  // pages live in this context, so a single handler covers both.
   await context.route(`${LOGO_HOST}/**`, (route) => {
     const url = route.request().url();
     if (url.endsWith('team-thunder-wolves.svg')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'image/svg+xml',
-        body: TEAM_1.logoSvg,
-      });
+      return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: TEAM_1.logoSvg });
     }
     if (url.endsWith('team-solar-hawks.svg')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'image/svg+xml',
-        body: TEAM_2.logoSvg,
-      });
+      return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: TEAM_2.logoSvg });
     }
     return route.fulfill({ status: 404, body: '' });
   });
 }
 
-// Mobile-landscape is the primary capture viewport because the
-// scoring operator's main use case is a phone held sideways during a
-// match. 844×390 is the rotation of PHONE_VIEWPORT below (iPhone-class
-// dimensions). The exception is /manage, which is browser-first
-// (operators rarely admin from a phone) — it uses MANAGE_VIEWPORT, a
-// scaled-down desktop layout.
+// Mobile-landscape is the primary capture viewport because the scoring
+// operator's main use case is a phone held sideways during a match.
 const MOBILE_LANDSCAPE_VIEWPORT = { width: 844, height: 390 };
 const PHONE_VIEWPORT = { width: 390, height: 844 };
-const MANAGE_VIEWPORT = { width: 1024, height: 700 };
-// /match/{id}/report is a print-friendly HTML page with a 960px max
-// content width — operators read it on a desktop or share it as PDF,
-// so it gets a desktop-sized viewport with enough vertical room to
-// fit the hero, set-by-set table and the top of the timeline in one
-// frame.
+// The account pages (login, overlays, admin) are browser-first — operators
+// manage accounts/overlays from a desktop — so they use a scaled desktop view.
+const ACCOUNT_VIEWPORT = { width: 1024, height: 700 };
 const REPORT_VIEWPORT = { width: 1024, height: 1100 };
-const REPORT_OID = 'practice-hall';
-// /follow/{id} is the public, mobile-first spectator page. It is a
-// pure WebSocket consumer with no auth, no write paths, and a
-// responsive single-column layout — header, scoreboard, set chart,
-// history, stats. We capture it at phone-portrait width but full-page
-// so the screenshot shows every section (scrolling) instead of just
-// the above-the-fold scoreboard.
 const SPECTATOR_VIEWPORT = { width: 414, height: 896 };
-// Set-summary overlays are stream-overlay surfaces — captured at the
-// canonical 16:9 OBS browser-source size so the cqw/cqh container
-// queries resolve to their full-stage values, matching what an
-// operator pipes to OBS.
 const OVERLAY_HD_VIEWPORT = { width: 1280, height: 720 };
 
-async function ensureDemoOverlay() {
-  const adminHeaders = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${ADMIN_PW}`,
-  };
+// ---------------------------------------------------------------------------
+// Seeding (drive realistic match state via the cookie-authenticated API)
+// ---------------------------------------------------------------------------
 
-  // Create (idempotent — ignore "already exists" 409s).
-  const createRes = await fetch(`${BASE}/api/v1/admin/custom-overlays`, {
-    method: 'POST',
-    headers: adminHeaders,
-    body: JSON.stringify({ name: DEMO_OID }),
-  });
-  if (!createRes.ok && createRes.status !== 409) {
-    const txt = await createRes.text();
-    throw new Error(`Could not create overlay ${DEMO_OID}: ${createRes.status} ${txt}`);
-  }
+const CUSTOMIZATION = {
+  'Team 1 Text Name': TEAM_1.name,
+  'Team 2 Text Name': TEAM_2.name,
+  // ``Team N Name`` is what app.match_report looks up; ``Team N Text Name``
+  // drives the React scoreboard. Both point to the same label here.
+  'Team 1 Name': TEAM_1.name,
+  'Team 2 Name': TEAM_2.name,
+  'Team 1 Color': TEAM_1.color,
+  'Team 2 Color': TEAM_2.color,
+  'Team 1 Text Color': TEAM_1.textColor,
+  'Team 2 Text Color': TEAM_2.textColor,
+  'Team 1 Logo': TEAM_1.logo,
+  'Team 2 Logo': TEAM_2.logo,
+  Logos: 'true',
+};
 
-  // Make sure a second overlay exists too, so the manager-page list isn't a
-  // single row.
-  const second = `practice-hall`;
-  const secondRes = await fetch(`${BASE}/api/v1/admin/custom-overlays`, {
-    method: 'POST',
-    headers: adminHeaders,
-    body: JSON.stringify({ name: second }),
-  });
-  if (!secondRes.ok && secondRes.status !== 409) {
-    const txt = await secondRes.text();
-    console.warn(`Could not create overlay ${second}: ${secondRes.status} ${txt}`);
-  }
-
-  // Initialise a session for the demo overlay so /api/v1/customization works.
-  const initRes = await fetch(`${BASE}/api/v1/session/init`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ oid: DEMO_OID }),
-  });
-  if (!initRes.ok) {
-    const txt = await initRes.text();
-    throw new Error(`session/init failed: ${initRes.status} ${txt}`);
-  }
-
-  // Apply invented team customization. Pin preferredStyle to "glass" so
-  // the React control UI surfaces (init / scoreboard / config / phone /
-  // manage page embedded previews) all show the same overlay treatment;
-  // the standalone overlay-output screenshots below override this with
-  // an explicit ?style= query when they need a different look.
-  const customization = {
-    'Team 1 Text Name': TEAM_1.name,
-    'Team 2 Text Name': TEAM_2.name,
-    'Team 1 Color': TEAM_1.color,
-    'Team 2 Color': TEAM_2.color,
-    'Team 1 Text Color': TEAM_1.textColor,
-    'Team 2 Text Color': TEAM_2.textColor,
-    'Team 1 Logo': TEAM_1.logo,
-    'Team 2 Logo': TEAM_2.logo,
-    Logos: 'true',
-    preferredStyle: 'glass',
-  };
-  const custRes = await fetch(
-    `${BASE}/api/v1/customization?oid=${encodeURIComponent(DEMO_OID)}`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(customization),
-    },
-  );
-  if (!custRes.ok) {
-    const txt = await custRes.text();
-    throw new Error(`customization PUT failed: ${custRes.status} ${txt}`);
-  }
-
-  // Drive a realistic match into the state — adds 12 / 8 in set 1 and a
-  // serve to team A so the rendered scoreboard isn't all zeroes.
+async function seedDemoOverlay() {
+  await createOverlay(DEMO_OID);
+  await initSession(DEMO_OID);
+  await putCustomization(DEMO_OID, { ...CUSTOMIZATION, preferredStyle: 'glass' });
   await driveMatchState();
 }
 
-async function ensureFinishedMatchForReport() {
-  // Drive ``REPORT_OID`` (the second overlay already created above) to
-  // a complete 4-set match so its archive is available at
-  // ``/match/{match_id}/report``. Uses ``set_score`` to fast-forward
-  // the loser's count in each set and ``add_point`` for the
-  // set-winning point — that way the audit log has a real point-by-
-  // point transition the report timeline can render, instead of just
-  // four bulk score-overrides.
-  const initRes = await fetch(`${BASE}/api/v1/session/init`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ oid: REPORT_OID }),
-  });
-  if (!initRes.ok) {
-    const txt = await initRes.text();
-    throw new Error(`session/init for ${REPORT_OID} failed: ${initRes.status} ${txt}`);
-  }
-
-  // Same invented teams so the report shares the visual identity of
-  // the scoreboard shots. Note ``Team N Text Name`` drives the React
-  // scoreboard while ``Team N Name`` is what ``app.match_report``
-  // looks up — both keys point to the same string here so either
-  // surface picks the right label.
-  const customization = {
-    'Team 1 Text Name': TEAM_1.name,
-    'Team 2 Text Name': TEAM_2.name,
-    'Team 1 Name': TEAM_1.name,
-    'Team 2 Name': TEAM_2.name,
-    'Team 1 Color': TEAM_1.color,
-    'Team 2 Color': TEAM_2.color,
-    'Team 1 Text Color': TEAM_1.textColor,
-    'Team 2 Text Color': TEAM_2.textColor,
-    'Team 1 Logo': TEAM_1.logo,
-    'Team 2 Logo': TEAM_2.logo,
-    Logos: 'true',
-  };
-  const custRes = await fetch(
-    `${BASE}/api/v1/customization?oid=${encodeURIComponent(REPORT_OID)}`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(customization),
-    },
-  );
-  if (!custRes.ok) {
-    const txt = await custRes.text();
-    throw new Error(`customization for ${REPORT_OID} failed: ${custRes.status} ${txt}`);
-  }
-
-  const post = (path, body) =>
-    fetch(`${BASE}${path}?oid=${encodeURIComponent(REPORT_OID)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body == null ? undefined : JSON.stringify(body),
-    });
-
-  // Arm the live timer first so the archive carries a non-zero match
-  // duration and the report renders a meaningful "Duration: …" cell.
-  await post('/api/v1/game/start-match', null);
-
-  // Drive a set with the eventual winner pre-set first so the
-  // "biggest comeback" highlight is computed against realistic
-  // running scores instead of an artificial ``(0, loserEnd)``
-  // transient. Set the winner to ``loserEnd`` (tied), then bring
-  // the loser up to ``loserEnd``, optionally fire some in-set
-  // ``add_timeout`` calls (they must land BEFORE the closing
-  // add_point because the set-winning point advances
-  // ``current_set`` and any timeout after that would be recorded
-  // against the next set), then drive the winning team's remaining
-  // points via ``add_point`` so the audit log carries real
-  // point-by-point transitions.
-  async function closeSet(setNum, winner, winnerEnd, loserEnd, timeouts = {}) {
-    const loser = winner === 1 ? 2 : 1;
-    await post('/api/v1/game/set-score', {
-      team: winner, set_number: setNum, value: loserEnd,
-    });
-    await post('/api/v1/game/set-score', {
-      team: loser, set_number: setNum, value: loserEnd,
-    });
-    for (let i = 0; i < (timeouts[1] || 0); i++) {
-      await post('/api/v1/game/add-timeout', { team: 1 });
-    }
-    for (let i = 0; i < (timeouts[2] || 0); i++) {
-      await post('/api/v1/game/add-timeout', { team: 2 });
-    }
-    for (let i = 0; i < winnerEnd - loserEnd; i++) {
-      await post('/api/v1/game/add-point', { team: winner });
-    }
-  }
-
-  // TW wins 3-1 in four sets. Sets 1-3 use the boring closeSet helper
-  // (tight back-and-forth, no notable deficit). Set 4 is driven
-  // explicitly so the "biggest comeback" highlight has a real story
-  // to tell: SH jumps to 0-5, TW catches up and closes 25-22.
-  //
-  // The 700-ms gaps between sets give the audit log a non-zero
-  // wall-clock spread so the report's "Duration" cell and the
-  // score-evolution charts' time axis aren't compressed to 0m 00s.
-  const setBreak = () => new Promise((r) => setTimeout(r, 700));
-
-  // Set 1 — TW 25-23 with both teams calling 1 timeout each.
-  //   set-by-set cells: TW "25 (1)"  /  SH "23 (1)".
-  await closeSet(1, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/23,
-                 /*timeouts=*/{ 1: 1, 2: 1 });
-  await setBreak();
-
-  // Set 2 — SH 25-21. SH burns both timeouts while consolidating the
-  // lead. TW had no timeouts.
-  //   set-by-set cells: TW "21"  /  SH "25 (2)".
-  await closeSet(2, /*winner=*/2, /*winnerEnd=*/25, /*loserEnd=*/21,
-                 /*timeouts=*/{ 2: 2 });
-  await setBreak();
-
-  // Set 3 — TW 25-19, dominant. No timeouts called.
-  await closeSet(3, /*winner=*/1, /*winnerEnd=*/25, /*loserEnd=*/19);
-  await setBreak();
-
-  // Set 4 — TW comes back from 0-5 to win 25-22.
-  // ``set_score`` jumps SH to 5 first; the next 5 add_points pull TW
-  // even at 5-5. From there we tied-fast-forward to 22-22 and TW
-  // closes the match with three more add_points. The eventual
-  // winner (TW) faces a real 5-point deficit during the early phase,
-  // which is what the "biggest comeback" stat is meant to highlight.
-  // Both sides call one timeout mid-comeback.
-  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 5 });
-  for (let i = 0; i < 5; i++) {
-    await post('/api/v1/game/add-point', { team: 1 });
-  }
-  await post('/api/v1/game/add-timeout', { team: 1 });
-  await post('/api/v1/game/add-timeout', { team: 2 });
-  await post('/api/v1/game/set-score', { team: 1, set_number: 4, value: 22 });
-  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 22 });
-  for (let i = 0; i < 3; i++) {
-    await post('/api/v1/game/add-point', { team: 1 });
-  }
-}
-
-async function fetchLatestMatchId() {
-  // /api/v1/matches is admin-gated and returns {count, matches}.
-  const res = await fetch(
-    `${BASE}/api/v1/matches?oid=${encodeURIComponent(REPORT_OID)}`,
-    { headers: { Authorization: `Bearer ${ADMIN_PW}` } },
-  );
-  if (!res.ok) {
-    throw new Error(`Could not list matches for ${REPORT_OID}: ${res.status}`);
-  }
-  const body = await res.json();
-  const matches = Array.isArray(body) ? body : body.matches;
-  if (!Array.isArray(matches) || matches.length === 0) {
-    throw new Error(`No archived matches for ${REPORT_OID}`);
-  }
-  return matches[0].match_id;
-}
-
-async function setSimpleMode(enabled) {
-  const res = await fetch(
-    `${BASE}/api/v1/display/simple-mode?oid=${encodeURIComponent(DEMO_OID)}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    },
-  );
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`simple-mode toggle failed: ${res.status} ${txt}`);
-  }
-}
-
 async function driveMatchState() {
-  const post = (path, body) =>
-    fetch(`${BASE}${path}?oid=${encodeURIComponent(DEMO_OID)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body == null ? undefined : JSON.stringify(body),
-    });
+  // Arm match_started_at so the HUD shows the Reset button + live timer.
+  await oidPost('/api/v1/game/start-match', DEMO_OID, null);
 
-  // Arm ``match_started_at`` so the HUD shows the Reset button + live
-  // timer instead of the unarmed "Start match" call-to-action. The
-  // implicit auto-arm only fires on ``add_point`` (not ``set_score``),
-  // and we drive scores via set-score below — so the explicit start
-  // endpoint is the one that matches the operator's "press Start, then
-  // play" flow this fixture is meant to depict.
-  await post('/api/v1/game/start-match', null);
+  // Set 1 — Thunder Wolves 25, Solar Hawks 23. Always set the loser first so
+  // set-score's auto-set-win check doesn't promote the wrong team.
+  await oidPost('/api/v1/game/set-score', DEMO_OID, { team: 2, set_number: 1, value: 23 });
+  await oidPost('/api/v1/game/set-score', DEMO_OID, { team: 1, set_number: 1, value: 25 });
 
-  // Drive a realistic mid-match state: tied 1-1 going into set 3 with the
-  // current set in progress. Always set the loser's value first so
-  // set-score's auto-set-win check doesn't promote the wrong team
-  // (current_score - rival_score > 1 trips at 25-0 otherwise).
-
-  // Set 1 — Thunder Wolves 25, Solar Hawks 23. TW takes the set.
-  await post('/api/v1/game/set-score', { team: 2, set_number: 1, value: 23 });
-  await post('/api/v1/game/set-score', { team: 1, set_number: 1, value: 25 });
-
-  // Set 2 — Thunder Wolves 22, Solar Hawks 25. SH levels 1-1.
-  // Driven through real add_point events (instead of the fast
-  // set-score back-fill) so the audit log captures a rally-by-rally
-  // sequence — required for the set-summary recap screenshot to
-  // render a populated chart, per-set longest-streak / services-won
-  // values, and a non-zero set duration. The interleaved pattern
-  // mimics a real back-and-forth set with a couple of mini-streaks
-  // before SH closes it out.
+  // Set 2 — driven via real add_point events so the audit log captures a
+  // rally-by-rally sequence (required for the set-summary recap chart).
   const SET2_SEQUENCE = [
-    // T1 = Thunder Wolves, T2 = Solar Hawks. Final tally: T1=22, T2=25.
     2, 1, 2, 2, 1, 1, 2, 1, 2, 2,
     1, 1, 1, 2, 1, 2, 2, 1, 1, 2,
     1, 2, 1, 1, 2, 2, 1, 2, 1, 2,
@@ -398,148 +359,145 @@ async function driveMatchState() {
     1, 2, 1, 2, 2, 2, 2,
   ];
   for (const team of SET2_SEQUENCE) {
-    await post('/api/v1/game/add-point', { team });
+    await oidPost('/api/v1/game/add-point', DEMO_OID, { team });
   }
 
-  // Set 3 (current) — 18-24 with SH on set point. The control UI's
-  // MatchAlertIndicator surfaces a "set point" badge in the centre
-  // HUD whenever a team is one point from closing the set, so this
-  // makes the alert visible in the regenerated scoreboard shot.
-  await post('/api/v1/game/set-score', { team: 1, set_number: 3, value: 18 });
-  await post('/api/v1/game/set-score', { team: 2, set_number: 3, value: 24 });
-  await post('/api/v1/game/change-serve', { team: 2 });
+  // Set 3 (current) — 18-24 with SH on set point, so the MatchAlertIndicator
+  // shows a "set point" badge in the regenerated scoreboard shot.
+  await oidPost('/api/v1/game/set-score', DEMO_OID, { team: 1, set_number: 3, value: 18 });
+  await oidPost('/api/v1/game/set-score', DEMO_OID, { team: 2, set_number: 3, value: 24 });
+  await oidPost('/api/v1/game/change-serve', DEMO_OID, { team: 2 });
 }
+
+async function seedFinishedMatchForReport() {
+  await createOverlay(REPORT_OID);
+  await initSession(REPORT_OID);
+  await putCustomization(REPORT_OID, CUSTOMIZATION);
+
+  const post = (path, body) => oidPost(path, REPORT_OID, body);
+  await post('/api/v1/game/start-match', null);
+
+  async function closeSet(setNum, winner, winnerEnd, loserEnd, timeouts = {}) {
+    const loser = winner === 1 ? 2 : 1;
+    await post('/api/v1/game/set-score', { team: winner, set_number: setNum, value: loserEnd });
+    await post('/api/v1/game/set-score', { team: loser, set_number: setNum, value: loserEnd });
+    for (let i = 0; i < (timeouts[1] || 0); i++) await post('/api/v1/game/add-timeout', { team: 1 });
+    for (let i = 0; i < (timeouts[2] || 0); i++) await post('/api/v1/game/add-timeout', { team: 2 });
+    for (let i = 0; i < winnerEnd - loserEnd; i++) await post('/api/v1/game/add-point', { team: winner });
+  }
+
+  const setBreak = () => new Promise((r) => setTimeout(r, 700));
+
+  await closeSet(1, 1, 25, 23, { 1: 1, 2: 1 });
+  await setBreak();
+  await closeSet(2, 2, 25, 21, { 2: 2 });
+  await setBreak();
+  await closeSet(3, 1, 25, 19);
+  await setBreak();
+
+  // Set 4 — TW comes back from 0-5 to win 25-22 (the "biggest comeback" story).
+  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 5 });
+  for (let i = 0; i < 5; i++) await post('/api/v1/game/add-point', { team: 1 });
+  await post('/api/v1/game/add-timeout', { team: 1 });
+  await post('/api/v1/game/add-timeout', { team: 2 });
+  await post('/api/v1/game/set-score', { team: 1, set_number: 4, value: 22 });
+  await post('/api/v1/game/set-score', { team: 2, set_number: 4, value: 22 });
+  for (let i = 0; i < 3; i++) await post('/api/v1/game/add-point', { team: 1 });
+}
+
+async function fetchLatestMatchId() {
+  const res = await apiFetch(`/api/v1/matches?oid=${encodeURIComponent(REPORT_OID)}`);
+  if (!res.ok) throw new Error(`could not list matches for ${REPORT_OID}: ${res.status}`);
+  const body = await res.json();
+  const matches = Array.isArray(body) ? body : body.matches;
+  if (!Array.isArray(matches) || matches.length === 0) {
+    throw new Error(`no archived matches for ${REPORT_OID}`);
+  }
+  return matches[0].match_id;
+}
+
+async function setSimpleMode(enabled) {
+  const res = await oidPost('/api/v1/display/simple-mode', DEMO_OID, { enabled });
+  if (!res.ok) throw new Error(`simple-mode toggle failed: ${res.status} ${await res.text()}`);
+}
+
+// ---------------------------------------------------------------------------
+// Page captures
+// ---------------------------------------------------------------------------
 
 async function dismissPwaPrompt(page) {
-  // Hide the vite-pwa "new content available" toast if it sneaks in mid-shot.
   await page.addStyleTag({
-    content: `
-      [data-pwa-prompt], #pwa-toast, .pwa-toast { display: none !important; }
-    `,
+    content: `[data-pwa-prompt], #pwa-toast, .pwa-toast { display: none !important; }`,
   });
 }
 
-async function captureInitScreen(page) {
-  // Visit / with no oid -> InitScreen
-  // Use a fresh storage state so localStorage doesn't auto-fill an OID.
+async function captureLogin(page) {
+  // Unauthenticated front door. Clear any cookie/localStorage so PublicOnly
+  // renders the sign-in form rather than redirecting an authed session away.
   await page.context().clearCookies();
-  await page.evaluate(() => {
-    try { localStorage.clear(); } catch (_) {}
-  });
-  await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+  await page.evaluate(() => { try { localStorage.clear(); } catch (_) { /* ignore */ } });
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
   await dismissPwaPrompt(page);
-  // Wait for the overlay-id form field to appear.
   await page.waitForSelector('input', { timeout: 10000 });
+  await page.waitForTimeout(300);
   await page.screenshot({ path: resolve(OUT_DIR, '01-init-screen.png'), fullPage: false });
 }
 
+async function gotoBoard(page, oid, waitUntil = 'networkidle') {
+  await page.goto(`${BASE}/board?oid=${encodeURIComponent(oid)}`, { waitUntil });
+}
+
 async function captureScoreboard(page) {
-  await page.goto(`${BASE}/?oid=${encodeURIComponent(DEMO_OID)}`, {
-    waitUntil: 'networkidle',
-  });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+  await gotoBoard(page, DEMO_OID);
   await dismissPwaPrompt(page);
-  // Wait until the score buttons are rendered (they show e.g. "12" / "8").
-  await page.waitForFunction(
-    (oid) => document.body && document.body.textContent && document.body.textContent.includes(oid),
-    DEMO_OID,
-    { timeout: 5000 },
-  ).catch(() => {});
-  // Wait for the match-alert pill to render so the set-point indicator
-  // is in-frame. The pill is a `data-testid="match-alert-indicator"`
-  // span inside `.match-alerts-row` — present whenever any team holds
-  // set or match point. We tolerate timeout (matches without an alert
-  // — e.g. the connect-screen-only mode — should still capture).
-  await page.waitForSelector('[data-testid="match-alert-indicator"]', {
-    timeout: 3000,
-  }).catch(() => {});
+  await page.waitForSelector('[data-testid="team-1-score"]', { timeout: 8000 }).catch(() => {});
+  // The set-point alert pill renders whenever a team holds set/match point.
+  await page.waitForSelector('[data-testid="match-alert-indicator"]', { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '02-scoreboard.png'), fullPage: false });
 }
 
 async function captureScoreboardPhone(page) {
   await page.setViewportSize(PHONE_VIEWPORT);
-  // First nav establishes the SPA's localStorage origin so the
-  // ``volley_showPreview`` flag can be written, then a reload picks
-  // it up. With the preview hidden the centre column renders the
-  // points-history strip in the slot the iframe would have occupied
-  // — same toggle the operator flips via the tv/tv_off button. The
-  // strip is the more useful at-a-glance surface on a phone (no
-  // micro-iframe to squint at), so the portrait shot leads with it.
-  await page.goto(`${BASE}/?oid=${encodeURIComponent(DEMO_OID)}`, {
-    waitUntil: 'domcontentloaded',
-  });
+  await gotoBoard(page, DEMO_OID, 'domcontentloaded');
   await page.evaluate(() => {
-    try {
-      localStorage.setItem('volley_showPreview', JSON.stringify(false));
-    } catch (_) { /* ignore */ }
+    try { localStorage.setItem('volley_showPreview', JSON.stringify(false)); } catch (_) { /* ignore */ }
   });
   await page.reload({ waitUntil: 'networkidle' });
   await dismissPwaPrompt(page);
-  // The strip is populated from the audit log via a fetch, so wait
-  // until at least one chip has rendered before snapping. Fail open
-  // — the screenshot still proceeds if the selector times out.
-  await page.waitForSelector('[data-testid="points-history-strip"] .phs-chip', {
-    timeout: 5000,
-  }).catch(() => {});
+  await page.waitForSelector('[data-testid="points-history-strip"] .phs-chip', { timeout: 5000 }).catch(() => {});
   await page.waitForTimeout(800);
   await page.screenshot({ path: resolve(OUT_DIR, '03-scoreboard-phone.png'), fullPage: false });
-  // Restore the default so subsequent captures (config panel etc.)
-  // don't inherit the preview-hidden state.
   await page.evaluate(() => {
-    try {
-      localStorage.removeItem('volley_showPreview');
-    } catch (_) { /* ignore */ }
+    try { localStorage.removeItem('volley_showPreview'); } catch (_) { /* ignore */ }
   });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function capturePointTypePicker(page) {
-  // Opt-in per-point classification turns a score tap into a quick
-  // picker (ace / kill / block / opponent error / quick point) instead
-  // of scoring immediately. Seed the operator setting, reload so the
-  // SPA picks it up, then tap a team's score button to open the
-  // dialog. The tap only opens the picker — it does not mutate match
-  // state — so the scoreboard behind the modal keeps the fixture's
-  // mid-match score.
-  await page.goto(`${BASE}/?oid=${encodeURIComponent(DEMO_OID)}`, {
-    waitUntil: 'domcontentloaded',
-  });
+  await gotoBoard(page, DEMO_OID, 'domcontentloaded');
   await page.evaluate(() => {
-    try {
-      localStorage.setItem('volley_trackPointTypes', JSON.stringify(true));
-    } catch (_) { /* ignore */ }
+    try { localStorage.setItem('volley_trackPointTypes', JSON.stringify(true)); } catch (_) { /* ignore */ }
   });
   await page.reload({ waitUntil: 'networkidle' });
   await dismissPwaPrompt(page);
   await page.waitForSelector('[data-testid="team-1-score"]', { timeout: 5000 });
-  // A single tap fires onClick after the double-tap disambiguation
-  // delay; the picker's type buttons carry point-picker-* testids, so
-  // waiting on one absorbs that delay without a fixed sleep.
   await page.click('[data-testid="team-1-score"]');
   await page.waitForSelector('[data-testid="point-picker-ace"]', { timeout: 5000 });
   await page.waitForTimeout(300);
-  await page.screenshot({
-    path: resolve(OUT_DIR, '11-point-type-picker.png'),
-    fullPage: false,
-  });
-  // Dismiss the dialog and clear the opt-in so later captures (config
-  // panel, mosaic, …) run against the default fast-score flow.
+  await page.screenshot({ path: resolve(OUT_DIR, '11-point-type-picker.png'), fullPage: false });
   await page.keyboard.press('Escape').catch(() => {});
   await page.evaluate(() => {
-    try {
-      localStorage.removeItem('volley_trackPointTypes');
-    } catch (_) { /* ignore */ }
+    try { localStorage.removeItem('volley_trackPointTypes'); } catch (_) { /* ignore */ }
   });
 }
 
 async function captureConfigPanel(page) {
-  await page.goto(`${BASE}/?oid=${encodeURIComponent(DEMO_OID)}`, {
-    waitUntil: 'networkidle',
-  });
+  await gotoBoard(page, DEMO_OID);
   await dismissPwaPrompt(page);
   await page.waitForTimeout(500);
-
-  // Click the gear / config button. Selector tries a few common patterns.
   const candidates = [
     'button[aria-label*="config" i]',
     'button[title*="config" i]',
@@ -547,151 +505,152 @@ async function captureConfigPanel(page) {
     'button[aria-label*="Configuración" i]',
     'button[aria-label*="settings" i]',
   ];
-  let opened = false;
   for (const sel of candidates) {
     const el = await page.$(sel);
-    if (el) {
-      await el.click();
-      opened = true;
-      break;
-    }
-  }
-  if (!opened) {
-    // Fall back to the URL hash mode the SPA uses internally.
-    await page.evaluate(() => {
-      window.history.pushState({}, '', '#/config');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    });
+    if (el) { await el.click(); break; }
   }
   await page.waitForTimeout(800);
+  // The panel opens on Presets by default; this screenshot documents the
+  // Teams section (group picker + team cards), so navigate there first.
+  const teamsBtn = await page.$('button:has-text("Teams")');
+  if (teamsBtn) {
+    await teamsBtn.click();
+    await page.waitForTimeout(500);
+  }
   await page.screenshot({ path: resolve(OUT_DIR, '04-config-panel.png'), fullPage: false });
 }
 
-async function captureManagePage(page) {
-  // /manage is the only browser-first surface — operators don't admin
-  // overlays from a phone — so it gets a scaled-down desktop viewport
-  // instead of the mobile-landscape default used for the SPA shots.
-  await page.setViewportSize(MANAGE_VIEWPORT);
-  await page.goto(`${BASE}/manage`, { waitUntil: 'networkidle' });
-  // Fill the password and submit.
-  await page.fill('input[type="password"]', ADMIN_PW);
-  await page.click('button[type="submit"]');
-  // Wait for the overlay table to render.
-  await page.waitForSelector('table', { timeout: 5000 });
-  await page.waitForTimeout(300);
+async function captureOverlaysPage(page) {
+  // The account "Overlays" page lists the signed-in user's overlays with their
+  // copyable OBS output URLs — the multi-user replacement for the old /manage.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/overlays`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  // Wait until at least one overlay row has rendered.
+  await page.waitForFunction(
+    (oid) => document.body && (document.body.textContent || '').includes(oid),
+    DEMO_OID,
+    { timeout: 8000 },
+  ).catch(() => {});
+  // Cards are collapsed by default; expand the first one so the screenshot
+  // shows the full anatomy (output URL + control links) rather than just the
+  // collapsed header list.
+  await page.click('.acc-overlay-toggle').catch(() => {});
+  await page.waitForTimeout(400);
   await page.screenshot({ path: resolve(OUT_DIR, '05-manage-page.png'), fullPage: false });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
+async function captureAdminPage(page) {
+  // The "Administration" page is the app's global-configuration surface:
+  // the self-registration toggle plus user management (create, reset
+  // password, activate/deactivate, delete). Admin-only — the demo session is
+  // the bootstrap admin, so it renders. seedDemoUsers() populated the roster.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/admin`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  // Wait until the users table has rendered its rows (the async load resolved).
+  await page.waitForSelector('.acc-table tbody tr', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: resolve(OUT_DIR, '12-admin-page.png'), fullPage: false });
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
+async function captureIconLibrary(page) {
+  // The hosted icon library, shown where operators meet it: the /teams page
+  // with the create-team form's Library picker open — global icons, the
+  // user's own icons with the quota line, and the inline upload affordance.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/teams`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  await page.click('[data-testid="custom-logo-browse"]');
+  // Wait for the seeded icon chips (and their <img>s) to render.
+  await page.waitForSelector('.acc-icon-chip img', { timeout: 8000 });
+  await page.waitForFunction(() => {
+    const imgs = Array.from(document.querySelectorAll('.acc-icon-chip img'));
+    return imgs.length >= 9 && imgs.every((img) => img.complete && img.naturalWidth > 0);
+  }, null, { timeout: 8000 }).catch(() => {});
+  // The search filter (renders past the icon-count threshold) is part of the
+  // story — make sure it is there before shooting.
+  await page.waitForSelector('[data-testid="icon-picker-filter"]', { timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: resolve(OUT_DIR, '13-icon-library.png'), fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
+async function captureIconBatchImport(page) {
+  // The batch "Import team logos" dialog on /teams: the seeded custom teams
+  // with external CDN logo URLs are listed pre-selected, ready to convert
+  // into hosted library icons. Captured before running the import, so the
+  // shot documents the choice the operator gets.
+  await page.setViewportSize(ACCOUNT_VIEWPORT);
+  await page.goto(`${BASE}/teams`, { waitUntil: 'networkidle' });
+  await dismissPwaPrompt(page);
+  // The launcher lives in the icon-library section further down the page.
+  const launcher = page.locator('.acc-panel .acc-btn-row button', { hasText: /import/i }).last();
+  await launcher.scrollIntoViewIfNeeded();
+  await launcher.click();
+  await page.waitForSelector('.acc-icon-batch-list input[type="checkbox"]', { timeout: 8000 });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: resolve(OUT_DIR, '14-icon-batch-import.png'), fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
+}
+
 async function captureMatchReport(page, matchId) {
-  // /match/{id}/report needs the admin token — MATCH_REPORT_PUBLIC is
-  // not set in the screenshot environment, so we pass it via the
-  // ?token= query that the route accepts as an alias for the Bearer
-  // header.
+  // MATCH_REPORT_PUBLIC=true is set by run.sh, and the browser also carries the
+  // owner's session cookie — so the report renders without any ?token=.
   await page.setViewportSize(REPORT_VIEWPORT);
-  const url = `${BASE}/match/${encodeURIComponent(matchId)}/report?token=${encodeURIComponent(ADMIN_PW)}`;
-  await page.goto(url, { waitUntil: 'networkidle' });
-  // The report renders an inline SVG chart per set; wait until at
-  // least one of them is mounted so the screenshot doesn't catch the
-  // pre-chart layout shift.
+  await page.goto(`${BASE}/match/${encodeURIComponent(matchId)}/report`, { waitUntil: 'networkidle' });
   await page.waitForSelector('svg', { timeout: 5000 }).catch(() => {});
   await page.waitForTimeout(400);
-  await page.screenshot({
-    path: resolve(OUT_DIR, '08-match-report.png'),
-    fullPage: false,
-  });
+  await page.screenshot({ path: resolve(OUT_DIR, '08-match-report.png'), fullPage: false });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function captureSpectator(page) {
-  // /follow/{id} resolves either the raw OID or its output_key; we
-  // pass DEMO_OID directly to keep this aligned with the other
-  // captures. The page is a vanilla-JS scoreboard fed by /ws/{id}, so
-  // we wait for the WS connection to flip #conn-status away from
-  // "connecting…" and for the team-name slot to be populated before
-  // snapping. fullPage:true so the chart, history and per-team stats
-  // rows are all in-frame without compressing the scoreboard.
+  // /follow/{public_token} is the public, mobile-first spectator page — a
+  // vanilla-JS scoreboard fed by /ws/{public_token}, no auth.
   await page.setViewportSize(SPECTATOR_VIEWPORT);
-  await page.goto(`${BASE}/follow/${encodeURIComponent(DEMO_OID)}`, {
-    waitUntil: 'networkidle',
-  });
+  await page.goto(`${BASE}/follow/${encodeURIComponent(PUBLIC_TOKEN[DEMO_OID])}`, { waitUntil: 'networkidle' });
   await dismissPwaPrompt(page);
-  await page.waitForFunction(
-    () => {
-      const name = document.getElementById('team1-name');
-      const status = document.getElementById('conn-status');
-      return (
-        name &&
-        name.textContent &&
-        name.textContent !== 'Team 1' &&
-        status &&
-        !/connecting/i.test(status.textContent || '')
-      );
-    },
-    null,
-    { timeout: 8000 },
-  ).catch(() => {});
-  // Give the set-progression SVG one more tick to lay out its line
-  // path so the chart panel isn't captured mid-render.
+  await page.waitForFunction(() => {
+    const name = document.getElementById('team1-name');
+    const status = document.getElementById('conn-status');
+    return name && name.textContent && name.textContent !== 'Team 1'
+      && status && !/connecting/i.test(status.textContent || '');
+  }, null, { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(800);
-  await page.screenshot({
-    path: resolve(OUT_DIR, '09-spectator-page.png'),
-    fullPage: true,
-  });
+  await page.screenshot({ path: resolve(OUT_DIR, '09-spectator-page.png'), fullPage: true });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function captureSetSummary(page, filename) {
-  // Trigger the set-summary panel for the demo overlay with a finished
-  // set selected (set 2 — Solar Hawks 25-22) so the recap renders real
-  // chart points + final score chips instead of an empty live set.
-  const post = (path, body) =>
-    fetch(`${BASE}${path}?oid=${encodeURIComponent(DEMO_OID)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body == null ? undefined : JSON.stringify(body),
-    });
-  await post('/api/v1/display/set-summary-style', { style: 'brand_columns' });
-  await post('/api/v1/display/set-summary', { enabled: true });
+  await oidPost('/api/v1/display/set-summary-style', DEMO_OID, { style: 'brand_columns' });
+  await oidPost('/api/v1/display/set-summary', DEMO_OID, { enabled: true });
 
   await page.setViewportSize(OVERLAY_HD_VIEWPORT);
-  // ?lang=en pins the overlay's strings to English so the README
-  // screenshot matches the rest of the captured surfaces (which are
-  // forced to en-US via the Playwright context locale).
-  await page.goto(`${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?lang=en`, {
-    waitUntil: 'networkidle',
-  });
-  // Wait for the panel to mount + opacity fade-in to finish.
+  await page.goto(`${BASE}/overlay/${encodeURIComponent(PUBLIC_TOKEN[DEMO_OID])}?lang=en`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => {
     const panel = document.getElementById('set-summary-panel');
-    if (!panel) return false;
-    return parseFloat(getComputedStyle(panel).opacity) >= 0.99;
+    return panel && parseFloat(getComputedStyle(panel).opacity) >= 0.99;
   }, null, { timeout: 5000 }).catch(() => {});
-  // One extra frame so the chart polylines + ticker clocks have
-  // settled on their first paint.
   await page.waitForTimeout(800);
-
   await page.screenshot({ path: resolve(OUT_DIR, filename) });
 
-  // Turn the panel back off so subsequent captures (mosaic, etc.)
-  // see the scoreboard, not the recap overlay.
-  await post('/api/v1/display/set-summary', { enabled: false });
+  await oidPost('/api/v1/display/set-summary', DEMO_OID, { enabled: false });
   await page.setViewportSize(MOBILE_LANDSCAPE_VIEWPORT);
 }
 
 async function captureOverlayMosaic(page, filename, extraQuery = '') {
-  // Mosaic is a full-page grid of every selectable style; needs a wider
-  // viewport and enough vertical room to fit every cell, plus extra
-  // wait time so each iframe finishes its postMessage handshake and
-  // shrinks to its overlay-only bounds.
   const MOSAIC_VIEWPORT = { width: 1600, height: 1800 };
   await page.setViewportSize(MOSAIC_VIEWPORT);
   const extra = extraQuery ? `&${extraQuery}` : '';
-  await page.goto(`${BASE}/overlay/${encodeURIComponent(DEMO_OID)}?style=mosaic${extra}`, {
-    waitUntil: 'networkidle',
-  });
-  // Each iframe asynchronously reports its render bounds; give the grid
-  // time to lay them out before snapping.
+  await page.goto(
+    `${BASE}/overlay/${encodeURIComponent(PUBLIC_TOKEN[DEMO_OID])}?style=mosaic${extra}`,
+    { waitUntil: 'networkidle' },
+  );
   await page.waitForFunction(() => {
     const iframes = document.querySelectorAll('.mosaic-iframe-wrapper iframe');
     if (iframes.length === 0) return false;
@@ -701,8 +660,6 @@ async function captureOverlayMosaic(page, filename, extraQuery = '') {
     });
   }, null, { timeout: 15000 }).catch(() => {});
   await page.waitForTimeout(2500);
-  // Clip to the full grid (no viewport-height clamp, so we don't cut
-  // the last rows off when the grid is taller than the viewport).
   const clip = await page.evaluate(() => {
     const grid = document.getElementById('mosaic-grid');
     if (!grid) return null;
@@ -716,7 +673,6 @@ async function captureOverlayMosaic(page, filename, extraQuery = '') {
   });
   await page.screenshot({
     path: resolve(OUT_DIR, filename),
-    // fullPage: true so the clip can extend below the visible viewport.
     fullPage: true,
     ...(clip ? { clip } : {}),
   });
@@ -727,77 +683,97 @@ async function main() {
   await mkdir(OUT_DIR, { recursive: true });
   console.log(`Capturing screenshots into ${OUT_DIR}`);
 
-  await ensureDemoOverlay();
-  await ensureFinishedMatchForReport();
+  // 1. Authenticate (claim the first admin → session cookie).
+  await bootstrapAdmin();
+  // 2. Seed a small user roster so the admin global-config page is realistic.
+  await seedDemoUsers();
+  // 3. Seed demo overlays + match state via the cookie-authenticated API.
+  await seedExternalLogoTeams();
+  await seedDemoOverlay();
+  await seedFinishedMatchForReport();
   const reportMatchId = await fetchLatestMatchId();
 
-  // Allow pointing at a pre-provisioned Chromium (e.g. CI / sandboxes
-  // where the managed-browser download host is blocked). Unset → use
-  // Playwright's bundled browser exactly as before.
-  const launchOpts = { headless: true };
+  const launchOpts = {
+    headless: true,
+    // ``--no-sandbox`` so a root/container run (common in CI and managed
+    // images) doesn't abort; ``--disable-dev-shm-usage`` avoids crashes from a
+    // small /dev/shm in containers.
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  };
   if (process.env.SCREENSHOT_CHROMIUM_PATH) {
     launchOpts.executablePath = process.env.SCREENSHOT_CHROMIUM_PATH;
   }
   const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({
     viewport: MOBILE_LANDSCAPE_VIEWPORT,
-    // Render at 1× to keep PNGs lightweight for the README. The captured
-    // surfaces are documentation-resolution, not retina assets — going
-    // higher quadruples file size for no practical benefit.
     deviceScaleFactor: 1,
     colorScheme: 'dark',
-    // Force English so the React i18n provider doesn't latch onto the
-    // host's locale (which is what made the README screenshots come out
-    // half in Spanish on a Spanish workstation). The /manage page is a
-    // static HTML doc that is always English; aligning the SPA pins
-    // every captured surface to one language.
     locale: 'en-US',
   });
   await installLogoRouter(context);
-  // Pre-dismiss the first-use gesture coachmark for every SPA page in
-  // this context. The coachmark fires when authoritative state lands
-  // and ``volley_gestureTourSeen`` is unset (see ``useSettings``); it
-  // covers the scoreboard with a modal that blocks the gear button
-  // and other in-frame UI from rendering in the screenshots. Seeding
-  // the flag before any page script runs is invisible to the
-  // captures themselves (no banner, no flicker) and matches the
-  // operator's steady-state after they dismiss the tour once.
+  // Pre-dismiss the first-use gesture coachmark for every SPA page.
   await context.addInitScript(() => {
-    try {
-      localStorage.setItem('volley_gestureTourSeen', JSON.stringify(true));
-    } catch (_) { /* ignore */ }
+    try { localStorage.setItem('volley_gestureTourSeen', JSON.stringify(true)); } catch (_) { /* ignore */ }
   });
   const page = await context.newPage();
+  // Icon-library seeding needs a live page (canvas-drawn PNGs), so it runs
+  // here rather than with the REST-only seeds above.
+  await seedIconLibrary(page);
+
+  // Each shot is wrapped so one failure (a slow selector, a flaky WS handshake)
+  // is logged and the rest still capture. A non-empty `failures` list exits
+  // non-zero at the end so CI/operators notice.
+  const failures = [];
+  const step = async (name, fn) => {
+    process.stdout.write(`  • ${name} ... `);
+    try {
+      await fn();
+      console.log('ok');
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      console.log(`FAILED: ${msg}`);
+      failures.push(name);
+    }
+  };
 
   try {
-    await captureInitScreen(page);
-    await captureScoreboard(page);
-    await captureScoreboardPhone(page);
-    await capturePointTypePicker(page);
-    await captureConfigPanel(page);
-    await captureManagePage(page);
-    // Mosaic captured twice — once with the full match data, once with
-    // simple mode toggled on so the "show only current set" treatment
-    // is visible across every style.
+    // Unauthenticated shot first (clears cookies).
+    await step('01 login', () => captureLogin(page));
+    // Authenticate the browser for every shot below.
+    await context.addCookies([{
+      name: 'vsession',
+      value: SESSION_COOKIE.split('=').slice(1).join('='),
+      url: BASE,
+    }]);
+
+    await step('02 scoreboard', () => captureScoreboard(page));
+    await step('03 scoreboard-phone', () => captureScoreboardPhone(page));
+    await step('11 point-type-picker', () => capturePointTypePicker(page));
+    await step('04 config-panel', () => captureConfigPanel(page));
+    await step('05 overlays-page', () => captureOverlaysPage(page));
+    await step('13 icon-library', () => captureIconLibrary(page));
+    await step('14 icon-batch-import', () => captureIconBatchImport(page));
+    await step('12 admin-page', () => captureAdminPage(page));
+
     await setSimpleMode(false);
-    // The two mosaics double as the overlayTheme demo: full data is
-    // captured with the forced light theme, simple mode with the
-    // forced dark one, so every theme-aware style shows both
-    // variants across the pair (styles without the matching palette
-    // keep their native look).
-    await captureOverlayMosaic(page, '06-overlay-mosaic-full.png', 'theme=light');
+    await step('06 mosaic-full', () => captureOverlayMosaic(page, '06-overlay-mosaic-full.png', 'theme=light'));
     await setSimpleMode(true);
-    await captureOverlayMosaic(page, '07-overlay-mosaic-simple.png', 'theme=dark');
+    await step('07 mosaic-simple', () => captureOverlayMosaic(page, '07-overlay-mosaic-simple.png', 'theme=dark'));
     await setSimpleMode(false);
-    await captureSetSummary(page, '10-overlay-set-summary.png');
-    await captureMatchReport(page, reportMatchId);
-    await captureSpectator(page);
+    await step('10 set-summary', () => captureSetSummary(page, '10-overlay-set-summary.png'));
+    await step('08 match-report', () => captureMatchReport(page, reportMatchId));
+    await step('09 spectator', () => captureSpectator(page));
   } finally {
     await context.close();
     await browser.close();
   }
 
-  console.log('Done.');
+  if (failures.length) {
+    console.error(`Done with ${failures.length} failed shot(s): ${failures.join(', ')}`);
+    process.exitCode = 1;
+  } else {
+    console.log('Done — all shots captured.');
+  }
 }
 
 main().catch((err) => {

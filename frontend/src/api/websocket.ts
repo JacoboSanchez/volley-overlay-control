@@ -3,6 +3,7 @@
  */
 
 import type { GameState } from './client';
+import { getControlToken, getPublicUser } from './client';
 import { WS_PING_INTERVAL_MS } from '../constants';
 
 export interface StateUpdateMessage {
@@ -31,7 +32,15 @@ export function createWebSocket(
 ): WebSocket {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
-  const url = `${protocol}//${host}/api/v1/ws?oid=${encodeURIComponent(oid)}`;
+  // Stream by control token (operator), username+oid (public bookmark), or
+  // oid + session cookie (owner).
+  const token = getControlToken();
+  const user = getPublicUser();
+  let query: string;
+  if (token) query = `c=${encodeURIComponent(token)}`;
+  else if (user) query = `u=${encodeURIComponent(user)}&oid=${encodeURIComponent(oid)}`;
+  else query = `oid=${encodeURIComponent(oid)}`;
+  const url = `${protocol}//${host}/api/v1/ws?${query}`;
 
   const ws = new WebSocket(url);
   let pingInterval: ReturnType<typeof setInterval> | null = null;

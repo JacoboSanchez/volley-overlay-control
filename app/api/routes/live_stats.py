@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.dependencies import get_session, verify_api_key
+from app.api.dependencies import get_session
 from app.api.live_stats import compute_live_stats
 from app.api.session_manager import GameSession
 
@@ -11,7 +11,6 @@ router = APIRouter()
 
 @router.get(
     "/matches/live/stats",
-    dependencies=[Depends(verify_api_key)],
     summary="Live match statistics for the active session",
 )
 async def get_live_stats(

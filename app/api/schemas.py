@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -10,7 +11,6 @@ from app.api.oid_validation import OID_PATTERN
 
 class InitRequest(BaseModel):
     oid: str = Field(min_length=1, max_length=200)
-    output_url: str | None = None
     points_limit: int | None = None
     points_limit_last_set: int | None = None
     sets_limit: int | None = None
@@ -143,15 +143,15 @@ class SetSummaryStyleRequest(BaseModel):
 class SetRulesRequest(BaseModel):
     """Body for ``POST /api/v1/session/rules``.
 
-    All fields are optional. ``mode`` switches between ``"indoor"``
-    and ``"beach"``; ``reset_to_defaults`` replaces every limit with
-    the canonical preset for the resulting mode (per-field overrides
-    in the same call still win).
+    All fields are optional. ``mode`` switches between ``"indoor"``,
+    ``"beach"`` and ``"table_tennis"``; ``reset_to_defaults`` replaces
+    every limit with the canonical preset for the resulting mode
+    (per-field overrides in the same call still win).
     """
-    mode: Literal["indoor", "beach"] | None = None
+    mode: Literal["indoor", "beach", "table_tennis"] | None = None
     points_limit: int | None = Field(default=None, ge=1, le=99)
     points_limit_last_set: int | None = Field(default=None, ge=1, le=99)
-    sets_limit: int | None = Field(default=None, ge=1, le=5)
+    sets_limit: int | None = Field(default=None, ge=1, le=7)
     reset_to_defaults: bool = False
 
 
@@ -169,6 +169,11 @@ ALLOWED_CUSTOMIZATION_KEYS = {
     # Output-wide zoom (%) and symmetric outer margin (% of canvas) for
     # the built-in overlay engine. Applied as a global transform by app.js.
     'Scale', 'Margin',
+    # Placement anchor: 'free' (legacy absolute xpos/ypos) or one of the
+    # nine zone values ('top-left' … 'bottom-right'). In zone mode app.js
+    # pins the matching corner/edge against the box's measured size and
+    # treats Left-Right/Up-Down as a fine nudge (% of canvas).
+    'Anchor',
     'preferredStyle',
     # Overlay surface theme: '' (per-style default), 'dark' or 'light'.
     # Applied by app.js as a body class on styles that define the
@@ -189,6 +194,19 @@ ALLOWED_CUSTOMIZATION_KEYS = {
 # generous and keeps a malicious operator from stuffing megabyte
 # strings into the broadcast state.
 LOGO_KEYS = frozenset({'Team 1 Logo', 'Team 2 Logo'})
+
+# Accepted values for the ``Anchor`` placement field. ``free`` is the
+# legacy absolute-coordinate mode; the nine zone values pin the overlay
+# to a screen zone. ``update_customization`` rejects anything else so a
+# bad value can never reach the broadcast state (the overlay client also
+# treats unknown anchors as ``free``, but we validate up front).
+VALID_ANCHORS = frozenset({
+    'free',
+    'top-left', 'top-center', 'top-right',
+    'middle-left', 'middle-center', 'middle-right',
+    'bottom-left', 'bottom-center', 'bottom-right',
+})
+
 MAX_LOGO_VALUE_LENGTH = 8192
 MAX_STRING_VALUE_LENGTH = 256
 MAX_CUSTOMIZATION_KEYS = 64
@@ -211,6 +229,14 @@ def is_safe_logo_url(value: object) -> bool:
     Protocol-relative URLs (``//cdn.example.com/logo.png``) are accepted
     because :func:`app.customization.Customization.fix_icon` rewrites
     them to ``https://`` before they are persisted.
+
+    Same-origin absolute paths (``/media/icons/x.webp``, the
+    ``/static/...`` default logo) are accepted too — the hosted icon
+    library stores icons as origin-relative URLs so they work behind
+    any hostname. The second-character guard is load-bearing: ``//host``
+    is protocol-relative (handled above), and ``/\\evil.com`` would be
+    normalized to ``https://evil.com/`` by WHATWG URL parsers, so a
+    backslash in position two is rejected outright.
     """
     if not isinstance(value, str):
         return False
@@ -219,10 +245,50 @@ def is_safe_logo_url(value: object) -> bool:
         return False
     if len(candidate) > MAX_LOGO_VALUE_LENGTH:
         return False
+    if candidate.startswith("/") and not candidate.startswith(("//", "/\\")):
+        return True
     if candidate.startswith("//"):
         candidate = "https:" + candidate
     lowered = candidate.lower()
     return lowered.startswith(ALLOWED_LOGO_PREFIXES)
+
+
+# Explicit-scheme detector for the catalog icon validator: matches
+# ``scheme:`` per RFC 3986 (letter, then letters/digits/+/-/.).
+_EXPLICIT_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:")
+
+
+def is_acceptable_catalog_icon(value: object) -> bool:
+    """Permissive gate for team-catalog ``icon`` writes.
+
+    The catalog historically accepted any string (only a length cap),
+    so plenty of stored values are scheme-less (``foo.png``) and an
+    unrelated PATCH must not start rejecting them — the team editors
+    always resend the full field set. This validator therefore only
+    refuses values that are *positively* dangerous in an ``<img src>``:
+
+    * an explicit scheme outside http/https/data:image (``javascript:``,
+      ``vbscript:``, ``data:text/html`` …),
+    * ``/\\`` and ``\\\\`` prefixes — WHATWG backslash normalization
+      turns both into protocol-relative URLs that leave the origin, and
+      a UNC path in an ``<img>`` can leak NTLM hashes on Windows.
+
+    Everything scheme-less, same-origin, or allowlisted passes. The
+    strict :func:`is_safe_logo_url` still guards the customization PUT
+    (the path every value crosses before reaching an overlay).
+    """
+    if not isinstance(value, str):
+        return False
+    candidate = value.strip()
+    if not candidate:
+        return True
+    if candidate.startswith(("/\\", "\\\\")):
+        return False
+    if candidate.startswith("//"):
+        candidate = "https:" + candidate
+    if _EXPLICIT_SCHEME_RE.match(candidate):
+        return candidate.lower().startswith(ALLOWED_LOGO_PREFIXES)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +319,23 @@ class BeachSideSwitch(BaseModel):
     is_switch_pending: bool
 
 
+class ServeSwitch(BaseModel):
+    """Table-tennis serve-rotation indicator (only set when
+    mode='table_tennis').
+
+    The serve alternates every 2 points, then every point once both
+    players reach 10 (deuce). ``server`` is the team (1 or 2) currently
+    on serve; ``is_change_pending`` is true the moment a point handed
+    the serve over — so the control UI can flash a "serve changes now"
+    pill — and ``points_until_change`` counts down to the next handover.
+    """
+    server: int
+    points_in_set: int
+    next_change_at: int
+    points_until_change: int
+    is_change_pending: bool
+
+
 class MatchPointInfo(BaseModel):
     """Per-team flags signalling that the next point would close out the
     current set or the entire match.
@@ -277,6 +360,10 @@ class GameStateResponse(BaseModel):
     serve: str
     config: dict  # points_limit, sets_limit, mode, etc.
     beach_side_switch: BeachSideSwitch | None = None
+    # Table-tennis serve-rotation indicator (None for volleyball modes,
+    # where serve follows the rally winner). Drives the serve-change
+    # countdown chip in the control UI.
+    serve_switch: ServeSwitch | None = None
     match_point_info: MatchPointInfo | None = None
     # Display-side swap: the orientation every live view should render
     # right now (True = team 2 on the left), plus the auto-swap
@@ -322,6 +409,15 @@ class GameStateResponse(BaseModel):
     # stale-set "abandoned match" check) tracks the server even when
     # the client's system clock is wrong.
     server_time: float | None = None
+    # Number of live output clients (OBS browser sources + spectator
+    # pages) currently connected to this overlay's public broadcast.
+    # Lets the control board show an "on-air" indicator so the operator
+    # can confirm the scoreboard is actually reaching OBS/viewers.
+    obs_clients: int = 0
+    # ``match_id`` of the report archived for the just-finished match,
+    # populated only while ``match_finished`` is true so the control
+    # board can offer a "View match report" link. ``None`` mid-match.
+    last_match_id: str | None = None
 
 
 class ActionResponse(BaseModel):

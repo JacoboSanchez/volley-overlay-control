@@ -134,6 +134,21 @@ def test_output_transform_scale_and_margin(customization):
     assert customization.get_margin() == 0.0
 
 
+def test_anchor_defaults_to_free_and_normalises(customization):
+    """Anchor defaults to ``free`` and is normalised to lowercase."""
+    # Missing → legacy absolute positioning.
+    assert customization.get_anchor() == "free"
+
+    customization.set_anchor("Top-Right")
+    assert customization.get_anchor() == "top-right"
+
+    # Blank / non-string fall back to ``free`` rather than leaking through.
+    customization.set_anchor("")
+    assert customization.get_anchor() == "free"
+    customization.set_anchor(None)
+    assert customization.get_anchor() == "free"
+
+
 # --- Advanced Scenarios and Edge Cases ---
 
 def test_fix_icon_url(customization):

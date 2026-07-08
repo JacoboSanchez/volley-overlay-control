@@ -17,7 +17,6 @@ function render(
       updateField={updateField}
       styles={STYLES}
       capabilities={capabilities}
-      isCustomOverlay
     />,
   );
   return updateField;

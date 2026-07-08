@@ -59,5 +59,5 @@ def test_out_of_range_port(clean_env, caplog):
 def test_invalid_enum_vars(clean_env, caplog):
     os.environ['LOGGING_LEVEL'] = 'superdebug'
     validate_config()
-    assert os.environ['LOGGING_LEVEL'] == 'info'
+    assert os.environ['LOGGING_LEVEL'] == 'warning'
     assert any("Invalid LOGGING_LEVEL" in r.message for r in caplog.records)

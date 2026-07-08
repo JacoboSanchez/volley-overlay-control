@@ -11,16 +11,22 @@ from fastapi.testclient import TestClient
 
 from app.api.session_manager import SessionManager
 from app.bootstrap import create_app
+from app.overlay_key import make_skey
 from app.state import State
-from tests.conftest import load_fixture
+from tests.conftest import load_fixture, login_client
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
 @pytest.fixture
-def client():
+def client(db_session):
     with TestClient(create_app()) as c:
+        login_client(c, db_session)
         yield c
+
+
+def _skey(client, oid):
+    return make_skey(client.test_user_id, oid)
 
 
 @pytest.fixture
@@ -50,7 +56,7 @@ class TestSessionInit:
         body = r.json()
         assert body["success"] is True
         assert body["state"]["current_set"] == 1
-        assert SessionManager.get("abc") is not None
+        assert SessionManager.get(_skey(client, "abc")) is not None
 
     def test_init_returns_existing_session(self, client, fake_backend_cls):
         client.post("/api/v1/session/init", json={"oid": "abc"})
@@ -122,7 +128,7 @@ class TestGameRoutes:
         )
         assert r.status_code == 200
         records = [
-            rec for rec in action_log.read_all("abc")
+            rec for rec in action_log.read_all(_skey(client, "abc"))
             if rec.get("action") == "add_point"
         ]
         assert records[-1]["params"].get("point_type") == "ace"
@@ -136,7 +142,7 @@ class TestGameRoutes:
                   "error_type": "net_fault"},
         )
         assert r.status_code == 200
-        rec = action_log.read_all("abc")[-1]
+        rec = action_log.read_all(_skey(client, "abc"))[-1]
         assert rec["params"].get("point_type") == "opp_error"
         assert rec["params"].get("error_type") == "net_fault"
 

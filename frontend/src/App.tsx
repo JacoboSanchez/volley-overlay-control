@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import { setControlToken, setPublicUser } from './api/client';
 import { useI18n } from './i18n';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useGameState } from './hooks/useGameState';
@@ -31,7 +32,20 @@ import PointTypePicker from './components/PointTypePicker';
 import ErrorBoundary from './components/ErrorBoundary';
 import { asString } from './utils/coerce';
 
-export default function App() {
+export default function App({
+  controlToken,
+  publicUser,
+}: { controlToken?: string; publicUser?: string } = {}) {
+  // Register the board capability (operator token or public username) before any
+  // request fires. ``useLayoutEffect`` runs before paint and before the passive
+  // session-init effect below, so the credential is set in time — without the
+  // side-effect-in-render smell (and StrictMode double-invoke) of ``useMemo``.
+  const isCapabilityMode = !!controlToken || !!publicUser;
+  useLayoutEffect(() => {
+    setControlToken(controlToken ?? null);
+    setPublicUser(publicUser ?? null);
+  }, [controlToken, publicUser]);
+
   const { t, lang } = useI18n();
   const appConfig = useAppConfig();
   const { settings, setSetting } = useSettings();
@@ -40,6 +54,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'scoreboard' | 'config'>('scoreboard');
   const { oid, setOid, oidInput, setOidInput, handleInit, handleLogout } = useOidSession({
     onLogout: useCallback(() => setActiveTab('scoreboard'), []),
+    initialOid: controlToken,
   });
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
@@ -55,6 +70,7 @@ export default function App() {
     customization,
     connected,
     error,
+    errorStatus,
     initialize,
     actions,
     refreshCustomization,
@@ -65,14 +81,19 @@ export default function App() {
   // from ``useGameState(oid)``, which needs the hook's ``oid`` first.
   useEffect(() => {
     if (oid) {
-      try {
-        localStorage.setItem('volley_oid', oid);
-      } catch (e) {
-        console.warn('Failed to save OID:', e);
+      // Don't persist a capability handle to localStorage in capability-link
+      // board mode — it's a shared-device credential and a stale value would
+      // hijack a later owner visit to /board.
+      if (!isCapabilityMode) {
+        try {
+          localStorage.setItem('volley_oid', oid);
+        } catch (e) {
+          console.warn('Failed to save OID:', e);
+        }
       }
       initialize();
     }
-  }, [oid, initialize]);
+  }, [oid, initialize, isCapabilityMode]);
 
   useOverlayLocaleSync({ oid, lang, customization, refreshCustomization });
 
@@ -286,6 +307,28 @@ export default function App() {
     useButtonTheme({ settings, customization });
 
   if (!oid || (error && !state)) {
+    // A failed capability link (revoked ?c= token, disabled ?u= bookmark)
+    // must not fall back to the owner-only InitScreen: its overlay picker
+    // calls the cookie-gated /overlays route, which just 401s for a
+    // no-login operator. Explain the failure and who can fix it instead —
+    // but only claim the link is dead when the server rejected the
+    // credential (401/403/404). A network failure or 5xx is a transient
+    // outage, where "ask the owner for a new link" would be wrong advice.
+    if (isCapabilityMode && error) {
+      const linkRejected = errorStatus === 401 || errorStatus === 403 || errorStatus === 404;
+      return (
+        <div className="init-screen" role="alert">
+          <h1 className="init-title">{appConfig.title}</h1>
+          <h2 className="init-label" style={{ fontSize: '1.1rem' }}>
+            {linkRejected ? t('board.invalidLink.title') : t('board.loadError.title')}
+          </h2>
+          <p className="init-error">{error}</p>
+          <p className="init-label">
+            {linkRejected ? t('board.invalidLink.body') : t('board.loadError.body')}
+          </p>
+        </div>
+      );
+    }
     return (
       <InitScreen
         oidInput={oidInput}
@@ -365,6 +408,10 @@ export default function App() {
             setSummaryStyle={setSummaryStyle}
             onToggleSetSummary={handleToggleSetSummary}
             onChangeSetSummaryStyle={handleChangeSetSummaryStyle}
+            obsClients={state?.obs_clients ?? 0}
+            showOnAir={settings.showOnAir}
+            lastMatchId={state?.last_match_id ?? null}
+            showReportLink={settings.showReportLink}
           />
         </ErrorBoundary>
       )}
@@ -379,6 +426,7 @@ export default function App() {
             autoSwapSides={state?.auto_swap_sides ?? null}
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
+            operator={isCapabilityMode}
             onCustomizationSaved={refreshCustomization}
             darkMode={settings.darkMode}
             isFullscreen={isFullscreen}
@@ -414,6 +462,13 @@ export default function App() {
         onStaleClose={() => setStalePromptOpen(false)}
         shareOpen={shareOpen}
         shareLinks={shareLinks}
+        reportsUrl={
+          // Only the signed-in owner (cookie session — never an operator
+          // token or public bookmark) gets the full reports page, deep-linked
+          // to this board's overlay. Spectators fall back to the read-only
+          // public report links the backend includes in ``shareLinks``.
+          isCapabilityMode || !oid ? null : `/reports?oid=${encodeURIComponent(oid)}`
+        }
         onShareClose={() => setShareOpen(false)}
         oid={oid}
         historyOpen={historyOpen}

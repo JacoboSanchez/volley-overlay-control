@@ -5,6 +5,15 @@ python-dotenv==1.2.2
 websocket-client>=1.9.0
 jinja2>=3.1.6
 prometheus-client>=0.25.0
+# Database layer (multi-user refactor): SQLAlchemy ORM + Alembic migrations.
+# DATABASE_URL selects the backend: SQLite (the default) or Postgres via
+# ``postgresql+psycopg://...``. The psycopg 3 driver below ships in the image
+# (``[binary]`` bundles libpq), so Postgres works with no rebuild — just point
+# DATABASE_URL at a server. It is a small unconditional add even for the
+# SQLite-only default; that keeps the published image Postgres-ready.
+sqlalchemy>=2.0
+alembic>=1.13
+psycopg[binary]>=3.2
 # Security floor — patches CVE-2026-44431 / CVE-2026-44432 (urllib3 2.6.x).
 # ``requests`` allows urllib3 < 3, so this constraint just pulls the
 # transitive dep up to the fixed minor without touching API surface.
@@ -13,3 +22,7 @@ urllib3>=2.7.0
 # CVE-2026-54283 (starlette < 1.3.1). ``fastapi`` pulls starlette in
 # transitively; this constraint lifts it to the fixed release.
 starlette>=1.3.1
+# Hosted icon library: multipart parsing for the upload endpoints and
+# Pillow for server-side decode/resize/WebP re-encode of team icons.
+python-multipart>=0.0.20
+pillow>=11.0

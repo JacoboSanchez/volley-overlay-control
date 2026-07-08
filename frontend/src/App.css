@@ -1044,6 +1044,64 @@ body {
   font-size: 1.1rem;
 }
 
+/* "View match report" link shown next to Reset at match end. */
+.control-btn-report {
+  border-color: #29b6f6;
+  color: #29b6f6;
+  text-decoration: none;
+}
+
+/* "On air" badge — lights when at least one OBS browser source or
+   spectator is connected to this overlay's output, so the operator can
+   confirm the scoreboard is actually reaching the stream. */
+.control-onair {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #e53935;
+  border-radius: 8px;
+  color: #ff6f60;
+  font-weight: 700;
+  font-size: 0.8rem;
+  box-sizing: border-box;
+}
+
+.control-onair .material-icons {
+  font-size: 1rem;
+}
+
+.control-onair-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.control-onair-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff1744;
+  animation: onair-pulse 1.6s ease-out infinite;
+}
+
+@keyframes onair-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(255, 23, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 23, 68, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control-onair-dot {
+    animation: none;
+  }
+}
+
 /* Live MM:SS counter rendered inside the bottom-bar spacer once the
    match is armed. Tabular numerals so the digits stop "dancing" when
    the seconds rollover. */
@@ -1531,6 +1589,10 @@ body {
   color: var(--blue, #2196f3);
 }
 
+.config-save-status-saved {
+  color: var(--green, #4caf50);
+}
+
 /* ── Save error banner ──────────────────────────────────────────────── */
 
 .config-save-error {
@@ -1583,7 +1645,29 @@ body {
   cursor: not-allowed;
 }
 
+.config-save-error-dismiss {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--red, #f44336);
+  cursor: pointer;
+}
+
+.config-save-error-dismiss:hover,
+.config-save-error-dismiss:focus-visible {
+  background: rgba(244, 67, 54, 0.08);
+  outline: none;
+}
+
 /* ── Shared config form elements ────────────────────────────────────── */
+
+/* Indents a control that depends on the toggle above it (nested option). */
+.config-suboption {
+  padding-left: 1.5rem;
+}
 
 .config-label {
   display: block;
@@ -1725,6 +1809,38 @@ body {
   gap: 0.75rem;
   margin-bottom: 0.25rem;
   flex-wrap: wrap;
+}
+
+/* The logo preview doubles as the button that opens the logo-URL editor
+   dialog. ``overflow: visible`` lets the little edit badge sit on the
+   corner; the inner img still clips via border-radius. */
+.config-logo-preview-btn {
+  position: relative;
+  padding: 0;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.config-logo-preview-btn .config-logo-img {
+  border-radius: 7px;
+}
+
+.config-logo-edit-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+/* Inline per-field validation message (logo URL, rules points…). */
+.config-field-error {
+  color: var(--red, #f44336);
 }
 
 .config-color-group {
@@ -2156,6 +2272,20 @@ body {
   margin: 0.75rem 0;
 }
 
+/* Team-group picker above the two team cards: choosing a group narrows the
+   team selectors' options. Spans the full width on phone + desktop. */
+.config-group-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.config-group-picker .config-select {
+  width: 100%;
+}
+
 .config-separator {
   border-top: 1px solid var(--border);
   margin: 0.75rem 0;
@@ -2176,6 +2306,90 @@ body {
 }
 
 /* ── Stepper inputs (Position & Size) ───────────────────────────────── */
+
+/* ── Position anchor grid ───────────────────────────────────────────── */
+
+.config-anchor {
+  margin-bottom: 0.75rem;
+}
+
+.config-anchor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 6px;
+}
+
+.config-anchor-free {
+  padding: 4px 12px;
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.config-anchor-free.is-active {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* A mini stand-in for the 1920×1080 canvas: each cell maps to the screen
+   zone the overlay will anchor to. Sized for fingers — every cell keeps
+   the 44px minimum touch target used elsewhere in the panel. */
+.config-anchor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+  width: 220px;
+  max-width: 100%;
+}
+
+.config-anchor-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+}
+
+.config-anchor-cell:hover {
+  background: var(--surface-light);
+}
+
+.config-anchor-cell.is-active {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+}
+
+.config-anchor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text);
+  opacity: 0.4;
+}
+
+.config-anchor-cell.is-active .config-anchor-dot {
+  background: var(--blue);
+  opacity: 1;
+}
+
+.config-anchor-hint {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--text);
+  opacity: 0.65;
+}
 
 .config-stepper-grid {
   display: grid;
@@ -2293,8 +2507,10 @@ body {
 
 .config-mode-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  /* One row of three: indoor / beach / table-tennis. A 2-column grid pushed the
+     third mode onto its own line — unbalanced and tall in phone portrait. */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
   margin-bottom: 0.75rem;
 }
 
@@ -2303,14 +2519,18 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  min-height: 64px;
-  padding: 0.5rem;
+  gap: 0.2rem;
+  min-height: 60px;
+  padding: 0.45rem 0.3rem;
   border: 2px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 0.875rem;
+  /* Smaller so a two-word label ("Table tennis" / "Tenis de mesa") wraps to two
+     tidy centred lines inside its cell instead of forcing the row apart. */
+  font-size: 0.78rem;
+  line-height: 1.15;
+  text-align: center;
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -2371,6 +2591,33 @@ body {
   50% {
     opacity: 0.7;
   }
+}
+
+/* Serve-change indicator — table-tennis serve rotation. Same pill as the
+   side-switch chip but a distinct accent so the operator can tell the two
+   apart when both could plausibly show. */
+.serve-switch-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-light);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+.serve-switch-indicator-pending {
+  background: #2f6fed;
+  color: #fff;
+  border-color: #2f6fed;
+  animation: side-switch-pulse 1.2s ease-in-out infinite;
+}
+
+.serve-switch-indicator .material-icons {
+  font-size: 0.95rem;
 }
 
 /* Container for the side-switch + match-alert pills. Keeps them on a
@@ -3504,6 +3751,18 @@ body {
   font-size: 12px;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.55);
+}
+
+/* Section-top notice: these controls persist as soon as they are touched
+   (vs the staged sections that wait for the Save button). */
+.config-instant-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+.config-instant-hint .material-icons {
+  font-size: 14px;
 }
 .config-auto-swap-row {
   margin-top: 10px;

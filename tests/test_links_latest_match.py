@@ -2,13 +2,11 @@
 
 The field is added by ``app/api/routes/overlays.py`` only when:
 
-* the env var ``MATCH_REPORT_PUBLIC`` is truthy (so the URL is
-  shareable without an admin token), and
-* there is at least one archived match for the session's OID.
+* the env var ``MATCH_REPORT_PUBLIC`` is truthy, and
+* there is at least one archived match for the session's storage key.
 
-Otherwise the field is omitted — the control UI does not have access
-to ``OVERLAY_MANAGER_PASSWORD`` and surfacing a token-bearing URL
-would invite copy-paste leaks.
+Archives are keyed per-user (``<user_id>:<oid>``) post-cutover, so the
+"other oids don't leak" guarantee now also covers other *users*.
 """
 from unittest.mock import MagicMock, patch
 
@@ -18,15 +16,17 @@ from fastapi.testclient import TestClient
 from app.api import match_archive
 from app.api.session_manager import SessionManager
 from app.bootstrap import create_app
+from app.overlay_key import make_skey
 from app.state import State
-from tests.conftest import load_fixture
+from tests.conftest import load_fixture, login_client
 
 pytestmark = pytest.mark.usefixtures("clean_sessions")
 
 
 @pytest.fixture
-def client():
+def client(db_session):
     with TestClient(create_app()) as c:
+        login_client(c, db_session)
         yield c
 
 
@@ -44,6 +44,10 @@ def fake_backend_cls():
         yield fake
 
 
+def _skey(client, oid="links-oid"):
+    return make_skey(client.test_user_id, oid)
+
+
 def _init_session(client, oid: str = "links-oid"):
     response = client.post("/api/v1/session/init", json={"oid": oid})
     assert response.status_code == 200
@@ -55,7 +59,7 @@ class TestLatestMatchReportLink:
         monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
         _init_session(client)
         match_archive.archive_match(
-            oid="links-oid", final_state={}, winning_team=1,
+            oid=_skey(client), final_state={}, winning_team=1,
         )
         response = client.get("/api/v1/links?oid=links-oid")
         assert response.status_code == 200
@@ -74,7 +78,7 @@ class TestLatestMatchReportLink:
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
         _init_session(client)
         match_id = match_archive.archive_match(
-            oid="links-oid", final_state={}, winning_team=1,
+            oid=_skey(client), final_state={}, winning_team=1,
         )
         response = client.get("/api/v1/links?oid=links-oid")
         assert response.status_code == 200
@@ -86,13 +90,11 @@ class TestLatestMatchReportLink:
             self, client, fake_backend_cls, monkeypatch):
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
         _init_session(client)
-        # Microsecond-resolution filenames mean back-to-back archives are
-        # ordered deterministically.
         match_archive.archive_match(
-            oid="links-oid", final_state={}, winning_team=1,
+            oid=_skey(client), final_state={}, winning_team=1,
         )
         latest = match_archive.archive_match(
-            oid="links-oid", final_state={}, winning_team=2,
+            oid=_skey(client), final_state={}, winning_team=2,
         )
         response = client.get("/api/v1/links?oid=links-oid")
         url = response.json().get("latest_match_report")
@@ -102,48 +104,48 @@ class TestLatestMatchReportLink:
     def test_other_oids_archives_do_not_leak(
             self, client, fake_backend_cls, monkeypatch):
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
-        # Archive a match for a different OID — should not appear in our links.
         match_archive.archive_match(
-            oid="someone-else", final_state={}, winning_team=1,
+            oid=make_skey(client.test_user_id, "someone-else"),
+            final_state={}, winning_team=1,
         )
         _init_session(client, oid="links-oid")
         response = client.get("/api/v1/links?oid=links-oid")
         assert "latest_match_report" not in response.json()
         assert "match_history" not in response.json()
-        # SessionManager cleanup is handled by the autouse clean_sessions fixture.
-        SessionManager.remove("someone-else")
 
     def test_match_history_link_present_when_public_and_archived(
             self, client, fake_backend_cls, monkeypatch):
+        # The public history page is keyed by the overlay's unguessable
+        # public_token and points at the real ``/matches/{token}`` route
+        # (the old ``/matches/index.html`` page was removed in the
+        # multi-user refactor).
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
         _init_session(client, oid="links-history")
         match_archive.archive_match(
-            oid="links-history", final_state={}, winning_team=1,
+            oid=_skey(client, "links-history"), final_state={}, winning_team=1,
         )
         response = client.get("/api/v1/links?oid=links-history")
         body = response.json()
-        url = body.get("match_history")
-        assert url is not None
-        assert url.endswith("/matches/index.html?oid=links-history")
+        assert body.get("latest_match_report") is not None
+        history = body.get("match_history")
+        assert history is not None
+        assert "/matches/" in history
 
     def test_match_history_link_omitted_when_no_archives(
             self, client, fake_backend_cls, monkeypatch):
         monkeypatch.setenv("MATCH_REPORT_PUBLIC", "true")
         _init_session(client, oid="links-no-history")
         response = client.get("/api/v1/links?oid=links-no-history")
-        # No archived matches → omit the index link too. ``latest_match_report``
-        # is also gated on having at least one archive.
         body = response.json()
         assert "match_history" not in body
 
     def test_match_history_link_omitted_when_public_disabled(
             self, client, fake_backend_cls, monkeypatch):
         monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
-        match_archive.archive_match(
-            oid="links-private", final_state={}, winning_team=1,
-        )
         _init_session(client, oid="links-private")
+        match_archive.archive_match(
+            oid=_skey(client, "links-private"), final_state={}, winning_team=1,
+        )
         response = client.get("/api/v1/links?oid=links-private")
-        # Same auth concern as ``latest_match_report``: don't surface
-        # a token-bearing URL the control UI can't construct safely.
         assert "match_history" not in response.json()
+        _ = SessionManager

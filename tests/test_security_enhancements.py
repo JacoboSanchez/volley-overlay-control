@@ -20,15 +20,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.admin import admin_router
 from app.api.middleware import auth_rate_limit
 from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware
 from app.api.middleware.security_headers import SecurityHeadersMiddleware
+from app.api.routes.admin_users import router as admin_users_router
 from app.api.schemas import (
     MAX_LOGO_VALUE_LENGTH,
     MAX_STRING_VALUE_LENGTH,
     is_safe_logo_url,
 )
+from app.auth.routes import auth_router
 
 # ---------------------------------------------------------------------------
 # Security headers
@@ -218,9 +219,9 @@ def _reset_rate_limit():
 
 
 def _build_rate_limit_app(monkeypatch) -> FastAPI:
-    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "correct-horse")
     app = FastAPI()
-    app.include_router(admin_router)
+    app.include_router(admin_users_router)
+    app.include_router(auth_router)
     app.add_middleware(AuthRateLimitMiddleware)
     return app
 
@@ -235,23 +236,23 @@ def test_rate_limit_blocks_after_repeated_failures(monkeypatch):
     importlib.reload(auth_rate_limit)
     from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware as M
 
-    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "correct-horse")
     app = FastAPI()
-    app.include_router(admin_router)
+    app.include_router(admin_users_router)
+    app.include_router(auth_router)
     app.add_middleware(M)
     client = TestClient(app)
 
     bad = {"Authorization": "Bearer wrong"}
     # 3 failures fill the bucket, the 4th request must be blocked.
     for _ in range(3):
-        assert client.post("/api/v1/admin/login", headers=bad).status_code == 403
-    res = client.post("/api/v1/admin/login", headers=bad)
+        assert client.get("/api/v1/admin/users", headers=bad).status_code == 401
+    res = client.get("/api/v1/admin/users", headers=bad)
     assert res.status_code == 429
     assert res.headers.get("retry-after")
     # And subsequent attempts stay blocked, including with a *correct*
     # password — the bucket gates the IP, not the credential.
     good = {"Authorization": "Bearer correct-horse"}
-    res = client.post("/api/v1/admin/login", headers=good)
+    res = client.get("/api/v1/admin/users", headers=good)
     assert res.status_code == 429
 
 
@@ -271,9 +272,9 @@ def test_rate_limit_does_not_reset_on_intervening_success(monkeypatch):
     importlib.reload(auth_rate_limit)
     from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware as M
 
-    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "correct-horse")
     app = FastAPI()
-    app.include_router(admin_router)
+    app.include_router(admin_users_router)
+    app.include_router(auth_router)
     app.add_middleware(M)
     client = TestClient(app)
 
@@ -281,12 +282,12 @@ def test_rate_limit_does_not_reset_on_intervening_success(monkeypatch):
     # Two failures, then a public 200 (status check), then a third
     # failure must still trip the limit on the next attempt.
     for _ in range(2):
-        assert client.post("/api/v1/admin/login", headers=bad).status_code == 403
-    assert client.get("/api/v1/admin/status").status_code == 200
-    assert client.post("/api/v1/admin/login", headers=bad).status_code == 403
+        assert client.get("/api/v1/admin/users", headers=bad).status_code == 401
+    assert client.get("/api/v1/auth/context").status_code == 200
+    assert client.get("/api/v1/admin/users", headers=bad).status_code == 401
     # 3 failures in the window; the 4th request must be blocked even
     # though a 200 happened in the middle.
-    res = client.post("/api/v1/admin/login", headers=bad)
+    res = client.get("/api/v1/admin/users", headers=bad)
     assert res.status_code == 429
 
 
@@ -305,9 +306,9 @@ def test_rate_limit_uses_socket_peer_not_xff(monkeypatch):
     importlib.reload(auth_rate_limit)
     from app.api.middleware.auth_rate_limit import AuthRateLimitMiddleware as M
 
-    monkeypatch.setenv("OVERLAY_MANAGER_PASSWORD", "correct-horse")
     app = FastAPI()
-    app.include_router(admin_router)
+    app.include_router(admin_users_router)
+    app.include_router(auth_router)
     app.add_middleware(M)
     client = TestClient(app)
 
@@ -316,11 +317,11 @@ def test_rate_limit_uses_socket_peer_not_xff(monkeypatch):
     # request would hit a fresh bucket and never trip the limit.
     for i in range(3):
         spoof = {**bad, "X-Forwarded-For": f"10.0.0.{i}"}
-        assert client.post(
-            "/api/v1/admin/login", headers=spoof,
-        ).status_code == 403
-    res = client.post(
-        "/api/v1/admin/login",
+        assert client.get(
+            "/api/v1/admin/users", headers=spoof,
+        ).status_code == 401
+    res = client.get(
+        "/api/v1/admin/users",
         headers={**bad, "X-Forwarded-For": "10.0.0.99"},
     )
     assert res.status_code == 429
@@ -379,6 +380,79 @@ def test_logo_url_rejects_unsafe(url):
 
 def test_logo_url_rejects_overlong():
     assert is_safe_logo_url("https://" + "a" * (MAX_LOGO_VALUE_LENGTH + 1)) is False
+
+
+@pytest.mark.parametrize("url", [
+    "/media/icons/abc123-ff00.webp",
+    "/static/images/default_volleyball.svg",
+])
+def test_logo_url_accepts_same_origin_paths(url):
+    """Hosted icons are stored as origin-relative paths — they must pass."""
+    assert is_safe_logo_url(url) is True
+
+
+@pytest.mark.parametrize("url", [
+    # ``/\`` would leave the origin under WHATWG backslash normalization.
+    "/\\evil.com/x.png",
+])
+def test_logo_url_rejects_backslash_path(url):
+    assert is_safe_logo_url(url) is False
+
+
+def test_update_customization_accepts_hosted_icon_path(api_session):
+    """Picking a team whose catalog icon is a hosted /media URL must work —
+    this is the exact path the board copy travels (6b in the icon plan)."""
+    from app.api.game_service import GameService
+
+    res = GameService.update_customization(
+        api_session, {"Team 1 Logo": "/media/icons/abc123-ff00.webp"},
+    )
+    assert res.success is True
+
+
+def test_update_customization_still_rejects_backslash_path(api_session):
+    from app.api.game_service import GameService
+
+    res = GameService.update_customization(
+        api_session, {"Team 1 Logo": "/\\evil.com/x.png"},
+    )
+    assert res.success is False
+
+
+# ---------------------------------------------------------------------------
+# Catalog icon gate (permissive variant used by the team CRUD/import)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("value", [
+    "https://cdn.example.com/logo.png",
+    "//cdn.example.com/logo.png",
+    "data:image/png;base64,iVBORw0KGgo=",
+    "/media/icons/abc123-ff00.webp",
+    "foo.png",              # legacy scheme-less values keep round-tripping
+    "images/logo.jpg",
+    "",
+])
+def test_catalog_icon_accepts_harmless_values(value):
+    from app.api.schemas import is_acceptable_catalog_icon
+
+    assert is_acceptable_catalog_icon(value) is True
+
+
+@pytest.mark.parametrize("value", [
+    "javascript:alert(1)",
+    "vbscript:msgbox",
+    "data:text/html,<script>alert(1)</script>",
+    "file:///etc/passwd",
+    "/\\evil.com/x.png",
+    "\\\\evil.com\\share\\x.png",
+    None,
+    123,
+])
+def test_catalog_icon_rejects_dangerous_values(value):
+    from app.api.schemas import is_acceptable_catalog_icon
+
+    assert is_acceptable_catalog_icon(value) is False
 
 
 # ---------------------------------------------------------------------------

@@ -147,8 +147,6 @@ function TeamPanel({
     iconStyle.backgroundPosition = 'center';
   }
 
-  const teamLogo = asString(customization?.[`Team ${teamId} Logo`]);
-
   return (
     <div
       className={`team-panel ${isPortrait ? 'team-panel-portrait' : 'team-panel-landscape'}`}
@@ -157,9 +155,9 @@ function TeamPanel({
       <div className={isPortrait ? 'team-panel-row' : 'team-panel-col'}>
         {isPortrait && state && (
           <div className="team-history-col">
-            {teamLogo && (
+            {safeIconLogo && (
               <img
-                src={teamLogo}
+                src={safeIconLogo}
                 alt={`Team ${teamId}`}
                 className="team-logo"
                 data-testid={`team-${teamId}-logo`}
@@ -213,10 +211,9 @@ function TeamPanel({
             </div>
           </div>
           {!isPortrait && <div className="spacer" />}
-          <span
+          <button
+            type="button"
             className="material-icons serve-icon"
-            role="button"
-            tabIndex={0}
             aria-label={`Team ${teamId} serve`}
             aria-pressed={isServing}
             style={{
@@ -224,18 +221,15 @@ function TeamPanel({
               opacity: isServing ? 1 : 0.4,
               cursor: 'pointer',
               fontSize: '2rem',
+              border: 'none',
+              background: 'transparent',
+              padding: 0,
             }}
             onClick={() => onChangeServe(teamId)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onChangeServe(teamId);
-              }
-            }}
             data-testid={`team-${teamId}-serve`}
           >
             sports_volleyball
-          </span>
+          </button>
         </div>
       </div>
     </div>

@@ -118,12 +118,12 @@ def isolate_match_archive(tmp_path_factory, monkeypatch):
 def isolate_security_bootstrap(tmp_path_factory, monkeypatch):
     """Redirect the security bootstrap's data dir to a per-test temp dir.
 
-    ``app.security_bootstrap.ensure_overlay_server_token`` writes a
-    persisted token file to ``data/.overlay_server_token`` on first
-    invocation. Tests that build a real FastAPI app via
-    ``bootstrap.create_app()`` (e.g. ``test_trusted_hosts_and_cors``)
-    trigger the bootstrap and would otherwise pollute the dev tree's
-    real ``data/`` directory and leak token state between tests.
+    ``app.security_bootstrap.ensure_session_secret`` writes a persisted
+    ``data/.session_secret`` file on first invocation. Tests that build a
+    real FastAPI app via ``bootstrap.create_app()`` (e.g.
+    ``test_trusted_hosts_and_cors``) trigger the bootstrap and would
+    otherwise pollute the dev tree's real ``data/`` directory and leak
+    secret state between tests.
 
     Mirrors the per-module isolation used for ``action_log``,
     ``match_archive``, ``session_persistence``, and
@@ -133,6 +133,61 @@ def isolate_security_bootstrap(tmp_path_factory, monkeypatch):
 
     seed_dir = tmp_path_factory.mktemp("security_bootstrap")
     monkeypatch.setattr(security_bootstrap, "_data_dir", lambda: str(seed_dir))
+
+
+@pytest.fixture(autouse=True)
+def reset_auth_rate_limiter():
+    """Clear the per-IP auth rate-limiter between tests.
+
+    The limiter is a process-global keyed by client IP and counts 401/403
+    failures across all ``/api/v1/`` routes. Every TestClient shares the
+    ``testclient`` IP, so without a reset the many auth-failure cases in the
+    suite accumulate and trip the limiter (429) for later, unrelated tests.
+    """
+    from app.api.middleware import auth_rate_limit
+
+    auth_rate_limit._reset_for_tests()
+    yield
+    auth_rate_limit._reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def db_session(monkeypatch):
+    """Give every test a fresh in-memory SQLite database.
+
+    A ``StaticPool`` keeps the single in-memory connection alive for the
+    whole test so the schema and rows persist across sessions. The app's
+    global engine/``SessionLocal`` are pointed at it via ``configure_engine``,
+    and ``db_migrate.run_migrations`` is stubbed to a no-op because the
+    schema is built here with ``create_all`` (running Alembic against the
+    file DB in ``database_url()`` would target the wrong database).
+
+    Yields a live ``Session`` for tests that want to seed/inspect rows
+    directly; request handlers get their own sessions via ``get_db``.
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.pool import StaticPool
+
+    from app.db import Base, configure_engine, get_sessionmaker
+    from app.db import migrate as db_migrate
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    configure_engine(engine=engine)
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(db_migrate, "run_migrations", lambda: None)
+
+    session = get_sessionmaker()()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 @pytest.fixture(autouse=True)
@@ -171,6 +226,57 @@ def load_fixture(name):
 
 
 # ---------------------------------------------------------------------------
+# Cookie-auth helpers for the multi-user model.
+# ---------------------------------------------------------------------------
+
+
+def make_user(db_session, username="tester", *, password="password123",
+              role="user", must_change_password=False):
+    """Create and commit a user directly in the DB. Returns the User."""
+    from app.auth import service
+
+    user = service.create_user(
+        db_session, username=username, password=password, role=role,
+        must_change_password=must_change_password,
+    )
+    db_session.commit()
+    return user
+
+
+@pytest.fixture
+def app_client():
+    """A ``TestClient`` over a freshly-built app (unauthenticated)."""
+    from fastapi.testclient import TestClient
+
+    from app.bootstrap import create_app
+
+    return TestClient(create_app())
+
+
+def login_client(client, db_session, username="tester", *, password="password123",
+                 role="user"):
+    """Create a user and return *client* with its session cookie set.
+
+    The created user's id is attached as ``client.test_user_id`` so tests
+    can build the per-user storage key (``make_skey(client.test_user_id,
+    oid)``) when asserting against ``SessionManager``/stores.
+    """
+    user = make_user(db_session, username, password=password, role=role)
+    client.test_user_id = user.id
+    resp = client.post(
+        "/api/v1/auth/login", json={"username": username, "password": password},
+    )
+    assert resp.status_code == 200, resp.text
+    return client
+
+
+@pytest.fixture
+def auth_client(app_client, db_session):
+    """A ``TestClient`` already logged in as a normal user named ``tester``."""
+    return login_client(app_client, db_session)
+
+
+# ---------------------------------------------------------------------------
 # Shared API-layer fixtures (previously duplicated in test_api.py).
 # ---------------------------------------------------------------------------
 
@@ -198,7 +304,6 @@ def mock_conf():
     conf.multithread = False
     conf.rest_user_agent = 'test'
     conf.id = 'test-layout'
-    conf.single_overlay = True
     return conf
 
 

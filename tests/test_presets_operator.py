@@ -11,7 +11,6 @@ Covers three layers:
   mapping).
 """
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -41,7 +40,9 @@ def _isolate_state(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def client():
+def client(db_session):
+    from tests.conftest import login_client
+
     fake = MagicMock()
     fake.validate_and_store_model_for_oid.return_value = State.OIDStatus.VALID
     fake.init_ws_client.return_value = None
@@ -54,6 +55,7 @@ def client():
         patch("app.api.routes.session.Backend", return_value=fake),
         TestClient(create_app()) as c,
     ):
+        login_client(c, db_session)
         # Init a session so every later request resolves through
         # ``get_session`` without 404. The route under test doesn't
         # require a session but the rest of the suite expects one.
@@ -205,46 +207,46 @@ class TestPresetsStore:
 
 
 class TestPresetCRUDEndpoints:
+    """The /customization/presets surface is now DB-backed and cookie-scoped.
+
+    ``client`` is an authenticated normal user; admin-only global authoring
+    is exercised through a separate admin client.
+    """
+
+    def _admin(self, db_session):
+        from fastapi.testclient import TestClient
+
+        from app.bootstrap import create_app
+        from tests.conftest import login_client
+        return login_client(TestClient(create_app()), db_session, "root", role="admin")
+
     def test_list_returns_empty_when_no_presets(self, client):
-        body = client.get("/api/v1/customization/presets").json()
-        assert body == {"items": []}
+        assert client.get("/api/v1/customization/presets").json() == {"items": []}
 
     def test_create_then_list_round_trip(self, client):
         r = client.post(
             "/api/v1/customization/presets",
-            json={
-                "name": "Default Position",
-                "values": {"Height": 12, "Width": 35},
-            },
+            json={"name": "Default Position", "values": {"Height": 12, "Width": 35}},
         )
         assert r.status_code == 200, r.text
         created = r.json()
         assert created["slug"] == "default-position"
-        assert created["name"] == "Default Position"
+        assert created["source"] == "user"
         assert created["categories"] == ["position"]
         assert created["values"] == {"Height": 12, "Width": 35}
-        assert created["created_at"] > 0
 
-        body = client.get("/api/v1/customization/presets").json()
-        assert len(body["items"]) == 1
-        assert body["items"][0]["slug"] == "default-position"
-        assert body["items"][0]["values"] == {"Height": 12, "Width": 35}
+        items = client.get("/api/v1/customization/presets").json()["items"]
+        assert len(items) == 1
+        assert items[0]["slug"] == "default-position"
 
     def test_create_filters_unknown_keys(self, client):
         r = client.post(
             "/api/v1/customization/presets",
-            json={
-                "name": "Mixed",
-                "values": {
-                    "Team 1 Color": "#0F0",
-                    "Height": 8,
-                    # Unknown — filtered out at persistence time.
-                    "raw_remote_model": {"hidden": True},
-                },
-            },
+            json={"name": "Mixed", "values": {
+                "Team 1 Color": "#0F0", "Height": 8, "raw_remote_model": {"x": 1},
+            }},
         )
         body = r.json()
-        assert "raw_remote_model" not in body["values"]
         assert body["values"] == {"Team 1 Color": "#0F0", "Height": 8}
         assert sorted(body["categories"]) == ["position", "team1_color"]
 
@@ -254,201 +256,145 @@ class TestPresetCRUDEndpoints:
             json={"name": "Junk", "values": {"foo": "bar"}},
         )
         assert r.status_code == 400, r.text
-        assert "supported" in r.json()["detail"].lower()
 
     def test_create_with_duplicate_name_is_409(self, client):
-        first = client.post(
+        assert client.post(
             "/api/v1/customization/presets",
             json={"name": "Dup", "values": {"Height": 1}},
-        )
-        assert first.status_code == 200, first.text
-        second = client.post(
+        ).status_code == 200
+        assert client.post(
             "/api/v1/customization/presets",
             json={"name": "Dup", "values": {"Height": 2}},
-        )
-        assert second.status_code == 409, second.text
+        ).status_code == 409
 
     def test_create_with_invalid_name_is_400(self, client):
         r = client.post(
             "/api/v1/customization/presets",
             json={"name": "   ", "values": {"Height": 1}},
         )
-        # Empty after trim — pydantic min_length catches the strict
-        # empty case (422) and the slugify path catches whitespace-
-        # only (400). Either is acceptable here; we just want
-        # ``not 200`` and the preset to never land on disk.
         assert r.status_code in (400, 422), r.text
-        assert presets_store.list_all() == []
 
     def test_delete_removes_preset_and_returns_204(self, client):
         client.post(
             "/api/v1/customization/presets",
             json={"name": "Delete Me", "values": {"Height": 8}},
         )
-        r = client.delete("/api/v1/customization/presets/delete-me")
-        assert r.status_code == 204
+        assert client.delete("/api/v1/customization/presets/delete-me").status_code == 204
         assert client.get("/api/v1/customization/presets").json()["items"] == []
 
     def test_delete_unknown_slug_is_404(self, client):
-        r = client.delete("/api/v1/customization/presets/never-existed")
-        assert r.status_code == 404
+        assert client.delete(
+            "/api/v1/customization/presets/never-existed"
+        ).status_code == 404
 
-    def test_delete_system_slug_is_403(self, client):
-        # Even when no env var is set so the slug doesn't resolve to a
-        # real system entry, the prefix itself is reserved — the route
-        # short-circuits to 403 before touching disk so a future env
-        # change cannot expose a deletion path.
-        r = client.delete("/api/v1/customization/presets/system-anything")
-        assert r.status_code == 403
-        assert "system" in r.json()["detail"].lower()
+    def test_user_cannot_delete_global_preset(self, client, db_session):
+        admin = self._admin(db_session)
+        admin.post(
+            "/api/v1/admin/presets",
+            json={"name": "Brand", "values": {"Height": 5}},
+        )
+        # The global preset is visible to the normal user...
+        slugs = {p["slug"] for p in client.get(
+            "/api/v1/customization/presets").json()["items"]}
+        assert "brand" in slugs
+        # ...but they cannot delete it.
+        assert client.delete("/api/v1/customization/presets/brand").status_code == 403
 
-    def test_create_with_system_prefix_name_is_400(self, client):
-        # The slugify guard rejects names that would resolve to the
-        # reserved prefix; the route surfaces it as a 400.
-        r = client.post(
-            "/api/v1/customization/presets",
-            json={"name": "system bright", "values": {"Height": 1}},
+    def test_global_preset_visible_only_when_active(self, client, db_session):
+        admin = self._admin(db_session)
+        admin.post(
+            "/api/v1/admin/presets",
+            json={"name": "Hidden", "values": {"Width": 9}, "is_active": False},
         )
-        assert r.status_code == 400, r.text
-        assert "system-" in r.json()["detail"]
 
-    def test_list_includes_system_entries_from_app_themes(
-        self, client, monkeypatch,
-    ):
-        # ``APP_THEMES`` is operator-controlled. The list endpoint
-        # surfaces it as read-only ``source="system"`` records so the
-        # picker can show env-driven and on-disk presets in a single
-        # list. System entries sort first; the ``system-`` slug prefix
-        # disambiguates them from user records that happen to share a
-        # name.
-        monkeypatch.setenv(
-            "APP_THEMES",
-            json.dumps({
-                "Bright Court": {
-                    "Color 1": "#fff",
-                    "Text Color 1": "#000",
-                },
-            }),
-        )
-        client.post(
-            "/api/v1/customization/presets",
-            json={"name": "User Pick", "values": {"Height": 12}},
-        )
-        items = client.get("/api/v1/customization/presets").json()["items"]
-        assert [i["source"] for i in items] == ["system", "user"]
-        sys_item = items[0]
-        assert sys_item["slug"] == "system-bright-court"
-        assert sys_item["name"] == "Bright Court"
-        assert sys_item["values"] == {
-            "Color 1": "#fff",
-            "Text Color 1": "#000",
+        def user_slugs():
+            return {p["slug"] for p in client.get(
+                "/api/v1/customization/presets").json()["items"]}
+
+        assert "hidden" not in user_slugs()
+        admin.patch("/api/v1/admin/presets/hidden", json={"is_active": True})
+        assert "hidden" in user_slugs()
+
+    def test_admin_import_export_roundtrip(self, db_session):
+        admin = self._admin(db_session)
+        themes = {
+            "Center": {"Height": 50, "Width": 50},
+            "Corner": {"Height": 12, "Up-Down": -45.6},
         }
-        assert sys_item["categories"] == ["style"]
-        # Defence in depth: deleting the system entry the list just
-        # surfaced is still a 403.
-        r = client.delete(f"/api/v1/customization/presets/{sys_item['slug']}")
-        assert r.status_code == 403
+        r = admin.post("/api/v1/admin/presets/import", json={"themes": themes})
+        assert r.status_code == 200 and r.json()["imported"] == 2
+        assert admin.get("/api/v1/admin/presets/export").json() == themes
 
-    def test_list_surfaces_system_theme_named_with_reserved_prefix(
-        self, client, monkeypatch,
-    ):
-        # An operator who names their theme "System Dark" (or anything
-        # that slugifies to ``system-…``) used to have it silently
-        # dropped because ``slugify`` rejected the reserved prefix.
-        # ``_system_presets`` now calls slugify with
-        # ``check_reserved=False`` and prepends the prefix itself, so
-        # the entry addresses as ``system-system-dark`` and stays
-        # unique against any user-saved record (which still can't use
-        # the prefix).
-        monkeypatch.setenv(
-            "APP_THEMES",
-            json.dumps({
-                "System Dark": {"Color 1": "#000", "Text Color 1": "#fff"},
-            }),
-        )
-        items = client.get("/api/v1/customization/presets").json()["items"]
-        assert len(items) == 1
-        assert items[0]["slug"] == "system-system-dark"
-        assert items[0]["name"] == "System Dark"
-        assert items[0]["source"] == "system"
+    def test_admin_list_includes_inactive_globals(self, client, db_session):
+        """The admin list shows inactive globals (the user list hides them)."""
+        admin = self._admin(db_session)
+        admin.post("/api/v1/admin/presets",
+                   json={"name": "Hidden", "values": {"Width": 9}, "is_active": False})
+        # User-facing list excludes the inactive global.
+        user_slugs = {p["slug"] for p in client.get(
+            "/api/v1/customization/presets").json()["items"]}
+        assert "hidden" not in user_slugs
+        # Admin management list includes it, with is_active False.
+        items = admin.get("/api/v1/admin/presets").json()["items"]
+        hidden = next(p for p in items if p["slug"] == "hidden")
+        assert hidden["is_active"] is False
+        assert client.get("/api/v1/admin/presets").status_code == 403  # non-admin
 
-    def test_list_logs_malformed_app_themes_only_once_per_value(
-        self, client, monkeypatch, caplog,
-    ):
-        # ``_system_presets`` runs on every list request. A persistent
-        # malformed ``APP_THEMES`` would otherwise spam the warning on
-        # every poll. Logging is gated by the last value the warning
-        # fired for, so identical values stay quiet on subsequent
-        # requests but a *different* malformed value re-emits.
-        from app.api.routes import customization as customization_route
+    def test_admin_presets_require_admin(self, client):
+        assert client.post(
+            "/api/v1/admin/presets", json={"name": "X", "values": {"Height": 1}},
+        ).status_code == 403
+        assert client.get("/api/v1/admin/presets/export").status_code == 403
 
-        customization_route._last_logged_malformed_app_themes = None
-        monkeypatch.setenv("APP_THEMES", "{not json")
-        with caplog.at_level("WARNING", logger=customization_route.logger.name):
-            client.get("/api/v1/customization/presets")
-            client.get("/api/v1/customization/presets")
-            client.get("/api/v1/customization/presets")
-            warnings_for_first_value = [
-                r for r in caplog.records
-                if "Malformed APP_THEMES" in r.message
-            ]
-            assert len(warnings_for_first_value) == 1
-
-            # A different malformed value re-arms the warning.
-            monkeypatch.setenv("APP_THEMES", "still {bad")
-            client.get("/api/v1/customization/presets")
-            warnings_for_both_values = [
-                r for r in caplog.records
-                if "Malformed APP_THEMES" in r.message
-            ]
-            assert len(warnings_for_both_values) == 2
-
-    def test_list_drops_unknown_keys_from_system_themes(
-        self, client, monkeypatch,
-    ):
-        # Same allow-listing as user presets — a stray key in
-        # ``APP_THEMES`` is filtered out at read time so the picker
-        # never sees an entry that the customization save flow
-        # would reject.
-        monkeypatch.setenv(
-            "APP_THEMES",
-            json.dumps({
-                "Mixed": {
-                    "Color 1": "#fff",
-                    "raw_remote_customization": {"hidden": True},
-                },
-            }),
-        )
-        items = client.get("/api/v1/customization/presets").json()["items"]
-        assert len(items) == 1
-        assert items[0]["values"] == {"Color 1": "#fff"}
-        assert "raw_remote_customization" not in items[0]["values"]
-
-    def test_categories_round_trip_on_disk(self, client, tmp_path):
+    def test_user_can_delete_own_preset_despite_global_same_slug(self, client, db_session):
+        """Regression: a global preset sharing a user's slug must not block the
+        user from deleting their own (distinct) preset."""
         client.post(
             "/api/v1/customization/presets",
-            json={
-                "name": "All In",
-                "values": {
-                    "Team 1 Name": "Home",
-                    "Team 1 Color": "#fff",
-                    "Team 2 Name": "Away",
-                    "Team 2 Color": "#000",
-                    "Height": 10,
-                    "preferredStyle": "esports",
-                },
-            },
+            json={"name": "Corner", "values": {"Height": 3}},
         )
-        # Read the on-disk record straight back to lock the schema:
-        # ``_meta`` + derived ``categories`` + flat ``values``. No
-        # admin-side fields like ``snapshots`` / ``scopes`` — that
-        # was the previous model and is gone.
-        files = list((tmp_path / "presets").iterdir())
-        assert len(files) == 1
-        record = json.loads(files[0].read_text())
-        assert set(record.keys()) == {"_meta", "categories", "values"}
-        assert set(record["_meta"].keys()) == {"name", "slug", "created_at"}
-        assert sorted(record["categories"]) == [
-            "position", "style", "team1_color", "team1_name",
-            "team2_color", "team2_name",
-        ]
+        self._admin(db_session).post(
+            "/api/v1/admin/presets", json={"name": "Corner", "values": {"Width": 9}},
+        )
+        assert client.delete("/api/v1/customization/presets/corner").status_code == 204
+        slugs = {p["slug"]: p["source"]
+                 for p in client.get("/api/v1/customization/presets").json()["items"]}
+        assert slugs.get("corner") == "global"
+
+    def test_user_presets_are_isolated(self, client, db_session):
+        from fastapi.testclient import TestClient
+
+        from app.bootstrap import create_app
+        from tests.conftest import login_client
+
+        client.post(
+            "/api/v1/customization/presets",
+            json={"name": "Mine", "values": {"Height": 1}},
+        )
+        other = login_client(TestClient(create_app()), db_session, "bob")
+        assert other.get("/api/v1/customization/presets").json()["items"] == []
+
+
+def test_create_preset_race_maps_integrity_error(db_session):
+    """A duplicate slug that slips past the _exists pre-check must surface
+    as PresetError with 'already exists' (the route maps that to 409)."""
+    import pytest as _pytest
+
+    from app import presets_service
+    from tests.conftest import make_user
+
+    user = make_user(db_session, "presetrace")
+    presets_service.create_user_preset(db_session, user.id, "Mine", {"Height": 1})
+    db_session.commit()
+
+    real_exists = presets_service._exists
+    presets_service._exists = lambda db, owner, slug: None
+    try:
+        with _pytest.raises(presets_service.PresetError, match="already exists"):
+            presets_service.create_user_preset(
+                db_session, user.id, "Mine", {"Height": 2},
+            )
+    finally:
+        presets_service._exists = real_exists
+    # Session survived the rollback.
+    assert presets_service.list_for_user(db_session, user.id) != []

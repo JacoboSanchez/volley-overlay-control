@@ -31,29 +31,98 @@ export type GameState = Schemas['GameStateResponse'];
 export type ActionResponse = Schemas['ActionResponse'];
 export type AppConfig = Schemas['AppConfigResponse'];
 export type InitRequest = Schemas['InitRequest'];
-export type OverlayPayload = Schemas['OverlayPayload'];
+/** One of the caller's overlays (DB-backed, per-user). The ``oid`` is the
+ *  overlay's name; ``description`` is an optional free-text subtitle. ``name``
+ *  is a convenience label kept equal to the oid. */
+export interface OverlayPayload {
+  name: string;
+  oid: string;
+  description: string | null;
+  public_token: string;
+  output_url: string;
+  control_token: string | null;
+  control_url: string | null;
+  public_control: boolean;
+  public_control_url: string | null;
+}
+
+export interface OverlaySettings {
+  description?: string | null;
+  public_control?: boolean;
+}
 export type TeamState = Schemas['TeamState'];
 
 export type InitOptions = Omit<InitRequest, 'oid'>;
 
 const BASE_URL = '/api/v1';
 
-let apiKey: string | null = null;
-
-export function setApiKey(key: string | null): void {
-  apiKey = key;
-}
-
-function headers(): Record<string, string> {
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiKey) h['Authorization'] = `Bearer ${apiKey}`;
-  return h;
-}
+// Authentication is cookie-based now (HttpOnly session cookie). Requests are
+// same-origin so the cookie is sent automatically; ``credentials: 'include'``
+// makes that explicit and survives any future cross-origin dev setup.
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
+// Unauthenticated board modes. When set, board-scoped requests address the
+// board by capability instead of the owner's ``?oid=`` + session cookie:
+//   * controlToken → ``?c=<token>``           (shareable, revocable operator link)
+//   * publicUser   → ``?u=<username>&oid=<oid>`` (stable, opt-in bookmark link)
+// Both are ``null`` in the normal owner (cookie) mode.
+let controlToken: string | null = null;
+let publicUser: string | null = null;
+
+export function setControlToken(token: string | null): void {
+  controlToken = token || null;
+}
+
+export function getControlToken(): string | null {
+  return controlToken;
+}
+
+export function setPublicUser(username: string | null): void {
+  publicUser = username || null;
+}
+
+export function getPublicUser(): string | null {
+  return publicUser;
+}
+
+/** Board-scoping query string for the active credential mode. */
 function withOid(oid: string): string {
+  if (controlToken) return `?c=${encodeURIComponent(controlToken)}`;
+  if (publicUser) {
+    return `?u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`;
+  }
   return `?oid=${encodeURIComponent(oid)}`;
+}
+
+/** Thrown on a non-2xx API response; carries the HTTP status and a
+ *  human-facing ``detail`` (the API's ``detail`` field when present) so pages
+ *  can show a clean message instead of the raw JSON envelope. */
+export class ApiError extends Error {
+  status: number;
+  detail: string;
+  constructor(status: number, message: string, detail?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.detail = detail || message;
+  }
+}
+
+/** Pull a clean human message out of a FastAPI error body (string ``detail``,
+ *  a 422 validation array, or the raw text as a last resort). */
+function extractDetail(text: string): string {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed.detail === 'string') return parsed.detail;
+    if (parsed && Array.isArray(parsed.detail)) {
+      const msgs = parsed.detail.map((d: { msg?: string }) => (d && d.msg) || '').filter(Boolean);
+      if (msgs.length) return msgs.join('; ');
+    }
+  } catch {
+    /* not JSON — fall through to the raw text */
+  }
+  return text;
 }
 
 async function request<T = unknown>(
@@ -62,24 +131,72 @@ async function request<T = unknown>(
   body: unknown = null,
   signal?: AbortSignal,
 ): Promise<T> {
-  const opts: RequestInit = { method, headers: headers() };
+  const opts: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  };
   if (body !== null) {
     opts.body = JSON.stringify(body);
   }
   if (signal) {
     opts.signal = signal;
   }
+  return send<T>(method, path, opts);
+}
+
+/** Multipart variant of {@link request} for file uploads. No manual
+ *  Content-Type: the browser must set the multipart boundary itself. */
+async function requestMultipart<T = unknown>(
+  method: HttpMethod,
+  path: string,
+  form: FormData,
+): Promise<T> {
+  return send<T>(method, path, { method, body: form, credentials: 'include' });
+}
+
+async function send<T>(method: HttpMethod, path: string, opts: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, opts);
   if (!res.ok) {
+    // A 401 on any non-auth route means the session cookie expired or was
+    // revoked mid-use. Signal the app so AuthProvider drops to /login instead
+    // of leaving the user on a stuck/stale page. Auth routes (login,
+    // claim-admin, context, logout) handle their own 401s and must not loop.
+    if (res.status === 401 && !path.startsWith('/auth/') && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    }
     const text = await res.text();
-    throw new Error(`API ${method} ${path} failed (${res.status}): ${text}`);
+    // A 409 password_change_required means an admin reset this account's
+    // password mid-session. Mirror the 401 handling so RequireAuth routes to
+    // /change-password instead of surfacing a raw error on a stuck page.
+    if (
+      res.status === 409 &&
+      !path.startsWith('/auth/') &&
+      typeof window !== 'undefined' &&
+      extractDetail(text) === 'password_change_required'
+    ) {
+      window.dispatchEvent(new CustomEvent('auth:password-change-required'));
+    }
+    throw new ApiError(
+      res.status,
+      `API ${method} ${path} failed (${res.status}): ${text}`,
+      extractDetail(text),
+    );
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
 // Session
 export function initSession(oid: string, opts: InitOptions = {}): Promise<ActionResponse> {
-  return request<ActionResponse>('POST', '/session/init', { oid, ...opts });
+  // Owner mode carries the oid in the body (+ cookie); a capability mode needs
+  // the token or username+oid on the query so the server can resolve the board.
+  let q = '';
+  if (controlToken) q = `?c=${encodeURIComponent(controlToken)}`;
+  else if (publicUser) {
+    q = `?u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`;
+  }
+  return request<ActionResponse>('POST', `/session/init${q}`, { oid, ...opts });
 }
 
 // State queries
@@ -187,7 +304,7 @@ export function setSetSummaryStyle(oid: string, style: SetSummaryStyle): Promise
   return request<ActionResponse>('POST', `/display/set-summary-style${withOid(oid)}`, { style });
 }
 
-export type MatchMode = 'indoor' | 'beach';
+export type MatchMode = 'indoor' | 'beach' | 'table_tennis';
 
 export interface SetRulesPayload {
   mode?: MatchMode;
@@ -210,8 +327,49 @@ export function updateCustomization(
 }
 
 // Predefined data
+// Legacy: the caller's flat team list. Superseded on the board by the
+// group-scoped picker below (getBoardGroups + getBoardGroupTeams), which also
+// works for operators/public bookmarks. Kept for back-compat.
 export function getTeams(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>('GET', '/teams');
+}
+
+// ---- Board team-group picker ----------------------------------------------
+// Resolved against the overlay OWNER's universe via the board credential
+// (control token / public bookmark / owner cookie) — so an operator running the
+// match sees the owner's groups. `id === null` is the virtual "All" group.
+
+export type BoardGroupKind = 'all' | 'shared' | 'private';
+
+export interface BoardGroup {
+  id: number | null;
+  name: string;
+  kind: BoardGroupKind;
+  count: number;
+}
+
+export interface BoardGroupList {
+  groups: BoardGroup[];
+  selected_id: number | null;
+}
+
+export function getBoardGroups(oid: string): Promise<BoardGroupList> {
+  return request<BoardGroupList>('GET', `/board/team-groups${withOid(oid)}`);
+}
+
+export function getBoardGroupTeams(
+  oid: string,
+  groupId: number | null,
+): Promise<Record<string, unknown>> {
+  const key = groupId === null ? 'all' : String(groupId);
+  return request<Record<string, unknown>>('GET', `/board/team-groups/${key}/teams${withOid(oid)}`);
+}
+
+export function setBoardSelectedGroup(
+  oid: string,
+  groupId: number | null,
+): Promise<{ ok: boolean; selected_id: number | null }> {
+  return request('PUT', `/board/selected-group${withOid(oid)}`, { group_id: groupId });
 }
 
 // Operator-saved and env-driven presets (CRUD lives at
@@ -227,8 +385,8 @@ export interface PresetCategory {
 export interface PresetSummary {
   slug: string;
   name: string;
-  created_at: number;
-  source: 'user' | 'system';
+  source: 'user' | 'global';
+  is_active?: boolean;
   categories: string[];
   values: Record<string, unknown>;
 }
@@ -244,19 +402,353 @@ export function createPreset(
   return request<PresetSummary>('POST', '/customization/presets', { name, values });
 }
 
-export async function deletePreset(slug: string): Promise<void> {
-  // ``request`` always tries to ``res.json()`` and the delete handler
-  // returns 204 No Content with no body, which would throw. Use the
-  // raw fetch path here so the caller gets a clean ``void`` resolve.
-  const path = `/customization/presets/${encodeURIComponent(slug)}`;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'DELETE',
-    headers: headers(),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API DELETE ${path} failed (${res.status}): ${text}`);
-  }
+export function deletePreset(slug: string): Promise<void> {
+  return request<void>('DELETE', `/customization/presets/${encodeURIComponent(slug)}`);
+}
+
+// Admin global-preset management.
+export function adminListGlobalPresets(): Promise<{ items: PresetSummary[] }> {
+  return request('GET', '/admin/presets');
+}
+
+export function adminCreateGlobalPreset(
+  name: string,
+  values: Record<string, unknown>,
+  isActive = true,
+): Promise<PresetSummary> {
+  return request('POST', '/admin/presets', { name, values, is_active: isActive });
+}
+
+export function adminSetPresetActive(
+  slug: string,
+  isActive: boolean,
+): Promise<{ slug: string; is_active: boolean }> {
+  return request('PATCH', `/admin/presets/${encodeURIComponent(slug)}`, { is_active: isActive });
+}
+
+export function adminDeleteGlobalPreset(slug: string): Promise<void> {
+  return request<void>('DELETE', `/admin/presets/${encodeURIComponent(slug)}`);
+}
+
+export function adminExportPresets(): Promise<Record<string, Record<string, unknown>>> {
+  return request('GET', '/admin/presets/export');
+}
+
+export function adminImportPresets(
+  themes: Record<string, Record<string, unknown>>,
+  replace = false,
+): Promise<{ imported: number }> {
+  return request('POST', '/admin/presets/import', { themes, replace });
+}
+
+// Admin global-team JSON import/export (APP_TEAMS shape).
+export function adminExportTeams(): Promise<Record<string, Record<string, unknown>>> {
+  return request('GET', '/admin/teams/export');
+}
+
+export function adminImportTeams(
+  teams: Record<string, Record<string, unknown>>,
+  replace = false,
+): Promise<{ imported: number }> {
+  return request('POST', '/admin/teams/import', { teams, replace });
+}
+
+// ---- Teams: catalog, my list, groups --------------------------------------
+
+export interface TeamOut {
+  id: number;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  text_color: string | null;
+  is_global: boolean;
+}
+
+export interface TeamGroupOut {
+  id: number;
+  name: string;
+  is_active: boolean;
+  teams: TeamOut[];
+}
+
+export function getTeamCatalog(): Promise<TeamOut[]> {
+  return request<TeamOut[]>('GET', '/teams/catalog');
+}
+
+/** The caller's team list as rows with ids (global + own custom teams). */
+export function getMyTeams(): Promise<TeamOut[]> {
+  return request<TeamOut[]>('GET', '/teams/mine');
+}
+
+export function addTeamsToMine(teamIds: number[]): Promise<{ added: number }> {
+  return request('POST', '/teams/mine', { team_ids: teamIds });
+}
+
+export function removeTeamFromMine(teamId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/teams/mine/${teamId}`);
+}
+
+export function removeTeamsFromMine(teamIds: number[]): Promise<{ removed: number }> {
+  return request('POST', '/teams/mine/remove', { team_ids: teamIds });
+}
+
+export function createMyTeam(fields: TeamFields): Promise<TeamOut> {
+  return request<TeamOut>('POST', '/teams/mine/custom', fields);
+}
+
+export function updateMyTeam(teamId: number, fields: Partial<TeamFields>): Promise<TeamOut> {
+  return request<TeamOut>('PATCH', `/teams/mine/custom/${teamId}`, fields);
+}
+
+export function getTeamGroups(): Promise<TeamGroupOut[]> {
+  return request<TeamGroupOut[]>('GET', '/team-groups');
+}
+
+export function copyGroupToMine(groupId: number): Promise<{ added: number }> {
+  return request('POST', `/team-groups/${groupId}/copy-to-mine`, {});
+}
+
+// ---- Account: my groups (groups-as-primary-unit) ---------------------------
+// A group's `id` is null only for the synthetic "All" group. `removable_ids`
+// are the teams the caller added themselves and may remove (admin-intrinsic
+// members of a shared group, and the "All" group, are not removable).
+
+export interface GroupDetail {
+  id: number | null;
+  name: string;
+  kind: BoardGroupKind;
+  is_private: boolean;
+  teams: TeamOut[];
+  removable_ids: number[];
+}
+
+export function getMyGroups(): Promise<GroupDetail[]> {
+  return request<GroupDetail[]>('GET', '/my/groups');
+}
+
+export function createMyGroup(name: string): Promise<GroupDetail> {
+  return request<GroupDetail>('POST', '/my/groups', { name });
+}
+
+export function renameMyGroup(groupId: number, name: string): Promise<GroupDetail> {
+  return request<GroupDetail>('PATCH', `/my/groups/${groupId}`, { name });
+}
+
+export function deleteMyGroup(groupId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/my/groups/${groupId}`);
+}
+
+export function addTeamsToMyGroup(groupId: number, teamIds: number[]): Promise<{ added: number }> {
+  return request('POST', `/my/groups/${groupId}/teams`, { team_ids: teamIds });
+}
+
+export function removeTeamFromMyGroup(
+  groupId: number,
+  teamId: number,
+): Promise<{ ok: boolean; removed: boolean }> {
+  return request('DELETE', `/my/groups/${groupId}/teams/${teamId}`);
+}
+
+export interface TeamFields {
+  name: string;
+  icon?: string | null;
+  color?: string | null;
+  text_color?: string | null;
+}
+
+export function adminCreateTeam(fields: TeamFields): Promise<TeamOut> {
+  return request<TeamOut>('POST', '/admin/teams', fields);
+}
+
+export function adminUpdateTeam(id: number, fields: Partial<TeamFields>): Promise<TeamOut> {
+  return request<TeamOut>('PATCH', `/admin/teams/${id}`, fields);
+}
+
+export function adminDeleteTeam(id: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/admin/teams/${id}`);
+}
+
+// ---- Icon library (hosted team logos) ---------------------------------------
+// Icons are stored server-side (resized + re-encoded to WebP) and served from
+// the public /media mount; teams reference them by URL like any external logo.
+
+export interface IconOut {
+  id: number;
+  name: string;
+  url: string;
+  is_global: boolean;
+  width: number;
+  height: number;
+  size_bytes: number;
+}
+
+export interface IconLibrary {
+  globals: IconOut[];
+  mine: IconOut[];
+  quota: { used: number; limit: number };
+}
+
+export interface IconImportResult {
+  team_id: number;
+  team_name: string;
+  status: 'ok' | 'skipped' | 'error';
+  icon_id?: number | null;
+  icon_url?: string | null;
+  error?: string | null;
+}
+
+function iconForm(name: string, file: File): FormData {
+  const form = new FormData();
+  form.set('name', name);
+  form.set('file', file);
+  return form;
+}
+
+export function listIcons(): Promise<IconLibrary> {
+  return request<IconLibrary>('GET', '/icons');
+}
+
+export function uploadMyIcon(name: string, file: File): Promise<IconOut> {
+  return requestMultipart<IconOut>('POST', '/icons/mine', iconForm(name, file));
+}
+
+export function renameMyIcon(id: number, name: string): Promise<IconOut> {
+  return request<IconOut>('PATCH', `/icons/mine/${id}`, { name });
+}
+
+export function getMyIconUsage(id: number): Promise<{ teams: number }> {
+  return request('GET', `/icons/mine/${id}/usage`);
+}
+
+export function deleteMyIcon(id: number): Promise<{ ok: boolean; teams_cleared: number }> {
+  return request('DELETE', `/icons/mine/${id}`);
+}
+
+export function importIconsFromMyTeams(
+  teamIds: number[],
+): Promise<{ results: IconImportResult[] }> {
+  return request('POST', '/icons/mine/import-from-teams', { team_ids: teamIds });
+}
+
+export function adminUploadIcon(name: string, file: File): Promise<IconOut> {
+  return requestMultipart<IconOut>('POST', '/admin/icons', iconForm(name, file));
+}
+
+export function adminRenameIcon(id: number, name: string): Promise<IconOut> {
+  return request<IconOut>('PATCH', `/admin/icons/${id}`, { name });
+}
+
+export function adminGetIconUsage(id: number): Promise<{ teams: number }> {
+  return request('GET', `/admin/icons/${id}/usage`);
+}
+
+export function adminDeleteIcon(id: number): Promise<{ ok: boolean; teams_cleared: number }> {
+  return request('DELETE', `/admin/icons/${id}`);
+}
+
+export function adminImportIconsFromTeams(
+  teamIds: number[],
+): Promise<{ results: IconImportResult[] }> {
+  return request('POST', '/admin/icons/import-from-teams', { team_ids: teamIds });
+}
+
+// ---- Admin: team-group authoring ------------------------------------------
+// Users only ever read active groups (getTeamGroups); the admin manager works
+// against every group, active or not, and can build/publish/delete them.
+
+export function adminListGroups(): Promise<TeamGroupOut[]> {
+  return request<TeamGroupOut[]>('GET', '/admin/team-groups');
+}
+
+export function adminCreateGroup(name: string): Promise<TeamGroupOut> {
+  return request<TeamGroupOut>('POST', '/admin/team-groups', { name });
+}
+
+export function adminAddGroupMember(groupId: number, teamId: number): Promise<{ ok: boolean }> {
+  return request('POST', `/admin/team-groups/${groupId}/members`, { team_id: teamId });
+}
+
+export function adminRemoveGroupMember(
+  groupId: number,
+  teamId: number,
+): Promise<{ ok: boolean; removed: boolean }> {
+  return request('DELETE', `/admin/team-groups/${groupId}/members/${teamId}`);
+}
+
+export function adminSetGroupActive(
+  groupId: number,
+  isActive: boolean,
+): Promise<{ id: number; is_active: boolean }> {
+  return request('PATCH', `/admin/team-groups/${groupId}`, { is_active: isActive });
+}
+
+export function adminDeleteGroup(groupId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/admin/team-groups/${groupId}`);
+}
+
+// ---- Match reports (per overlay) ------------------------------------------
+
+export interface MatchSummary {
+  match_id: string;
+  oid: string;
+  ended_at: number | null;
+  duration_s: number | null;
+  winning_team: number | null;
+  team_1_sets?: number | null;
+  team_2_sets?: number | null;
+  team_1_name?: string | null;
+  team_2_name?: string | null;
+  mode?: string | null;
+}
+
+export function listReports(oid?: string): Promise<{ count: number; matches: MatchSummary[] }> {
+  // The server pages this endpoint (default 100); request its maximum page.
+  // The Reports page filters client-side, so one large page keeps that UX;
+  // `count` in the response is the total should a library ever outgrow it.
+  const q = oid ? `${withOid(oid)}&limit=500` : '?limit=500';
+  return request('GET', `/matches${q}`);
+}
+
+export function deleteMatch(matchId: string): Promise<void> {
+  return request('DELETE', `/matches/${encodeURIComponent(matchId)}`);
+}
+
+// ---- Admin -----------------------------------------------------------------
+
+export function adminListUsers(): Promise<UserOut[]> {
+  return request<UserOut[]>('GET', '/admin/users');
+}
+
+export function adminCreateUser(
+  username: string,
+  opts: { password?: string; role?: 'admin' | 'user'; email?: string; display_name?: string } = {},
+): Promise<{ user: UserOut; temp_password: string }> {
+  return request('POST', '/admin/users', { username, ...opts });
+}
+
+export function adminResetPassword(
+  userId: number,
+): Promise<{ user: UserOut; temp_password: string }> {
+  return request('POST', `/admin/users/${userId}/reset-password`, {});
+}
+
+export function adminUpdateUser(
+  userId: number,
+  data: { role?: 'admin' | 'user'; is_active?: boolean; display_name?: string; email?: string },
+): Promise<UserOut> {
+  return request('PATCH', `/admin/users/${userId}`, data);
+}
+
+export function adminDeleteUser(userId: number): Promise<{ ok: boolean }> {
+  return request('DELETE', `/admin/users/${userId}`);
+}
+
+export function adminGetRegistration(): Promise<{ registration_open: boolean }> {
+  return request('GET', '/admin/registration');
+}
+
+export function adminSetRegistration(open: boolean): Promise<{ registration_open: boolean }> {
+  return request('PUT', '/admin/registration', { registration_open: open });
 }
 
 export function getLinks(oid: string): Promise<Record<string, unknown>> {
@@ -279,12 +771,113 @@ export function getStyleCapabilities(oid: string): Promise<Record<string, StyleC
   return request<Record<string, StyleCapabilities>>('GET', `/style-capabilities${withOid(oid)}`);
 }
 
-export function getOverlays(): Promise<OverlayPayload[]> {
-  return request<OverlayPayload[]>('GET', '/overlays');
+type OverlayRow = Omit<OverlayPayload, 'name'>;
+
+function withName(r: OverlayRow): OverlayPayload {
+  // The oid is the overlay's name; ``name`` is kept as a convenience alias.
+  return { name: r.oid, ...r };
+}
+
+export async function getOverlays(): Promise<OverlayPayload[]> {
+  const rows = await request<OverlayRow[]>('GET', '/overlays');
+  return rows.map(withName);
+}
+
+export async function createOverlay(
+  oid: string,
+  settings: OverlaySettings = {},
+): Promise<OverlayPayload> {
+  const row = await request<OverlayRow>('POST', '/overlays', { oid, ...settings });
+  return withName(row);
+}
+
+export async function updateOverlay(
+  oid: string,
+  settings: OverlaySettings,
+): Promise<OverlayPayload> {
+  const row = await request<OverlayRow>('PATCH', `/overlays/${encodeURIComponent(oid)}`, settings);
+  return withName(row);
+}
+
+export function deleteOverlay(oid: string): Promise<void> {
+  return request<void>('DELETE', `/overlays/${encodeURIComponent(oid)}`);
+}
+
+/** Mint a fresh control link for an overlay, revoking the previous one. */
+export async function regenerateControlToken(oid: string): Promise<OverlayPayload> {
+  const row = await request<OverlayRow>(
+    'POST',
+    `/overlays/${encodeURIComponent(oid)}/regenerate-control-token`,
+    {},
+  );
+  return withName(row);
 }
 
 export function getAppConfig(): Promise<AppConfig> {
   return request<AppConfig>('GET', '/app-config');
+}
+
+// ---- Auth / account --------------------------------------------------------
+
+export interface UserOut {
+  id: number;
+  username: string;
+  display_name: string | null;
+  email: string | null;
+  role: 'admin' | 'user';
+  is_active: boolean;
+  must_change_password: boolean;
+}
+
+export interface AuthContext {
+  authenticated: boolean;
+  user: UserOut | null;
+  registration_open: boolean;
+  needs_admin_bootstrap: boolean;
+}
+
+export function getAuthContext(): Promise<AuthContext> {
+  return request<AuthContext>('GET', '/auth/context');
+}
+
+export function login(
+  username: string,
+  password: string,
+): Promise<{ user: UserOut; must_change_password: boolean }> {
+  return request('POST', '/auth/login', { username, password });
+}
+
+export function registerAccount(
+  username: string,
+  password: string,
+  display_name?: string,
+  email?: string,
+): Promise<{ user: UserOut }> {
+  return request('POST', '/auth/register', { username, password, display_name, email });
+}
+
+export function claimAdmin(
+  token: string,
+  username: string,
+  password: string,
+): Promise<{ user: UserOut }> {
+  return request('POST', '/auth/claim-admin', { token, username, password });
+}
+
+export function logout(): Promise<{ ok: boolean }> {
+  return request('POST', '/auth/logout', {});
+}
+
+export function changePassword(current_password: string, new_password: string): Promise<UserOut> {
+  return request('POST', '/auth/change-password', { current_password, new_password });
+}
+
+export function updateMe(data: { display_name?: string; email?: string }): Promise<UserOut> {
+  return request('PATCH', '/auth/me', data);
+}
+
+export function deleteMe(): Promise<{ ok: boolean }> {
+  return request('DELETE', '/auth/me');
 }
 
 // Audit log

@@ -51,7 +51,7 @@ export default defineConfig(async () => ({
     ...(await maybeCompression()),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['fonts/**/*', 'icon.svg'],
+      includeAssets: ['fonts/**/*', 'icon.svg', 'icon-board.svg'],
       manifest: {
         name: 'Volley Scoreboard',
         short_name: 'Volley',
@@ -63,10 +63,14 @@ export default defineConfig(async () => ({
         start_url: '/',
         icons: [
           {
+            // Primary, resolution-independent icon. Drawn maskable-safe (key
+            // art centred within the inner 80%), so it doubles as the maskable
+            // source. Regenerate the PNG siblings below from this file with
+            // scripts/regenerate-icons.sh whenever you edit it.
             src: 'icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
-            purpose: 'any',
+            purpose: 'any maskable',
           },
           {
             src: 'icon-192x192.png',

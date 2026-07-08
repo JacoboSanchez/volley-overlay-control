@@ -8,6 +8,7 @@ import PointsHistoryStrip from './PointsHistoryStrip';
 import SetSummaryActiveNotice from './SetSummaryActiveNotice';
 import type { SetSummaryStyle } from '../api/client';
 import SideSwitchIndicator from './SideSwitchIndicator';
+import ServeSwitchIndicator from './ServeSwitchIndicator';
 import MatchAlertIndicator from './MatchAlertIndicator';
 import type { GameState } from '../api/client';
 import type { ConfigModel } from './TeamCard';
@@ -53,6 +54,15 @@ export interface CenterPanelProps {
   btnTextA: string;
   btnColorB: string;
   btnTextB: string;
+  /**
+   * Team logos, already resolved against the operator's "show logos"
+   * (``showIcon``) setting — ``null`` when logos are turned off. Passing
+   * the resolved value (rather than re-reading the customization here)
+   * keeps the set-score columns and points-history strip in lockstep
+   * with the score buttons, which hide their logos from the same toggle.
+   */
+  team1Logo: string | null;
+  team2Logo: string | null;
   fontStyle?: ScoreButtonFontStyle;
   /**
    * Set summary overlay: when the operator has the recap active, the
@@ -86,6 +96,8 @@ function CenterPanel({
   btnTextA,
   btnColorB,
   btnTextB,
+  team1Logo,
+  team2Logo,
   fontStyle,
   setSummaryActive,
   setSummarySetNum,
@@ -107,10 +119,8 @@ function CenterPanel({
   const leftId: 1 | 2 = sidesSwapped ? 2 : 1;
   const rightId: 1 | 2 = sidesSwapped ? 1 : 2;
   const setsById = { 1: state.team_1.sets, 2: state.team_2.sets } as const;
-  const logosById = {
-    1: asString(customization?.['Team 1 Logo']),
-    2: asString(customization?.['Team 2 Logo']),
-  } as const;
+  // Already gated by the "show logos" toggle upstream — null when off.
+  const logosById = { 1: team1Logo, 2: team2Logo } as const;
 
   return (
     <div className={`center-panel${compactLandscape ? ' center-panel-compact' : ''}`}>
@@ -202,13 +212,14 @@ function CenterPanel({
             <span className="material-icons">swap_horiz</span>
           </button>
         )}
-        <MatchAlertIndicator state={state} isPortrait={isPortrait} />
+        <MatchAlertIndicator state={state} isPortrait={isPortrait} sidesSwapped={sidesSwapped} />
         {!state.match_finished && (
           <SideSwitchIndicator
             info={state.beach_side_switch}
             forcePending={indoorMidpointPending}
           />
         )}
+        {!state.match_finished && <ServeSwitchIndicator info={state.serve_switch} />}
       </div>
 
       {setSummaryActive && onDeactivateSetSummary && onChangeSetSummaryStyle ? (

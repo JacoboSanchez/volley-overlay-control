@@ -1,122 +1,115 @@
+"""Scoreboard API auth + session dependencies.
+
+The control board is reachable three ways:
+
+* **Owner** — a logged-in cookie session (`vsession`). The session is addressed
+  by the per-user storage key ``<user_id>:<oid>`` so two users can drive the
+  same ``oid`` in isolation.
+* **Operator** — an unguessable *control token* passed as ``?c=<token>`` (or the
+  ``X-Control-Token`` header). The token resolves to one overlay's storage key,
+  granting full board control without a login — the link an owner hands to
+  whoever is running the match. It also separates two users sharing an ``oid``.
+* **Public bookmark** — ``?u=<username>&oid=<oid>``: a stable, no-login URL the
+  owner can bookmark permanently. It is *guessable*, so it only works when the
+  overlay has opted into ``public_control``; otherwise it is rejected.
+
+``get_session`` resolves the storage key from whichever credential is present
+and is the single authorization gate for board routes — don't add a separate
+route-level credential check on a route that already depends on it, or every
+action pays a second identical token lookup.
+"""
+
 import logging
 
-from fastapi import Header, HTTPException, Query, Request
+from fastapi import Depends, Header, HTTPException, Query
+from sqlalchemy.orm import Session
 
+from app import overlays_service
 from app.api.session_manager import GameSession, SessionManager
-from app.authentication import PasswordAuthenticator
-from app.env_vars_manager import EnvVarsManager
+from app.auth.dependencies import PASSWORD_CHANGE_REQUIRED, current_user
+from app.db.engine import get_db
+from app.db.models.user import User
+from app.overlay_key import make_skey
 
 logger = logging.getLogger(__name__)
 
+_WWW_AUTH = {"WWW-Authenticate": "Cookie"}
+_INVALID_LINK = "Invalid or revoked control link."
 
-def _strict_oid_access_enabled() -> bool:
-    """Return True when ``STRICT_OID_ACCESS`` is set to a truthy value.
 
-    Opt-in hardening: when enabled, a user configured in ``SCOREBOARD_USERS``
-    without an explicit ``control`` field is denied access to every OID
-    rather than allowed everywhere. Default off for backward compatibility.
+def control_token(
+    c: str | None = Query(None, description="Control capability token (shareable board link)"),
+    x_control_token: str | None = Header(None, description="Control capability token (alternative to ?c=)"),
+) -> str | None:
+    """The control token from the ``?c=`` query or ``X-Control-Token`` header."""
+    return c or x_control_token
+
+
+def _require_onboarded(user: User | None) -> None:
+    """Raise unless *user* is an authenticated, password-current account."""
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated.", headers=_WWW_AUTH)
+    if user.must_change_password:
+        raise HTTPException(status_code=409, detail=PASSWORD_CHANGE_REQUIRED)
+
+
+def resolve_board_skey(
+    db: Session,
+    *,
+    token: str | None,
+    public_user: str | None,
+    user: User | None,
+    oid: str | None,
+) -> str:
+    """Resolve the storage key for the board from whichever credential is present.
+
+    Precedence: control token (operator) → opted-in ``username``+``oid`` (public
+    bookmark) → cookie user + ``oid`` (owner).
     """
-    raw = EnvVarsManager.get_env_var('STRICT_OID_ACCESS', 'false')
-    return str(raw).strip().lower() in ('1', 'true', 't', 'yes', 'on')
+    if token:
+        overlay = overlays_service.get_by_control_token(db, token)
+        if overlay is None:
+            raise HTTPException(status_code=403, detail=_INVALID_LINK)
+        return overlays_service.skey_for(overlay)
 
-# RFC 7235 mandates a ``WWW-Authenticate`` header on every 401 response so
-# clients know which scheme to retry with. We emit ``Bearer`` plus a
-# realm hint so the OpenAPI / Swagger UI prompt presents a sensible
-# label. The realm strings are deliberately surface-specific so an
-# operator can tell from the response which auth ladder the request
-# tripped (scoreboard / admin / overlay-server).
-_API_KEY_WWW_AUTH = {"WWW-Authenticate": 'Bearer realm="scoreboard"'}
+    if public_user:
+        overlay = overlays_service.get_public_by_username_and_oid(db, public_user, oid or "")
+        if overlay is None:
+            raise HTTPException(status_code=403, detail=_INVALID_LINK)
+        return overlays_service.skey_for(overlay)
 
-
-async def verify_api_key(authorization: str = Header(None)):
-    """Validate the Bearer token when user authentication is enabled.
-
-    If ``SCOREBOARD_USERS`` is not configured the check is skipped so
-    that the API remains open.
-    """
-    if not PasswordAuthenticator.do_authenticate_users():
-        return  # no auth required
-
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing API key. Use 'Authorization: Bearer <key>'.",
-            headers=_API_KEY_WWW_AUTH,
-        )
-
-    token = authorization.removeprefix("Bearer ").strip()
-    if not PasswordAuthenticator.check_api_key(token):
-        raise HTTPException(status_code=403, detail="Invalid API key.")
-
-def get_current_username(authorization: str | None) -> str | None:
-    """Return the username for a Bearer token header, or ``None``.
-
-    Does not raise: used by endpoints that want to filter by caller identity
-    without requiring authentication (e.g. ``GET /overlays``).
-    """
-    if not authorization:
-        return None
-    token = authorization.removeprefix("Bearer ").strip()
-    return PasswordAuthenticator.get_username_for_api_key(token)
-
-def check_oid_access(authorization: str, oid: str):
-    """Verify that the API key has permission for the requested OID."""
-    if not PasswordAuthenticator.do_authenticate_users():
-        return
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing API key.",
-            headers=_API_KEY_WWW_AUTH,
-        )
-
-    username = get_current_username(authorization)
-    if not username:
-        raise HTTPException(status_code=403, detail="Invalid API key.")
-
-    users = PasswordAuthenticator._get_users()
-    # ``_get_users`` already guarantees a dict-or-None at the top
-    # level, but a per-user entry may still be a non-dict shape
-    # (e.g. ``{"alice": "string"}``); skip the OID check rather
-    # than crash on ``userconf.get(...)``.
-    userconf = users.get(username) if isinstance(users, dict) else None
-    if not isinstance(userconf, dict):
-        return
-    allowed_oid = userconf.get("control")
-    if allowed_oid and allowed_oid != oid:
-        raise HTTPException(status_code=403, detail="Not authorized for this OID.")
-    if not allowed_oid and _strict_oid_access_enabled():
-        logger.warning(
-            "Strict OID access: user %s has no 'control' field; denying",
-            username,
-        )
-        raise HTTPException(status_code=403, detail="Not authorized for this OID.")
-
-async def get_session(
-    request: Request,
-    oid: str | None = Query(None, description="Overlay ID"),
-    control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
-) -> GameSession:
-    """Retrieve a previously initialised ``GameSession``.
-
-    Accepts either ``?oid=`` or ``?control=`` (alias). Returns HTTP 404 if
-    no session exists for the given OID — callers should call
-    ``POST /api/v1/session/init`` first.
-    """
-    resolved = oid or control
-    if not resolved:
+    _require_onboarded(user)
+    if not oid:
         raise HTTPException(
             status_code=422,
             detail="Missing required query parameter: 'oid' (or alias 'control').",
         )
+    return make_skey(user.id, oid)  # type: ignore[union-attr]  # _require_onboarded ensures non-None
 
-    authorization = request.headers.get("authorization", "")
-    check_oid_access(authorization, resolved)
 
-    session = SessionManager.get(resolved)
+def get_session(
+    oid: str | None = Query(None, description="Overlay ID"),
+    control: str | None = Query(None, description="Alias of `oid` for backward compatibility"),
+    token: str | None = Depends(control_token),
+    u: str | None = Query(None, description="Username for a public ?u=&oid= board URL"),
+    user: User | None = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> GameSession:
+    """Retrieve the board's previously-initialised ``GameSession``.
+
+    The storage key comes from the control token (operator), the opted-in
+    ``username``+``oid`` bookmark, or the cookie user + ``oid`` (owner), so a
+    caller only ever reaches the board their credential authorizes. Returns 404
+    when no session exists (call ``POST /api/v1/session/init`` first).
+    Sync ``def`` on purpose — the DB lookup runs in the threadpool.
+    """
+    skey = resolve_board_skey(
+        db, token=token, public_user=u, user=user, oid=(oid or control),
+    )
+    session = SessionManager.get(skey)
     if session is None:
         raise HTTPException(
             status_code=404,
-            detail=f"No active session for OID '{resolved}'. Call POST /api/v1/session/init first.",
+            detail="No active session for this board. Call POST /api/v1/session/init first.",
         )
     return session

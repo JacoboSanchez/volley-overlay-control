@@ -26,8 +26,10 @@ def validate_config():
             logger.warning("Invalid %s '%s': must be a positive integer. Defaulting to %s.", var, val, default)
             os.environ[var] = default
 
-    # JSON validation
-    json_vars = ['APP_TEAMS', 'SCOREBOARD_USERS', 'PREDEFINED_OVERLAYS', 'APP_THEMES']
+    # JSON validation. (SCOREBOARD_USERS / PREDEFINED_OVERLAYS were removed in
+    # the multi-user refactor; APP_TEAMS / APP_THEMES survive only as the admin
+    # import/export JSON shapes, not as operator env config.)
+    json_vars = ['APP_TEAMS', 'APP_THEMES']
     for var in json_vars:
         val = os.environ.get(var)
         if val:
@@ -48,8 +50,9 @@ def validate_config():
         logger.warning("Invalid APP_PORT '%s': must be an integer between 1 and 65535. Defaulting to 8080.", port_val)
         os.environ['APP_PORT'] = '8080'
 
-    # Enums validation
-    log_level = os.environ.get('LOGGING_LEVEL', 'info').lower()
+    # Enums validation. 'warning' mirrors the real default in
+    # app/logging_config.py — keep the two in sync.
+    log_level = os.environ.get('LOGGING_LEVEL', 'warning').lower()
     if log_level not in ['debug', 'info', 'warning', 'error']:
-        logger.warning("Invalid LOGGING_LEVEL '%s'. Must be 'debug', 'info', 'warning', or 'error'. Defaulting to 'info'.", log_level)
-        os.environ['LOGGING_LEVEL'] = 'info'
+        logger.warning("Invalid LOGGING_LEVEL '%s'. Must be 'debug', 'info', 'warning', or 'error'. Defaulting to 'warning'.", log_level)
+        os.environ['LOGGING_LEVEL'] = 'warning'

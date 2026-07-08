@@ -44,6 +44,19 @@ export interface ControlButtonsProps {
    */
   setSummaryEnabled?: boolean;
   setSummaryActive?: boolean;
+  /**
+   * Live output clients (OBS browser sources + spectators) connected to
+   * this overlay. With ``showOnAir`` on, a >0 count lights an "on-air"
+   * badge so the operator can confirm the scoreboard is reaching OBS.
+   */
+  obsClients?: number;
+  showOnAir?: boolean;
+  /**
+   * ``match_id`` of the just-finished match. With ``showReportLink`` on,
+   * a "Match report" button appears next to Reset at match end.
+   */
+  lastMatchId?: string | null;
+  showReportLink?: boolean;
   onToggleVisibility: () => void;
   onToggleSimpleMode: () => void;
   onUndoLast: () => void;
@@ -76,6 +89,10 @@ export default function ControlButtons({
   matchFinished,
   setSummaryEnabled,
   setSummaryActive,
+  obsClients = 0,
+  showOnAir = true,
+  lastMatchId,
+  showReportLink = true,
   onToggleVisibility,
   onToggleSimpleMode,
   onUndoLast,
@@ -115,9 +132,36 @@ export default function ControlButtons({
         </button>
       )}
 
+      {matchFinished && lastMatchId && showReportLink && (
+        <a
+          className="control-btn control-btn-text control-btn-report"
+          href={`/match/${encodeURIComponent(lastMatchId)}/report`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t('ctrl.viewReport')}
+          data-testid="view-report-button"
+        >
+          <span className="material-icons">description</span>
+          <span>{t('ctrl.viewReport')}</span>
+        </a>
+      )}
+
       <div className="spacer">
         <MatchTimer startedAt={matchStartedAt} finishedAt={matchFinishedAt} />
       </div>
+
+      {showOnAir && obsClients > 0 && (
+        <span
+          className="control-onair"
+          title={t('ctrl.onAir')}
+          aria-label={t('ctrl.onAir')}
+          data-testid="onair-indicator"
+        >
+          <span className="control-onair-dot" />
+          <span className="material-icons">podcasts</span>
+          <span className="control-onair-count">{obsClients}</span>
+        </span>
+      )}
 
       <button
         className="control-btn"

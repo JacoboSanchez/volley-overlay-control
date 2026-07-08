@@ -6,18 +6,17 @@ counter, and once a bucket exceeds ``_MAX_FAILURES`` within
 ``_WINDOW_SECONDS`` the next request from that IP is short-circuited
 with ``429 Too Many Requests`` before reaching the handler.
 
-This guards the four credential-bearing surfaces against brute force:
+This guards the credential-bearing surfaces against brute force:
 
-* ``POST /api/v1/admin/login`` — admin password check.
-* ``GET /api/v1/admin/*`` and the rest of the admin CRUD.
-* every ``/api/v1/`` route protected by ``verify_api_key``.
-* ``/manage`` (admin password used by the static page).
+* ``POST /api/v1/auth/login`` and ``/auth/claim-admin`` — credential checks.
+* ``GET /api/v1/admin/*`` and the rest of the admin CRUD (cookie + role).
+* every ``/api/v1/`` route protected by the session-cookie dependency.
 
 A successful response is intentionally ignored — the bucket is reset
 only by the sliding window expiring old failures. This prevents an
 attacker from laundering failed login attempts by interleaving them
 with hits to a public endpoint under the same prefix (e.g.
-``/api/v1/admin/status``). See ``_record_outcome`` for the full
+``/api/v1/auth/context``). See ``_record_outcome`` for the full
 rationale.
 
 All state is process-local — clusters with multiple replicas should
@@ -35,8 +34,8 @@ from collections import OrderedDict, deque
 from collections.abc import Iterable
 
 # Tunables — kept generous so legitimate operator workflows
-# (e.g. opening /manage in three tabs) never trip the limit, but
-# tight enough that an unattended attacker is throttled within
+# (e.g. an admin clicking through several account pages) never trip the
+# limit, but tight enough that an unattended attacker is throttled within
 # seconds. Override via env vars if needed.
 
 
@@ -60,7 +59,6 @@ _MAX_CLIENTS = 4096
 # silently pull failures from elsewhere into its bucket.
 _WATCHED_PREFIXES: tuple[str, ...] = (
     "/api/v1/",
-    "/manage",
 )
 
 

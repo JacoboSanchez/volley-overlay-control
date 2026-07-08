@@ -1,0 +1,1602 @@
+/* Styling for the account / auth surface (login, dashboard, management). */
+
+.acc-shell {
+  /* The global App.css forces ``html, body, #root { overflow: hidden }`` for
+     the fullscreen control board, which would otherwise clip (and prevent
+     scrolling of) the account pages. Make the shell its own scroll container
+     and re-enable text selection that the board disables globally. */
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  user-select: text;
+  -webkit-user-select: text;
+  background: #0f1115;
+  color: #e7e9ee;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+
+.acc-auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.acc-card {
+  background: #181b22;
+  border: 1px solid #262b35;
+  border-radius: 14px;
+  padding: 28px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.acc-card h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+}
+
+.acc-sub {
+  color: #98a2b3;
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+}
+
+.acc-field {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.acc-field span {
+  display: block;
+  font-size: 0.8rem;
+  color: #98a2b3;
+  margin-bottom: 5px;
+}
+
+.acc-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0f1115;
+  border: 1px solid #2c333f;
+  border-radius: 8px;
+  color: #e7e9ee;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.acc-input:focus {
+  outline: none;
+  border-color: #4f8cff;
+}
+
+.acc-btn {
+  background: #4f8cff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.acc-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.acc-btn.secondary {
+  background: #262b35;
+  color: #e7e9ee;
+}
+
+.acc-btn.danger {
+  background: #c0392b;
+}
+
+.acc-btn.ghost {
+  background: transparent;
+  border: 1px solid #2c333f;
+  color: #cfd4dd;
+}
+
+.acc-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.acc-error {
+  background: #3a1d1d;
+  border: 1px solid #6b2b2b;
+  color: #ffb4ab;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.acc-info {
+  background: #142a1c;
+  border: 1px solid #2c5a3c;
+  color: #a6e6bf;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  word-break: break-all;
+}
+
+.acc-link {
+  color: #79a8ff;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  padding: 0;
+}
+
+.acc-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.acc-nav {
+  background: #14171d;
+  border-right: 1px solid #232833;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Keep the nav in view while the content column scrolls. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.acc-nav .brand {
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 6px 10px 16px;
+}
+
+.acc-nav a {
+  color: #c2c8d2;
+  text-decoration: none;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.acc-nav a.active,
+.acc-nav a:hover {
+  background: #20262f;
+  color: #fff;
+}
+
+.acc-nav .spacer {
+  flex: 1;
+}
+
+.acc-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.acc-nav-signout {
+  margin-top: 4px;
+}
+
+/* Mobile top bar + hamburger. Hidden on desktop, where the sidebar nav is
+   always on screen. */
+.acc-topbar {
+  display: none;
+}
+
+.acc-hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid #2c333f;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.acc-hamburger-box {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 14px;
+}
+
+.acc-hamburger-inner,
+.acc-hamburger-inner::before,
+.acc-hamburger-inner::after {
+  position: absolute;
+  left: 0;
+  width: 20px;
+  height: 2px;
+  background: #e7e9ee;
+  border-radius: 2px;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    top 0.2s ease;
+}
+
+.acc-hamburger-inner {
+  top: 6px;
+}
+
+.acc-hamburger-inner::before,
+.acc-hamburger-inner::after {
+  content: '';
+}
+
+.acc-hamburger-inner::before {
+  top: -6px;
+}
+
+.acc-hamburger-inner::after {
+  top: 6px;
+}
+
+/* Morph the three bars into an X while the drawer is open. */
+.acc-hamburger.open .acc-hamburger-inner {
+  background: transparent;
+}
+
+.acc-hamburger.open .acc-hamburger-inner::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+
+.acc-hamburger.open .acc-hamburger-inner::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
+.acc-nav-backdrop {
+  display: none;
+}
+
+.acc-main {
+  padding: 28px 32px;
+  max-width: 960px;
+}
+
+.acc-main h2 {
+  margin-top: 0;
+}
+
+.acc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.acc-table th,
+.acc-table td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid #232833;
+  font-size: 0.9rem;
+}
+
+.acc-table th {
+  color: #98a2b3;
+  font-weight: 600;
+}
+
+/* Sortable column header rendered as a borderless button so it inherits the
+   header look but toggles the sort on click. */
+.acc-sort-th {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.acc-sort-th:hover {
+  color: #e6e9ef;
+}
+
+/* Reports filter row: keep the match-type select, the day-filter button and
+   the count on one centred line. The select uses an inline label (rather than
+   the stacked ``.acc-field``) so it's the same height as the day button. */
+.acc-reports-filters {
+  margin: 12px 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.acc-filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #98a2b3;
+}
+
+.acc-filter-select {
+  width: auto;
+  padding: 8px 10px;
+}
+
+.acc-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* Responsive create-form layout. Labels sit on top and items align to their
+   top edge, so the inputs line up on one row even when individual fields carry
+   helper text below them — which previously dragged the row out of alignment
+   under the flex-end ``.acc-row`` and widened columns to fit the helper line. */
+.acc-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 16px 0;
+}
+
+.acc-form .acc-field {
+  flex: 1 1 190px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.acc-form-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A hidden, one-line spacer the same height as a field label, so the submit
+   button drops down to line up with the inputs in the other columns. */
+.acc-form-spacer {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 5px;
+}
+
+/* Read-only value + Copy button (e.g. a temporary password an admin hands to a
+   new user). The input is selectable so it can also be copied manually. */
+.acc-copy {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 460px;
+}
+
+.acc-copy-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.acc-copy .acc-btn {
+  flex: 0 0 auto;
+}
+
+.acc-muted {
+  color: #98a2b3;
+  font-size: 0.85rem;
+}
+
+.acc-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: #20262f;
+  color: #c2c8d2;
+}
+
+/* Shared empty / "nothing here yet" callout used across the account pages so
+   the placeholder copy looks the same everywhere. */
+.acc-empty {
+  background: #181b22;
+  border: 1px solid #262b35;
+  border-radius: 12px;
+  padding: 18px 20px;
+  color: #98a2b3;
+  font-size: 0.92rem;
+  margin-top: 12px;
+}
+
+.acc-empty strong {
+  color: #e7e9ee;
+}
+
+.acc-empty-action {
+  margin-top: 12px;
+}
+
+/* Section divider for the admin-only blocks appended to user pages. */
+.acc-section {
+  margin-top: 34px;
+  border-top: 1px solid #232833;
+  padding-top: 18px;
+}
+
+.acc-subhead {
+  margin-top: 22px;
+  margin-bottom: 10px;
+}
+
+/* Constrain single-column forms (account settings, etc.) to a readable width
+   without scattering inline ``max-width`` values across the JSX. */
+.acc-narrow {
+  max-width: 420px;
+}
+.acc-narrow + .acc-narrow {
+  margin-top: 28px;
+}
+
+/* Dashboard tiles (account home). */
+.acc-tile-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  margin-top: 18px;
+}
+
+.acc-tile {
+  text-decoration: none;
+  color: inherit;
+  background: #181b22;
+  border: 1px solid #262b35;
+  border-radius: 12px;
+  padding: 16px;
+  display: block;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.acc-tile:hover {
+  border-color: #2f6bff;
+  transform: translateY(-1px);
+}
+
+.acc-tile-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* ``My overlays`` cards. Each scoreboard leads with the action taken every
+   match — opening the control board — and demotes the copy-once browser-source
+   URL plus the occasional share/rename actions below it. */
+.acc-overlay-cards {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.acc-overlay-card {
+  border: 1px solid #262b35;
+  border-radius: 12px;
+  background: #181b22;
+  padding: 16px 18px;
+}
+.acc-overlay-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.acc-overlay-card__id {
+  min-width: 0;
+}
+.acc-overlay-card__title {
+  font-size: 1.15rem;
+  word-break: break-word;
+}
+
+/* Collapsible header: the whole left block is one toggle button so a long
+   overlay list stays scannable and you expand just the one you need. */
+.acc-overlay-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.acc-overlay-chevron {
+  flex: 0 0 auto;
+  color: #8b93a7;
+  font-size: 24px;
+}
+.acc-overlay-toggle:hover .acc-overlay-chevron {
+  color: #c2c8d2;
+}
+.acc-overlay-headtext {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.acc-overlay-titlerow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.acc-overlay-card__desc {
+  color: #98a2b3;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+/* The expanded body holds the two job blocks + the rename panel. */
+.acc-overlay-body {
+  margin-top: 4px;
+}
+/* The hero action: visually the heaviest thing on the card. */
+.acc-overlay-open {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  font-size: 1rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.acc-overlay-source {
+  margin-top: 16px;
+}
+.acc-overlay-source__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b93a7;
+  margin-bottom: 6px;
+}
+.acc-overlay-source small {
+  display: block;
+  margin-top: 6px;
+}
+.acc-overlay-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #232833;
+}
+.acc-overlay-card__actions .acc-btn {
+  padding: 7px 14px;
+  font-size: 0.88rem;
+}
+/* Delete stays an outline-only danger affordance in the footer — clearly
+   destructive without a loud red block competing with the hero. */
+.acc-overlay-card__actions .acc-btn.danger {
+  background: transparent;
+  border: 1px solid #5a2f2a;
+  color: #e07d6f;
+}
+.acc-btn.ghost.is-active {
+  border-color: #4f8cff;
+  color: #fff;
+}
+.acc-overlay-panel {
+  background: #14171d;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+
+/* ── Overlay card: purpose-first layout ──────────────────────────────────
+   Each card is split into two clearly labelled jobs — OUTPUT (the OBS
+   graphic) and CONTROL (the scoring board) — so it is obvious what every
+   URL/button is for. Rename/Delete are small icon buttons in the header. */
+.acc-overlay-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.acc-overlay-manage {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+}
+.acc-iconbtn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2b313c;
+  border-radius: 8px;
+  background: #1d212a;
+  color: #c2c8d2;
+  cursor: pointer;
+}
+.acc-iconbtn .material-icons {
+  font-size: 20px;
+}
+.acc-iconbtn:hover {
+  background: #232833;
+}
+.acc-iconbtn.is-active {
+  border-color: #4f8cff;
+  color: #fff;
+}
+.acc-iconbtn.danger {
+  color: #e07d6f;
+  border-color: #5a2f2a;
+}
+.acc-iconbtn.danger:hover {
+  background: #2a1c1a;
+}
+.acc-iconbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The two job blocks; the second is divided off from the first. */
+.acc-overlay-job {
+  margin-top: 16px;
+}
+.acc-overlay-job + .acc-overlay-job {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #232833;
+}
+.acc-overlay-job__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c2c8d2;
+}
+.acc-overlay-job__label .material-icons {
+  font-size: 18px;
+  color: #8b93a7;
+}
+.acc-overlay-job__desc {
+  margin: 4px 0 10px;
+}
+
+/* "Open my board" sits at the top of the control job as the every-match
+   action; the share link follows it. */
+.acc-overlay-job .acc-overlay-open {
+  margin-bottom: 12px;
+}
+
+.acc-overlay-share__label {
+  font-size: 0.78rem;
+  color: #98a2b3;
+  margin-bottom: 6px;
+}
+.acc-overlay-share__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.acc-overlay-share__row .acc-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Permanent-bookmark disclosure: collapsed by default, opened when the
+   guessable URL is already enabled. */
+.acc-overlay-advanced {
+  margin-top: 14px;
+}
+.acc-overlay-advanced__summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #98a2b3;
+  list-style: none;
+}
+.acc-overlay-advanced__summary::-webkit-details-marker {
+  display: none;
+}
+.acc-overlay-advanced__summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  color: #6b7689;
+}
+.acc-overlay-advanced[open] .acc-overlay-advanced__summary::before {
+  content: '▾';
+}
+.acc-overlay-advanced__body {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #14171d;
+  border-radius: 10px;
+}
+.acc-overlay-advanced__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Team management: cards, fieldset, toolbar, bulk bar ──────────────────
+   A phone-portrait-first language shared by the user roster (/teams) and the
+   admin catalog + groups (/admin/teams). Each team is a tap-friendly card that
+   reads at a glance and expands its editor on demand, rather than a wide table
+   that needs horizontal panning to reach the colours and actions. */
+.acc-tlist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.acc-tswatch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid #333;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+}
+.acc-tswatch img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.acc-tcard {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #232833;
+  border-radius: 12px;
+  background: #181b22;
+  padding: 10px 12px;
+}
+.acc-tcard.is-selected {
+  border-color: #4f8cff;
+  background: #16203a;
+}
+.acc-tcard__main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+/* Enlarge the checkbox to a ~40px thumb target without growing the visual box:
+   the padded label is the hit area, the input keeps its 20px look. */
+.acc-tcard__check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  margin: -8px -6px;
+  cursor: pointer;
+}
+.acc-tcard__check input {
+  width: 20px;
+  height: 20px;
+}
+.acc-tcard__name {
+  /* Keep a usable width (≥140px) before the trailing controls wrap below. */
+  flex: 1 1 140px;
+  min-width: 0;
+  word-break: break-word;
+  font-weight: 600;
+}
+.acc-tcard__spacer {
+  flex: 1 1 0;
+}
+.acc-tcard__edit {
+  flex: 0 0 auto;
+}
+/* The on-demand editor drops full-width below the row. */
+.acc-tcard__editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #232833;
+}
+.acc-tcard__editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Shared create/edit field set — one field per row in portrait. */
+.acc-tfields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.acc-tfield {
+  margin-bottom: 0;
+}
+.acc-tfields__colors {
+  display: flex;
+  gap: 18px;
+}
+.acc-tfield-color {
+  flex: 0 0 auto;
+}
+
+.acc-tcreate {
+  margin-top: 4px;
+}
+.acc-tcreate__actions {
+  margin-top: 14px;
+}
+.acc-tcreate__actions .acc-btn {
+  width: 100%;
+}
+
+/* List toolbar: select-all + filter. */
+.acc-tlist-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 10px 0;
+}
+.acc-tlist-selall {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.acc-tlist-selall input {
+  width: 20px;
+  height: 20px;
+}
+.acc-tfilter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 240px;
+}
+.acc-tfilter .acc-input {
+  flex: 1 1 auto;
+  max-width: 360px;
+}
+.acc-tfilter__count {
+  white-space: nowrap;
+}
+
+/* Sticky bulk-action bar: floats just above the bottom edge, in thumb reach.
+   Pages keep one selection active at a time so two bars never overlap. */
+.acc-bulkbar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid #2c333f;
+  border-radius: 12px;
+  background: #1d2330;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.acc-bulkbar__count {
+  font-weight: 600;
+}
+.acc-bulkbar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+/* While a bulk bar is mounted (a selection is active) reserve scroll slack at
+   the bottom of the content so the floating bar never hides the last rows or
+   the page's bottom-most action. Only applies when a bar is present. */
+.acc-main:has(.acc-bulkbar) {
+  padding-bottom: 88px;
+}
+@supports not selector(:has(*)) {
+  /* Fallback for engines without :has(): always reserve the slack. */
+  .acc-main {
+    padding-bottom: 88px;
+  }
+}
+
+/* Section header with a trailing action (e.g. "Add team"). */
+.acc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.acc-section-head h3 {
+  margin: 0;
+}
+
+/* Quick "copy a group" buttons on the user roster. */
+.acc-group-copies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Group manager (admin). */
+.acc-group-create {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+.acc-group-create .acc-input {
+  flex: 1 1 auto;
+  max-width: 360px;
+}
+.acc-group-create .acc-btn {
+  flex: 0 0 auto;
+}
+.acc-gcard__count {
+  white-space: nowrap;
+}
+.acc-pill.is-on {
+  background: #18301f;
+  color: #7fd1a4;
+}
+.acc-gcard__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.acc-gcard__members-label {
+  margin: 14px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.68rem;
+}
+.acc-gcard__members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.acc-gchip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid #232833;
+  border-radius: 8px;
+}
+.acc-gchip__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+.acc-gchip__x {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #e07d6f;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.acc-gchip__x:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.acc-gcard__add {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.acc-gcard__add .acc-input {
+  flex: 1 1 auto;
+  max-width: 360px;
+}
+.acc-gcard__add .acc-btn {
+  flex: 0 0 auto;
+}
+
+/* Admin grouping label in the side nav. */
+.acc-nav-section {
+  margin: 14px 10px 2px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #6b7283;
+}
+
+/* ── Reports: match-day calendar + teams cell ─────────────────────────── */
+.acc-cal {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.acc-cal-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.acc-cal-trigger .material-icons {
+  font-size: 18px;
+}
+.acc-cal-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 80;
+  width: 280px;
+  padding: 12px;
+  background: #181b22;
+  border: 1px solid #2c333f;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.acc-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.acc-cal-month {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.acc-cal-nav {
+  display: inline-flex;
+  background: transparent;
+  border: 1px solid #2c333f;
+  border-radius: 8px;
+  color: #cfd4dd;
+  cursor: pointer;
+  padding: 2px;
+}
+.acc-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.acc-cal-weekdays {
+  margin-bottom: 4px;
+}
+.acc-cal-weekday {
+  text-align: center;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b93a7;
+  padding: 2px 0;
+}
+.acc-cal-cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #5a616e;
+  cursor: default;
+}
+.acc-cal-blank {
+  border: none;
+}
+/* A day with at least one match: brighter, clickable, dot-marked. */
+.acc-cal-cell.has-match {
+  color: #e7e9ee;
+  border-color: #2c333f;
+  cursor: pointer;
+}
+.acc-cal-cell.has-match::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4f8cff;
+}
+.acc-cal-cell.has-match:hover {
+  border-color: #4f8cff;
+}
+.acc-cal-cell.is-selected {
+  background: #4f8cff;
+  border-color: #4f8cff;
+  color: #fff;
+  font-weight: 700;
+}
+.acc-cal-cell.is-selected::after {
+  background: #fff;
+}
+
+.acc-match-teams {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.acc-match-name.is-winner {
+  font-weight: 700;
+  color: #7fd1a4;
+}
+.acc-match-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #cfd4dd;
+}
+.acc-match-dash {
+  margin: 0 3px;
+  color: #8b93a7;
+}
+
+@media (max-width: 720px) {
+  .acc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* On phones the "Open my board" button spans the full width of the control
+     job so it stays the obvious primary tap target. The header keeps the id +
+     management icons on one row. */
+  .acc-overlay-open {
+    width: 100%;
+  }
+
+  /* Sticky top bar carries the brand + hamburger; it stays above the drawer so
+     the close (X) affordance is always reachable. */
+  .acc-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #14171d;
+    border-bottom: 1px solid #232833;
+  }
+  .acc-topbar .brand {
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+
+  /* The sidebar becomes an off-canvas drawer that slides in from the left.
+     Every destination is one tap away — no horizontal swiping to discover
+     links that used to scroll off the edge. */
+  .acc-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(82vw, 300px);
+    /* Clear the sticky top bar (which stays above the drawer) so the first
+       link isn't hidden underneath it. */
+    padding: 70px 14px calc(16px + env(safe-area-inset-bottom));
+    border-right: 1px solid #232833;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+  .acc-nav.open {
+    transform: translateX(0);
+  }
+  /* The brand already lives in the top bar on mobile. */
+  .acc-nav .brand {
+    display: none;
+  }
+  .acc-nav a {
+    font-size: 1rem;
+    padding: 12px 12px;
+  }
+
+  /* Dim the page behind the open drawer; tapping it closes the menu. */
+  .acc-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    display: block;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .acc-nav-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .acc-main {
+    padding: 18px 16px;
+  }
+
+  /* Stacked form on phones: one field per row, full-width button, and drop the
+     label-height spacer that only exists to align the button on desktop. */
+  .acc-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  /* In a column the flex-basis becomes a height; reset it so fields hug their
+     content instead of each stretching to 190px tall. */
+  .acc-form .acc-field {
+    flex: 0 0 auto;
+  }
+  .acc-form-actions {
+    flex: 0 0 auto;
+    align-self: stretch;
+  }
+  .acc-form-actions .acc-btn {
+    width: 100%;
+  }
+  .acc-form-spacer {
+    display: none;
+  }
+
+  /* Stack data tables into per-row cards so a phone operator can create an
+     overlay and reach Open / Copy URL without horizontal panning. */
+  .acc-table thead {
+    display: none;
+  }
+  .acc-table,
+  .acc-table tbody,
+  .acc-table tr,
+  .acc-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .acc-table tr {
+    border: 1px solid #232833;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    padding: 4px 2px;
+  }
+  .acc-table td {
+    border-bottom: none;
+    padding: 6px 12px;
+    /* Override the inline ``white-space: nowrap`` on action cells so the
+       buttons + the long output URL wrap instead of overflowing. */
+    white-space: normal !important;
+    word-break: break-word;
+  }
+  .acc-table td .acc-btn {
+    display: inline-block;
+    margin: 4px 6px 0 0;
+  }
+  /* Inside a flex button-row the gap already spaces the buttons — drop the
+     per-button margin so they don't double up. */
+  .acc-table td .acc-btn-row .acc-btn {
+    margin: 0;
+  }
+  /* When the header row is hidden, a stacked value like "yes" or "admin" loses
+     its meaning. Cells tagged with ``data-label`` show that column name above
+     the value on mobile (the primary cell and the actions cell stay
+     label-less). */
+  .acc-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8b93a7;
+  }
+
+  /* Team management on phones: forms and add-row controls stack full-width, and
+     the bulk bar's actions span the row so each is an easy thumb target. */
+  .acc-group-create,
+  .acc-gcard__add {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .acc-group-create .acc-input,
+  .acc-gcard__add .acc-input {
+    max-width: none;
+  }
+  .acc-group-create .acc-btn,
+  .acc-gcard__add .acc-btn {
+    width: 100%;
+  }
+  .acc-tfilter .acc-input {
+    max-width: none;
+  }
+  .acc-bulkbar {
+    /* Full-bleed-ish bar that clears the home indicator on iOS. */
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  .acc-bulkbar__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  .acc-bulkbar__actions .acc-btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* --- Transient toast notifications ------------------------------------ */
+.acc-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.acc-toast {
+  pointer-events: auto;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid transparent;
+  animation: acc-toast-in 0.18s ease;
+}
+
+.acc-toast.success {
+  background: #18301f;
+  border-color: #2f7d4f;
+}
+
+.acc-toast.error {
+  background: #371b1d;
+  border-color: #a04246;
+}
+
+@keyframes acc-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .acc-toasts {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+  .acc-toast {
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* ---- Hosted icon library (picker dialog + management sections) ---------- */
+
+.acc-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.acc-icon-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #171b22;
+  border: 1px solid #232833;
+  border-radius: 8px;
+  color: #dfe5ee;
+  font-size: 0.85rem;
+  text-align: left;
+  min-width: 0;
+}
+
+button.acc-icon-chip {
+  cursor: pointer;
+}
+
+button.acc-icon-chip:hover {
+  border-color: #79a8ff;
+}
+
+.acc-icon-chip img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: none;
+  background: #0d1015;
+  border-radius: 5px;
+}
+
+.acc-icon-chip span,
+.acc-icon-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acc-icon-chip--manage {
+  flex-wrap: wrap;
+}
+
+.acc-icon-chip-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  flex: none;
+}
+
+.acc-icon-chip-actions .acc-link.danger {
+  color: #ff8a8a;
+}
+
+.acc-icon-rename {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.acc-icon-rename .acc-input {
+  min-width: 0;
+}
+
+.acc-icon-section h4 {
+  margin: 12px 0 4px;
+  font-weight: 600;
+}
+
+.acc-icon-empty {
+  margin: 4px 0;
+}
+
+.acc-icon-picker,
+.acc-icon-batch {
+  max-width: 560px;
+}
+
+.acc-icon-batch-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.acc-icon-batch-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.acc-icon-batch-name {
+  font-weight: 600;
+  flex: none;
+}
+
+.acc-icon-batch-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.acc-icon-batch-results li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.acc-error-text {
+  color: #ff8a8a;
+  font-size: 0.82rem;
+}
+
+.acc-panel {
+  background: #14171d;
+  border: 1px solid #232833;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.acc-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.acc-panel-head h3 {
+  margin: 0;
+}
+
+.acc-tfield-logo {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.acc-tfield-logo .acc-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.acc-tfield-logo .acc-btn {
+  flex: none;
+}
+
+/* Picker scroll + filter: the sections scroll inside the dialog (title,
+   filter and button row stay pinned), so a large library never grows the
+   dialog past the viewport. */
+.acc-icon-picker-body {
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Keep chip hover borders from being clipped by the scroll container. */
+  padding: 2px;
+  margin: 0 -2px;
+}
+
+.acc-icon-filter {
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
