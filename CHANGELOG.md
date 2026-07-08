@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-07-08
+
 > [!WARNING]
 > **Breaking release — no backward compatibility and no in-place upgrade.**
 > This version replaces the single-tenant password/token model with
