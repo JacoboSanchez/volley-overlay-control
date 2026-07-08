@@ -8,7 +8,23 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
-## [5.9.0] - 2026-06-19
+> [!WARNING]
+> **Breaking release — no backward compatibility and no in-place upgrade.**
+> This version replaces the single-tenant password/token model with
+> multi-user accounts backed by a database. The `SCOREBOARD_USERS`,
+> `OVERLAY_MANAGER_PASSWORD`, `PREDEFINED_OVERLAYS`, and `APP_TEAMS` /
+> `APP_THEMES` / `REMOTE_CONFIG_URL` settings — and the old `?token=` /
+> admin-Bearer access paths — are **gone**; the control API and WebSocket now
+> require a logged-in session, and the main page is the login page.
+>
+> There is **no automatic migration** of an existing deployment's on-disk
+> data: runtime state is now keyed per user, so pre-existing
+> `data/overlay_state_*.json`, `data/audit_*.jsonl`, and the file-based
+> `data/matches/` archive are left orphaned (nothing is deleted, nothing is
+> carried over). **Upgrade by starting from a fresh `data/` directory**: claim
+> the first admin from the startup-log token, then recreate users, overlays,
+> teams, and presets — an existing teams/presets catalog can be moved over via
+> the admin JSON import. See **Changed** and **Removed** below for the full list.
 
 ### Added
 
@@ -167,6 +183,125 @@ once a first tagged release ships.
   viewer also sees the read-only **Latest match report** / **Match history**
   links when public reports are enabled (`MATCH_REPORT_PUBLIC`). The board no
   longer dead-ends at "open your account screen" to reach a report.
+
+- **Table tennis match mode.** A third mode (alongside indoor and beach)
+  with an 11/11-point preset, best-of **1 / 3 / 5 / 7** (the set cap is
+  raised from 5 to 7 across the data model and match report). The serve
+  rotates automatically — every 2 points, every point once both players
+  reach 10 (deuce) — and the first server alternates each game, so the
+  operator never tracks it by hand; the serve toggle instead re-bases who
+  serves first. A new **serve-change chip** counts down to the next
+  handover and flashes when the serve changes. Teams auto-switch ends
+  after every game and at the deciding-game midpoint, and each team gets a
+  single timeout for the whole match. New state field `serve_switch`
+  (`GameStateResponse`); `POST /api/v1/session/rules` accepts
+  `mode: "table_tennis"` and `sets_limit` up to 7.
+
+- **Installable per-board PWA from the permanent bookmark link.** Installing
+  the app (Chrome / desktop) from a board's permanent bookmark URL
+  (`/board?u=<username>&oid=<oid>`) used to launch the **app root** — the
+  static manifest `start_url` ignored which board you installed from. The board
+  page now points the manifest at a per-board variant
+  (`/manifest.webmanifest?u=…&oid=…`) whose `start_url`/`id` open **that** board
+  and whose `id` is distinct so Chrome installs it as its own app. The variant
+  is only applied for the stable no-login bookmark (not the revocable control
+  token, and not owner mode behind a login). iOS is unaffected — Safari's "Add
+  to Home Screen" already captures the current URL, query string included.
+
+- **The account pages are now fully localized, and the language setting moved
+  to the app.** The account area (dashboard, My overlays, Teams, Presets,
+  Reports, Account, Admin, plus the nav, toasts and confirm dialogs) was
+  English-only; it is now translated into all six supported languages (English,
+  Spanish, Portuguese, Italian, French, German). The `I18nProvider` was lifted
+  to wrap the whole app — so the board and the account pages share one language
+  preference (`volley_lang`, still resolved from saved choice → browser
+  language → English). The language selector **moved out of the board's General
+  config panel** into a new **Preferences** section on the **Account** page, so
+  it's a single global app setting rather than a per-board control. Login /
+  register pages inherit the resolved default (no switcher there yet).
+
+- **Account UX pass: toasts, styled confirms, and consistent layout.** Every
+  account-page mutation (create/save/delete overlays, teams, presets, users;
+  batch add/remove, copy group, regenerate links) now shows a transient
+  **toast** confirming success or surfacing the real error. All destructive
+  actions moved off the browser's native `confirm()` onto a styled in-app
+  confirmation dialog, including a clear warning that removing an owned
+  **custom** team deletes it permanently. Other polish: the desktop sidebar is
+  now **sticky** while content scrolls, empty states only appear after data has
+  loaded (no flash), catalog membership is matched by id (so a custom team
+  can't mask a same-named catalog team), table headers carry `scope="col"`,
+  and the account-settings forms share a single width helper.
+
+- **Select all / none on the Teams lists.** Each team table (My teams,
+  Catalog) gained a "Select all" control in its action toolbar (visible on
+  mobile, where table headers are hidden), with an indeterminate state when a
+  subset is selected.
+
+- **Personal team lists: custom teams, seeding, and batch editing.** A new
+  account starts with the **full global team catalog** copied into its list
+  (one-time, at registration / admin-create). Users can now create their own
+  **custom teams** (name, logo, colours) that live only in their list —
+  editable and deletable by the owner; removing a custom team deletes it, while
+  removing a global team just unlinks it (it stays in the admin catalog). The
+  **Teams** page gained multi-select **batch add** (from the catalog) and
+  **batch remove**. New endpoints: `GET /api/v1/teams/mine` (list rows with
+  ids), `POST /api/v1/teams/mine/custom`, `PATCH /api/v1/teams/mine/custom/{id}`,
+  `POST /api/v1/teams/mine/remove` (batch).
+
+- **Shareable operator control links.** Each overlay now carries an unguessable
+  *control token* alongside its public OBS token. The owner can copy a
+  ready-made link (`/board?c=<token>`) from **My overlays → Edit → Operator
+  control link** and hand it to whoever is running the match: opening it grants
+  full board control (scores, serve, timeouts, undo, sets, customization, rules)
+  **without logging in**. The token resolves to the owning overlay's storage
+  key, so it also separates two users who share the same `oid`, and the live
+  control WebSocket accepts it too. "Regenerate link" mints a new token and
+  revokes any previously-shared link. New endpoint:
+  `POST /api/v1/overlays/{oid}/regenerate-control-token`; the control surface
+  (`/api/v1/game/*`, `/state`, `/customization`, `/display/*`, `/session/*`,
+  `/ws`, …) now authorizes either a `?c=<token>` (or `X-Control-Token` header)
+  or the owner's session cookie.
+
+- **Permanent username+oid bookmark control (opt-in).** Each overlay can also
+  opt into a stable, no-login control URL based on the owner's username and the
+  overlay id (`/board?u=<username>&oid=<oid>`) — a permanent personal bookmark
+  that, unlike the control token, never changes when the token is regenerated.
+  Because it is **guessable** it is **off by default** and gated behind a
+  per-overlay `public_control` flag (toggle + warning under **My overlays →
+  Edit → Permanent bookmark link**); disabling it immediately revokes the URL.
+  The control surface and `/ws` accept `?u=<username>&oid=<oid>` only for
+  opted-in overlays.
+
+- **Multi-user application (backend).** The app now has real user accounts
+  with cookie-based sessions, replacing the env-var Bearer auth. Highlights:
+  - Registration + login/logout, self-service account management (change
+    password, edit profile, delete account), and a forced
+    password-change-on-first-login flow.
+  - A first administrator is claimed on first start with a one-time token
+    printed to the service log (e.g. visible in `docker logs`).
+  - Each user manages their own overlays by id; scoreboards are namespaced
+    per user (`user_id:oid`), so two users can drive the same `oid`
+    independently. OBS output URLs use an unguessable per-overlay
+    `public_token` instead of the username/oid.
+  - DB-backed teams: a global catalog, admin-curated team **groups** (e.g.
+    "Liga Gallega") that users copy into their own list, and admin JSON
+    import/export in the `APP_TEAMS` shape.
+  - DB-backed presets: global (admin-authored, admin-activated) and
+    per-user, with admin `APP_THEMES`-shape import/export.
+  - Admin user management: list/create/delete users, reset a password to a
+    temporary one (logging the user out everywhere), and toggle public
+    registration.
+  - DB-backed match reports (replacing the per-match JSON files) surfaced in
+    each user's account, scoped to the owner.
+  - Per-overlay settings that the old remote-config app carried: a default
+    match format (best-of / points) and an optional output URL (for
+    overlays.uno cloud / custom outputs), editable from "My overlays".
+  - Admin configuration UIs for the global team catalog (logo, colour, text
+    colour, groups) and global presets (activate/deactivate), each with
+    JSON import/export in the `APP_TEAMS` / `APP_THEMES` shapes.
+  - New persistence layer: SQLAlchemy + Alembic, configured via
+    `DATABASE_URL` (SQLite by default, PostgreSQL supported and verified). The
+    schema is migrated to head automatically on startup.
 
 ### Changed
 
@@ -383,71 +518,143 @@ once a first tagged release ships.
   expanders. Reworked the layout to cards also fixes the cramped four-button
   row on phones. Regenerated `docs/screenshots/05-manage-page.png`.
 
-### Security
+- **New PWA icons — distinct base-app vs. board icon.** The base app
+  (`frontend/public/icon.svg`) is now a **scoreboard** mark (two coral / blue
+  score windows with a colon divider), and **boards** get their own
+  `icon-board.svg`: a flat **volleyball** whose seams are a three-fold "beach
+  ball" swirl rather than the previous basketball-style cross. The per-board
+  manifest (`/manifest.webmanifest?u=&oid=`) serves the board icon, so an
+  installed board looks different from the installed base app (one shared icon
+  across all boards). Both SVGs are drawn maskable-safe (key art centred in the
+  inner 80%) and act as their own maskable source. Because this environment has
+  no SVG→PNG rasteriser, the raster siblings (the PNGs Chrome/iOS use for the
+  installed launcher) are regenerated separately via
+  `frontend/scripts/regenerate-icons.sh` (needs librsvg / Inkscape /
+  ImageMagick); until that runs Chrome falls back to the SVG (a missing PNG is
+  skipped) and the base PNGs keep the previous artwork. iOS uses the base
+  apple-touch icon for boards too (manifest-based differentiation is
+  Chrome/Android/desktop).
 
-- **The icon batch-import download pins the connection to the validated
-  IP (DNS-rebinding fix).** `fetch_guarded` used to resolve a
-  user-supplied logo URL to check it against the private-address
-  blocklist and then let the HTTP client resolve the name again for the
-  actual request — a host with a short-TTL record could answer the check
-  with a public IP and the fetch with `169.254.169.254` or `127.0.0.1`.
-  Hostname targets are now resolved once, every address validated, and
-  the request sent to that exact IP with the original hostname preserved
-  in the `Host` header and in TLS SNI/certificate verification. Every
-  redirect hop is re-planned the same way, and a name that fails to
-  resolve is refused instead of passed through. Deployments behind an
-  egress proxy keep working: when a proxy applies to the URL, the
-  original hostname is sent to the proxy (which does its own resolving)
-  after the same validation.
+- **Overlay output is no longer described as "OBS"-specific.** OBS is one of
+  several consumers of an overlay's output URL (vMix, a plain browser, etc.),
+  so the OBS-only wording was misleading. The "OBS output URL" column is now
+  **"Output URL"**, the links dialog's "OBS overlay" entry is now **"Overlay"**,
+  and the setup hint points to "your streaming software (OBS, vMix, …)" rather
+  than OBS alone — across all six languages. The corresponding API field
+  descriptions (`output_url`, `public_token`) and the register-overlay endpoint
+  summary were generalized too, and the OpenAPI snapshot / TS types regenerated.
 
-- **Request bodies are capped at the ASGI layer.** The icon-upload size
-  check keyed off the `Content-Length` header, which a chunked-transfer
-  request simply omits — and the framework spooled the whole body to disk
-  before any handler check ran. A new middleware fast-fails oversized
-  declared lengths and stops reading once `REQUEST_MAX_BODY_BYTES`
-  (default: icon upload cap + framing, ≥ 8 MiB) is crossed, answering 413.
-  Per-route checks remain as the earlier, friendlier guard.
+- **Mobile account navigation redesigned.** On phones the account/management
+  navigation (Dashboard, My overlays, Teams, Presets, Reports, Account, Admin)
+  was a single horizontally-scrolling row, so links past the viewport edge —
+  including Account, Admin, and Sign out — were hidden behind a non-obvious
+  swipe. It is now a sticky top bar with a hamburger button that opens an
+  off-canvas drawer listing every destination, the signed-in user, and Sign
+  out. The drawer closes on navigation, on backdrop tap, and on Escape, and
+  locks background scroll while open. The desktop sidebar layout is unchanged.
 
-- **Public registration now auto-closes once the first admin is claimed.**
-  Previously a fresh install accepted anonymous sign-ups at `/register`
-  indefinitely until an admin explicitly turned them off. Now, when
-  `REGISTRATION_OPEN` is not configured, registration stays open only
-  during the bootstrap window and is closed automatically the moment the
-  first administrator account is created (the admin can reopen it from
-  the Users page at any time). Setting `REGISTRATION_OPEN=true`/`false`
-  pins the behaviour explicitly and is never overridden; an empty value
-  (docker-compose's passthrough for "unset") counts as unset. The
-  default docker-compose seed changed from `true` to unset accordingly.
+- **Create-overlay form alignment.** The "My overlays" create form mixed
+  fields with and without helper text in a `flex-end` row, so the inputs no
+  longer lined up and the helper text widened columns and forced ragged
+  wrapping. It now uses a top-aligned responsive grid: inputs line up on one
+  row on desktop and stack cleanly to full width on phones, with the submit
+  button aligned to the input row.
 
-- **Branch code-review hardening pass.** Fixed a cluster of authorization /
-  hardening gaps found reviewing the multi-user branch:
-  - **Webhook SSRF via redirect.** Outbound webhook POSTs now use
-    `allow_redirects=False`, so a public target can no longer 30x-redirect the
-    client to a private/loopback/cloud-metadata address past the host guard.
-  - **Admin group routes could reach a user's private group.** The admin
-    `/admin/team-groups/*` delete / set-active / add-member / remove-member
-    paths now resolve groups through a shared-only helper (`owner_user_id IS
-    NULL`), so an admin can no longer mutate or delete a user's *private* group
-    by id (read paths were already scoped; this closes the write-path gap).
-  - **Audit endpoint leaked the internal storage key.** `GET /api/v1/audit`
-    now returns the human-facing `oid`, not the `"<user_id>:<oid>"` skey, so a
-    shared control-link operator can't read the owner's internal user id.
-  - **Last-admin self-delete lockout.** `DELETE /api/v1/auth/me` now refuses
-    when the caller is the only active administrator (mirroring the admin
-    delete/demote/deactivate guards), so an instance can't be locked out of
-    administration.
-  - **Login timing.** The account-not-found path now verifies against a
-    structurally-real dummy scrypt record (full-cost derive) instead of a
-    1-byte stub, keeping login timing uniform.
+- **Copyable temporary passwords.** When an admin creates a user or resets a
+  password, the temporary password is now shown in a selectable, monospace
+  field with a one-tap **Copy** button (shared `CopyField` component) instead
+  of as plain inline text that had to be copied character by character.
 
-- **Patched three transitive dev-dependency advisories (build-time only).**
-  Bumped `js-yaml` to ≥ 4.2.0 — via an npm `override`, since
-  `@redocly/openapi-core` pinned the vulnerable 4.1.1 — and `@babel/core` to
-  7.29.7, and let `npm audit fix` patch `brace-expansion`. This clears a
-  quadratic-complexity YAML DoS, an arbitrary-file-read via `sourceMappingURL`,
-  and a `max`-bypass DoS. None of these ship to users (they are eslint /
-  openapi-typescript / vite-plugin-pwa build dependencies); `npm audit` now
-  reports 0 vulnerabilities.
+- **Account-page UI consistency.** Introduced a shared `EmptyState` component
+  and reusable CSS classes (tiles, section dividers, colour swatches) so the
+  "nothing here yet" placeholders, dashboard tiles, and admin section dividers
+  render identically across the account pages instead of via per-page inline
+  styles. The **Reports** page now shows a clear call-to-action linking to
+  "My overlays" when you have no scoreboards yet, instead of an empty
+  scoreboard dropdown.
+
+- **No backward compatibility.** `SCOREBOARD_USERS`, `OVERLAY_MANAGER_PASSWORD`-
+  gated scoreboard access, the `PREDEFINED_OVERLAYS` catalog, and the
+  `APP_TEAMS` / `APP_THEMES` / `REMOTE_CONFIG_URL` configuration sources for
+  teams/presets are superseded by the database. The control API and control
+  WebSocket now require a logged-in session; the main page is the login page.
+
+- **No in-place data migration — start clean.** This release is a clean break;
+  there is **no automatic migration** of an existing single-tenant deployment's
+  on-disk data. Runtime data is now keyed per user (`"<user_id>:<oid>"`) instead
+  of by the bare overlay id, so pre-existing `data/overlay_state_*.json`,
+  `data/audit_*.jsonl`, and the old file-based `data/matches/` archive are **not**
+  read by the new app and stay orphaned on disk (nothing is deleted, but nothing
+  is carried over either). Upgrade by starting from a fresh `data/` dir: claim
+  the first admin from the startup-log token, then recreate users, overlays,
+  teams and presets. Migrate an existing **teams/presets catalog** via the admin
+  JSON import (`POST /api/v1/admin/{teams,presets}/import`).
+
+### Removed
+
+- **Per-overlay default match rules (format / points / last-set points).** These
+  duplicated what the live control board already configures via its
+  customization panel (`POST /session/rules`), so they were redundant. Removed
+  the **Format / Points / Last-set** controls from the "My overlays" create and
+  edit forms (and the Format column), the `points` / `points_last_set` / `sets`
+  columns on `user_overlays` (migration `0006`), those fields from the overlay
+  API (`CreateOverlayRequest` / `UpdateOverlayRequest` / `OverlayOut`), and the
+  override that applied them at `/session/init`. A fresh board session now
+  starts from the env defaults (`MATCH_SETS`, `MATCH_GAME_POINTS`,
+  `MATCH_GAME_POINTS_LAST_SET`) and the operator sets the format on the board,
+  where it already persists in the session.
+
+- **overlays.uno cloud and external overlay-server support — in-process only.**
+  The project now serves **every** overlay with its built-in, in-process engine
+  (`LocalOverlayBackend`). Removed: the `UnoOverlayBackend` (overlays.uno cloud
+  REST API), the `CustomOverlayBackend` + `app/ws_client.py` (external overlay
+  server over WebSocket/HTTP), the 22-char UNO OID format, and the per-overlay
+  **custom output URL** (the overlay `output_url` / `custom_output_url` field,
+  the "Output URL (cloud, optional)" form field, and `output_url` on
+  `POST /api/v1/session/init`). Each overlay's OBS output URL is now always the
+  app's own `/overlay/<public_token>` link.
+  - **Removed env vars:** `UNO_OVERLAY_ID`, `UNO_OVERLAY_OID`,
+    `UNO_OVERLAY_OUTPUT`, `APP_CUSTOM_OVERLAY_URL`,
+    `APP_CUSTOM_OVERLAY_OUTPUT_URL`, and the now-unused `WS_RECONNECT_*` /
+    `WS_HEARTBEAT_INTERVAL_SECONDS` / `WS_ZOMBIE_DEADLINE_SECONDS` tunables.
+  - **Removed docs:** `CUSTOM_OVERLAY.md` and `CUSTOM_OVERLAY_API.yaml` (the
+    external-server contract). The control board's overlay preview always uses
+    the in-process render path (no overlays.uno iframe branch).
+  - **DB:** `user_overlays.output_url` column dropped (migration `0005`).
+
+- **Overlay-server peer endpoints and `OVERLAY_SERVER_TOKEN` removed.** With no
+  external overlay server, the Bearer-gated peer endpoints (`POST /api/state/{id}`,
+  `/create|delete/overlay/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`,
+  `POST /api/theme/{id}/{name}`) and the `OVERLAY_SERVER_TOKEN` machine credential
+  (incl. `_HASH` / `_DISABLED`) are gone — `app/overlay/auth.py` and
+  `app/security_bootstrap.ensure_overlay_server_token` were deleted. The public
+  `GET /api/themes` and the OBS capability routes (`/overlay`, `/follow`, `/ws`)
+  remain. `security_bootstrap` now only mints `SESSION_SECRET`.
+  - **`/metrics` is now always unauthenticated** (it only ever exposed
+    aggregates); the `METRICS_REQUIRE_ADMIN` toggle is removed.
+
+- **`OVERLAY_MANAGER_PASSWORD` and the legacy `/manage` admin.** The single
+  shared admin password and everything it gated are gone, replaced by the
+  in-app `admin` role (cookie + role gated) and the SPA `/admin` page:
+  - Removed the `/manage` console, the custom-overlays admin API, and the
+    `/api/v1/admin/status` / `/api/v1/admin/login` endpoints.
+  - Removed `GET /list/overlay` (it defeated the capability-URL design).
+  - Match-report print access (`/match/{id}/report`) is now gated by the
+    report **owner's** session cookie, an owner-minted signed share URL
+    (`POST /api/v1/matches/{id}/sign-url`), or `MATCH_REPORT_PUBLIC=true` —
+    the old `?token=`/admin-Bearer paths are gone. The signed-URL HMAC key
+    moved from `OVERLAY_MANAGER_PASSWORD` to `SESSION_SECRET`.
+  - Report deletion is now owner-only via `DELETE /api/v1/matches/{id}`; the
+    `MATCH_REPORT_PUBLIC_DELETE` flag is removed.
+  - `METRICS_REQUIRE_ADMIN` now gates `GET /metrics` behind the
+    machine-to-machine `OVERLAY_SERVER_TOKEN` (Prometheus scrapers can't carry
+    a cookie) instead of the admin password.
+  - Webhook dead-letter replay moved to the cookie-admin
+    `POST /api/v1/admin/webhooks/replay`.
+  - Dropped the now-unused `OVERLAY_MANAGER_PASSWORD(+_HASH)`,
+    `MATCH_REPORT_PUBLIC_DELETE`, `PREDEFINED_OVERLAYS`, and
+    `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` entries from `.env.example` /
+    `docker-compose.yml`.
 
 ### Fixed
 
@@ -628,14 +835,17 @@ once a first tagged release ships.
   auto-hidden during the final rally, the operator no longer has to un-hide it
   to reach Reset or the **Match report** button — it reveals itself and stays
   pinned while the finished match is on screen.
+
 - **Disabled team logos no longer leak into the set-score columns or the
   points-history strip.** They now follow the same "show logos" toggle as the
   score buttons, instead of being read straight from the customization.
+
 - **Disabled team logos no longer show in the portrait score column.** The
   portrait per-team history column read the logo straight from the
   customization, so it stayed visible next to the score buttons even with the
   "show logos" toggle off; it now follows the same toggle as every other
   scoreboard surface.
+
 - **Set-point / match-point markers point to the correct side after a court
   switch.** The triangle now tracks each team's *physical* side, so when the
   teams swap ends the arrow flips with them instead of pointing at the wrong
@@ -668,247 +878,75 @@ once a first tagged release ships.
   scrolled and text couldn't be selected. The account shell is now its own
   scroll container with text selection restored.
 
-### Added
+### Security
 
-- **Table tennis match mode.** A third mode (alongside indoor and beach)
-  with an 11/11-point preset, best-of **1 / 3 / 5 / 7** (the set cap is
-  raised from 5 to 7 across the data model and match report). The serve
-  rotates automatically — every 2 points, every point once both players
-  reach 10 (deuce) — and the first server alternates each game, so the
-  operator never tracks it by hand; the serve toggle instead re-bases who
-  serves first. A new **serve-change chip** counts down to the next
-  handover and flashes when the serve changes. Teams auto-switch ends
-  after every game and at the deciding-game midpoint, and each team gets a
-  single timeout for the whole match. New state field `serve_switch`
-  (`GameStateResponse`); `POST /api/v1/session/rules` accepts
-  `mode: "table_tennis"` and `sets_limit` up to 7.
+- **The icon batch-import download pins the connection to the validated
+  IP (DNS-rebinding fix).** `fetch_guarded` used to resolve a
+  user-supplied logo URL to check it against the private-address
+  blocklist and then let the HTTP client resolve the name again for the
+  actual request — a host with a short-TTL record could answer the check
+  with a public IP and the fetch with `169.254.169.254` or `127.0.0.1`.
+  Hostname targets are now resolved once, every address validated, and
+  the request sent to that exact IP with the original hostname preserved
+  in the `Host` header and in TLS SNI/certificate verification. Every
+  redirect hop is re-planned the same way, and a name that fails to
+  resolve is refused instead of passed through. Deployments behind an
+  egress proxy keep working: when a proxy applies to the URL, the
+  original hostname is sent to the proxy (which does its own resolving)
+  after the same validation.
 
-- **Installable per-board PWA from the permanent bookmark link.** Installing
-  the app (Chrome / desktop) from a board's permanent bookmark URL
-  (`/board?u=<username>&oid=<oid>`) used to launch the **app root** — the
-  static manifest `start_url` ignored which board you installed from. The board
-  page now points the manifest at a per-board variant
-  (`/manifest.webmanifest?u=…&oid=…`) whose `start_url`/`id` open **that** board
-  and whose `id` is distinct so Chrome installs it as its own app. The variant
-  is only applied for the stable no-login bookmark (not the revocable control
-  token, and not owner mode behind a login). iOS is unaffected — Safari's "Add
-  to Home Screen" already captures the current URL, query string included.
+- **Request bodies are capped at the ASGI layer.** The icon-upload size
+  check keyed off the `Content-Length` header, which a chunked-transfer
+  request simply omits — and the framework spooled the whole body to disk
+  before any handler check ran. A new middleware fast-fails oversized
+  declared lengths and stops reading once `REQUEST_MAX_BODY_BYTES`
+  (default: icon upload cap + framing, ≥ 8 MiB) is crossed, answering 413.
+  Per-route checks remain as the earlier, friendlier guard.
 
-- **The account pages are now fully localized, and the language setting moved
-  to the app.** The account area (dashboard, My overlays, Teams, Presets,
-  Reports, Account, Admin, plus the nav, toasts and confirm dialogs) was
-  English-only; it is now translated into all six supported languages (English,
-  Spanish, Portuguese, Italian, French, German). The `I18nProvider` was lifted
-  to wrap the whole app — so the board and the account pages share one language
-  preference (`volley_lang`, still resolved from saved choice → browser
-  language → English). The language selector **moved out of the board's General
-  config panel** into a new **Preferences** section on the **Account** page, so
-  it's a single global app setting rather than a per-board control. Login /
-  register pages inherit the resolved default (no switcher there yet).
+- **Public registration now auto-closes once the first admin is claimed.**
+  Previously a fresh install accepted anonymous sign-ups at `/register`
+  indefinitely until an admin explicitly turned them off. Now, when
+  `REGISTRATION_OPEN` is not configured, registration stays open only
+  during the bootstrap window and is closed automatically the moment the
+  first administrator account is created (the admin can reopen it from
+  the Users page at any time). Setting `REGISTRATION_OPEN=true`/`false`
+  pins the behaviour explicitly and is never overridden; an empty value
+  (docker-compose's passthrough for "unset") counts as unset. The
+  default docker-compose seed changed from `true` to unset accordingly.
 
-- **Account UX pass: toasts, styled confirms, and consistent layout.** Every
-  account-page mutation (create/save/delete overlays, teams, presets, users;
-  batch add/remove, copy group, regenerate links) now shows a transient
-  **toast** confirming success or surfacing the real error. All destructive
-  actions moved off the browser's native `confirm()` onto a styled in-app
-  confirmation dialog, including a clear warning that removing an owned
-  **custom** team deletes it permanently. Other polish: the desktop sidebar is
-  now **sticky** while content scrolls, empty states only appear after data has
-  loaded (no flash), catalog membership is matched by id (so a custom team
-  can't mask a same-named catalog team), table headers carry `scope="col"`,
-  and the account-settings forms share a single width helper.
+- **Branch code-review hardening pass.** Fixed a cluster of authorization /
+  hardening gaps found reviewing the multi-user branch:
+  - **Webhook SSRF via redirect.** Outbound webhook POSTs now use
+    `allow_redirects=False`, so a public target can no longer 30x-redirect the
+    client to a private/loopback/cloud-metadata address past the host guard.
+  - **Admin group routes could reach a user's private group.** The admin
+    `/admin/team-groups/*` delete / set-active / add-member / remove-member
+    paths now resolve groups through a shared-only helper (`owner_user_id IS
+    NULL`), so an admin can no longer mutate or delete a user's *private* group
+    by id (read paths were already scoped; this closes the write-path gap).
+  - **Audit endpoint leaked the internal storage key.** `GET /api/v1/audit`
+    now returns the human-facing `oid`, not the `"<user_id>:<oid>"` skey, so a
+    shared control-link operator can't read the owner's internal user id.
+  - **Last-admin self-delete lockout.** `DELETE /api/v1/auth/me` now refuses
+    when the caller is the only active administrator (mirroring the admin
+    delete/demote/deactivate guards), so an instance can't be locked out of
+    administration.
+  - **Login timing.** The account-not-found path now verifies against a
+    structurally-real dummy scrypt record (full-cost derive) instead of a
+    1-byte stub, keeping login timing uniform.
 
-- **Select all / none on the Teams lists.** Each team table (My teams,
-  Catalog) gained a "Select all" control in its action toolbar (visible on
-  mobile, where table headers are hidden), with an indeterminate state when a
-  subset is selected.
+- **Patched three transitive dev-dependency advisories (build-time only).**
+  Bumped `js-yaml` to ≥ 4.2.0 — via an npm `override`, since
+  `@redocly/openapi-core` pinned the vulnerable 4.1.1 — and `@babel/core` to
+  7.29.7, and let `npm audit fix` patch `brace-expansion`. This clears a
+  quadratic-complexity YAML DoS, an arbitrary-file-read via `sourceMappingURL`,
+  and a `max`-bypass DoS. None of these ship to users (they are eslint /
+  openapi-typescript / vite-plugin-pwa build dependencies); `npm audit` now
+  reports 0 vulnerabilities.
 
-- **Personal team lists: custom teams, seeding, and batch editing.** A new
-  account starts with the **full global team catalog** copied into its list
-  (one-time, at registration / admin-create). Users can now create their own
-  **custom teams** (name, logo, colours) that live only in their list —
-  editable and deletable by the owner; removing a custom team deletes it, while
-  removing a global team just unlinks it (it stays in the admin catalog). The
-  **Teams** page gained multi-select **batch add** (from the catalog) and
-  **batch remove**. New endpoints: `GET /api/v1/teams/mine` (list rows with
-  ids), `POST /api/v1/teams/mine/custom`, `PATCH /api/v1/teams/mine/custom/{id}`,
-  `POST /api/v1/teams/mine/remove` (batch).
-
-### Changed
-
-- **New PWA icons — distinct base-app vs. board icon.** The base app
-  (`frontend/public/icon.svg`) is now a **scoreboard** mark (two coral / blue
-  score windows with a colon divider), and **boards** get their own
-  `icon-board.svg`: a flat **volleyball** whose seams are a three-fold "beach
-  ball" swirl rather than the previous basketball-style cross. The per-board
-  manifest (`/manifest.webmanifest?u=&oid=`) serves the board icon, so an
-  installed board looks different from the installed base app (one shared icon
-  across all boards). Both SVGs are drawn maskable-safe (key art centred in the
-  inner 80%) and act as their own maskable source. Because this environment has
-  no SVG→PNG rasteriser, the raster siblings (the PNGs Chrome/iOS use for the
-  installed launcher) are regenerated separately via
-  `frontend/scripts/regenerate-icons.sh` (needs librsvg / Inkscape /
-  ImageMagick); until that runs Chrome falls back to the SVG (a missing PNG is
-  skipped) and the base PNGs keep the previous artwork. iOS uses the base
-  apple-touch icon for boards too (manifest-based differentiation is
-  Chrome/Android/desktop).
-
-- **Overlay output is no longer described as "OBS"-specific.** OBS is one of
-  several consumers of an overlay's output URL (vMix, a plain browser, etc.),
-  so the OBS-only wording was misleading. The "OBS output URL" column is now
-  **"Output URL"**, the links dialog's "OBS overlay" entry is now **"Overlay"**,
-  and the setup hint points to "your streaming software (OBS, vMix, …)" rather
-  than OBS alone — across all six languages. The corresponding API field
-  descriptions (`output_url`, `public_token`) and the register-overlay endpoint
-  summary were generalized too, and the OpenAPI snapshot / TS types regenerated.
-
-### Removed
-
-- **Per-overlay default match rules (format / points / last-set points).** These
-  duplicated what the live control board already configures via its
-  customization panel (`POST /session/rules`), so they were redundant. Removed
-  the **Format / Points / Last-set** controls from the "My overlays" create and
-  edit forms (and the Format column), the `points` / `points_last_set` / `sets`
-  columns on `user_overlays` (migration `0006`), those fields from the overlay
-  API (`CreateOverlayRequest` / `UpdateOverlayRequest` / `OverlayOut`), and the
-  override that applied them at `/session/init`. A fresh board session now
-  starts from the env defaults (`MATCH_SETS`, `MATCH_GAME_POINTS`,
-  `MATCH_GAME_POINTS_LAST_SET`) and the operator sets the format on the board,
-  where it already persists in the session.
-
-- **overlays.uno cloud and external overlay-server support — in-process only.**
-  The project now serves **every** overlay with its built-in, in-process engine
-  (`LocalOverlayBackend`). Removed: the `UnoOverlayBackend` (overlays.uno cloud
-  REST API), the `CustomOverlayBackend` + `app/ws_client.py` (external overlay
-  server over WebSocket/HTTP), the 22-char UNO OID format, and the per-overlay
-  **custom output URL** (the overlay `output_url` / `custom_output_url` field,
-  the "Output URL (cloud, optional)" form field, and `output_url` on
-  `POST /api/v1/session/init`). Each overlay's OBS output URL is now always the
-  app's own `/overlay/<public_token>` link.
-  - **Removed env vars:** `UNO_OVERLAY_ID`, `UNO_OVERLAY_OID`,
-    `UNO_OVERLAY_OUTPUT`, `APP_CUSTOM_OVERLAY_URL`,
-    `APP_CUSTOM_OVERLAY_OUTPUT_URL`, and the now-unused `WS_RECONNECT_*` /
-    `WS_HEARTBEAT_INTERVAL_SECONDS` / `WS_ZOMBIE_DEADLINE_SECONDS` tunables.
-  - **Removed docs:** `CUSTOM_OVERLAY.md` and `CUSTOM_OVERLAY_API.yaml` (the
-    external-server contract). The control board's overlay preview always uses
-    the in-process render path (no overlays.uno iframe branch).
-  - **DB:** `user_overlays.output_url` column dropped (migration `0005`).
-
-- **Overlay-server peer endpoints and `OVERLAY_SERVER_TOKEN` removed.** With no
-  external overlay server, the Bearer-gated peer endpoints (`POST /api/state/{id}`,
-  `/create|delete/overlay/{id}`, `/api/raw_config/{id}`, `/api/config/{id}`,
-  `POST /api/theme/{id}/{name}`) and the `OVERLAY_SERVER_TOKEN` machine credential
-  (incl. `_HASH` / `_DISABLED`) are gone — `app/overlay/auth.py` and
-  `app/security_bootstrap.ensure_overlay_server_token` were deleted. The public
-  `GET /api/themes` and the OBS capability routes (`/overlay`, `/follow`, `/ws`)
-  remain. `security_bootstrap` now only mints `SESSION_SECRET`.
-  - **`/metrics` is now always unauthenticated** (it only ever exposed
-    aggregates); the `METRICS_REQUIRE_ADMIN` toggle is removed.
+## [5.9.0] - 2026-06-19
 
 ### Added
-
-- **Shareable operator control links.** Each overlay now carries an unguessable
-  *control token* alongside its public OBS token. The owner can copy a
-  ready-made link (`/board?c=<token>`) from **My overlays → Edit → Operator
-  control link** and hand it to whoever is running the match: opening it grants
-  full board control (scores, serve, timeouts, undo, sets, customization, rules)
-  **without logging in**. The token resolves to the owning overlay's storage
-  key, so it also separates two users who share the same `oid`, and the live
-  control WebSocket accepts it too. "Regenerate link" mints a new token and
-  revokes any previously-shared link. New endpoint:
-  `POST /api/v1/overlays/{oid}/regenerate-control-token`; the control surface
-  (`/api/v1/game/*`, `/state`, `/customization`, `/display/*`, `/session/*`,
-  `/ws`, …) now authorizes either a `?c=<token>` (or `X-Control-Token` header)
-  or the owner's session cookie.
-
-- **Permanent username+oid bookmark control (opt-in).** Each overlay can also
-  opt into a stable, no-login control URL based on the owner's username and the
-  overlay id (`/board?u=<username>&oid=<oid>`) — a permanent personal bookmark
-  that, unlike the control token, never changes when the token is regenerated.
-  Because it is **guessable** it is **off by default** and gated behind a
-  per-overlay `public_control` flag (toggle + warning under **My overlays →
-  Edit → Permanent bookmark link**); disabling it immediately revokes the URL.
-  The control surface and `/ws` accept `?u=<username>&oid=<oid>` only for
-  opted-in overlays.
-
-- **Multi-user application (backend).** The app now has real user accounts
-  with cookie-based sessions, replacing the env-var Bearer auth. Highlights:
-  - Registration + login/logout, self-service account management (change
-    password, edit profile, delete account), and a forced
-    password-change-on-first-login flow.
-  - A first administrator is claimed on first start with a one-time token
-    printed to the service log (e.g. visible in `docker logs`).
-  - Each user manages their own overlays by id; scoreboards are namespaced
-    per user (`user_id:oid`), so two users can drive the same `oid`
-    independently. OBS output URLs use an unguessable per-overlay
-    `public_token` instead of the username/oid.
-  - DB-backed teams: a global catalog, admin-curated team **groups** (e.g.
-    "Liga Gallega") that users copy into their own list, and admin JSON
-    import/export in the `APP_TEAMS` shape.
-  - DB-backed presets: global (admin-authored, admin-activated) and
-    per-user, with admin `APP_THEMES`-shape import/export.
-  - Admin user management: list/create/delete users, reset a password to a
-    temporary one (logging the user out everywhere), and toggle public
-    registration.
-  - DB-backed match reports (replacing the per-match JSON files) surfaced in
-    each user's account, scoped to the owner.
-  - Per-overlay settings that the old remote-config app carried: a default
-    match format (best-of / points) and an optional output URL (for
-    overlays.uno cloud / custom outputs), editable from "My overlays".
-  - Admin configuration UIs for the global team catalog (logo, colour, text
-    colour, groups) and global presets (activate/deactivate), each with
-    JSON import/export in the `APP_TEAMS` / `APP_THEMES` shapes.
-  - New persistence layer: SQLAlchemy + Alembic, configured via
-    `DATABASE_URL` (SQLite by default, PostgreSQL supported and verified). The
-    schema is migrated to head automatically on startup.
-
-### Changed
-
-- **Mobile account navigation redesigned.** On phones the account/management
-  navigation (Dashboard, My overlays, Teams, Presets, Reports, Account, Admin)
-  was a single horizontally-scrolling row, so links past the viewport edge —
-  including Account, Admin, and Sign out — were hidden behind a non-obvious
-  swipe. It is now a sticky top bar with a hamburger button that opens an
-  off-canvas drawer listing every destination, the signed-in user, and Sign
-  out. The drawer closes on navigation, on backdrop tap, and on Escape, and
-  locks background scroll while open. The desktop sidebar layout is unchanged.
-
-- **Create-overlay form alignment.** The "My overlays" create form mixed
-  fields with and without helper text in a `flex-end` row, so the inputs no
-  longer lined up and the helper text widened columns and forced ragged
-  wrapping. It now uses a top-aligned responsive grid: inputs line up on one
-  row on desktop and stack cleanly to full width on phones, with the submit
-  button aligned to the input row.
-
-- **Copyable temporary passwords.** When an admin creates a user or resets a
-  password, the temporary password is now shown in a selectable, monospace
-  field with a one-tap **Copy** button (shared `CopyField` component) instead
-  of as plain inline text that had to be copied character by character.
-
-- **Account-page UI consistency.** Introduced a shared `EmptyState` component
-  and reusable CSS classes (tiles, section dividers, colour swatches) so the
-  "nothing here yet" placeholders, dashboard tiles, and admin section dividers
-  render identically across the account pages instead of via per-page inline
-  styles. The **Reports** page now shows a clear call-to-action linking to
-  "My overlays" when you have no scoreboards yet, instead of an empty
-  scoreboard dropdown.
-
-- **No backward compatibility.** `SCOREBOARD_USERS`, `OVERLAY_MANAGER_PASSWORD`-
-  gated scoreboard access, the `PREDEFINED_OVERLAYS` catalog, and the
-  `APP_TEAMS` / `APP_THEMES` / `REMOTE_CONFIG_URL` configuration sources for
-  teams/presets are superseded by the database. The control API and control
-  WebSocket now require a logged-in session; the main page is the login page.
-
-- **No in-place data migration — start clean.** This release is a clean break;
-  there is **no automatic migration** of an existing single-tenant deployment's
-  on-disk data. Runtime data is now keyed per user (`"<user_id>:<oid>"`) instead
-  of by the bare overlay id, so pre-existing `data/overlay_state_*.json`,
-  `data/audit_*.jsonl`, and the old file-based `data/matches/` archive are **not**
-  read by the new app and stay orphaned on disk (nothing is deleted, but nothing
-  is carried over either). Upgrade by starting from a fresh `data/` dir: claim
-  the first admin from the startup-log token, then recreate users, overlays,
-  teams and presets. Migrate an existing **teams/presets catalog** via the admin
-  JSON import (`POST /api/v1/admin/{teams,presets}/import`).
 
 - **New set-summary recap style "Scoresheet" (`ledger_diff`).** A
   comparative box-score — one row per stat with the home value, a bar
@@ -923,29 +961,6 @@ once a first tagged release ships.
   locales.
 
 ### Removed
-
-- **`OVERLAY_MANAGER_PASSWORD` and the legacy `/manage` admin.** The single
-  shared admin password and everything it gated are gone, replaced by the
-  in-app `admin` role (cookie + role gated) and the SPA `/admin` page:
-  - Removed the `/manage` console, the custom-overlays admin API, and the
-    `/api/v1/admin/status` / `/api/v1/admin/login` endpoints.
-  - Removed `GET /list/overlay` (it defeated the capability-URL design).
-  - Match-report print access (`/match/{id}/report`) is now gated by the
-    report **owner's** session cookie, an owner-minted signed share URL
-    (`POST /api/v1/matches/{id}/sign-url`), or `MATCH_REPORT_PUBLIC=true` —
-    the old `?token=`/admin-Bearer paths are gone. The signed-URL HMAC key
-    moved from `OVERLAY_MANAGER_PASSWORD` to `SESSION_SECRET`.
-  - Report deletion is now owner-only via `DELETE /api/v1/matches/{id}`; the
-    `MATCH_REPORT_PUBLIC_DELETE` flag is removed.
-  - `METRICS_REQUIRE_ADMIN` now gates `GET /metrics` behind the
-    machine-to-machine `OVERLAY_SERVER_TOKEN` (Prometheus scrapers can't carry
-    a cookie) instead of the admin password.
-  - Webhook dead-letter replay moved to the cookie-admin
-    `POST /api/v1/admin/webhooks/replay`.
-  - Dropped the now-unused `OVERLAY_MANAGER_PASSWORD(+_HASH)`,
-    `MATCH_REPORT_PUBLIC_DELETE`, `PREDEFINED_OVERLAYS`, and
-    `HIDE_CUSTOM_OVERLAY_WHEN_PREDEFINED` entries from `.env.example` /
-    `docker-compose.yml`.
 
 - **Set-summary "Podium" (`podium`) style.** Replaced by the new
   `ledger_diff` scoresheet. The built-in catalogue keeps six set-summary
