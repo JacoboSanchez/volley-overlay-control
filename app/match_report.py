@@ -86,7 +86,7 @@ match_report_router = APIRouter()
     response_class=HTMLResponse,
     summary="Print-friendly HTML report for an archived match",
 )
-async def match_report(
+def match_report(
     match_id: str,
     request: Request,
     exp: str | None = Query(default=None,

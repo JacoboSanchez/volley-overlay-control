@@ -417,7 +417,7 @@ th a:hover {{ color:#e6e9ef; }}
     response_class=HTMLResponse,
     summary="Public per-overlay archived-match listing",
 )
-async def match_history(
+def match_history(
     public_token: str,
     request: Request,
     sort: str = Query(default="ended"),

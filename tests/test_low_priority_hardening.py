@@ -110,6 +110,10 @@ def test_scoreboard_401_carries_cookie_challenge():
     "0.0.0.0",                          # unspecified
     "fc00::1",                          # IPv6 ULA
     "fe80::1",                          # IPv6 link-local
+    "::ffff:127.0.0.1",                 # IPv4-mapped loopback (SSRF bypass)
+    "::ffff:169.254.169.254",           # IPv4-mapped cloud metadata
+    "::ffff:10.0.0.5",                  # IPv4-mapped RFC1918
+    "::ffff:192.168.1.1",               # IPv4-mapped RFC1918
     "not-an-ip",                        # non-parseable → suspicious
 ])
 def test_is_private_ip_classifies_correctly(ip):

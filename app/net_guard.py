@@ -42,6 +42,15 @@ def is_private_ip(ip_str: str) -> bool:
     except ValueError:
         # Anything that isn't a parseable IP literal is suspicious.
         return True
+    # Unwrap IPv4-mapped IPv6 (``::ffff:127.0.0.1``) to the embedded IPv4
+    # before classifying. Before CPython 3.13 the ``is_private`` /
+    # ``is_loopback`` predicates don't see through the mapping on every
+    # patch release, so a mapped literal for a metadata/loopback/private
+    # address could slip past the guard — a classic SSRF bypass. Checking
+    # the unwrapped address closes it independent of the interpreter build.
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
     return (
         ip.is_private
         or ip.is_loopback
