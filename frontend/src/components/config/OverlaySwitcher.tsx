@@ -22,20 +22,23 @@ export default function OverlaySwitcher({ currentOid, onSwitch }: OverlaySwitche
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside interaction or Escape — the menu is a lightweight
-  // popover, not a modal, so it must never trap focus or block the panel.
+  // Close on outside interaction, focus leaving the popover, or Escape —
+  // the menu is a lightweight popover, not a modal, so it must never trap
+  // focus or block the panel.
   useEffect(() => {
     if (!open) return undefined;
-    const onPointerDown = (e: PointerEvent) => {
+    const closeIfOutside = (e: Event) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('pointerdown', closeIfOutside);
+    document.addEventListener('focusin', closeIfOutside);
     document.addEventListener('keydown', onKeyDown);
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('pointerdown', closeIfOutside);
+      document.removeEventListener('focusin', closeIfOutside);
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [open]);
@@ -48,9 +51,10 @@ export default function OverlaySwitcher({ currentOid, onSwitch }: OverlaySwitche
     [currentOid, onSwitch],
   );
 
-  // While the list is loading (or failed) there is nothing to switch to, but
-  // the control still has its first job: naming the current board.
-  const canOpen = overlays.length > 0;
+  // While the list is loading (or failed), or the current board is the only
+  // overlay, there is nothing to switch to — but the control still has its
+  // first job: naming the current board.
+  const canOpen = overlays.some((o) => o.oid !== currentOid);
 
   return (
     <div className="overlay-switcher" ref={rootRef}>

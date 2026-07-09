@@ -116,6 +116,29 @@ describe('OverlaySwitcher (component)', () => {
     expect(onSwitch).not.toHaveBeenCalled();
   });
 
+  it('is disabled when the current board is the only overlay', async () => {
+    vi.mocked(api.getOverlays).mockResolvedValue([overlayFixture('court-a', 'Center court')]);
+    renderWithI18n(<OverlaySwitcher currentOid="court-a" onSwitch={vi.fn()} />);
+    await waitFor(() => expect(api.getOverlays).toHaveBeenCalled());
+    const trigger = screen.getByTestId('overlay-switcher-trigger');
+    expect(trigger).toHaveTextContent('court-a');
+    expect(trigger).toBeDisabled();
+  });
+
+  it('closes when focus moves outside the popover', async () => {
+    renderWithI18n(
+      <>
+        <OverlaySwitcher currentOid="court-a" onSwitch={vi.fn()} />
+        <button data-testid="outside-btn">elsewhere</button>
+      </>,
+    );
+    await openMenu();
+    fireEvent.focusIn(screen.getByTestId('outside-btn'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('overlay-switcher-menu')).not.toBeInTheDocument();
+    });
+  });
+
   it('still names the board (disabled) when the list cannot load', async () => {
     vi.mocked(api.getOverlays).mockRejectedValue(new Error('offline'));
     renderWithI18n(<OverlaySwitcher currentOid="court-a" onSwitch={vi.fn()} />);

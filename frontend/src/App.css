@@ -1249,6 +1249,11 @@ body {
   border-color: var(--border);
 }
 
+.overlay-switcher-trigger:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
 .overlay-switcher-trigger.is-open {
   background: var(--hover-bg);
   border-color: var(--blue);
@@ -1326,6 +1331,12 @@ body {
 
 .overlay-switcher-option:hover {
   background: var(--hover-bg);
+}
+
+.overlay-switcher-option:focus-visible {
+  background: var(--hover-bg);
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
 }
 
 .overlay-switcher-option.is-current .overlay-switcher-option-oid {
