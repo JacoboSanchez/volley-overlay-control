@@ -100,7 +100,7 @@ describe('OverlaySwitcher (component)', () => {
     const onSwitch = vi.fn();
     renderWithI18n(<OverlaySwitcher currentOid="court-a" onSwitch={onSwitch} />);
     await openMenu();
-    fireEvent.click(screen.getAllByRole('option')[0]);
+    fireEvent.click(screen.getAllByRole('option')[0]!);
     expect(onSwitch).not.toHaveBeenCalled();
     expect(screen.queryByTestId('overlay-switcher-menu')).not.toBeInTheDocument();
   });
