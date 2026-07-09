@@ -8,6 +8,24 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Switch scoreboards without leaving the board.** In owner mode the
+  board's settings top bar now names the overlay being controlled (a
+  small "Scoreboard" label over the oid) and doubles as a switcher:
+  tapping it lists the account's other overlays and switches the board
+  in place — no round-trip through the Overlays management page. The
+  session re-initialises on the chosen oid, the WebSocket reconnects,
+  and the URL's `?oid=` is updated so a reload stays on the new board.
+  Unsaved customization edits still prompt before the switch. Operator
+  (`?c=`) and public-bookmark (`?u=`) boards keep the plain title —
+  those credentials resolve a single overlay and cannot list others.
+
+### Changed
+
+- **README config-panel screenshot refreshed** to show the new top-bar
+  overlay switcher.
+
 ## [6.0.1] - 2026-07-09
 
 ### Changed

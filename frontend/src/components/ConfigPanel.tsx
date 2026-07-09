@@ -6,6 +6,7 @@ import { useAsyncAction } from '../hooks/useAsyncAction';
 import * as api from '../api/client';
 import ConfigSkeleton from './ConfigSkeleton';
 import ConfirmDialog from './ConfirmDialog';
+import OverlaySwitcher from './config/OverlaySwitcher';
 import type { ConfigModel, PredefinedTeams } from './TeamCard';
 import type { LinksSectionLinks } from './config/LinksSection';
 import type { ButtonsSectionProps } from './config/ButtonsSection';
@@ -115,6 +116,14 @@ export interface ConfigPanelProps {
    *  which would otherwise drop the board to the OID picker the operator
    *  cannot use. */
   operator?: boolean;
+  /**
+   * Switch the board to another overlay the signed-in owner owns. When set
+   * (owner mode only), the top bar swaps its static title for the
+   * OverlaySwitcher, which names the current oid and lists the rest.
+   * Capability/public-bookmark credentials cannot enumerate overlays, so
+   * operator boards keep the plain title.
+   */
+  onSwitchOverlay?: (oid: string) => void;
   onCustomizationSaved?: () => void | Promise<void>;
   /**
    * Theme + fullscreen toggles live in this panel — they're
@@ -148,6 +157,7 @@ export default function ConfigPanel({
   onBack,
   onLogout,
   operator = false,
+  onSwitchOverlay,
   onCustomizationSaved,
   darkMode,
   isFullscreen,
@@ -303,6 +313,18 @@ export default function ConfigPanel({
   useEffect(() => {
     onBackRef.current = onBack;
   }, [onBack]);
+
+  // Switching boards discards the staged (unsaved) model just like leaving
+  // the panel does, so it goes through the same dirty-check as the back
+  // button and the dashboard link.
+  const handleSwitchOverlay = useCallback(
+    (newOid: string) => {
+      if (!onSwitchOverlay) return;
+      if (!confirmExitIfDirtyRef.current()) return;
+      onSwitchOverlay(newOid);
+    },
+    [onSwitchOverlay],
+  );
 
   // Funnel both the explicit back button and a successful save through
   // history.back() so the popstate listener is the single exit point. That
@@ -465,7 +487,14 @@ export default function ConfigPanel({
         >
           <span className="material-icons">arrow_back</span>
         </button>
-        <span className="config-top-title">{t('config.title')}</span>
+        {!operator && onSwitchOverlay ? (
+          // Owner mode: the centre slot names the board being controlled and
+          // doubles as the switcher. The settings context is already obvious
+          // from the surrounding panel, so the static title gives way.
+          <OverlaySwitcher currentOid={oid} onSwitch={handleSwitchOverlay} />
+        ) : (
+          <span className="config-top-title">{t('config.title')}</span>
+        )}
         <a
           className="config-top-btn"
           href="/overlays"
