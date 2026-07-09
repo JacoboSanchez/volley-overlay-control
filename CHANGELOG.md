@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.0.1] - 2026-07-09
+
 ### Changed
 
 - **The board install icon is sport-agnostic.** The per-board "Add to
