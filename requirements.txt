@@ -11,7 +11,7 @@ prometheus-client>=0.25.0
 # (``[binary]`` bundles libpq), so Postgres works with no rebuild — just point
 # DATABASE_URL at a server. It is a small unconditional add even for the
 # SQLite-only default; that keeps the published image Postgres-ready.
-sqlalchemy>=2.0
+sqlalchemy>=2.0.51
 alembic>=1.13
 psycopg[binary]>=3.2
 # Security floor — patches CVE-2026-44431 / CVE-2026-44432 (urllib3 2.6.x).
