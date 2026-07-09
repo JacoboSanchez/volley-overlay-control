@@ -28,6 +28,18 @@ once a first tagged release ships.
   three are regenerated from their SVG source via
   `frontend/scripts/regenerate-icons.sh`.
 
+### Dependencies
+
+- **Backend runtime:** `fastapi` `>=0.137.1` → `>=0.139.0`, `sqlalchemy`
+  `>=2.0` → `>=2.0.51`, `psycopg[binary]` `>=3.2` → `>=3.3.4`, and
+  `python-multipart` `>=0.0.20` → `>=0.0.32`.
+- **Backend dev/test:** `pytest` `>=9.1.0` → `>=9.1.1`.
+- **Frontend:** `vite` `8.0.16` → `8.1.0`, `@vitejs/plugin-react` `6.0.2`
+  → `6.0.3`, and `globals` `17.6.0` → `17.7.0`.
+- **CI (GitHub Actions):** `actions/checkout` `6` → `7`,
+  `docker/build-push-action` `7.2.0` → `7.3.0`, `docker/login-action`
+  `4.2.0` → `4.4.0`, and `docker/metadata-action` `6.1.0` → `6.2.0`.
+
 ## [6.0.0] - 2026-07-08
 
 > [!WARNING]
