@@ -4,37 +4,37 @@
       <stop offset="0" stop-color="#2b2f57"/>
       <stop offset="1" stop-color="#15162b"/>
     </linearGradient>
-    <linearGradient id="bball" x1="0.2" y1="0.1" x2="0.85" y2="0.95">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#dde3f1"/>
-    </linearGradient>
-    <linearGradient id="bseam" x1="0" y1="0" x2="1" y2="1">
+    <!-- Home / away accents — the same warm and cool pair the base app icon
+         (icon.svg) assigns to its two score windows, so the board icon reads
+         as a sibling of the app icon rather than an unrelated mark. -->
+    <linearGradient id="bLeft" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ff8a5b"/>
       <stop offset="1" stop-color="#ff3d6e"/>
     </linearGradient>
-    <radialGradient id="bshine" cx="0.36" cy="0.30" r="0.55">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
-      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <clipPath id="bclip"><circle cx="256" cy="256" r="176"/></clipPath>
+    <linearGradient id="bRight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5ad1e6"/>
+      <stop offset="1" stop-color="#3a8dff"/>
+    </linearGradient>
   </defs>
 
   <!-- Full-bleed background: maskable launchers crop the corners. -->
   <rect width="512" height="512" fill="url(#bbg)"/>
 
-  <!-- Ball, centred inside the maskable safe zone. -->
-  <circle cx="256" cy="256" r="176" fill="url(#bball)"/>
+  <!-- Two score windows reading "0 : 0" — a scoreboard for any sport, not a
+       single ball. Kept within the maskable safe zone (centred, ~180px from
+       centre at the far corners, inside the 205px safe radius). -->
+  <rect x="92" y="184" width="148" height="144" rx="30" fill="url(#bLeft)"/>
+  <rect x="272" y="184" width="148" height="144" rx="30" fill="url(#bRight)"/>
 
-  <!-- Three curved "meridian" seams bowing the same way (volleyball / beach
-       ball swirl), rotated 120° apart — the pinwheel that reads as a
-       volleyball rather than a basketball's straight cross. Clipped to the
-       ball so the bows stay inside. -->
-  <g clip-path="url(#bclip)" fill="none" stroke="url(#bseam)" stroke-width="21" stroke-linecap="round">
-    <path d="M256 80 Q330 256 256 432"/>
-    <path d="M256 80 Q330 256 256 432" transform="rotate(120 256 256)"/>
-    <path d="M256 80 Q330 256 256 432" transform="rotate(240 256 256)"/>
-  </g>
+  <!-- Subtle gloss on the top of each window. -->
+  <rect x="92" y="184" width="148" height="58" rx="30" fill="#ffffff" opacity="0.15"/>
+  <rect x="272" y="184" width="148" height="58" rx="30" fill="#ffffff" opacity="0.15"/>
 
-  <!-- Glossy highlight. -->
-  <circle cx="256" cy="256" r="176" fill="url(#bshine)"/>
+  <!-- The two zeros. -->
+  <ellipse cx="166" cy="256" rx="33" ry="46" fill="none" stroke="#ffffff" stroke-width="17"/>
+  <ellipse cx="346" cy="256" rx="33" ry="46" fill="none" stroke="#ffffff" stroke-width="17"/>
+
+  <!-- Colon divider. -->
+  <circle cx="256" cy="235" r="11" fill="#eef1fb"/>
+  <circle cx="256" cy="277" r="11" fill="#eef1fb"/>
 </svg>

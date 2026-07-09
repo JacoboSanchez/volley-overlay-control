@@ -8,6 +8,26 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **The board install icon is sport-agnostic.** The per-board "Add to
+  Home Screen" icon was a volleyball, which only read for one of the
+  sports the scoreboard supports. It is now a neutral scoreboard — two
+  score windows reading `0 : 0` in the app's home/away colours, a sibling
+  of the base app icon. Its raster siblings (`icon-board-192x192.png`,
+  `icon-board-512x512.png`) are now generated and shipped, so launchers
+  that require PNG icons no longer fall back to the SVG.
+
+### Fixed
+
+- **The base app icon's raster files were stale.** `icon-192x192.png`,
+  `icon-512x512.png`, and `apple-touch-icon.png` still carried the old
+  volleyball artwork even though `icon.svg` had become a scoreboard
+  panel — so the installed-app icon (Chrome/Android) and the iOS
+  home-screen icon showed a ball that no longer matched the app. All
+  three are regenerated from their SVG source via
+  `frontend/scripts/regenerate-icons.sh`.
+
 ## [6.0.0] - 2026-07-08
 
 > [!WARNING]
