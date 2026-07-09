@@ -150,9 +150,53 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('config-tab-button'));
 
+    // Owner mode: the top bar names the current board via the overlay
+    // switcher instead of the static "Config" title.
     await waitFor(() => {
-      expect(screen.getByText('Config')).toBeInTheDocument();
+      expect(screen.getByTestId('overlay-switcher-trigger')).toHaveTextContent('oid');
     });
+  });
+
+  it('switches boards in place from the config panel switcher', async () => {
+    vi.mocked(api.getOverlays).mockResolvedValue([
+      {
+        oid: 'court-a',
+        name: 'court-a',
+        description: null,
+      },
+      {
+        oid: 'court-b',
+        name: 'court-b',
+        description: 'Side court',
+      },
+    ] as unknown as api.OverlayPayload[]);
+    const replaceState = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+
+    renderWithI18n(<App />);
+    const input = screen.getByPlaceholderText('my-overlay');
+    fireEvent.change(input, { target: { value: 'court-a' } });
+    fireEvent.submit(input.closest('form')!);
+    await waitFor(() => {
+      expect(api.initSession).toHaveBeenCalledWith('court-a');
+    });
+
+    fireEvent.click(screen.getByTestId('config-tab-button'));
+    const trigger = await screen.findByTestId('overlay-switcher-trigger');
+    await waitFor(() => expect(trigger).not.toBeDisabled());
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByText('court-b'));
+
+    // The session re-inits on the new oid, the URL is kept honest for
+    // reloads, and the panel drops back to the scoreboard.
+    await waitFor(() => {
+      expect(api.initSession).toHaveBeenCalledWith('court-b');
+    });
+    expect(replaceState).toHaveBeenCalled();
+    const newUrl = String(replaceState.mock.calls.at(-1)![2]);
+    expect(newUrl).toContain('oid=court-b');
+    expect(screen.getByTestId('config-tab-button')).toBeInTheDocument();
+    expect(localStorage.setItem).toHaveBeenCalledWith('volley_oid', 'court-b');
+    replaceState.mockRestore();
   });
 
   it('persists OID to localStorage on connect', async () => {

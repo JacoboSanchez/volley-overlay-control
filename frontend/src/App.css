@@ -1218,6 +1218,147 @@ body {
   color: var(--text);
 }
 
+/* ── Overlay switcher (config top bar, owner mode) ──────────────────── */
+
+.overlay-switcher {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: 0 0.25rem;
+}
+
+.overlay-switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 4px 8px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.overlay-switcher-trigger:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: var(--border);
+}
+
+.overlay-switcher-trigger.is-open {
+  background: var(--hover-bg);
+  border-color: var(--blue);
+}
+
+.overlay-switcher-trigger:disabled {
+  cursor: default;
+}
+
+.overlay-switcher-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.overlay-switcher-eyebrow {
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.overlay-switcher-oid {
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overlay-switcher-caret {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+.overlay-switcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 14px 30px var(--shadow-heavy);
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+}
+
+.overlay-switcher-menu-head {
+  padding: 8px 10px 6px;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.overlay-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.overlay-switcher-option:hover {
+  background: var(--hover-bg);
+}
+
+.overlay-switcher-option.is-current .overlay-switcher-option-oid {
+  color: var(--blue);
+}
+
+.overlay-switcher-check {
+  width: 18px;
+  flex: none;
+  font-size: 18px;
+  color: var(--blue);
+}
+
+.overlay-switcher-option-labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.overlay-switcher-option-oid {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.overlay-switcher-option-desc {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Config bottom bar ──────────────────────────────────────────────── */
 
 .config-bottom-bar {

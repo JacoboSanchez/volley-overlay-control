@@ -56,6 +56,25 @@ export default function App({
     onLogout: useCallback(() => setActiveTab('scoreboard'), []),
     initialOid: controlToken,
   });
+
+  // In-place board switch (owner mode, from the config panel's
+  // OverlaySwitcher). Changing ``oid`` is all the teardown needed —
+  // useGameState aborts the in-flight init and reconnects the WebSocket, and
+  // the persist-and-initialize effect below re-inits the session. The URL is
+  // kept honest via replaceState because getInitialOid() reads ``?oid=``
+  // before localStorage, so a reload must reopen the board just switched to.
+  const handleSwitchOverlay = useCallback(
+    (newOid: string) => {
+      if (!newOid || newOid === oid) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('oid', newOid);
+      window.history.replaceState(window.history.state, '', url);
+      setOid(newOid);
+      setOidInput(newOid);
+      setActiveTab('scoreboard');
+    },
+    [oid, setOid, setOidInput],
+  );
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: activeTab === 'scoreboard' ? () => setActiveTab('config') : undefined,
     // Route through history.back() so ConfigPanel's popstate listener can
@@ -427,6 +446,7 @@ export default function App({
             onBack={() => setActiveTab('scoreboard')}
             onLogout={handleLogout}
             operator={isCapabilityMode}
+            onSwitchOverlay={isCapabilityMode ? undefined : handleSwitchOverlay}
             onCustomizationSaved={refreshCustomization}
             darkMode={settings.darkMode}
             isFullscreen={isFullscreen}
