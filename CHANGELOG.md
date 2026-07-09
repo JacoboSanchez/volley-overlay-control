@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-07-09
+
 ### Added
 
 - **Switch scoreboards without leaving the board.** In owner mode the
