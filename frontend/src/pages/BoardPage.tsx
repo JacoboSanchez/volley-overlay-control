@@ -13,7 +13,10 @@ const App = lazy(() => import('../App'));
 export default function BoardPage() {
   const params = new URLSearchParams(useLocation().search);
   const controlToken = params.get('c');
-  const publicUser = params.get('u');
+  // Trim once at extraction: stray whitespace in a hand-copied bookmark URL
+  // would fail the backend's token whitelist on every downstream use (API
+  // credential, manifest query) — and a whitespace-only ``u`` is no ``u``.
+  const publicUser = params.get('u')?.trim() || null;
   const oid = params.get('oid');
   const { loading, ctx } = useAuth();
 
@@ -26,7 +29,7 @@ export default function BoardPage() {
     !!publicUser &&
     !controlToken &&
     !!ctx?.authenticated &&
-    ctx.user?.username === publicUser.trim().toLowerCase();
+    ctx.user?.username === publicUser.toLowerCase();
 
   // Point the PWA manifest at this specific board so an "Install app" (Chrome /
   // desktop) creates a launcher that reopens THIS board rather than the app

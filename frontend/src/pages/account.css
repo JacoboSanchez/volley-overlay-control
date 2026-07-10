@@ -431,7 +431,12 @@
   overflow-wrap: anywhere;
 }
 
+/* Pointer focus already reads as feedback (the value self-selects), so the
+   ring is suppressed; keyboard focus gets the explicit border highlight. */
 .acc-copy-value:focus {
+  outline: none;
+}
+.acc-copy-value:focus-visible {
   outline: none;
   border-color: #4f8cff;
 }

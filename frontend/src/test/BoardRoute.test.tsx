@@ -96,10 +96,11 @@ describe('/board route', () => {
 
   it('upgrades an own ?u= bookmark to owner mode when the owner is signed in', async () => {
     vi.mocked(api.getAuthContext).mockResolvedValue(loggedInAs('alex'));
-    renderBoard('/board?u=Alex&oid=liga');
+    // Usernames are stored lowercased and hand-copied URLs pick up stray
+    // whitespace; neither casing nor padding must defeat the match.
+    renderBoard('/board?u=%20Alex%20&oid=liga');
 
     const app = await screen.findByTestId('board-app');
-    // Usernames are stored lowercased; the URL casing must not defeat the match.
     expect(app.dataset.publicUser).toBe('');
   });
 
