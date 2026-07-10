@@ -408,30 +408,42 @@
 
 /* Multiline variant (share URLs): a one-line input on a portrait phone shows
    only the start of the URL, so the value wraps in a read-only block that
-   keeps the whole URI structure visible. */
+   keeps the whole URI structure visible. Breaks prefer the <wbr> the
+   component inserts after each / ? & = separator; ``overflow-wrap: anywhere``
+   only kicks in when a single segment is longer than the line. */
 .acc-copy--multiline {
   align-items: flex-start;
 }
 
 .acc-copy-value {
+  display: block;
   flex: 1 1 auto;
   min-width: 0;
   box-sizing: border-box;
   background: #0f1115;
   border: 1px solid #2c333f;
   border-radius: 8px;
-  color: #e7e9ee;
+  color: #c9d2e0;
   padding: 8px 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  word-break: break-all;
-  white-space: pre-wrap;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .acc-copy-value:focus {
   outline: none;
   border-color: #4f8cff;
+}
+
+/* The icon-only copy button hugs the value block's first line. */
+.acc-copy-iconbtn {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+}
+.acc-copy-iconbtn .material-icons {
+  font-size: 18px;
 }
 
 .acc-muted {
@@ -738,12 +750,23 @@
 }
 .acc-overlay-share__row {
   display: flex;
-  align-items: center;
+  /* Top-aligned, matching the multiline CopyField's own copy button — the
+     URL block can grow to several lines and centring would leave the
+     regenerate button floating against it. */
+  align-items: flex-start;
   gap: 8px;
 }
 .acc-overlay-share__row .acc-copy {
   flex: 1;
   min-width: 0;
+}
+/* Size the regenerate button like the copy icon next to it. */
+.acc-overlay-share__row > .acc-iconbtn {
+  width: 34px;
+  height: 34px;
+}
+.acc-overlay-share__row > .acc-iconbtn .material-icons {
+  font-size: 18px;
 }
 
 /* Permanent-bookmark disclosure: collapsed by default, opened when the

@@ -1,6 +1,25 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useI18n } from '../i18n';
 import { writeToClipboard } from '../utils/clipboard';
+
+/** Split *value* after each URI separator (``/ ? & =``) so the wrapping block
+ *  can prefer those as line-break points (via ``<wbr>``): the URL then wraps
+ *  along its structure — origin / path / query — instead of mid-token.
+ *  ``overflow-wrap: anywhere`` remains the fallback for a segment longer than
+ *  the line (e.g. a very long capability token). */
+function uriSegments(value: string): string[] {
+  const segments: string[] = [];
+  let current = '';
+  for (const ch of value) {
+    current += ch;
+    if (ch === '/' || ch === '?' || ch === '&' || ch === '=') {
+      segments.push(current);
+      current = '';
+    }
+  }
+  if (current) segments.push(current);
+  return segments;
+}
 
 /** Select every character of *el* — the block-element equivalent of
  *  ``input.select()``, so a tap still grabs the whole value for manual copy. */
@@ -37,9 +56,12 @@ export default function CopyField({
     setTimeout(() => setCopied(false), 1500);
   }
 
-  return (
-    <span className={`acc-copy${multiline ? ' acc-copy--multiline' : ''}`}>
-      {multiline ? (
+  if (multiline) {
+    // Icon-only copy control (the pattern LinkRow already uses on the board):
+    // a "Copy" text button next to a three-line URL reads as a competing
+    // action and eats a third of a portrait phone's width.
+    return (
+      <span className="acc-copy acc-copy--multiline">
         <span
           className="acc-copy-value"
           role="textbox"
@@ -48,17 +70,37 @@ export default function CopyField({
           aria-label={label}
           onFocus={(e) => selectContents(e.currentTarget)}
         >
-          {value}
+          {uriSegments(value).map((segment, i) => (
+            <Fragment key={i}>
+              {i > 0 && <wbr />}
+              {segment}
+            </Fragment>
+          ))}
         </span>
-      ) : (
-        <input
-          className="acc-input acc-copy-input"
-          readOnly
-          value={value}
-          aria-label={label}
-          onFocus={(e) => e.currentTarget.select()}
-        />
-      )}
+        <button
+          type="button"
+          className="acc-iconbtn acc-copy-iconbtn"
+          title={t('acc.common.copy')}
+          aria-label={t('acc.common.copy')}
+          onClick={copy}
+        >
+          <span className="material-icons" aria-hidden="true">
+            {copied ? 'check' : 'content_copy'}
+          </span>
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="acc-copy">
+      <input
+        className="acc-input acc-copy-input"
+        readOnly
+        value={value}
+        aria-label={label}
+        onFocus={(e) => e.currentTarget.select()}
+      />
       <button type="button" className="acc-btn secondary" onClick={copy}>
         {copied ? t('acc.common.copied') : t('acc.common.copy')}
       </button>

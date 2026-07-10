@@ -32,8 +32,12 @@ once a first tagged release ships.
 - **Share links on the Overlays page wrap instead of truncating.** The
   OBS output, shareable control, and public bookmark URLs were shown in
   one-line inputs that cut off after the scheme + host on a portrait
-  phone; they now render as wrapping read-only blocks so the whole URI
-  stays visible (tap still selects the full value, Copy unchanged).
+  phone. They now render as read-only blocks that wrap at the URI's own
+  separators (`/ ? & =`), so each line follows the link's structure, and
+  the text "Copy" button gave way to the compact copy icon the board's
+  link rows already use (tap still selects the full value). The
+  regenerate button on the share-link row is sized and top-aligned to
+  match.
 
 ## [6.1.0] - 2026-07-09
 
