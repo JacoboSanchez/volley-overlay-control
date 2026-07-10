@@ -36,8 +36,10 @@ once a first tagged release ships.
   separators (`/ ? & =`), so each line follows the link's structure, and
   the text "Copy" button gave way to the compact copy icon the board's
   link rows already use (tap still selects the full value). The
-  regenerate button on the share-link row is sized and top-aligned to
-  match.
+  regenerate control moved out of the URL row onto the "Link to share"
+  label line as a small ghost icon — it revokes the link as a whole, so
+  it reads as part of the heading and the URL block keeps the full
+  width.
 
 ## [6.1.0] - 2026-07-09
 
