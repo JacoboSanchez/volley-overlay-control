@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as api from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n } from '../i18n';
@@ -9,6 +9,7 @@ export default function LoginPage() {
   const { ctx, refresh } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +22,12 @@ export default function LoginPage() {
     try {
       const res = await api.login(username.trim(), password);
       await refresh();
-      navigate(res.must_change_password ? '/change-password' : '/');
+      // RequireAuth stashes the page it bounced from (e.g. an installed
+      // /board?oid= PWA launcher) so the login round-trip lands back there.
+      const from = (location.state as { from?: { pathname?: string; search?: string } } | null)
+        ?.from;
+      const dest = from?.pathname ? `${from.pathname}${from.search ?? ''}` : '/';
+      navigate(res.must_change_password ? '/change-password' : dest, { replace: true });
     } catch (err) {
       // Only a 401 means bad credentials. Anything else (403 deactivated
       // account, 429 rate-limit lockout, 5xx/network) has its own cause —

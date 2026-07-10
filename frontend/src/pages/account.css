@@ -406,6 +406,34 @@
   flex: 0 0 auto;
 }
 
+/* Multiline variant (share URLs): a one-line input on a portrait phone shows
+   only the start of the URL, so the value wraps in a read-only block that
+   keeps the whole URI structure visible. */
+.acc-copy--multiline {
+  align-items: flex-start;
+}
+
+.acc-copy-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  background: #0f1115;
+  border: 1px solid #2c333f;
+  border-radius: 8px;
+  color: #e7e9ee;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.acc-copy-value:focus {
+  outline: none;
+  border-color: #4f8cff;
+}
+
 .acc-muted {
   color: #98a2b3;
   font-size: 0.85rem;

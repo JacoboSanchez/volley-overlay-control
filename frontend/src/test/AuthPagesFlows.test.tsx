@@ -60,7 +60,7 @@ describe('LoginPage submit flows', () => {
     fill(/Username/, ' alice ');
     fill(/Password/, 'secret123');
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/', { replace: true }));
     // The username is trimmed before hitting the API.
     expect(api.login).toHaveBeenCalledWith('alice', 'secret123');
     expect(refresh).toHaveBeenCalled();
@@ -72,7 +72,9 @@ describe('LoginPage submit flows', () => {
     fill(/Username/, 'alice');
     fill(/Password/, 'temppass1');
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/change-password'));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith('/change-password', { replace: true }),
+    );
   });
 
   it('shows the invalid-credentials copy only for a 401', async () => {

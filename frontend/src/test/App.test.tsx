@@ -199,6 +199,45 @@ describe('App', () => {
     replaceState.mockRestore();
   });
 
+  it('drops the ?u param from the URL when switching boards in owner mode', async () => {
+    // An owner opening their own ?u= bookmark gets upgraded to owner mode by
+    // the /board route; the stale ``u`` must not survive a board switch —
+    // the switched-to board may not have the public bookmark opted in.
+    vi.mocked(api.getOverlays).mockResolvedValue([
+      { oid: 'court-a', name: 'court-a', description: null },
+      { oid: 'court-b', name: 'court-b', description: null },
+    ] as unknown as api.OverlayPayload[]);
+    Object.defineProperty(window, 'location', {
+      value: {
+        protocol: 'https:',
+        host: 'localhost',
+        search: '?u=alex&oid=court-a',
+        href: 'https://localhost/board?u=alex&oid=court-a',
+      },
+      writable: true,
+    });
+    const replaceState = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+
+    renderWithI18n(<App />);
+    await waitFor(() => {
+      expect(api.initSession).toHaveBeenCalledWith('court-a');
+    });
+
+    fireEvent.click(screen.getByTestId('config-tab-button'));
+    const trigger = await screen.findByTestId('overlay-switcher-trigger');
+    await waitFor(() => expect(trigger).not.toBeDisabled());
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByText('court-b'));
+
+    await waitFor(() => {
+      expect(api.initSession).toHaveBeenCalledWith('court-b');
+    });
+    const newUrl = String(replaceState.mock.calls.at(-1)![2]);
+    expect(newUrl).toContain('oid=court-b');
+    expect(newUrl).not.toContain('u=alex');
+    replaceState.mockRestore();
+  });
+
   it('persists OID to localStorage on connect', async () => {
     renderWithI18n(<App />);
     const input = screen.getByPlaceholderText('my-overlay');

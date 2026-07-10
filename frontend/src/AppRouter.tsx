@@ -30,7 +30,10 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const { loading, ctx } = useAuth();
   const location = useLocation();
   if (loading || !ctx) return <Loading />;
-  if (!ctx.authenticated) return <Navigate to="/login" replace />;
+  // Remember where the visitor was headed so LoginPage can return there —
+  // e.g. an installed board PWA whose start_url is /board?oid=<board> must
+  // land back on that board after the login round-trip, not on the dashboard.
+  if (!ctx.authenticated) return <Navigate to="/login" replace state={{ from: location }} />;
   if (ctx.user?.must_change_password && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }
@@ -52,30 +55,51 @@ function Board() {
   const controlToken = params.get('c');
   const publicUser = params.get('u');
   const oid = params.get('oid');
+  const { loading, ctx } = useAuth();
+
+  // A ?u=<username>&oid= bookmark opened by its signed-in owner is really an
+  // owner visit: the cookie authorizes every board they own, so they get the
+  // full owner experience (overlay switcher, sign-out) instead of the reduced
+  // no-login one. Usernames are stored lowercased (see
+  // app/auth/service.normalize_username), so compare accordingly.
+  const ownBookmark =
+    !!publicUser &&
+    !controlToken &&
+    !!ctx?.authenticated &&
+    ctx.user?.username === publicUser.trim().toLowerCase();
 
   // Point the PWA manifest at this specific board so an "Install app" (Chrome /
   // desktop) creates a launcher that reopens THIS board rather than the app
-  // root. Only for the stable, no-login bookmark (username + oid): the control
-  // token is revocable, so installing it would break when it's regenerated, and
-  // owner mode (?oid= behind a login) would just land on the login screen.
+  // root. Covers the stable, no-login bookmark (username + oid) and the owner
+  // board (?oid= behind a login — RequireAuth round-trips through /login and
+  // returns here). Never the ?c= link: the control token is revocable, so
+  // installing it would break when it's regenerated.
   useEffect(() => {
-    if (!publicUser || !oid) return undefined;
+    if (!oid || controlToken) return undefined;
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     if (!link) return undefined;
     const previous = link.getAttribute('href');
-    link.setAttribute(
-      'href',
-      `/manifest.webmanifest?u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`,
-    );
+    const query = publicUser
+      ? `u=${encodeURIComponent(publicUser)}&oid=${encodeURIComponent(oid)}`
+      : `oid=${encodeURIComponent(oid)}`;
+    link.setAttribute('href', `/manifest.webmanifest?${query}`);
     return () => {
       if (previous !== null) link.setAttribute('href', previous);
     };
-  }, [publicUser, oid]);
+  }, [publicUser, oid, controlToken]);
+
+  // Hold the ?u= board until the auth probe answers: it decides owner vs
+  // bookmark mode, and flipping credentials after the board has already
+  // initialised would waste the first init round-trip.
+  if (publicUser && !controlToken && (loading || !ctx)) return <Loading />;
 
   const board = (
     <SettingsProvider>
       <Suspense fallback={<Loading />}>
-        <App controlToken={controlToken ?? undefined} publicUser={publicUser ?? undefined} />
+        <App
+          controlToken={controlToken ?? undefined}
+          publicUser={ownBookmark ? undefined : (publicUser ?? undefined)}
+        />
       </Suspense>
     </SettingsProvider>
   );

@@ -52,7 +52,7 @@ describe('OverlaysPage', () => {
     expect(screen.getByText('Liga Local')).toBeInTheDocument();
     // Collapsed by default: the jobs/URLs are not rendered until expanded.
     expect(screen.queryByText('For OBS · video output')).not.toBeInTheDocument();
-    expect(screen.queryByDisplayValue('https://x/overlay/pub')).not.toBeInTheDocument();
+    expect(screen.queryByText('https://x/overlay/pub')).not.toBeInTheDocument();
     const toggle = screen.getByRole('button', { name: /liga/i });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
@@ -66,8 +66,10 @@ describe('OverlaysPage', () => {
 
     expect(screen.getByText('For OBS · video output')).toBeInTheDocument();
     expect(screen.getByText('To control · scoreboard')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('https://x/overlay/pub')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('https://x/board?c=ctl')).toBeInTheDocument();
+    // URLs render as wrapping text blocks (not inputs) so a portrait phone
+    // shows the whole URI, not just its first characters.
+    expect(screen.getByText('https://x/overlay/pub')).toBeInTheDocument();
+    expect(screen.getByText('https://x/board?c=ctl')).toBeInTheDocument();
     // The guessable bookmark stays in a collapsed Advanced disclosure.
     const advanced = screen.getByText('Advanced: permanent bookmark link').closest('details');
     expect(advanced).not.toHaveAttribute('open');
@@ -85,7 +87,7 @@ describe('OverlaysPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /liga/i }));
     const advanced = screen.getByText('Advanced: permanent bookmark link').closest('details');
     expect(advanced).toHaveAttribute('open');
-    expect(screen.getByDisplayValue('https://x/board?u=me&oid=liga')).toBeInTheDocument();
+    expect(screen.getByText('https://x/board?u=me&oid=liga')).toBeInTheDocument();
   });
 });
 

@@ -68,6 +68,11 @@ export default function App({
       if (!newOid || newOid === oid) return;
       const url = new URL(window.location.href);
       url.searchParams.set('oid', newOid);
+      // Switching only exists in owner mode; if this board was reached via an
+      // own ?u= bookmark, drop the ``u`` so the URL is the canonical owner
+      // link — the switched-to board may not have the public bookmark opted
+      // in, so a ?u= reload could be rejected.
+      url.searchParams.delete('u');
       window.history.replaceState(window.history.state, '', url);
       setOid(newOid);
       setOidInput(newOid);
