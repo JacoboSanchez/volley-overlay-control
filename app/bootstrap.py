@@ -118,18 +118,23 @@ def _render_manifest(path: str, mtime: float, title: str) -> dict:
 _BOARD_TOKEN_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
-def _board_manifest(base: dict, title: str, u: str, oid: str) -> dict:
+def _board_manifest(base: dict, title: str, u: str | None, oid: str) -> dict:
     """Per-board variant of *base* whose ``start_url`` opens this exact board.
 
     A static ``start_url`` (the app root) means an installed PWA always
-    launches the main screen, dropping the ``?u=&oid=`` of the permanent
-    bookmark link. Pointing ``start_url``/``id`` at the specific board — and
-    giving each board a distinct ``id`` so Chrome treats it as its own
-    installable app — makes "Install app" reopen that board. ``base`` is the
-    shared, cached manifest dict, so copy before overriding to avoid mutating
-    it.
+    launches the main screen, dropping the board address from the URL.
+    Pointing ``start_url``/``id`` at the specific board — and giving each
+    board a distinct ``id`` so Chrome treats it as its own installable app —
+    makes "Install app" reopen that board. Two flavours: the permanent
+    ``?u=&oid=`` bookmark link (no login), and the owner's plain ``?oid=``
+    link — the latter round-trips through /login when the session cookie is
+    missing and lands back on the board. ``base`` is the shared, cached
+    manifest dict, so copy before overriding to avoid mutating it.
     """
-    start = f"/board?u={quote(u, safe='')}&oid={quote(oid, safe='')}"
+    if u:
+        start = f"/board?u={quote(u, safe='')}&oid={quote(oid, safe='')}"
+    else:
+        start = f"/board?oid={quote(oid, safe='')}"
     manifest = dict(base)
     manifest["start_url"] = start
     manifest["id"] = start
@@ -333,9 +338,9 @@ def _register_system_endpoints(application: FastAPI) -> None:
     @application.get("/manifest.webmanifest")
     def serve_webmanifest(request: Request):
         # ``request`` (not declared query params) keeps the OpenAPI signature
-        # unchanged so schema.d.ts needn't be regenerated. ``?u=&oid=`` is an
-        # optional, opt-in per-board variant; bare requests get the app-wide
-        # manifest exactly as before.
+        # unchanged so schema.d.ts needn't be regenerated. ``?u=&oid=`` (public
+        # bookmark) and ``?oid=`` (owner board) are optional, opt-in per-board
+        # variants; bare requests get the app-wide manifest exactly as before.
         source = _vite_manifest_path()
         if source is None:
             return JSONResponse({"error": "manifest not available"}, status_code=404)
@@ -343,8 +348,8 @@ def _register_system_endpoints(application: FastAPI) -> None:
         content = _render_manifest(str(source), source.stat().st_mtime, title)
         u = request.query_params.get("u")
         oid = request.query_params.get("oid")
-        if u and oid and _BOARD_TOKEN_RE.match(u) and _BOARD_TOKEN_RE.match(oid):
-            content = _board_manifest(content, title, u, oid)
+        if oid and _BOARD_TOKEN_RE.match(oid) and (not u or _BOARD_TOKEN_RE.match(u)):
+            content = _board_manifest(content, title, u or None, oid)
         return JSONResponse(
             content=content,
             media_type="application/manifest+json",

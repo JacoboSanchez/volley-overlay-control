@@ -406,6 +406,51 @@
   flex: 0 0 auto;
 }
 
+/* Multiline variant (share URLs): a one-line input on a portrait phone shows
+   only the start of the URL, so the value wraps in a read-only block that
+   keeps the whole URI structure visible. Breaks prefer the <wbr> the
+   component inserts after each / ? & = separator; ``overflow-wrap: anywhere``
+   only kicks in when a single segment is longer than the line. */
+.acc-copy--multiline {
+  align-items: flex-start;
+}
+
+.acc-copy-value {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  background: #0f1115;
+  border: 1px solid #2c333f;
+  border-radius: 8px;
+  color: #c9d2e0;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* Pointer focus already reads as feedback (the value self-selects), so the
+   ring is suppressed; keyboard focus gets the explicit border highlight. */
+.acc-copy-value:focus {
+  outline: none;
+}
+.acc-copy-value:focus-visible {
+  outline: none;
+  border-color: #4f8cff;
+}
+
+/* The icon-only copy button hugs the value block's first line. */
+.acc-copy-iconbtn {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+}
+.acc-copy-iconbtn .material-icons {
+  font-size: 18px;
+}
+
 .acc-muted {
   color: #98a2b3;
   font-size: 0.85rem;
@@ -703,19 +748,42 @@
   margin-bottom: 12px;
 }
 
-.acc-overlay-share__label {
-  font-size: 0.78rem;
-  color: #98a2b3;
-  margin-bottom: 6px;
-}
-.acc-overlay-share__row {
+/* Label line of the share link, with the small regenerate control on its
+   right — it revokes/remints the link as a whole, so it belongs to the
+   heading, and the URL block below keeps the full width. */
+.acc-overlay-share__head {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 6px;
 }
-.acc-overlay-share__row .acc-copy {
-  flex: 1;
-  min-width: 0;
+.acc-overlay-share__label {
+  font-size: 0.78rem;
+  color: #98a2b3;
+}
+.acc-overlay-share__regen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #98a2b3;
+  cursor: pointer;
+}
+.acc-overlay-share__regen .material-icons {
+  font-size: 16px;
+}
+.acc-overlay-share__regen:hover {
+  background: #232833;
+  color: #e7e9ee;
+}
+.acc-overlay-share__regen:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* Permanent-bookmark disclosure: collapsed by default, opened when the

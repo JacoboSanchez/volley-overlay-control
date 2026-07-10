@@ -8,6 +8,39 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Added
+
+- **Owner boards are installable PWAs too.** "Install app" on the plain
+  owner board (`/board?oid=<board>`) now installs a launcher that reopens
+  that exact board, same as the public `?u=&oid=` bookmark already did.
+  When the session cookie is missing, the launcher round-trips through
+  the login screen and lands back on the board (the login redirect now
+  preserves the page that required it). Operator `?c=` links remain
+  uninstallable on purpose — the token is revocable, so the launcher
+  would break when it is regenerated.
+
+### Changed
+
+- **The overlay switcher now also appears on a signed-in owner's own
+  `?u=&oid=` bookmark.** The board route detects that the public-bookmark
+  URL belongs to the signed-in account and upgrades the visit to full
+  owner mode (overlay switcher, sign-out), instead of the reduced
+  no-login experience. Switching boards from there rewrites the URL to
+  the canonical `?oid=` owner link, since the switched-to board may not
+  have the public bookmark opted in. Anonymous visitors and other
+  accounts keep the bookmark behaviour unchanged.
+- **Share links on the Overlays page wrap instead of truncating.** The
+  OBS output, shareable control, and public bookmark URLs were shown in
+  one-line inputs that cut off after the scheme + host on a portrait
+  phone. They now render as read-only blocks that wrap at the URI's own
+  separators (`/ ? & =`), so each line follows the link's structure, and
+  the text "Copy" button gave way to the compact copy icon the board's
+  link rows already use (tap still selects the full value). The
+  regenerate control moved out of the URL row onto the "Link to share"
+  label line as a small ghost icon — it revokes the link as a whole, so
+  it reads as part of the heading and the URL block keeps the full
+  width.
+
 ## [6.1.0] - 2026-07-09
 
 ### Added

@@ -211,7 +211,7 @@ function OverlayCard({
               {t('acc.overlays.outputLabel')}
             </div>
             <p className="acc-overlay-job__desc acc-muted">{t('acc.overlays.outputDesc')}</p>
-            <CopyField value={o.output_url} label={t('acc.overlays.outputLabel')} />
+            <CopyField value={o.output_url} label={t('acc.overlays.outputLabel')} multiline />
           </div>
 
           {/* JOB 2 — the scoring board (open mine / share a link). */}
@@ -311,13 +311,15 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
 
   return (
     <div className="acc-overlay-share">
-      <div className="acc-overlay-share__label">{t('acc.overlays.shareLabel')}</div>
-      {o.control_url ? (
-        <div className="acc-overlay-share__row">
-          <CopyField value={o.control_url} label={t('acc.overlays.shareLabel')} />
+      {/* The regenerate control lives on the label line, not next to the URL:
+          it acts on the link as a whole (revoke + remint), so it reads as
+          part of the heading, and the URL block below keeps the full width. */}
+      <div className="acc-overlay-share__head">
+        <span className="acc-overlay-share__label">{t('acc.overlays.shareLabel')}</span>
+        {o.control_url && (
           <button
             type="button"
-            className="acc-iconbtn"
+            className="acc-overlay-share__regen"
             aria-label={t('acc.overlays.controlRegenerate')}
             title={t('acc.overlays.controlRegenerate')}
             onClick={regenerate}
@@ -327,7 +329,10 @@ function ShareControl({ o, onChanged }: { o: api.OverlayPayload; onChanged: () =
               {busy ? 'hourglass_top' : 'refresh'}
             </span>
           </button>
-        </div>
+        )}
+      </div>
+      {o.control_url ? (
+        <CopyField value={o.control_url} label={t('acc.overlays.shareLabel')} multiline />
       ) : (
         <button className="acc-btn ghost" onClick={regenerate} disabled={busy}>
           {busy ? t('acc.common.working') : t('acc.overlays.controlGenerate')}
@@ -382,7 +387,11 @@ function BookmarkAdvanced({ o, onChanged }: { o: api.OverlayPayload; onChanged: 
         </label>
         {o.public_control && o.public_control_url && (
           <div style={{ marginTop: 10 }}>
-            <CopyField value={o.public_control_url} label={t('acc.overlays.bookmarkLabel')} />
+            <CopyField
+              value={o.public_control_url}
+              label={t('acc.overlays.bookmarkLabel')}
+              multiline
+            />
           </div>
         )}
       </div>

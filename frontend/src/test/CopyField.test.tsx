@@ -30,4 +30,29 @@ describe('CopyField', () => {
       expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument(),
     );
   });
+
+  const URL_VALUE = 'https://example.com/board?u=alex&oid=liga-2026';
+
+  it('multiline renders the full value as a wrapping block instead of an input', () => {
+    render(<CopyField value={URL_VALUE} label="Bookmark link" multiline />);
+    const block = screen.getByRole('textbox', { name: 'Bookmark link' });
+    expect(block.tagName).toBe('SPAN');
+    expect(block).toHaveTextContent(URL_VALUE);
+  });
+
+  it('multiline selects the whole value on focus so it can be copied manually', () => {
+    render(<CopyField value={URL_VALUE} label="Bookmark link" multiline />);
+    const block = screen.getByLabelText('Bookmark link');
+    fireEvent.focus(block);
+    expect(window.getSelection()?.toString()).toBe(URL_VALUE);
+  });
+
+  it('multiline copies the value to the clipboard', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<CopyField value={URL_VALUE} label="Bookmark link" multiline />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(writeText).toHaveBeenCalledWith(URL_VALUE);
+  });
 });

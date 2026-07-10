@@ -155,6 +155,19 @@ def test_board_manifest_points_start_url_at_the_board():
     assert base["icons"] == ["x"]
 
 
+def test_board_manifest_owner_variant_targets_oid_only_board():
+    # No username → the owner's board link. RequireAuth round-trips through
+    # /login (preserving the destination) when the cookie is missing, so the
+    # installed launcher still lands on the board.
+    base = {"name": "Volley", "short_name": "Volley", "start_url": "/", "icons": ["x"]}
+    out = _board_manifest(base, "Volley", None, "liga")
+    assert out["start_url"] == "/board?oid=liga"
+    assert out["id"] == "/board?oid=liga"
+    assert out["scope"] == "/"
+    assert out["short_name"] == "liga"
+    assert base["start_url"] == "/"
+
+
 def test_board_manifest_token_regex_rejects_unsafe_values():
     assert _BOARD_TOKEN_RE.match("liga-2024.A_b")
     assert not _BOARD_TOKEN_RE.match("a/b")
@@ -187,11 +200,20 @@ def test_manifest_route_serves_per_board_variant(tmp_path, monkeypatch):
         assert board["id"] == "/board?u=alex&oid=liga"
         assert board["icons"][0]["src"] == "icon-board.svg"
 
+        # ``?oid=`` alone is the owner-board variant.
+        owner = client.get("/manifest.webmanifest", params={"oid": "liga"}).json()
+        assert owner["start_url"] == "/board?oid=liga"
+        assert owner["id"] == "/board?oid=liga"
+        assert owner["icons"][0]["src"] == "icon-board.svg"
+
         # Unsafe params are ignored — falls back to the app-wide manifest.
         bad = client.get(
             "/manifest.webmanifest", params={"u": "a/b", "oid": "liga"}
         ).json()
         assert bad["start_url"] == "/"
+        assert client.get("/manifest.webmanifest", params={"oid": "a/b"}).json()[
+            "start_url"
+        ] == "/"
 
 
 def test_conf_survives_malformed_numeric_env(monkeypatch):
