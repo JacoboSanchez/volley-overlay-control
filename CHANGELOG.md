@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.1.1] - 2026-07-10
+
 ### Added
 
 - **Owner boards are installable PWAs too.** "Install app" on the plain
