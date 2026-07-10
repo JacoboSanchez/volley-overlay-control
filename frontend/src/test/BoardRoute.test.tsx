@@ -34,7 +34,15 @@ const anonymous = {
 function loggedInAs(username: string) {
   return {
     authenticated: true,
-    user: { id: 1, username, role: 'user', must_change_password: false },
+    user: {
+      id: 1,
+      username,
+      display_name: null,
+      email: null,
+      role: 'user' as const,
+      is_active: true,
+      must_change_password: false,
+    },
     registration_open: false,
     needs_admin_bootstrap: false,
   };
