@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.1.2] - 2026-07-11
+
 ### Changed
 
 - **Edge-pinned styles (pylons/corners) are now positioned from the anchor
