@@ -8,6 +8,8 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+## [6.2.0] - 2026-07-11
+
 ### Added
 
 - **Serve/receive breakdown in the match report.** The Highlights grid
