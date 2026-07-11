@@ -8,19 +8,47 @@ REPORT_TEMPLATE = """<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
   :root {{
+    color-scheme: light dark;
+    --bg: #ffffff;
     --fg: #1a1a1a;
     --muted: #666;
     --border: #d0d0d0;
     --surface: #fafafa;
+    --btn-bg: #ffffff;
+    --chart-grid: #e0e0e0;
+    --chart-axis: #999999;
     --t1: {team1_color};
     --t1-fg: {team1_fg};
     --t2: {team2_color};
     --t2-fg: {team2_fg};
+    /* Scheme-aware chart palette. The SVG fragments carry the light
+       values as presentation attributes (the no-CSS fallback); these
+       vars win via the class rules below, and the dark block simply
+       re-points them at the dark-surface-safe pair. */
+    --t1-chart: {team1_chart};
+    --t2-chart: {team2_chart};
+  }}
+  /* Scoped to screen so print keeps the light palette regardless of
+     the OS theme — the report is a paper artefact when printed. */
+  @media screen and (prefers-color-scheme: dark) {{
+    :root {{
+      --bg: #121212;
+      --fg: #e8e8e8;
+      --muted: #9aa0a6;
+      --border: #3a3a3a;
+      --surface: #1e1e1e;
+      --btn-bg: #1e1e1e;
+      --chart-grid: #3a3a3a;
+      --chart-axis: #9aa0a6;
+      --t1-chart: {team1_chart_dark};
+      --t2-chart: {team2_chart_dark};
+    }}
   }}
   * {{ box-sizing: border-box; }}
   body {{
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: var(--fg);
+    background: var(--bg);
     margin: 0;
     padding: 24px;
     max-width: 960px;
@@ -41,7 +69,7 @@ REPORT_TEMPLATE = """<!doctype html>
     font: inherit;
     padding: 6px 12px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--btn-bg);
     border-radius: 4px;
     transition: background 0.1s ease;
   }}
@@ -149,6 +177,23 @@ REPORT_TEMPLATE = """<!doctype html>
     height: auto;
     display: block;
   }}
+  /* Scheme-aware chart colours: these rules beat the inline
+     presentation attributes the SVG fragments carry, so the polylines
+     and markers follow --t1-chart/--t2-chart in both schemes. The
+     timeout guides/glyphs are addressed by their existing data-team
+     attribute (their class list is pinned by tests). */
+  .set-chart .chart-grid {{ stroke: var(--chart-grid); }}
+  .set-chart .chart-axis {{ fill: var(--chart-axis); }}
+  .set-chart .t1-stroke {{ stroke: var(--t1-chart); }}
+  .set-chart .t2-stroke {{ stroke: var(--t2-chart); }}
+  .set-chart .t1-fill {{ fill: var(--t1-chart); }}
+  .set-chart .t2-fill {{ fill: var(--t2-chart); }}
+  .set-chart .set-chart-timeout[data-team="1"],
+  .set-chart .set-chart-timeout-glyph[data-team="1"] {{ stroke: var(--t1-chart); }}
+  .set-chart .set-chart-timeout[data-team="2"],
+  .set-chart .set-chart-timeout-glyph[data-team="2"] {{ stroke: var(--t2-chart); }}
+  .chart-card .legend .swatch-t1 {{ background: var(--t1-chart); }}
+  .chart-card .legend .swatch-t2 {{ background: var(--t2-chart); }}
   .timeline {{
     font-size: 13px;
     border: 1px solid var(--border);

@@ -1,6 +1,7 @@
 """Tests for the print-friendly match report at /match/{match_id}/report."""
 import json
 import os
+import re
 import time
 
 import pytest
@@ -598,6 +599,58 @@ class TestChartColorContrast:
     def test_strong_brand_colour_is_left_untouched(self):
         from app.match_report_render import _chart_color
         assert _chart_color(1, "#0047AB", "#ffffff") == "#0047AB"
+
+    @pytest.mark.parametrize(
+        "brand,fg",
+        [
+            ("#000000", "#ffffff"),  # black brand, would vanish on dark
+            ("#00234f", "#0a0a0a"),  # navy brand + dark text (worst case)
+            ("#1a1a1a", "#333333"),  # near-surface greys
+            ("#90ee90", "#ffffff"),  # pale green (fine on dark already)
+            ("#0047ab", "#ffffff"),  # cobalt — too dark for #1e1e1e
+        ],
+    )
+    def test_dark_surface_colours_clear_the_floor(self, brand, fg):
+        from app.match_report_render import (
+            _CHART_FALLBACK_DARK,
+            _CHART_SURFACE_DARK,
+            _MIN_CHART_CONTRAST,
+            _chart_color,
+        )
+        for team in (1, 2):
+            resolved = _chart_color(
+                team, brand, fg,
+                surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+            )
+            assert self._contrast(resolved, _CHART_SURFACE_DARK) \
+                >= _MIN_CHART_CONTRAST
+
+    def test_dark_brand_is_lightened_keeping_hue(self):
+        # A navy that fails on the dark surface is lifted toward white
+        # (blue channel stays dominant), not swapped for the fallback.
+        from app.match_report_render import (
+            _CHART_FALLBACK_DARK,
+            _CHART_SURFACE_DARK,
+            _chart_color,
+            _hex_to_rgb,
+        )
+        resolved = _chart_color(
+            1, "#00234f", "#0a0a0a",
+            surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+        )
+        assert resolved not in _CHART_FALLBACK_DARK
+        r, g, b = _hex_to_rgb(resolved)
+        assert b > r and b > g
+
+    def test_dark_fallback_palette_clears_the_floor(self):
+        from app.match_report_render import (
+            _CHART_FALLBACK_DARK,
+            _CHART_SURFACE_DARK,
+            _MIN_CHART_CONTRAST,
+        )
+        for color in _CHART_FALLBACK_DARK:
+            assert self._contrast(color, _CHART_SURFACE_DARK) \
+                >= _MIN_CHART_CONTRAST
 
 
 class TestMatchReportI18n:
@@ -2220,3 +2273,67 @@ class TestBiggestLeadHighlight:
         assert stats["biggest_lead"][1] == {"lead": 15, "set": 1}
         assert stats["biggest_lead"][2] == {"lead": 0, "set": None}
         assert stats["set_win_comeback"][1]["deficit"] == 0
+
+
+class TestMatchReportDarkMode:
+    """The report follows ``prefers-color-scheme: dark`` on screen only.
+
+    Chart colours are resolved twice server-side (light + dark surface)
+    and plumbed through CSS vars; the inline SVG presentation
+    attributes keep the light values as the no-CSS fallback.
+    """
+
+    def _archive(self, oid: str, customization: dict) -> str:
+        _seed_realistic_audit(oid, time.time() - 3600)
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={
+                "team_1": {"sets": 0, "scores": {"set_1": 25, "set_2": 22}},
+                "team_2": {"sets": 2, "scores": {"set_1": 23, "set_2": 25}},
+            },
+            customization=customization,
+            winning_team=2, sets_limit=3,
+        )
+        assert match_id is not None
+        return match_id
+
+    def test_dark_media_block_is_screen_scoped(self, client):
+        match_id = self._archive("dark-1", {
+            "Team 1 Name": "Alpha", "Team 2 Name": "Bravo",
+        })
+        body = client.get(f"/match/{match_id}/report").text
+        assert "@media screen and (prefers-color-scheme: dark)" in body
+        assert "color-scheme: light dark" in body
+
+    def test_chart_vars_emitted_for_both_schemes(self, client):
+        # A white team 1 brand: the light pass darkens it (or falls
+        # back), the dark pass keeps it white — the two var values
+        # must differ so each scheme stays readable.
+        match_id = self._archive("dark-2", {
+            "Team 1 Name": "Alpha", "Team 2 Name": "Bravo",
+            "Team 1 Color": "#ffffff", "Team 1 Text Color": "#f5f5f5",
+            "Team 2 Color": "#E21836", "Team 2 Text Color": "#FFFFFF",
+        })
+        body = client.get(f"/match/{match_id}/report").text
+        values = re.findall(r"--t1-chart:\s*(#[0-9a-fA-F]{3,6})", body)
+        assert len(values) == 2
+        light_value, dark_value = values
+        assert light_value.lower() != dark_value.lower()
+        assert dark_value.lower() == "#ffffff"
+
+    def test_svg_elements_carry_theme_classes_and_inline_attrs(self, client):
+        match_id = self._archive("dark-3", {
+            "Team 1 Name": "Alpha", "Team 2 Name": "Bravo",
+            "Color 1": "#0047AB", "Color 2": "#E21836",
+        })
+        body = client.get(f"/match/{match_id}/report").text
+        assert '<polyline class="t1-stroke"' in body
+        assert '<polyline class="t2-stroke"' in body
+        assert '<circle class="t1-fill"' in body
+        assert 'class="chart-grid"' in body
+        assert 'class="chart-axis"' in body
+        # The no-CSS fallback: inline attributes still present.
+        assert 'stroke="#0047AB"' in body
+        # Legend swatches are var-driven now.
+        assert '<span class="swatch swatch-t1"></span>' in body
+        assert '<span class="swatch swatch-t2"></span>' in body

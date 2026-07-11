@@ -262,6 +262,12 @@ _CHART_FALLBACK = ("#0047AB", "#E21836")
 # cap used to wave through light greys (e.g. ``#d3d3d3``) that then melted
 # into the surface.
 _CHART_SURFACE = "#fafafa"
+# Dark-scheme counterparts: must track the dark ``--surface`` override in
+# the template's ``prefers-color-scheme: dark`` block. The fallback pair
+# is the light palette's cobalt/red lifted until it reads on the dark
+# surface (pinned by a contrast test).
+_CHART_SURFACE_DARK = "#1e1e1e"
+_CHART_FALLBACK_DARK = ("#5b9bff", "#ff6b6b")
 # WCAG 1.4.11 (non-text contrast) minimum for graphical objects. A chart
 # polyline below this against the surface is treated as invisible, so we
 # darken the brand colour (or fall back) until it clears the floor.
@@ -332,36 +338,81 @@ def _darken_to_contrast(hex_color: str, surface: str, min_ratio: float) -> str |
     return best
 
 
-def _chart_color(team: int, primary: str, fg: str) -> str:
+def _lighten_to_contrast(hex_color: str, surface: str, min_ratio: float) -> str | None:
+    """Lighten *hex_color* toward white until it clears *min_ratio* on *surface*.
+
+    The dark-surface mirror of :func:`_darken_to_contrast`: each channel is
+    scaled toward 255, so a dark-but-coloured brand (navy, maroon) stays
+    recognisably itself instead of snapping to the generic fallback pair.
+    Against a *dark* surface, contrast rises monotonically as the colour
+    lightens, so the same binary search finds the darkest scale (closest to
+    the original) that still reads. Returns ``None`` only when *hex_color*
+    doesn't parse — white (the limit) always clears the floor on a dark
+    surface.
+    """
+    rgb = _hex_to_rgb(hex_color)
+    if rgb is None:
+        return None
+    lo, hi = 0.0, 1.0
+    best = "#ffffff"  # the light limit always clears the floor on a dark surface
+    for _ in range(8):
+        mid = (lo + hi) / 2.0
+        scaled = "#{:02x}{:02x}{:02x}".format(
+            *(round(c + (255 - c) * mid) for c in rgb)
+        )
+        ratio = _contrast_ratio(scaled, surface)
+        if ratio is not None and ratio >= min_ratio:
+            best = scaled   # readable — try darker (nearer the brand colour)
+            hi = mid
+        else:
+            lo = mid        # too dark — lighten further
+    return best
+
+
+def _chart_color(
+    team: int, primary: str, fg: str, *,
+    surface: str = _CHART_SURFACE,
+    fallbacks: tuple[str, str] = _CHART_FALLBACK,
+) -> str:
     """Pick a chart-/highlight-safe colour for *team*.
 
     Priority, all measured as a real WCAG contrast ratio against the
-    report's neutral ``_CHART_SURFACE`` (not a bare luminance cap):
+    report's neutral *surface* (not a bare luminance cap):
 
     1. the team's primary brand colour, when it already reads on the surface;
     2. otherwise the team's text colour, which is high-contrast against the
        brand by design and usually against the page too;
-    3. otherwise the brand colour darkened just enough to read — keeping the
-       team's hue rather than discarding its identity;
-    4. and finally the fixed fallback palette (only when nothing parses).
+    3. otherwise the brand colour nudged just enough to read — darkened on a
+       light surface, lightened on a dark one — keeping the team's hue
+       rather than discarding its identity;
+    4. and finally the fixed *fallbacks* palette (only when nothing parses).
 
-    This keeps every datapoint visible regardless of how light the brand
-    colour is: a white or pale team no longer melts into the grey surface.
+    This keeps every datapoint visible regardless of how light (or dark)
+    the brand colour is. The defaults keep existing callers on the light
+    palette; the dark-scheme pass swaps in ``_CHART_SURFACE_DARK`` /
+    ``_CHART_FALLBACK_DARK``.
     """
     for candidate in (primary, fg):
-        ratio = _contrast_ratio(candidate, _CHART_SURFACE)
+        ratio = _contrast_ratio(candidate, surface)
         if ratio is not None and ratio >= _MIN_CHART_CONTRAST:
             return candidate
-    darkened = _darken_to_contrast(primary, _CHART_SURFACE, _MIN_CHART_CONTRAST)
-    return darkened if darkened is not None else _CHART_FALLBACK[(team - 1) % 2]
+    surface_luminance = _relative_luminance(surface)
+    if surface_luminance is not None and surface_luminance < 0.5:
+        nudged = _lighten_to_contrast(primary, surface, _MIN_CHART_CONTRAST)
+    else:
+        nudged = _darken_to_contrast(primary, surface, _MIN_CHART_CONTRAST)
+    return nudged if nudged is not None else fallbacks[(team - 1) % 2]
 
 
-def _ensure_distinct_chart_colors(c1: str, c2: str) -> tuple[str, str]:
+def _ensure_distinct_chart_colors(
+    c1: str, c2: str, *,
+    fallbacks: tuple[str, str] = _CHART_FALLBACK,
+) -> tuple[str, str]:
     """If both teams resolve to the same chart colour, force team 2 to fallback."""
     if c1.lower() != c2.lower():
         return c1, c2
-    fallback = _CHART_FALLBACK[1] if c1.lower() != _CHART_FALLBACK[1].lower() \
-        else _CHART_FALLBACK[0]
+    fallback = fallbacks[1] if c1.lower() != fallbacks[1].lower() \
+        else fallbacks[0]
     return c1, fallback
 
 
@@ -486,15 +537,20 @@ def _render_score_chart(
     mid_score = max_score // 2 if max_score >= 2 else max_score
     y_ticks = sorted({0, mid_score, max_score})
 
+    # The class names alongside the inline presentation attributes are
+    # the dark-mode hook: the stylesheet re-points them at CSS vars
+    # (which beat presentation attributes), while the attributes keep
+    # the light rendering identical for no-CSS consumers and pinned
+    # tests.
     grid_lines = "".join(
-        f'<line x1="{pad_x_left}" y1="{_project(0, v)[1]:.1f}" '
+        f'<line class="chart-grid" x1="{pad_x_left}" y1="{_project(0, v)[1]:.1f}" '
         f'x2="{pad_x_left + plot_w}" y2="{_project(0, v)[1]:.1f}" '
         f'stroke="#e0e0e0" stroke-width="1" stroke-dasharray="2,3" />'
         for v in y_ticks
     )
 
     y_labels = "".join(
-        f'<text x="{pad_x_left - 4}" y="{_project(0, v)[1] + 3:.1f}" '
+        f'<text class="chart-axis" x="{pad_x_left - 4}" y="{_project(0, v)[1] + 3:.1f}" '
         f'text-anchor="end" font-size="9" fill="#999">{v}</text>'
         for v in y_ticks
     )
@@ -510,9 +566,9 @@ def _render_score_chart(
         right_label = str(len(points))
 
     x_labels = (
-        f'<text x="{pad_x_left}" y="{height - 8}" text-anchor="start" '
+        f'<text class="chart-axis" x="{pad_x_left}" y="{height - 8}" text-anchor="start" '
         f'font-size="9" fill="#999">{html.escape(left_label)}</text>'
-        f'<text x="{pad_x_left + plot_w}" y="{height - 8}" '
+        f'<text class="chart-axis" x="{pad_x_left + plot_w}" y="{height - 8}" '
         f'text-anchor="end" font-size="9" fill="#999">{html.escape(right_label)}</text>'
     )
 
@@ -522,7 +578,8 @@ def _render_score_chart(
             for x, y in (_project(i, p[team_idx]) for i, p in enumerate(points))
         )
         return (
-            f'<polyline fill="none" stroke="{html.escape(color)}" '
+            f'<polyline class="t{team_idx + 1}-stroke" fill="none" '
+            f'stroke="{html.escape(color)}" '
             f'stroke-width="2" points="{coords}" />'
         )
 
@@ -531,7 +588,7 @@ def _render_score_chart(
         # enough to read on print, small enough not to obscure rapid
         # back-and-forth swings in volleyball-style 25-point sets.
         return "".join(
-            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.5" '
+            f'<circle class="t{team_idx + 1}-fill" cx="{x:.1f}" cy="{y:.1f}" r="2.5" '
             f'fill="{html.escape(color)}" />'
             for x, y in (_project(i, p[team_idx]) for i, p in enumerate(points))
         )
@@ -982,10 +1039,13 @@ def _render_charts(
         timeout_html = (
             timeout_legend if timeouts_by_set.get(i) else ""
         )
+        # Swatch colours come from the ``--t1-chart``/``--t2-chart``
+        # CSS vars (see the template) so they track the scheme-specific
+        # chart palette instead of freezing the light colour inline.
         legend = (
             f'<div class="legend">'
-            f'<span class="swatch" style="background: {html.escape(t1_color)};"></span>{html.escape(t1_name)}'
-            f'<span class="swatch" style="background: {html.escape(t2_color)};"></span>{html.escape(t2_name)}'
+            f'<span class="swatch swatch-t1"></span>{html.escape(t1_name)}'
+            f'<span class="swatch swatch-t2"></span>{html.escape(t2_name)}'
             f'{timeout_html}'
             f'</div>'
         )

@@ -40,6 +40,8 @@ from app.match_report_access import check_read_access
 from app.match_report_i18n import SUPPORTED_LOCALES, resolve_locale
 from app.match_report_i18n import t as _t
 from app.match_report_render import (
+    _CHART_FALLBACK_DARK,
+    _CHART_SURFACE_DARK,
     _chart_color,
     _ensure_distinct_chart_colors,
     _fmt_seconds,
@@ -171,6 +173,20 @@ def match_report(
         _chart_color(1, t1_color, t1_fg),
         _chart_color(2, t2_color, t2_fg),
     )
+    # Same resolution against the dark surface for the
+    # ``prefers-color-scheme: dark`` palette — a navy brand that reads
+    # fine on the light page would vanish on #1e1e1e without this.
+    t1_chart_dark, t2_chart_dark = _ensure_distinct_chart_colors(
+        _chart_color(
+            1, t1_color, t1_fg,
+            surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+        ),
+        _chart_color(
+            2, t2_color, t2_fg,
+            surface=_CHART_SURFACE_DARK, fallbacks=_CHART_FALLBACK_DARK,
+        ),
+        fallbacks=_CHART_FALLBACK_DARK,
+    )
 
     set_headers = "".join(
         f'<th>{html.escape(_t(locale, "setLabel", n=i))}</th>'
@@ -252,6 +268,12 @@ def match_report(
         team1_fg=t1_fg,
         team2_color=t2_color,
         team2_fg=t2_fg,
+        # Chart palette vars — strict-hex values from the contrast
+        # machinery, inserted raw like the brand colours above.
+        team1_chart=t1_chart,
+        team2_chart=t2_chart,
+        team1_chart_dark=t1_chart_dark,
+        team2_chart_dark=t2_chart_dark,
         set_count=played_sets,
         set_headers=set_headers,
         team1_set_cells=_team_set_cells(team1, 1),
