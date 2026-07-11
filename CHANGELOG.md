@@ -20,7 +20,9 @@ once a first tagged release ships.
   effect on these styles (Height, Width, H/V position) are hidden, leaving
   only the output-wide Scale and Margin knobs. The persisted field is
   still `verticalAnchor`, so saved presets and existing configurations
-  keep working.
+  keep working. Consistently with the new home, `verticalAnchor` now
+  belongs to the **Position** preset category instead of Style, so a
+  saved "Position" preset carries the placement of these styles too.
 - **Pylons/corners now default to the top corners.** A never-configured
   edge-pinned overlay used to render mid-frame (the layout these styles
   least recommend); it now docks to the top corners. An explicit centre
