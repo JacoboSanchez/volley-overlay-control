@@ -414,8 +414,12 @@ function applyVerticalAnchor(state) {
         const cust = state && state.raw_remote_customization;
         const v = cust && typeof cust.verticalAnchor === 'string'
             ? cust.verticalAnchor.toLowerCase()
-            : '';
-        anchor = v === 'top' || v === 'bottom' ? v : 'center';
+            : null;
+        // A never-configured overlay docks to the TOP corners (the layout
+        // these styles are designed for); any stored value other than
+        // top/bottom — including the legacy '' the old dropdown wrote for
+        // an explicit "center" pick — keeps rendering mid-frame.
+        anchor = v === 'top' || v === 'bottom' ? v : v === null ? 'top' : 'center';
     }
     container.setAttribute('data-vertical-anchor', anchor);
 }

@@ -47,12 +47,15 @@ _KEYS_BY_CATEGORY: dict[str, tuple[str, ...]] = {
     "team2_name": ("Team 2 Name", "Team 2 Text Name"),
     "team2_color": ("Team 2 Color", "Team 2 Text Color", "Team 2 Logo"),
     "position": (
-        "Anchor", "Height", "Width", "Left-Right", "Up-Down", "Scale", "Margin"
+        # ``verticalAnchor`` is the placement knob for edge-pinned styles
+        # (pylons/corners) — set from the Position section's anchor grid,
+        # so it travels with the position chip, not the style one.
+        "Anchor", "Height", "Width", "Left-Right", "Up-Down", "Scale", "Margin",
+        "verticalAnchor",
     ),
     "style": (
         "preferredStyle",
         "overlayTheme",
-        "verticalAnchor",
         "Logos",
         "Gradient",
         "Color 1",

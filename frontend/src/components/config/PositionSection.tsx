@@ -68,6 +68,10 @@ const FIELDS: PositionField[] = [
   },
 ];
 
+// The output-wide knobs are the only geometry an edge-pinned style honours
+// (they scale the whole overlay body, see updateOutputTransform in app.js).
+const OUTPUT_FIELD_KEYS = new Set(['Scale', 'Margin']);
+
 // The 3×3 anchor grid. Each cell pins the overlay's matching corner/edge
 // to a screen zone; the overlay measures its own rendered size so the
 // same zone lands flush for any style (the wide beach board or the tiny
@@ -85,18 +89,55 @@ const ANCHOR_CELLS = [
   { value: 'bottom-right', v: 'bottom', h: 'right' },
 ] as const;
 
+// Paired mode (edge-pinned styles): each grid ROW maps to the persisted
+// ``verticalAnchor`` value the overlay engine already understands. The
+// engine treats any stored value other than top/bottom as centre and an
+// absent key as top (the default these styles are designed for).
+const PAIRED_ROW_VALUES: Record<string, string> = {
+  top: 'top',
+  middle: 'center',
+  bottom: 'bottom',
+};
+const PAIRED_DEFAULT = 'top';
+
 export interface PositionSectionProps {
   model: ConfigModel;
   updateField: (key: string, value: unknown) => void;
+  /**
+   * True for edge-pinned styles (pylons/corners, ``data-fixed-geometry``):
+   * they ignore the free x/y geometry, so the anchor grid switches to a
+   * paired mode where the left+right cells of a row select the overlay's
+   * ``verticalAnchor`` (top / center / bottom) and only Scale/Margin apply.
+   */
+  edgePinned?: boolean;
 }
 
-export default function PositionSection({ model, updateField }: PositionSectionProps) {
+export default function PositionSection({
+  model,
+  updateField,
+  edgePinned = false,
+}: PositionSectionProps) {
   const { t } = useI18n();
 
   const rawAnchor = (model as Record<string, unknown>)['Anchor'];
   const anchor =
     typeof rawAnchor === 'string' && rawAnchor.trim() ? rawAnchor.trim().toLowerCase() : 'free';
-  const isZone = anchor !== 'free';
+  const isZone = !edgePinned && anchor !== 'free';
+
+  // Same normalization as the overlay's applyVerticalAnchor: an absent key
+  // means top (the paired-mode default); any stored string other than
+  // top/bottom (including the legacy '' the old dropdown wrote) is centre.
+  const rawVertical = (model as Record<string, unknown>)['verticalAnchor'];
+  const normalizedVertical =
+    typeof rawVertical === 'string' ? rawVertical.trim().toLowerCase() : null;
+  const verticalAnchor =
+    normalizedVertical === 'top' || normalizedVertical === 'bottom'
+      ? normalizedVertical
+      : normalizedVertical === null
+        ? PAIRED_DEFAULT
+        : 'center';
+
+  const fields = edgePinned ? FIELDS.filter((f) => OUTPUT_FIELD_KEYS.has(f.key)) : FIELDS;
 
   const defOf = (key: string) => FIELDS.find((f) => f.key === key)?.def ?? 0;
 
@@ -126,14 +167,21 @@ export default function PositionSection({ model, updateField }: PositionSectionP
     const parsed = typeof raw === 'string' ? parseFloat(raw) : raw;
     return typeof parsed === 'number' && !Number.isNaN(parsed) ? parsed : def;
   };
-  const isAtDefaults = !isZone && FIELDS.every((f) => currentOf(f.key, f.def) === f.def);
+  const isAtDefaults = edgePinned
+    ? verticalAnchor === PAIRED_DEFAULT && fields.every((f) => currentOf(f.key, f.def) === f.def)
+    : !isZone && FIELDS.every((f) => currentOf(f.key, f.def) === f.def);
 
-  // Stages every field back to its default (free anchor + the FIELDS
-  // defaults) through updateField, so the reset honours the Save button
-  // like any other staged edit.
+  // Stages every field back to its default through updateField, so the
+  // reset honours the Save button like any other staged edit. Paired mode
+  // only owns verticalAnchor + the output knobs — the free-geometry fields
+  // stay untouched so switching back to a normal style keeps them.
   function resetDefaults() {
-    updateField('Anchor', 'free');
-    for (const f of FIELDS) updateField(f.key, f.def);
+    if (edgePinned) {
+      updateField('verticalAnchor', PAIRED_DEFAULT);
+    } else {
+      updateField('Anchor', 'free');
+    }
+    for (const f of fields) updateField(f.key, f.def);
   }
 
   return (
@@ -141,19 +189,27 @@ export default function PositionSection({ model, updateField }: PositionSectionP
       <div className="config-anchor">
         <div className="config-anchor-head">
           <label className="config-label">{t('position.anchorTitle')}</label>
-          <button
-            type="button"
-            className={`config-anchor-free${!isZone ? ' is-active' : ''}`}
-            aria-pressed={!isZone}
-            onClick={selectFree}
-            data-testid="anchor-free"
-          >
-            {t('position.anchorFree')}
-          </button>
+          {!edgePinned && (
+            <button
+              type="button"
+              className={`config-anchor-free${!isZone ? ' is-active' : ''}`}
+              aria-pressed={!isZone}
+              onClick={selectFree}
+              data-testid="anchor-free"
+            >
+              {t('position.anchorFree')}
+            </button>
+          )}
         </div>
         <div className="config-anchor-grid" role="group" aria-label={t('position.anchorTitle')}>
           {ANCHOR_CELLS.map((c) => {
-            const active = isZone && anchor === c.value;
+            // Paired mode: the centre column is meaningless (the chips are
+            // pinned to the left/right edges), and the left+right cells of
+            // the active row light up together.
+            const disabled = edgePinned && c.h === 'center';
+            const active = edgePinned
+              ? !disabled && PAIRED_ROW_VALUES[c.v] === verticalAnchor
+              : isZone && anchor === c.value;
             const label = `${t(`position.zone.${c.v}`)} ${t(`position.zone.${c.h}`)}`;
             return (
               <button
@@ -163,7 +219,12 @@ export default function PositionSection({ model, updateField }: PositionSectionP
                 aria-pressed={active}
                 aria-label={label}
                 title={label}
-                onClick={() => selectAnchor(c.value)}
+                disabled={disabled}
+                onClick={() =>
+                  edgePinned
+                    ? updateField('verticalAnchor', PAIRED_ROW_VALUES[c.v])
+                    : selectAnchor(c.value)
+                }
                 data-testid={`anchor-${c.value}`}
               >
                 <span className="config-anchor-dot" aria-hidden="true" />
@@ -171,11 +232,13 @@ export default function PositionSection({ model, updateField }: PositionSectionP
             );
           })}
         </div>
-        <p className="config-anchor-hint">{t('position.anchorHint')}</p>
+        <p className="config-anchor-hint">
+          {t(edgePinned ? 'position.anchorPairedHint' : 'position.anchorHint')}
+        </p>
       </div>
 
       <div className="config-stepper-grid">
-        {FIELDS.map((f) => {
+        {fields.map((f) => {
           const raw = model[f.key];
           const parsed = typeof raw === 'string' ? parseFloat(raw) : raw;
           const val = typeof parsed === 'number' && !Number.isNaN(parsed) ? parsed : f.def;

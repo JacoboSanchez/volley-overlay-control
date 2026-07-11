@@ -4,6 +4,7 @@ import { useSettings, type ThemePreference } from '../hooks/useSettings';
 import { useOrientation } from '../hooks/useOrientation';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import * as api from '../api/client';
+import { asString } from '../utils/coerce';
 import ConfigSkeleton from './ConfigSkeleton';
 import ConfirmDialog from './ConfirmDialog';
 import OverlaySwitcher from './config/OverlaySwitcher';
@@ -417,8 +418,13 @@ export default function ConfigPanel({
             capabilities={styleCaps}
           />
         );
-      case 'position':
-        return <PositionSection model={model} updateField={updateField} />;
+      case 'position': {
+        // Edge-pinned styles (pylons/corners) ignore the free x/y geometry;
+        // the anchor grid switches to the paired top/center/bottom mode.
+        const selectedStyle = asString(model['preferredStyle'], '') || 'default';
+        const edgePinned = !!styleCaps[selectedStyle]?.verticalAnchor;
+        return <PositionSection model={model} updateField={updateField} edgePinned={edgePinned} />;
+      }
       case 'buttons':
         return (
           <ButtonsSection

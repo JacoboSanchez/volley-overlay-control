@@ -2517,6 +2517,17 @@ body {
   background: var(--surface-light);
 }
 
+/* Paired mode (edge-pinned styles): the centre column is meaningless, so
+   its cells render inert instead of clickable. */
+.config-anchor-cell:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.config-anchor-cell:disabled:hover {
+  background: var(--surface);
+}
+
 .config-anchor-cell.is-active {
   border-color: var(--blue);
   background: color-mix(in srgb, var(--blue) 18%, transparent);

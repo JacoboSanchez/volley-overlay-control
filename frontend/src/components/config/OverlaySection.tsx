@@ -8,7 +8,7 @@ export interface OverlaySectionProps {
   model: ConfigModel;
   updateField: (key: string, value: unknown) => void;
   styles: string[];
-  /** Per-style capability flags from the backend; gates the theme + anchor knobs. */
+  /** Per-style capability flags from the backend; gates the theme knob. */
   capabilities?: Record<string, StyleCapabilities>;
 }
 
@@ -25,7 +25,6 @@ export default function OverlaySection({
   const selectedStyle = asString(model['preferredStyle'], '') || 'default';
   const caps = capabilities[selectedStyle];
   const showTheme = !!caps?.theme;
-  const showAnchor = !!caps?.verticalAnchor;
 
   return (
     <div className="config-section-overlay">
@@ -79,8 +78,10 @@ export default function OverlaySection({
               ))}
             </select>
           </div>
-          {/* Theme + vertical-anchor only appear for styles where they
-              have a visible effect (reported by the backend). */}
+          {/* The theme selector only appears for styles where it has a
+              visible effect (reported by the backend). The vertical
+              placement of edge-pinned styles lives in the Position
+              section's anchor grid (paired mode). */}
           {showTheme && (
             <div className="config-field-group">
               <label className="config-field-group-label">{t('overlay.themeLabel')}</label>
@@ -93,21 +94,6 @@ export default function OverlaySection({
                 <option value="">{t('overlay.themeDefault')}</option>
                 <option value="dark">{t('overlay.themeDark')}</option>
                 <option value="light">{t('overlay.themeLight')}</option>
-              </select>
-            </div>
-          )}
-          {showAnchor && (
-            <div className="config-field-group">
-              <label className="config-field-group-label">{t('overlay.verticalAnchorLabel')}</label>
-              <select
-                className="config-select"
-                value={asString(model['verticalAnchor'], '')}
-                onChange={(e) => updateField('verticalAnchor', e.target.value)}
-                data-testid="vertical-anchor-selector"
-              >
-                <option value="">{t('overlay.anchorCenter')}</option>
-                <option value="top">{t('overlay.anchorTop')}</option>
-                <option value="bottom">{t('overlay.anchorBottom')}</option>
               </select>
             </div>
           )}

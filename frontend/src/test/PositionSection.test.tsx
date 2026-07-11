@@ -129,3 +129,104 @@ describe('PositionSection', () => {
     expect(screen.getByText('Values are a percentage of the overlay canvas')).toBeInTheDocument();
   });
 });
+
+describe('PositionSection paired mode (edge-pinned styles)', () => {
+  it('clicking a corner cell writes verticalAnchor for its row, nothing else', () => {
+    const updateField = vi.fn();
+    renderWithI18n(<PositionSection model={{}} updateField={updateField} edgePinned />);
+
+    fireEvent.click(screen.getByTestId('anchor-bottom-left'));
+
+    expect(updateField).toHaveBeenCalledTimes(1);
+    expect(updateField).toHaveBeenCalledWith('verticalAnchor', 'bottom');
+  });
+
+  it('lights up BOTH cells of the active row', () => {
+    renderWithI18n(
+      <PositionSection model={{ verticalAnchor: 'top' }} updateField={vi.fn()} edgePinned />,
+    );
+
+    expect(screen.getByTestId('anchor-top-left')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('anchor-top-right')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('anchor-bottom-left')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('defaults to the top pair when verticalAnchor is absent', () => {
+    renderWithI18n(<PositionSection model={{}} updateField={vi.fn()} edgePinned />);
+
+    expect(screen.getByTestId('anchor-top-left')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('anchor-top-right')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it("treats the legacy '' value (old dropdown's center) as the middle pair", () => {
+    renderWithI18n(
+      <PositionSection model={{ verticalAnchor: '' }} updateField={vi.fn()} edgePinned />,
+    );
+
+    expect(screen.getByTestId('anchor-middle-left')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('anchor-middle-right')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('anchor-top-left')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('disables the centre column and clicking it writes nothing', () => {
+    const updateField = vi.fn();
+    renderWithI18n(<PositionSection model={{}} updateField={updateField} edgePinned />);
+
+    for (const id of ['anchor-top-center', 'anchor-middle-center', 'anchor-bottom-center']) {
+      expect(screen.getByTestId(id)).toBeDisabled();
+      fireEvent.click(screen.getByTestId(id));
+    }
+    expect(updateField).not.toHaveBeenCalled();
+  });
+
+  it('offers no Free mode and only the output-wide steppers (Scale/Margin)', () => {
+    renderWithI18n(<PositionSection model={{}} updateField={vi.fn()} edgePinned />);
+
+    expect(screen.queryByTestId('anchor-free')).not.toBeInTheDocument();
+    expect(screen.getByTestId('scale-input')).toBeInTheDocument();
+    expect(screen.getByTestId('margin-input')).toBeInTheDocument();
+    expect(screen.queryByTestId('height-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('width-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('hpos-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('vpos-input')).not.toBeInTheDocument();
+  });
+
+  it('reset-to-defaults stages top + the output knobs and leaves free geometry alone', () => {
+    const updateField = vi.fn();
+    renderWithI18n(
+      <PositionSection
+        model={{ verticalAnchor: 'bottom', Scale: 120, Margin: 3 }}
+        updateField={updateField}
+        edgePinned
+      />,
+    );
+    const btn = screen.getByTestId('position-reset-defaults');
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+
+    expect(updateField).toHaveBeenCalledWith('verticalAnchor', 'top');
+    expect(updateField).toHaveBeenCalledWith('Scale', 100);
+    expect(updateField).toHaveBeenCalledWith('Margin', 0);
+    expect(updateField).toHaveBeenCalledTimes(3);
+  });
+
+  it('reset-to-defaults is disabled at the paired defaults', () => {
+    renderWithI18n(
+      <PositionSection
+        model={{ verticalAnchor: 'top', Scale: 100, Margin: 0 }}
+        updateField={vi.fn()}
+        edgePinned
+      />,
+    );
+    expect(screen.getByTestId('position-reset-defaults')).toBeDisabled();
+  });
+
+  it('shows the paired hint instead of the free-zone hint', () => {
+    renderWithI18n(<PositionSection model={{}} updateField={vi.fn()} edgePinned />);
+    expect(
+      screen.getByText(
+        'This style is pinned to the side edges: pick the top, middle or bottom pair of corners.',
+      ),
+    ).toBeInTheDocument();
+  });
+});

@@ -8,6 +8,27 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Changed
+
+- **Edge-pinned styles (pylons/corners) are now positioned from the anchor
+  grid.** The "Vertical position" dropdown in the Overlay section is gone;
+  the Position section's anchor grid takes over in a paired mode for these
+  styles: clicking a left or right cell selects the whole pair of corners
+  for that row (top / middle / bottom), the centre column is disabled —
+  the chips are pinned to the side edges, so a centre column placement
+  doesn't exist — and there is no "Free" mode. The steppers that have no
+  effect on these styles (Height, Width, H/V position) are hidden, leaving
+  only the output-wide Scale and Margin knobs. The persisted field is
+  still `verticalAnchor`, so saved presets and existing configurations
+  keep working. Consistently with the new home, `verticalAnchor` now
+  belongs to the **Position** preset category instead of Style, so a
+  saved "Position" preset carries the placement of these styles too.
+- **Pylons/corners now default to the top corners.** A never-configured
+  edge-pinned overlay used to render mid-frame (the layout these styles
+  least recommend); it now docks to the top corners. An explicit centre
+  pick — including one saved with the old dropdown — still renders
+  mid-frame.
+
 ## [6.1.1] - 2026-07-10
 
 ### Added
