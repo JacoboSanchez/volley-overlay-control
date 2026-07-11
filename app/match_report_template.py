@@ -103,6 +103,18 @@ REPORT_TEMPLATE = """<!doctype html>
   }}
   .team .name {{ font-weight: 600; font-size: 18px; }}
   .team .sets {{ font-size: 56px; line-height: 1; font-weight: 700; }}
+  /* currentColor keeps the pill readable on any brand panel colour
+     and survives monochrome print without a background dependency. */
+  .winner-badge {{
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }}
+  td.set-won {{ font-weight: 700; }}
   .vs {{ font-size: 24px; font-weight: 600; color: var(--muted); }}
   table {{
     width: 100%;
@@ -360,12 +372,14 @@ REPORT_TEMPLATE = """<!doctype html>
     {team1_logo}
     <div class="name">{team1_name}</div>
     <div class="sets">{team1_sets}</div>
+    {team1_badge}
   </div>
   <div class="vs">{versus}</div>
   <div class="team t2">
     {team2_logo}
     <div class="name">{team2_name}</div>
     <div class="sets">{team2_sets}</div>
+    {team2_badge}
   </div>
 </section>
 

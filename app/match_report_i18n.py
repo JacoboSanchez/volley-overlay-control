@@ -96,6 +96,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "receiveDetail": "On receive: {won} of {total} ({pct}%)",
         "highlightBiggestLead": "Biggest lead",
         "leadValue": "led by {n} in set {set}",
+        "winnerBadge": "Winner",
     },
     "es": {
         "title": "Informe del partido — {label}",
@@ -170,6 +171,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "receiveDetail": "En recepción: {won} de {total} ({pct}%)",
         "highlightBiggestLead": "Mayor ventaja",
         "leadValue": "ventaja de {n} en el set {set}",
+        "winnerBadge": "Ganador",
     },
     "pt": {
         "title": "Relatório do jogo — {label}",
@@ -244,6 +246,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "receiveDetail": "Na receção: {won} de {total} ({pct}%)",
         "highlightBiggestLead": "Maior vantagem",
         "leadValue": "vantagem de {n} no set {set}",
+        "winnerBadge": "Vencedor",
     },
     "it": {
         "title": "Referto della partita — {label}",
@@ -318,6 +321,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "receiveDetail": "In ricezione: {won} su {total} ({pct}%)",
         "highlightBiggestLead": "Vantaggio massimo",
         "leadValue": "avanti di {n} nel set {set}",
+        "winnerBadge": "Vincitore",
     },
     "fr": {
         "title": "Rapport du match — {label}",
@@ -392,6 +396,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "receiveDetail": "En réception : {won} sur {total} ({pct} %)",
         "highlightBiggestLead": "Plus grande avance",
         "leadValue": "avance de {n} dans le set {set}",
+        "winnerBadge": "Vainqueur",
     },
     "de": {
         "title": "Spielbericht — {label}",
@@ -466,6 +471,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "receiveDetail": "Bei Annahme: {won} von {total} ({pct}%)",
         "highlightBiggestLead": "Größte Führung",
         "leadValue": "führte mit {n} in Satz {set}",
+        "winnerBadge": "Sieger",
     },
 }
 

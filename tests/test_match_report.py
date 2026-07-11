@@ -2275,6 +2275,58 @@ class TestBiggestLeadHighlight:
         assert stats["set_win_comeback"][1]["deficit"] == 0
 
 
+class TestMatchReportWinner:
+    """Winner badge on the hero panel + bold set-winner scores."""
+
+    def test_winner_badge_on_winning_panel_only(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        assert body.count('class="winner-badge"') == 1
+        # The badge sits inside the team-1 panel: after the t1 div
+        # opens and before the "vs" separator div.
+        badge_at = body.index('class="winner-badge"')
+        assert body.index('<div class="team t1">') < badge_at
+        assert badge_at < body.index('<div class="vs">')
+        assert "Winner" in body
+
+    def test_no_badge_when_winning_team_missing(self, client):
+        match_id = match_archive.archive_match(
+            oid="win-none",
+            final_state={"team_1": {"scores": {"set_1": 10}},
+                         "team_2": {"scores": {"set_1": 8}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        assert 'class="winner-badge"' not in body
+
+    def test_winning_set_scores_are_bold(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        # Sets 1/3/4 went to team 1 (25-18, 25-22, 25-21); set 2 to
+        # team 2 (18-25). Both rows carry set-won cells; the losing
+        # scores stay in plain <td>s.
+        assert body.count('<td class="set-won">25') == 4
+        assert '<td class="set-won">18' not in body
+        assert '<td class="set-won">21' not in body
+        assert "<td>18</td>" in body
+
+    def test_tied_set_scores_not_bold(self, client):
+        match_id = match_archive.archive_match(
+            oid="win-tie",
+            final_state={"team_1": {"scores": {"set_1": 12}},
+                         "team_2": {"scores": {"set_1": 12}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            winning_team=1,
+            sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        assert 'class="set-won"' not in body
+
+    def test_badge_is_localized(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report?lang=es").text
+        assert "Ganador" in body
+        assert ">Winner<" not in body
+
+
 class TestMatchReportDarkMode:
     """The report follows ``prefers-color-scheme: dark`` on screen only.
 

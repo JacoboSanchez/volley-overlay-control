@@ -59,6 +59,7 @@ from app.match_report_stats import (
     _compute_stats,
     _initial_serve_from_pregame,
     _played_set_count,
+    _safe_int,
     _timeouts_per_set,
     _trim_pregame,
 )
@@ -195,6 +196,18 @@ def match_report(
 
     timeouts_by_set = _timeouts_per_set(audit)
 
+    def _set_winner(i: int) -> int | None:
+        """Which team took set *i*, from the archived per-set scores.
+
+        ``None`` for ties (in-progress / corrupt data) and missing
+        scores — those cells render without the winner emphasis.
+        """
+        s1 = _safe_int((team1.get("scores") or {}).get(f"set_{i}"))
+        s2 = _safe_int((team2.get("scores") or {}).get(f"set_{i}"))
+        if s1 is None or s2 is None or s1 == s2:
+            return None
+        return 1 if s1 > s2 else 2
+
     def _team_set_cells(team_dict: dict, team_id: int) -> str:
         cells = []
         scores = team_dict.get("scores", {}) or {}
@@ -204,7 +217,11 @@ def match_report(
             timeouts = timeouts_by_set.get(i, {}).get(team_id, 0)
             if timeouts > 0:
                 text = f"{text} ({timeouts})"
-            cells.append(f"<td>{html.escape(text)}</td>")
+            td_open = (
+                '<td class="set-won">' if _set_winner(i) == team_id
+                else "<td>"
+            )
+            cells.append(f"{td_open}{html.escape(text)}</td>")
         return "".join(cells)
 
     stats = _compute_stats(audit, initial_serve=initial_serve)
@@ -240,6 +257,20 @@ def match_report(
     else:
         effective_duration = payload.get("duration_s")
 
+    # Winner badge for the hero scoreboard. ``winning_team`` is
+    # archived at match end; snapshots without it (aborted matches,
+    # legacy rows) simply render no badge on either panel.
+    winning_team = payload.get("winning_team")
+
+    def _winner_badge(team_id: int) -> str:
+        if winning_team != team_id:
+            return ""
+        return (
+            '<div class="winner-badge">'
+            '<span aria-hidden="true">\U0001f3c6</span> '
+            f'{html.escape(_t(locale, "winnerBadge"))}</div>'
+        )
+
     # ``match_label`` and ``permalink`` are kept raw here — every
     # consumer escapes at insertion time. Pre-escaping the source
     # would push the title through ``html.escape`` twice (once here,
@@ -264,6 +295,8 @@ def match_report(
         team2_logo=_render_logo(customization, 2),
         team1_sets=team1_sets,
         team2_sets=team2_sets,
+        team1_badge=_winner_badge(1),
+        team2_badge=_winner_badge(2),
         team1_color=t1_color,
         team1_fg=t1_fg,
         team2_color=t2_color,
