@@ -472,9 +472,15 @@ def resolve_locale(accept_language: str | None) -> str:
                     q = 0.0
         primary = tag.split("-", 1)[0].lower()
         if primary in SUPPORTED_LOCALES:
+            # Return the constant out of SUPPORTED_LOCALES rather than the
+            # header-derived substring: consumers interpolate the resolved
+            # tag into HTML (``<html lang="…">``), so the value must never
+            # be attacker-controlled bytes even if the parsing above ever
+            # widens what it accepts.
+            canonical = SUPPORTED_LOCALES[SUPPORTED_LOCALES.index(primary)]
             # Higher q first; preserve declaration order on ties so that
             # ``es,en`` picks ``es`` not ``en`` when both have q=1.
-            candidates.append((-q, index, primary))
+            candidates.append((-q, index, canonical))
     if not candidates:
         return DEFAULT_LOCALE
     candidates.sort()
