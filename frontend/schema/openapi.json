@@ -11056,6 +11056,80 @@
         "summary": "Print-friendly HTML report for an archived match"
       }
     },
+    "/match/{match_id}/report.csv": {
+      "get": {
+        "description": "Machine-readable point log for the same archived match.\n\nAccess mirrors ``/match/{id}/report`` exactly \u2014 owner cookie,\nsigned URL, or ``MATCH_REPORT_PUBLIC``. The signature covers only\n``match_id|exp`` (not the path), so a signed *report* link's\n``exp``/``sig`` params deliberately open the CSV too: it exposes\nthe same collapsed audit slice the report's timeline already\nrenders, just in rows.",
+        "operationId": "match_report_csv_match__match_id__report_csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed-URL expiry (unix seconds).",
+            "in": "query",
+            "name": "exp",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Signed-URL expiry (unix seconds).",
+              "title": "Exp"
+            }
+          },
+          {
+            "description": "Signed-URL HMAC-SHA256 hex digest.",
+            "in": "query",
+            "name": "sig",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Signed-URL HMAC-SHA256 hex digest.",
+              "title": "Sig"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Point-log CSV export for an archived match"
+      }
+    },
     "/matches/{public_token}": {
       "get": {
         "operationId": "match_history_matches__public_token__get",

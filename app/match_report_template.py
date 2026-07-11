@@ -69,7 +69,8 @@ REPORT_TEMPLATE = """<!doctype html>
     margin: 12px 0 0;
     flex-wrap: wrap;
   }}
-  .toolbar button {{
+  .toolbar button,
+  .toolbar .toolbar-link {{
     cursor: pointer;
     font: inherit;
     padding: 6px 12px;
@@ -78,7 +79,13 @@ REPORT_TEMPLATE = """<!doctype html>
     border-radius: 4px;
     transition: background 0.1s ease;
   }}
-  .toolbar button:hover {{ background: var(--surface); }}
+  .toolbar .toolbar-link {{
+    display: inline-block;
+    color: inherit;
+    text-decoration: none;
+  }}
+  .toolbar button:hover,
+  .toolbar .toolbar-link:hover {{ background: var(--surface); }}
   .toolbar button:disabled {{ opacity: 0.6; cursor: default; }}
   .scoreboard {{
     display: grid;
@@ -369,6 +376,7 @@ REPORT_TEMPLATE = """<!doctype html>
     <button type="button" data-action="copy"
             data-default-label="{btn_copy}"
             data-ok-label="{btn_copy_ok}">{btn_copy}</button>
+    <a class="toolbar-link" href="{csv_href}" download>{btn_csv}</a>
   </div>
 </header>
 

@@ -31,12 +31,14 @@ from __future__ import annotations
 import html
 import logging
 import time
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from app.api import match_archive
 from app.match_report_access import check_read_access
+from app.match_report_export import csv_filename, render_point_log_csv
 from app.match_report_i18n import SUPPORTED_LOCALES, resolve_locale
 from app.match_report_i18n import t as _t
 from app.match_report_render import (
@@ -84,6 +86,26 @@ def _is_supported_locale_tag(value: str | None) -> bool:
 logger = logging.getLogger(__name__)
 
 match_report_router = APIRouter()
+
+
+def _effective_started_at(payload: dict, audit: list[dict]) -> float | None:
+    """The match anchor both report surfaces measure time from.
+
+    ``session.match_started_at`` is set by the explicit Start-match
+    button or implicitly by the first scored point, then archived as
+    ``payload.started_at``. Either source is the moment the *match*
+    really began; we just trust it. Legacy snapshots (no anchor
+    stored) fall back to the first scoring action in the (already
+    trimmed) audit so the report still has something honest to show.
+    """
+    payload_started = payload.get("started_at")
+    if isinstance(payload_started, (int, float)):
+        return float(payload_started)
+    for record in audit:
+        ts = record.get("ts")
+        if isinstance(ts, (int, float)):
+            return float(ts)
+    return None
 
 
 @match_report_router.get(
@@ -228,24 +250,7 @@ def match_report(
     stats = _compute_stats(audit, initial_serve=initial_serve)
     set_durations = stats.get("set_durations", {}) or {}
 
-    # The reported "Started" and "Duration" snap to the match anchor
-    # the session captured: ``session.match_started_at`` is set by the
-    # explicit Start-match button or implicitly by the first scored
-    # point, then archived as ``payload.started_at``. Either source is
-    # the moment the *match* really began; we just trust it. Legacy
-    # snapshots (no anchor stored) fall back to the first scoring
-    # action so the report still has something honest to show.
-    first_scoring_ts: float | None = None
-    for record in audit:
-        ts = record.get("ts")
-        if isinstance(ts, (int, float)):
-            first_scoring_ts = float(ts)
-            break
-    payload_started = payload.get("started_at")
-    if isinstance(payload_started, (int, float)):
-        effective_started_at: float | None = float(payload_started)
-    else:
-        effective_started_at = first_scoring_ts
+    effective_started_at = _effective_started_at(payload, audit)
     ended_at = payload.get("ended_at")
     effective_duration: float | None
     if (
@@ -294,6 +299,16 @@ def match_report(
         _t(locale, "ogDescription",
            sets=set_scores, date=_fmt_ts(payload.get("ended_at")))
         if set_scores else match_label
+    )
+    # The Download-CSV anchor must keep working for signed-URL
+    # readers: carry the capability params through so the CSV route's
+    # identical access ladder admits them. Built server-side so the
+    # link works without JS.
+    csv_params = urlencode(
+        [(k, v) for k, v in (("exp", exp), ("sig", sig)) if v],
+    )
+    csv_href = f"/match/{match_id}/report.csv" + (
+        f"?{csv_params}" if csv_params else ""
     )
 
     rendered = _REPORT_TEMPLATE.format(
@@ -390,6 +405,61 @@ def match_report(
         ),
         btn_copy=html.escape(_t(locale, "copyLink")),
         btn_copy_ok=html.escape(_t(locale, "copyLinkOk")),
+        btn_csv=html.escape(_t(locale, "downloadCsv")),
+        csv_href=html.escape(csv_href, quote=True),
         permalink=html.escape(permalink, quote=True),
     )
     return HTMLResponse(content=rendered)
+
+
+@match_report_router.get(
+    "/match/{match_id}/report.csv",
+    summary="Point-log CSV export for an archived match",
+)
+def match_report_csv(
+    match_id: str,
+    request: Request,
+    exp: str | None = Query(default=None,
+                               description="Signed-URL expiry (unix seconds)."),
+    sig: str | None = Query(default=None,
+                               description="Signed-URL HMAC-SHA256 hex digest."),
+) -> Response:
+    """Machine-readable point log for the same archived match.
+
+    Access mirrors ``/match/{id}/report`` exactly — owner cookie,
+    signed URL, or ``MATCH_REPORT_PUBLIC``. The signature covers only
+    ``match_id|exp`` (not the path), so a signed *report* link's
+    ``exp``/``sig`` params deliberately open the CSV too: it exposes
+    the same collapsed audit slice the report's timeline already
+    renders, just in rows.
+    """
+    check_read_access(request, match_id, exp=exp, sig=sig)
+    payload = match_archive.load_match(match_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Match not found.")
+
+    raw_audit = payload.get("audit_log", []) or []
+    # Same slice as the HTML report: pregame noise trimmed, undo pairs
+    # collapsed — the CSV and the rendered timeline must agree.
+    audit = _collapse_undos(_trim_pregame(raw_audit))
+
+    customization = payload.get("customization", {}) or {}
+    final = payload.get("final_state", {}) or {}
+    team1_sets = (final.get("team_1", {}) or {}).get("sets") or 0
+    team2_sets = (final.get("team_2", {}) or {}).get("sets") or 0
+    match_label = (
+        f"{_team_name(customization, 1)} {team1_sets} "
+        f"{team2_sets} {_team_name(customization, 2)}"
+    )
+
+    body = render_point_log_csv(
+        audit, base_ts=_effective_started_at(payload, audit),
+    )
+    filename = csv_filename(match_label, payload.get("match_id", match_id))
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )

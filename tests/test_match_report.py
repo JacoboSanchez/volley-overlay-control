@@ -2327,6 +2327,119 @@ class TestMatchReportWinner:
         assert ">Winner<" not in body
 
 
+class TestMatchReportCsv:
+    """/match/{id}/report.csv — point-log export behind the same ladder."""
+
+    HEADER = ("ts_utc,rel_time_s,set,action,team,point_type,error_type,"
+              "score_t1,score_t2,sets_t1,sets_t2,serve_after")
+
+    @staticmethod
+    def _rows(text: str) -> list[str]:
+        return text.lstrip("\ufeff").strip().splitlines()
+
+    def test_media_type_and_attachment_disposition(self, client, rich_match):
+        response = client.get(f"/match/{rich_match}/report.csv")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        disposition = response.headers["content-disposition"]
+        assert disposition.startswith('attachment; filename="match-report-')
+        assert disposition.endswith('.csv"')
+        assert "alpha" in disposition and "bravo" in disposition
+        # Excel-friendly BOM prefix.
+        assert response.text.startswith("\ufeff")
+
+    def test_header_row_matches_columns(self, client, rich_match):
+        rows = self._rows(client.get(f"/match/{rich_match}/report.csv").text)
+        assert rows[0] == self.HEADER
+
+    def test_rows_come_from_collapsed_trimmed_slice(self, client, rich_match):
+        # ``rich_match`` seeds 17 audit records including one undo
+        # pair; the collapse drops both halves, leaving 15 — the same
+        # count the HTML report's "Audit entries" cell shows.
+        rows = self._rows(client.get(f"/match/{rich_match}/report.csv").text)
+        assert len(rows) == 1 + 15
+        first = rows[1].split(",")
+        assert first[1] == "0"            # rel_time_s anchored at start
+        assert first[2] == "1"            # set 1
+        assert first[3] == "add_point"
+        assert first[4] == "1"            # team 1 scored
+        assert first[7] == "1" and first[8] == "0"  # running score 1-0
+        assert first[11] == "1"           # serve after → team 1
+        # The undone 5-3 running score never appears in any row.
+        assert not any(
+            row.split(",")[7:9] == ["5", "3"] for row in rows[1:]
+        )
+
+    def test_empty_match_yields_header_only(self, client):
+        match_id = match_archive.archive_match(
+            oid="csv-empty",
+            final_state={"team_1": {}, "team_2": {}},
+            customization={},
+            sets_limit=3,
+        )
+        rows = self._rows(client.get(f"/match/{match_id}/report.csv").text)
+        assert rows == [self.HEADER]
+
+    def test_toolbar_anchor_plain_when_no_capability_params(
+        self, client, rich_match,
+    ):
+        body = client.get(f"/match/{rich_match}/report").text
+        assert f'href="/match/{rich_match}/report.csv"' in body
+        assert "Download CSV" in body
+
+    def test_gated_without_credentials_is_401(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = match_archive.archive_match(
+            oid="csv-priv",
+            final_state={"team_1": {"sets": 1}, "team_2": {"sets": 0}},
+            customization={}, sets_limit=3,
+        )
+        assert c.get(f"/match/{match_id}/report.csv").status_code == 401
+
+    def test_signed_report_params_open_the_csv_and_the_anchor_carries_them(
+        self, monkeypatch,
+    ):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        monkeypatch.setenv("SESSION_SECRET", "test-signing-secret")
+        from app.match_report_signing import make_signed_query
+        app = FastAPI()
+        app.include_router(match_report_router)
+        c = TestClient(app)
+        match_id = match_archive.archive_match(
+            oid="csv-signed",
+            final_state={"team_1": {"sets": 1}, "team_2": {"sets": 0}},
+            customization={}, sets_limit=3,
+        )
+        sq = make_signed_query(match_id)
+        signed = f"exp={sq['exp']}&sig={sq['sig']}"
+        # The signature covers match_id|exp only, so the report's
+        # capability params open the CSV route too.
+        assert c.get(f"/match/{match_id}/report.csv?{signed}").status_code == 200
+        assert c.get(f"/match/{match_id}/report.csv?exp={sq['exp']}&sig=deadbeef").status_code == 401
+        # And the HTML toolbar link forwards them so the download
+        # works for signed-URL readers.
+        body = c.get(f"/match/{match_id}/report?{signed}").text
+        assert f'href="/match/{match_id}/report.csv?exp={sq["exp"]}&amp;sig={sq["sig"]}"' in body
+
+    def test_owner_cookie_allows_csv(self, monkeypatch):
+        monkeypatch.delenv("MATCH_REPORT_PUBLIC", raising=False)
+        from app.bootstrap import create_app
+        c = TestClient(create_app())
+        assert c.post(
+            "/api/v1/auth/login",
+            json={"username": "reporter", "password": "password123"},
+        ).status_code == 200
+        match_id = match_archive.archive_match(
+            oid="csv-owned",
+            final_state={"team_1": {"sets": 1}, "team_2": {"sets": 0}},
+            customization={}, sets_limit=3,
+        )
+        assert c.get(f"/match/{match_id}/report.csv").status_code == 200
+
+
 class TestMatchReportOpenGraph:
     """Open Graph / Twitter meta so shared links unfurl usefully."""
 

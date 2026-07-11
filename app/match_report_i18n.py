@@ -98,6 +98,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "leadValue": "led by {n} in set {set}",
         "winnerBadge": "Winner",
         "ogDescription": "Set scores: {sets} · {date}",
+        "downloadCsv": "Download CSV",
     },
     "es": {
         "title": "Informe del partido — {label}",
@@ -174,6 +175,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "leadValue": "ventaja de {n} en el set {set}",
         "winnerBadge": "Ganador",
         "ogDescription": "Parciales: {sets} · {date}",
+        "downloadCsv": "Descargar CSV",
     },
     "pt": {
         "title": "Relatório do jogo — {label}",
@@ -250,6 +252,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "leadValue": "vantagem de {n} no set {set}",
         "winnerBadge": "Vencedor",
         "ogDescription": "Parciais: {sets} · {date}",
+        "downloadCsv": "Transferir CSV",
     },
     "it": {
         "title": "Referto della partita — {label}",
@@ -326,6 +329,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "leadValue": "avanti di {n} nel set {set}",
         "winnerBadge": "Vincitore",
         "ogDescription": "Parziali: {sets} · {date}",
+        "downloadCsv": "Scarica CSV",
     },
     "fr": {
         "title": "Rapport du match — {label}",
@@ -402,6 +406,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "leadValue": "avance de {n} dans le set {set}",
         "winnerBadge": "Vainqueur",
         "ogDescription": "Scores des sets : {sets} · {date}",
+        "downloadCsv": "Télécharger le CSV",
     },
     "de": {
         "title": "Spielbericht — {label}",
@@ -478,6 +483,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "leadValue": "führte mit {n} in Satz {set}",
         "winnerBadge": "Sieger",
         "ogDescription": "Satzergebnisse: {sets} · {date}",
+        "downloadCsv": "CSV herunterladen",
     },
 }
 
