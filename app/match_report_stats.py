@@ -273,7 +273,8 @@ def _initial_serve_from_pregame(raw_audit: list[dict]) -> int | None:
         result = record.get("result") or {}
         if "serve" not in result:
             continue
-        return _SERVE_TO_TEAM.get(result.get("serve"))
+        serve = result.get("serve")
+        return _SERVE_TO_TEAM.get(serve) if isinstance(serve, str) else None
     return None
 
 
@@ -316,7 +317,10 @@ def _serve_receive_summary(
         # Only ``"A"``/``"B"`` move it — a missing key or ``"None"``
         # (mid-match reset) leaves the last known server in place,
         # matching the live-stats semantics exactly.
-        next_serve = _SERVE_TO_TEAM.get(result.get("serve"))
+        serve = result.get("serve")
+        next_serve = (
+            _SERVE_TO_TEAM.get(serve) if isinstance(serve, str) else None
+        )
         if next_serve is not None:
             prev_post_serve = next_serve
     return out
@@ -351,6 +355,25 @@ def _record_point_tags(
         et = params.get("error_type")
         if et in error_types[team]:
             error_types[team][et] += 1
+
+
+def _update_biggest_lead(
+    set_records: list[dict], set_num: int, biggest_lead: dict[int, dict],
+) -> None:
+    """Fold one set's running scores into the per-team biggest-lead map.
+
+    Mutates *biggest_lead* (``{team: {"lead", "set"}}``) in place with
+    the largest positive gap either team opened in this set.
+    """
+    for r in set_records:
+        pair = _running_score_pair(r)
+        if not pair:
+            continue
+        t1, t2 = pair
+        if t1 - t2 > biggest_lead[1]["lead"]:
+            biggest_lead[1] = {"lead": t1 - t2, "set": set_num}
+        if t2 - t1 > biggest_lead[2]["lead"]:
+            biggest_lead[2] = {"lead": t2 - t1, "set": set_num}
 
 
 def _comeback_extremes(set_records: list[dict], winner: int) -> tuple[int, int]:
@@ -524,15 +547,7 @@ def _compute_stats(audit: list[dict], *, initial_serve: int | None = None) -> di
                 )
 
         # Biggest lead: largest gap either team opened in this set.
-        for r in set_records:
-            pair = _running_score_pair(r)
-            if not pair:
-                continue
-            t1, t2 = pair
-            if t1 - t2 > biggest_lead[1]["lead"]:
-                biggest_lead[1] = {"lead": t1 - t2, "set": set_num}
-            if t2 - t1 > biggest_lead[2]["lead"]:
-                biggest_lead[2] = {"lead": t2 - t1, "set": set_num}
+        _update_biggest_lead(set_records, set_num, biggest_lead)
 
         # Comebacks. Walk the running scores once, then split:
         #   * winner's peak deficit  → set_win comeback for the winner

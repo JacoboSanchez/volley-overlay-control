@@ -73,6 +73,7 @@ def render_point_log_csv(audit: list[dict], *, base_ts: float | None) -> str:
     for record in audit:
         params = record.get("params") or {}
         result = record.get("result") or {}
+        serve = result.get("serve")
         ts = record.get("ts")
         rel: object = None
         if isinstance(ts, (int, float)) and base_ts is not None:
@@ -90,7 +91,7 @@ def render_point_log_csv(audit: list[dict], *, base_ts: float | None) -> str:
             _cell(_result_score(record, 2)),
             _cell(_coerce_int((result.get("team_1") or {}).get("sets"))),
             _cell(_coerce_int((result.get("team_2") or {}).get("sets"))),
-            _SERVE_LABELS.get(result.get("serve"), ""),
+            _SERVE_LABELS.get(serve, "") if isinstance(serve, str) else "",
         ])
     return "\ufeff" + buffer.getvalue()
 
