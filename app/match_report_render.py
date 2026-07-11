@@ -49,13 +49,16 @@ def _fmt_ts_html(ts: float | None) -> str:
     progressive-enhancement script, which rewrites the text into the
     viewer's local time; without JS (and in any non-browser consumer)
     the server-rendered UTC string stands. Missing/invalid inputs
-    render the bare ``—`` — an empty span would just be noise.
+    render the bare ``—``, and a non-numeric-but-parseable value (a
+    stringified epoch from a legacy archive) degrades to the plain
+    UTC text — an epoch span is only emitted for a real number.
     """
+    if not isinstance(ts, (int, float)):
+        return _fmt_ts(ts)
     text = _fmt_ts(ts)
     if text == "—":
         return text
-    # ``_fmt_ts`` above already validated the value parses as float.
-    return f'<span data-utc-ts="{int(float(ts))}">{text}</span>'  # type: ignore[arg-type]
+    return f'<span data-utc-ts="{int(ts)}">{text}</span>'
 
 
 _HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")

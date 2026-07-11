@@ -77,7 +77,7 @@ def render_point_log_csv(audit: list[dict], *, base_ts: float | None) -> str:
         ts = record.get("ts")
         rel: object = None
         if isinstance(ts, (int, float)) and base_ts is not None:
-            rel = max(0, int(float(ts) - float(base_ts)))
+            rel = max(0, int(ts - base_ts))
         team = params.get("team")
         writer.writerow([
             _fmt_iso_utc(ts),
