@@ -6,6 +6,11 @@ REPORT_TEMPLATE = """<!doctype html>
 <meta charset="utf-8">
 <title>{title}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{og_description}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Volley Overlay Control">
+<meta name="twitter:card" content="summary">
 <style>
   :root {{
     color-scheme: light dark;

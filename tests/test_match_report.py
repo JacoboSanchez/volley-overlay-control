@@ -2327,6 +2327,45 @@ class TestMatchReportWinner:
         assert ">Winner<" not in body
 
 
+class TestMatchReportOpenGraph:
+    """Open Graph / Twitter meta so shared links unfurl usefully."""
+
+    def test_og_title_matches_page_title(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        title = "Match report — Thunder Wolves 3 – 1 Solar Hawks"
+        assert f"<title>{title}</title>" in body
+        assert f'<meta property="og:title" content="{title}">' in body
+        assert '<meta property="og:type" content="website">' in body
+        assert '<meta name="twitter:card" content="summary">' in body
+
+    def test_og_description_contains_set_scores_and_date(
+        self, client, archived_match,
+    ):
+        body = client.get(f"/match/{archived_match}/report").text
+        marker = body.index('property="og:description"')
+        content = body[marker:body.index(">", marker)]
+        assert "25–18, 18–25, 25–22, 25–21" in content
+        assert "UTC" in content  # the ended date rides along
+
+    def test_og_values_are_escaped(self, client):
+        match_id = match_archive.archive_match(
+            oid="og-escape",
+            final_state={"team_1": {"scores": {"set_1": 25}},
+                         "team_2": {"scores": {"set_1": 20}}},
+            customization={"Team 1 Name": 'R&D "A"', "Team 2 Name": "B"},
+            winning_team=1, sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        marker = body.index('property="og:title"')
+        content = body[marker:body.index(">", marker)]
+        assert "R&amp;D &quot;A&quot;" in content
+        assert '"A"' not in content
+
+    def test_no_og_image_tag(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        assert 'property="og:image"' not in body
+
+
 class TestMatchReportLocalTimestamps:
     """Started/Ended/Generated carry epoch hooks for local-time JS."""
 

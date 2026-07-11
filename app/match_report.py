@@ -272,6 +272,17 @@ def match_report(
             f'{html.escape(_t(locale, "winnerBadge"))}</div>'
         )
 
+    # Open Graph description: the per-set scores plus the end date —
+    # what a chat-app unfurl should say about a match. Falls back to
+    # the bare match label when no set ever scored.
+    set_scores = ", ".join(
+        f"{(team1.get('scores') or {}).get(f'set_{i}') or 0}"
+        f"–{(team2.get('scores') or {}).get(f'set_{i}') or 0}"
+        for i in range(1, played_sets + 1)
+        if (team1.get("scores") or {}).get(f"set_{i}")
+        or (team2.get("scores") or {}).get(f"set_{i}")
+    )
+
     # ``match_label`` and ``permalink`` are kept raw here — every
     # consumer escapes at insertion time. Pre-escaping the source
     # would push the title through ``html.escape`` twice (once here,
@@ -279,6 +290,11 @@ def match_report(
     # ``&`` in a team name.
     match_label = f"{team1_name} {team1_sets} – {team2_sets} {team2_name}"
     permalink = f"/match/{match_id}/report"
+    og_description = (
+        _t(locale, "ogDescription",
+           sets=set_scores, date=_fmt_ts(payload.get("ended_at")))
+        if set_scores else match_label
+    )
 
     rendered = _REPORT_TEMPLATE.format(
         # ``locale`` derives from the ``?lang=`` param / ``Accept-Language``
@@ -288,6 +304,7 @@ def match_report(
         # attacker bytes.
         locale=html.escape(locale, quote=True),
         title=html.escape(_t(locale, "title", label=match_label)),
+        og_description=html.escape(og_description, quote=True),
         match_label=html.escape(match_label),
         match_id=html.escape(payload.get("match_id", match_id)),
         team1_name=html.escape(team1_name),

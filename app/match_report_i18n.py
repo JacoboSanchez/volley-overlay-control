@@ -97,6 +97,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "highlightBiggestLead": "Biggest lead",
         "leadValue": "led by {n} in set {set}",
         "winnerBadge": "Winner",
+        "ogDescription": "Set scores: {sets} · {date}",
     },
     "es": {
         "title": "Informe del partido — {label}",
@@ -172,6 +173,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "highlightBiggestLead": "Mayor ventaja",
         "leadValue": "ventaja de {n} en el set {set}",
         "winnerBadge": "Ganador",
+        "ogDescription": "Parciales: {sets} · {date}",
     },
     "pt": {
         "title": "Relatório do jogo — {label}",
@@ -247,6 +249,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "highlightBiggestLead": "Maior vantagem",
         "leadValue": "vantagem de {n} no set {set}",
         "winnerBadge": "Vencedor",
+        "ogDescription": "Parciais: {sets} · {date}",
     },
     "it": {
         "title": "Referto della partita — {label}",
@@ -322,6 +325,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "highlightBiggestLead": "Vantaggio massimo",
         "leadValue": "avanti di {n} nel set {set}",
         "winnerBadge": "Vincitore",
+        "ogDescription": "Parziali: {sets} · {date}",
     },
     "fr": {
         "title": "Rapport du match — {label}",
@@ -397,6 +401,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "highlightBiggestLead": "Plus grande avance",
         "leadValue": "avance de {n} dans le set {set}",
         "winnerBadge": "Vainqueur",
+        "ogDescription": "Scores des sets : {sets} · {date}",
     },
     "de": {
         "title": "Spielbericht — {label}",
@@ -472,6 +477,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "highlightBiggestLead": "Größte Führung",
         "leadValue": "führte mit {n} in Satz {set}",
         "winnerBadge": "Sieger",
+        "ogDescription": "Satzergebnisse: {sets} · {date}",
     },
 }
 
