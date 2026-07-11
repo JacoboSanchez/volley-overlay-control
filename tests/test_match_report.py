@@ -60,6 +60,12 @@ def _seed_realistic_audit(oid: str, base_ts: float) -> None:
     records: list[dict] = []
 
     def _add(action: str, params: dict, result: dict, offset: float) -> None:
+        # Mirror the live engine: every audit result snapshots the
+        # post-action serve, and in volleyball the serve follows the
+        # rally winner. This feeds the serve/receive breakdown the
+        # same way real logs do.
+        if action == "add_point" and params.get("team") in (1, 2):
+            result.setdefault("serve", "A" if params["team"] == 1 else "B")
         records.append({
             "ts": base_ts + offset,
             "action": action,
@@ -1971,3 +1977,175 @@ class TestPointTypeBreakdown:
             stats, "en", team1_name="Alpha", team2_name="Beta",
         )
         assert "Points won" not in html
+
+
+class TestServeReceiveBreakdown:
+    """Serve/receive attribution walk + highlight cards.
+
+    The server of rally N is the ``result.serve`` snapshot of record
+    N-1 (post-action serve follows the rally winner), seeded for the
+    very first rally from the pregame slice.
+    """
+
+    # Reuse the realistic record builder — its results already carry
+    # the winner-serves-next snapshot.
+    _point = staticmethod(TestPointTypeBreakdown._point)
+
+    @staticmethod
+    def _serve_change(serve: str, *, ts: float) -> dict:
+        return {
+            "ts": ts,
+            "action": "change_serve",
+            "params": {"team": 1 if serve == "A" else 2},
+            "result": {
+                "current_set": 1,
+                "team_1": {"score": 0},
+                "team_2": {"score": 0},
+                "serve": serve,
+            },
+        }
+
+    def test_points_attributed_by_previous_records_serve(self):
+        from app.match_report_stats import _serve_receive_summary
+
+        # Seeded: team 1 serves rally 1 and wins it (hold), serves
+        # rally 2 and loses it (team 2 side-out), then team 2 serves
+        # rally 3 and wins it (hold).
+        audit = [
+            self._point(1, (1, 0), ts=1.0),   # server: seed (1) → won
+            self._point(2, (1, 1), ts=2.0),   # server: 1 → lost (side-out)
+            self._point(2, (1, 2), ts=3.0),   # server: 2 → won
+        ]
+        out = _serve_receive_summary(audit, initial_serve=1)
+        assert out[1] == {"served": 2, "won": 1}
+        assert out[2] == {"served": 1, "won": 1}
+
+    def test_unseeded_first_point_excluded_from_totals(self):
+        from app.match_report_stats import _serve_receive_summary
+
+        audit = [
+            self._point(1, (1, 0), ts=1.0),   # server unknown → skipped
+            self._point(1, (2, 0), ts=2.0),   # server: 1 (from record 1)
+        ]
+        out = _serve_receive_summary(audit)
+        assert out[1] == {"served": 1, "won": 1}
+        assert out[2] == {"served": 0, "won": 0}
+
+    def test_initial_serve_seeded_from_pregame_change_serve(self):
+        from app.match_report_stats import _initial_serve_from_pregame
+
+        raw = [
+            self._serve_change("B", ts=1.0),
+            self._point(1, (1, 0), ts=2.0),
+        ]
+        assert _initial_serve_from_pregame(raw) == 2
+
+    def test_pregame_serve_none_clears_the_seed(self):
+        from app.match_report_stats import _initial_serve_from_pregame
+
+        # The reset's ``serve: "None"`` supersedes the earlier
+        # assignment — resurrecting it would guess.
+        raw = [
+            self._serve_change("A", ts=1.0),
+            {"ts": 2.0, "action": "reset", "params": {},
+             "result": {"current_set": 1, "team_1": {"score": 0},
+                        "team_2": {"score": 0}, "serve": "None"}},
+            self._point(1, (1, 0), ts=3.0),
+        ]
+        assert _initial_serve_from_pregame(raw) is None
+
+    def test_no_scoring_action_yields_no_seed(self):
+        from app.match_report_stats import _initial_serve_from_pregame
+
+        assert _initial_serve_from_pregame([]) is None
+        assert _initial_serve_from_pregame(
+            [self._serve_change("A", ts=1.0)],
+        ) is None
+
+    def test_undo_records_do_not_move_counters_or_tracker(self):
+        from app.match_report_stats import _serve_receive_summary
+
+        # Uncollapsed log (live-style): the undo record must neither
+        # count as a rally nor update the serve tracker.
+        undo = self._point(2, (1, 0), ts=3.0)
+        undo["params"]["undo"] = True
+        audit = [
+            self._point(1, (1, 0), ts=1.0),
+            self._point(2, (1, 1), ts=2.0),
+            undo,
+            self._point(1, (2, 1), ts=4.0),  # server: 2 (not the undo's B)
+        ]
+        out = _serve_receive_summary(audit, initial_serve=1)
+        assert out[1] == {"served": 2, "won": 1}
+        assert out[2] == {"served": 1, "won": 0}
+
+    def test_legacy_log_without_serve_renders_no_cards(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = []
+        for i, team in enumerate((1, 2, 1), start=1):
+            record = self._point(team, (i, 0), ts=float(i))
+            del record["result"]["serve"]
+            audit.append(record)
+        stats = _compute_stats(audit)
+        assert stats["serve_receive"][1] == {"served": 0, "won": 0}
+        assert stats["serve_receive"][2] == {"served": 0, "won": 0}
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Points on serve / receive" not in html
+
+    def test_cards_render_with_names_and_percentages(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        # Team 1 serves and wins both rallies; team 2 never wins a
+        # serve. Alpha: 2 of 2 on serve (100%); Beta: 0 side-outs of
+        # 2 receives (0%).
+        audit = [
+            self._point(1, (1, 0), ts=1.0),
+            self._point(1, (2, 0), ts=2.0),
+        ]
+        stats = _compute_stats(audit, initial_serve=1)
+        html = _render_highlights(
+            stats, "en", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Alpha · Points on serve / receive" in html
+        assert "On serve: 2 of 2 (100%)" in html
+        assert "Beta · Points on serve / receive" in html
+        assert "On receive: 0 of 2 (0%)" in html
+
+    def test_report_route_renders_serve_cards_from_pregame_seed(self, client):
+        # End-to-end through the archive: pregame serve assignment →
+        # trimmed report still attributes the first rally.
+        seeder = TestMatchReportPregameTrim()
+        base_ts = time.time() - 1000
+        oid = "serve-route-1"
+        seeder._seed_audit(oid, [
+            self._serve_change("A", ts=base_ts),
+            self._point(1, (1, 0), ts=base_ts + 10),
+            self._point(2, (1, 1), ts=base_ts + 40),
+        ])
+        match_id = match_archive.archive_match(
+            oid=oid,
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 1}}},
+            customization={"Team 1 Name": "Alpha", "Team 2 Name": "Beta"},
+            started_at=base_ts + 10, sets_limit=3,
+        )
+        response = client.get(f"/match/{match_id}/report")
+        assert response.status_code == 200
+        # Both rallies were served by team 1 (seed, then hold): Alpha
+        # 1 of 2 on serve, Beta 1 side-out of 2 receives.
+        assert "Alpha · Points on serve / receive" in response.text
+        assert "On serve: 1 of 2 (50%)" in response.text
+        assert "On receive: 1 of 2 (50%)" in response.text
+
+    def test_localized_heading(self):
+        from app.match_report import _compute_stats, _render_highlights
+
+        audit = [self._point(1, (1, 0), ts=1.0)]
+        stats = _compute_stats(audit, initial_serve=1)
+        html = _render_highlights(
+            stats, "es", team1_name="Alpha", team2_name="Beta",
+        )
+        assert "Puntos al saque / en recepción" in html

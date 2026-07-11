@@ -250,6 +250,78 @@ def _timeouts_per_set(audit: list[dict]) -> dict[int, dict[int, int]]:
     return out
 
 
+_SERVE_TO_TEAM = {"A": 1, "B": 2}
+
+
+def _initial_serve_from_pregame(raw_audit: list[dict]) -> int | None:
+    """Serve holder going into the first rally, from the *untrimmed* log.
+
+    ``_trim_pregame`` drops everything before the first scored point —
+    including the operator's pre-match ``change_serve`` that says who
+    serves first. Without that seed the first rally of the match can
+    never be attributed to a server. Scan the pregame slice backwards
+    for the most recent record that snapshots a serve: ``"A"``/``"B"``
+    map to a team, any other present value (e.g. ``"None"`` after a
+    reset) means the serve was explicitly cleared — return ``None``
+    rather than resurrecting an older, superseded serve. Records
+    without the key (legacy logs) are skipped.
+    """
+    idx = _first_scoring_index(raw_audit)
+    if idx is None:
+        return None
+    for record in reversed(raw_audit[:idx]):
+        result = record.get("result") or {}
+        if "serve" not in result:
+            continue
+        return _SERVE_TO_TEAM.get(result.get("serve"))
+    return None
+
+
+def _serve_receive_summary(
+    audit: list[dict],
+    initial_serve: int | None = None,
+) -> dict[int, dict[str, int]]:
+    """Rallies served / won-while-serving per team, from the audit log.
+
+    Returns ``{1: {"served": n, "won": m}, 2: {...}}``. Mirrors the
+    live-stats ``_services_summary`` walk (:mod:`app.api.live_stats`)
+    so the printed report reconciles with the live endpoint: every
+    record's ``result.serve`` is the *post-action* snapshot, so the
+    team serving rally N is the serve recorded after record N-1.
+    *initial_serve* seeds the tracker for the first rally (see
+    :func:`_initial_serve_from_pregame`). Rallies whose server is
+    unknown — before the tracker arms, or legacy logs that never
+    recorded a serve — are excluded from both counters, so derived
+    percentages never guess. A team's points won on *receive*
+    (side-outs) fall out as the opponent's ``served - won``.
+    """
+    out: dict[int, dict[str, int]] = {
+        1: {"served": 0, "won": 0},
+        2: {"served": 0, "won": 0},
+    }
+    prev_post_serve = initial_serve if initial_serve in (1, 2) else None
+    for record in audit:
+        if (record.get("params") or {}).get("undo"):
+            continue
+        result = record.get("result") or {}
+
+        if record.get("action") == "add_point" and prev_post_serve in (1, 2):
+            scoring = (record.get("params") or {}).get("team")
+            if scoring in (1, 2):
+                out[prev_post_serve]["served"] += 1
+                if prev_post_serve == scoring:
+                    out[prev_post_serve]["won"] += 1
+
+        # Update the tracker from this record's post-action snapshot.
+        # Only ``"A"``/``"B"`` move it — a missing key or ``"None"``
+        # (mid-match reset) leaves the last known server in place,
+        # matching the live-stats semantics exactly.
+        next_serve = _SERVE_TO_TEAM.get(result.get("serve"))
+        if next_serve is not None:
+            prev_post_serve = next_serve
+    return out
+
+
 def _record_point_tags(
     team: int,
     params: dict,
@@ -354,7 +426,7 @@ def _longest_scoring_gap(set_records: list[dict]) -> float:
     return longest
 
 
-def _compute_stats(audit: list[dict]) -> dict:
+def _compute_stats(audit: list[dict], *, initial_serve: int | None = None) -> dict:
     """Compute the Highlights block (longest streak, biggest comeback, totals).
 
     All metrics derive purely from the audit log so the report stays
@@ -372,6 +444,10 @@ def _compute_stats(audit: list[dict]) -> dict:
 
     Storing both per team lets the renderer detect a tie when both
     sides happen to share the same maximum.
+
+    *initial_serve* seeds the serve/receive walk for the first rally
+    (see :func:`_initial_serve_from_pregame`); callers that don't
+    track serve (e.g. live stats) simply omit it.
     """
     longest_streak: dict[str, Any] = {"team": None, "n": 0, "set": None}
     # Per-team peak deficit erased by the eventual set winner.
@@ -481,6 +557,7 @@ def _compute_stats(audit: list[dict]) -> dict:
         "point_types": point_types,
         "error_types": error_types,
         "point_types_by_set": point_types_by_set,
+        "serve_receive": _serve_receive_summary(audit, initial_serve),
     }
 
 

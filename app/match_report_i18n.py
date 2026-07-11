@@ -91,6 +91,9 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "errorTypeNet": "Net faults",
         "errorTypePosition": "Positional faults",
         "errorTypeOther": "Other errors",
+        "serveReceiveHeading": "Points on serve / receive",
+        "serveDetail": "On serve: {won} of {total} ({pct}%)",
+        "receiveDetail": "On receive: {won} of {total} ({pct}%)",
     },
     "es": {
         "title": "Informe del partido — {label}",
@@ -160,6 +163,9 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "errorTypeNet": "Faltas de red",
         "errorTypePosition": "Faltas de rotación",
         "errorTypeOther": "Otros errores",
+        "serveReceiveHeading": "Puntos al saque / en recepción",
+        "serveDetail": "Al saque: {won} de {total} ({pct}%)",
+        "receiveDetail": "En recepción: {won} de {total} ({pct}%)",
     },
     "pt": {
         "title": "Relatório do jogo — {label}",
@@ -229,6 +235,9 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "errorTypeNet": "Faltas na rede",
         "errorTypePosition": "Faltas de rotação",
         "errorTypeOther": "Outros erros",
+        "serveReceiveHeading": "Pontos ao serviço / na receção",
+        "serveDetail": "Ao serviço: {won} de {total} ({pct}%)",
+        "receiveDetail": "Na receção: {won} de {total} ({pct}%)",
     },
     "it": {
         "title": "Referto della partita — {label}",
@@ -298,6 +307,9 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "errorTypeNet": "Falli a rete",
         "errorTypePosition": "Falli di posizione",
         "errorTypeOther": "Altri errori",
+        "serveReceiveHeading": "Punti al servizio / in ricezione",
+        "serveDetail": "Al servizio: {won} su {total} ({pct}%)",
+        "receiveDetail": "In ricezione: {won} su {total} ({pct}%)",
     },
     "fr": {
         "title": "Rapport du match — {label}",
@@ -367,6 +379,9 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "errorTypeNet": "Fautes au filet",
         "errorTypePosition": "Fautes de position",
         "errorTypeOther": "Autres fautes",
+        "serveReceiveHeading": "Points au service / en réception",
+        "serveDetail": "Au service : {won} sur {total} ({pct} %)",
+        "receiveDetail": "En réception : {won} sur {total} ({pct} %)",
     },
     "de": {
         "title": "Spielbericht — {label}",
@@ -436,6 +451,9 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "errorTypeNet": "Netzfehler",
         "errorTypePosition": "Stellungsfehler",
         "errorTypeOther": "Sonstige Fehler",
+        "serveReceiveHeading": "Punkte bei Aufschlag / Annahme",
+        "serveDetail": "Bei Aufschlag: {won} von {total} ({pct}%)",
+        "receiveDetail": "Bei Annahme: {won} von {total} ({pct}%)",
     },
 }
 

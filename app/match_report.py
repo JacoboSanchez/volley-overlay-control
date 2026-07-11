@@ -55,6 +55,7 @@ from app.match_report_render import (
 from app.match_report_stats import (
     _collapse_undos,
     _compute_stats,
+    _initial_serve_from_pregame,
     _played_set_count,
     _timeouts_per_set,
     _trim_pregame,
@@ -138,6 +139,11 @@ def match_report(
     # the post-undo view, and at least one (``_timeouts_per_set``)
     # was leaking undone forward-counts into the per-set row.
     audit = _collapse_undos(_trim_pregame(raw_audit))
+    # The serve/receive walk needs to know who served the *first*
+    # rally, and that fact lives in the pregame slice the trim just
+    # dropped (the operator's pre-match serve assignment). Seed it
+    # from the raw log before the slice is forgotten.
+    initial_serve = _initial_serve_from_pregame(raw_audit)
 
     team1_name = _team_name(customization, 1)
     team2_name = _team_name(customization, 2)
@@ -185,7 +191,7 @@ def match_report(
             cells.append(f"<td>{html.escape(text)}</td>")
         return "".join(cells)
 
-    stats = _compute_stats(audit)
+    stats = _compute_stats(audit, initial_serve=initial_serve)
     set_durations = stats.get("set_durations", {}) or {}
 
     # The reported "Started" and "Duration" snap to the match anchor

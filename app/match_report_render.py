@@ -761,6 +761,46 @@ def _own_error_cards(
         )
 
 
+def _serve_receive_cards(
+    card, team_label, locale: str, serve_receive: dict,
+) -> None:
+    """Serve/receive split: how many of a team's points came on its
+    own serve vs on receive (side-outs). One card per team with at
+    least one attributed rally; the value pairs both counts and the
+    detail spells out honest denominators — rallies whose server is
+    unknown (legacy logs, pre-seed) are excluded from numerator and
+    denominator alike, so the percentages never guess.
+    """
+    for team in (1, 2):
+        opp = 2 if team == 1 else 1
+        mine = serve_receive.get(team) or {}
+        theirs = serve_receive.get(opp) or {}
+        serve_total = mine.get("served") or 0
+        serve_won = mine.get("won") or 0
+        receive_total = theirs.get("served") or 0
+        receive_won = receive_total - (theirs.get("won") or 0)
+        if serve_total + receive_total <= 0:
+            continue
+        parts = []
+        if serve_total:
+            parts.append(_t(
+                locale, "serveDetail",
+                won=serve_won, total=serve_total,
+                pct=_pct(serve_won, serve_total),
+            ))
+        if receive_total:
+            parts.append(_t(
+                locale, "receiveDetail",
+                won=receive_won, total=receive_total,
+                pct=_pct(receive_won, receive_total),
+            ))
+        card(
+            f"{team_label(team)} · {_t(locale, 'serveReceiveHeading')}",
+            f"{serve_won} / {receive_won}",
+            " · ".join(parts),
+        )
+
+
 def _render_highlights(
     stats: dict, locale: str,
     *, team1_name: str, team2_name: str,
@@ -872,6 +912,9 @@ def _render_highlights(
     )
     _own_error_cards(
         _card, _team_label, locale, point_types, error_types, totals_by_team,
+    )
+    _serve_receive_cards(
+        _card, _team_label, locale, stats.get("serve_receive") or {},
     )
 
     if not cards:
