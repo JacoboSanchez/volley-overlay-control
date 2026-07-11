@@ -227,7 +227,12 @@ def match_report(
     permalink = f"/match/{match_id}/report"
 
     rendered = _REPORT_TEMPLATE.format(
-        locale=locale,
+        # ``locale`` derives from the ``?lang=`` param / ``Accept-Language``
+        # header and lands in the ``<html lang="…">`` attribute — escape it
+        # like every other request-derived kwarg (and like the matches-index
+        # page already does) so the template line can never reflect
+        # attacker bytes.
+        locale=html.escape(locale, quote=True),
         title=html.escape(_t(locale, "title", label=match_label)),
         match_label=html.escape(match_label),
         match_id=html.escape(payload.get("match_id", match_id)),

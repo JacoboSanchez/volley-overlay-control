@@ -317,6 +317,25 @@ class TestMatchReport:
         assert response.status_code == 200
         assert "Set a set" in response.text
 
+    def test_hostile_lang_never_reflects_into_markup(
+        self, client, archived_match,
+    ):
+        """Regression for CodeQL ``py/reflective-xss``: the resolved
+        locale flows into ``<html lang="…">`` unquoted, so a hostile
+        ``?lang=`` / ``Accept-Language`` must both fall back to a
+        supported tag and never echo attacker bytes into the page.
+        """
+        payload = '"><script>alert(1)</script>'
+        response = client.get(
+            f"/match/{archived_match}/report",
+            params={"lang": payload},
+            headers={"Accept-Language": f"{payload}, es;q=0.9"},
+        )
+        assert response.status_code == 200
+        assert "<script>alert(1)" not in response.text
+        # The malformed tags fall through to the ``es`` header entry.
+        assert 'lang="es"' in response.text
+
     def test_renders_final_score(self, client, archived_match):
         response = client.get(f"/match/{archived_match}/report")
         # Set scores 3-1; the winner is implicit from those plus the

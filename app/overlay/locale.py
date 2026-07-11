@@ -19,7 +19,12 @@ def _normalise_locale(raw: str | None) -> str | None:
     if not raw or not isinstance(raw, str):
         return None
     candidate = raw.strip().lower()[:2]
-    return candidate if candidate in SUPPORTED_LOCALES else None
+    if candidate not in SUPPORTED_LOCALES:
+        return None
+    # Return the constant, not the request-derived slice — the resolved
+    # tag is interpolated into overlay HTML, so it must never carry
+    # attacker-controlled bytes (same rationale as ``resolve_locale``).
+    return SUPPORTED_LOCALES[SUPPORTED_LOCALES.index(candidate)]
 
 
 def _resolve_overlay_locale(

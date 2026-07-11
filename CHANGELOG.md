@@ -8,6 +8,21 @@ once a first tagged release ships.
 
 ## [Unreleased]
 
+### Security
+
+- **Locale tags are now escaped and canonicalised before reaching
+  server-rendered HTML** (CodeQL `py/reflective-xss`, alert #57). The
+  match report interpolated the locale resolved from `?lang=` /
+  `Accept-Language` into `<html lang="…">` without escaping. The value
+  was already constrained to the six supported tags, so the page was not
+  exploitable, but the request-derived string travelled all the way to
+  the response. The report now HTML-escapes the tag at the template
+  boundary (as the matches-index page already did), and both
+  `resolve_locale` and the overlay's `_normalise_locale` return the
+  constant out of `SUPPORTED_LOCALES` instead of a substring of the
+  request, so no consumer of a resolved locale can ever echo
+  attacker-controlled bytes.
+
 ## [6.1.2] - 2026-07-11
 
 ### Changed
