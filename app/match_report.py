@@ -46,6 +46,7 @@ from app.match_report_render import (
     _ensure_distinct_chart_colors,
     _fmt_seconds,
     _fmt_ts,
+    _fmt_ts_html,
     _render_charts,
     _render_highlights,
     _render_logo,
@@ -323,8 +324,11 @@ def match_report(
             points=config.get("points_limit") or "—",
             last=config.get("points_limit_last_set") or "—",
         )),
-        started_at_display=_fmt_ts(effective_started_at),
-        ended_at_display=_fmt_ts(payload.get("ended_at")),
+        # ``_fmt_ts_html`` wraps the UTC text in a ``data-utc-ts`` span
+        # so the template script can rewrite it into the viewer's
+        # local time; the kwargs are inserted unescaped by design.
+        started_at_display=_fmt_ts_html(effective_started_at),
+        ended_at_display=_fmt_ts_html(payload.get("ended_at")),
         duration_display=_fmt_seconds(effective_duration),
         audit_count=len(audit),
         highlights_html=_render_highlights(
@@ -359,10 +363,10 @@ def match_report(
         permalink_label=html.escape(_t(locale, "permalinkLabel")),
         permalink_display=html.escape(permalink),
         generated_label=html.escape(_t(locale, "generatedLabel")),
-        # ``_fmt_ts`` reuses the same human format as the started /
+        # Same shape (and same local-time enhancement) as the started /
         # ended cells in the match-facts table, so the footer reads
-        # in the same shape regardless of locale.
-        generated_at_display=_fmt_ts(time.time()),
+        # consistently regardless of locale.
+        generated_at_display=_fmt_ts_html(time.time()),
         btn_print=html.escape(_t(locale, "print")),
         btn_print_include_prompt=html.escape(
             _t(locale, "printIncludeLogPrompt"), quote=True,

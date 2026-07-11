@@ -42,6 +42,22 @@ def _fmt_ts(ts: float | None) -> str:
     return dt.strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _fmt_ts_html(ts: float | None) -> str:
+    """``_fmt_ts`` wrapped in a span carrying the raw epoch.
+
+    The ``data-utc-ts`` attribute is the hook for the template's
+    progressive-enhancement script, which rewrites the text into the
+    viewer's local time; without JS (and in any non-browser consumer)
+    the server-rendered UTC string stands. Missing/invalid inputs
+    render the bare ``—`` — an empty span would just be noise.
+    """
+    text = _fmt_ts(ts)
+    if text == "—":
+        return text
+    # ``_fmt_ts`` above already validated the value parses as float.
+    return f'<span data-utc-ts="{int(float(ts))}">{text}</span>'  # type: ignore[arg-type]
+
+
 _HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
 

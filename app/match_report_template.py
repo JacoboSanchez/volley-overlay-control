@@ -433,6 +433,19 @@ REPORT_TEMPLATE = """<!doctype html>
 
 <script>
 (function() {{
+  // Progressive enhancement: rewrite the server-rendered UTC
+  // timestamps into the viewer's locale/timezone. The UTC original
+  // moves to the tooltip; without JS the UTC text simply stands.
+  document.querySelectorAll('[data-utc-ts]').forEach(function (el) {{
+    const epoch = parseFloat(el.getAttribute('data-utc-ts'));
+    if (!isFinite(epoch)) return;
+    el.title = el.textContent;
+    el.textContent = new Date(epoch * 1000).toLocaleString(undefined, {{
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    }});
+  }});
+
   const toolbar = document.querySelector('.toolbar');
   if (!toolbar) return;
   const permalink = toolbar.getAttribute('data-permalink') || window.location.href;

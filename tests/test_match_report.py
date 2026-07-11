@@ -2327,6 +2327,43 @@ class TestMatchReportWinner:
         assert ">Winner<" not in body
 
 
+class TestMatchReportLocalTimestamps:
+    """Started/Ended/Generated carry epoch hooks for local-time JS."""
+
+    def test_timestamps_carry_epoch_data_attributes(self, client, archived_match):
+        payload = match_archive.load_match(archived_match)
+        body = client.get(f"/match/{archived_match}/report").text
+        started = int(float(payload["started_at"]))
+        ended = int(float(payload["ended_at"]))
+        assert f'<span data-utc-ts="{started}">' in body
+        assert f'<span data-utc-ts="{ended}">' in body
+        # The UTC text stays as the no-JS fallback inside the span.
+        import datetime as _dt
+        started_label = _dt.datetime.fromtimestamp(
+            started, _dt.UTC,
+        ).strftime("%Y-%m-%d %H:%M UTC")
+        assert f'<span data-utc-ts="{started}">{started_label}</span>' in body
+
+    def test_missing_timestamp_renders_plain_dash(self, client):
+        match_id = match_archive.archive_match(
+            oid="ts-none",
+            final_state={"team_1": {"scores": {"set_1": 1}},
+                         "team_2": {"scores": {"set_1": 0}}},
+            customization={"Team 1 Name": "A", "Team 2 Name": "B"},
+            sets_limit=3,
+        )
+        body = client.get(f"/match/{match_id}/report").text
+        # No audit → no started anchor; the Started cell is a bare
+        # dash, not an empty epoch span.
+        assert "<td>—</td>" in body
+        assert 'data-utc-ts=""' not in body
+
+    def test_converter_script_present(self, client, archived_match):
+        body = client.get(f"/match/{archived_match}/report").text
+        assert "querySelectorAll('[data-utc-ts]')" in body
+        assert "toLocaleString" in body
+
+
 class TestMatchReportDarkMode:
     """The report follows ``prefers-color-scheme: dark`` on screen only.
 
